@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INTERVAL="${OLLAMA_AUTOSEARCH_INTERVAL_SEC:-480}"
 cd "$ROOT"
-echo "ollama autoresearch loop every ${INTERVAL}s (model=${OLLAMA_AUTOSEARCH_MODEL:-qwen2.5-coder:latest})"
+echo "ollama autoresearch loop every ${INTERVAL}s (model=${OLLAMA_AUTOSEARCH_MODEL:-gemma4:latest})"
 echo "Stop Cursor AGENT_LOOP_TICK_autoresearch first to avoid git races."
 while true; do
   echo "=== $(date -u +%Y-%m-%dT%H:%MZ) ollama tick ==="

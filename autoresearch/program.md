@@ -99,7 +99,7 @@ OLLAMA_AUTOSEARCH_PUSH=1 ./scripts/run_ollama_autoresearch_once.sh
 ./scripts/run_ollama_autoresearch_loop.sh
 ```
 
-Env: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_AUTOSEARCH_MODEL` (default `qwen2.5-coder:latest`).
+Env: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_AUTOSEARCH_MODEL` (default `gemma4:latest`).
 
 Do **not** run Cursor `AGENT_LOOP_TICK_autoresearch` and the Ollama loop at the same time (git races). Pick one.
 

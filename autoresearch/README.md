@@ -16,7 +16,7 @@ Zero Cursor tokens — Ollama proposes the next strategy file; Docker scores it:
 ./scripts/run_ollama_autoresearch_loop.sh   # every 8m until killed
 ```
 
-Model default: `qwen2.5-coder:latest` (`OLLAMA_AUTOSEARCH_MODEL`). Set `OLLAMA_AUTOSEARCH_PUSH=1` to push keeps.
+Model default: `gemma4:latest` (`OLLAMA_AUTOSEARCH_MODEL`). Set `OLLAMA_AUTOSEARCH_PUSH=1` to push keeps. See [MODELS.md](../MODELS.md).
 
 ## Cursor agent loop
 

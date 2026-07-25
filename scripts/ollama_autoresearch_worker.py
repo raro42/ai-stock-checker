@@ -32,7 +32,7 @@ RESULTS_PATH = ROOT / "autoresearch" / "results.tsv"
 RUN_LOG = ROOT / "autoresearch" / "run.log"
 EXPERIMENT_SH = ROOT / "scripts" / "run_autoresearch_once.sh"
 
-DEFAULT_MODEL = os.getenv("OLLAMA_AUTOSEARCH_MODEL", "qwen2.5-coder:latest")
+DEFAULT_MODEL = os.getenv("OLLAMA_AUTOSEARCH_MODEL", "gemma4:latest")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
 
 
