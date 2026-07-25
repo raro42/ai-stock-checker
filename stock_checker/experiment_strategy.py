@@ -11,6 +11,7 @@ Export generate_signals(bars_by_symbol, index, portfolio) -> {symbol: 'BUY'|'SEL
 from __future__ import annotations
 
 from typing import Dict, List
+import math
 
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
@@ -29,6 +30,11 @@ REQUIRE_SPY_UPTREND = True
 REQUIRE_REL_STRENGTH = True
 RS_LOOKBACK = 30
 
+# --- IMPROVEMENT: RSI Filters ---
+RSI_PERIOD = 14
+MAX_OVERBOUGHT = 70.0 # Don't buy if already too high
+MIN_OVERSOLD = 30.0   # Safety check (optional, but good practice)
+
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
     """Calculates the Simple Moving Average. If exclude_last is True, calculates SMA on closes[:-1]."""
@@ -36,6 +42,8 @@ def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
         return 0.0
     
     window = closes[-period:] if not exclude_last else closes[:-1][-period:]
+    if not window:
+        return 0.0
     return sum(window) / period
 
 
@@ -72,13 +80,40 @@ def _period_return(closes: List[float], lookback: int) -> float:
     return (end - start) / start
 
 
+def _rsi(closes: List[float], period: int) -> float:
+    """Calculates the Relative Strength Index."""
+    if len(closes) < period + 1:
+        return 50.0 # Neutral default if not enough data
+
+    diffs = []
+    for i in range(len(closes) - 1, period - 2, -1):
+        change = closes[i] - closes[i-1]
+        diffs.append(change)
+    
+    if len(diffs) < period:
+        return 50.0
+
+    gains = [max(0, d) for d in diffs[:period]]
+    losses = [-min(0, d) for d in diffs[:period]]
+    
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+
+    if avg_loss == 0:
+        return 100.0 if avg_gain > 0 else 50.0
+    
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+
 def generate_signals(
     bars_by_symbol: Dict[str, List[Dict]],
     index: int,
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Improved exit logic using medium SMA momentum confirmation."""
+       Improved exit logic using medium SMA momentum confirmation and RSI filter."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -89,6 +124,7 @@ def generate_signals(
         VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0,
         VOLATILITY_LOOKBACK + 1,
         RS_LOOKBACK + 1 if REQUIRE_REL_STRENGTH else 0,
+        RSI_PERIOD + 1, # Need enough data for RSI calculation
         MED_SMA + 1, # Need at least one previous bar for exit check
     )
 
@@ -137,8 +173,12 @@ def generate_signals(
         # 2. Volatility Gate Check
         calm = _return_stdev(closes, VOLATILITY_LOOKBACK) <= MAX_RETURN_STDEV
         
-        # 3. Market Context Checks
-        market_ok = spy_ok or symbol == "SPY" # Allow SPY regardless of SPY trend check
+        # 3. RSI Filter Check (NEW)
+        rsi_val = _rsi(closes, RSI_PERIOD)
+        rsi_ok = rsi_val < MAX_OVERBOUGHT # Only buy if not overbought
+
+        # 4. Market Context Checks
+        market_ok = spy_ok or symbol == "SPY"
         rs_ok = True
         if REQUIRE_REL_STRENGTH and symbol != "SPY":
             current_ret = _period_return(closes, RS_LOOKBACK)
@@ -152,12 +192,13 @@ def generate_signals(
             and calm
             and market_ok
             and rs_ok
+            and rsi_ok # Added RSI filter
             and not in_pos
         ):
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Improvement: Exit only if short crosses below medium AND the medium SMA is losing momentum 
+        # Exit if short crosses below medium AND the medium SMA is losing momentum 
         # (i.e., current Medium < Previous Medium). This filters out temporary pullbacks.
         elif sma_s < sma_m and in_pos and sma_m < sma_m_prev:
             signals[symbol] = "SELL"
