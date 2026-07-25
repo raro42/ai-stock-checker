@@ -18,6 +18,7 @@ While the human sleeps:
 - Keep **Ollama autoresearch** looping (strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`).
 - Keep **product improve** looping (`AGENT_LOOP_TICK_improve`).
 - Keep paper stack up: `docker compose up -d intelligent-trader openbb-backend`.
+- Keep **watchdog** looping (`./scripts/run_watchdog_loop.sh`) so dead processes come back without a human.
 - If git lock / loop crash / container unhealthy → fix and restart; commit+push the fix.
 - Morning should show new commits on GitHub and progress in `IMPROVEMENT.md` / `results.tsv`.
 
@@ -25,11 +26,14 @@ While the human sleeps:
 
 | Loop | Owner | Cadence | Purpose |
 |------|-------|---------|---------|
+| Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
 | Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
 | Product improve | `AGENT_LOOP_TICK_improve` | ~2h | Code/docs from IMPROVEMENT.md |
 | Docs weekly | `AGENT_LOOP_TICK_docs` | 7d | [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) |
 
 Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy loop.
+
+**Watchdog vs agent:** shell watchdog auto-restarts infra. Code bugs escalate via `AGENT_LOOP_TICK_watchdog` — then fix, commit, push, restart.
 
 ## Roadmap phases
 
