@@ -67,11 +67,24 @@ class BacktestResult:
 
         win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0
 
-        total_pnl = sum(t.pnl for t in self.trades)
-        total_return_pct = (total_pnl / self.initial_capital) * 100
+        pnls = [float(t.pnl) for t in self.trades if t.pnl is not None and np.isfinite(float(t.pnl))]
+        total_pnl = float(sum(pnls)) if pnls else 0.0
+        if self.equity_curve:
+            final_eq = float(self.equity_curve[-1])
+            if np.isfinite(final_eq):
+                total_pnl = final_eq - self.initial_capital
+        total_return_pct = (total_pnl / self.initial_capital) * 100.0
+        if not np.isfinite(total_return_pct):
+            total_return_pct = 0.0
+        if not np.isfinite(total_pnl):
+            total_pnl = 0.0
 
         avg_win = float(np.mean([t.pnl for t in winning_trades])) if winning_trades else 0.0
         avg_loss = float(np.mean([t.pnl for t in losing_trades])) if losing_trades else 0.0
+        if not np.isfinite(avg_win):
+            avg_win = 0.0
+        if not np.isfinite(avg_loss):
+            avg_loss = 0.0
 
         gross_profit = sum(t.pnl for t in winning_trades) if winning_trades else 0.0
         gross_loss = abs(sum(t.pnl for t in losing_trades)) if losing_trades else 0.0
