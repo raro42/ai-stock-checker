@@ -2,6 +2,8 @@
 
 Local, Docker-first stock and crypto checker with paper trading and optional Ollama AI.
 
+**Started October 2025** (paper trading through Nov–Dec 2025; revived and hardened July 2026).
+
 Built for a small group of friends: **honest signals, low churn, fees-aware**, validated before going aggressive.
 
 ## Features
