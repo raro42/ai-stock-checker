@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import requests
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 
 class CoinMarketCapFetcher:

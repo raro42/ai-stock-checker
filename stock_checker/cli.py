@@ -3,7 +3,6 @@
 import argparse
 import json
 import sys
-from typing import Optional
 
 from stock_checker.fetcher import StockFetcher
 from stock_checker.ai_analyzer import OllamaAnalyzer

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import json
 import time
 import sys
 from datetime import datetime

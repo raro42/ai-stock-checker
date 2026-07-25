@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, Literal, Optional, List
-import numpy as np
+from typing import Dict, Optional, List
 from .technical_indicators import TechnicalIndicators
 
 
@@ -61,7 +60,7 @@ class RecommendationEngine:
                 score = float(score) if score is not None else 0.0
             except (TypeError, ValueError):
                 score = 0.0
-        except Exception as e:
+        except Exception:
             # Fallback on any error
             reasons = []
             score = 0.0

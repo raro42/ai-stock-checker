@@ -29,7 +29,7 @@ While the human sleeps:
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
 | Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
 | Product improve | `AGENT_LOOP_TICK_improve` | ~2h | Code/docs from IMPROVEMENT.md |
-| Morning briefing | `./scripts/run_morning_briefing_loop.sh` | CEST 08:00 | Prompt human with night-shift enhancements |
+| Clean-code agent | `./scripts/run_clean_code_agent.sh` | on improve ticks / manual | Ruff + move ad-hoc slop; gemma4 advisory review |
 
 Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy loop.
 
@@ -69,8 +69,9 @@ On `AGENT_LOOP_TICK_improve`:
 1. Read IMPROVEMENT.md + AUTOPILOT.md
 2. Pick the highest unchecked actionable item
 3. Implement the smallest shippable slice
-4. `docker run --rm ai-stock-checker pytest -q -m "not network"`
-5. Update IMPROVEMENT.md checkboxes / notes
-6. Commit + push (`autoresearch/*` and merge to `main` when product-facing)
-7. Restart Docker/loops if the change requires it; confirm they are healthy
-8. Short status only — no “should I continue?”
+4. Run `./scripts/run_clean_code_agent.sh --apply` when touching messy areas (or once per tick if time)
+5. `docker run --rm ai-stock-checker pytest -q -m "not network"`
+6. Update IMPROVEMENT.md checkboxes / notes
+7. Commit + push (`autoresearch/*` and merge to `main` when product-facing)
+8. Restart Docker/loops if the change requires it; confirm they are healthy
+9. Short status only — no “should I continue?”

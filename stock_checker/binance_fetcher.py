@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import json
-import time
 from typing import Dict, Optional, List
 import requests
 

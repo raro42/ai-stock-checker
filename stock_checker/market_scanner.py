@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import time
 import json
 from datetime import datetime, time as dt_time
@@ -416,7 +416,7 @@ class MarketScanner:
                     high_52w = float(high_52w)
                     # Calculate distance from 52-week high
                     pct_from_high = ((price - high_52w) / high_52w) * 100
-                except (TypeError, ValueError, ZeroDivisionError) as e:
+                except (TypeError, ValueError, ZeroDivisionError):
                     print(f"⚠️  Error: {type(high_52w).__name__} = {repr(high_52w)[:30]}")
                     sys.stdout.flush()
                     # Mark as scanned immediately after attempt
@@ -447,7 +447,6 @@ class MarketScanner:
                 time.sleep(0.15)  # Faster rate limiting
 
             except Exception as e:
-                import traceback
                 print(f"⚠️  Error: {type(e).__name__}: {str(e)[:50]}")
                 sys.stdout.flush()
                 # Mark as scanned even on error to avoid infinite retry loop

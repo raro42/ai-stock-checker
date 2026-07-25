@@ -72,7 +72,7 @@ class MarketAnalyzer:
                     "volume": info.get("volume") or info.get("regularMarketVolume"),
                     "market_cap": info.get("marketCap"),
                 })
-            except Exception as e:
+            except Exception:
                 # Skip stocks that fail to fetch
                 continue
 

@@ -10,12 +10,11 @@ This combines market scanning with paper trading to:
 4. Monitor existing positions with profit-taking and stop-loss
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict
 import time
 import traceback
 from datetime import datetime
 from .market_scanner import MarketScanner
-from .paper_trader import PaperTrader
 from .portfolio import Portfolio
 from .persistence import DataPersistence
 from .symbol_filters import is_tradeable_symbol
@@ -196,7 +195,7 @@ class IntelligentTrader:
                             if info.get("previousClose"):
                                 stock_data["previous_close"] = info.get("previousClose")
 
-                        except Exception as e:
+                        except Exception:
                             pass  # Silently fail - crypto data is approximate anyway
                 else:
                     stock_info = fetcher.get_stock_info(symbol)
@@ -235,7 +234,7 @@ class IntelligentTrader:
                         if not stock_data.get("52_week_low"):
                             stock_data["52_week_low"] = info.get("fiftyTwoWeekLow")
 
-                    except Exception as e:
+                    except Exception:
                         pass  # Silently fail - not critical
 
                 # Get AI recommendation

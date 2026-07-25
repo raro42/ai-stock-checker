@@ -4,7 +4,6 @@ Test script for the enhanced trading system with Finnhub integration.
 """
 
 import sys
-import os
 sys.path.append('.')
 
 def test_finnhub_integration():

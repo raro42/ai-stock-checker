@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, Literal
+from typing import Literal
 import os
 import json
 from pathlib import Path
@@ -127,6 +127,7 @@ class StockFetcher:
                     "name": info.get("longName", "N/A"),
                     "current_price": current_price,
                     "previous_close": prev_close,
+                    "daily_change_pct": daily_change,
                     "open": info.get("open") or info.get("regularMarketOpen"),
                     "day_high": info.get("dayHigh") or info.get("regularMarketDayHigh"),
                     "day_low": info.get("dayLow") or info.get("regularMarketDayLow"),

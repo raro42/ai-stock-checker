@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Dict, Optional
+from typing import Dict
 
 from stock_checker.ai_analyzer import OllamaAnalyzer
 

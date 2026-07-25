@@ -4,9 +4,7 @@ Risk management system for intelligent trading.
 Implements stop-loss, position sizing, and drawdown protection.
 """
 
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime
-import numpy as np
+from typing import Dict, Optional, Tuple
 
 
 class RiskManager:

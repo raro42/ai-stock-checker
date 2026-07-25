@@ -596,7 +596,6 @@ class PaperTrader:
 
                 if summary['num_transactions'] > 0:
                     wins = sum(1 for tx in self.portfolio.transactions if tx.get('profit_loss', 0) > 0)
-                    losses = sum(1 for tx in self.portfolio.transactions if tx.get('profit_loss', 0) < 0)
                     sells = sum(1 for tx in self.portfolio.transactions if tx['type'] == 'SELL')
                     if sells > 0:
                         print(f"Winning Trades:     {wins}/{sells} ({(wins/sells)*100:.1f}%)")

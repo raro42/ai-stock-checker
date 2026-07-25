@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for earnings blackout helper (offline)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from stock_checker.earnings_guard import is_in_earnings_blackout
 
