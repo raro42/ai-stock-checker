@@ -6,7 +6,11 @@ You are autonomous. The human may be asleep (CEST). **NEVER STOP** to ask permis
 
 ## Goal
 
-Maximize **`val_score`** (higher is better) from:
+Maximize **`val_score`** (higher is better) from walk-forward OOS folds
+(`0.75 * mean_fold + 0.25 * worst_fold` — see `stock_checker/walk_forward.py`).
+Pre-walk-forward keep scores are **not** comparable; beat the best keep **after** the harness change.
+
+Maximize via:
 
 ```bash
 docker run --rm -e PYTHONPATH=/app -w /app \

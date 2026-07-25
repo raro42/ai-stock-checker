@@ -31,6 +31,7 @@ if str(_ROOT) not in sys.path:
 
 from stock_checker.backtester import Backtester
 from stock_checker.experiment_strategy import generate_signals
+from stock_checker.walk_forward import walk_forward_val_score
 
 # Fixed harness constants (do not change in overnight runs)
 TIME_BUDGET_SEC = 120  # wall-clock compute budget inside the experiment
@@ -173,6 +174,17 @@ def compute_val_score(metrics: dict) -> float:
     return float(score)
 
 
+def _metrics_for_bars(bt: Backtester, data: Dict[str, List[Dict]]) -> dict:
+    result = bt.backtest(data, generate_signals)
+    metrics = result.calculate_metrics()
+    fees_pct = 0.0
+    if result.trades:
+        notional = sum(abs(t.shares * t.entry_price) for t in result.trades)
+        fees_pct = (notional * COMMISSION * 2) / INITIAL_CAPITAL * 100.0
+    metrics["fees_pct"] = fees_pct
+    return metrics
+
+
 def run() -> int:
     t0 = time.time()
     symbols = list(DEFAULT_SYMBOLS)
@@ -185,56 +197,33 @@ def run() -> int:
         position_fraction=POSITION_FRACTION,
     )
 
-    # Fixed-budget loop: re-run / light walk-forward slices until budget spent
-    best_metrics = None
-    best_score = float("-inf")
-    runs = 0
+    # Full-sample metrics (reporting) + walk-forward mean score (keep/revert)
+    full_metrics = _metrics_for_bars(bt, data)
 
-    while True:
-        elapsed = time.time() - t0
-        if elapsed >= TIME_BUDGET_SEC and runs >= 1:
-            break
+    def fold_score(fold_data: Dict[str, List[Dict]]) -> float:
+        return compute_val_score(_metrics_for_bars(bt, fold_data))
 
-        # Walk-forward style: evaluate on trailing windows if enough time
-        result = bt.backtest(data, generate_signals)
-        metrics = result.calculate_metrics()
+    wf_score, fold_scores = walk_forward_val_score(data, fold_score, n_folds=3, min_bars=80)
+    # Conservative blend: mean OOS, lightly penalize weak worst fold
+    worst = min(fold_scores) if fold_scores else -100.0
+    best_score = 0.75 * wf_score + 0.25 * worst
+    if best_score != best_score:
+        best_score = -100.0
 
-        # Fee estimate from equity vs cash path: use trade count * rough
-        # Better: sum commissions if present — approximate from trades * notional
-        fees_pct = 0.0
-        if result.trades:
-            # each round-trip ~ 2 * COMMISSION * position; report as % of capital
-            notional = sum(abs(t.shares * t.entry_price) for t in result.trades)
-            fees_pct = (notional * COMMISSION * 2) / INITIAL_CAPITAL * 100.0
-        metrics["fees_pct"] = fees_pct
-
-        score = compute_val_score(metrics)
-        runs += 1
-        if best_metrics is None or score > best_score:
-            best_score = score
-            best_metrics = metrics
-
-        # If almost out of time, stop after first completed run
-        if time.time() - t0 >= TIME_BUDGET_SEC:
-            break
-
-        # Extra Monte Carlo stability check within budget
-        if hasattr(bt, "monte_carlo_simulation") and result.trades and time.time() - t0 < TIME_BUDGET_SEC - 5:
-            _ = bt.monte_carlo_simulation(result.trades, num_simulations=200, num_trades=min(50, len(result.trades)))
-            break
-        break  # single primary backtest per experiment (strategy code is the variable)
-
-    assert best_metrics is not None
     elapsed = time.time() - t0
+    runs = 1 + len(fold_scores)
 
     print("---")
     print(f"val_score:            {best_score:.6f}")
-    print(f"total_return_pct:     {best_metrics['total_return_pct']:.6f}")
-    print(f"max_drawdown_pct:     {best_metrics['max_drawdown']:.6f}")
-    print(f"sharpe_ratio:         {best_metrics['sharpe_ratio']:.6f}")
-    print(f"total_trades:         {best_metrics['total_trades']}")
-    print(f"win_rate:             {best_metrics['win_rate']:.6f}")
-    print(f"fees_pct:             {best_metrics.get('fees_pct', 0):.6f}")
+    print(f"wf_score_mean:        {wf_score:.6f}")
+    print(f"wf_score_min:         {worst:.6f}")
+    print(f"wf_fold_scores:       {','.join(f'{s:.4f}' for s in fold_scores)}")
+    print(f"total_return_pct:     {full_metrics['total_return_pct']:.6f}")
+    print(f"max_drawdown_pct:     {full_metrics['max_drawdown']:.6f}")
+    print(f"sharpe_ratio:         {full_metrics['sharpe_ratio']:.6f}")
+    print(f"total_trades:         {full_metrics['total_trades']}")
+    print(f"win_rate:             {full_metrics['win_rate']:.6f}")
+    print(f"fees_pct:             {full_metrics.get('fees_pct', 0):.6f}")
     print(f"experiment_seconds:   {elapsed:.1f}")
     print(f"runs:                 {runs}")
     print(f"symbols:              {','.join(symbols)}")

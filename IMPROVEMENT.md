@@ -56,8 +56,9 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 
 ### Phase C — Research other agents (one idea at a time + re-benchmark)
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
-- [ ] Study freqtrade/vectorbt walk-forward patterns; adopt one harness improvement
+- [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold). **Scores not comparable to pre-2026-07-26 keeps** — re-baseline champion under new metric.
 - [ ] Optional later: FinRL / OpenTrade ideas (only after A–B)
+- [ ] Re-baseline autoresearch champion under walk-forward `val_score` + re-run buy-and-hold benchmark note
 
 ### Phase D — Share
 - [ ] Workspace MCP companion token in Cursor MCP config (user-local)
