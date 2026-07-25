@@ -20,5 +20,10 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - Keep `README.md` and `AGENTS.md` aligned with code.
 - Continue unfinished work from `IMPROVEMENT.md` without waiting for a new user prompt when in an improvement loop.
 
+## Git (commit + push ASAP)
+- Follow `GIT.md`: commit after each verified change; push immediately when `origin` exists.
+- Do **not** wait for the user to say “commit” or “push”.
+- Never commit secrets/`data/`; never force-push `main`.
+
 ## Verify
 `docker build -t ai-stock-checker . && docker run --rm ai-stock-checker pytest -q`
