@@ -80,6 +80,9 @@ class IntelligentTrader:
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
             print(f"   AI Model: {ai_model}")
+        from stock_checker.fee_burn import maybe_print_fee_burn_warning
+
+        maybe_print_fee_burn_warning(str(self.persistence.data_dir))
 
     def should_scan(self) -> bool:
         """Check if it's time for a new market scan."""

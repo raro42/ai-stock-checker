@@ -25,20 +25,25 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Finnhub signup note in README
 - [x] `scripts/healthcheck.sh`
 - [x] `strategy_signals.multi_timeframe_momentum_strategy`
-
-## Next (priority)
-
 - [x] OpenBB custom backend (`openbb-backend` on :7779) with portfolio/trades/opportunities widgets
 - [x] Earnings blackout gate (`earnings_guard.py`) in intelligent trader
 - [x] Soft sentiment / near-earnings factor in recommender
+- [x] Autoresearch overnight loop (`autoresearch/`, `experiment_strategy.py`)
+- [x] Soft fee-burn warning on intelligent trader startup (`fee_burn.py`)
+- [x] Weekly docs maintenance (`DOCS_MAINTENANCE.md`, `scripts/docs_weekly_check.sh`)
+
+## Next (priority)
+
 - [ ] Complete OpenBB Connections UI bind (allow local network if Test hangs)
 - [ ] Optional TradingAgents-style multi-role prompts
 - [ ] Benchmark scoring vs buy-and-hold on ETF basket
-- [ ] Soft-migrate old paper portfolio fee-burn warning on startup
+- [ ] Promote autoresearch champion rules into production defaults after paper month
 - [ ] Workspace MCP companion token in Cursor MCP config (user-local)
+
 ## Guardrails
 
 - Do not reintroduce sub-hour default hold times.
 - Do not add API keys to compose or docs.
 - Do not claim Sharpe/win-rate improvements without a backtest artifact.
 - Rotate any Finnhub key that was previously committed; use a fresh key in `.env`.
+- Commit + push verified work per [GIT.md](GIT.md); never commit `data/`, `.env`, or `autoresearch/results.tsv`.

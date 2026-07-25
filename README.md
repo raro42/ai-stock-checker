@@ -11,7 +11,10 @@ Built for a small group of friends: **honest signals, low churn, fees-aware**, v
 - **Symbol filters**: drop stablecoins, leveraged tokens, and known noise
 - **AI modes**: `off` (rules), `validate` (AI gates high-conviction ideas), `full` (AI-led)
 - **Multi-factor scoring**: momentum, technicals, fundamentals, volume/sentiment
+- **Earnings blackout**: skip new entries near earnings when Finnhub has dates
+- **OpenBB backend**: FastAPI widgets on `:7779` (portfolio / trades / opportunities)
 - **Backtester**: OHLCV long-only simulation with commission + slippage
+- **Autoresearch**: overnight strategy loop on `experiment_strategy.py` (see `autoresearch/`)
 - **CLI**: one-off info, history, Bitcoin, S&P movers
 - **Archive**: opportunity lists saved when the US market is closed
 
@@ -35,11 +38,13 @@ Finnhub: free key at [finnhub.io](https://finnhub.io) (≈60 calls/min on free t
 ### Paper trading (recommended)
 
 ```bash
-docker compose up -d --build intelligent-trader
-docker logs -f intelligent-trader
+docker compose up -d --build intelligent-trader openbb-backend
+docker compose logs -f --tail 50 intelligent-trader openbb-backend
 ```
 
 Data persists in `./data/` (`portfolio.json`, `trades.jsonl`, archives). This directory is gitignored.
+
+OpenBB widgets: `http://127.0.0.1:7779` — see [OPENBB.md](OPENBB.md).
 
 Defaults (anti-churn):
 
@@ -95,6 +100,9 @@ python3 scripts/reset_paper_portfolio.py --capital 10000
 ### For friends
 
 See [FRIENDS.md](FRIENDS.md) — shortest path to run together.
+
+Public repo: https://github.com/raro42/ai-stock-checker
+
 ## Project layout
 
 ```
@@ -103,14 +111,21 @@ stock_checker/
   market_scanner.py       # opportunity scan + market-hours archive
   symbol_filters.py       # stables / leveraged / noise filters
   recommender.py          # multi-factor scoring
+  earnings_guard.py       # earnings blackout
+  fee_burn.py             # startup fee-churn warning
   technical_indicators.py # RSI (Wilder), MACD, Bollinger, ATR
   backtester.py           # OHLCV backtests + metrics
+  experiment_strategy.py  # autoresearch editable strategy
   portfolio.py / persistence.py
   ai_recommender.py / ai_analyzer.py
   fetcher.py / finnhub_fetcher.py / binance_fetcher.py
   cli.py / monitor.py / paper_trader.py
+openbb_backend/           # FastAPI widgets for OpenBB Pro
+autoresearch/             # overnight strategy search program
+scripts/                  # healthcheck, summarize, docs weekly, reset
 tests/                    # offline unit tests preferred
 IMPROVEMENT.md            # agent backlog
+DOCS_MAINTENANCE.md       # weekly docs checklist
 AGENTS.md                 # coding + product rules for agents
 ```
 
@@ -124,8 +139,10 @@ AGENTS.md                 # coding + product rules for agents
 ## More detail
 
 - [USAGE.md](USAGE.md) — CLI flags and examples
-- [OPENBB.md](OPENBB.md) — OpenBB Pro earnings workspace (research layer)
+- [OPENBB.md](OPENBB.md) — OpenBB Pro + local widgets backend
 - [GIT.md](GIT.md) — commit & push ASAP rules for humans and agents
+- [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) — weekly documentation loop
+- [autoresearch/README.md](autoresearch/README.md) — strategy search overnight
 - [PAPER_TRADING.md](PAPER_TRADING.md) — paper trading deep dive (verify flags vs compose)
 - [MONITORING.md](MONITORING.md) — monitor service
 - [IMPROVEMENT.md](IMPROVEMENT.md) — what agents should do next

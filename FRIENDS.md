@@ -2,6 +2,8 @@
 
 Short path to share signals and paper-trade together.
 
+Repo: https://github.com/raro42/ai-stock-checker
+
 ## 1. Install
 
 - Docker Desktop
@@ -11,20 +13,22 @@ Short path to share signals and paper-trade together.
 ## 2. Configure
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/raro42/ai-stock-checker.git
 cd ai-stock-checker
 cp .env.example .env
 # put FINNHUB_API_KEY=... and AI_MODEL=gemma4:latest in .env
 ```
 
-## 3. Run paper trader
+## 3. Run paper trader (+ OpenBB widgets)
 
 ```bash
-docker compose up -d --build intelligent-trader
-docker logs -f intelligent-trader
+docker compose up -d --build intelligent-trader openbb-backend
+docker compose logs -f --tail 50 intelligent-trader openbb-backend
 ```
 
 Defaults avoid fee-burn: 15m scans, 5m checks, **4h minimum hold**.
+
+Widgets: `http://127.0.0.1:7779` — wire into OpenBB Pro per [OPENBB.md](OPENBB.md).
 
 ## 4. Useful commands
 
@@ -41,6 +45,10 @@ docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli inf
 # Backtest
 docker run --rm --network host ai-stock-checker \
   python3 -m stock_checker.cli backtest AAPL -p 1y
+
+# Docs / health hygiene
+./scripts/healthcheck.sh
+./scripts/docs_weekly_check.sh
 ```
 
 ## Rules of the group
@@ -48,4 +56,4 @@ docker run --rm --network host ai-stock-checker \
 1. Paper trade only until a strategy survives backtests **and** a calm paper month.
 2. Do not paste API keys in chat — use `.env`.
 3. Prefer boring holdings over meme churn.
-4. If fees > realized edge, slow down (raise min hold / cut crypto count).
+4. If fees > realized edge, slow down (raise min hold / cut crypto count) or reset the paper book.

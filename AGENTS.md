@@ -20,6 +20,7 @@ Prefer **usable reliability** over flashy AI. Paper-trade first. Never claim unv
 - Secrets live in `.env` (never commit). Copy from `.env.example`.
 - Relevant containers:
   - `intelligent-trader` — primary paper trading + market scan loop
+  - `openbb-backend` — FastAPI widgets for OpenBB Pro (`:7779`)
   - `stock-checker` — interactive CLI
   - `monitor` (compose profile `monitor`) — signals only
 
@@ -44,6 +45,7 @@ Prefer **usable reliability** over flashy AI. Paper-trade first. Never claim unv
 - If code and docs disagree, **fix the docs** (or fix code if docs are the intended behavior).
 - Do not document services/flags that do not exist in `docker-compose.yml`.
 - Mark speculative performance as hypotheses, never as results.
+- Weekly docs loop: follow [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) and `./scripts/docs_weekly_check.sh`.
 
 ## Security
 
