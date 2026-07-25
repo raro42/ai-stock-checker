@@ -30,11 +30,12 @@ REQUIRE_REL_STRENGTH = True
 RS_LOOKBACK = 30
 
 
-def _sma(closes: List[float], period: int) -> float:
-    """Calculates the Simple Moving Average."""
+def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
+    """Calculates the Simple Moving Average. If exclude_last is True, calculates SMA on closes[:-1]."""
     if not closes or len(closes) < period:
         return 0.0
-    window = closes[-period:]
+    
+    window = closes[-period:] if not exclude_last else closes[:-1][-period:]
     return sum(window) / period
 
 
@@ -76,7 +77,8 @@ def generate_signals(
     index: int,
     portfolio: Dict,
 ) -> Dict[str, str]:
-    """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY."""
+    """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
+       Improved exit logic using medium SMA momentum confirmation."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -87,7 +89,7 @@ def generate_signals(
         VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0,
         VOLATILITY_LOOKBACK + 1,
         RS_LOOKBACK + 1 if REQUIRE_REL_STRENGTH else 0,
-        MED_SMA + 1,
+        MED_SMA + 1, # Need at least one previous bar for exit check
     )
 
     # --- SPY Filters (Market Context) ---
@@ -99,7 +101,8 @@ def generate_signals(
         # Check SPY UPTREND (Medium SMA)
         if REQUIRE_SPY_UPTREND and index >= MED_SMA + 1:
             spy_m_now = _sma(spy_closes, MED_SMA)
-            spy_m_prev = _sma(spy_closes[:-1], MED_SMA)
+            # Calculate previous medium SMA using the helper function with exclusion
+            spy_m_prev = _sma(spy_closes, MED_SMA, exclude_last=True)
             spy_ok = spy_m_now >= spy_m_prev
 
         # Calculate SPY Relative Strength (for comparison)
@@ -112,10 +115,15 @@ def generate_signals(
             continue
 
         closes = [float(b["close"]) for b in bars[: index + 1]]
+        in_pos = symbol in portfolio.get("positions", {})
+
+        # Calculate current and previous SMAs
         sma_s = _sma(closes, SHORT_SMA)
         sma_m = _sma(closes, MED_SMA)
         sma_l = _sma(closes, LONG_SMA)
-        in_pos = symbol in portfolio.get("positions", {})
+        
+        # Previous Medium SMA (Used for exit confirmation)
+        sma_m_prev = _sma(closes, MED_SMA, exclude_last=True)
 
         # 1. Volume Confirmation Check
         vol_ok = True
@@ -123,7 +131,6 @@ def generate_signals(
             vols = [float(b.get("volume", 0) or 0) for b in bars[: index + 1]]
             avg_vol = sum(vols[-VOLUME_LOOKBACK:]) / VOLUME_LOOKBACK
             cur_vol = vols[-1]
-            # Ensure average volume is non-zero before calculating ratio
             if avg_vol > 0:
                 vol_ok = (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
 
@@ -139,8 +146,6 @@ def generate_signals(
             rs_ok = current_ret >= spy_ret
 
         # --- ENTRY LOGIC (BUY) ---
-        # Improvement: Relaxed SMA requirement. Instead of requiring S > M > L, 
-        # we focus on a strong short/medium crossover (S>M) combined with relative strength.
         if (
             sma_s > sma_m  # Core signal: Short crosses above Medium
             and vol_ok
@@ -152,8 +157,9 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit when short crosses below medium, regardless of other filters.
-        elif sma_s < sma_m and in_pos:
+        # Improvement: Exit only if short crosses below medium AND the medium SMA is losing momentum 
+        # (i.e., current Medium < Previous Medium). This filters out temporary pullbacks.
+        elif sma_s < sma_m and in_pos and sma_m < sma_m_prev:
             signals[symbol] = "SELL"
 
     return signals
