@@ -1,0 +1,51 @@
+[
+  {
+    "name": "AI Stock Checker Paper Desk",
+    "img": "",
+    "img_dark": "",
+    "img_light": "",
+    "description": "Live paper portfolio, trades, and scanner opportunities from ai-stock-checker",
+    "allowCustomization": true,
+    "tabs": {
+      "desk": {
+        "id": "desk",
+        "name": "Desk",
+        "layout": [
+          {
+            "i": "portfolio_markdown",
+            "x": 0,
+            "y": 0,
+            "w": 20,
+            "h": 8,
+            "state": { "params": {} }
+          },
+          {
+            "i": "portfolio_table",
+            "x": 20,
+            "y": 0,
+            "w": 20,
+            "h": 8,
+            "state": { "params": {} }
+          },
+          {
+            "i": "trades_table",
+            "x": 0,
+            "y": 8,
+            "w": 40,
+            "h": 12,
+            "state": { "params": { "limit": 40 } }
+          },
+          {
+            "i": "opportunities_markdown",
+            "x": 0,
+            "y": 20,
+            "w": 40,
+            "h": 12,
+            "state": { "params": {} }
+          }
+        ]
+      }
+    },
+    "groups": []
+  }
+]

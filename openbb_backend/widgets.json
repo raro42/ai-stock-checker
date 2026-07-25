@@ -1,0 +1,47 @@
+{
+  "portfolio_markdown": {
+    "name": "Paper Portfolio Summary",
+    "description": "AI Stock Checker paper portfolio cash, fees, and approx equity",
+    "category": "AI Stock Checker",
+    "type": "markdown",
+    "endpoint": "portfolio_markdown",
+    "gridData": { "w": 20, "h": 8 },
+    "source": "ai-stock-checker"
+  },
+  "portfolio_table": {
+    "name": "Paper Holdings",
+    "description": "Current paper holdings with average buy price",
+    "category": "AI Stock Checker",
+    "type": "table",
+    "endpoint": "portfolio_table",
+    "gridData": { "w": 20, "h": 10 },
+    "source": "ai-stock-checker"
+  },
+  "trades_table": {
+    "name": "Recent Paper Trades",
+    "description": "Latest paper trades including fees and realized P&L",
+    "category": "AI Stock Checker",
+    "type": "table",
+    "endpoint": "trades_table",
+    "gridData": { "w": 40, "h": 12 },
+    "source": "ai-stock-checker",
+    "params": [
+      {
+        "paramName": "limit",
+        "value": 40,
+        "label": "Limit",
+        "type": "number",
+        "description": "Number of recent trades"
+      }
+    ]
+  },
+  "opportunities_markdown": {
+    "name": "Latest Opportunities",
+    "description": "Latest archived market opportunity list from scanner",
+    "category": "AI Stock Checker",
+    "type": "markdown",
+    "endpoint": "opportunities_markdown",
+    "gridData": { "w": 20, "h": 12 },
+    "source": "ai-stock-checker"
+  }
+}

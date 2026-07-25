@@ -40,6 +40,27 @@ services:
       --ai-model ${AI_MODEL:-gemma4:latest}
       --top-crypto-count 2
 
+  # OpenBB Workspace custom backend (portfolio / trades / opportunities)
+  openbb-backend:
+    build: .
+    container_name: openbb-backend
+    ports:
+      - "7779:7779"
+    volumes:
+      - ./openbb_backend:/app/openbb_backend
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATA_DIR=/data
+      - OPENBB_BACKEND_API_KEY=${OPENBB_BACKEND_API_KEY:-}
+    restart: unless-stopped
+    command: >
+      python3 -m uvicorn openbb_backend.main:app
+      --host 0.0.0.0
+      --port 7779
+
   # Monitor-only (signals, no trades)
   monitor:
     build: .

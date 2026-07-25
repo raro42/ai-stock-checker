@@ -28,12 +28,14 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 
 ## Next (priority)
 
-- [ ] Optional TradingAgents-style multi-role prompts (fundamental/technical/risk)
-- [ ] Benchmark current scoring vs buy-and-hold on a small ETF basket
-- [ ] Soft-migrate old paper portfolio: warn if fee-burn rate historically high
-- [ ] Consider pandas-ta / vectorbt as optional research extras (Docker only, documented)
-- [ ] Add recommender-feature parity strategy (RSI/MACD inputs from bars) for backtests
-
+- [x] OpenBB custom backend (`openbb-backend` on :7779) with portfolio/trades/opportunities widgets
+- [x] Earnings blackout gate (`earnings_guard.py`) in intelligent trader
+- [x] Soft sentiment / near-earnings factor in recommender
+- [ ] Complete OpenBB Connections UI bind (allow local network if Test hangs)
+- [ ] Optional TradingAgents-style multi-role prompts
+- [ ] Benchmark scoring vs buy-and-hold on ETF basket
+- [ ] Soft-migrate old paper portfolio fee-burn warning on startup
+- [ ] Workspace MCP companion token in Cursor MCP config (user-local)
 ## Guardrails
 
 - Do not reintroduce sub-hour default hold times.

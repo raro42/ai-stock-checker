@@ -28,9 +28,9 @@ Prefer **usable reliability** over flashy AI. Paper-trade first. Never claim unv
 1. **Anti-churn**: default min hold ≥ 4h; scan ≥ 15m; trade check ≥ 5m. Fees are 0.1%/side — overtrading loses.
 2. **Filter junk**: no stablecoins, leveraged tokens, or known noise symbols (`symbol_filters.py`).
 3. **AI models**: use instruct/general Ollama models (`gemma4:latest`, `qwen3.5:9b`, etc.). **Never** default to coder models for trade decisions.
-4. **Validate before claiming**: backtest with `stock_checker.backtester` (or vectorbt later). No fabricated Sharpe/win-rate claims in docs.
-5. **Primary entrypoint**: `python3 -m stock_checker.intelligent_trader` (not obsolete “enhanced-paper-trader” names).
-
+4. **OpenBB**: research + Paper Desk widgets via `openbb-backend` (`OPENBB.md`). Earnings blackout before new stock entries.
+5. **Validate before claiming**: backtest with `stock_checker.backtester` (or vectorbt later). No fabricated Sharpe/win-rate claims in docs.
+6. **Primary entrypoint**: `python3 -m stock_checker.intelligent_trader` (not obsolete “enhanced-paper-trader” names).
 ## Testing
 
 - Prefer offline unit tests (no network) for filters, portfolio, indicators, backtester, market hours.

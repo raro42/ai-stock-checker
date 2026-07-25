@@ -261,31 +261,48 @@ class RecommendationEngine:
         return score
 
     def _calculate_volume_sentiment_score(self, stock_data: dict) -> float:
-        """Volume confirmation and sentiment analysis."""
-        score = 0
+        """Volume confirmation, news/OpenBB sentiment, earnings proximity soft penalty."""
+        score = 0.0
 
-        # Volume confirmation
         volume_ratio = stock_data.get("volume_ratio")
         if volume_ratio is not None:
             try:
                 volume_ratio = float(volume_ratio)
                 if volume_ratio > 1.5:
-                    score += 6  # High volume confirmation
+                    score += 5
                 elif volume_ratio < 0.7:
-                    score -= 3  # Low volume concern
+                    score -= 3
             except (TypeError, ValueError):
                 pass
 
-        # News sentiment
         news_sentiment = stock_data.get("news_sentiment")
         if news_sentiment is not None:
             try:
-                news_sentiment = float(news_sentiment)
-                score += news_sentiment * 4  # Scale sentiment to +/-4 points
+                news_sentiment = max(-1.0, min(1.0, float(news_sentiment)))
+                score += news_sentiment * 3.0
             except (TypeError, ValueError):
                 pass
 
-        return score
+        openbb_sentiment = stock_data.get("openbb_sentiment")
+        if openbb_sentiment is not None:
+            try:
+                openbb_sentiment = max(-1.0, min(1.0, float(openbb_sentiment)))
+                score += openbb_sentiment * 2.0
+            except (TypeError, ValueError):
+                pass
+
+        days_to_earn = stock_data.get("days_to_earnings")
+        if days_to_earn is not None:
+            try:
+                d = float(days_to_earn)
+                if 0 <= d <= 2:
+                    score -= 4
+                elif -1 <= d < 0:
+                    score -= 2
+            except (TypeError, ValueError):
+                pass
+
+        return float(max(-10.0, min(10.0, score)))
 
     def analyze_bitcoin_recommendation(self, btc_data: dict) -> Dict:
         """

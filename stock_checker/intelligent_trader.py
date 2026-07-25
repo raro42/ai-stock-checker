@@ -19,6 +19,7 @@ from .paper_trader import PaperTrader
 from .portfolio import Portfolio
 from .persistence import DataPersistence
 from .symbol_filters import is_tradeable_symbol
+from .earnings_guard import is_in_earnings_blackout
 from . import __version__
 
 
@@ -500,6 +501,11 @@ class IntelligentTrader:
 
             if not is_tradeable_symbol(str(symbol)):
                 print(f"   ⏸️  Skipping {symbol}: filtered (stable/leveraged/noise)")
+                continue
+
+            blocked, why = is_in_earnings_blackout(str(symbol))
+            if blocked:
+                print(f"   ⏸️  Skipping {symbol}: earnings blackout ({why})")
                 continue
 
             try:

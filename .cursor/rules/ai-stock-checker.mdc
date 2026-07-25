@@ -13,6 +13,7 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - Primary service: `intelligent-trader` in `docker-compose.yml`.
 - Anti-churn defaults: min hold ≥4h, scan ≥15m, trade ≥5m.
 - Filter stables/leveraged/noise via `stock_checker/symbol_filters.py`.
+- Prefer Chrome MCP for live `pro.openbb.co` research (see `OPENBB.md`); do not invent OpenBB data.
 - AI: instruct models only (`gemma4:latest`, `qwen3.5:9b`) — not coder models.
 - No unverified performance claims in docs.
 - Prefer Docker for deps; do not install on host.
