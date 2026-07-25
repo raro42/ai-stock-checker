@@ -9,11 +9,12 @@ Prefer **usable reliability** over flashy AI. Paper-trade first. Never claim unv
 
 ## Autopilot (mandatory)
 
-The human is **tired of prompting**. Do not wait to be asked to review, implement, commit, or push.
+The human is **tired of prompting** and expects overnight progress (CEST). Do not wait to be asked to review, implement, commit, push, or restart.
 
 - Follow [AUTOPILOT.md](AUTOPILOT.md) and work [IMPROVEMENT.md](IMPROVEMENT.md) top-down continuously.
-- On `AGENT_LOOP_TICK_improve`: ship the next item, verify, commit, push — never ask “should I continue?”
+- On `AGENT_LOOP_TICK_improve`: ship the next item, verify, **commit, push, restart** what needs it — never ask “should I continue?”
 - Strategy overnight: prefer Ollama loop; product code: Cursor improve loop.
+- If a loop or container dies while the human sleeps: restart it.
 
 ## Coding Style & Naming
 

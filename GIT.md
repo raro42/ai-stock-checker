@@ -92,5 +92,6 @@ git push -u origin HEAD
 2. `git status` / `git diff` / recent `git log` for style
 3. Stage relevant files (not secrets)
 4. Commit with HEREDOC message
-5. `git push -u origin HEAD` (or create remote then push)
-6. Confirm with `git status -sb`
+5. `git push -u origin HEAD` (or create remote then push); merge to `main` when product-facing
+6. Restart Docker services / overnight loops when the change requires a reload; confirm healthy
+7. Confirm with `git status -sb` — never leave shippable work unpushed overnight (CEST)
