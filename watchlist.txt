@@ -1,0 +1,22 @@
+# Stock watchlist - one symbol per line
+# Edit this file to customize which stocks to monitor
+
+# Tech Giants
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+
+# High Growth
+TSLA
+NVDA
+AMD
+
+# Finance
+JPM
+GS
+
+# Healthcare
+JNJ
+PFE

@@ -1,0 +1,59 @@
+services:
+  # Interactive CLI mode for manual stock checking
+  stock-checker:
+    build: .
+    container_name: ai-stock-checker
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    network_mode: host
+    stdin_open: true
+    tty: true
+
+  # Primary service: market scan + paper trading with persistence
+  intelligent-trader:
+    build: .
+    platform: linux/arm64
+    container_name: intelligent-trader
+    volumes:
+      - ./stock_checker:/app/stock_checker
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+    restart: unless-stopped
+    # Anti-churn defaults: scan every 15m, trade every 5m, hold ≥4h
+    command: >
+      python3 -u -m stock_checker.intelligent_trader
+      --capital 100000
+      --scan-interval 900
+      --trade-interval 300
+      --max-positions 8
+      --position-size 0.10
+      --min-hold-time 14400
+      --ai-mode validate
+      --ai-model ${AI_MODEL:-gemma4:latest}
+      --top-crypto-count 2
+
+  # Monitor-only (signals, no trades)
+  monitor:
+    build: .
+    container_name: ai-stock-monitor
+    volumes:
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+    restart: unless-stopped
+    profiles:
+      - monitor
+    command: >
+      python3 -u -m stock_checker.monitor
+      --interval 900

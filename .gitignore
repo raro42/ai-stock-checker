@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# IDEs & editors
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and local config
+.factory/
+.env
+.env.local
+
+# Runtime / paper-trading data (do not commit)
+data/
+analysis_reports/
+
+# Autoresearch overnight artifacts
+autoresearch/run.log
+autoresearch/results.tsv
+!autoresearch/program.md
+!autoresearch/README.md
+
+# aider files
+.aider*

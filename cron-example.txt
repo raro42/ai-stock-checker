@@ -1,0 +1,21 @@
+# Example cron jobs for automated stock analysis
+# Edit your crontab with: crontab -e
+
+# Run Bitcoin analysis every day at 9 AM
+0 9 * * * cd /Users/raro42/projects/ai-stock-checker && docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli bitcoin --analyze >> /Users/raro42/projects/ai-stock-checker/logs/bitcoin_$(date +\%Y\%m\%d).log 2>&1
+
+# Run S&P 500 movers analysis every weekday at 4:30 PM (after market close)
+30 16 * * 1-5 cd /Users/raro42/projects/ai-stock-checker && docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli movers -l 10 >> /Users/raro42/projects/ai-stock-checker/logs/movers_$(date +\%Y\%m\%d).log 2>&1
+
+# Run full automated analysis script every Monday at 6 AM
+0 6 * * 1 cd /Users/raro42/projects/ai-stock-checker && ./automate.sh >> /Users/raro42/projects/ai-stock-checker/logs/automation_$(date +\%Y\%m\%d).log 2>&1
+
+# Quick Bitcoin check every 6 hours
+0 */6 * * * cd /Users/raro42/projects/ai-stock-checker && docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli bitcoin --json >> /Users/raro42/projects/ai-stock-checker/logs/bitcoin_tracking.jsonl 2>&1
+
+# Notes:
+# - Make sure Docker/Podman is running before these cron jobs execute
+# - Create logs directory: mkdir -p /Users/raro42/projects/ai-stock-checker/logs
+# - Adjust paths to match your actual installation directory
+# - Use 'podman' instead of 'docker' if you prefer Podman
+# - For AI analysis (--analyze), ensure Ollama is running: ollama serve

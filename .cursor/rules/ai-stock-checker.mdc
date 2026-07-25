@@ -1,0 +1,23 @@
+---
+description: AI Stock Checker product rules for agents
+alwaysApply: true
+---
+
+# AI Stock Checker — Agent Rule
+
+## Goal
+Best local Docker stock/crypto checker + paper trader for a small friend group: low churn, honest docs, validated strategies.
+
+## Must follow
+- Secrets only via `.env` (see `.env.example`). Never hardcode API keys.
+- Primary service: `intelligent-trader` in `docker-compose.yml`.
+- Anti-churn defaults: min hold ≥4h, scan ≥15m, trade ≥5m.
+- Filter stables/leveraged/noise via `stock_checker/symbol_filters.py`.
+- AI: instruct models only (`gemma4:latest`, `qwen3.5:9b`) — not coder models.
+- No unverified performance claims in docs.
+- Prefer Docker for deps; do not install on host.
+- Keep `README.md` and `AGENTS.md` aligned with code.
+- Continue unfinished work from `IMPROVEMENT.md` without waiting for a new user prompt when in an improvement loop.
+
+## Verify
+`docker build -t ai-stock-checker . && docker run --rm ai-stock-checker pytest -q`
