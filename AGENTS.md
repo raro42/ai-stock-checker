@@ -65,6 +65,17 @@ Follow `autoresearch/program.md` (Karpathy-style keep/revert):
 
 When improving the product (not an autoresearch experiment), work from `IMPROVEMENT.md` in priority order.
 
-## Commits
+## Commits & push (default: ASAP)
 
-Only commit when the user asks. Imperative, scoped messages. Never force-push main. Never update git config.
+**Commit and push as soon as work is verified.** Do not wait for the human to ask.
+
+Full rules: [GIT.md](GIT.md)
+
+Summary:
+
+- Commit after each coherent verified change (tests green) or each autoresearch experiment
+- Imperative scoped messages via HEREDOC
+- Never commit `.env`, keys, or `data/` / `autoresearch/results.tsv`
+- Push immediately after commit when `origin` exists (`git push -u origin HEAD`)
+- If no remote: commit locally, then create/link with `gh` and push
+- Never force-push `main`; never update git config; never `--no-verify` unless human asks

@@ -125,6 +125,7 @@ AGENTS.md                 # coding + product rules for agents
 
 - [USAGE.md](USAGE.md) — CLI flags and examples
 - [OPENBB.md](OPENBB.md) — OpenBB Pro earnings workspace (research layer)
+- [GIT.md](GIT.md) — commit & push ASAP rules for humans and agents
 - [PAPER_TRADING.md](PAPER_TRADING.md) — paper trading deep dive (verify flags vs compose)
 - [MONITORING.md](MONITORING.md) — monitor service
 - [IMPROVEMENT.md](IMPROVEMENT.md) — what agents should do next
