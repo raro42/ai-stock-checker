@@ -9,11 +9,13 @@ You are autonomous. The human may be asleep (CEST). **NEVER STOP** to ask permis
 Maximize **`val_score`** (higher is better) from:
 
 ```bash
-docker run --rm -v "$(pwd)/data:/app/data" -v "$(pwd)/stock_checker:/app/stock_checker" \
-  -v "$(pwd)/scripts:/app/scripts" ai-stock-checker \
+docker run --rm -e PYTHONPATH=/app -w /app \
+  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/stock_checker:/app/stock_checker" \
+  -v "$(pwd)/scripts:/app/scripts" \
+  ai-stock-checker \
   python3 scripts/run_experiment.py > autoresearch/run.log 2>&1
 ```
-
 Or locally if deps exist:
 
 ```bash
