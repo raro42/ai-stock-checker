@@ -31,6 +31,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Autoresearch overnight loop (`autoresearch/`, `experiment_strategy.py`)
 - [x] Soft fee-burn warning on intelligent trader startup (`fee_burn.py`)
 - [x] Weekly docs maintenance (`DOCS_MAINTENANCE.md`, `scripts/docs_weekly_check.sh`)
+- [x] Local Ollama autoresearch worker (`scripts/ollama_autoresearch_worker.py`) to save Cursor tokens
 
 ## Next (priority)
 

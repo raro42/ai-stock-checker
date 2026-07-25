@@ -85,6 +85,24 @@ commit	val_score	status	description
 - Dual momentum: relative strength rank across symbols (still long-only)
 - Combine near-miss keepers that almost won
 
+## Local Ollama worker (save Cursor tokens)
+
+Preferred for overnight when Ollama is up — **no Cursor agent tokens**:
+
+```bash
+# one experiment
+./scripts/run_ollama_autoresearch_once.sh
+# optional: push keeps
+OLLAMA_AUTOSEARCH_PUSH=1 ./scripts/run_ollama_autoresearch_once.sh
+
+# overnight loop (default every 480s)
+./scripts/run_ollama_autoresearch_loop.sh
+```
+
+Env: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_AUTOSEARCH_MODEL` (default `qwen2.5-coder:latest`).
+
+Do **not** run Cursor `AGENT_LOOP_TICK_autoresearch` and the Ollama loop at the same time (git races). Pick one.
+
 ## CEST overnight note
 
 Human timezone is **CEST**. Prefer steady progress until morning. Log every run in `results.tsv` so breakfast review is easy.

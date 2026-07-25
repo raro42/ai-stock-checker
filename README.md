@@ -142,7 +142,7 @@ AGENTS.md                 # coding + product rules for agents
 - [OPENBB.md](OPENBB.md) — OpenBB Pro + local widgets backend
 - [GIT.md](GIT.md) — commit & push ASAP rules for humans and agents
 - [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) — weekly documentation loop
-- [autoresearch/README.md](autoresearch/README.md) — strategy search overnight
+- [autoresearch/README.md](autoresearch/README.md) — strategy search overnight (Ollama worker or Cursor loop)
 - [PAPER_TRADING.md](PAPER_TRADING.md) — paper trading deep dive (verify flags vs compose)
 - [MONITORING.md](MONITORING.md) — monitor service
 - [IMPROVEMENT.md](IMPROVEMENT.md) — what agents should do next

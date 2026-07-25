@@ -61,6 +61,9 @@ Follow `autoresearch/program.md` (Karpathy-style keep/revert):
 - Edit **only** `stock_checker/experiment_strategy.py`
 - Run `python3 scripts/run_experiment.py` (or Docker equivalent) → maximize `val_score`
 - Log to `autoresearch/results.tsv`; keep improving commits, reset losers
+- **Prefer local Ollama** overnight to save Cursor tokens:
+  `./scripts/run_ollama_autoresearch_loop.sh` (see `autoresearch/README.md`)
+- Cursor `AGENT_LOOP_TICK_autoresearch` is fine when Ollama is down — **never run both loops at once**
 - **Never stop** overnight (human is on CEST) until manually interrupted
 
 ### General product backlog
