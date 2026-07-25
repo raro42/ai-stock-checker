@@ -103,22 +103,37 @@ class BacktestResult:
         if len(self.equity_curve) < 2:
             return 0.0
 
-        returns = np.diff(self.equity_curve) / self.equity_curve[:-1]
-        if len(returns) == 0 or np.std(returns) == 0:
+        equity = np.asarray(self.equity_curve, dtype=float)
+        equity = equity[np.isfinite(equity) & (equity > 0)]
+        if len(equity) < 2:
+            return 0.0
+
+        returns = np.diff(equity) / equity[:-1]
+        returns = returns[np.isfinite(returns)]
+        if len(returns) == 0 or float(np.std(returns)) == 0.0:
             return 0.0
 
         mean_return = float(np.mean(returns) * 252)
         std_return = float(np.std(returns) * np.sqrt(252))
-        return float((mean_return - risk_free_rate) / std_return)
+        sharpe = (mean_return - risk_free_rate) / std_return
+        return float(sharpe) if np.isfinite(sharpe) else 0.0
 
     def _calculate_max_drawdown(self) -> float:
         """Calculate maximum drawdown as a fraction."""
         if len(self.equity_curve) < 2:
             return 0.0
 
-        equity = np.array(self.equity_curve)
+        equity = np.asarray(self.equity_curve, dtype=float)
+        equity = equity[np.isfinite(equity)]
+        if len(equity) < 2:
+            return 0.0
+
         running_max = np.maximum.accumulate(equity)
-        drawdown = (equity - running_max) / running_max
+        with np.errstate(divide="ignore", invalid="ignore"):
+            drawdown = (equity - running_max) / running_max
+        drawdown = drawdown[np.isfinite(drawdown)]
+        if len(drawdown) == 0:
+            return 0.0
         return float(abs(np.min(drawdown)))
 
     def print_summary(self) -> None:
