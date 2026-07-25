@@ -18,10 +18,16 @@ Prints machine-readable metrics for the agent keep/revert loop:
 from __future__ import annotations
 
 import json
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List
+
+# Ensure project root is importable when run as a script
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from stock_checker.backtester import Backtester
 from stock_checker.experiment_strategy import generate_signals
@@ -143,16 +149,27 @@ def compute_val_score(metrics: dict) -> float:
 
     Sharpe primary, penalize drawdown and fee burn, require some activity.
     """
-    sharpe = float(metrics.get("sharpe_ratio", 0) or 0)
-    dd = float(metrics.get("max_drawdown", 0) or 0)  # already in %
-    ret = float(metrics.get("total_return_pct", 0) or 0)
+    def _f(key: str, default: float = 0.0) -> float:
+        try:
+            v = float(metrics.get(key, default) or default)
+        except (TypeError, ValueError):
+            return default
+        if v != v:  # NaN
+            return default
+        return v
+
+    sharpe = _f("sharpe_ratio")
+    dd = _f("max_drawdown")  # already in %
+    ret = _f("total_return_pct")
     trades = int(metrics.get("total_trades", 0) or 0)
-    fees_pct = float(metrics.get("fees_pct", 0) or 0)
+    fees_pct = _f("fees_pct")
 
     if trades < 2:
         return -100.0  # inactive strategy is a failure
 
     score = sharpe * 10.0 + ret * 0.05 - dd * 0.15 - fees_pct * 0.5
+    if score != score:  # NaN guard
+        return -100.0
     return float(score)
 
 
@@ -193,7 +210,7 @@ def run() -> int:
 
         score = compute_val_score(metrics)
         runs += 1
-        if score > best_score:
+        if best_metrics is None or score > best_score:
             best_score = score
             best_metrics = metrics
 
