@@ -20,6 +20,11 @@ LONG_SMA = 100
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.2
+# Skip entries when recent daily-return stdev is elevated
+VOLATILITY_LOOKBACK = 15
+MAX_RETURN_STDEV = 0.025  # ~2.5% daily stdev
+# Only buy non-SPY names when SPY medium SMA is rising
+REQUIRE_SPY_UPTREND = True
 
 
 def _sma(closes: List[float], period: int) -> float:
@@ -27,14 +32,44 @@ def _sma(closes: List[float], period: int) -> float:
     return sum(window) / period
 
 
+def _return_stdev(closes: List[float], lookback: int) -> float:
+    if len(closes) < lookback + 1:
+        return 0.0
+    rets = []
+    for i in range(-lookback, 0):
+        prev = closes[i - 1]
+        if prev <= 0:
+            continue
+        rets.append((closes[i] - prev) / prev)
+    if len(rets) < 2:
+        return 0.0
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
+    return var ** 0.5
+
+
 def generate_signals(
     bars_by_symbol: Dict[str, List[Dict]],
     index: int,
     portfolio: Dict,
 ) -> Dict[str, str]:
-    """Baseline: multi-SMA trend alignment (long-only)."""
+    """Multi-SMA trend + volume confirm + volatility / SPY filters (long-only)."""
     signals: Dict[str, str] = {}
-    need = max(SHORT_SMA, MED_SMA, LONG_SMA, VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0)
+    need = max(
+        SHORT_SMA,
+        MED_SMA,
+        LONG_SMA,
+        VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0,
+        VOLATILITY_LOOKBACK + 1,
+        MED_SMA + 1,
+    )
+
+    spy_ok = True
+    if REQUIRE_SPY_UPTREND and "SPY" in bars_by_symbol and index >= MED_SMA + 1:
+        spy_closes = [float(b["close"]) for b in bars_by_symbol["SPY"][: index + 1]]
+        spy_m_now = _sma(spy_closes, MED_SMA)
+        spy_m_prev = _sma(spy_closes[:-1], MED_SMA)
+        spy_ok = spy_m_now >= spy_m_prev
 
     for symbol, bars in bars_by_symbol.items():
         if index < need or index >= len(bars):
@@ -53,7 +88,10 @@ def generate_signals(
             cur_vol = vols[-1]
             vol_ok = avg_vol > 0 and (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
 
-        if sma_s > sma_m > sma_l and vol_ok and not in_pos:
+        calm = _return_stdev(closes, VOLATILITY_LOOKBACK) <= MAX_RETURN_STDEV
+        market_ok = spy_ok or symbol == "SPY"
+
+        if sma_s > sma_m > sma_l and vol_ok and calm and market_ok and not in_pos:
             signals[symbol] = "BUY"
         elif sma_s < sma_m and in_pos:
             signals[symbol] = "SELL"
