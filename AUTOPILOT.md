@@ -29,7 +29,7 @@ While the human sleeps:
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
 | Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
 | Product improve | `AGENT_LOOP_TICK_improve` | ~2h | Code/docs from IMPROVEMENT.md |
-| Docs weekly | `AGENT_LOOP_TICK_docs` | 7d | [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) |
+| Morning briefing | `./scripts/run_morning_briefing_loop.sh` | CEST 08:00 | Prompt human with night-shift enhancements |
 
 Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy loop.
 

@@ -33,6 +33,8 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Autoresearch overnight loop (`autoresearch/`, `experiment_strategy.py`)
 - [x] Soft fee-burn warning on intelligent trader startup (`fee_burn.py`)
 - [x] Weekly docs maintenance (`DOCS_MAINTENANCE.md`, `scripts/docs_weekly_check.sh`)
+- [x] Fresh paper reset keeping WMT + committed trade history summary (`docs/history/`, `fresh_start_keep.sh`)
+- [x] Morning CEST briefing loop (`AGENT_LOOP_TICK_morning`) for night workshift enhancements
 - [x] Overnight watchdog (`scripts/watchdog.sh` + `run_watchdog_loop.sh`) — restart infra; escalate code bugs via `AGENT_LOOP_TICK_watchdog`
 - [x] Local Ollama autoresearch worker (`scripts/ollama_autoresearch_worker.py`) to save Cursor tokens
 - [x] README project start date (Oct 2025)

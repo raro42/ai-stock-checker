@@ -68,4 +68,10 @@ On startup you may see `High fee burn: …`. That means the old paper book churn
 1. Paper trade only until a strategy survives backtests **and** a calm paper month.
 2. Do not paste API keys in chat — use `.env`.
 3. Prefer boring holdings over meme churn.
-4. If fees > realized edge, slow down (raise min hold / cut crypto count) or reset the paper book.
+4. If fees > realized edge, slow down (raise min hold / cut crypto count) or reset the paper book:
+
+```bash
+KEEP_SYMBOLS=WMT RESET_CAPITAL=100000 ./scripts/fresh_start_keep.sh
+```
+
+History summaries land in `docs/history/` (committed). Full JSONL backups stay in `data/backup_*`.
