@@ -36,6 +36,7 @@ analysis_reports/
 # Autoresearch overnight artifacts
 autoresearch/run.log
 autoresearch/results.tsv
+autoresearch/benchmark_latest.txt
 !autoresearch/program.md
 !autoresearch/README.md
 

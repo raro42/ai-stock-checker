@@ -7,6 +7,14 @@ honest signals, low churn, clear docs, and strategies validated before they burn
 
 Prefer **usable reliability** over flashy AI. Paper-trade first. Never claim unverified performance.
 
+## Autopilot (mandatory)
+
+The human is **tired of prompting**. Do not wait to be asked to review, implement, commit, or push.
+
+- Follow [AUTOPILOT.md](AUTOPILOT.md) and work [IMPROVEMENT.md](IMPROVEMENT.md) top-down continuously.
+- On `AGENT_LOOP_TICK_improve`: ship the next item, verify, commit, push — never ask “should I continue?”
+- Strategy overnight: prefer Ollama loop; product code: Cursor improve loop.
+
 ## Coding Style & Naming
 
 - Python 3.11+, 4-space indentation, type hints on function boundaries, PEP 8 (`ruff`/`black` if available).

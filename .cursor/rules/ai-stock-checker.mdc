@@ -18,7 +18,7 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - No unverified performance claims in docs.
 - Prefer Docker for deps; do not install on host.
 - Keep `README.md` and `AGENTS.md` aligned with code.
-- Continue unfinished work from `IMPROVEMENT.md` without waiting for a new user prompt when in an improvement loop.
+- Full autopilot: follow `AUTOPILOT.md`. Work `IMPROVEMENT.md` top-down without waiting for the human to ask. On `AGENT_LOOP_TICK_improve`, implement, verify, commit, push.
 
 ## Git (commit + push ASAP)
 - Follow `GIT.md`: commit after each verified change; push immediately when `origin` exists.

@@ -213,9 +213,19 @@ def one_iteration(
 
     STRATEGY_PATH.write_text(source)
     idea = description_hint or "ollama local proposal"
-    for line in source.splitlines()[:15]:
-        if line.strip().startswith("#") and "EDITABLE" not in line and len(line.strip()) > 8:
-            idea = line.strip("# ").strip()[:80]
+    # Prefer a hyperparam delta comment; never use shebang / encoding lines as the idea.
+    skip_prefixes = ("#!", "# -*-", "# coding")
+    for line in source.splitlines()[:40]:
+        s = line.strip()
+        if not s.startswith("#"):
+            continue
+        if any(s.startswith(p) for p in skip_prefixes):
+            continue
+        if "EDITABLE" in s or "Harness:" in s or "Export " in s:
+            continue
+        body = s.lstrip("# ").strip()
+        if len(body) > 8:
+            idea = body[:80]
             break
 
     try:

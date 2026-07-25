@@ -143,6 +143,7 @@ AGENTS.md                 # coding + product rules for agents
 - [USAGE.md](USAGE.md) — CLI flags and examples
 - [OPENBB.md](OPENBB.md) — OpenBB Pro + local widgets backend
 - [GIT.md](GIT.md) — commit & push ASAP rules for humans and agents
+- [AUTOPILOT.md](AUTOPILOT.md) — continuous improvement without waiting for prompts
 - [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) — weekly documentation loop
 - [autoresearch/README.md](autoresearch/README.md) — strategy search overnight (Ollama worker or Cursor loop)
 - [PAPER_TRADING.md](PAPER_TRADING.md) — paper trading deep dive (verify flags vs compose)
