@@ -15,19 +15,19 @@ from typing import Dict, List
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
 MED_SMA = 40
-LONG_SMA = 100
+LONG_SMA = 60
 # Require short > med > long to enter; exit when short < med
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
-MIN_VOLUME_RATIO = 1.2
+MIN_VOLUME_RATIO = 1.3
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
-MAX_RETURN_STDEV = 0.025  # ~2.5% daily stdev
+MAX_RETURN_STDEV = 0.020  # ~2.0% daily stdev
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
 REQUIRE_REL_STRENGTH = True
-RS_LOOKBACK = 20
+RS_LOOKBACK = 30
 
 
 def _sma(closes: List[float], period: int) -> float:
