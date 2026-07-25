@@ -36,8 +36,11 @@ Widgets: `http://127.0.0.1:7779` — wire into OpenBB Pro per [OPENBB.md](OPENBB
 # Portfolio / fee summary (host)
 python3 scripts/summarize_trades.py --trades data/trades.jsonl
 
-# Fresh start (€10k)
+# Fresh start (€10k) — use when startup warns about fee burn
 python3 scripts/reset_paper_portfolio.py --capital 10000
+
+# Strategy vs buy-and-hold (offline; do not trust until it beats SPY)
+./scripts/run_benchmark_buy_hold.sh
 
 # One-off check
 docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli info AAPL
@@ -50,6 +53,15 @@ docker run --rm --network host ai-stock-checker \
 ./scripts/healthcheck.sh
 ./scripts/docs_weekly_check.sh
 ```
+
+## If the trader warns about fees
+
+On startup you may see `High fee burn: …`. That means the old paper book churned too hard.
+
+1. Stop: `docker compose stop intelligent-trader`
+2. Reset: `python3 scripts/reset_paper_portfolio.py --capital 10000`
+3. Start again: `docker compose up -d intelligent-trader`
+4. Keep the **4h min hold** — do not “fix” fees by trading faster.
 
 ## Rules of the group
 

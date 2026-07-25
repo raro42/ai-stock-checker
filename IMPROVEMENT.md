@@ -47,7 +47,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 
 ### Phase B — Harden
 - [ ] Complete OpenBB Connections UI bind (allow local network if Test hangs)
-- [ ] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)
+- [x] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)
 - [x] Fix Ollama exp commit messages (no shebang-as-description)
 
 ### Phase C — Research other agents (one idea at a time + re-benchmark)
