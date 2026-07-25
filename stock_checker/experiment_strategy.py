@@ -16,7 +16,7 @@ from typing import Dict, List
 SHORT_SMA = 15
 MED_SMA = 40
 LONG_SMA = 60
-# Require short > med > long to enter; exit when short < med
+# Require short > med to enter; exit when short < med
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
@@ -31,33 +31,44 @@ RS_LOOKBACK = 30
 
 
 def _sma(closes: List[float], period: int) -> float:
+    """Calculates the Simple Moving Average."""
+    if not closes or len(closes) < period:
+        return 0.0
     window = closes[-period:]
     return sum(window) / period
 
 
 def _return_stdev(closes: List[float], lookback: int) -> float:
+    """Calculates the standard deviation of returns over a lookback period."""
     if len(closes) < lookback + 1:
         return 0.0
     rets = []
+    # Calculate returns for the last 'lookback' periods
     for i in range(-lookback, 0):
         prev = closes[i - 1]
+        current = closes[i]
         if prev <= 0:
             continue
-        rets.append((closes[i] - prev) / prev)
+        rets.append((current - prev) / prev)
+
     if len(rets) < 2:
         return 0.0
+    
+    # Calculate sample standard deviation (N-1 denominator)
     mean = sum(rets) / len(rets)
     var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
     return var ** 0.5
 
 
 def _period_return(closes: List[float], lookback: int) -> float:
+    """Calculates the total percentage return over a lookback period."""
     if len(closes) < lookback + 1:
         return 0.0
     start = closes[-(lookback + 1)]
+    end = closes[-1]
     if start <= 0:
         return 0.0
-    return (closes[-1] - start) / start
+    return (end - start) / start
 
 
 def generate_signals(
@@ -67,6 +78,8 @@ def generate_signals(
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY."""
     signals: Dict[str, str] = {}
+    
+    # Determine minimum required data length for all checks
     need = max(
         SHORT_SMA,
         MED_SMA,
@@ -77,17 +90,23 @@ def generate_signals(
         MED_SMA + 1,
     )
 
+    # --- SPY Filters (Market Context) ---
     spy_ok = True
     spy_ret = 0.0
     if "SPY" in bars_by_symbol and index >= need:
         spy_closes = [float(b["close"]) for b in bars_by_symbol["SPY"][: index + 1]]
+        
+        # Check SPY UPTREND (Medium SMA)
         if REQUIRE_SPY_UPTREND and index >= MED_SMA + 1:
             spy_m_now = _sma(spy_closes, MED_SMA)
             spy_m_prev = _sma(spy_closes[:-1], MED_SMA)
             spy_ok = spy_m_now >= spy_m_prev
+
+        # Calculate SPY Relative Strength (for comparison)
         if REQUIRE_REL_STRENGTH:
             spy_ret = _period_return(spy_closes, RS_LOOKBACK)
 
+    # --- Signal Generation Loop ---
     for symbol, bars in bars_by_symbol.items():
         if index < need or index >= len(bars):
             continue
@@ -98,21 +117,32 @@ def generate_signals(
         sma_l = _sma(closes, LONG_SMA)
         in_pos = symbol in portfolio.get("positions", {})
 
+        # 1. Volume Confirmation Check
         vol_ok = True
         if REQUIRE_VOLUME_CONFIRM:
             vols = [float(b.get("volume", 0) or 0) for b in bars[: index + 1]]
             avg_vol = sum(vols[-VOLUME_LOOKBACK:]) / VOLUME_LOOKBACK
             cur_vol = vols[-1]
-            vol_ok = avg_vol > 0 and (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
+            # Ensure average volume is non-zero before calculating ratio
+            if avg_vol > 0:
+                vol_ok = (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
 
+        # 2. Volatility Gate Check
         calm = _return_stdev(closes, VOLATILITY_LOOKBACK) <= MAX_RETURN_STDEV
-        market_ok = spy_ok or symbol == "SPY"
+        
+        # 3. Market Context Checks
+        market_ok = spy_ok or symbol == "SPY" # Allow SPY regardless of SPY trend check
         rs_ok = True
         if REQUIRE_REL_STRENGTH and symbol != "SPY":
-            rs_ok = _period_return(closes, RS_LOOKBACK) >= spy_ret
+            current_ret = _period_return(closes, RS_LOOKBACK)
+            # Check if the asset's relative strength beats or matches SPY's return
+            rs_ok = current_ret >= spy_ret
 
+        # --- ENTRY LOGIC (BUY) ---
+        # Improvement: Relaxed SMA requirement. Instead of requiring S > M > L, 
+        # we focus on a strong short/medium crossover (S>M) combined with relative strength.
         if (
-            sma_s > sma_m > sma_l
+            sma_s > sma_m  # Core signal: Short crosses above Medium
             and vol_ok
             and calm
             and market_ok
@@ -120,6 +150,9 @@ def generate_signals(
             and not in_pos
         ):
             signals[symbol] = "BUY"
+
+        # --- EXIT LOGIC (SELL) ---
+        # Exit when short crosses below medium, regardless of other filters.
         elif sma_s < sma_m and in_pos:
             signals[symbol] = "SELL"
 
