@@ -27,8 +27,10 @@ need DOCS_MAINTENANCE.md
 need .env.example
 need docker-compose.yml
 
-# Secrets must not appear in tracked files
-if git grep -nE 'FINNHUB_API_KEY=[a-zA-Z0-9]{10,}' -- ':!.env.example' ':!*.md' 2>/dev/null | grep -v '\$\{' | grep -v 'your_' >/dev/null; then
+# Secrets must not appear in tracked compose/source (allow env placeholders)
+if git grep -nE 'FINNHUB_API_KEY=[A-Za-z0-9_-]{16,}' -- ':!.env.example' ':!*.md' 2>/dev/null \
+  | grep -v 'FINNHUB_API_KEY=\${' \
+  | grep -v 'your_' >/dev/null; then
   echo "WARN: possible hardcoded Finnhub key in repo"
   fail=1
 else
