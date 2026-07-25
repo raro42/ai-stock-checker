@@ -13,9 +13,9 @@ from __future__ import annotations
 from typing import Dict, List
 
 # --- hyperparameters the agent may tune ---
-SHORT_SMA = 10
-MED_SMA = 30
-LONG_SMA = 60
+SHORT_SMA = 15
+MED_SMA = 40
+LONG_SMA = 100
 # Require short > med > long to enter; exit when short < med
 REQUIRE_VOLUME_CONFIRM = False
 VOLUME_LOOKBACK = 20
