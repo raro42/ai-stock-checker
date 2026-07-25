@@ -50,12 +50,12 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [ ] Promote autoresearch champion into production defaults only after beats baselines + paper month
 
 ### Phase B — Harden
-- [ ] Complete OpenBB Connections UI bind (allow local network if Test hangs)
+- [x] OpenBB connection preflight (`scripts/openbb_connection_check.sh`) + CORS regex; UI bind still needs human “allow local network” if Test hangs
 - [x] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)
 - [x] Fix Ollama exp commit messages (no shebang-as-description)
 
 ### Phase C — Research other agents (one idea at a time + re-benchmark)
-- [ ] TradingAgents-style multi-role prompts for Ollama validate mode
+- [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
 - [ ] Study freqtrade/vectorbt walk-forward patterns; adopt one harness improvement
 - [ ] Optional later: FinRL / OpenTrade ideas (only after A–B)
 

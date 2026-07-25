@@ -30,6 +30,7 @@ app.add_middleware(
         "http://localhost:7779",
         "http://127.0.0.1:7779",
     ],
+    allow_origin_regex=r"https://.*\.openbb\.co",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

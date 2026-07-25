@@ -23,7 +23,18 @@ class AIRecommender:
         """
         import sys
 
-        prompt = self._build_trading_prompt(stock_data)
+        from stock_checker.ai_multi_role import (
+            build_multi_role_prompt,
+            multi_role_enabled,
+            parse_multi_role_response,
+        )
+
+        use_multi = multi_role_enabled()
+        prompt = (
+            build_multi_role_prompt(stock_data)
+            if use_multi
+            else self._build_trading_prompt(stock_data)
+        )
 
         print(f"\n{'='*80}", flush=True)
         print(f"🤖 AI PROMPT for {stock_data.get('symbol', 'Unknown')}", flush=True)
@@ -42,6 +53,11 @@ class AIRecommender:
             print(f"{'='*80}\n", flush=True)
             sys.stdout.flush()
 
+            if use_multi:
+                multi = parse_multi_role_response(response, stock_data)
+                if multi:
+                    multi["current_price"] = stock_data.get("current_price")
+                    return multi
             return self._parse_ai_response(response, stock_data)
         except Exception as e:
             print(f"⚠️  AI Error for {stock_data.get('symbol', 'Unknown')}: {str(e)}", flush=True)

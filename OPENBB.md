@@ -20,8 +20,14 @@ curl -s http://127.0.0.1:7779/widgets.json | head
 2. Name: `AI Stock Checker`
 3. URL: `http://127.0.0.1:7779` (backend must be running locally)
 4. Optional header: `X-API-KEY` = value of `OPENBB_BACKEND_API_KEY` in `.env` (if set)
-5. If **Test** spins forever: Chrome may be blocking local-network access from `https://pro.openbb.co` — allow local network for the site, or click **Add** after a manual `curl http://127.0.0.1:7779/widgets.json` check
-6. Open Apps → **AI Stock Checker Paper Desk**
+5. Preflight on your machine (proves our API is fine):
+
+```bash
+./scripts/openbb_connection_check.sh
+```
+
+6. If **Test** spins forever after a green preflight: Chrome/Safari is blocking local-network access from `https://pro.openbb.co` — allow local network for the site, then **Add** (not a backend bug).
+7. Open Apps → **AI Stock Checker Paper Desk**
 
 Widgets:
 

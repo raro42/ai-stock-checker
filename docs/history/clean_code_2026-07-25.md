@@ -4,14 +4,34 @@ Mode: `apply` · model review: `gemma4:latest`
 
 ## Findings
 
-- **ruff** (`open`) `.` — no F401/F841 issues
-- **ruff_fix** (`fixed`) `.` — All checks passed!
+- **ruff** (`open`) `.` — unused import/var findings:
+F841 Local variable `sma_l` is assigned to but never used
+   --> stock_checker/experiment_strategy.py:117:9
+    |
+115 |         sma_s = _sma(closes, SHORT_SMA)
+116 |         sma_m = _sma(closes, MED_SMA)
+117 |         sma_l = _sma(closes, LONG_SMA)
+    |         ^^^^^
+118 |         in_pos = symbol in portfolio.get("positions", {})
+    |
+help: Remove assignment to unused variable `sma_l`
 
+Found 1 error.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
 
-## Ollama review (advisory)
+- **ruff_fix** (`fixed`) `.` — F841 Local variable `sma_l` is assigned to but never used
+   --> stock_checker/experiment_strategy.py:117:9
+    |
+115 |         sma_s = _sma(closes, SHORT_SMA)
+116 |         sma_m = _sma(closes, MED_SMA)
+117 |         sma_l = _sma(closes, LONG_SMA)
+    |         ^^^^^
+118 |         in_pos = symbol in portfolio.get("positions", {})
+    |
+help: Remove assignment to unused variable `sma_l`
 
-*   **`intelligent_trader.py`**: Remove all verbose `print()` statements within `__init__` and core methods (`scan_markets`). Use a proper Python logging framework instead of direct console output for initialization status.
-*   **`intelligent_trader.py`**: The conditional import block for `AIRecommender` should be refactored to use dependency injection or lazy loading, rather than executing the import logic within `__init__
+Found 1 error.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).
 
 
 ## Next
