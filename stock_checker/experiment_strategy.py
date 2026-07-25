@@ -17,9 +17,9 @@ SHORT_SMA = 15
 MED_SMA = 40
 LONG_SMA = 100
 # Require short > med > long to enter; exit when short < med
-REQUIRE_VOLUME_CONFIRM = False
+REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
-MIN_VOLUME_RATIO = 1.1
+MIN_VOLUME_RATIO = 1.2
 
 
 def _sma(closes: List[float], period: int) -> float:
