@@ -187,6 +187,13 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["adopted_ideas"]
     assert snap["github_repos"] == []
     assert snap["github_watch_notes"] == []
+    assert "ai_mode" in snap["runtime"]
+    assert snap["runtime"]["max_positions"] == 8
+    assert "trader_version" in snap["runtime"]
+    assert "llm_key_set" in snap["runtime"]
+    # Never leak secrets into the desk snapshot
+    assert "OPENAI_API_KEY" not in str(snap["runtime"])
+    assert "api_key" not in str(snap["runtime"]).lower()
 
 
 def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
@@ -233,6 +240,9 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     assert "Buys / Sells" in client.get("/desk").text
     assert "unreal-spark" in client.get("/desk").text
     assert "ch-unreal" in client.get("/desk").text
+
+    assert client.get("/desk/ops").text.find("Trader config") >= 0
+    assert "AI mode" in client.get("/desk/ops").text
 
     charts = client.get("/desk/api/charts")
     assert charts.status_code == 200

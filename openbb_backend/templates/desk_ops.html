@@ -3,8 +3,55 @@
 <header class="page-head">
   <p class="eyebrow">Ops</p>
   <h1>Runtime</h1>
-  <p class="lede">Watchdog, portfolio timestamps, and scan cycle health for overnight autopilot.</p>
+  <p class="lede">Watchdog, portfolio timestamps, and read-only trader knobs — no secrets in the browser.</p>
 </header>
+
+<section class="block system" aria-labelledby="cfg-h">
+  <h2 id="cfg-h">Trader config</h2>
+  <p class="sub">Compose defaults + <code>.env</code> AI settings as seen by the desk. Change risk knobs in compose, then restart <code>intelligent-trader</code>.</p>
+  <dl class="facts runtime-facts">
+    <div>
+      <dt>Trader version</dt>
+      <dd>{{ snap.runtime.trader_version }}</dd>
+    </div>
+    <div>
+      <dt>Session</dt>
+      <dd>{{ "Weekend · crypto-only" if snap.weekend_mode else "Weekday · stocks + crypto" }}</dd>
+    </div>
+    <div>
+      <dt>AI mode</dt>
+      <dd>{{ snap.runtime.ai_mode }}</dd>
+    </div>
+    <div>
+      <dt>LLM</dt>
+      <dd>{{ snap.runtime.llm_backend }}{% if snap.runtime.ai_mode != "off" %} · {{ snap.runtime.ai_model }}{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Cloud API key</dt>
+      <dd>{{ "set" if snap.runtime.llm_key_set else "not set" }}</dd>
+    </div>
+    <div>
+      <dt>Multi-role AI</dt>
+      <dd>{{ "on" if snap.runtime.ai_multi_role else "off" }}</dd>
+    </div>
+    <div>
+      <dt>Max positions</dt>
+      <dd>{{ snap.runtime.max_positions }}</dd>
+    </div>
+    <div>
+      <dt>Min hold</dt>
+      <dd>{{ snap.runtime.min_hold_hours }}h</dd>
+    </div>
+    <div>
+      <dt>Scan / trade</dt>
+      <dd>{{ snap.runtime.scan_interval_min }}m / {{ snap.runtime.trade_interval_min }}m</dd>
+    </div>
+    <div>
+      <dt>Desk live marks</dt>
+      <dd>{{ "on" if snap.runtime.desk_live_marks else "off" }}</dd>
+    </div>
+  </dl>
+</section>
 
 <section class="block system" aria-labelledby="sys-h">
   <h2 id="sys-h">System</h2>

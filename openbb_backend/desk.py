@@ -40,6 +40,58 @@ def _load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+def _trader_runtime_view() -> dict[str, Any]:
+    """Read-only trader/desk knobs for Ops — never include API keys or tokens."""
+    from stock_checker import __version__
+
+    ai_mode = (os.getenv("AI_MODE") or "off").strip() or "off"
+    ai_model = (os.getenv("AI_MODEL") or "gemma4:latest").strip() or "gemma4:latest"
+    explicit = (os.getenv("LLM_BACKEND") or "").strip().lower()
+    if explicit in {"ollama", "openai", "openai-compatible", "off", "none"}:
+        llm_backend = "none" if explicit in {"off", "none"} else explicit
+    elif any(
+        (os.getenv(k) or "").strip()
+        for k in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "LLM_API_KEY", "GROQ_API_KEY")
+    ):
+        llm_backend = "openai-compatible"
+    elif ai_mode != "off":
+        llm_backend = "ollama"
+    else:
+        llm_backend = "none"
+
+    key_set = any(
+        (os.getenv(k) or "").strip()
+        for k in ("OPENAI_API_KEY", "LLM_API_KEY", "GROQ_API_KEY")
+    )
+    live_marks = os.getenv("DESK_LIVE_MARKS", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    multi_role = os.getenv("AI_MULTI_ROLE", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+    return {
+        "trader_version": __version__,
+        "ai_mode": ai_mode,
+        "ai_model": ai_model if ai_mode != "off" else "—",
+        "llm_backend": llm_backend,
+        "llm_key_set": key_set,
+        "ai_multi_role": multi_role,
+        # Match docker-compose intelligent-trader defaults (not live-parsed argv).
+        "max_positions": 8,
+        "min_hold_hours": 4,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+        "desk_live_marks": live_marks,
+    }
+
+
 def _fmt_hold(seconds: float) -> str:
     if seconds < 0:
         return "—"
@@ -468,4 +520,5 @@ def load_desk_snapshot(
         "github_watch_notes": gh_watch_notes,
         "github_repos": gh_repos,
         "adopted_ideas": adopted_ideas,
+        "runtime": _trader_runtime_view(),
     }
