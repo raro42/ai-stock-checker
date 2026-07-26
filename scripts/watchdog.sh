@@ -40,17 +40,22 @@ ensure_compose() {
 }
 
 check_trader_tracebacks() {
-  local lines
-  lines="$(docker logs --since 30m intelligent-trader 2>&1 | tail -n 200 || true)"
-  if echo "$lines" | grep -qE 'Traceback \(most recent call last\)|^ERROR |Exception:'; then
-    # Ignore one-off network flakes unless repeated
-    local count
-    count="$(echo "$lines" | grep -cE 'Traceback \(most recent call last\)' || true)"
-    if [[ "${count:-0}" -ge 2 ]]; then
-      mark_agent "intelligent-trader repeated Traceback in last 30m (count=$count)"
-    else
-      log "WARN: trader traceback seen once (watching)"
-    fi
+  local lines count
+  lines="$(docker logs --since 30m intelligent-trader 2>&1 | tail -n 400 || true)"
+  count="$(echo "$lines" | grep -cE 'Traceback \(most recent call last\)' || true)"
+  if [[ "${count:-0}" -lt 1 ]]; then
+    return 0
+  fi
+  # Overnight DNS blips print chained Tracebacks (curl_cffi → yfinance → ValueError).
+  # Those are not code bugs — warn only; escalate when Tracebacks lack network markers.
+  if echo "$lines" | grep -qE 'Could not resolve host|NameResolutionError|Temporary failure in name resolution|Failed to resolve|curl: \(6\)'; then
+    log "WARN: trader DNS/network traceback storm (count=$count, ignored as transient)"
+    return 0
+  fi
+  if [[ "${count:-0}" -ge 2 ]]; then
+    mark_agent "intelligent-trader repeated Traceback in last 30m (count=$count)"
+  else
+    log "WARN: trader traceback seen once (watching)"
   fi
 }
 

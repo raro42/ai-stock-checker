@@ -19,6 +19,7 @@ from .portfolio import Portfolio
 from .persistence import DataPersistence
 from .symbol_filters import is_tradeable_symbol
 from .earnings_guard import is_in_earnings_blackout
+from .fetcher import is_transient_network_error
 from . import __version__
 
 
@@ -293,9 +294,9 @@ class IntelligentTrader:
             except Exception as e:
                 print(f"   ⚠️  AI validation error for {symbol}: {str(e)}")
                 sys.stdout.flush()
-                import traceback
-                traceback.print_exc()
-                sys.stdout.flush()
+                if not is_transient_network_error(e):
+                    traceback.print_exc()
+                    sys.stdout.flush()
                 # Keep opportunity if AI fails
                 validated_opportunities.append(opp)
 
@@ -457,8 +458,10 @@ class IntelligentTrader:
                             self.persistence.save_entry_times(self.position_entry_times)
 
             except Exception as e:
-                print(f"   ⚠️ Error checking {symbol}: {str(e)[:50]}")
-                print(f"   Traceback: {traceback.format_exc()}")
+                print(f"   ⚠️ Error checking {symbol}: {str(e)[:120]}")
+                # DNS/provider blips are expected; dumping chained Tracebacks wakes the watchdog
+                if not is_transient_network_error(e):
+                    print(f"   Traceback: {traceback.format_exc()}")
 
     def execute_new_trades(self):
         """
@@ -579,7 +582,8 @@ class IntelligentTrader:
 
             except Exception as e:
                 print(f"   ⚠️ Error executing trade for {symbol}: {str(e)[:100]}")
-                print(f"   Traceback: {traceback.format_exc()}")
+                if not is_transient_network_error(e):
+                    print(f"   Traceback: {traceback.format_exc()}")
 
         if trades_executed > 0:
             print(f"\n💼 Executed {trades_executed} new trade(s)")

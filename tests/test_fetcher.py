@@ -3,13 +3,31 @@
 
 import pytest
 
-from stock_checker.fetcher import StockFetcher
+from stock_checker.fetcher import StockFetcher, is_transient_network_error
 
 
 def test_stock_fetcher_init():
     """Test StockFetcher initialization (offline)."""
     fetcher = StockFetcher()
     assert fetcher is not None
+
+
+def test_is_transient_network_error_detects_dns_and_curl():
+    """DNS/curl flakes must be classified as transient (no watchdog Traceback dump)."""
+    assert is_transient_network_error(
+        ValueError(
+            "All data sources failed for WMT: Failed to perform, curl: (6) "
+            "Could not resolve host: query2.finance.yahoo.com"
+        )
+    )
+    assert is_transient_network_error(
+        Exception("NameResolutionError: Failed to resolve 'api.binance.com'")
+    )
+    assert is_transient_network_error(
+        Exception("Temporary failure in name resolution")
+    )
+    assert not is_transient_network_error(ValueError("invalid symbol XYZ"))
+    assert not is_transient_network_error(KeyError("current_price"))
 
 
 @pytest.mark.network

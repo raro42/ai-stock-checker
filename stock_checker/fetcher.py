@@ -27,6 +27,35 @@ except ImportError:
 ProviderType = Literal["finnhub", "yfinance"]
 
 
+def is_transient_network_error(exception: Exception) -> bool:
+    """True for DNS blips, connection drops, and similar retryable fetch failures."""
+    error_str = str(exception).lower()
+    markers = (
+        "could not resolve host",
+        "failed to resolve",
+        "name or service not known",
+        "temporary failure in name resolution",
+        "nodename nor servname provided",
+        "network is unreachable",
+        "failed to establish",
+        "max retries exceeded",
+        "curl: (6)",
+        "curl: (7)",
+        "connection reset",
+        "connection refused",
+        "timed out",
+        "timeout",
+    )
+    if any(m in error_str for m in markers):
+        return True
+    if isinstance(exception, (NewConnectionError, RequestsConnectionError)):
+        return True
+    # Loose match for urllib3/requests pool errors (e.g. HTTPSConnectionPool + NameResolutionError)
+    if "connection" in error_str and "error" in error_str:
+        return True
+    return False
+
+
 class ProviderSemaphore:
     """Manage provider selection semaphore to track which data provider to use first."""
 
@@ -83,13 +112,7 @@ class StockFetcher:
 
     def _is_network_error(self, exception: Exception) -> bool:
         """Check if exception is a network connection error."""
-        error_str = str(exception).lower()
-        return (
-            isinstance(exception, (NewConnectionError, RequestsConnectionError)) or
-            "network is unreachable" in error_str or
-            "failed to establish" in error_str or
-            "connection" in error_str and "error" in error_str
-        )
+        return is_transient_network_error(exception)
 
     def get_stock_info(self, symbol: str) -> dict:
         """Get current stock information with intelligent provider switching."""
