@@ -68,12 +68,12 @@ Design brief: [`DESIGN.md`](DESIGN.md) — editorial trading room, not AI-SaaS d
 
 ## Quick start
 
-**Need:** Docker. Optional: [Ollama](https://ollama.com) + an instruct model, [Finnhub](https://finnhub.io) free key.
+**Need:** Docker. Optional: [Finnhub](https://finnhub.io) free key. Optional LLM: [Ollama](https://ollama.com) **or** free/cheap cloud (Groq / OpenRouter) — [MODELS.md](MODELS.md). No LLM required.
 
 ```bash
 git clone https://github.com/raro42/ai-stock-checker.git
 cd ai-stock-checker
-cp .env.example .env   # optional: FINNHUB_API_KEY, AI_MODEL
+cp .env.example .env   # AI_MODE=off by default; add cloud keys only if you want AI gates
 
 docker compose up -d --build intelligent-trader openbb-backend
 ```
