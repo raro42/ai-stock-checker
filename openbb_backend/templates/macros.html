@@ -1,0 +1,9 @@
+{# Shared ticker + long name #}
+{% macro ticker(symbol, name='') -%}
+<span class="sym-block">
+  <span class="sym">{{ symbol }}</span>
+  {%- if name %}
+  <span class="name">{{ name }}</span>
+  {%- endif %}
+</span>
+{%- endmacro %}

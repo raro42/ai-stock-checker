@@ -139,6 +139,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["recommendations"][0]["symbol"] == "ETH-USD"
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
     assert snap["stock_breakouts"][0]["symbol"] == "AAPL"
+    assert snap["stock_breakouts"][0]["name"] == "Apple"
+    assert any(h["symbol"] == "BTC-USD" and h["name"] == "Bitcoin" for h in snap["holdings"])
     assert "needs_agent=0" in snap["watchdog"]
     assert snap["mark_source"] in {"scan", "live+scan"}
     assert snap["github_ideas"] == []
@@ -168,6 +170,9 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
         r = client.get(path)
         assert r.status_code == 200, path
         assert "AI Stock Checker" in r.text
+
+    assert "Apple" in client.get("/desk/screener").text
+    assert "Bitcoin" in client.get("/desk").text
 
     assert client.get("/desk/nope").status_code == 404
     api = client.get("/desk/api")

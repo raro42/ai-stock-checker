@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import ticker %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Book</p>
@@ -13,7 +14,7 @@
     {% for h in snap.holdings %}
     <li>
       <div class="hold-main">
-        <span class="sym">{{ h.symbol }}</span>
+        {{ ticker(h.symbol, h.name) }}
         <span class="meta">
           {{ "%.4f"|format(h.quantity) }} · avg €{{ "%.2f"|format(h.avg_buy) }}
           · last €{{ "%.2f"|format(h.last) }}
@@ -45,7 +46,7 @@
     <li>
       <span class="when">{{ t.timestamp }}</span>
       <span class="side {{ t.type|lower }}">{{ t.type }}</span>
-      <span class="sym">{{ t.symbol }}</span>
+      {{ ticker(t.symbol, t.name) }}
       <span class="meta">{{ "%.4f"|format(t.quantity) }} @ €{{ "%.2f"|format(t.price) }} · fee €{{ "%.2f"|format(t.commission) }}</span>
       <span class="amt">{% if t.profit_loss is not none %}€{{ "{:+,.2f}".format(t.profit_loss|float) }}{% else %}—{% endif %}</span>
     </li>

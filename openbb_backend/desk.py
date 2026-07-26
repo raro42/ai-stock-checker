@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from openbb_backend.symbol_names import display_name, resolve_symbol_names
+
 
 def _load_json(path: Path, default: Any) -> Any:
     if not path.exists():
@@ -223,13 +225,40 @@ def load_desk_snapshot(
     buys = [t for t in trades if t.get("type") == "BUY"]
     realized = sum(float(t.get("profit_loss") or 0) for t in sells)
 
+    recs_raw = (opportunities.get("recommendations") or [])[:8]
+    crypto_raw = (opportunities.get("crypto_leaders") or [])[:6]
+    stock_raw = (opportunities.get("stock_breakouts") or [])[:6]
+
+    name_symbols: list[str] = []
+    for sym in list(holdings.keys()):
+        name_symbols.append(str(sym))
+    for t in trades[-20:]:
+        if t.get("symbol"):
+            name_symbols.append(str(t["symbol"]))
+    for r in recs_raw + crypto_raw + stock_raw:
+        if r.get("symbol"):
+            name_symbols.append(str(r["symbol"]))
+    # unique, preserve order
+    seen: set[str] = set()
+    uniq_syms: list[str] = []
+    for s in name_symbols:
+        if s not in seen:
+            seen.add(s)
+            uniq_syms.append(s)
+    names = resolve_symbol_names(uniq_syms, data_dir)
+
+    for r in rows:
+        r["name"] = display_name(r["symbol"], names)
+
     recent = []
     for t in reversed(trades[-20:]):
+        sym = t.get("symbol") or "—"
         recent.append(
             {
                 "timestamp": t.get("timestamp") or "—",
                 "type": t.get("type") or "—",
-                "symbol": t.get("symbol") or "—",
+                "symbol": sym,
+                "name": display_name(str(sym), names),
                 "quantity": float(t.get("quantity") or 0),
                 "price": float(t.get("price") or 0),
                 "commission": float(t.get("commission") or 0),
@@ -240,11 +269,13 @@ def load_desk_snapshot(
         )
 
     recs = []
-    for r in (opportunities.get("recommendations") or [])[:8]:
+    for r in recs_raw:
+        sym = r.get("symbol")
         recs.append(
             {
                 "rank": r.get("rank"),
-                "symbol": r.get("symbol"),
+                "symbol": sym,
+                "name": display_name(str(sym or ""), names),
                 "asset_class": r.get("asset_class"),
                 "strategy": r.get("strategy"),
                 "score": float(r.get("score") or 0),
@@ -253,10 +284,12 @@ def load_desk_snapshot(
         )
 
     crypto_leaders = []
-    for r in (opportunities.get("crypto_leaders") or [])[:6]:
+    for r in crypto_raw:
+        sym = r.get("symbol")
         crypto_leaders.append(
             {
-                "symbol": r.get("symbol"),
+                "symbol": sym,
+                "name": display_name(str(sym or ""), names),
                 "price": float(r.get("price") or 0),
                 "change_24h": float(r.get("change_24h") or 0),
                 "score": float(r.get("score") or 0),
@@ -266,10 +299,12 @@ def load_desk_snapshot(
         )
 
     stock_breakouts = []
-    for r in (opportunities.get("stock_breakouts") or [])[:6]:
+    for r in stock_raw:
+        sym = r.get("symbol")
         stock_breakouts.append(
             {
-                "symbol": r.get("symbol"),
+                "symbol": sym,
+                "name": display_name(str(sym or ""), names),
                 "sector": r.get("sector") or "",
                 "price": float(r.get("price") or 0),
                 "pct_from_high": float(r.get("pct_from_high") or 0),

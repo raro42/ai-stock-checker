@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import ticker %}
 {% block content %}
 <header class="hero">
   <p class="eyebrow">Overview</p>
@@ -39,7 +40,7 @@
     {% for h in snap.holdings[:5] %}
     <li>
       <div class="hold-main">
-        <span class="sym">{{ h.symbol }}</span>
+        {{ ticker(h.symbol, h.name) }}
         <span class="meta">
           {{ "%.4f"|format(h.quantity) }} · last €{{ "%.2f"|format(h.last) }} · held {{ h.held }}
         </span>
@@ -66,7 +67,7 @@
     {% for r in snap.recommendations[:3] %}
     <li>
       <span class="rank">#{{ r.rank }}</span>
-      <span class="sym">{{ r.symbol }}</span>
+      {{ ticker(r.symbol, r.name) }}
       <span class="meta">{{ r.asset_class }} · score {{ "%.1f"|format(r.score) }}</span>
       <span class="why">{{ r.reasoning }}</span>
     </li>

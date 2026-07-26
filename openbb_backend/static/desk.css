@@ -360,13 +360,6 @@ a:active {
   border-bottom: 1px solid var(--line);
 }
 
-.hold-main {
-  display: grid;
-  grid-template-columns: 6.5rem 1fr auto;
-  gap: 0.75rem;
-  align-items: baseline;
-}
-
 .bar {
   margin-top: 0.55rem;
   height: 3px;
@@ -404,6 +397,32 @@ a:active {
   letter-spacing: 0.02em;
 }
 
+.sym-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.sym-block .name {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14rem;
+}
+
+.hold-main {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 11rem) 1fr auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
 .meta,
 .when,
 .why {
@@ -413,11 +432,11 @@ a:active {
 
 .recs li {
   display: grid;
-  grid-template-columns: 2.2rem 6rem 1fr;
+  grid-template-columns: 2.2rem minmax(7.5rem, 11rem) 1fr;
   gap: 0.5rem 0.75rem;
   padding: 0.85rem 0;
   border-bottom: 1px solid var(--line);
-  align-items: baseline;
+  align-items: start;
 }
 
 .recs .why {
@@ -431,18 +450,18 @@ a:active {
 
 .leaders li {
   display: grid;
-  grid-template-columns: 6.5rem 1fr auto;
+  grid-template-columns: minmax(7.5rem, 11rem) 1fr auto;
   gap: 0.5rem;
   padding: 0.7rem 0;
   border-bottom: 1px solid var(--line);
-  align-items: baseline;
+  align-items: start;
 }
 
 .trades li {
   display: grid;
-  grid-template-columns: 9.5rem 3.2rem 5rem 1fr auto;
+  grid-template-columns: 9.5rem 3.2rem minmax(7.5rem, 11rem) 1fr auto;
   gap: 0.55rem;
-  align-items: baseline;
+  align-items: start;
   padding: 0.85rem 0;
   border-bottom: 1px solid var(--line);
 }
