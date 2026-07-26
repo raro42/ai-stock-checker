@@ -14,13 +14,13 @@ from typing import Dict, List
 import math
 
 
-# idea: Changing exit confirmation from Medium SMA momentum decay to requiring Medium SMA drop below Long SMA (slower/more structural exit).
+# idea: Softening the structural exit confirmation by requiring Short SMA cross below Medium SMA AND a significant price drop (Price < MedSMA * 0.98) to confirm reversal.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
 MED_SMA = 40
 LONG_SMA = 60
-# Require short > med to enter; exit when short < med
+# Require short > med to enter; exit when short < med + price drop confirmation
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
@@ -35,8 +35,11 @@ RS_LOOKBACK = 30
 
 # --- IMPROVEMENT: RSI Filters ---
 RSI_PERIOD = 14
-MIN_ENTRY_RSI = 35.0   # New constraint: Minimum acceptable RSI (avoiding oversold entries)
-MAX_ENTRY_RSI = 65.0   # New constraint: Maximum acceptable RSI (avoiding overbought entries)
+MIN_ENTRY_RSI = 35.0   # Minimum acceptable RSI (avoiding oversold entries)
+MAX_ENTRY_RSI = 65.0   # Maximum acceptable RSI (avoiding overbought entries)
+
+# NEW: Exit Confirmation Threshold - Price must drop below MedSMA by this percentage to exit.
+EXIT_DROP_THRESHOLD = 0.02 # Requires price < MedSMA * 0.98
 
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
@@ -117,7 +120,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Improved entry filter using neutral RSI band (35-65). Exit uses Long SMA confirmation."""
+       Improved entry filter using neutral RSI band (35-65). Exit uses structural SMA cross AND price decay confirmation."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -160,9 +163,7 @@ def generate_signals(
         sma_s = _sma(closes, SHORT_SMA)
         sma_m = _sma(closes, MED_SMA)
         sma_l = _sma(closes, LONG_SMA)
-        
-        # Previous Medium SMA (Used for exit confirmation - NOTE: This variable is effectively replaced by the new logic below)
-        # sma_m_prev = _sma(closes, MED_SMA, exclude_last=True)
+        current_close = float(bars[-1]["close"])
 
         # 1. Volume Confirmation Check
         vol_ok = True
@@ -202,9 +203,8 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if short crosses below medium AND Medium SMA has dropped below Long SMA 
-        # (indicating a structural, slower trend reversal).
-        elif sma_s < sma_m and in_pos and sma_m < sma_l:
+        # Exit if short crosses below medium AND price confirms weakness by dropping below MedSMA * (1 - threshold).
+        elif sma_s < sma_m and in_pos and current_close <= sma_m * (1 - EXIT_DROP_THRESHOLD):
             signals[symbol] = "SELL"
 
     return signals
