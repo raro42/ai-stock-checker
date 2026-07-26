@@ -46,8 +46,9 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 ### Phase A — Prove
 - [x] Buy-and-hold benchmark script + Docker runner (`scripts/benchmark_buy_hold.py`)
 - [x] Record `autoresearch/benchmark_latest.txt` and note verdict in IMPROVEMENT when run
-  - **2026-07-25 verdict:** `underperforms_baselines` — strategy val≈6.86 vs SPY B&H≈8.40 (same bars). **Do not promote** champion into live defaults yet; keep Ollama autoresearch + research Phase C.
-- [ ] Promote autoresearch champion into production defaults only after beats baselines + paper month
+  - **2026-07-25 verdict:** `underperforms_baselines` — strategy val≈6.86 vs SPY B&H≈8.40 (same bars).
+  - **2026-07-26 WF re-baseline:** strategy WF blend≈0.87 vs SPY WF≈7.06 → **still do not promote**. Full-sample looks strong; walk-forward vs SPY does not. See `docs/history/rebaseline_walk_forward_2026-07-26.md`.
+- [ ] Promote autoresearch champion into production defaults only after **WF beats SPY** + calm paper month
 
 ### Phase B — Harden
 - [x] OpenBB connection preflight (`scripts/openbb_connection_check.sh`) + CORS regex; UI bind still needs human “allow local network” if Test hangs
@@ -58,7 +59,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
 - [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold). **Scores not comparable to pre-2026-07-26 keeps** — re-baseline champion under new metric.
 - [ ] Optional later: FinRL / OpenTrade ideas (only after A–B)
-- [ ] Re-baseline autoresearch champion under walk-forward `val_score` + re-run buy-and-hold benchmark note
+- [x] Re-baseline autoresearch champion under walk-forward `val_score` + WF-aware buy-and-hold benchmark
 
 ### Phase D — Share
 - [ ] Workspace MCP companion token in Cursor MCP config (user-local)

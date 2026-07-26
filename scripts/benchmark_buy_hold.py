@@ -27,6 +27,7 @@ from scripts.run_experiment import (  # noqa: E402
 )
 from stock_checker.backtester import BacktestResult, Backtester, Trade  # noqa: E402
 from stock_checker.experiment_strategy import generate_signals as strategy_signals  # noqa: E402
+from stock_checker.walk_forward import walk_forward_val_score  # noqa: E402
 
 
 def buy_and_hold_spy(
@@ -210,6 +211,20 @@ def _run(
     return metrics
 
 
+def _wf_blend(data, fn, *, position_fraction: float) -> tuple[float, float, float]:
+    """Walk-forward blend matching scripts/run_experiment.py."""
+
+    def fold_score(fold: Dict[str, List[Dict]]) -> float:
+        return float(_run("fold", fold, fn, position_fraction=position_fraction)["val_score"])
+
+    mean, scores = walk_forward_val_score(data, fold_score, n_folds=3, min_bars=80)
+    worst = min(scores) if scores else -100.0
+    blend = 0.75 * mean + 0.25 * worst
+    if blend != blend:
+        blend = -100.0
+    return blend, mean, worst
+
+
 def main() -> int:
     symbols = list(DEFAULT_SYMBOLS)
     data = load_bars(symbols)
@@ -219,26 +234,38 @@ def main() -> int:
         _run("buy_hold_spy", data, buy_and_hold_spy, position_fraction=0.99),
         run_equal_weight_buy_hold(data),
     ]
+    # Equal-weight EW on folds: approximate with spy-style full-sample only for display;
+    # WF compare uses strategy vs SPY B&H (primary) + EW full-sample secondary.
+    strat_wf, strat_mean, strat_min = _wf_blend(
+        data, strategy_signals, position_fraction=POSITION_FRACTION
+    )
+    spy_wf, spy_mean, spy_min = _wf_blend(data, buy_and_hold_spy, position_fraction=0.99)
 
     print("--- benchmark ---")
     for m in rows:
         print(
-            f"{m['name']}: val_score={m['val_score']:.6f} "
+            f"{m['name']}: full_score={m['val_score']:.6f} "
             f"ret={m['total_return_pct']:.4f}% dd={m['max_drawdown']:.4f}% "
             f"sharpe={m['sharpe_ratio']:.4f} trades={m['total_trades']} fees={m['fees_pct']:.4f}%"
         )
+    print(
+        f"experiment_strategy_wf: blend={strat_wf:.6f} mean={strat_mean:.6f} min={strat_min:.6f}"
+    )
+    print(f"buy_hold_spy_wf: blend={spy_wf:.6f} mean={spy_mean:.6f} min={spy_min:.6f}")
 
-    strat = rows[0]
-    spy = rows[1]
-    ew = rows[2]
-    beats_spy = strat["val_score"] > spy["val_score"]
-    beats_ew = strat["val_score"] > ew["val_score"]
+    beats_spy_full = rows[0]["val_score"] > rows[1]["val_score"]
+    beats_ew_full = rows[0]["val_score"] > rows[2]["val_score"]
+    beats_spy_wf = strat_wf > spy_wf
     print("---")
-    print(f"beats_buy_hold_spy: {str(beats_spy).lower()}")
-    print(f"beats_buy_hold_equal_weight: {str(beats_ew).lower()}")
-    if beats_spy and beats_ew:
+    print(f"beats_buy_hold_spy_full: {str(beats_spy_full).lower()}")
+    print(f"beats_buy_hold_equal_weight_full: {str(beats_ew_full).lower()}")
+    print(f"beats_buy_hold_spy_walkforward: {str(beats_spy_wf).lower()}")
+    # Promote gate uses walk-forward vs SPY (honest OOS)
+    if beats_spy_wf and beats_spy_full and beats_ew_full:
         print("verdict: strategy_beats_baselines (offline only; not live proof)")
-    elif beats_spy or beats_ew:
+    elif beats_spy_wf:
+        print("verdict: beats_spy_walkforward_only (do not promote yet)")
+    elif beats_spy_full or beats_ew_full:
         print("verdict: mixed_vs_baselines (do not promote yet)")
     else:
         print("verdict: underperforms_baselines (keep researching; do not promote)")

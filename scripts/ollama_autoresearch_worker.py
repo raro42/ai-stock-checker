@@ -224,6 +224,9 @@ def one_iteration(
         if "EDITABLE" in s or "Harness:" in s or "Export " in s:
             continue
         body = s.lstrip("# ").strip()
+        # Skip boilerplate section headers that flooded results.tsv
+        if body.lower().startswith("hyperparameters") or "agent may tune" in body.lower():
+            continue
         if len(body) > 8:
             idea = body[:80]
             break
