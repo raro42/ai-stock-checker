@@ -27,29 +27,30 @@
 </section>
 
 <section class="block" aria-labelledby="pulse-h">
+  {% set pulse = snap.scan_breadth if snap.scan_breadth is mapping else {} %}
   <h2 id="pulse-h">Scan pulse</h2>
-  <p class="sub">{{ snap.scan_breadth.note }}</p>
+  <p class="sub">{{ pulse.note|default("Scan-list pulse (leaders/breakouts), not full-universe advance/decline.") }}</p>
   <section class="strip" aria-label="Scan breadth pulse">
     <div>
       <span class="k">Crypto A/D</span>
-      <span class="v">{{ snap.scan_breadth.crypto_up }} / {{ snap.scan_breadth.crypto_down }}</span>
-      <span class="weight">of {{ snap.scan_breadth.crypto_n }} leaders · flat {{ snap.scan_breadth.crypto_flat }}</span>
+      <span class="v">{{ pulse.crypto_up|default(0) }} / {{ pulse.crypto_down|default(0) }}</span>
+      <span class="weight">of {{ pulse.crypto_n|default(0) }} leaders · flat {{ pulse.crypto_flat|default(0) }}</span>
     </div>
     <div>
       <span class="k">Crypto avg 24h</span>
-      <span class="v {% if snap.scan_breadth.crypto_avg_chg >= 0 %}up{% else %}down{% endif %}">
-        {{ "%+.1f"|format(snap.scan_breadth.crypto_avg_chg) }}%
+      <span class="v {% if (pulse.crypto_avg_chg|default(0)) >= 0 %}up{% else %}down{% endif %}">
+        {{ "%+.1f"|format(pulse.crypto_avg_chg|default(0)) }}%
       </span>
     </div>
     <div>
       <span class="k">±4% movers</span>
-      <span class="v">{{ snap.scan_breadth.crypto_big_movers }}</span>
+      <span class="v">{{ pulse.crypto_big_movers|default(0) }}</span>
       <span class="weight">StockBee-style big moves in leaders</span>
     </div>
     <div>
       <span class="k">Near highs</span>
-      <span class="v">{{ snap.scan_breadth.stock_within_5pct_high }}</span>
-      <span class="weight">of {{ snap.scan_breadth.stock_breakouts_n }} breakouts ≤5% from high</span>
+      <span class="v">{{ pulse.stock_within_5pct_high|default(0) }}</span>
+      <span class="weight">of {{ pulse.stock_breakouts_n|default(0) }} breakouts ≤5% from high</span>
     </div>
   </section>
 </section>

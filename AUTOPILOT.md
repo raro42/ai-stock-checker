@@ -6,7 +6,7 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 
 1. Work the **Next** list in [IMPROVEMENT.md](IMPROVEMENT.md) **top-down**, constantly — including while the human sleeps (CEST).
 2. After each coherent verified change: **commit + push** per [GIT.md](GIT.md). Never leave shippable work unpushed overnight.
-3. **Restart as needed**: Docker services (`intelligent-trader`, `openbb-backend`), Ollama autoresearch loop, improve/docs loops — if a process dies, hangs, or code that requires a reload shipped, restart it. Do not wait to be asked.
+3. **Restart as needed**: Docker services (`intelligent-trader`, `openbb-backend`), Ollama autoresearch loop, improve/docs loops — if a process dies, hangs, or code that requires a reload shipped, restart it. Do not wait to be asked. `openbb-backend` runs uvicorn with `--reload` on the mounted package; still run `./scripts/smoke_desk_http.sh` after desk changes.
 4. Prefer Docker for tests/runs. Never install on the host. Never commit `.env` / `data/` / `results.tsv`.
 5. Do not invent performance claims — require backtest/benchmark artifacts.
 6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), **ship at least one idea**: read GitHub watch digests + IMPROVEMENT.md, implement the best small slice, verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
@@ -73,6 +73,7 @@ On `AGENT_LOOP_TICK_improve` (hourly):
 3. Implement the smallest shippable slice (**at least one** coherent change)
 4. Run `./scripts/run_clean_code_agent.sh --apply` when touching messy areas (or once per tick if time)
 5. `docker run --rm ai-stock-checker pytest -q -m "not network"` (or compose equivalent)
+5b. **Live desk smoke** after any `openbb_backend/` change: `./scripts/smoke_desk_http.sh` (all `/desk/*` must be HTTP 200). Pytest alone is not enough — templates are volume-mounted and can 500 when Python modules are stale.
 6. Update IMPROVEMENT.md checkboxes / notes
 7. Commit + push (`autoresearch/*` and merge to `main` when product-facing)
 8. Restart Docker/loops if the change requires it; confirm they are healthy
