@@ -255,12 +255,28 @@
     return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
   }
 
+  function formatDay(d) {
+    try {
+      return d3.timeFormat("%Y-%m-%d")(d);
+    } catch (e) {
+      return String(d);
+    }
+  }
+
   function appendHtmlLegend(mount, panels, color) {
     var list = document.createElement("ul");
     list.className = "chart-legend";
-    list.setAttribute("aria-label", "Series legend");
+    list.setAttribute("aria-label", "Series legend — hover to highlight");
     panels.forEach(function (p) {
       var li = document.createElement("li");
+      li.className = "chart-legend-item";
+      li.dataset.symbol = p.symbol;
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.setAttribute(
+        "aria-label",
+        "Highlight " + p.symbol + ", " + pctLabel(p.change_pct)
+      );
       var swatch = document.createElement("span");
       swatch.className = "chart-legend-swatch";
       swatch.style.background = color(p.symbol);
@@ -278,30 +294,60 @@
     return list;
   }
 
+  function nearestPoint(points, date) {
+    if (!points || !points.length) return null;
+    var bisect = d3.bisector(function (d) {
+      return new Date(d.t);
+    }).left;
+    var i = bisect(points, date, 1);
+    var a = points[i - 1];
+    var b = points[i];
+    if (!a) return b || null;
+    if (!b) return a;
+    return date - new Date(a.t) > new Date(b.t) - date ? b : a;
+  }
+
   function drawPrices(mount, panels) {
     if (!panels || !panels.length) {
       mount.innerHTML =
         "<p class='empty'>No price history yet (check network / DESK_CHART_LIVE).</p>";
       return;
     }
+    mount.classList.add("chart-mount--interactive");
     var width = mount.clientWidth || 640;
     var height = 300;
     var margin = { top: 12, right: 16, bottom: 32, left: 44 };
 
     var color = d3
       .scaleOrdinal()
-      .domain(panels.map(function (p) { return p.symbol; }))
+      .domain(panels.map(function (p) {
+        return p.symbol;
+      }))
       .range(COLORS);
 
-    // HTML flex-wrap legend — never pack fixed-width SVG labels (they overlap).
-    appendHtmlLegend(mount, panels, color);
+    var bySymbol = {};
+    panels.forEach(function (p) {
+      bySymbol[p.symbol] = p;
+    });
+
+    var legend = appendHtmlLegend(mount, panels, color);
+
+    var tip = document.createElement("div");
+    tip.className = "chart-tip";
+    tip.hidden = true;
+    tip.setAttribute("role", "status");
+    tip.setAttribute("aria-live", "polite");
+    mount.appendChild(tip);
 
     var svg = d3
       .select(mount)
       .append("svg")
       .attr("viewBox", "0 0 " + width + " " + height)
       .attr("role", "img")
-      .attr("aria-label", "Relative price performance");
+      .attr(
+        "aria-label",
+        "Relative price performance. Hover a legend item or the chart to highlight a series."
+      );
 
     var all = [];
     panels.forEach(function (p) {
@@ -312,11 +358,17 @@
 
     var x = d3
       .scaleTime()
-      .domain(d3.extent(all, function (d) { return d.t; }))
+      .domain(d3.extent(all, function (d) {
+        return d.t;
+      }))
       .range([margin.left, width - margin.right]);
     var y = d3
       .scaleLinear()
-      .domain(d3.extent(all, function (d) { return d.rebased; }))
+      .domain(
+        d3.extent(all, function (d) {
+          return d.rebased;
+        })
+      )
       .nice()
       .range([height - margin.bottom, margin.top]);
 
@@ -333,12 +385,15 @@
         d3
           .axisLeft(y)
           .ticks(5)
-          .tickFormat(function (v) { return d3.format(".0f")(v); })
+          .tickFormat(function (v) {
+            return d3.format(".0f")(v);
+          })
           .tickSizeOuter(0)
       );
 
     svg
       .append("line")
+      .attr("class", "baseline-100")
       .attr("x1", margin.left)
       .attr("x2", width - margin.right)
       .attr("y1", y(100))
@@ -348,32 +403,254 @@
 
     var line = d3
       .line()
-      .x(function (d) { return x(new Date(d.t)); })
-      .y(function (d) { return y(d.rebased); })
+      .x(function (d) {
+        return x(new Date(d.t));
+      })
+      .y(function (d) {
+        return y(d.rebased);
+      })
       .curve(d3.curveMonotoneX);
 
+    var seriesG = svg.append("g").attr("class", "price-series");
     panels.forEach(function (p) {
-      svg
+      seriesG
         .append("path")
         .datum(p.points)
+        .attr("class", "price-line")
+        .attr("data-symbol", p.symbol)
         .attr("fill", "none")
         .attr("stroke", color(p.symbol))
         .attr("stroke-width", 2)
-        .attr("d", line)
-        .append("title")
-        .text(p.symbol + (p.name ? " — " + p.name : "") + " · " + pctLabel(p.change_pct));
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round")
+        .attr("d", line);
+
+      var last = p.points[p.points.length - 1];
+      if (last) {
+        seriesG
+          .append("circle")
+          .attr("class", "price-end")
+          .attr("data-symbol", p.symbol)
+          .attr("cx", x(new Date(last.t)))
+          .attr("cy", y(last.rebased))
+          .attr("r", 3)
+          .attr("fill", color(p.symbol));
+      }
     });
 
-    panels.forEach(function (p) {
-      var last = p.points[p.points.length - 1];
-      if (!last) return;
-      svg
-        .append("circle")
-        .attr("cx", x(new Date(last.t)))
-        .attr("cy", y(last.rebased))
-        .attr("r", 3)
-        .attr("fill", color(p.symbol));
+    var focus = svg.append("g").attr("class", "price-focus").style("display", "none");
+    focus
+      .append("line")
+      .attr("class", "focus-x")
+      .attr("y1", margin.top)
+      .attr("y2", height - margin.bottom)
+      .attr("stroke", "rgba(232,239,230,0.35)")
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", "3 3");
+    var focusDot = focus
+      .append("circle")
+      .attr("r", 5)
+      .attr("fill", cssVar("--ink", "#e8efe6"))
+      .attr("stroke-width", 2);
+
+    var locked = null; // legend / hit lock
+    var reduceMotion =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function applyHighlight(symbol) {
+      seriesG.selectAll(".price-line").each(function () {
+        var s = this.getAttribute("data-symbol");
+        var on = !symbol || s === symbol;
+        d3.select(this)
+          .attr("stroke-opacity", on ? 1 : 0.14)
+          .attr("stroke-width", symbol && s === symbol ? 3.2 : 2);
+        if (symbol && s === symbol) {
+          this.parentNode.appendChild(this);
+        }
+      });
+      seriesG.selectAll(".price-end").each(function () {
+        var s = this.getAttribute("data-symbol");
+        var on = !symbol || s === symbol;
+        d3.select(this)
+          .attr("fill-opacity", on ? 1 : 0.14)
+          .attr("r", symbol && s === symbol ? 4.5 : 3);
+        if (symbol && s === symbol) {
+          this.parentNode.appendChild(this);
+        }
+      });
+      Array.prototype.forEach.call(legend.querySelectorAll(".chart-legend-item"), function (li) {
+        var on = !symbol || li.dataset.symbol === symbol;
+        li.classList.toggle("is-active", !!symbol && li.dataset.symbol === symbol);
+        li.classList.toggle("is-dimmed", !!symbol && !on);
+      });
+    }
+
+    function hideFocus() {
+      focus.style("display", "none");
+      tip.hidden = true;
+    }
+
+    function showFocus(panel, pt) {
+      if (!panel || !pt) {
+        hideFocus();
+        return;
+      }
+      var tx = x(new Date(pt.t));
+      var ty = y(pt.rebased);
+      focus.style("display", null);
+      focus.select(".focus-x").attr("x1", tx).attr("x2", tx);
+      focusDot
+        .attr("cx", tx)
+        .attr("cy", ty)
+        .attr("stroke", color(panel.symbol));
+
+      var fromPar = pt.rebased - 100;
+      tip.hidden = false;
+      tip.innerHTML =
+        "<strong>" +
+        panel.symbol +
+        "</strong>" +
+        (panel.name && panel.name !== panel.symbol
+          ? "<span class='chart-tip-name'>" + panel.name + "</span>"
+          : "") +
+        "<span class='chart-tip-meta'>" +
+        formatDay(new Date(pt.t)) +
+        "</span>" +
+        "<span class='chart-tip-val'>" +
+        (+pt.rebased).toFixed(2) +
+        " <em>(" +
+        pctLabel(fromPar) +
+        " vs start)</em></span>";
+
+      var svgNode = svg.node();
+      var mountRect = mount.getBoundingClientRect();
+      var svgRect = svgNode.getBoundingClientRect();
+      var scaleX = svgRect.width / width;
+      var scaleY = svgRect.height / height;
+      var left = svgRect.left - mountRect.left + tx * scaleX + 14;
+      var top = svgRect.top - mountRect.top + ty * scaleY - 18;
+      if (left + tip.offsetWidth > mountRect.width - 8) {
+        left = svgRect.left - mountRect.left + tx * scaleX - tip.offsetWidth - 14;
+      }
+      if (top < 4) top = 4;
+      tip.style.left = Math.max(4, left) + "px";
+      tip.style.top = top + "px";
+    }
+
+    function pickSeriesAt(mx, my, preferSymbol) {
+      var date = x.invert(mx);
+      var candidates = [];
+      panels.forEach(function (p) {
+        if (preferSymbol && p.symbol !== preferSymbol) return;
+        var pt = nearestPoint(p.points, date);
+        if (!pt) return;
+        var py = y(pt.rebased);
+        candidates.push({
+          panel: p,
+          pt: pt,
+          dist: Math.abs(py - my),
+        });
+      });
+      if (!candidates.length && preferSymbol) {
+        return pickSeriesAt(mx, my, null);
+      }
+      candidates.sort(function (a, b) {
+        return a.dist - b.dist;
+      });
+      return candidates[0] || null;
+    }
+
+    function onPointer(mx, my) {
+      if (
+        mx < margin.left ||
+        mx > width - margin.right ||
+        my < margin.top ||
+        my > height - margin.bottom
+      ) {
+        if (!locked) {
+          applyHighlight(null);
+          hideFocus();
+        }
+        return;
+      }
+      var hit = pickSeriesAt(mx, my, locked);
+      if (!hit) return;
+      applyHighlight(hit.panel.symbol);
+      showFocus(hit.panel, hit.pt);
+    }
+
+    function pointerFromEvent(event) {
+      var pt = d3.pointer(event, svg.node());
+      return { mx: pt[0], my: pt[1] };
+    }
+
+    svg
+      .append("rect")
+      .attr("class", "price-overlay")
+      .attr("x", margin.left)
+      .attr("y", margin.top)
+      .attr("width", width - margin.left - margin.right)
+      .attr("height", height - margin.top - margin.bottom)
+      .attr("fill", "transparent")
+      .style("cursor", "crosshair")
+      .on("mousemove", function (event) {
+        var p = pointerFromEvent(event);
+        onPointer(p.mx, p.my);
+      })
+      .on("mouseleave", function () {
+        if (locked) {
+          applyHighlight(locked);
+          hideFocus();
+        } else {
+          applyHighlight(null);
+          hideFocus();
+        }
+      });
+
+    // Wide invisible strokes for direct line hover (under overlay? overlay captures all —
+    // so legend + nearest-y on overlay is enough. Also wire legend.)
+
+    function lockSymbol(symbol) {
+      locked = symbol;
+      applyHighlight(symbol);
+      var panel = bySymbol[symbol];
+      if (panel && panel.points.length) {
+        showFocus(panel, panel.points[panel.points.length - 1]);
+      }
+    }
+
+    function unlockSymbol() {
+      locked = null;
+      applyHighlight(null);
+      hideFocus();
+    }
+
+    Array.prototype.forEach.call(legend.querySelectorAll(".chart-legend-item"), function (li) {
+      li.addEventListener("mouseenter", function () {
+        lockSymbol(li.dataset.symbol);
+      });
+      li.addEventListener("mouseleave", function () {
+        unlockSymbol();
+      });
+      li.addEventListener("focus", function () {
+        lockSymbol(li.dataset.symbol);
+      });
+      li.addEventListener("blur", function () {
+        unlockSymbol();
+      });
+      li.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          if (locked === li.dataset.symbol) unlockSymbol();
+          else lockSymbol(li.dataset.symbol);
+        }
+      });
     });
+
+    if (!reduceMotion) {
+      seriesG.selectAll(".price-line").classed("price-line--animated", true);
+    }
   }
 
   function render(payload) {

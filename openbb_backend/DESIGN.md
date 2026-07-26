@@ -8,4 +8,4 @@ Also enforce:
 - Anti-pattern ban list: `.cursor/skills/paper-desk-design/anti-patterns.md`
 - Rule (auto on desk files): `.cursor/rules/paper-desk-design.mdc`
 
-Tokens live in `static/desk.css` (`:root`). Chart legends must wrap (HTML flex) — never fixed-pitch SVG label rows.
+Tokens live in `static/desk.css` (`:root`). Chart legends must wrap (HTML flex). Relative-price chart: hover legend or plot to highlight a series.

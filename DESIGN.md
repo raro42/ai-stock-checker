@@ -41,8 +41,9 @@ Typography carries hierarchy; stock “hero art” does not.
 ## Charts
 
 - Local D3 only (`static/d3.min.js`); series colors from the desk palette
-- **Legends must wrap and stay readable** — use HTML flex-wrap legends, not fixed-width SVG rows that collide when many tickers are open
-- Axes muted; hover titles for detail; respect chart empty states
+- **Legends must wrap and stay readable** — HTML flex-wrap, not fixed SVG rows
+- **Relative prices:** hover legend or chart to highlight one series (others dim); crosshair + tip with date and rebased value
+- Axes muted; empty states honest; honor `prefers-reduced-motion`
 
 ## Screens
 

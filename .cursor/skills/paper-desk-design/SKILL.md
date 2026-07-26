@@ -68,7 +68,8 @@ Design check:
 ## Charts
 
 - Local D3 only; series from desk palette
-- **Legends wrap via HTML flex** — never fixed-width SVG label rows (they overlap with many tickers)
+- **Legends wrap via HTML flex** — never fixed-width SVG label rows
+- Relative-price chart: legend/chart hover highlights one series + readout tip
 - Rare motion; `prefers-reduced-motion` respected
 
 ## When “trends” conflict

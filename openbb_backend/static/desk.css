@@ -650,6 +650,7 @@ a:active {
 }
 
 .chart-block .chart-mount {
+  position: relative;
   width: 100%;
   min-height: 12rem;
   margin-top: 0.75rem;
@@ -689,6 +690,25 @@ a:active {
   font-variant-numeric: tabular-nums;
 }
 
+.chart-legend-item {
+  cursor: pointer;
+  padding: 0.15rem 0.2rem;
+  border-radius: 2px;
+  outline: none;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.chart-legend-item:hover,
+.chart-legend-item:focus-visible,
+.chart-legend-item.is-active {
+  color: var(--ink);
+  background: rgba(232, 239, 230, 0.06);
+}
+
+.chart-legend-item.is-dimmed {
+  opacity: 0.35;
+}
+
 .chart-legend-swatch {
   flex: 0 0 auto;
   width: 0.65rem;
@@ -701,6 +721,61 @@ a:active {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: min(18rem, 70vw);
+}
+
+.chart-tip {
+  position: absolute;
+  z-index: 3;
+  min-width: 8.5rem;
+  max-width: min(16rem, 80%);
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(12, 20, 16, 0.94);
+  color: var(--ink);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.chart-tip strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.chart-tip-name,
+.chart-tip-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.chart-tip-val {
+  display: block;
+  margin-top: 0.25rem;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.chart-tip-val em {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.price-line--animated {
+  transition: stroke-opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-legend-item,
+  .price-line--animated {
+    transition: none;
+  }
 }
 
 .chart-mount .axis path,
