@@ -83,3 +83,11 @@ def test_close_extractors():
     assert closes_from_yfinance_hist(hist) == [9.0, 10.0]
     klines = [{"close": 1}, {"close": "2.5"}, {"close": "x"}]
     assert closes_from_binance_klines(klines) == [1.0, 2.5]
+
+
+def test_nan_closes_fail_open_as_unknown():
+    assert classify_close_vs_sma([float("nan")] * 60, 50) == REGIME_UNKNOWN
+    # Trailing NaN stripped; last finite close below SMA → risk_off
+    series = [100.0] * 49 + [float("nan"), 50.0]
+    assert classify_close_vs_sma(series, 50) == REGIME_OFF
+

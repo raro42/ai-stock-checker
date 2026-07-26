@@ -35,21 +35,28 @@ def regime_gate_enabled() -> bool:
     }
 
 
+def _finite(x: float) -> bool:
+    return x == x and x not in (float("inf"), float("-inf"))
+
+
 def simple_sma(closes: Sequence[float], period: int) -> Optional[float]:
     if period <= 0 or len(closes) < period:
         return None
-    window = closes[-period:]
-    return sum(float(c) for c in window) / float(period)
+    window = [float(c) for c in closes[-period:]]
+    if not all(_finite(c) for c in window):
+        return None
+    return sum(window) / float(period)
 
 
 def classify_close_vs_sma(closes: Sequence[float], period: int) -> str:
     """
     risk_on if last close >= SMA(period); risk_off if below; unknown if short history.
     """
-    sma = simple_sma(closes, period)
-    if sma is None or not closes:
+    clean = [float(c) for c in closes if _finite(float(c))]
+    sma = simple_sma(clean, period)
+    if sma is None or not clean:
         return REGIME_UNKNOWN
-    last = float(closes[-1])
+    last = clean[-1]
     if last >= sma:
         return REGIME_ON
     return REGIME_OFF
@@ -78,6 +85,16 @@ def new_entry_allowed(
     return True, f"{label} risk-on"
 
 
+def _json_float(value: Optional[float]) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if _finite(v) else None
+
+
 def snapshot_dict(
     *,
     stock_regime: str,
@@ -95,13 +112,13 @@ def snapshot_dict(
         "stock_benchmark": STOCK_BENCHMARK,
         "stock_sma_period": STOCK_SMA_PERIOD,
         "stock_regime": stock_regime,
-        "stock_close": stock_close,
-        "stock_sma": stock_sma,
+        "stock_close": _json_float(stock_close),
+        "stock_sma": _json_float(stock_sma),
         "crypto_benchmark": "BTC-USD",
         "crypto_sma_period": CRYPTO_SMA_PERIOD,
         "crypto_regime": crypto_regime,
-        "crypto_close": crypto_close,
-        "crypto_sma": crypto_sma,
+        "crypto_close": _json_float(crypto_close),
+        "crypto_sma": _json_float(crypto_sma),
         "detail": detail,
     }
 
@@ -110,7 +127,7 @@ def save_regime_snapshot(data_dir: Path | str, snap: dict[str, Any]) -> None:
     path = Path(data_dir) / "market_regime.json"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(snap, indent=2) + "\n")
+        path.write_text(json.dumps(snap, indent=2, allow_nan=False) + "\n")
     except OSError:
         pass
 
@@ -139,9 +156,11 @@ def closes_from_yfinance_hist(hist_data: dict[str, Any]) -> list[float]:
         if close is None:
             continue
         try:
-            closes.append(float(close))
+            val = float(close)
         except (TypeError, ValueError):
             continue
+        if _finite(val):
+            closes.append(val)
     return closes
 
 
@@ -153,7 +172,9 @@ def closes_from_binance_klines(klines: list[dict[str, Any]] | None) -> list[floa
         if not isinstance(k, dict):
             continue
         try:
-            out.append(float(k["close"]))
+            val = float(k["close"])
         except (KeyError, TypeError, ValueError):
             continue
+        if _finite(val):
+            out.append(val)
     return out
