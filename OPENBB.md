@@ -10,7 +10,7 @@ No OpenBB account needed — open the built-in UI:
 
 **http://127.0.0.1:7779/desk**
 
-Shows MTM equity (scan/live marks), unrealized P&L, allocation bars, hold times, latest recommendations, crypto leaders, stock breakouts, fills with fees, and watchdog status. Auto-refreshes every 60s. JSON twin: `/desk/api`. Serves from the same `openbb-backend` container (`DESK_LIVE_MARKS=0` to skip yfinance).
+Shows MTM equity (scan/live marks), unrealized P&L, allocation bars, hold times, latest recommendations, crypto leaders, stock breakouts, fills with fees, and watchdog status. Countdown refresh via local vanilla `desk.js` (no CDN fonts/frameworks; CSP locked down). JSON twin: `/desk/api`. Serves from the same `openbb-backend` container (`DESK_LIVE_MARKS=0` to skip yfinance).
 
 ## Paper desk backend (our data → OpenBB)
 

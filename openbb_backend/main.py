@@ -11,9 +11,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.desk import load_desk_snapshot
 
@@ -21,12 +22,43 @@ DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
 API_KEY = os.getenv("OPENBB_BACKEND_API_KEY", "").strip()
 _BACKEND_DIR = Path(__file__).parent
 
+# Desk is same-origin only: no CDN scripts/fonts, no inline JS/CSS.
+_DESK_CSP = (
+    "default-src 'none'; "
+    "base-uri 'none'; "
+    "form-action 'none'; "
+    "frame-ancestors 'none'; "
+    "img-src 'none'; "
+    "font-src 'none'; "
+    "connect-src 'none'; "
+    "style-src 'self'; "
+    "script-src 'self'"
+)
+
+
+class DeskSecurityHeaders(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        path = request.url.path
+        if path == "/desk" or path.startswith("/desk/"):
+            response.headers["Content-Security-Policy"] = _DESK_CSP
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Permissions-Policy"] = (
+                "geolocation=(), microphone=(), camera=(), payment=()"
+            )
+        return response
+
+
 app = FastAPI(
     title="AI Stock Checker → OpenBB",
     description="Paper portfolio, trades, and opportunities for OpenBB Workspace",
-    version="0.7.0",
+    version="0.7.1",
 )
 
+app.add_middleware(DeskSecurityHeaders)
 app.mount(
     "/desk/static",
     StaticFiles(directory=str(_BACKEND_DIR / "static")),

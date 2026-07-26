@@ -153,10 +153,9 @@ def test_desk_html_and_api(tmp_path: Path, monkeypatch):
     client = TestClient(backend.app)
     resp = client.get("/desk")
     assert resp.status_code == 200
-    assert "AI Stock Checker" in resp.text
-    assert "AAPL" in resp.text
-    assert "Latest recommendations" in resp.text
-    assert "ETH-USD" in resp.text
+    assert "refresh-eta" in resp.text
+    assert "fonts.googleapis" not in resp.text
+    assert 'http-equiv="refresh"' not in resp.text
     api = client.get("/desk/api")
     assert api.status_code == 200
     body = api.json()
@@ -164,4 +163,10 @@ def test_desk_html_and_api(tmp_path: Path, monkeypatch):
     assert body["recommendations"][0]["reasoning"] == "test reason"
     css = client.get("/desk/static/desk.css")
     assert css.status_code == 200
-    assert "Fraunces" in css.text
+    assert "Georgia" in css.text
+    assert "fonts.googleapis" not in css.text
+    js = client.get("/desk/static/desk.js")
+    assert js.status_code == 200
+    assert "refresh-eta" in js.text
+    assert resp.headers.get("content-security-policy", "").startswith("default-src 'none'")
+    assert resp.headers.get("x-frame-options") == "DENY"

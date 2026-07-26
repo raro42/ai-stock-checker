@@ -7,8 +7,8 @@
   --up: #7dcea0;
   --down: #e07a5f;
   --line: rgba(232, 239, 230, 0.12);
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 * {
