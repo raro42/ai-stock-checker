@@ -269,7 +269,8 @@ a:active {
   font-size: clamp(1.75rem, 4vw, 2.35rem);
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin: 0 0 0.75rem;
+  margin: 0;
+  line-height: 1.15;
   color: var(--ink);
 }
 
