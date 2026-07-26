@@ -532,6 +532,26 @@ a:active {
   text-decoration-color: var(--accent);
 }
 
+.foot-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.repo-link {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.55rem;
+  font-weight: 500;
+}
+
+.repo-sha {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+}
+
 .foot-nav {
   display: flex;
   flex-wrap: wrap;

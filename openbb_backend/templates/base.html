@@ -49,10 +49,24 @@
     </main>
 
     <footer class="foot">
-      <span>
-        Updated <time datetime="{{ snap.generated_at }}">{{ snap.generated_at }}</time>
-        · refresh in <span id="refresh-eta" data-seconds="60">60</span>s
-      </span>
+      <div class="foot-meta">
+        <span>
+          Updated <time datetime="{{ snap.generated_at }}">{{ snap.generated_at }}</time>
+          · refresh in <span id="refresh-eta" data-seconds="60">60</span>s
+        </span>
+        {% if repo.available %}
+        <a class="repo-link"
+           href="{{ repo.commit_url }}"
+           title="{{ repo.message }}"
+           rel="noopener noreferrer">
+          GitHub
+          <span class="repo-sha">{{ repo.short_sha }}</span>
+          <time datetime="{{ repo.committed_at }}">{{ repo.committed_at_display }}</time>
+        </a>
+        {% else %}
+        <a class="repo-link" href="{{ repo.url }}" rel="noopener noreferrer">GitHub</a>
+        {% endif %}
+      </div>
       <nav class="foot-nav" aria-label="Quick links">
         <a href="/desk/ops">Runtime status</a>
         <a href="/desk/screener">Screener</a>

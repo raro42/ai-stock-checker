@@ -32,6 +32,7 @@ Thumbs.db
 # Runtime / paper-trading data (do not commit)
 data/
 analysis_reports/
+openbb_backend/build_info.json
 
 # Autoresearch overnight artifacts
 autoresearch/run.log

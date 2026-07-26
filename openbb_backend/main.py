@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.desk import load_desk_snapshot
+from openbb_backend.repo_meta import load_repo_meta
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
 API_KEY = os.getenv("OPENBB_BACKEND_API_KEY", "").strip()
@@ -92,6 +93,7 @@ def _desk_page_context(request: Request, screen: str) -> dict:
     return {
         "snap": load_desk_snapshot(DATA_DIR),
         "nav": _desk_nav(),
+        "repo": load_repo_meta(),
         "page": {
             "screen": screen,
             "title": meta["title"],

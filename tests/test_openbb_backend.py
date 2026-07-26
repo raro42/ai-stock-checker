@@ -161,6 +161,7 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     assert "Desk screens" in resp.text
     assert "refresh-eta" in resp.text
     assert "fonts.googleapis" not in resp.text
+    assert "GitHub" in resp.text
     assert resp.headers.get("content-security-policy", "").find("img-src 'self'") >= 0
 
     for path in ("/desk/screener", "/desk/breadth", "/desk/book", "/desk/ideas", "/desk/ops"):
