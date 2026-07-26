@@ -19,16 +19,26 @@
     return;
   }
 
+  // Paper desk: marks/scans move slowly — default 5 minutes (was 60s).
   var raw = el.getAttribute("data-seconds");
   var total = parseInt(raw, 10);
-  if (!isFinite(total) || total < 5 || total > 3600) {
-    total = 60;
+  if (!isFinite(total) || total < 30 || total > 3600) {
+    total = 300;
   }
 
   var left = total;
 
+  function formatLeft(sec) {
+    if (sec >= 60) {
+      var m = Math.floor(sec / 60);
+      var s = sec % 60;
+      return m + "m " + (s < 10 ? "0" : "") + s + "s";
+    }
+    return sec + "s";
+  }
+
   function paint() {
-    el.textContent = String(left);
+    el.textContent = formatLeft(left);
   }
 
   function reloadSafe() {

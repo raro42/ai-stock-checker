@@ -167,6 +167,7 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     assert 'aria-current="page"' in resp.text
     assert "Desk screens" in resp.text
     assert "refresh-eta" in resp.text
+    assert 'data-seconds="300"' in resp.text
     assert "fonts.googleapis" not in resp.text
     assert "GitHub" in resp.text
     assert resp.headers.get("content-security-policy", "").find("img-src 'self'") >= 0
