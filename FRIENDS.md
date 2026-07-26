@@ -78,4 +78,4 @@ KEEP_SYMBOLS=WMT RESET_CAPITAL=100000 ./scripts/fresh_start_keep.sh
 
 History summaries land in `docs/history/` (committed). Full JSONL backups stay in `data/backup_*`.
 
-As of 2026-07-26: autoresearch looks good on full-sample but **loses to SPY on walk-forward** — we are **not** promoting experiment rules into the live trader yet.
+As of 2026-07-26 morning: fresh book is **WMT** + cash. Autoresearch WF score rose to ~**6.9** vs SPY ~**7.1** — still **not** promoting experiment rules into the live trader until walk-forward clearly beats SPY.

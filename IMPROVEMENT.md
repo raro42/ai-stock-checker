@@ -47,7 +47,8 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Buy-and-hold benchmark script + Docker runner (`scripts/benchmark_buy_hold.py`)
 - [x] Record `autoresearch/benchmark_latest.txt` and note verdict in IMPROVEMENT when run
   - **2026-07-25 verdict:** `underperforms_baselines` — strategy val≈6.86 vs SPY B&H≈8.40 (same bars).
-  - **2026-07-26 WF re-baseline:** strategy WF blend≈0.87 vs SPY WF≈7.06 → **still do not promote**. Full-sample looks strong; walk-forward vs SPY does not. See `docs/history/rebaseline_walk_forward_2026-07-26.md`.
+  - **2026-07-26 WF re-baseline:** strategy WF blend≈0.87 vs SPY WF≈7.06 → do not promote.
+  - **2026-07-26 late morning:** new keep `36f77df` (slower med/long exit) WF blend≈**6.86** vs SPY≈**7.06** — gap nearly closed; **still do not promote**. See `docs/history/autoresearch_progress_2026-07-26.md`.
 - [ ] Promote autoresearch champion into production defaults only after **WF beats SPY** + calm paper month
 
 ### Phase B — Harden
