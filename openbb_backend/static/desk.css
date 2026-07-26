@@ -673,7 +673,7 @@ a:active {
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 0.85rem;
+  gap: 0.65rem 1.1rem;
   max-width: 100%;
 }
 
