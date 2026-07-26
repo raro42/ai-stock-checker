@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Poll curated GitHub repos for new commits/releases.
-# Default every 6h. Emits AGENT_LOOP_TICK_github_watch when updates exist.
+# Poll curated GitHub repos only when their cadence says they are due.
+# Sleep duration comes from data/github_watch/next_sleep_sec (adaptive).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-INTERVAL="${GITHUB_WATCH_INTERVAL_SEC:-21600}"
 cd "$ROOT"
 mkdir -p "$ROOT/data/github_watch"
-echo "github idea watch loop every ${INTERVAL}s"
+echo "github idea watch loop (cadence-aware)"
 
 run_once() {
+  local force_flag="${1:-}"
   echo "=== $(date -u +%Y-%m-%dT%H:%MZ) github_watch ==="
-  if ! python3 "$ROOT/scripts/github_idea_watch.py"; then
+  if ! python3 "$ROOT/scripts/github_idea_watch.py" ${force_flag}; then
     echo "WARN github_idea_watch failed" >&2
+    echo 900 >"$ROOT/data/github_watch/next_sleep_sec"
     return 0
   fi
   local latest="$ROOT/data/github_watch/latest.json"
@@ -24,8 +25,24 @@ run_once() {
   fi
 }
 
-run_once || true
+sleep_sec() {
+  local f="$ROOT/data/github_watch/next_sleep_sec"
+  if [[ -f "$f" ]]; then
+    local n
+    n="$(tr -cd '0-9' <"$f" | head -c 12)"
+    if [[ -n "$n" && "$n" -ge 60 ]]; then
+      echo "$n"
+      return
+    fi
+  fi
+  echo "${GITHUB_WATCH_FALLBACK_SLEEP_SEC:-3600}"
+}
+
+# First pass forces a full cadence calibration.
+run_once --force || true
 while true; do
-  sleep "$INTERVAL"
+  s="$(sleep_sec)"
+  echo "sleep ${s}s until next due repo"
+  sleep "$s"
   run_once || true
 done

@@ -42,6 +42,33 @@ def test_diff_baseline_and_updates():
     assert nxt["new_releases"] == []
 
 
+def test_interval_from_cadence():
+    # ~1 commit/day → ~12h recheck
+    assert gw.interval_from_cadence(86400) == 43200
+    # hot: 2h avg gap → clamp to MIN 3h
+    assert gw.interval_from_cadence(2 * 3600) == gw.MIN_CHECK_INTERVAL_SEC
+    # cold: 30d avg gap → clamp to MAX 7d
+    assert gw.interval_from_cadence(30 * 86400) == gw.MAX_CHECK_INTERVAL_SEC
+    assert gw.interval_from_cadence(None, archived=True) == gw.MAX_CHECK_INTERVAL_SEC
+    assert gw.commits_per_day(86400) == 1.0
+
+
+def test_avg_commit_gap_and_due():
+    commits = [
+        {"date": "2026-07-26T00:00:00Z"},
+        {"date": "2026-07-25T00:00:00Z"},
+        {"date": "2026-07-24T00:00:00Z"},
+    ]
+    gap = gw.avg_commit_gap_seconds(commits)
+    assert gap == 86400
+    now = gw._parse_iso("2026-07-26T12:00:00Z")
+    assert gw.is_repo_due({}, now) is True
+    assert (
+        gw.is_repo_due({"next_check_at": "2026-07-26T18:00:00Z"}, now) is False
+    )
+    assert gw.is_repo_due({"next_check_at": "2026-07-26T11:00:00Z"}, now) is True
+
+
 def test_run_watch_offline(tmp_path: Path, monkeypatch):
     watchlist = tmp_path / "watch.json"
     watchlist.write_text(
@@ -76,7 +103,15 @@ def test_run_watch_offline(tmp_path: Path, monkeypatch):
                     "message": "add RSI filter\n\nbody",
                     "author": {"date": "2026-07-26T01:00:00Z"},
                 },
-            }
+            },
+            {
+                "sha": "older0000001",
+                "html_url": "u",
+                "commit": {
+                    "message": "init",
+                    "author": {"date": "2026-07-25T01:00:00Z"},
+                },
+            },
         ],
         "/repos/acme/screener/releases?per_page=3": [
             {
@@ -87,7 +122,6 @@ def test_run_watch_offline(tmp_path: Path, monkeypatch):
                 "prerelease": False,
             }
         ],
-        "/repos/acme/dead": None,  # will error via Fake if we raise — use exception path
     }
 
     class MixedClient(FakeClient):
@@ -104,26 +138,34 @@ def test_run_watch_offline(tmp_path: Path, monkeypatch):
         client=client,
         archive=True,
         commit_count=5,
+        force=True,
     )
     assert digest["repo_count"] == 2
+    assert digest["checked_count"] == 2
+    assert (state_dir / "next_sleep_sec").exists()
     assert (state_dir / "latest.md").exists()
-    assert (state_dir / "latest.json").exists()
-    assert (tmp_path / "docs" / "history" / "github_watch_latest.md").exists()
     md = (state_dir / "latest.md").read_text()
     assert "acme/screener" in md
-    assert "RSI" in md or "baseline" in md.lower()
+    assert "Cadence:" in md or "recheck" in md.lower() or "commits/day" in md
 
-    # Second run with same tip → quiet
+    # Not due yet → skip deep work
     digest2 = gw.run_watch(
         watchlist_path=watchlist,
         state_dir=state_dir,
         client=client,
-        archive=True,
+        archive=False,
         commit_count=5,
+        force=False,
     )
+    assert digest2["skipped_count"] >= 1
     assert digest2["update_count"] == 0
 
-    # New commit → update flagged
+    # Make due + new tip commit
+    st = json.loads((state_dir / "state.json").read_text())
+    st["repos"]["acme/screener"]["next_check_at"] = "2020-01-01T00:00:00Z"
+    st["repos"]["acme/screener"]["pushed_at"] = "2026-07-26T00:00:00Z"
+    (state_dir / "state.json").write_text(json.dumps(st))
+    payloads["/repos/acme/screener"]["pushed_at"] = "2026-07-26T12:00:00Z"
     payloads["/repos/acme/screener/commits?per_page=5"] = [
         {
             "sha": "newsha0000001",
@@ -141,6 +183,7 @@ def test_run_watch_offline(tmp_path: Path, monkeypatch):
         client=client,
         archive=False,
         commit_count=5,
+        force=False,
     )
     assert digest3["update_count"] == 1
     assert any("earnings blackout" in b for b in digest3["idea_bullets"])

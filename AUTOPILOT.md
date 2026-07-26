@@ -27,7 +27,7 @@ While the human sleeps:
 | Loop | Owner | Cadence | Purpose |
 |------|-------|---------|---------|
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
-| GitHub idea watch | `./scripts/run_github_watch_loop.sh` | ~6h | Commits/releases on curated screener/agent repos → `AGENT_LOOP_TICK_github_watch` |
+| GitHub idea watch | `./scripts/run_github_watch_loop.sh` | cadence-aware | Commits/releases on curated repos when due → `AGENT_LOOP_TICK_github_watch` |
 | Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
 | Product improve | `AGENT_LOOP_TICK_improve` | ~2h | Code/docs from IMPROVEMENT.md |
 | Clean-code agent | `./scripts/run_clean_code_agent.sh` | on improve ticks / manual | Ruff + move ad-hoc slop; gemma4 advisory review |

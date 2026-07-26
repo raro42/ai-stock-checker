@@ -6,13 +6,25 @@ Poll curated external repos for **commits and releases**, then surface transfera
 
 Edit [`config/github_watchlist.json`](config/github_watchlist.json). Current set includes FinRobot, finance-agent-v2, value-investing / portfolio AI agents, and several stock screeners.
 
+## Cadence
+
+Re-checks are **per-repo**, derived from recent commit spacing:
+
+- interval ≈ **½ × average gap** between the last few commits
+- clamped to **3h … 7d** (archived → 7d)
+- if `pushed_at` is unchanged when a check is due, skip the commits/releases API
+- the host loop sleeps until the soonest `next_check_at` (see `data/github_watch/next_sleep_sec`)
+
+Force a full pass: `./scripts/run_github_watch_once.sh --force`
+
 ## Run
 
 ```bash
 # one-shot (needs network; uses `gh api` if logged in, else HTTPS + GITHUB_TOKEN)
 ./scripts/run_github_watch_once.sh
+./scripts/run_github_watch_once.sh --force   # ignore schedule
 
-# every 6h (override with GITHUB_WATCH_INTERVAL_SEC)
+# adaptive loop (sleeps per cadence, not a fixed 6h)
 ./scripts/run_github_watch_loop.sh
 ```
 
