@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Disabling relative strength requirement to simplify entry and improve robustness across varied market regimes.
+# idea: Enforcing a tight neutral RSI band (35-65) for entries to prevent overbought/oversold hyper-churn.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
@@ -35,8 +35,8 @@ RS_LOOKBACK = 30
 
 # --- IMPROVEMENT: RSI Filters ---
 RSI_PERIOD = 14
-MAX_OVERBOUGHT = 70.0 # Don't buy if already too high
-MIN_OVERSOLD = 30.0   # Safety check (optional, but good practice)
+MIN_ENTRY_RSI = 35.0   # New constraint: Minimum acceptable RSI (avoiding oversold entries)
+MAX_ENTRY_RSI = 65.0   # New constraint: Maximum acceptable RSI (avoiding overbought entries)
 
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
@@ -117,7 +117,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Improved exit logic using medium SMA momentum confirmation and RSI filter."""
+       Improved entry filter using neutral RSI band (35-65)."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -178,7 +178,8 @@ def generate_signals(
         
         # 3. RSI Filter Check
         rsi_val = _rsi(closes, RSI_PERIOD)
-        rsi_ok = rsi_val < MAX_OVERBOUGHT # Only buy if not overbought
+        # NEW: Ensure RSI is within the neutral band [MIN_ENTRY_RSI, MAX_ENTRY_RSI]
+        rsi_ok = (rsi_val >= MIN_ENTRY_RSI and rsi_val <= MAX_ENTRY_RSI)
 
         # 4. Market Context Checks
         market_ok = spy_ok or symbol == "SPY"
@@ -195,7 +196,7 @@ def generate_signals(
             and calm
             and market_ok
             and rs_ok
-            and rsi_ok # RSI filter
+            and rsi_ok # RSI filter must be within the neutral band
             and not in_pos
         ):
             signals[symbol] = "BUY"
