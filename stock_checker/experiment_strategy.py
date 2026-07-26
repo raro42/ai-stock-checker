@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Enforcing a tight neutral RSI band (35-65) for entries to prevent overbought/oversold hyper-churn.
+# idea: Changing exit confirmation from Medium SMA momentum decay to requiring Medium SMA drop below Long SMA (slower/more structural exit).
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
@@ -117,7 +117,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Improved entry filter using neutral RSI band (35-65)."""
+       Improved entry filter using neutral RSI band (35-65). Exit uses Long SMA confirmation."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -128,7 +128,7 @@ def generate_signals(
         VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0,
         VOLATILITY_LOOKBACK + 1,
         RSI_PERIOD + 1, # Need enough data for RSI calculation
-        MED_SMA + 1, # Need at least one previous bar for exit check
+        LONG_SMA + 1, # Need at least one previous bar for exit check (Long SMA)
     )
 
     # --- SPY Filters (Market Context) ---
@@ -161,8 +161,8 @@ def generate_signals(
         sma_m = _sma(closes, MED_SMA)
         sma_l = _sma(closes, LONG_SMA)
         
-        # Previous Medium SMA (Used for exit confirmation)
-        sma_m_prev = _sma(closes, MED_SMA, exclude_last=True)
+        # Previous Medium SMA (Used for exit confirmation - NOTE: This variable is effectively replaced by the new logic below)
+        # sma_m_prev = _sma(closes, MED_SMA, exclude_last=True)
 
         # 1. Volume Confirmation Check
         vol_ok = True
@@ -178,7 +178,7 @@ def generate_signals(
         
         # 3. RSI Filter Check
         rsi_val = _rsi(closes, RSI_PERIOD)
-        # NEW: Ensure RSI is within the neutral band [MIN_ENTRY_RSI, MAX_ENTRY_RSI]
+        # Ensure RSI is within the neutral band [MIN_ENTRY_RSI, MAX_ENTRY_RSI]
         rsi_ok = (rsi_val >= MIN_ENTRY_RSI and rsi_val <= MAX_ENTRY_RSI)
 
         # 4. Market Context Checks
@@ -202,8 +202,9 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if short crosses below medium AND the medium SMA is losing momentum 
-        elif sma_s < sma_m and in_pos and sma_m < sma_m_prev:
+        # Exit if short crosses below medium AND Medium SMA has dropped below Long SMA 
+        # (indicating a structural, slower trend reversal).
+        elif sma_s < sma_m and in_pos and sma_m < sma_l:
             signals[symbol] = "SELL"
 
     return signals
