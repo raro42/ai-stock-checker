@@ -1,0 +1,53 @@
+{
+  "description": "External GitHub repos to watch for transferable ideas (not to clone wholesale).",
+  "repos": [
+    {
+      "repo": "xang1234/stock-screener",
+      "why": "Stock screener patterns and signals UX"
+    },
+    {
+      "repo": "MonsterDeveloper/simple-stock-screener",
+      "why": "Minimal screener — steal simplicity"
+    },
+    {
+      "repo": "TheAIQuant/StockScreener_Streamlit",
+      "why": "Streamlit screener UI ideas for paper desk"
+    },
+    {
+      "repo": "ai4finance-foundation/finrobot",
+      "why": "FinRobot multi-agent finance research"
+    },
+    {
+      "repo": "nicdun/value-investing-ai-agent",
+      "why": "Value-investing agent prompts / workflow"
+    },
+    {
+      "repo": "shubham5027/Stock-Portfolio-AI",
+      "why": "Portfolio AI assistant features"
+    },
+    {
+      "repo": "d1l1x/stock-screener",
+      "why": "Screener implementation variants"
+    },
+    {
+      "repo": "ba1int/stock_screener",
+      "why": "Screener implementation variants"
+    },
+    {
+      "repo": "simonchalder/Stock-Screener",
+      "why": "Screener implementation variants"
+    },
+    {
+      "repo": "m-turnergane/stock-screener",
+      "why": "Screener implementation variants"
+    },
+    {
+      "repo": "RyanJHamby/stock-screener",
+      "why": "Screener implementation variants"
+    },
+    {
+      "repo": "vals-ai/finance-agent-v2",
+      "why": "Finance agent v2 architecture / tools"
+    }
+  ]
+}

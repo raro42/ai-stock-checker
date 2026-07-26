@@ -140,6 +140,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["stock_breakouts"][0]["symbol"] == "AAPL"
     assert "needs_agent=0" in snap["watchdog"]
     assert snap["mark_source"] in {"scan", "live+scan"}
+    assert snap["github_ideas"] == []
+    assert snap["github_watch_updates"] == 0
 
 
 def test_desk_html_and_api(tmp_path: Path, monkeypatch):

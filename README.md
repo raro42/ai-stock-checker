@@ -147,6 +147,7 @@ AGENTS.md                 # coding + product rules for agents
 - [GIT.md](GIT.md) — commit & push ASAP rules for humans and agents
 - [MODELS.md](MODELS.md) — which Ollama model to use for trading vs autoresearch
 - [AUTOPILOT.md](AUTOPILOT.md) — continuous improvement without waiting for prompts
+- [GITHUB_WATCH.md](GITHUB_WATCH.md) — watch external screener/agent repos for ideas
 - `./scripts/run_clean_code_agent.sh` — clean-code agent (slop review / safe fixes)
 - [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) — weekly documentation loop
 - [autoresearch/README.md](autoresearch/README.md) — strategy search overnight (Ollama worker or Cursor loop)

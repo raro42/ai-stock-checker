@@ -64,7 +64,9 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
 - [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold)
 - [x] Re-baseline under walk-forward + WF-aware buy-and-hold benchmark
+- [x] Curated GitHub idea watch (`config/github_watchlist.json`, `scripts/github_idea_watch.py`, 6h loop) — FinRobot, finance-agent-v2, value-investing agent, portfolio AI, stock screeners
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
+- [ ] Triage each `AGENT_LOOP_TICK_github_watch` digest: at most **one** transferable idea → checkbox here before coding
 
 ### Phase D — Share
 - [ ] Workspace MCP companion token in Cursor MCP config (user-local — needs human token)

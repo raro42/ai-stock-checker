@@ -286,6 +286,19 @@ body {
   font-style: italic;
 }
 
+.ideas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ideas li {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .system .sysline {
   margin: 0 0 0.4rem;
   color: var(--muted);

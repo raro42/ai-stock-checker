@@ -46,6 +46,21 @@ else
   echo "WARN watchdog loop not running (optional overnight)"
 fi
 
+if pgrep -f 'run_github_watch_loop.sh' >/dev/null 2>&1; then
+  ok "github idea watch loop"
+else
+  echo "WARN github idea watch loop not running (optional — ./scripts/run_github_watch_loop.sh)"
+fi
+
+if [[ -f data/github_watch/latest.json ]]; then
+  python3 - <<'PY'
+import json
+from pathlib import Path
+d = json.loads(Path("data/github_watch/latest.json").read_text())
+print(f"OK  github_watch repos={d.get('repo_count')} updates={d.get('update_count')} at={d.get('generated_at')}")
+PY
+fi
+
 if [[ -f data/portfolio.json ]]; then
   python3 - <<'PY'
 import json

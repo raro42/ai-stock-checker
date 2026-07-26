@@ -18,7 +18,7 @@ While the human sleeps:
 - Keep **Ollama autoresearch** looping (strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`).
 - Keep **product improve** looping (`AGENT_LOOP_TICK_improve`).
 - Keep paper stack up: `docker compose up -d intelligent-trader openbb-backend`.
-- Keep **watchdog** looping (`./scripts/run_watchdog_loop.sh`) so dead processes come back without a human.
+- Keep **GitHub idea watch** looping (`./scripts/run_github_watch_loop.sh`) so external screener/agent repos surface transferable ideas.
 - If git lock / loop crash / container unhealthy → fix and restart; commit+push the fix.
 - Morning should show new commits on GitHub and progress in `IMPROVEMENT.md` / `results.tsv`.
 
@@ -27,6 +27,7 @@ While the human sleeps:
 | Loop | Owner | Cadence | Purpose |
 |------|-------|---------|---------|
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
+| GitHub idea watch | `./scripts/run_github_watch_loop.sh` | ~6h | Commits/releases on curated screener/agent repos → `AGENT_LOOP_TICK_github_watch` |
 | Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
 | Product improve | `AGENT_LOOP_TICK_improve` | ~2h | Code/docs from IMPROVEMENT.md |
 | Clean-code agent | `./scripts/run_clean_code_agent.sh` | on improve ticks / manual | Ruff + move ad-hoc slop; gemma4 advisory review |
@@ -55,7 +56,8 @@ Study (do not wholesale clone) and extract **one** transferable idea at a time, 
 
 1. **TradingAgents** — multi-role debate prompts for Ollama `validate` mode
 2. **freqtrade / vectorbt** — walk-forward / hyperopt patterns for harness
-3. **FinRL / OpenTrade** — only if Phase A–B are solid; RL is optional later
+3. **Curated GitHub watch** — screeners + FinRobot / finance agents (`GITHUB_WATCH.md`, `config/github_watchlist.json`)
+4. **FinRL / OpenTrade** — only if Phase A–B are solid; RL is optional later
 
 ### Phase D — Share
 

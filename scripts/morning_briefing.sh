@@ -59,6 +59,29 @@ SINCE="$(TZ=Europe/Berlin date -v-18H '+%Y-%m-%d %H:%M' 2>/dev/null || TZ=Europe
     echo '```'
   fi
   echo
+  echo "## External GitHub idea watch"
+  echo
+  if [[ -f data/github_watch/latest.md ]]; then
+    # Keep briefing short — highlights only
+    python3 - <<'PY'
+from pathlib import Path
+p = Path("data/github_watch/latest.json")
+if not p.exists():
+    print("_No github watch digest._")
+else:
+    import json
+    d = json.loads(p.read_text())
+    print(f"_Generated {d.get('generated_at')} — {d.get('update_count', 0)} repos with new activity._")
+    print()
+    for b in (d.get("idea_bullets") or [])[:12]:
+        print(f"- {b}")
+    if not d.get("idea_bullets"):
+        print("- Quiet since last check (see docs/history/github_watch_latest.md)")
+PY
+  else
+    echo "_Run \`./scripts/run_github_watch_once.sh\` to seed the watchlist digest._"
+  fi
+  echo
   echo "## Suggested focus today"
   echo
   echo "- Read IMPROVEMENT.md Next items"

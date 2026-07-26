@@ -286,6 +286,11 @@ def load_desk_snapshot(
     )
     weekend = datetime.now(timezone.utc).weekday() >= 5
 
+    gh_watch = _load_json(data_dir / "github_watch" / "latest.json", {})
+    gh_ideas = list(gh_watch.get("idea_bullets") or [])[:8]
+    gh_updates = int(gh_watch.get("update_count") or 0)
+    gh_at = gh_watch.get("generated_at") or ""
+
     return {
         "brand": "AI Stock Checker",
         "tagline": "Paper desk — honest marks, low churn.",
@@ -330,4 +335,7 @@ def load_desk_snapshot(
         "last_full_cycle": last_full or "",
         "watchdog": watchdog,
         "has_scan": bool(opportunities),
+        "github_watch_at": gh_at,
+        "github_watch_updates": gh_updates,
+        "github_ideas": gh_ideas,
     }

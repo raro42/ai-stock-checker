@@ -151,6 +151,23 @@
       {% endif %}
     </section>
 
+    <section class="block">
+      <h2>External idea watch</h2>
+      {% if snap.github_ideas %}
+      <p class="sub">
+        {{ snap.github_watch_at or "—" }}
+        · {{ snap.github_watch_updates }} repo(s) with new activity since last check
+      </p>
+      <ul class="ideas">
+        {% for idea in snap.github_ideas %}
+        <li>{{ idea }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty">No GitHub watch digest yet — run <code>./scripts/run_github_watch_once.sh</code>.</p>
+      {% endif %}
+    </section>
+
     <section class="block system">
       <h2>System</h2>
       <p class="sysline">Portfolio updated {{ snap.portfolio_updated or "—" }} · commission {{ "%.2f"|format(snap.commission_rate_pct) }}%/side</p>
