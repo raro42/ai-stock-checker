@@ -34,6 +34,7 @@ services:
       - AI_MODEL=${AI_MODEL:-gemma4:latest}
       - AI_MULTI_ROLE=${AI_MULTI_ROLE:-1}
       - AI_VERBOSE=${AI_VERBOSE:-0}
+      - REGIME_GATE=${REGIME_GATE:-1}
     restart: unless-stopped
     # Anti-churn defaults: scan every 15m, trade every 5m, hold ≥4h
     command: >
@@ -66,6 +67,7 @@ services:
       - OPENBB_BACKEND_API_KEY=${OPENBB_BACKEND_API_KEY:-}
       - DESK_GIT_DIR=/git
       - DESK_REPO_URL=https://github.com/raro42/ai-stock-checker
+      - REGIME_GATE=${REGIME_GATE:-1}
     restart: unless-stopped
     command: >
       python3 -m uvicorn openbb_backend.main:app

@@ -75,6 +75,15 @@ def _trader_runtime_view() -> dict[str, Any]:
         "no",
         "off",
     }
+    regime_on = os.getenv("REGIME_GATE", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    regime_snap = _load_json(Path(os.getenv("DATA_DIR", "/data")) / "market_regime.json", {})
+    if not isinstance(regime_snap, dict):
+        regime_snap = {}
 
     return {
         "trader_version": __version__,
@@ -89,6 +98,10 @@ def _trader_runtime_view() -> dict[str, Any]:
         "scan_interval_min": 15,
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,
+        "regime_gate": regime_on,
+        "stock_regime": str(regime_snap.get("stock_regime") or "—"),
+        "crypto_regime": str(regime_snap.get("crypto_regime") or "—"),
+        "regime_updated": str(regime_snap.get("updated_at") or ""),
     }
 
 
@@ -518,6 +531,11 @@ def load_desk_snapshot(
             "title": "Screener counts strip",
             "from": "MonsterDeveloper/simple-stock-screener (simplicity)",
             "note": "One glance: recommendation / crypto / breakout counts + session hint.",
+        },
+        {
+            "title": "SMA market-regime gate",
+            "from": "RyanJHamby/stock-screener (regime filtering)",
+            "note": "Soft block new buys when SPY is below SMA200 or BTC below SMA50; holds untouched.",
         },
     ]
 

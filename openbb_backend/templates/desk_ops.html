@@ -50,6 +50,14 @@
       <dt>Desk live marks</dt>
       <dd>{{ "on" if snap.runtime.desk_live_marks else "off" }}</dd>
     </div>
+    <div>
+      <dt>Regime gate</dt>
+      <dd>{{ "on" if snap.runtime.regime_gate else "off" }}</dd>
+    </div>
+    <div>
+      <dt>SPY / BTC regime</dt>
+      <dd>{{ snap.runtime.stock_regime }} / {{ snap.runtime.crypto_regime }}{% if snap.runtime.regime_updated %} · {{ snap.runtime.regime_updated }}{% endif %}</dd>
+    </div>
   </dl>
 </section>
 

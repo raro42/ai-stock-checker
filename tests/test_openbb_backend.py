@@ -194,6 +194,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["runtime"]["max_positions"] == 8
     assert "trader_version" in snap["runtime"]
     assert "llm_key_set" in snap["runtime"]
+    assert "regime_gate" in snap["runtime"]
+    assert "stock_regime" in snap["runtime"]
     # Never leak secrets into the desk snapshot
     assert "OPENAI_API_KEY" not in str(snap["runtime"])
     assert "api_key" not in str(snap["runtime"]).lower()

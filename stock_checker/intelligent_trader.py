@@ -20,6 +20,21 @@ from .persistence import DataPersistence
 from .symbol_filters import is_tradeable_symbol
 from .earnings_guard import is_in_earnings_blackout
 from .fetcher import is_transient_network_error
+from .market_regime import (
+    CRYPTO_BENCHMARK,
+    CRYPTO_SMA_PERIOD,
+    REGIME_UNKNOWN,
+    STOCK_BENCHMARK,
+    STOCK_SMA_PERIOD,
+    classify_close_vs_sma,
+    closes_from_binance_klines,
+    closes_from_yfinance_hist,
+    new_entry_allowed,
+    regime_gate_enabled,
+    save_regime_snapshot,
+    simple_sma,
+    snapshot_dict,
+)
 from . import __version__
 
 
@@ -63,6 +78,9 @@ class IntelligentTrader:
 
         self.last_scan_time = 0
         self.current_opportunities = []
+        self.stock_regime = REGIME_UNKNOWN
+        self.crypto_regime = REGIME_UNKNOWN
+        self._regime_enabled = regime_gate_enabled()
 
         # Load position entry times from disk (survives restarts)
         self.position_entry_times = self.persistence.load_entry_times()
@@ -77,6 +95,8 @@ class IntelligentTrader:
         print(f"   Trade interval: {trade_interval}s")
         print(f"   Rebalance threshold: {rebalance_threshold*100}%")
         print(f"   Min hold time: {min_hold_time}s")
+        print(f"   Regime gate: {'on' if self._regime_enabled else 'off'} "
+              f"(SPY SMA{STOCK_SMA_PERIOD} / BTC SMA{CRYPTO_SMA_PERIOD})")
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
             print(f"   AI Model: {ai_model}")
@@ -88,6 +108,83 @@ class IntelligentTrader:
         """Check if it's time for a new market scan."""
         return (time.time() - self.last_scan_time) >= self.scan_interval
 
+    def refresh_market_regime(self) -> None:
+        """
+        Update SPY / BTC SMA regimes and persist for Ops.
+
+        Fail-open on fetch errors (unknown → allow new entries).
+        """
+        self._regime_enabled = regime_gate_enabled()
+        stock_regime = REGIME_UNKNOWN
+        crypto_regime = REGIME_UNKNOWN
+        stock_sma = stock_close = crypto_sma = crypto_close = None
+        detail_parts: List[str] = []
+
+        if not self._regime_enabled:
+            self.stock_regime = REGIME_UNKNOWN
+            self.crypto_regime = REGIME_UNKNOWN
+            save_regime_snapshot(
+                self.persistence.data_dir,
+                snapshot_dict(
+                    stock_regime=stock_regime,
+                    crypto_regime=crypto_regime,
+                    enabled=False,
+                    detail="REGIME_GATE=0",
+                ),
+            )
+            print("   📉 Regime gate off (REGIME_GATE=0)")
+            return
+
+        try:
+            from .fetcher import StockFetcher
+
+            hist = StockFetcher().get_historical_data(
+                STOCK_BENCHMARK, period="1y", interval="1d"
+            )
+            closes = closes_from_yfinance_hist(hist)
+            stock_regime = classify_close_vs_sma(closes, STOCK_SMA_PERIOD)
+            stock_sma = simple_sma(closes, STOCK_SMA_PERIOD)
+            stock_close = float(closes[-1]) if closes else None
+            detail_parts.append(f"SPY={stock_regime}")
+        except Exception as e:
+            detail_parts.append(f"SPY fetch failed: {str(e)[:80]}")
+            if not is_transient_network_error(e):
+                print(f"   ⚠️ Regime SPY: {str(e)[:120]}")
+
+        try:
+            from .binance_fetcher import BinanceFetcher
+
+            klines = BinanceFetcher().get_klines(
+                CRYPTO_BENCHMARK, interval="1d", limit=CRYPTO_SMA_PERIOD + 5
+            )
+            closes = closes_from_binance_klines(klines)
+            crypto_regime = classify_close_vs_sma(closes, CRYPTO_SMA_PERIOD)
+            crypto_sma = simple_sma(closes, CRYPTO_SMA_PERIOD)
+            crypto_close = float(closes[-1]) if closes else None
+            detail_parts.append(f"BTC={crypto_regime}")
+        except Exception as e:
+            detail_parts.append(f"BTC fetch failed: {str(e)[:80]}")
+            if not is_transient_network_error(e):
+                print(f"   ⚠️ Regime BTC: {str(e)[:120]}")
+
+        self.stock_regime = stock_regime
+        self.crypto_regime = crypto_regime
+        snap = snapshot_dict(
+            stock_regime=stock_regime,
+            crypto_regime=crypto_regime,
+            stock_sma=stock_sma,
+            crypto_sma=crypto_sma,
+            stock_close=stock_close,
+            crypto_close=crypto_close,
+            enabled=True,
+            detail="; ".join(detail_parts),
+        )
+        save_regime_snapshot(self.persistence.data_dir, snap)
+        print(
+            f"   📉 Regime: SPY {stock_regime} (SMA{STOCK_SMA_PERIOD}) · "
+            f"BTC {crypto_regime} (SMA{CRYPTO_SMA_PERIOD})"
+        )
+
     def scan_markets(self) -> List[Dict]:
         """
         Run comprehensive market scan and return ranked opportunities.
@@ -95,6 +192,8 @@ class IntelligentTrader:
         print(f"\n{'='*70}")
         print(f"🔍  SCANNING MARKETS - {datetime.now().strftime('%H:%M:%S')}")
         print(f"{'='*70}")
+
+        self.refresh_market_regime()
 
         results = self.scanner.identify_best_opportunities()
 
@@ -524,6 +623,16 @@ class IntelligentTrader:
                     print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
                     continue
 
+                allowed, regime_why = new_entry_allowed(
+                    is_crypto=is_crypto,
+                    stock_regime=self.stock_regime,
+                    crypto_regime=self.crypto_regime,
+                    enabled=self._regime_enabled,
+                )
+                if not allowed:
+                    print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
+                    continue
+
                 if is_crypto:
                     binance_symbol = binance.convert_symbol(symbol)
                     binance_data = binance.get_crypto_price(binance_symbol)
@@ -718,6 +827,16 @@ class IntelligentTrader:
                     # Skip stock trades if market is closed
                     if not is_crypto and market_closed:
                         print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
+                        continue
+
+                    allowed, regime_why = new_entry_allowed(
+                        is_crypto=is_crypto,
+                        stock_regime=self.stock_regime,
+                        crypto_regime=self.crypto_regime,
+                        enabled=self._regime_enabled,
+                    )
+                    if not allowed:
+                        print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
                         continue
                     
                     if is_crypto:
