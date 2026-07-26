@@ -76,7 +76,8 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
 - [x] Triage GitHub watch → since-buy position charts (one idea)
 - [x] Hourly improve loop (`scripts/run_improve_loop.sh`, 1h) — ≥1 idea/tick + GitHub review
-- [ ] Optional later: full-universe breadth advance/decline series if we persist daily scan stats
+- [x] Persist daily scan-pulse rows (`data/scan_breadth_daily.json`) + Breadth “Recent days” (first slice toward multi-day A/D)
+- [ ] Optional later: full-universe breadth advance/decline series (still needs wider universe stats)
 
 ### Phase D — Share
 - [ ] Workspace MCP companion token in Cursor MCP config (user-local — needs human token)

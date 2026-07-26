@@ -92,6 +92,39 @@ def _trader_runtime_view() -> dict[str, Any]:
     }
 
 
+def _upsert_scan_breadth_daily(
+    data_dir: Path, pulse: dict[str, Any], scan_time: str
+) -> list[dict[str, Any]]:
+    """Persist one UTC-day scan-pulse row (upsert). Keeps last 30 days."""
+    path = data_dir / "scan_breadth_daily.json"
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    rows_raw = _load_json(path, [])
+    rows: list[dict[str, Any]] = [
+        r for r in rows_raw if isinstance(r, dict) and r.get("day")
+    ] if isinstance(rows_raw, list) else []
+    entry = {
+        "day": day,
+        "scan_time": scan_time or "",
+        "crypto_n": int(pulse.get("crypto_n") or 0),
+        "crypto_up": int(pulse.get("crypto_up") or 0),
+        "crypto_down": int(pulse.get("crypto_down") or 0),
+        "crypto_avg_chg": float(pulse.get("crypto_avg_chg") or 0.0),
+        "crypto_big_movers": int(pulse.get("crypto_big_movers") or 0),
+        "stock_breakouts_n": int(pulse.get("stock_breakouts_n") or 0),
+        "stock_within_5pct_high": int(pulse.get("stock_within_5pct_high") or 0),
+    }
+    out = [r for r in rows if str(r.get("day")) != day]
+    out.append(entry)
+    out.sort(key=lambda r: str(r.get("day") or ""))
+    out = out[-30:]
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out, indent=2) + "\n")
+    except OSError:
+        return rows[-14:]
+    return out[-14:]
+
+
 def _fmt_hold(seconds: float) -> str:
     if seconds < 0:
         return "—"
@@ -317,6 +350,19 @@ def load_desk_snapshot(
         "stock_within_5pct_high": stock_near,
         "note": "Scan-list pulse (leaders/breakouts), not full-universe advance/decline.",
     }
+    scan_time = opportunities.get("scan_time") or ""
+    # First slice toward multi-day A/D: upsert today's pulse when a scan exists.
+    if crypto_raw_all or stock_raw_all or scan_time:
+        scan_breadth_history = _upsert_scan_breadth_daily(
+            data_dir, scan_breadth, str(scan_time)
+        )
+    else:
+        hist_raw = _load_json(data_dir / "scan_breadth_daily.json", [])
+        scan_breadth_history = (
+            [r for r in hist_raw if isinstance(r, dict)][-14:]
+            if isinstance(hist_raw, list)
+            else []
+        )
 
     name_symbols: list[str] = []
     for sym in list(holdings.keys()):
@@ -463,6 +509,11 @@ def load_desk_snapshot(
             "from": "xang1234 screener page map",
             "note": "Overview / Charts / Screener / Breadth / Book / Ideas / Ops.",
         },
+        {
+            "title": "Daily scan-pulse history",
+            "from": "xang1234/StockBee-style breadth over time",
+            "note": "Breadth keeps UTC daily A/D snapshots from our scan lists.",
+        },
     ]
 
     return {
@@ -505,6 +556,7 @@ def load_desk_snapshot(
         "crypto_leaders": crypto_leaders,
         "stock_breakouts": stock_breakouts,
         "scan_breadth": scan_breadth,
+        "scan_breadth_history": scan_breadth_history,
         "scan_time": opportunities.get("scan_time") or "",
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,

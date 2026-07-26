@@ -178,6 +178,9 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert abs(sb["crypto_avg_chg"] - ((2.5 - 5.0 + 0.0) / 3)) < 1e-9
     assert sb["stock_breakouts_n"] == 2
     assert sb["stock_within_5pct_high"] == 1
+    assert snap["scan_breadth_history"]
+    assert snap["scan_breadth_history"][-1]["crypto_up"] == 1
+    assert (tmp_path / "scan_breadth_daily.json").exists()
     assert any(h["symbol"] == "BTC-USD" and h["name"] == "Bitcoin" for h in snap["holdings"])
     assert "needs_agent=0" in snap["watchdog"]
     assert snap["mark_source"] in {"scan", "live+scan"}
@@ -226,6 +229,7 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     breadth = client.get("/desk/breadth")
     assert "Scan pulse" in breadth.text
     assert "Crypto A/D" in breadth.text
+    assert "Recent days" in breadth.text
     book = client.get("/desk/book")
     assert "hold-spark" in book.text
     assert "average buy" in book.text.lower() or "avg cost" in book.text.lower()

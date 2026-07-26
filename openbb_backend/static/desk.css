@@ -569,6 +569,33 @@ a:active {
   align-items: start;
 }
 
+.breadth-days {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.breadth-days li {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.65rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  align-items: baseline;
+}
+
+.breadth-days .sym {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.breadth-days .meta {
+  font-family: var(--font-data);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .trades li {
   display: grid;
   grid-template-columns: 9.5rem 3.2rem minmax(7.5rem, 11rem) 1fr auto;

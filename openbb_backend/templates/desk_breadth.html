@@ -53,6 +53,18 @@
       <span class="weight">of {{ pulse.stock_breakouts_n|default(0) }} breakouts ≤5% from high</span>
     </div>
   </section>
+  {% if snap.scan_breadth_history %}
+  <h3 class="subhead">Recent days</h3>
+  <p class="sub">UTC daily snapshots of the same scan-list pulse (builds as the desk loads with a scan).</p>
+  <ul class="breadth-days" aria-label="Scan pulse history">
+    {% for d in snap.scan_breadth_history|reverse %}
+    <li>
+      <span class="sym">{{ d.day }}</span>
+      <span class="meta">A/D {{ d.crypto_up }}/{{ d.crypto_down }} · avg {{ "%+.1f"|format(d.crypto_avg_chg) }}% · ±4% {{ d.crypto_big_movers }} · near-high {{ d.stock_within_5pct_high }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
 </section>
 
 <section class="block" aria-labelledby="sess-h">
