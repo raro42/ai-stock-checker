@@ -69,10 +69,12 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] D3 charts screen (vendored local d3.min.js) — equity path, allocation donut, relative prices
 - [x] Paper Desk design skill + brief (`DESIGN.md`, `.cursor/skills/paper-desk-design`) — anti AI-slop / editorial desk
 - [x] Since-buy holding paths (Charts + Book sparklines; portfolio-AI inspiration) — **no forecast lines**
+- [x] Scan pulse on Breadth (crypto A/D + ±4% movers + near-highs) — xang1234/StockBee-lite from scan lists
 - [ ] Restyle desk CSS to fully match DESIGN.md (grain, sharper borders, mono data figures) in a dedicated pass
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
 - [x] Triage GitHub watch → since-buy position charts (one idea)
-- [ ] Optional later: breadth advance/decline series if we persist daily scan stats (xang1234 StockBee-style)
+- [x] Hourly improve loop (`scripts/run_improve_loop.sh`, 1h) — ≥1 idea/tick + GitHub review
+- [ ] Optional later: full-universe breadth advance/decline series if we persist daily scan stats
 
 ### Phase D — Share
 - [ ] Workspace MCP companion token in Cursor MCP config (user-local — needs human token)

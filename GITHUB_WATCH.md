@@ -41,6 +41,6 @@ When the loop sees **new** activity (not the first baseline), it prints `AGENT_L
 
 ## Rules
 
-1. Steal **one** idea at a time into [IMPROVEMENT.md](IMPROVEMENT.md) Phase C.
+1. Steal **one** idea at a time into [IMPROVEMENT.md](IMPROVEMENT.md) Phase C. The hourly improve loop (`scripts/run_improve_loop.sh`) must triage this digest each tick and ship ≥1 idea.
 2. Re-benchmark / paper-validate before promoting trading logic.
 3. Desk UI shows highlights from `data/github_watch/latest.json` when present.

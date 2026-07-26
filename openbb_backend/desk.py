@@ -234,8 +234,37 @@ def load_desk_snapshot(
     realized = sum(float(t.get("profit_loss") or 0) for t in sells)
 
     recs_raw = (opportunities.get("recommendations") or [])[:8]
-    crypto_raw = (opportunities.get("crypto_leaders") or [])[:6]
-    stock_raw = (opportunities.get("stock_breakouts") or [])[:6]
+    crypto_raw_all = list(opportunities.get("crypto_leaders") or [])
+    stock_raw_all = list(opportunities.get("stock_breakouts") or [])
+    crypto_raw = crypto_raw_all[:6]
+    stock_raw = stock_raw_all[:6]
+
+    # StockBee-lite pulse from latest scan lists (not a full market A/D line).
+    crypto_up = sum(
+        1 for r in crypto_raw_all if float(r.get("change_24h") or 0) > 0
+    )
+    crypto_down = sum(
+        1 for r in crypto_raw_all if float(r.get("change_24h") or 0) < 0
+    )
+    crypto_changes = [float(r.get("change_24h") or 0) for r in crypto_raw_all]
+    crypto_avg = (
+        sum(crypto_changes) / len(crypto_changes) if crypto_changes else 0.0
+    )
+    crypto_big = sum(1 for c in crypto_changes if abs(c) >= 4.0)
+    stock_near = sum(
+        1 for r in stock_raw_all if float(r.get("pct_from_high") or 99) <= 5.0
+    )
+    scan_breadth = {
+        "crypto_n": len(crypto_raw_all),
+        "crypto_up": crypto_up,
+        "crypto_down": crypto_down,
+        "crypto_flat": max(0, len(crypto_raw_all) - crypto_up - crypto_down),
+        "crypto_avg_chg": crypto_avg,
+        "crypto_big_movers": crypto_big,
+        "stock_breakouts_n": len(stock_raw_all),
+        "stock_within_5pct_high": stock_near,
+        "note": "Scan-list pulse (leaders/breakouts), not full-universe advance/decline.",
+    }
 
     name_symbols: list[str] = []
     for sym in list(holdings.keys()):
@@ -373,6 +402,7 @@ def load_desk_snapshot(
         "recommendations": recs,
         "crypto_leaders": crypto_leaders,
         "stock_breakouts": stock_breakouts,
+        "scan_breadth": scan_breadth,
         "scan_time": opportunities.get("scan_time") or "",
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,

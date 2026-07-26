@@ -9,14 +9,14 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 3. **Restart as needed**: Docker services (`intelligent-trader`, `openbb-backend`), Ollama autoresearch loop, improve/docs loops — if a process dies, hangs, or code that requires a reload shipped, restart it. Do not wait to be asked.
 4. Prefer Docker for tests/runs. Never install on the host. Never commit `.env` / `data/` / `results.tsv`.
 5. Do not invent performance claims — require backtest/benchmark artifacts.
-6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), implement the top unchecked item (or the next safe slice), verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
+6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), **ship at least one idea**: read GitHub watch digests + IMPROVEMENT.md, implement the best small slice, verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
 
 ## Overnight (CEST)
 
 While the human sleeps:
 
 - Keep **Ollama autoresearch** looping (strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`).
-- Keep **product improve** looping (`AGENT_LOOP_TICK_improve`).
+- Keep **product improve** looping hourly (`./scripts/run_improve_loop.sh` → `AGENT_LOOP_TICK_improve`) — **≥1 idea per hour**, including GitHub watch triage.
 - Keep paper stack up: `docker compose up -d intelligent-trader openbb-backend`.
 - Keep **GitHub idea watch** looping (`./scripts/run_github_watch_loop.sh`) so external screener/agent repos surface transferable ideas.
 - If git lock / loop crash / container unhealthy → fix and restart; commit+push the fix.
@@ -29,7 +29,7 @@ While the human sleeps:
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
 | GitHub idea watch | `./scripts/run_github_watch_loop.sh` | cadence-aware | Commits/releases on curated repos when due → `AGENT_LOOP_TICK_github_watch` |
 | Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
-| Product improve | `AGENT_LOOP_TICK_improve` | ~2h | Code/docs from IMPROVEMENT.md |
+| Product improve | `./scripts/run_improve_loop.sh` → `AGENT_LOOP_TICK_improve` | **1h** | ≥1 idea/tick; always review GitHub watch digest |
 | Clean-code agent | `./scripts/run_clean_code_agent.sh` | on improve ticks / manual | Ruff + move ad-hoc slop; gemma4 advisory review |
 
 Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy loop.
@@ -66,13 +66,13 @@ Study (do not wholesale clone) and extract **one** transferable idea at a time, 
 
 ## Agent tick checklist
 
-On `AGENT_LOOP_TICK_improve`:
+On `AGENT_LOOP_TICK_improve` (hourly):
 
 1. Read IMPROVEMENT.md + AUTOPILOT.md
-2. Pick the highest unchecked actionable item
-3. Implement the smallest shippable slice
+2. Read `data/github_watch/latest.md` / `docs/history/github_watch_latest.md` — pick ≤1 transferable idea
+3. Implement the smallest shippable slice (**at least one** coherent change)
 4. Run `./scripts/run_clean_code_agent.sh --apply` when touching messy areas (or once per tick if time)
-5. `docker run --rm ai-stock-checker pytest -q -m "not network"`
+5. `docker run --rm ai-stock-checker pytest -q -m "not network"` (or compose equivalent)
 6. Update IMPROVEMENT.md checkboxes / notes
 7. Commit + push (`autoresearch/*` and merge to `main` when product-facing)
 8. Restart Docker/loops if the change requires it; confirm they are healthy

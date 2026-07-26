@@ -122,8 +122,8 @@ check_trader_tracebacks
 check_ollama
 ensure_ollama_loop
 
-ensure_shell_loop 'AGENT_LOOP_TICK_improve' improve \
-  'while true; do sleep 7200; echo '"'"'AGENT_LOOP_TICK_improve {"prompt":"AUTOPILOT IMPROVE TICK. NEVER ask the human. Read AUTOPILOT.md and IMPROVEMENT.md. Implement the top unchecked actionable item. Verify with docker pytest offline. Commit+push per GIT.md. Restart services if needed. Short status only."}'"'"'; done'
+ensure_shell_loop 'run_improve_loop.sh|AGENT_LOOP_TICK_improve' improve \
+  "bash '$ROOT/scripts/run_improve_loop.sh'"
 
 ensure_shell_loop 'AGENT_LOOP_TICK_docs' docs \
   'while true; do sleep 604800; echo '"'"'AGENT_LOOP_TICK_docs {"prompt":"WEEKLY DOCS UPDATE. Follow DOCS_MAINTENANCE.md. Fix stale docs. Commit+push. Short status."}'"'"'; done'

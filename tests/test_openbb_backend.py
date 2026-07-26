@@ -75,16 +75,39 @@ def _seed_portfolio(data: Path) -> None:
                         "score": 70,
                         "volume_surge_pct": 10,
                         "tradeable": True,
-                    }
+                    },
+                    {
+                        "symbol": "ETH-USD",
+                        "price": 3000,
+                        "change_24h": -5.0,
+                        "score": 40,
+                        "volume_surge_pct": 5,
+                        "tradeable": True,
+                    },
+                    {
+                        "symbol": "SOL-USD",
+                        "price": 150,
+                        "change_24h": 0.0,
+                        "score": 20,
+                        "volume_surge_pct": 1,
+                        "tradeable": True,
+                    },
                 ],
                 "stock_breakouts": [
                     {
                         "symbol": "AAPL",
                         "sector": "tech",
                         "price": 105,
-                        "pct_from_high": -0.02,
+                        "pct_from_high": 1.5,
                         "strength": "STRONG",
-                    }
+                    },
+                    {
+                        "symbol": "MSFT",
+                        "sector": "tech",
+                        "price": 400,
+                        "pct_from_high": 12.0,
+                        "strength": "WEAK",
+                    },
                 ],
             }
         )
@@ -143,8 +166,18 @@ def test_desk_snapshot_rich(tmp_path: Path):
         assert abs(snap["unrealized_pct"] - expected) < 1e-6
     assert snap["recommendations"][0]["symbol"] == "ETH-USD"
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
+    assert len(snap["crypto_leaders"]) == 3  # top list capped for UI; pulse uses full scan
     assert snap["stock_breakouts"][0]["symbol"] == "AAPL"
     assert snap["stock_breakouts"][0]["name"] == "Apple"
+    sb = snap["scan_breadth"]
+    assert sb["crypto_n"] == 3
+    assert sb["crypto_up"] == 1
+    assert sb["crypto_down"] == 1
+    assert sb["crypto_flat"] == 1
+    assert sb["crypto_big_movers"] == 1  # ETH −5%
+    assert abs(sb["crypto_avg_chg"] - ((2.5 - 5.0 + 0.0) / 3)) < 1e-9
+    assert sb["stock_breakouts_n"] == 2
+    assert sb["stock_within_5pct_high"] == 1
     assert any(h["symbol"] == "BTC-USD" and h["name"] == "Bitcoin" for h in snap["holdings"])
     assert "needs_agent=0" in snap["watchdog"]
     assert snap["mark_source"] in {"scan", "live+scan"}
@@ -179,6 +212,9 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
 
     assert "Apple" in client.get("/desk/screener").text
     assert "Bitcoin" in client.get("/desk").text
+    breadth = client.get("/desk/breadth")
+    assert "Scan pulse" in breadth.text
+    assert "Crypto A/D" in breadth.text
     assert "d3.min.js" in client.get("/desk/charts").text
     assert "charts.js" in client.get("/desk/charts").text
     assert "hold-spark" in client.get("/desk/book").text
