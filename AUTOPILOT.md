@@ -47,7 +47,7 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 
 - [ ] OpenBB Connections UI bind (local network)
 - [x] Soft-migrate / clearer fee-burn reset path for friends
-- [ ] Healthcheck + friend onboarding polish
+- [x] Healthcheck + friend onboarding polish
 
 ### Phase C — Steal ideas from other agents (research → adopt carefully)
 

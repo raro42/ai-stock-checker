@@ -137,6 +137,7 @@ AGENTS.md                 # coding + product rules for agents
 - Crypto is limited (`--top-crypto-count`, default 2) and filtered.
 - Prefer backtesting rule changes before tightening AI or live loops.
 - Docs must not claim Sharpe/win-rate gains without a saved backtest.
+- **Promote rule (2026-07-26):** experiment strategies must beat SPY on **walk-forward** blend before changing live `intelligent_trader` defaults (full-sample alone is not enough).
 
 ## More detail
 

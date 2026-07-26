@@ -65,13 +65,17 @@ On startup you may see `High fee burn: …`. That means the old paper book churn
 
 ## Rules of the group
 
-1. Paper trade only until a strategy survives backtests **and** a calm paper month.
+1. Paper trade only until a strategy survives **walk-forward vs SPY** **and** a calm paper month.
 2. Do not paste API keys in chat — use `.env`.
-3. Prefer boring holdings over meme churn.
-4. If fees > realized edge, slow down (raise min hold / cut crypto count) or reset the paper book:
+3. Prefer boring holdings over meme churn (current fresh book: **WMT** + cash).
+4. If fees > realized edge, slow down or reset:
 
 ```bash
 KEEP_SYMBOLS=WMT RESET_CAPITAL=100000 ./scripts/fresh_start_keep.sh
 ```
 
+5. Health anytime: `./scripts/healthcheck.sh`
+
 History summaries land in `docs/history/` (committed). Full JSONL backups stay in `data/backup_*`.
+
+As of 2026-07-26: autoresearch looks good on full-sample but **loses to SPY on walk-forward** — we are **not** promoting experiment rules into the live trader yet.

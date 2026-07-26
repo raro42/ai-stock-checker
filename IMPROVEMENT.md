@@ -54,16 +54,17 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] OpenBB connection preflight (`scripts/openbb_connection_check.sh`) + CORS regex; UI bind still needs human “allow local network” if Test hangs
 - [x] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)
 - [x] Fix Ollama exp commit messages (no shebang-as-description)
+- [x] Full-stack `scripts/healthcheck.sh` (trader, OpenBB, Ollama, loops, portfolio)
 
 ### Phase C — Research other agents (one idea at a time + re-benchmark)
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
-- [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold). **Scores not comparable to pre-2026-07-26 keeps** — re-baseline champion under new metric.
-- [ ] Optional later: FinRL / OpenTrade ideas (only after A–B)
-- [x] Re-baseline autoresearch champion under walk-forward `val_score` + WF-aware buy-and-hold benchmark
+- [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold)
+- [x] Re-baseline under walk-forward + WF-aware buy-and-hold benchmark
+- [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
 
 ### Phase D — Share
-- [ ] Workspace MCP companion token in Cursor MCP config (user-local)
-- [ ] Keep FRIENDS/README honest after each promote
+- [ ] Workspace MCP companion token in Cursor MCP config (user-local — needs human token)
+- [x] Keep FRIENDS/README honest after WF re-baseline (no false promote claims)
 
 ## Guardrails
 
