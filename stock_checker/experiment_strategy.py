@@ -13,6 +13,9 @@ from __future__ import annotations
 from typing import Dict, List
 import math
 
+
+# idea: Disabling relative strength requirement to simplify entry and improve robustness across varied market regimes.
+# ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
 MED_SMA = 40
@@ -27,7 +30,7 @@ MAX_RETURN_STDEV = 0.020  # ~2.0% daily stdev
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
-REQUIRE_REL_STRENGTH = True
+REQUIRE_REL_STRENGTH = False # NEW: Disabled relative strength requirement for robustness
 RS_LOOKBACK = 30
 
 # --- IMPROVEMENT: RSI Filters ---
@@ -86,6 +89,7 @@ def _rsi(closes: List[float], period: int) -> float:
         return 50.0 # Neutral default if not enough data
 
     diffs = []
+    # We only need 'period' changes to calculate RSI for the current bar
     for i in range(len(closes) - 1, period - 2, -1):
         change = closes[i] - closes[i-1]
         diffs.append(change)
@@ -123,7 +127,6 @@ def generate_signals(
         LONG_SMA,
         VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0,
         VOLATILITY_LOOKBACK + 1,
-        RS_LOOKBACK + 1 if REQUIRE_REL_STRENGTH else 0,
         RSI_PERIOD + 1, # Need enough data for RSI calculation
         MED_SMA + 1, # Need at least one previous bar for exit check
     )
@@ -141,7 +144,7 @@ def generate_signals(
             spy_m_prev = _sma(spy_closes, MED_SMA, exclude_last=True)
             spy_ok = spy_m_now >= spy_m_prev
 
-        # Calculate SPY Relative Strength (for comparison)
+        # SPY Relative Strength calculation (used only if REQUIRE_REL_STRENGTH is True)
         if REQUIRE_REL_STRENGTH:
             spy_ret = _period_return(spy_closes, RS_LOOKBACK)
 
@@ -173,7 +176,7 @@ def generate_signals(
         # 2. Volatility Gate Check
         calm = _return_stdev(closes, VOLATILITY_LOOKBACK) <= MAX_RETURN_STDEV
         
-        # 3. RSI Filter Check (NEW)
+        # 3. RSI Filter Check
         rsi_val = _rsi(closes, RSI_PERIOD)
         rsi_ok = rsi_val < MAX_OVERBOUGHT # Only buy if not overbought
 
@@ -183,7 +186,7 @@ def generate_signals(
         if REQUIRE_REL_STRENGTH and symbol != "SPY":
             current_ret = _period_return(closes, RS_LOOKBACK)
             # Check if the asset's relative strength beats or matches SPY's return
-            rs_ok = current_ret >= spy_ret
+            rs_ok = current_ret >= spy_ret # This branch only executes if REQUIRE_REL_STRENGTH is True
 
         # --- ENTRY LOGIC (BUY) ---
         if (
@@ -192,14 +195,13 @@ def generate_signals(
             and calm
             and market_ok
             and rs_ok
-            and rsi_ok # Added RSI filter
+            and rsi_ok # RSI filter
             and not in_pos
         ):
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
         # Exit if short crosses below medium AND the medium SMA is losing momentum 
-        # (i.e., current Medium < Previous Medium). This filters out temporary pullbacks.
         elif sma_s < sma_m and in_pos and sma_m < sma_m_prev:
             signals[symbol] = "SELL"
 
