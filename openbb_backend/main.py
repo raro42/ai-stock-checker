@@ -78,7 +78,7 @@ _DESK_SCREENS = {
         "template": "desk_ops.html",
         "label": "Ops",
         "title": "Ops — AI Stock Checker Paper Desk",
-        "description": "Watchdog and runtime status for the paper trading stack.",
+        "description": "Watchdog, runtime status, and editable AI / regime knobs for the paper trading stack.",
     },
 }
 
@@ -204,6 +204,61 @@ def root():
 def paper_desk_api():
     """Same desk snapshot as JSON for scripts / friends tooling."""
     return load_desk_snapshot(DATA_DIR)
+
+
+@app.get("/desk/api/config")
+def desk_config_get():
+    """Editable trader knobs (no secrets)."""
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(DATA_DIR)
+    return {
+        **cfg,
+        "source": "file"
+        if (DATA_DIR / "trader_config.json").is_file()
+        else "env",
+        "note": "Saved to data/trader_config.json; intelligent-trader hot-reloads each loop.",
+    }
+
+
+@app.put("/desk/api/config")
+async def desk_config_put(request: Request):
+    """Update trader knobs from Ops. Never accepts API keys."""
+    from stock_checker.trader_config import ALLOWED_AI_MODES, save_trader_config
+
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="JSON body required") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="JSON object required")
+
+    # Strip anything that looks like a secret.
+    forbidden = {
+        k
+        for k in body
+        if "key" in str(k).lower()
+        or "token" in str(k).lower()
+        or "secret" in str(k).lower()
+        or "password" in str(k).lower()
+    }
+    if forbidden:
+        raise HTTPException(status_code=400, detail="Secrets are not accepted here")
+
+    mode = str(body.get("ai_mode", "")).strip().lower()
+    if mode and mode not in ALLOWED_AI_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"ai_mode must be one of: {', '.join(sorted(ALLOWED_AI_MODES))}",
+        )
+
+    saved = save_trader_config(DATA_DIR, body)
+    return {
+        **saved,
+        "source": "file",
+        "ok": True,
+        "note": "Saved. Trader applies on the next loop iteration (~trade interval).",
+    }
 
 
 @app.get("/desk/api/charts")

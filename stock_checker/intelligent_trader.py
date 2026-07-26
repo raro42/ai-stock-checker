@@ -898,10 +898,46 @@ class IntelligentTrader:
 
         return rebalanced
 
+    def apply_runtime_config(self) -> None:
+        """
+        Hot-reload Ops knobs from data/trader_config.json (env fallback).
+
+        AI mode/model and regime gate can change without recreating the container.
+        """
+        from .trader_config import load_trader_config
+        import os
+
+        cfg = load_trader_config(self.persistence.data_dir)
+        new_mode = str(cfg.get("ai_mode") or "off")
+        new_model = str(cfg.get("ai_model") or "gemma4:latest")
+        multi = bool(cfg.get("ai_multi_role", True))
+        regime = bool(cfg.get("regime_gate", True))
+
+        os.environ["AI_MULTI_ROLE"] = "1" if multi else "0"
+        os.environ["REGIME_GATE"] = "1" if regime else "0"
+        self._regime_enabled = regime
+
+        if new_mode == self.ai_mode and new_model == self.ai_model:
+            return
+
+        prev = f"{self.ai_mode}/{self.ai_model}"
+        self.ai_mode = new_mode
+        self.ai_model = new_model
+        if new_mode != "off":
+            from .ai_recommender import AIRecommender
+
+            self.ai_recommender = AIRecommender(model=new_model)
+        else:
+            self.ai_recommender = None
+        print(f"   ⚙️  Runtime config: AI {prev} → {new_mode}/{new_model} "
+              f"(multi-role={'on' if multi else 'off'}, regime={'on' if regime else 'off'})")
+
     def run(self):
         """
         Main trading loop.
         """
+        self.apply_runtime_config()
+
         print(f"\n{'#'*70}")
         print(f"🚀  INTELLIGENT TRADER STARTED")
         print(f"{'#'*70}\n")
@@ -915,6 +951,8 @@ class IntelligentTrader:
             print(f"\n{'='*70}")
             print(f"⏰  Iteration #{iteration} - {timestamp}")
             print(f"{'='*70}")
+
+            self.apply_runtime_config()
 
             # Periodic market scan
             if self.should_scan():

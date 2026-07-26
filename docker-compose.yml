@@ -57,6 +57,7 @@ services:
       - "7779:7779"
     volumes:
       - ./openbb_backend:/app/openbb_backend
+      - ./stock_checker:/app/stock_checker
       - ./data:/data
       - ./.git:/git:ro
     env_file:
@@ -68,6 +69,11 @@ services:
       - DESK_GIT_DIR=/git
       - DESK_REPO_URL=https://github.com/raro42/ai-stock-checker
       - REGIME_GATE=${REGIME_GATE:-1}
+      - AI_MODE=${AI_MODE:-off}
+      - AI_MODEL=${AI_MODEL:-gemma4:latest}
+      - AI_MULTI_ROLE=${AI_MULTI_ROLE:-1}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - LLM_BACKEND=${LLM_BACKEND:-ollama}
     restart: unless-stopped
     command: >
       python3 -m uvicorn openbb_backend.main:app

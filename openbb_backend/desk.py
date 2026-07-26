@@ -41,11 +41,15 @@ def _load_jsonl(path: Path) -> list[dict]:
 
 
 def _trader_runtime_view() -> dict[str, Any]:
-    """Read-only trader/desk knobs for Ops — never include API keys or tokens."""
+    """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
+    from stock_checker.trader_config import load_trader_config
 
-    ai_mode = (os.getenv("AI_MODE") or "off").strip() or "off"
-    ai_model = (os.getenv("AI_MODEL") or "gemma4:latest").strip() or "gemma4:latest"
+    data_dir = Path(os.getenv("DATA_DIR", "/data"))
+    cfg = load_trader_config(data_dir)
+
+    ai_mode = str(cfg.get("ai_mode") or "off")
+    ai_model = str(cfg.get("ai_model") or "gemma4:latest")
     explicit = (os.getenv("LLM_BACKEND") or "").strip().lower()
     if explicit in {"ollama", "openai", "openai-compatible", "off", "none"}:
         llm_backend = "none" if explicit in {"off", "none"} else explicit
@@ -57,7 +61,12 @@ def _trader_runtime_view() -> dict[str, Any]:
     elif ai_mode != "off":
         llm_backend = "ollama"
     else:
-        llm_backend = "none"
+        # Still show ollama if host is configured — Ops can flip AI on without
+        # implying the trade loop is already calling it.
+        if (os.getenv("OLLAMA_HOST") or "").strip():
+            llm_backend = "ollama"
+        else:
+            llm_backend = "none"
 
     key_set = any(
         (os.getenv(k) or "").strip()
@@ -69,39 +78,31 @@ def _trader_runtime_view() -> dict[str, Any]:
         "no",
         "off",
     }
-    multi_role = os.getenv("AI_MULTI_ROLE", "1").strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }
-    regime_on = os.getenv("REGIME_GATE", "1").strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }
-    regime_snap = _load_json(Path(os.getenv("DATA_DIR", "/data")) / "market_regime.json", {})
+    regime_snap = _load_json(data_dir / "market_regime.json", {})
     if not isinstance(regime_snap, dict):
         regime_snap = {}
 
     return {
         "trader_version": __version__,
         "ai_mode": ai_mode,
-        "ai_model": ai_model if ai_mode != "off" else "—",
+        "ai_model": ai_model,
         "llm_backend": llm_backend,
         "llm_key_set": key_set,
-        "ai_multi_role": multi_role,
+        "ai_multi_role": bool(cfg.get("ai_multi_role", True)),
         # Match docker-compose intelligent-trader defaults (not live-parsed argv).
         "max_positions": 8,
         "min_hold_hours": 4,
         "scan_interval_min": 15,
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,
-        "regime_gate": regime_on,
+        "regime_gate": bool(cfg.get("regime_gate", True)),
         "stock_regime": str(regime_snap.get("stock_regime") or "—"),
         "crypto_regime": str(regime_snap.get("crypto_regime") or "—"),
         "regime_updated": str(regime_snap.get("updated_at") or ""),
+        "config_source": "file"
+        if (data_dir / "trader_config.json").is_file()
+        else "env",
+        "ollama_host": (os.getenv("OLLAMA_HOST") or "").strip() or "—",
     }
 
 

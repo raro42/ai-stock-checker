@@ -79,6 +79,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Persist daily scan-pulse rows (`data/scan_breadth_daily.json`) + Breadth “Recent days” (first slice toward multi-day A/D)
 - [x] Screener counts strip + weekend-aware empty copy (MonsterDeveloper simplicity)
 - [x] Soft SMA market-regime gate for new entries (`market_regime.py` — SPY SMA200 / BTC SMA50; `REGIME_GATE=1`; Ops shows last snap) — RyanJHamby watch idea
+- [x] Ops editable trader knobs (`trader_config.json` + `/desk/api/config`) — AI mode/model, multi-role, regime gate; trader hot-reloads
 - [ ] Optional later: full-universe breadth advance/decline series (still needs wider universe stats)
 
 ### Phase D — Share

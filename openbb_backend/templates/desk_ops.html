@@ -3,12 +3,58 @@
 <header class="page-head">
   <p class="eyebrow">Ops</p>
   <h1>Runtime</h1>
-  <p class="lede">Watchdog, portfolio timestamps, and read-only trader knobs — no secrets in the browser.</p>
+  <p class="lede">Watchdog, portfolio timestamps, and trader knobs — configure AI here; no secrets in the browser.</p>
 </header>
 
 <section class="block system" aria-labelledby="cfg-h">
   <h2 id="cfg-h">Trader config</h2>
-  <p class="sub">Compose defaults + <code>.env</code> AI settings as seen by the desk. Change risk knobs in compose, then restart <code>intelligent-trader</code>.</p>
+  <p class="sub">Saved to <code>data/trader_config.json</code>. The paper trader hot-reloads each loop — no compose restart for AI / regime toggles. Risk intervals still come from compose.</p>
+
+  <form id="ops-config" class="ops-form" data-ops-config>
+    <div class="ops-grid">
+      <label class="ops-field">
+        <span class="ops-label">AI mode</span>
+        <select name="ai_mode" id="ops-ai-mode">
+          <option value="off"{% if snap.runtime.ai_mode == "off" %} selected{% endif %}>off — rules only</option>
+          <option value="validate"{% if snap.runtime.ai_mode == "validate" %} selected{% endif %}>validate — LLM checks HIGH signals</option>
+          <option value="full"{% if snap.runtime.ai_mode == "full" %} selected{% endif %}>full — LLM-driven (heavier)</option>
+        </select>
+      </label>
+
+      <label class="ops-field">
+        <span class="ops-label">AI model</span>
+        <input type="text" name="ai_model" id="ops-ai-model"
+               value="{{ snap.runtime.ai_model }}"
+               list="ops-model-suggest"
+               autocomplete="off"
+               spellcheck="false"
+               maxlength="80"
+               placeholder="gemma4:latest" />
+        <datalist id="ops-model-suggest">
+          <option value="gemma4:latest"></option>
+          <option value="qwen3.5:9b"></option>
+        </datalist>
+      </label>
+
+      <label class="ops-field ops-check">
+        <input type="checkbox" name="ai_multi_role" id="ops-multi-role"
+               {% if snap.runtime.ai_multi_role %}checked{% endif %} />
+        <span class="ops-label">Multi-role AI debate (bull / bear / risk)</span>
+      </label>
+
+      <label class="ops-field ops-check">
+        <input type="checkbox" name="regime_gate" id="ops-regime"
+               {% if snap.runtime.regime_gate %}checked{% endif %} />
+        <span class="ops-label">SMA regime gate (SPY / BTC)</span>
+      </label>
+    </div>
+
+    <div class="ops-actions">
+      <button type="submit" class="ops-save">Save</button>
+      <p id="ops-config-status" class="ops-status" role="status" aria-live="polite"></p>
+    </div>
+  </form>
+
   <dl class="facts runtime-facts">
     <div>
       <dt>Trader version</dt>
@@ -19,20 +65,20 @@
       <dd>{{ "Weekend · crypto-only" if snap.weekend_mode else "Weekday · stocks + crypto" }}</dd>
     </div>
     <div>
-      <dt>AI mode</dt>
-      <dd>{{ snap.runtime.ai_mode }}</dd>
+      <dt>LLM backend</dt>
+      <dd>{{ snap.runtime.llm_backend }}</dd>
     </div>
     <div>
-      <dt>LLM</dt>
-      <dd>{{ snap.runtime.llm_backend }}{% if snap.runtime.ai_mode != "off" %} · {{ snap.runtime.ai_model }}{% endif %}</dd>
+      <dt>Ollama host</dt>
+      <dd class="ops-mono">{{ snap.runtime.ollama_host }}</dd>
     </div>
     <div>
       <dt>Cloud API key</dt>
       <dd>{{ "set" if snap.runtime.llm_key_set else "not set" }}</dd>
     </div>
     <div>
-      <dt>Multi-role AI</dt>
-      <dd>{{ "on" if snap.runtime.ai_multi_role else "off" }}</dd>
+      <dt>Config source</dt>
+      <dd>{{ snap.runtime.config_source }}</dd>
     </div>
     <div>
       <dt>Max positions</dt>
@@ -49,10 +95,6 @@
     <div>
       <dt>Desk live marks</dt>
       <dd>{{ "on" if snap.runtime.desk_live_marks else "off" }}</dd>
-    </div>
-    <div>
-      <dt>Regime gate</dt>
-      <dd>{{ "on" if snap.runtime.regime_gate else "off" }}</dd>
     </div>
     <div>
       <dt>SPY / BTC regime</dt>

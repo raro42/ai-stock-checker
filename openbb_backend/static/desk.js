@@ -14,6 +14,75 @@
     });
   }
 
+  var form = document.querySelector("[data-ops-config]");
+  if (form) {
+    var status = document.getElementById("ops-config-status");
+    var saveBtn = form.querySelector(".ops-save");
+
+    function setStatus(text, kind) {
+      if (!status) {
+        return;
+      }
+      status.textContent = text || "";
+      status.classList.remove("is-ok", "is-err");
+      if (kind) {
+        status.classList.add(kind);
+      }
+    }
+
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var modeEl = document.getElementById("ops-ai-mode");
+      var modelEl = document.getElementById("ops-ai-model");
+      var multiEl = document.getElementById("ops-multi-role");
+      var regimeEl = document.getElementById("ops-regime");
+      var body = {
+        ai_mode: modeEl ? modeEl.value : "off",
+        ai_model: modelEl ? String(modelEl.value || "").trim() : "",
+        ai_multi_role: multiEl ? !!multiEl.checked : true,
+        regime_gate: regimeEl ? !!regimeEl.checked : true,
+      };
+      if (saveBtn) {
+        saveBtn.disabled = true;
+      }
+      setStatus("Saving…", null);
+
+      fetch("/desk/api/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, status: res.status, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            var detail =
+              (result.data && (result.data.detail || result.data.note)) ||
+              "Save failed (" + result.status + ")";
+            setStatus(String(detail), "is-err");
+            return;
+          }
+          setStatus(
+            "Saved · AI " +
+              result.data.ai_mode +
+              " · applies on next trader loop",
+            "is-ok"
+          );
+        })
+        .catch(function () {
+          setStatus("Network error — is openbb-backend up?", "is-err");
+        })
+        .finally(function () {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+          }
+        });
+    });
+  }
+
   var el = document.getElementById("refresh-eta");
   if (!el) {
     return;

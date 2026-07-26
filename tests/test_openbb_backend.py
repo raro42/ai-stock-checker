@@ -196,12 +196,52 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert "llm_key_set" in snap["runtime"]
     assert "regime_gate" in snap["runtime"]
     assert "stock_regime" in snap["runtime"]
+    assert "config_source" in snap["runtime"]
     # Never leak secrets into the desk snapshot
     assert "OPENAI_API_KEY" not in str(snap["runtime"])
     assert "api_key" not in str(snap["runtime"]).lower()
 
 
-def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
+def test_desk_config_api_put(tmp_path: Path, monkeypatch):
+    _seed_portfolio(tmp_path)
+    monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    from starlette.testclient import TestClient
+
+    client = TestClient(backend.app)
+    bad = client.put("/desk/api/config", json={"ai_mode": "nope"})
+    assert bad.status_code == 400
+    secret = client.put("/desk/api/config", json={"api_key": "x", "ai_mode": "validate"})
+    assert secret.status_code == 400
+    ok = client.put(
+        "/desk/api/config",
+        json={
+            "ai_mode": "validate",
+            "ai_model": "gemma4:latest",
+            "ai_multi_role": True,
+            "regime_gate": True,
+        },
+    )
+    assert ok.status_code == 200
+    assert ok.json()["ai_mode"] == "validate"
+    assert (tmp_path / "trader_config.json").exists()
+    got = client.get("/desk/api/config")
+    assert got.status_code == 200
+    assert got.json()["ai_mode"] == "validate"
+
+
+def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
+    _seed_portfolio(tmp_path)
+    monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    from starlette.testclient import TestClient
+
+    client = TestClient(backend.app)
+    resp = client.get("/desk/ops")
+    assert resp.status_code == 200
+    assert 'data-ops-config' in resp.text
+    assert 'id="ops-ai-mode"' in resp.text
+
     _seed_portfolio(tmp_path)
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")
