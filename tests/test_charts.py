@@ -82,12 +82,43 @@ def test_price_history_skips_nan(tmp_path: Path, monkeypatch):
     assert all(p["close"] == p["close"] for p in pts)  # no NaN
 
 
+def test_unrealized_curve_offline(tmp_path: Path, monkeypatch):
+    from openbb_backend.charts import build_unrealized_curve
+
+    _seed(tmp_path)
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"AAPL": 1721476800})  # 2024-07-20
+    )
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    (cache / "AAPL.json").write_text(
+        json.dumps(
+            {
+                "symbol": "AAPL",
+                "fetched_at": 9e12,
+                "points": [
+                    {"t": "2024-07-20T00:00:00Z", "close": 100},
+                    {"t": "2024-07-21T00:00:00Z", "close": 105},
+                    {"t": "2024-07-22T00:00:00Z", "close": 110},
+                ],
+            }
+        )
+    )
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    pts = build_unrealized_curve(tmp_path, live=False)
+    assert len(pts) >= 2
+    assert pts[-1]["unrealized"] == 100.0  # 10 * (110-100)
+    assert abs(pts[-1]["unrealized_pct"] - 10.0) < 1e-6
+    payload = load_chart_payload(tmp_path)
+    assert "unrealized" in payload
+
+
 def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
     from openbb_backend.charts import build_from_buy_panels
 
     _seed(tmp_path)
     (tmp_path / "entry_times.json").write_text(
-        json.dumps({"AAPL": 1721476800})  # 2024-07-20-ish unix
+        json.dumps({"AAPL": 1721476800})
     )
     cache = tmp_path / "chart_bars"
     cache.mkdir()

@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% from "macros.html" import ticker %}
+{% block extra_head %}
+  <script src="/desk/static/d3.min.js" defer></script>
+  <script src="/desk/static/charts.js" defer></script>
+{% endblock %}
 {% block content %}
 <header class="hero">
   <p class="eyebrow">Overview</p>
@@ -15,12 +19,17 @@
 </header>
 
 <section class="strip" aria-label="Book snapshot">
-  <div>
+  <div class="strip-unreal">
     <span class="k">Unrealized</span>
     <span class="v {% if snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">
-      €{{ "{:+,.2f}".format(snap.unrealized_total) }}
-      <small>{{ "%+.2f"|format(snap.unrealized_pct) }}%</small>
+      <a class="unreal-link" href="/desk/charts#ch-unreal"
+         title="Open unrealized P&amp;L chart">
+        €{{ "{:+,.2f}".format(snap.unrealized_total) }}
+        <small>{{ "%+.2f"|format(snap.unrealized_pct) }}%</small>
+      </a>
     </span>
+    <div id="unreal-spark" class="unreal-spark" role="img"
+         aria-label="Unrealized P and L sparkline since first fill"></div>
   </div>
   <div>
     <span class="k">Realized</span>

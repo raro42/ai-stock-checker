@@ -331,6 +331,33 @@ a:active {
   opacity: 0.92;
 }
 
+.unreal-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.unreal-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--link-underline);
+}
+
+.unreal-spark {
+  width: 100%;
+  height: 2.25rem;
+  margin-top: 0.4rem;
+}
+
+.unreal-spark.is-empty {
+  height: 0;
+  margin: 0;
+}
+
+.unreal-spark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .block {
   margin-bottom: 2.25rem;
   animation: rise 0.9s 0.22s ease-out both;

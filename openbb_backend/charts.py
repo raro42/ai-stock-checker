@@ -420,10 +420,166 @@ def build_from_buy_panels(
     return panels
 
 
+def _apply_fill_to_lots(
+    lots: dict[str, dict[str, float]], trade: dict[str, Any]
+) -> None:
+    side = str(trade.get("type") or "").upper()
+    sym = str(trade.get("symbol") or "")
+    if not sym:
+        return
+    qty = _finite(trade.get("quantity"))
+    price = _finite(trade.get("price"))
+    if qty <= 0 or price < 0:
+        return
+    if side == "BUY":
+        lot = lots.setdefault(sym, {"qty": 0.0, "cost": 0.0})
+        lot["qty"] += qty
+        lot["cost"] += qty * price
+    elif side == "SELL":
+        lot = lots.setdefault(sym, {"qty": 0.0, "cost": 0.0})
+        avg = (lot["cost"] / lot["qty"]) if lot["qty"] else price
+        lot["qty"] = max(0.0, lot["qty"] - qty)
+        lot["cost"] = max(0.0, lot["qty"] * avg)
+        if lot["qty"] <= 1e-12:
+            lots.pop(sym, None)
+
+
+def _lots_asof(
+    timeline: list[tuple[datetime, dict[str, dict[str, float]]]], when: datetime
+) -> dict[str, dict[str, float]]:
+    state: dict[str, dict[str, float]] = {}
+    for ts, snap in timeline:
+        if ts <= when:
+            state = snap
+        else:
+            break
+    return {s: dict(v) for s, v in state.items()}
+
+
+def _close_on_or_before(
+    series: list[tuple[datetime, float]], when: datetime
+) -> Optional[float]:
+    px: Optional[float] = None
+    for ts, close in series:
+        if ts.date() <= when.date():
+            px = close
+        else:
+            break
+    return px
+
+
+def build_unrealized_curve(
+    data_dir: Path, *, days: int = 180, live: Optional[bool] = None
+) -> list[dict[str, Any]]:
+    """Open-book unrealized € / % vs cost (matches Overview). No forecast."""
+    if live is None:
+        live = os.getenv("DESK_CHART_LIVE", "1").strip() not in {
+            "0",
+            "false",
+            "False",
+            "no",
+        }
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    holdings = portfolio.get("holdings") or {}
+    avg = portfolio.get("avg_buy_price") or {}
+    entry_times = _load_json(data_dir / "entry_times.json", {})
+    lots: dict[str, dict[str, float]] = {}
+    start_ts: Optional[datetime] = None
+    for sym, qty in holdings.items():
+        q = _finite(qty)
+        buy = _finite(avg.get(sym))
+        if q <= 0 or buy <= 0:
+            continue
+        lots[str(sym)] = {"qty": q, "cost": q * buy}
+        entry_raw = entry_times.get(sym)
+        entry_ts = _finite(entry_raw) if entry_raw not in (None, "") else 0.0
+        if entry_ts > 0:
+            dt = datetime.fromtimestamp(entry_ts, tz=timezone.utc)
+            if start_ts is None or dt < start_ts:
+                start_ts = dt
+
+    # Fall back to trade replay when entry_times are missing.
+    if not lots:
+        trades = _load_jsonl(data_dir / "trades.jsonl")
+        replay: dict[str, dict[str, float]] = {}
+        for trade in trades:
+            ts = _parse_trade_ts(str(trade.get("timestamp") or ""))
+            if ts is None:
+                continue
+            _apply_fill_to_lots(replay, trade)
+            if start_ts is None or ts < start_ts:
+                start_ts = ts
+        lots = replay
+
+    if not lots:
+        return []
+    if start_ts is None:
+        start_ts = datetime.now(timezone.utc)
+
+    price_by_sym: dict[str, list[tuple[datetime, float]]] = {}
+    day_set: set = set()
+    for sym in lots:
+        hist = fetch_price_history(sym, data_dir, days=max(days, 120), live=live)
+        series: list[tuple[datetime, float]] = []
+        for p in hist:
+            ts = _parse_trade_ts(str(p.get("t") or ""))
+            close = _finite(p.get("close"), default=float("nan"))
+            if ts is None or not math.isfinite(close) or close <= 0:
+                continue
+            series.append((ts, close))
+            day_set.add(ts.date())
+        series.sort(key=lambda x: x[0])
+        price_by_sym[sym] = series
+
+    start_day = start_ts.date()
+    days_sorted = sorted(d for d in day_set if d >= start_day)
+    # Anchor at buy day even if bars start later.
+    if start_day not in days_sorted:
+        days_sorted = [start_day] + days_sorted
+
+    points: list[dict[str, Any]] = []
+    for day in days_sorted:
+        when = datetime(day.year, day.month, day.day, 23, 59, 59, tzinfo=timezone.utc)
+        cost = 0.0
+        market_value = 0.0
+        active = 0
+        for sym, v in lots.items():
+            entry_raw = entry_times.get(sym)
+            entry_ts = _finite(entry_raw) if entry_raw not in (None, "") else 0.0
+            if entry_ts > 0:
+                bought = datetime.fromtimestamp(entry_ts, tz=timezone.utc).date()
+                if day < bought:
+                    continue
+            active += 1
+            cost += v["cost"]
+            px = _close_on_or_before(price_by_sym.get(sym) or [], when)
+            if px is None:
+                px = (v["cost"] / v["qty"]) if v["qty"] else 0.0
+            market_value += v["qty"] * px
+        if active == 0 or cost <= 0:
+            continue
+        unreal = market_value - cost
+        points.append(
+            {
+                "t": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "unrealized": round(unreal, 2),
+                "unrealized_pct": round((unreal / cost) * 100, 4),
+                "cost": round(cost, 2),
+                "market_value": round(market_value, 2),
+            }
+        )
+
+    by_day: dict[str, dict[str, Any]] = {}
+    for p in points:
+        by_day[p["t"][:10]] = p
+    return [by_day[k] for k in sorted(by_day)]
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "equity": build_equity_curve(data_dir),
+        "unrealized": build_unrealized_curve(data_dir),
         "allocation": build_allocation(data_dir),
         "prices": build_price_panels(data_dir),
         "from_buy": build_from_buy_panels(data_dir),

@@ -164,6 +164,176 @@
     appendRangeCaption(mount, data[0].t, data[data.length - 1].t);
   }
 
+  function drawUnrealized(mount, series) {
+    if (!series || series.length < 2) {
+      mount.innerHTML =
+        "<p class='empty'>Need a few marks after fills to chart unrealized P&amp;L.</p>";
+      return;
+    }
+    var data = series.map(function (d) {
+      return {
+        t: new Date(d.t),
+        unrealized: +d.unrealized,
+        unrealized_pct: +d.unrealized_pct,
+      };
+    });
+    var width = mount.clientWidth || 640;
+    var height = 280;
+    var margin = { top: 16, right: 16, bottom: 40, left: 64 };
+
+    var tip = document.createElement("div");
+    tip.className = "chart-tip";
+    tip.hidden = true;
+    tip.setAttribute("role", "status");
+    mount.appendChild(tip);
+
+    var svg = d3
+      .select(mount)
+      .append("svg")
+      .attr("viewBox", "0 0 " + width + " " + height)
+      .attr("role", "img")
+      .attr("aria-label", "Unrealized paper P and L over time");
+
+    var x = d3
+      .scaleTime()
+      .domain(d3.extent(data, function (d) { return d.t; }))
+      .range([margin.left, width - margin.right]);
+    var yMin = d3.min(data, function (d) { return d.unrealized; });
+    var yMax = d3.max(data, function (d) { return d.unrealized; });
+    var pad = Math.max(Math.abs(yMax - yMin) * 0.08, 1);
+    var y = d3
+      .scaleLinear()
+      .domain([Math.min(yMin - pad, 0), Math.max(yMax + pad, 0)])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    var defs = svg.append("defs");
+    var gradUp = defs
+      .append("linearGradient")
+      .attr("id", "unrealUp")
+      .attr("x1", "0").attr("x2", "0").attr("y1", "0").attr("y2", "1");
+    gradUp.append("stop").attr("offset", "0%").attr("stop-color", "#7dcea0").attr("stop-opacity", 0.35);
+    gradUp.append("stop").attr("offset", "100%").attr("stop-color", "#7dcea0").attr("stop-opacity", 0.02);
+    var gradDn = defs
+      .append("linearGradient")
+      .attr("id", "unrealDn")
+      .attr("x1", "0").attr("x2", "0").attr("y1", "0").attr("y2", "1");
+    gradDn.append("stop").attr("offset", "0%").attr("stop-color", "#e07a5f").attr("stop-opacity", 0.02);
+    gradDn.append("stop").attr("offset", "100%").attr("stop-color", "#e07a5f").attr("stop-opacity", 0.35);
+
+    appendTimeAxis(svg, x, margin, height);
+    svg
+      .append("g")
+      .attr("class", "axis")
+      .attr("transform", "translate(" + margin.left + ",0)")
+      .call(
+        d3
+          .axisLeft(y)
+          .ticks(5)
+          .tickFormat(function (v) {
+            return "€" + d3.format(",.0f")(v);
+          })
+          .tickSizeOuter(0)
+      );
+
+    svg
+      .append("line")
+      .attr("x1", margin.left)
+      .attr("x2", width - margin.right)
+      .attr("y1", y(0))
+      .attr("y2", y(0))
+      .attr("stroke", "rgba(232,239,230,0.35)")
+      .attr("stroke-dasharray", "4 4");
+
+    var area = d3
+      .area()
+      .x(function (d) { return x(d.t); })
+      .y0(y(0))
+      .y1(function (d) { return y(d.unrealized); })
+      .curve(d3.curveMonotoneX);
+    var line = d3
+      .line()
+      .x(function (d) { return x(d.t); })
+      .y(function (d) { return y(d.unrealized); })
+      .curve(d3.curveMonotoneX);
+
+    var last = data[data.length - 1];
+    var stroke = last.unrealized >= 0 ? "#7dcea0" : "#e07a5f";
+    var fill = last.unrealized >= 0 ? "url(#unrealUp)" : "url(#unrealDn)";
+
+    svg.append("path").datum(data).attr("fill", fill).attr("d", area);
+    svg
+      .append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", stroke)
+      .attr("stroke-width", 2.2)
+      .attr("d", line);
+
+    var focus = svg.append("g").style("display", "none");
+    focus
+      .append("line")
+      .attr("class", "focus-x")
+      .attr("y1", margin.top)
+      .attr("y2", height - margin.bottom)
+      .attr("stroke", "rgba(232,239,230,0.35)")
+      .attr("stroke-dasharray", "3 3");
+    var focusDot = focus.append("circle").attr("r", 4.5).attr("fill", stroke);
+
+    var bisect = d3.bisector(function (d) { return d.t; }).left;
+
+    svg
+      .append("rect")
+      .attr("x", margin.left)
+      .attr("y", margin.top)
+      .attr("width", width - margin.left - margin.right)
+      .attr("height", height - margin.top - margin.bottom)
+      .attr("fill", "transparent")
+      .style("cursor", "crosshair")
+      .on("mousemove", function (event) {
+        var mx = d3.pointer(event, svg.node())[0];
+        var t0 = x.invert(mx);
+        var i = bisect(data, t0, 1);
+        var a = data[i - 1];
+        var b = data[i] || a;
+        if (!a) return;
+        var d = t0 - a.t > b.t - t0 ? b : a;
+        focus.style("display", null);
+        focus.select(".focus-x").attr("x1", x(d.t)).attr("x2", x(d.t));
+        focusDot.attr("cx", x(d.t)).attr("cy", y(d.unrealized));
+        tip.hidden = false;
+        tip.innerHTML =
+          "<strong>" +
+          (d.unrealized >= 0 ? "+" : "") +
+          "€" +
+          d3.format(",.2f")(d.unrealized) +
+          "</strong>" +
+          "<span class='chart-tip-meta'>" +
+          formatDay(d.t) +
+          "</span>" +
+          "<span class='chart-tip-val'>" +
+          pctLabel(d.unrealized_pct) +
+          " <em>vs cost basis</em></span>";
+        var mountRect = mount.getBoundingClientRect();
+        var svgRect = svg.node().getBoundingClientRect();
+        var scaleX = svgRect.width / width;
+        var scaleY = svgRect.height / height;
+        var left = svgRect.left - mountRect.left + x(d.t) * scaleX + 14;
+        var top = svgRect.top - mountRect.top + y(d.unrealized) * scaleY - 18;
+        if (left + tip.offsetWidth > mountRect.width - 8) {
+          left = svgRect.left - mountRect.left + x(d.t) * scaleX - tip.offsetWidth - 14;
+        }
+        tip.style.left = Math.max(4, left) + "px";
+        tip.style.top = Math.max(4, top) + "px";
+      })
+      .on("mouseleave", function () {
+        focus.style("display", "none");
+        tip.hidden = true;
+      });
+
+    appendRangeCaption(mount, data[0].t, data[data.length - 1].t);
+  }
+
   function drawAllocation(mount, rows) {
     var data = (rows || []).filter(function (d) { return +d.value > 0; });
     if (!data.length) {
@@ -791,6 +961,14 @@
   function renderChartsPage(payload) {
     root.innerHTML = "";
     drawEquity(section("Book equity path", "ch-eq"), payload.equity);
+    drawUnrealized(
+      section(
+        "Unrealized P&L",
+        "ch-unreal",
+        "Open-book mark minus cost basis over time (€ and % in the tip). No forecast."
+      ),
+      payload.unrealized || []
+    );
     drawAllocation(section("Allocation", "ch-alloc"), payload.allocation);
     drawPrices(
       section(
@@ -808,6 +986,68 @@
       ),
       payload.prices
     );
+  }
+
+  function drawUnrealSpark(series) {
+    var el = document.getElementById("unreal-spark");
+    if (!el || !series || series.length < 2) {
+      if (el) el.classList.add("is-empty");
+      return;
+    }
+    el.classList.remove("is-empty");
+    el.innerHTML = "";
+    var data = series.map(function (d) {
+      return { t: new Date(d.t), v: +d.unrealized };
+    });
+    var last = data[data.length - 1];
+    el.title =
+      "Unrealized " +
+      (last.v >= 0 ? "+" : "") +
+      "€" +
+      d3.format(",.2f")(last.v) +
+      " · path since first fill";
+    var width = Math.max(el.clientWidth || 160, 120);
+    var height = 36;
+    var x = d3
+      .scaleTime()
+      .domain(d3.extent(data, function (d) { return d.t; }))
+      .range([2, width - 2]);
+    var ext = d3.extent(data, function (d) { return d.v; });
+    var y = d3
+      .scaleLinear()
+      .domain([Math.min(ext[0], 0), Math.max(ext[1], 0)])
+      .nice()
+      .range([height - 3, 3]);
+    var stroke = last.v >= 0 ? cssVar("--up", "#7dcea0") : cssVar("--down", "#e07a5f");
+    var svg = d3
+      .select(el)
+      .append("svg")
+      .attr("viewBox", "0 0 " + width + " " + height)
+      .attr("aria-hidden", "true");
+    if (y.domain()[0] <= 0 && y.domain()[1] >= 0) {
+      svg
+        .append("line")
+        .attr("x1", 0)
+        .attr("x2", width)
+        .attr("y1", y(0))
+        .attr("y2", y(0))
+        .attr("stroke", "rgba(232,239,230,0.25)")
+        .attr("stroke-dasharray", "2 2");
+    }
+    svg
+      .append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", stroke)
+      .attr("stroke-width", 1.6)
+      .attr(
+        "d",
+        d3
+          .line()
+          .x(function (d) { return x(d.t); })
+          .y(function (d) { return y(d.v); })
+          .curve(d3.curveMonotoneX)
+      );
   }
 
   function loadCharts(onOk, onErr) {
@@ -828,6 +1068,10 @@
   } else if (screen === "book" && typeof d3 !== "undefined") {
     loadCharts(function (payload) {
       drawSparks(payload.from_buy || []);
+    });
+  } else if (screen === "overview" && typeof d3 !== "undefined") {
+    loadCharts(function (payload) {
+      drawUnrealSpark(payload.unrealized || []);
     });
   }
 })();
