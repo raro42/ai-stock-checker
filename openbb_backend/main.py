@@ -24,7 +24,7 @@ _BACKEND_DIR = Path(__file__).parent
 app = FastAPI(
     title="AI Stock Checker → OpenBB",
     description="Paper portfolio, trades, and opportunities for OpenBB Workspace",
-    version="0.6.0",
+    version="0.7.0",
 )
 
 app.mount(
@@ -88,6 +88,7 @@ def root():
         "data_dir": str(DATA_DIR),
         "auth_required": bool(API_KEY),
         "desk": "/desk",
+        "desk_api": "/desk/api",
     }
 
 
@@ -100,6 +101,12 @@ def paper_desk(request: Request):
         name="desk.html",
         context={"snap": snap},
     )
+
+
+@app.get("/desk/api")
+def paper_desk_api():
+    """Same desk snapshot as JSON for scripts / friends tooling."""
+    return load_desk_snapshot(DATA_DIR)
 
 
 @app.get("/widgets.json")

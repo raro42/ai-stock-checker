@@ -46,7 +46,7 @@ body {
 .stage {
   position: relative;
   z-index: 1;
-  max-width: 52rem;
+  max-width: 58rem;
   margin: 0 auto;
   padding: clamp(2rem, 6vw, 4.5rem) clamp(1.25rem, 4vw, 2rem) 3rem;
 }
@@ -79,7 +79,7 @@ body {
   margin: 0 0 0.75rem;
   color: var(--muted);
   font-size: 1.05rem;
-  max-width: 28rem;
+  max-width: 32rem;
 }
 
 .ret {
@@ -88,18 +88,26 @@ body {
   font-size: 1rem;
 }
 
-.ret.up {
+.ret.up,
+.up {
   color: var(--up);
 }
 
-.ret.down {
+.ret.down,
+.down {
   color: var(--down);
 }
 
 .mode {
-  margin: 0;
+  margin: 0 0 0.35rem;
   color: var(--accent);
   font-size: 0.92rem;
+}
+
+.marks {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .strip {
@@ -136,28 +144,73 @@ body {
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 500;
+  margin: 0 0 0.5rem;
+}
+
+.sub {
   margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .holds,
-.trades {
+.trades,
+.recs,
+.leaders {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.holds li,
-.trades li {
-  display: grid;
-  grid-template-columns: 7rem 1fr auto;
-  gap: 0.75rem;
-  align-items: baseline;
-  padding: 0.85rem 0;
+.holds li {
+  padding: 0.95rem 0;
   border-bottom: 1px solid var(--line);
 }
 
-.trades li {
-  grid-template-columns: 9.5rem 3.5rem 1fr auto;
+.hold-main {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr auto;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.bar {
+  margin-top: 0.55rem;
+  height: 3px;
+  background: rgba(232, 239, 230, 0.08);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), rgba(125, 206, 160, 0.85));
+  animation: grow 0.7s ease-out both;
+}
+
+.weight {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.amt {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.amt small {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.9;
 }
 
 .sym {
@@ -166,14 +219,46 @@ body {
 }
 
 .meta,
-.when {
+.when,
+.why {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.amt {
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+.recs li {
+  display: grid;
+  grid-template-columns: 2.2rem 6rem 1fr;
+  gap: 0.5rem 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+  align-items: baseline;
+}
+
+.recs .why {
+  grid-column: 2 / -1;
+}
+
+.rank {
+  color: var(--accent);
+  font-family: var(--font-display);
+}
+
+.leaders li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr auto;
+  gap: 0.5rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+  align-items: baseline;
+}
+
+.trades li {
+  display: grid;
+  grid-template-columns: 9.5rem 3.2rem 5rem 1fr auto;
+  gap: 0.55rem;
+  align-items: baseline;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .side {
@@ -199,6 +284,22 @@ body {
 .note {
   margin-top: 1rem;
   font-style: italic;
+}
+
+.system .sysline {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.watch {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .foot {
@@ -232,21 +333,43 @@ body {
   }
 }
 
-@media (max-width: 640px) {
-  .strip {
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+@media (max-width: 720px) {
+  .strip,
+  .split {
     grid-template-columns: 1fr 1fr;
   }
 
-  .holds li {
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .hold-main,
+  .leaders li,
+  .recs li {
     grid-template-columns: 1fr;
     gap: 0.25rem;
+  }
+
+  .recs .why {
+    grid-column: 1;
   }
 
   .trades li {
     grid-template-columns: 1fr 1fr;
   }
 
-  .trades .amt {
-    grid-column: 2;
+  .trades .meta {
+    grid-column: 1 / -1;
   }
 }

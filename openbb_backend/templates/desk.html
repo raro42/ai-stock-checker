@@ -18,27 +18,30 @@
       <h1 class="equity">€{{ "{:,.2f}".format(snap.equity) }}</h1>
       <p class="lede">{{ snap.tagline }}</p>
       <p class="ret {% if snap.ret_pct >= 0 %}up{% else %}down{% endif %}">
-        {{ "%+.2f"|format(snap.ret_pct) }}% vs start · cash €{{ "{:,.2f}".format(snap.cash) }}
+        {{ "%+.2f"|format(snap.ret_pct) }}% vs start
+        · cash €{{ "{:,.2f}".format(snap.cash) }}
+        · deployed {{ "%.0f"|format(snap.deployed_pct) }}%
       </p>
       <p class="mode">{{ snap.weekend_hint }}</p>
+      <p class="marks">{{ snap.mark_note }}</p>
     </header>
 
     <section class="strip" aria-label="Snapshot">
       <div>
-        <span class="k">Positions</span>
-        <span class="v">{{ snap.positions }}</span>
+        <span class="k">Unrealized</span>
+        <span class="v {% if snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">€{{ "{:+,.2f}".format(snap.unrealized_total) }}</span>
+      </div>
+      <div>
+        <span class="k">Realized</span>
+        <span class="v">€{{ "{:+,.2f}".format(snap.realized) }}</span>
       </div>
       <div>
         <span class="k">Fees</span>
         <span class="v">€{{ "{:,.2f}".format(snap.fees) }}</span>
       </div>
       <div>
-        <span class="k">Trades</span>
-        <span class="v">{{ snap.trade_count }}</span>
-      </div>
-      <div>
-        <span class="k">Realized</span>
-        <span class="v">€{{ "{:+,.2f}".format(snap.realized) }}</span>
+        <span class="k">Fills</span>
+        <span class="v">{{ snap.buy_count }}B / {{ snap.sell_count }}S</span>
       </div>
     </section>
 
@@ -48,9 +51,20 @@
       <ul class="holds">
         {% for h in snap.holdings %}
         <li>
-          <span class="sym">{{ h.symbol }}</span>
-          <span class="meta">{{ "%.4f"|format(h.quantity) }} · avg €{{ "%.2f"|format(h.avg_buy) }} · {{ h.kind }}</span>
-          <span class="amt">€{{ "{:,.2f}".format(h.cost_basis) }}</span>
+          <div class="hold-main">
+            <span class="sym">{{ h.symbol }}</span>
+            <span class="meta">
+              {{ "%.4f"|format(h.quantity) }} · avg €{{ "%.2f"|format(h.avg_buy) }}
+              · last €{{ "%.2f"|format(h.last) }}
+              · held {{ h.held }} · {{ h.kind }}
+            </span>
+            <span class="amt {% if h.unrealized >= 0 %}up{% else %}down{% endif %}">
+              €{{ "{:,.2f}".format(h.market_value) }}
+              <small>{{ "%+.1f"|format(h.unrealized_pct) }}%</small>
+            </span>
+          </div>
+          <div class="bar" aria-hidden="true"><i style="width: {{ '%.1f'|format(h.weight_bar_pct) }}%"></i></div>
+          <span class="weight">{{ "%.1f"|format(h.weight_pct) }}% of book</span>
         </li>
         {% endfor %}
       </ul>
@@ -63,15 +77,72 @@
     </section>
 
     <section class="block">
+      <h2>Latest recommendations</h2>
+      {% if snap.recommendations %}
+      <p class="sub">Scan {{ snap.scan_time or "—" }} · {{ snap.scanned_symbols }} symbols tracked</p>
+      <ul class="recs">
+        {% for r in snap.recommendations %}
+        <li>
+          <span class="rank">#{{ r.rank }}</span>
+          <span class="sym">{{ r.symbol }}</span>
+          <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · score {{ "%.1f"|format(r.score) }}</span>
+          <span class="why">{{ r.reasoning }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty">No opportunity archive yet — wait for the next scanner pass.</p>
+      {% endif %}
+    </section>
+
+    <section class="split">
+      <div class="block">
+        <h2>Crypto leaders</h2>
+        {% if snap.crypto_leaders %}
+        <ul class="leaders">
+          {% for c in snap.crypto_leaders %}
+          <li>
+            <span class="sym">{{ c.symbol }}</span>
+            <span class="meta {% if c.change_24h >= 0 %}up{% else %}down{% endif %}">
+              {{ "%+.1f"|format(c.change_24h) }}% 24h · score {{ "%.0f"|format(c.score) }}
+            </span>
+            <span class="amt">€{{ "{:,.4g}".format(c.price) }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">No crypto scan data.</p>
+        {% endif %}
+      </div>
+      <div class="block">
+        <h2>Stock breakouts</h2>
+        {% if snap.stock_breakouts %}
+        <ul class="leaders">
+          {% for s in snap.stock_breakouts %}
+          <li>
+            <span class="sym">{{ s.symbol }}</span>
+            <span class="meta">{{ s.sector }} · {{ s.strength }} · {{ "%.1f"|format(s.pct_from_high * 100) }}% from high</span>
+            <span class="amt">€{{ "{:,.2f}".format(s.price) }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">No equity breakout data (weekend pause is normal).</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="block">
       <h2>Recent fills</h2>
       {% if snap.recent_trades %}
       <ul class="trades">
         {% for t in snap.recent_trades %}
         <li>
-          <span class="when">{{ t.timestamp or "—" }}</span>
+          <span class="when">{{ t.timestamp }}</span>
           <span class="side {{ t.type|lower }}">{{ t.type }}</span>
           <span class="sym">{{ t.symbol }}</span>
-          <span class="amt">{% if t.profit_loss is defined and t.profit_loss is not none %}€{{ "{:+,.2f}".format(t.profit_loss|float) }}{% else %}—{% endif %}</span>
+          <span class="meta">{{ "%.4f"|format(t.quantity) }} @ €{{ "%.2f"|format(t.price) }} · fee €{{ "%.2f"|format(t.commission) }}</span>
+          <span class="amt">{% if t.profit_loss is not none %}€{{ "{:+,.2f}".format(t.profit_loss|float) }}{% else %}—{% endif %}</span>
         </li>
         {% endfor %}
       </ul>
@@ -80,9 +151,18 @@
       {% endif %}
     </section>
 
+    <section class="block system">
+      <h2>System</h2>
+      <p class="sysline">Portfolio updated {{ snap.portfolio_updated or "—" }} · commission {{ "%.2f"|format(snap.commission_rate_pct) }}%/side</p>
+      <p class="sysline">Scan cycle {{ snap.last_full_cycle or "—" }} · history covers {{ snap.scan_history_symbols }} names</p>
+      {% if snap.watchdog %}
+      <pre class="watch">{{ snap.watchdog }}</pre>
+      {% endif %}
+    </section>
+
     <footer class="foot">
       <span>Updated {{ snap.generated_at }} · auto-refresh 60s</span>
-      <span><a href="/health">health</a> · <a href="/widgets.json">OpenBB widgets</a></span>
+      <span><a href="/desk/api">JSON</a> · <a href="/health">health</a> · <a href="/widgets.json">OpenBB</a></span>
     </footer>
   </main>
 </body>
