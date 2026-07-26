@@ -158,3 +158,8 @@ AGENTS.md                 # coding + product rules for agents
 ## Security
 
 Never commit `.env` or API keys. Rotate any key that was previously checked into compose history.
+
+## License
+
+[MIT](LICENSE) © 2026 Ralf Roeber
+
