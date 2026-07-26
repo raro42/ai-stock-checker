@@ -514,6 +514,11 @@ def load_desk_snapshot(
             "from": "xang1234/StockBee-style breadth over time",
             "note": "Breadth keeps UTC daily A/D snapshots from our scan lists.",
         },
+        {
+            "title": "Screener counts strip",
+            "from": "MonsterDeveloper/simple-stock-screener (simplicity)",
+            "note": "One glance: recommendation / crypto / breakout counts + session hint.",
+        },
     ]
 
     return {

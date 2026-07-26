@@ -1,12 +1,36 @@
 {% extends "base.html" %}
 {% from "macros.html" import ticker %}
 {% block content %}
+{% set n_rec = snap.recommendations|length %}
+{% set n_crypto = snap.crypto_leaders|length %}
+{% set n_brk = snap.stock_breakouts|length %}
 <header class="page-head">
   <p class="eyebrow">Screener</p>
   <h1>Opportunities</h1>
-  <p class="lede">Ranked ideas from the latest scanner pass — inspired by multi-screen workflows, kept paper-honest.</p>
+  <p class="lede">One scan, three lists — ranked ideas, crypto leaders, stock breakouts. Minimal chrome, paper-honest.</p>
   <p class="sub">Scan {{ snap.scan_time or "—" }} · {{ snap.scanned_symbols }} symbols tracked</p>
+  <p class="mode">{{ snap.weekend_hint }}</p>
 </header>
+
+<section class="strip" aria-label="Screener counts">
+  <div>
+    <span class="k">Recommendations</span>
+    <span class="v">{{ n_rec }}</span>
+  </div>
+  <div>
+    <span class="k">Crypto leaders</span>
+    <span class="v">{{ n_crypto }}</span>
+  </div>
+  <div>
+    <span class="k">Stock breakouts</span>
+    <span class="v">{{ n_brk }}</span>
+  </div>
+  <div>
+    <span class="k">Lists</span>
+    <span class="v">{{ (1 if n_rec else 0) + (1 if n_crypto else 0) + (1 if n_brk else 0) }}/3</span>
+    <span class="weight">populated this scan</span>
+  </div>
+</section>
 
 <section class="block" aria-labelledby="rec-h">
   <h2 id="rec-h">Recommendations</h2>
@@ -22,7 +46,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="empty">No opportunity archive yet — wait for the next scanner pass.</p>
+  <p class="empty">No ranked recommendations yet — wait for the next scanner pass.</p>
   {% endif %}
 </section>
 
@@ -42,7 +66,7 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="empty">No crypto scan data.</p>
+    <p class="empty">No crypto leaders in the latest scan archive.</p>
     {% endif %}
   </div>
   <div class="block" aria-labelledby="brk-h">
@@ -58,7 +82,7 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="empty">No equity breakout data (weekend pause is normal).</p>
+    <p class="empty">{% if snap.weekend_mode %}Weekend: stock breakouts paused (crypto still scans).{% else %}No equity breakout data in the latest scan.{% endif %}</p>
     {% endif %}
   </div>
 </section>

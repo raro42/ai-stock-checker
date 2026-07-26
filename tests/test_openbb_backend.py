@@ -225,6 +225,9 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
         assert "AI Stock Checker" in r.text
 
     assert "Apple" in client.get("/desk/screener").text
+    screener = client.get("/desk/screener")
+    assert 'aria-label="Screener counts"' in screener.text
+    assert "populated this scan" in screener.text
     assert "Bitcoin" in client.get("/desk").text
     breadth = client.get("/desk/breadth")
     assert "Scan pulse" in breadth.text
