@@ -44,17 +44,27 @@ def git_short_head() -> str:
     return _run(["git", "rev-parse", "--short", "HEAD"]).stdout.strip()
 
 
+WF_ERA_MARKER = "walk-forward rebaseline"
+
+
 def best_keep_score() -> Tuple[float, str]:
-    """Return (best_val_score, description) from keep rows; (-inf, '') if none."""
+    """
+    Best keep row in the walk-forward era only.
+
+    Pre-WF inflated scores (e.g. ~9–14) must not block new experiments.
+    """
     if not RESULTS_PATH.exists():
         return float("-inf"), ""
+    body = RESULTS_PATH.read_text().splitlines()[1:]
+    start = 0
+    for i, line in enumerate(body):
+        if WF_ERA_MARKER in line and "\tkeep\t" in line:
+            start = i
     best = float("-inf")
     desc = ""
-    for line in RESULTS_PATH.read_text().splitlines()[1:]:
+    for line in body[start:]:
         parts = line.split("\t")
-        if len(parts) < 4:
-            continue
-        if parts[2].strip() != "keep":
+        if len(parts) < 4 or parts[2].strip() != "keep":
             continue
         try:
             score = float(parts[1])
@@ -64,6 +74,18 @@ def best_keep_score() -> Tuple[float, str]:
             best = score
             desc = parts[3].strip()
     return best, desc
+
+
+def recent_discard_phrases(limit: int = 12) -> List[str]:
+    if not RESULTS_PATH.exists():
+        return []
+    out: List[str] = []
+    for line in RESULTS_PATH.read_text().splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 4 or parts[2].strip() != "discard":
+            continue
+        out.append(parts[3].strip()[:80])
+    return out[-limit:]
 
 
 def recent_rows(limit: int = 8) -> str:
@@ -80,7 +102,7 @@ def query_ollama(prompt: str, model: str, timeout: int = 300) -> str:
         "model": model,
         "prompt": prompt,
         "stream": False,
-        "options": {"temperature": 0.4, "num_predict": 4096},
+        "options": {"temperature": 0.7, "num_predict": 4096},
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -96,24 +118,27 @@ def query_ollama(prompt: str, model: str, timeout: int = 300) -> str:
 
 def build_prompt(current: str, best_score: float, best_desc: str) -> str:
     ideas = (
-        "Longer/shorter SMA stacks; volume confirm on/off; RSI band filter; "
-        "asymmetric exit (faster cut); ATR/volatility gate tweak; "
-        "relative strength lookback change; MACD-from-closes; dual SMA exit."
+        "Try ONE unused idea: loosen/tighten MAX_RETURN_STDEV; toggle REQUIRE_REL_STRENGTH; "
+        "change RS_LOOKBACK 10–40; SMA 12/30/90; exit when short < long (slower exit); "
+        "volume ratio 1.0–1.5; disable SPY uptrend for one run; RSI entry band 35–65 only."
     )
+    banned = recent_discard_phrases()
+    banned_txt = "; ".join(banned) if banned else "(none)"
     score_txt = f"{best_score:.4f}" if best_score > float("-inf") else "n/a"
-    return f"""You are optimizing a long-only paper trading strategy for an offline backtest.
+    return f"""You are optimizing a long-only paper trading strategy for an offline walk-forward backtest.
 
-GOAL: Maximize val_score (Sharpe-heavy, penalizes drawdown and fees). Avoid hyper-churn.
+GOAL: Maximize val_score (robust OOS folds). Avoid hyper-churn and fee burn.
 
 CONSTRAINTS:
 - Output ONE complete Python module only (no prose before/after).
 - Prefer a ```python fenced block.
 - Must define generate_signals(bars_by_symbol, index, portfolio) -> dict[symbol, 'BUY'|'SELL'].
 - Keep stdlib only (typing ok). No network, no subprocess, no file I/O.
-- Change ONE clear idea vs the current file (hyperparams and/or logic).
-- Do not invent live profitability claims.
+- Change ONE clear NEW idea vs the current file.
+- Do NOT repeat these recent failed ideas: {banned_txt}
+- First line after the module docstring should be a short comment: # idea: <your unique idea>
 
-CURRENT BEST KEEP: val_score={score_txt} ({best_desc or 'n/a'})
+CURRENT BEST KEEP (walk-forward era only): val_score={score_txt} ({best_desc or 'n/a'})
 
 RECENT RESULTS (commit, score, status, description):
 {recent_rows()}
@@ -213,7 +238,7 @@ def one_iteration(
 
     STRATEGY_PATH.write_text(source)
     idea = description_hint or "ollama local proposal"
-    # Prefer a hyperparam delta comment; never use shebang / encoding lines as the idea.
+    # Prefer "# idea: ..." then other comments; never shebang / hyperparam headers.
     skip_prefixes = ("#!", "# -*-", "# coding")
     for line in source.splitlines()[:40]:
         s = line.strip()
@@ -224,12 +249,15 @@ def one_iteration(
         if "EDITABLE" in s or "Harness:" in s or "Export " in s:
             continue
         body = s.lstrip("# ").strip()
-        # Skip boilerplate section headers that flooded results.tsv
+        if body.lower().startswith("idea:"):
+            idea = body[5:].strip()[:80]
+            break
         if body.lower().startswith("hyperparameters") or "agent may tune" in body.lower():
             continue
-        if len(body) > 8:
+        if body.lower().startswith("require short"):
+            continue
+        if len(body) > 8 and idea == (description_hint or "ollama local proposal"):
             idea = body[:80]
-            break
 
     try:
         new_commit = commit_strategy(f"exp: {idea}")

@@ -56,6 +56,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Fix Ollama exp commit messages (no shebang-as-description)
 - [x] Full-stack `scripts/healthcheck.sh` (trader, OpenBB, Ollama, loops, portfolio)
 - [x] Quiet AI logs by default (`AI_VERBOSE=0` — one-line results, not full prompt dumps)
+- [x] Autoresearch: WF-era keep scoring only + diversity prompt (stop comparing to pre-WF ~14 scores / repeated SMA-exit ideas)
 
 ### Phase C — Research other agents (one idea at a time + re-benchmark)
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
