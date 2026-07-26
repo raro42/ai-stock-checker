@@ -70,7 +70,7 @@
 
     var width = mount.clientWidth || 640;
     var height = 280;
-    var margin = { top: 16, right: 16, bottom: 32, left: 56 };
+    var margin = { top: 16, right: 16, bottom: 40, left: 56 };
 
     var svg = d3
       .select(mount)
@@ -115,11 +115,7 @@
       .y(function (d) { return y(d.equity); })
       .curve(d3.curveMonotoneX);
 
-    svg
-      .append("g")
-      .attr("class", "axis")
-      .attr("transform", "translate(0," + (height - margin.bottom) + ")")
-      .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0));
+    appendTimeAxis(svg, x, margin, height);
     svg
       .append("g")
       .attr("class", "axis")
@@ -156,8 +152,16 @@
       .attr("stroke-width", 1.5)
       .append("title")
       .text(function (d) {
-        return d.label + " · €" + d3.format(",.2f")(d.equity);
+        return (
+          formatDay(d.t) +
+          " · " +
+          d.label +
+          " · €" +
+          d3.format(",.2f")(d.equity)
+        );
       });
+
+    appendRangeCaption(mount, data[0].t, data[data.length - 1].t);
   }
 
   function drawAllocation(mount, rows) {
@@ -272,6 +276,52 @@
     }
   }
 
+  function spanMs(a, b) {
+    return Math.abs(+b - +a);
+  }
+
+  function timeTickFormat(domain) {
+    var ms = spanMs(domain[0], domain[1]);
+    var day = 864e5;
+    if (ms < 2 * day) return d3.timeFormat("%H:%M");
+    if (ms < 100 * day) return d3.timeFormat("%b %d");
+    if (ms < 400 * day) return d3.timeFormat("%b %Y");
+    return d3.timeFormat("%Y");
+  }
+
+  function formatRangeLabel(a, b) {
+    if (!a || !b || isNaN(+a) || isNaN(+b)) return "";
+    var ms = spanMs(a, b);
+    var day = 864e5;
+    var fmt =
+      ms < 2 * day ? d3.timeFormat("%Y-%m-%d %H:%M") : d3.timeFormat("%Y-%m-%d");
+    return fmt(a) + " → " + fmt(b) + " UTC";
+  }
+
+  function appendTimeAxis(svg, x, margin, height) {
+    var domain = x.domain();
+    svg
+      .append("g")
+      .attr("class", "axis axis-x")
+      .attr("transform", "translate(0," + (height - margin.bottom) + ")")
+      .call(
+        d3
+          .axisBottom(x)
+          .ticks(6)
+          .tickFormat(timeTickFormat(domain))
+          .tickSizeOuter(0)
+      );
+  }
+
+  function appendRangeCaption(mount, a, b) {
+    var label = formatRangeLabel(a, b);
+    if (!label) return;
+    var cap = document.createElement("p");
+    cap.className = "chart-range";
+    cap.textContent = label;
+    mount.appendChild(cap);
+  }
+
   function appendHtmlLegend(mount, panels, color) {
     var list = document.createElement("ul");
     list.className = "chart-legend";
@@ -325,7 +375,7 @@
     mount.classList.add("chart-mount--interactive");
     var width = mount.clientWidth || 640;
     var height = 300;
-    var margin = { top: 12, right: 16, bottom: 32, left: 44 };
+    var margin = { top: 12, right: 16, bottom: 40, left: 44 };
 
     var color = d3
       .scaleOrdinal()
@@ -381,11 +431,7 @@
       .nice()
       .range([height - margin.bottom, margin.top]);
 
-    svg
-      .append("g")
-      .attr("class", "axis")
-      .attr("transform", "translate(0," + (height - margin.bottom) + ")")
-      .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0));
+    appendTimeAxis(svg, x, margin, height);
     svg
       .append("g")
       .attr("class", "axis")
@@ -447,6 +493,8 @@
       }
     });
 
+    var xDomain = x.domain();
+    appendRangeCaption(mount, xDomain[0], xDomain[1]);
     var focus = svg.append("g").attr("class", "price-focus").style("display", "none");
     focus
       .append("line")
@@ -748,15 +796,15 @@
       section(
         "Since your buy (avg cost = 100)",
         "ch-buy",
-        "Open lots only — path from entry vs what you paid. No forecast line."
+        "Open lots only — daily closes from entry vs avg cost. Dates on the axis + range below. No forecast."
       ),
       payload.from_buy || []
     );
     drawPrices(
       section(
-        "Relative prices (window = 100)",
+        "Relative prices (~3 months, window start = 100)",
         "ch-px",
-        "Same window start for comparison across names (not your fill price)."
+        "Same calendar window for comparison (not your fill). Dates on the axis + range below."
       ),
       payload.prices
     );
