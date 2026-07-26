@@ -66,6 +66,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Re-baseline under walk-forward + WF-aware buy-and-hold benchmark
 - [x] Curated GitHub idea watch (`config/github_watchlist.json`, `scripts/github_idea_watch.py`, 6h loop) — FinRobot, finance-agent-v2, value-investing agent, portfolio AI, stock screeners
 - [x] Multi-screen paper desk (Overview / Screener / Breadth / Book / Ideas / Ops) inspired by xang1234/stock-screener page map — local vanilla HTML, favicon, a11y/SEO basics
+- [x] D3 charts screen (vendored local d3.min.js) — equity path, allocation donut, relative prices
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
 - [ ] Triage each `AGENT_LOOP_TICK_github_watch` digest: at most **one** transferable idea → checkbox here before coding
 - [ ] Optional later: breadth advance/decline series if we persist daily scan stats (xang1234 StockBee-style)

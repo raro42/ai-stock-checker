@@ -18,6 +18,7 @@
   <title>{{ page.title }}</title>
   <link rel="stylesheet" href="/desk/static/desk.css" />
   <script src="/desk/static/desk.js" defer></script>
+  {% block extra_head %}{% endblock %}
 </head>
 <body data-screen="{{ page.screen }}">
   <a class="skip" href="#main">Skip to content</a>

@@ -642,3 +642,46 @@ a:active {
     grid-column: 1 / -1;
   }
 }
+
+.charts-root {
+  min-height: 12rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.chart-block .chart-mount {
+  width: 100%;
+  min-height: 12rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.25rem 0.25rem;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(212, 165, 116, 0.07), transparent 55%),
+    linear-gradient(180deg, rgba(232, 239, 230, 0.03), transparent 40%);
+}
+
+.chart-mount svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.chart-mount .axis path,
+.chart-mount .axis line {
+  stroke: rgba(232, 239, 230, 0.22);
+}
+
+.chart-mount .axis text {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-body);
+}
+
+.chart-mount .pt {
+  transition: r 0.15s ease;
+}
+
+.chart-mount .pt:hover {
+  r: 5.5;
+}

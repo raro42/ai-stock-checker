@@ -166,13 +166,20 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     assert "GitHub" in resp.text
     assert resp.headers.get("content-security-policy", "").find("img-src 'self'") >= 0
 
-    for path in ("/desk/screener", "/desk/breadth", "/desk/book", "/desk/ideas", "/desk/ops"):
+    for path in ("/desk/charts", "/desk/screener", "/desk/breadth", "/desk/book", "/desk/ideas", "/desk/ops"):
         r = client.get(path)
         assert r.status_code == 200, path
         assert "AI Stock Checker" in r.text
 
     assert "Apple" in client.get("/desk/screener").text
     assert "Bitcoin" in client.get("/desk").text
+    assert "d3.min.js" in client.get("/desk/charts").text
+    assert "charts.js" in client.get("/desk/charts").text
+
+    charts = client.get("/desk/api/charts")
+    assert charts.status_code == 200
+    body = charts.json()
+    assert "equity" in body and "allocation" in body
 
     assert client.get("/desk/nope").status_code == 404
     api = client.get("/desk/api")

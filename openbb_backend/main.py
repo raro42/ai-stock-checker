@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import load_desk_snapshot
 from openbb_backend.repo_meta import load_repo_meta
 
@@ -31,7 +32,7 @@ _DESK_CSP = (
     "frame-ancestors 'none'; "
     "img-src 'self'; "
     "font-src 'none'; "
-    "connect-src 'none'; "
+    "connect-src 'self'; "
     "style-src 'self'; "
     "script-src 'self'"
 )
@@ -42,6 +43,12 @@ _DESK_SCREENS = {
         "label": "Overview",
         "title": "Overview — AI Stock Checker Paper Desk",
         "description": "Paper portfolio equity, top holdings, and scan pulse for AI Stock Checker.",
+    },
+    "charts": {
+        "template": "desk_charts.html",
+        "label": "Charts",
+        "title": "Charts — AI Stock Checker Paper Desk",
+        "description": "D3 charts for paper equity path, allocation, and relative prices.",
     },
     "screener": {
         "template": "desk_screener.html",
@@ -197,6 +204,12 @@ def root():
 def paper_desk_api():
     """Same desk snapshot as JSON for scripts / friends tooling."""
     return load_desk_snapshot(DATA_DIR)
+
+
+@app.get("/desk/api/charts")
+def paper_desk_charts():
+    """Equity / allocation / price series for the Charts screen."""
+    return load_chart_payload(DATA_DIR)
 
 
 @app.get("/favicon.ico")

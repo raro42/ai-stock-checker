@@ -15,13 +15,14 @@ Screens (inspired by xang1234/stock-screener’s Daily / Scan / Breadth / Ops fl
 | Path | Screen |
 |------|--------|
 | `/desk` | Overview — equity + top holdings + scan pulse |
+| `/desk/charts` | D3 charts — equity path, allocation, relative prices |
 | `/desk/screener` | Recommendations, crypto leaders, breakouts |
 | `/desk/breadth` | Session, exposure, allocation |
 | `/desk/book` | Full holdings + fills |
 | `/desk/ideas` | External GitHub idea watch |
 | `/desk/ops` | Watchdog / runtime |
 
-Includes favicon, skip-link, landmarks, `aria-current` nav, meta description, and CSP (`img-src 'self'` only). Countdown refresh via local `desk.js`. JSON twin: `/desk/api`. `DESK_LIVE_MARKS=0` skips yfinance.
+Includes favicon, skip-link, landmarks, `aria-current` nav, meta description, and CSP (`img-src 'self'`; `connect-src 'self'` for chart JSON). Countdown via local `desk.js`. Charts use **vendored D3 v7** (`static/d3.min.js`, no CDN). JSON: `/desk/api`, charts: `/desk/api/charts`.
 
 
 ## Paper desk backend (our data → OpenBB)
