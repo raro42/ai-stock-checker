@@ -202,6 +202,50 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert "api_key" not in str(snap["runtime"]).lower()
 
 
+def test_github_watch_notes_include_last_commit_date(tmp_path: Path):
+    _seed_portfolio(tmp_path)
+    gw = tmp_path / "github_watch"
+    gw.mkdir(parents=True, exist_ok=True)
+    (gw / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-07-26T10:27:37Z",
+                "repo_count": 1,
+                "checked_count": 1,
+                "update_count": 0,
+                "idea_bullets": [],
+                "repos": [
+                    {
+                        "repo": "acme/screener",
+                        "url": "https://github.com/acme/screener",
+                        "why": "test",
+                        "stars": 3,
+                        "pushed_at": "2026-07-20T12:00:00Z",
+                        "has_updates": False,
+                        "tip_sha": "abcdef0123456789",
+                        "tip_message": "Tune breadth window",
+                        "commits": [
+                            {
+                                "sha": "abcdef0123456789deadbeef",
+                                "date": "2026-07-19T08:15:00Z",
+                                "message": "Tune breadth window",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+    snap = load_desk_snapshot(
+        tmp_path,
+        live_marks=False,
+        price_fetcher=lambda _syms: {},
+    )
+    assert snap["github_watch_has_digest"] is True
+    assert snap["github_repos"][0]["last_commit_at"] == "2026-07-19"
+    assert "acme/screener: latest abcdef0 · 2026-07-19" in snap["github_watch_notes"][0]
+
+
 def test_desk_config_api_put(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)

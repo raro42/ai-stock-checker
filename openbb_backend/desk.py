@@ -510,6 +510,24 @@ def load_desk_snapshot(
         if len(tip) > 110:
             tip = tip[:109] + "…"
         sha = str(row.get("tip_sha") or "")
+        tip_short = sha[:7] if sha else ""
+        # Prefer tip commit date, else newest listed commit, else repo pushed_at.
+        last_commit_at = ""
+        commits = row.get("commits") if isinstance(row.get("commits"), list) else []
+        if sha and commits:
+            for c in commits:
+                if not isinstance(c, dict):
+                    continue
+                csha = str(c.get("sha") or "")
+                if csha == sha or csha.startswith(sha[:7]):
+                    last_commit_at = str(c.get("date") or "")[:10]
+                    break
+        if not last_commit_at and commits:
+            c0 = commits[0]
+            if isinstance(c0, dict):
+                last_commit_at = str(c0.get("date") or "")[:10]
+        if not last_commit_at:
+            last_commit_at = str(row.get("pushed_at") or "")[:10]
         gh_repos.append(
             {
                 "repo": row.get("repo") or "",
@@ -521,9 +539,10 @@ def load_desk_snapshot(
                     if row.get("has_updates")
                     else ("error" if row.get("error") else "quiet")
                 ),
-                "tip_short": (sha[:7] if sha else ""),
+                "tip_short": tip_short,
                 "tip_message": tip,
                 "pushed_at": (row.get("pushed_at") or "")[:10],
+                "last_commit_at": last_commit_at,
             }
         )
     # When the watch is quiet, still surface latest tip per repo so Ideas isn't blank.
@@ -531,8 +550,10 @@ def load_desk_snapshot(
     if not gh_ideas and gh_repos:
         for r in gh_repos[:6]:
             if r["tip_message"]:
+                when = r.get("last_commit_at") or r.get("pushed_at") or ""
+                when_bit = f" · {when}" if when else ""
                 gh_watch_notes.append(
-                    f"{r['repo']}: latest {r['tip_short'] or '—'} — {r['tip_message']}"
+                    f"{r['repo']}: latest {r['tip_short'] or '—'}{when_bit} — {r['tip_message']}"
                 )
 
     adopted_ideas = [

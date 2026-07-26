@@ -75,7 +75,7 @@
     {% for r in snap.github_repos %}
     <li>
       <a href="{{ r.url }}" rel="noopener noreferrer">{{ r.repo }}</a>
-      <span class="meta">★{{ r.stars }} · {{ r.status }}{% if r.pushed_at %} · pushed {{ r.pushed_at }}{% endif %}</span>
+      <span class="meta">★{{ r.stars }} · {{ r.status }}{% if r.last_commit_at %} · last commit {{ r.last_commit_at }}{% elif r.pushed_at %} · pushed {{ r.pushed_at }}{% endif %}</span>
       {% if r.why %}<span class="why">{{ r.why }}</span>{% endif %}
     </li>
     {% endfor %}
