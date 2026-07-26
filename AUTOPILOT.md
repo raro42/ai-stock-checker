@@ -61,7 +61,7 @@ Study (do not wholesale clone) and extract **one** transferable idea at a time, 
 
 ### Phase D — Share
 
-- Keep [FRIENDS.md](FRIENDS.md) and README honest
+- Keep [FRIENDS.md](FRIENDS.md) and README honest — refresh screenshots when the desk UI ships; cut releases per [RELEASES.md](RELEASES.md) (not every commit)
 - Public `main` always runnable with Docker + `.env.example`
 
 ## Agent tick checklist

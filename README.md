@@ -1,166 +1,170 @@
 # AI Stock Checker
 
-Local, Docker-first stock and crypto checker with paper trading and optional Ollama AI.
+**A local paper-trading desk that refuses to lie to you.**
 
-**Started October 2025** (paper trading through Nov–Dec 2025; revived and hardened July 2026).
+Docker-first stock & crypto scanning with anti-churn defaults, fee-aware paper fills, optional Ollama AI, and a quiet editorial UI — built for friends who want honest marks, not dashboard theater.
 
-Built for a small group of friends: **honest signals, low churn, fees-aware**, validated before going aggressive.
+[![License: MIT](https://img.shields.io/badge/License-MIT-d4a574?style=flat-square)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-7dcea0?style=flat-square)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/runtime-Docker-15241c?style=flat-square)](docker-compose.yml)
+[![Release](https://img.shields.io/github/v/release/raro42/ai-stock-checker?style=flat-square&color=d4a574)](https://github.com/raro42/ai-stock-checker/releases)
 
-## Features
+<p align="center">
+  <img src="docs/screenshots/01-overview.jpg" alt="Paper desk Overview — equity, holdings, honest marks" width="920" />
+</p>
 
-- **Intelligent trader**: scan markets → rank opportunities → paper trade with persistence
-- **Anti-churn defaults**: ≥4h min hold, 15m scans, 5m trade checks (fees are 0.1%/side)
-- **Symbol filters**: drop stablecoins, leveraged tokens, and known noise
-- **AI modes**: `off` (rules), `validate` (AI gates high-conviction ideas), `full` (AI-led)
-- **Multi-factor scoring**: momentum, technicals, fundamentals, volume/sentiment
-- **Earnings blackout**: skip new entries near earnings when Finnhub has dates
-- **Paper desk UI**: browser UI at `http://127.0.0.1:7779/desk` (equity, holdings, fills)
-- **Design brief**: [`DESIGN.md`](DESIGN.md) — editorial forest/brass desk; agents must follow it (not AI-SaaS defaults)
-- **OpenBB backend**: FastAPI widgets on `:7779` (portfolio / trades / opportunities)
-- **Backtester**: OHLCV long-only simulation with commission + slippage
-- **Autoresearch**: overnight strategy loop on `experiment_strategy.py` (see `autoresearch/`)
-- **CLI**: one-off info, history, Bitcoin, S&P movers
-- **Archive**: opportunity lists saved when the US market is closed
+<p align="center"><em>Overview — forest ink, brass accents, numbers you can trust.</em></p>
 
-## Quick Start
+---
 
-### Prerequisites
+## Why this exists
 
-- Docker (or Podman)
-- Optional: [Ollama](https://ollama.com) + an **instruct** model (`gemma4:latest`, `qwen3.5:9b`, … — not coder models)
-- Optional: [Finnhub](https://finnhub.io) free API key for richer quotes
+Most “AI trading” repos ship vibes: purple glow, fake Sharpe, hourly churn that dies to fees.
 
-### Configure secrets
+This one is the opposite:
+
+- **Fees are real** — 0.1% per side; min hold defaults to **4 hours**
+- **Forecasts are banned** until walk-forward beats SPY — charts show *what happened*, not fortune-telling
+- **Paper desk first** — browse the book in your browser before you ever trust a loop
+- **Docker-only runtime** — no “works on my laptop” dependency soup
+
+If that sounds boring: good. Boring compounds.
+
+---
+
+## The desk
+
+Seven screens. One chrome. Local D3 — no CDN roulette.
+
+| Screen | Job |
+|--------|-----|
+| **Overview** | Equity, unrealized %, top holdings |
+| **Charts** | Book path, allocation, since-buy, relative prices |
+| **Screener** | Ranked paper candidates from the latest scan |
+| **Breadth** | Session exposure + scan pulse (A/D on leaders) |
+| **Book** | Holdings with dated paths since your buy |
+| **Ideas** | Scanner picks + open research watch |
+| **Ops** | Runtime / watchdog honesty |
+
+<p align="center">
+  <img src="docs/screenshots/02-charts.jpg" alt="Charts — book equity and allocation" width="920" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/03-book.jpg" alt="Book — since-buy paths with UTC timing" width="920" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/04-breadth.jpg" alt="Breadth — scan pulse and exposure" width="920" />
+</p>
+
+Open locally after compose: **[http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk)**
+
+Design brief: [`DESIGN.md`](DESIGN.md) — editorial trading room, not AI-SaaS defaults.
+
+---
+
+## Quick start
+
+**Need:** Docker. Optional: [Ollama](https://ollama.com) + an instruct model, [Finnhub](https://finnhub.io) free key.
 
 ```bash
-cp .env.example .env
-# edit .env — set FINNHUB_API_KEY and AI_MODEL
-```
+git clone https://github.com/raro42/ai-stock-checker.git
+cd ai-stock-checker
+cp .env.example .env   # optional: FINNHUB_API_KEY, AI_MODEL
 
-Finnhub: free key at [finnhub.io](https://finnhub.io) (≈60 calls/min on free tier). Leave blank to use yfinance only.
-
-### Paper trading (recommended)
-
-```bash
 docker compose up -d --build intelligent-trader openbb-backend
-docker compose logs -f --tail 50 intelligent-trader openbb-backend
 ```
 
-Data persists in `./data/` (`portfolio.json`, `trades.jsonl`, archives). This directory is gitignored.
+Then open the desk:
 
-Paper desk: [http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk) · OpenBB widgets: same host — see [OPENBB.md](OPENBB.md).
+```text
+http://127.0.0.1:7779/desk
+```
 
-Defaults (anti-churn):
+Paper state lives in `./data/` (gitignored). Friends’ short path: [`FRIENDS.md`](FRIENDS.md).
 
-| Setting | Default |
-|---------|---------|
-| Capital | €100,000 |
-| Scan interval | 900s (15m) |
-| Trade interval | 300s (5m) |
-| Min hold | 14400s (4h) |
+### Defaults (anti-churn)
+
+| | |
+|--|--|
+| Capital | €100,000 paper |
+| Scan / trade | 15m / 5m |
+| Min hold | **4h** |
 | Max positions | 8 |
-| AI mode | validate |
-| AI model | `gemma4:latest` (override with `AI_MODEL` in `.env`) |
+| AI mode | `validate` (gates ideas; doesn’t hallucinate fills) |
 
-### Monitor only (no trades)
+---
 
-```bash
-docker compose --profile monitor up -d monitor
-docker logs -f ai-stock-monitor
-```
+## What’s inside
 
-### One-off CLI
+- **Intelligent trader** — scan → rank → paper trade with persistence
+- **Symbol filters** — stables, leveraged junk, known noise out
+- **Earnings blackout** — skip new entries near earnings when Finnhub has dates
+- **OpenBB widgets** — same `:7779` backend for Pro workspace ([OPENBB.md](OPENBB.md))
+- **Autoresearch** — overnight strategy search with walk-forward promote gate
+- **GitHub research watch** — adapt one transferable pattern at a time ([GITHUB_WATCH.md](GITHUB_WATCH.md))
+- **CLI** — `info`, `history`, `bitcoin`, `movers`, `backtest`
 
 ```bash
 docker build -t ai-stock-checker .
-docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli info AAPL
 docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli info AAPL --analyze
-docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli history TSLA -p 1mo
-docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli bitcoin --analyze
-docker run --rm --network host ai-stock-checker python3 -m stock_checker.cli movers -l 10
-```
-
-### Tests
-
-```bash
-docker build -t ai-stock-checker .
 docker run --rm ai-stock-checker pytest -q
 ```
 
-### Backtest a symbol
+---
 
-```bash
-docker run --rm --network host ai-stock-checker \
-  python3 -m stock_checker.cli backtest AAPL MSFT -p 1y
-```
+## Honesty policy
 
-### Reset paper portfolio (fresh €10k)
+We do **not** claim live edge without walk-forward evidence vs SPY.
 
-```bash
-python3 scripts/reset_paper_portfolio.py --capital 10000
-# or inside Docker with ./data mounted
-```
+Promote rule: experiment strategies must beat SPY on the walk-forward blend before changing live trader defaults. Full-sample hero curves alone are not enough.
 
-### For friends
+If a README ever reads like a hedge-fund pitch deck, open an issue and yell.
 
-See [FRIENDS.md](FRIENDS.md) — shortest path to run together.
+---
 
-Public repo: https://github.com/raro42/ai-stock-checker
+## Releases
 
-## Project layout
+We cut tagged releases when the desk or trader meaningfully changes — screenshots refreshed, notes honest.
 
-```
-stock_checker/
-  intelligent_trader.py   # primary paper-trading loop
-  market_scanner.py       # opportunity scan + market-hours archive
-  symbol_filters.py       # stables / leveraged / noise filters
-  recommender.py          # multi-factor scoring
-  earnings_guard.py       # earnings blackout
-  fee_burn.py             # startup fee-churn warning
-  technical_indicators.py # RSI (Wilder), MACD, Bollinger, ATR
-  backtester.py           # OHLCV backtests + metrics
-  experiment_strategy.py  # autoresearch editable strategy
-  portfolio.py / persistence.py
-  ai_recommender.py / ai_analyzer.py
-  fetcher.py / finnhub_fetcher.py / binance_fetcher.py
-  cli.py / monitor.py / paper_trader.py
-openbb_backend/           # FastAPI widgets for OpenBB Pro
-autoresearch/             # overnight strategy search program
-scripts/                  # healthcheck, summarize, docs weekly, reset
-tests/                    # offline unit tests preferred
-IMPROVEMENT.md            # agent backlog
-DOCS_MAINTENANCE.md       # weekly docs checklist
-AGENTS.md                 # coding + product rules for agents
-```
+- Latest: [Releases](https://github.com/raro42/ai-stock-checker/releases)
+- How we cut them: [`RELEASES.md`](RELEASES.md)
+- Refresh screenshots: `./scripts/capture_desk_screenshots.sh` (desk must be running)
 
-## Strategy notes
+---
 
-- Momentum and technicals matter, but **turnover kills** at 0.1% fees.
-- Crypto is limited (`--top-crypto-count`, default 2) and filtered.
-- Prefer backtesting rule changes before tightening AI or live loops.
-- Docs must not claim Sharpe/win-rate gains without a saved backtest.
-- **Promote rule (2026-07-26):** experiment strategies must beat SPY on **walk-forward** blend before changing live `intelligent_trader` defaults (full-sample alone is not enough).
+## Docs map
 
-## More detail
+| Doc | |
+|-----|--|
+| [USAGE.md](USAGE.md) | CLI flags |
+| [PAPER_TRADING.md](PAPER_TRADING.md) | Paper loop deep dive |
+| [AUTOPILOT.md](AUTOPILOT.md) | Continuous improvement |
+| [IMPROVEMENT.md](IMPROVEMENT.md) | Backlog |
+| [MODELS.md](MODELS.md) | Which Ollama model for what |
+| [GIT.md](GIT.md) | Commit / push ASAP |
 
-- [USAGE.md](USAGE.md) — CLI flags and examples
-- [OPENBB.md](OPENBB.md) — OpenBB Pro + local widgets backend
-- [GIT.md](GIT.md) — commit & push ASAP rules for humans and agents
-- [MODELS.md](MODELS.md) — which Ollama model to use for trading vs autoresearch
-- [AUTOPILOT.md](AUTOPILOT.md) — continuous improvement without waiting for prompts
-- [GITHUB_WATCH.md](GITHUB_WATCH.md) — watch external screener/agent repos for ideas
-- `./scripts/run_clean_code_agent.sh` — clean-code agent (slop review / safe fixes)
-- [DOCS_MAINTENANCE.md](DOCS_MAINTENANCE.md) — weekly documentation loop
-- [autoresearch/README.md](autoresearch/README.md) — strategy search overnight (Ollama worker or Cursor loop)
-- [PAPER_TRADING.md](PAPER_TRADING.md) — paper trading deep dive (verify flags vs compose)
-- [MONITORING.md](MONITORING.md) — monitor service
-- [IMPROVEMENT.md](IMPROVEMENT.md) — what agents should do next
+---
 
-## Security
+## Star if you believe this
 
-Never commit `.env` or API keys. Rotate any key that was previously checked into compose history.
+If you want another repo that promises “10× returns with GPT,” keep scrolling.
+
+If you want a **local, fee-aware, paper-honest** desk you can actually run with friends — star it, fork it, open a PR with one small improvement.
+
+<p align="center">
+  <a href="https://github.com/raro42/ai-stock-checker/stargazers">⭐ Star on GitHub</a>
+  ·
+  <a href="https://github.com/raro42/ai-stock-checker/issues">Issues</a>
+  ·
+  <a href="FRIENDS.md">Run with friends</a>
+</p>
+
+---
 
 ## License
 
 [MIT](LICENSE) © 2026 Ralf Roeber
 
+Started Oct 2025 · paper through late 2025 · revived & hardened Jul 2026.
