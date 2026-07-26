@@ -463,7 +463,8 @@ class IntelligentTrader:
     def execute_new_trades(self):
         """
         Execute trades for validated opportunities.
-        No trading on weekends (stocks or crypto).
+
+        Weekends: crypto only (24/7). US stocks stay paused.
         """
         from .fetcher import StockFetcher
         from .binance_fetcher import BinanceFetcher
@@ -471,13 +472,11 @@ class IntelligentTrader:
         fetcher = StockFetcher()
         binance = BinanceFetcher()
 
-        # Check if it's a weekend - no trading on weekends
         is_weekend = self.scanner.is_weekend()
         if is_weekend:
-            print(f"   ⏸️  Weekend detected - skipping all trading (stocks and crypto)")
-            return
+            print(f"   📅 Weekend: crypto-only trading (stocks paused)")
 
-        # Check if market is closed (for stocks only - crypto trades 24/7)
+        # US cash session closed? stocks skip; crypto still OK on weekdays too
         market_closed = self.scanner.is_market_closed()
 
         # Sort opportunities by score (highest first)
@@ -513,12 +512,15 @@ class IntelligentTrader:
             try:
                 # Get current price
                 is_crypto = "-USD" in symbol
-                
+
+                if is_weekend and not is_crypto:
+                    continue
+
                 # Skip stock trades if market is closed
                 if not is_crypto and market_closed:
                     print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
                     continue
-                
+
                 if is_crypto:
                     binance_symbol = binance.convert_symbol(symbol)
                     binance_data = binance.get_crypto_price(binance_symbol)
@@ -587,7 +589,8 @@ class IntelligentTrader:
     def evaluate_rebalancing(self) -> bool:
         """
         Evaluate if portfolio should be rebalanced based on new opportunities.
-        No trading on weekends (stocks or crypto).
+
+        Weekends: crypto only (24/7). US stocks stay paused.
 
         Returns True if rebalancing occurred.
         """
@@ -598,11 +601,9 @@ class IntelligentTrader:
         if not self.current_opportunities:
             return False
 
-        # Check if it's a weekend - no trading on weekends
         is_weekend = self.scanner.is_weekend()
         if is_weekend:
-            print(f"   ⏸️  Weekend detected - skipping rebalancing (stocks and crypto)")
-            return False
+            print(f"   📅 Weekend: crypto-only rebalancing (stocks paused)")
 
         fetcher = StockFetcher()
         binance = BinanceFetcher()
@@ -615,7 +616,11 @@ class IntelligentTrader:
         current_holdings = set(self.portfolio.holdings.keys())
 
         # Get top N opportunities (where N = max_positions)
-        top_opportunities = self.current_opportunities[:self.max_positions]
+        top_opportunities = [
+            opp
+            for opp in self.current_opportunities
+            if (not is_weekend) or ("-USD" in str(opp.get("symbol", "")))
+        ][: self.max_positions]
         top_symbols = {opp['symbol'] for opp in top_opportunities}
 
         # Check if we have capital to add new positions
@@ -642,7 +647,10 @@ class IntelligentTrader:
 
                 # Get current price
                 is_crypto = "-USD" in symbol
-                
+
+                if is_weekend and not is_crypto:
+                    continue
+
                 # Skip stock trades if market is closed
                 if not is_crypto and market_closed:
                     print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
@@ -699,7 +707,10 @@ class IntelligentTrader:
                 try:
                     # Get current price and data
                     is_crypto = "-USD" in symbol
-                    
+
+                    if is_weekend and not is_crypto:
+                        continue
+
                     # Skip stock trades if market is closed
                     if not is_crypto and market_closed:
                         print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
