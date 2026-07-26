@@ -10,10 +10,10 @@ Docker-first stock & crypto scanning with anti-churn defaults, fee-aware paper f
 [![Release](https://img.shields.io/github/v/release/raro42/ai-stock-checker?style=flat-square&color=d4a574)](https://github.com/raro42/ai-stock-checker/releases)
 
 <p align="center">
-  <img src="docs/screenshots/01-overview.jpg" alt="Paper desk Overview — equity, holdings, honest marks" width="920" />
+  <img src="docs/screenshots/desk-tour.gif" alt="Animated tour of the paper desk — Overview, Charts, Screener, Breadth, Book, Ideas, Ops" width="920" />
 </p>
 
-<p align="center"><em>Overview — forest ink, brass accents, numbers you can trust.</em></p>
+<p align="center"><em>Seven screens · one chrome · Overview → Charts → Screener → Breadth → Book → Ideas → Ops</em></p>
 
 ---
 
@@ -46,19 +46,21 @@ Seven screens. One chrome. Local D3 — no CDN roulette.
 | **Ideas** | Scanner picks + open research watch |
 | **Ops** | Runtime / watchdog honesty |
 
-<p align="center">
-  <img src="docs/screenshots/02-charts.jpg" alt="Charts — book equity and allocation" width="920" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/03-book.jpg" alt="Book — since-buy paths with UTC timing" width="920" />
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/04-breadth.jpg" alt="Breadth — scan pulse and exposure" width="920" />
-</p>
-
 Open locally after compose: **[http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk)**
+
+<details>
+<summary>Still frames</summary>
+
+<p align="center">
+  <img src="docs/screenshots/01-overview.jpg" alt="Overview" width="420" />
+  <img src="docs/screenshots/02-charts.jpg" alt="Charts" width="420" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/03-book.jpg" alt="Book" width="420" />
+  <img src="docs/screenshots/04-breadth.jpg" alt="Breadth" width="420" />
+</p>
+
+</details>
 
 Design brief: [`DESIGN.md`](DESIGN.md) — editorial trading room, not AI-SaaS defaults.
 

@@ -34,6 +34,11 @@ data/
 analysis_reports/
 openbb_backend/build_info.json
 
+# Screenshot capture scratch (commit desk-tour.gif + still JPGs only)
+docs/screenshots/frames/
+docs/screenshots/frames_norm/
+docs/screenshots/_tmp.png
+
 # Autoresearch overnight artifacts
 autoresearch/run.log
 autoresearch/results.tsv

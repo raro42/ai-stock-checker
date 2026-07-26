@@ -17,7 +17,7 @@ Skip a release for pure chore/docs typos unless bundled with the above.
 
 1. `main` is green locally: `docker run --rm ai-stock-checker pytest -q -m "not network"`
 2. Desk up: `./scripts/smoke_desk_http.sh`
-3. Refresh screenshots: `./scripts/capture_desk_screenshots.sh`
+3. Refresh screenshots: capture tab PNGs → `./scripts/make_desk_tour_gif.sh` (and still JPGs via `./scripts/capture_desk_screenshots.sh`)
 4. Update README hero copy if the story changed
 5. `./scripts/cut_release.sh vX.Y.Z` — creates annotated tag + GitHub Release notes
 
