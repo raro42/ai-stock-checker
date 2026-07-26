@@ -47,6 +47,15 @@
                {% if snap.runtime.regime_gate %}checked{% endif %} />
         <span class="ops-label">SMA regime gate (SPY / BTC)</span>
       </label>
+
+      <label class="ops-field">
+        <span class="ops-label">Trading fees (paper)</span>
+        <select name="fee_preset" id="ops-fee-preset">
+          <option value="revolut_standard"{% if snap.runtime.fee_preset == "revolut_standard" %} selected{% endif %}>Revolut Standard–Metal · 0.25% · €1 min</option>
+          <option value="revolut_ultra"{% if snap.runtime.fee_preset == "revolut_ultra" %} selected{% endif %}>Revolut Ultra / Trading Pro · 0.12% · €1 min</option>
+          <option value="binance_like"{% if snap.runtime.fee_preset == "binance_like" %} selected{% endif %}>Spot-like · 0.1% · no floor</option>
+        </select>
+      </label>
     </div>
 
     <div class="ops-actions">
@@ -97,6 +106,10 @@
       <dd>{{ "on" if snap.runtime.desk_live_marks else "off" }}</dd>
     </div>
     <div>
+      <dt>Paper fees</dt>
+      <dd>{{ "%.2f"|format(snap.runtime.commission_rate * 100) }}%/side · min €{{ "%.2f"|format(snap.runtime.commission_min_eur) }}</dd>
+    </div>
+    <div>
       <dt>SPY / BTC regime</dt>
       <dd>{{ snap.runtime.stock_regime }} / {{ snap.runtime.crypto_regime }}{% if snap.runtime.regime_updated %} · {{ snap.runtime.regime_updated }}{% endif %}</dd>
     </div>
@@ -105,7 +118,7 @@
 
 <section class="block system" aria-labelledby="sys-h">
   <h2 id="sys-h">System</h2>
-  <p class="sysline">Portfolio updated {{ snap.portfolio_updated or "—" }} · commission {{ "%.2f"|format(snap.commission_rate_pct) }}%/side</p>
+  <p class="sysline">Portfolio updated {{ snap.portfolio_updated or "—" }} · commission {{ "%.2f"|format(snap.commission_rate_pct) }}%/side · min €{{ "%.2f"|format(snap.commission_min_eur) }} ({{ snap.fee_preset }})</p>
   <p class="sysline">Scan cycle {{ snap.last_full_cycle or "—" }} · history covers {{ snap.scan_history_symbols }} names</p>
   <p class="sysline">Tracked symbols {{ snap.scanned_symbols }} · latest scan {{ snap.scan_time or "—" }}</p>
   {% if snap.watchdog %}

@@ -12,6 +12,7 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - Secrets only via `.env` (see `.env.example`). Never hardcode API keys.
 - Primary service: `intelligent-trader` in `docker-compose.yml`.
 - Anti-churn defaults: min hold ≥4h, scan ≥15m, trade ≥5m.
+- Paper fees: Revolut-like default (0.25%/side · €1 min); configurable on Ops.
 - Filter stables/leveraged/noise via `stock_checker/symbol_filters.py`.
 - Prefer Chrome MCP for live `pro.openbb.co` research (see `OPENBB.md`); do not invent OpenBB data.
 - Desk UI: follow `DESIGN.md` + `.cursor/skills/paper-desk-design/` (anti AI-slop).

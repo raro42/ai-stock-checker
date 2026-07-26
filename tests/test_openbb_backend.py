@@ -220,10 +220,13 @@ def test_desk_config_api_put(tmp_path: Path, monkeypatch):
             "ai_model": "gemma4:latest",
             "ai_multi_role": True,
             "regime_gate": True,
+            "fee_preset": "revolut_standard",
         },
     )
     assert ok.status_code == 200
     assert ok.json()["ai_mode"] == "validate"
+    assert ok.json()["fee_preset"] == "revolut_standard"
+    assert abs(ok.json()["commission_rate"] - 0.0025) < 1e-9
     assert (tmp_path / "trader_config.json").exists()
     got = client.get("/desk/api/config")
     assert got.status_code == 200

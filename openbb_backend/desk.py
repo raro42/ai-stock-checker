@@ -96,6 +96,9 @@ def _trader_runtime_view() -> dict[str, Any]:
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,
         "regime_gate": bool(cfg.get("regime_gate", True)),
+        "fee_preset": str(cfg.get("fee_preset") or "revolut_standard"),
+        "commission_rate": float(cfg.get("commission_rate") or 0.0025),
+        "commission_min_eur": float(cfg.get("commission_min_eur") or 1.0),
         "stock_regime": str(regime_snap.get("stock_regime") or "—"),
         "crypto_regime": str(regime_snap.get("crypto_regime") or "—"),
         "regime_updated": str(regime_snap.get("updated_at") or ""),
@@ -240,7 +243,32 @@ def load_desk_snapshot(
     cash = float(portfolio.get("cash") or 0)
     initial = float(portfolio.get("initial_cash") or 0)
     fees = float(portfolio.get("total_fees_paid") or 0)
-    commission_rate = float(portfolio.get("commission_rate") or 0.001)
+    from stock_checker.trader_config import load_trader_config
+
+    cfg_fees = load_trader_config(data_dir)
+    try:
+        commission_rate = float(
+            portfolio.get("commission_rate")
+            if portfolio.get("commission_rate") is not None
+            else cfg_fees.get("commission_rate")
+            or 0.0025
+        )
+    except (TypeError, ValueError):
+        commission_rate = 0.0025
+    try:
+        commission_min_eur = float(
+            portfolio.get("commission_min_eur")
+            if portfolio.get("commission_min_eur") is not None
+            else cfg_fees.get("commission_min_eur")
+            or 1.0
+        )
+    except (TypeError, ValueError):
+        commission_min_eur = 1.0
+    fee_preset = str(
+        portfolio.get("fee_preset")
+        or cfg_fees.get("fee_preset")
+        or "revolut_standard"
+    )
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     now = time.time()
@@ -549,6 +577,8 @@ def load_desk_snapshot(
         "cash": cash,
         "fees": fees,
         "commission_rate_pct": commission_rate * 100,
+        "commission_min_eur": commission_min_eur,
+        "fee_preset": fee_preset,
         "cost_basis_total": cost,
         "market_value": market_value,
         "equity": equity,

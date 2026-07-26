@@ -23,7 +23,7 @@ Most “AI trading” repos ship vibes: purple glow, fake Sharpe, hourly churn t
 
 This one is the opposite:
 
-- **Fees are real** — 0.1% per side; min hold defaults to **4 hours**
+- **Fees are real** — paper default matches **Revolut Standard–Metal** (0.25%/side · €1 min); Ops can switch Ultra (0.12%) or spot-like 0.1%
 - **Forecasts are banned** until walk-forward beats SPY — charts show *what happened*, not fortune-telling
 - **Paper desk first** — browse the book in your browser before you ever trust a loop
 - **Docker-only runtime** — no “works on my laptop” dependency soup

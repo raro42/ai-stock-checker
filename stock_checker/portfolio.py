@@ -2,6 +2,13 @@
 
 from typing import Dict, List, Optional
 from .risk_manager import RiskManager
+from .fees import (
+    DEFAULT_FEE_PRESET,
+    REVOLUT_STANDARD_MIN_EUR,
+    REVOLUT_STANDARD_RATE,
+    calc_commission,
+    rates_for_preset,
+)
 
 
 class Portfolio:
@@ -10,19 +17,24 @@ class Portfolio:
     def __init__(
         self,
         initial_cash: float = 10000.0,
-        commission_rate: float = 0.001,
+        commission_rate: float = REVOLUT_STANDARD_RATE,
+        commission_min_eur: float = REVOLUT_STANDARD_MIN_EUR,
         persistence=None,
-        enable_risk_management: bool = True
+        enable_risk_management: bool = True,
+        fee_preset: str = DEFAULT_FEE_PRESET,
     ):
         """
         Initialize portfolio.
 
         Args:
             initial_cash: Starting cash in EUR
-            commission_rate: Commission rate per trade (default 0.1% = 0.001)
+            commission_rate: Commission rate per side (default Revolut 0.25%)
+            commission_min_eur: Minimum commission per side in EUR (default €1)
             persistence: DataPersistence instance for saving state
+            fee_preset: Named preset label stored for Ops/desk honesty
         """
         self.persistence = persistence
+        self.fee_preset = fee_preset or DEFAULT_FEE_PRESET
 
         # Try to load existing portfolio state
         if self.persistence:
@@ -30,17 +42,31 @@ class Portfolio:
             if loaded:
                 self.initial_cash = loaded["initial_cash"]
                 self.cash = loaded["cash"]
-                self.commission_rate = loaded["commission_rate"]
+                self.commission_rate = float(
+                    loaded.get("commission_rate", commission_rate)
+                )
+                self.commission_min_eur = float(
+                    loaded.get("commission_min_eur", commission_min_eur)
+                )
+                self.fee_preset = str(
+                    loaded.get("fee_preset") or self.fee_preset
+                )
                 self.holdings = loaded["holdings"]
                 self.avg_buy_price = loaded["avg_buy_price"]
                 self.total_fees_paid = loaded["total_fees_paid"]
                 self.transactions = self.persistence.load_trades()
+                self.enable_risk_management = enable_risk_management
+                if self.enable_risk_management:
+                    self.risk_manager = RiskManager()
+                else:
+                    self.risk_manager = None
                 return
 
         # Initialize new portfolio
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.commission_rate = commission_rate
+        self.commission_min_eur = commission_min_eur
         self.holdings: Dict[str, float] = {}  # symbol -> quantity
         self.avg_buy_price: Dict[str, float] = {}  # symbol -> avg price
         self.transactions: List[Dict] = []
@@ -57,6 +83,34 @@ class Portfolio:
         if self.persistence:
             self._save_state()
 
+    def commission_for(self, notional: float) -> float:
+        """One-side commission with floor."""
+        return calc_commission(
+            notional,
+            rate=self.commission_rate,
+            min_eur=self.commission_min_eur,
+        )
+
+    def set_fee_schedule(
+        self,
+        *,
+        rate: float,
+        min_eur: float,
+        preset: str = "custom",
+        persist: bool = True,
+    ) -> None:
+        """Update live fee schedule (Ops hot-reload). Affects future fills only."""
+        self.commission_rate = float(rate)
+        self.commission_min_eur = max(0.0, float(min_eur))
+        self.fee_preset = str(preset or "custom")
+        if persist and self.persistence:
+            self._save_state()
+
+    def apply_fee_preset(self, preset: str, *, persist: bool = True) -> None:
+        rate, min_eur = rates_for_preset(preset)
+        self.set_fee_schedule(
+            rate=rate, min_eur=min_eur, preset=preset, persist=persist
+        )
     def get_portfolio_value(self, current_prices: Dict[str, float]) -> float:
         """Calculate total portfolio value including cash and holdings."""
         holdings_value = 0.0
@@ -91,7 +145,7 @@ class Portfolio:
     def can_buy(self, symbol: str, price: float, quantity: float) -> bool:
         """Check if we have enough cash to buy."""
         cost = price * quantity
-        commission = cost * self.commission_rate
+        commission = self.commission_for(cost)
         total_cost = cost + commission
         return self.cash >= total_cost
 
@@ -102,7 +156,7 @@ class Portfolio:
         Returns transaction details or None if insufficient funds.
         """
         cost = price * quantity
-        commission = cost * self.commission_rate
+        commission = self.commission_for(cost)
         total_cost = cost + commission
 
         if self.cash < total_cost:
@@ -168,7 +222,7 @@ class Portfolio:
             }
 
         proceeds = price * quantity
-        commission = proceeds * self.commission_rate
+        commission = self.commission_for(proceeds)
         net_proceeds = proceeds - commission
 
         # Calculate profit/loss
@@ -214,6 +268,8 @@ class Portfolio:
                 "initial_cash": self.initial_cash,
                 "cash": self.cash,
                 "commission_rate": self.commission_rate,
+                "commission_min_eur": self.commission_min_eur,
+                "fee_preset": self.fee_preset,
                 "holdings": self.holdings,
                 "avg_buy_price": self.avg_buy_price,
                 "total_fees_paid": self.total_fees_paid,

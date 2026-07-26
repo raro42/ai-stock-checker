@@ -35,6 +35,7 @@ from .market_regime import (
     simple_sma,
     snapshot_dict,
 )
+from .fees import DEFAULT_FEE_PRESET, rates_for_preset
 from . import __version__
 
 
@@ -58,7 +59,14 @@ class IntelligentTrader:
     ):
         self.scanner = MarketScanner(top_crypto_count=top_crypto_count)
         self.persistence = DataPersistence()
-        self.portfolio = Portfolio(initial_cash, commission_rate=0.001, persistence=self.persistence)
+        rate, min_eur = rates_for_preset(DEFAULT_FEE_PRESET)
+        self.portfolio = Portfolio(
+            initial_cash,
+            commission_rate=rate,
+            commission_min_eur=min_eur,
+            fee_preset=DEFAULT_FEE_PRESET,
+            persistence=self.persistence,
+        )
 
         self.scan_interval = scan_interval
         self.trade_interval = trade_interval
@@ -912,10 +920,28 @@ class IntelligentTrader:
         new_model = str(cfg.get("ai_model") or "gemma4:latest")
         multi = bool(cfg.get("ai_multi_role", True))
         regime = bool(cfg.get("regime_gate", True))
+        fee_preset = str(cfg.get("fee_preset") or DEFAULT_FEE_PRESET)
+        fee_rate = float(cfg.get("commission_rate") or rates_for_preset(fee_preset)[0])
+        fee_min = float(cfg.get("commission_min_eur") or rates_for_preset(fee_preset)[1])
 
         os.environ["AI_MULTI_ROLE"] = "1" if multi else "0"
         os.environ["REGIME_GATE"] = "1" if regime else "0"
         self._regime_enabled = regime
+
+        fee_changed = (
+            abs(float(self.portfolio.commission_rate) - fee_rate) > 1e-12
+            or abs(float(getattr(self.portfolio, "commission_min_eur", 0.0)) - fee_min)
+            > 1e-12
+            or str(getattr(self.portfolio, "fee_preset", "")) != fee_preset
+        )
+        if fee_changed:
+            self.portfolio.set_fee_schedule(
+                rate=fee_rate, min_eur=fee_min, preset=fee_preset, persist=True
+            )
+            print(
+                f"   💶 Fee schedule: {fee_preset} · "
+                f"{fee_rate*100:.2f}%/side · min €{fee_min:.2f}"
+            )
 
         if new_mode == self.ai_mode and new_model == self.ai_model:
             return

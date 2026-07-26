@@ -36,11 +36,13 @@
       var modelEl = document.getElementById("ops-ai-model");
       var multiEl = document.getElementById("ops-multi-role");
       var regimeEl = document.getElementById("ops-regime");
+      var feeEl = document.getElementById("ops-fee-preset");
       var body = {
         ai_mode: modeEl ? modeEl.value : "off",
         ai_model: modelEl ? String(modelEl.value || "").trim() : "",
         ai_multi_role: multiEl ? !!multiEl.checked : true,
         regime_gate: regimeEl ? !!regimeEl.checked : true,
+        fee_preset: feeEl ? feeEl.value : "revolut_standard",
       };
       if (saveBtn) {
         saveBtn.disabled = true;

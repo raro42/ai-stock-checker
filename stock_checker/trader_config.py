@@ -12,7 +12,14 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+from stock_checker.fees import (
+    DEFAULT_FEE_PRESET,
+    FEE_PRESETS,
+    rates_for_preset,
+)
+
 ALLOWED_AI_MODES = frozenset({"off", "validate", "full"})
+ALLOWED_FEE_PRESETS = frozenset(FEE_PRESETS.keys()) | frozenset({"custom"})
 
 # Instruct/general defaults — never suggest coder models for trade gates.
 DEFAULT_AI_MODEL = "gemma4:latest"
@@ -22,6 +29,7 @@ DEFAULTS: dict[str, Any] = {
     "ai_model": DEFAULT_AI_MODEL,
     "ai_multi_role": True,
     "regime_gate": True,
+    "fee_preset": DEFAULT_FEE_PRESET,
 }
 
 
@@ -42,11 +50,20 @@ def _env_defaults() -> dict[str, Any]:
     if mode not in ALLOWED_AI_MODES:
         mode = "off"
     model = (os.getenv("AI_MODEL") or DEFAULT_AI_MODEL).strip() or DEFAULT_AI_MODEL
+    fee_preset = (
+        os.getenv("FEE_PRESET") or DEFAULT_FEE_PRESET
+    ).strip().lower() or DEFAULT_FEE_PRESET
+    if fee_preset not in ALLOWED_FEE_PRESETS:
+        fee_preset = DEFAULT_FEE_PRESET
+    rate, min_eur = rates_for_preset(fee_preset)
     return {
         "ai_mode": mode,
         "ai_model": model,
         "ai_multi_role": _as_bool(os.getenv("AI_MULTI_ROLE"), True),
         "regime_gate": _as_bool(os.getenv("REGIME_GATE"), True),
+        "fee_preset": fee_preset,
+        "commission_rate": rate,
+        "commission_min_eur": min_eur,
     }
 
 
@@ -54,6 +71,9 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
     """Merge raw over base (or env defaults) and clamp to allowed values."""
     out = dict(base if base is not None else _env_defaults())
     if not isinstance(raw, dict):
+        rate, min_eur = rates_for_preset(str(out.get("fee_preset") or DEFAULT_FEE_PRESET))
+        out["commission_rate"] = rate
+        out["commission_min_eur"] = min_eur
         return out
 
     if "ai_mode" in raw:
@@ -73,6 +93,32 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
 
     if "regime_gate" in raw:
         out["regime_gate"] = _as_bool(raw.get("regime_gate"), out["regime_gate"])
+
+    if "fee_preset" in raw:
+        preset = str(raw.get("fee_preset") or "").strip().lower()
+        if preset in ALLOWED_FEE_PRESETS:
+            out["fee_preset"] = preset
+
+    # Custom numeric overrides only when preset is custom.
+    if out.get("fee_preset") == "custom":
+        if "commission_rate" in raw:
+            try:
+                r = float(raw.get("commission_rate"))
+                if 0 <= r <= 0.05:
+                    out["commission_rate"] = r
+            except (TypeError, ValueError):
+                pass
+        if "commission_min_eur" in raw:
+            try:
+                m = float(raw.get("commission_min_eur"))
+                if 0 <= m <= 50:
+                    out["commission_min_eur"] = m
+            except (TypeError, ValueError):
+                pass
+    else:
+        rate, min_eur = rates_for_preset(str(out.get("fee_preset") or DEFAULT_FEE_PRESET))
+        out["commission_rate"] = rate
+        out["commission_min_eur"] = min_eur
 
     return out
 
@@ -100,6 +146,9 @@ def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[st
         "ai_model": merged["ai_model"],
         "ai_multi_role": bool(merged["ai_multi_role"]),
         "regime_gate": bool(merged["regime_gate"]),
+        "fee_preset": merged["fee_preset"],
+        "commission_rate": float(merged["commission_rate"]),
+        "commission_min_eur": float(merged["commission_min_eur"]),
     }
     path.write_text(json.dumps(payload, indent=2) + "\n")
     return payload
