@@ -15,6 +15,7 @@ Built for a small group of friends: **honest signals, low churn, fees-aware**, v
 - **Multi-factor scoring**: momentum, technicals, fundamentals, volume/sentiment
 - **Earnings blackout**: skip new entries near earnings when Finnhub has dates
 - **Paper desk UI**: browser UI at `http://127.0.0.1:7779/desk` (equity, holdings, fills)
+- **Design brief**: [`DESIGN.md`](DESIGN.md) — editorial forest/brass desk; agents must follow it (not AI-SaaS defaults)
 - **OpenBB backend**: FastAPI widgets on `:7779` (portfolio / trades / opportunities)
 - **Backtester**: OHLCV long-only simulation with commission + slippage
 - **Autoresearch**: overnight strategy loop on `experiment_strategy.py` (see `autoresearch/`)

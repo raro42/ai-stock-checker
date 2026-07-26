@@ -65,6 +65,12 @@ Design check:
 - [ ] Screenshots / desk URL smoke if visual
 ```
 
+## Charts
+
+- Local D3 only; series from desk palette
+- **Legends wrap via HTML flex** — never fixed-width SVG label rows (they overlap with many tickers)
+- Rare motion; `prefers-reduced-motion` respected
+
 ## When “trends” conflict
 
 Prefer **Reddit fatigue signals** (usability, diversity, no AI chrome) over agency trend-chasing.

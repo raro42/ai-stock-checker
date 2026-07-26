@@ -1,8 +1,8 @@
 # Paper Desk — Design Brief
 
-Strong visual identity for the local paper-trading desk. **Not** another technical AI dashboard.
+**This file is the canonical visual identity for the paper desk.** Other agents and humans must respect it when changing UI.
 
-Agents: follow `.cursor/skills/paper-desk-design/SKILL.md` when changing UI.
+Agents: also follow `.cursor/skills/paper-desk-design/SKILL.md` (ban list in `anti-patterns.md`). Desk-local pointer: `openbb_backend/DESIGN.md`.
 
 ## Intent
 
@@ -38,9 +38,15 @@ Typography carries hierarchy; stock “hero art” does not.
 - Light grain optional; no glassmorphism identity
 - Motion rare; never scroll-jack; honor `prefers-reduced-motion`
 
+## Charts
+
+- Local D3 only (`static/d3.min.js`); series colors from the desk palette
+- **Legends must wrap and stay readable** — use HTML flex-wrap legends, not fixed-width SVG rows that collide when many tickers are open
+- Axes muted; hover titles for detail; respect chart empty states
+
 ## Screens
 
-Overview · Screener · Breadth · Book · Charts · Ideas · Ops — same chrome, different job. Charts use local D3 and desk colors.
+Overview · Screener · Breadth · Book · Charts · Ideas · Ops — same chrome, different job.
 
 ## What we refuse
 
