@@ -1,19 +1,34 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import re
+import sys
 from typing import Dict
 
 from stock_checker.ai_analyzer import OllamaAnalyzer
+
+
+def _ai_verbose() -> bool:
+    return os.getenv("AI_VERBOSE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 class AIRecommender:
     """AI-driven recommendation engine using Ollama."""
 
     def __init__(self, model: str = "gemma4:latest"):
-        import os
-        ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.analyzer = OllamaAnalyzer(base_url=ollama_host, model=model)
+
+    def _log_block(self, title: str, body: str) -> None:
+        if not _ai_verbose():
+            return
+        print(f"\n{'='*80}", flush=True)
+        print(title, flush=True)
+        print(f"{'='*80}", flush=True)
+        print(body, flush=True)
+        print(f"{'='*80}\n", flush=True)
+        sys.stdout.flush()
 
     def get_ai_recommendation(self, stock_data: dict) -> Dict:
         """
@@ -21,14 +36,13 @@ class AIRecommender:
 
         Returns dict with action, confidence, reasoning.
         """
-        import sys
-
         from stock_checker.ai_multi_role import (
             build_multi_role_prompt,
             multi_role_enabled,
             parse_multi_role_response,
         )
 
+        symbol = stock_data.get("symbol", "Unknown")
         use_multi = multi_role_enabled()
         prompt = (
             build_multi_role_prompt(stock_data)
@@ -36,35 +50,37 @@ class AIRecommender:
             else self._build_trading_prompt(stock_data)
         )
 
-        print(f"\n{'='*80}", flush=True)
-        print(f"🤖 AI PROMPT for {stock_data.get('symbol', 'Unknown')}", flush=True)
-        print(f"{'='*80}", flush=True)
-        print(prompt, flush=True)
-        print(f"{'='*80}\n", flush=True)
-        sys.stdout.flush()
+        self._log_block(f"🤖 AI PROMPT for {symbol}", prompt)
 
         try:
             response = self.analyzer._query_ollama(prompt)
+            self._log_block(f"🤖 AI RESPONSE for {symbol}", response)
 
-            print(f"\n{'='*80}", flush=True)
-            print(f"🤖 AI RESPONSE for {stock_data.get('symbol', 'Unknown')}", flush=True)
-            print(f"{'='*80}", flush=True)
-            print(response, flush=True)
-            print(f"{'='*80}\n", flush=True)
-            sys.stdout.flush()
-
+            parsed = None
             if use_multi:
                 multi = parse_multi_role_response(response, stock_data)
                 if multi:
                     multi["current_price"] = stock_data.get("current_price")
-                    return multi
-            return self._parse_ai_response(response, stock_data)
+                    parsed = multi
+            if parsed is None:
+                parsed = self._parse_ai_response(response, stock_data)
+
+            if not _ai_verbose():
+                print(
+                    f"🤖 AI {symbol}: {parsed.get('action')} "
+                    f"conf={parsed.get('confidence')} score={parsed.get('score')} "
+                    f"mode={parsed.get('parse_mode')}",
+                    flush=True,
+                )
+            return parsed
         except Exception as e:
-            print(f"⚠️  AI Error for {stock_data.get('symbol', 'Unknown')}: {str(e)}", flush=True)
+            print(f"⚠️  AI Error for {symbol}: {str(e)}", flush=True)
             sys.stdout.flush()
-            import traceback
-            traceback.print_exc()
-            sys.stdout.flush()
+            if _ai_verbose():
+                import traceback
+
+                traceback.print_exc()
+                sys.stdout.flush()
             return {
                 "action": "HOLD",
                 "confidence": "LOW",
@@ -282,35 +298,30 @@ class AIRecommender:
 
     def get_bitcoin_ai_recommendation(self, btc_data: dict) -> Dict:
         """Get AI recommendation specifically for Bitcoin."""
-        import sys
-
         prompt = self._build_bitcoin_prompt(btc_data)
-
-        print(f"\n{'='*80}", flush=True)
-        print(f"🤖 AI PROMPT for BTC-USD", flush=True)
-        print(f"{'='*80}", flush=True)
-        print(prompt, flush=True)
-        print(f"{'='*80}\n", flush=True)
-        sys.stdout.flush()
+        self._log_block("🤖 AI PROMPT for BTC-USD", prompt)
 
         try:
             response = self.analyzer._query_ollama(prompt)
-
-            print(f"\n{'='*80}", flush=True)
-            print(f"🤖 AI RESPONSE for BTC-USD", flush=True)
-            print(f"{'='*80}", flush=True)
-            print(response, flush=True)
-            print(f"{'='*80}\n", flush=True)
-            sys.stdout.flush()
+            self._log_block("🤖 AI RESPONSE for BTC-USD", response)
 
             btc_data_with_symbol = {**btc_data, "symbol": "BTC-USD"}
-            return self._parse_ai_response(response, btc_data_with_symbol)
+            parsed = self._parse_ai_response(response, btc_data_with_symbol)
+            if not _ai_verbose():
+                print(
+                    f"🤖 AI BTC-USD: {parsed.get('action')} "
+                    f"conf={parsed.get('confidence')} score={parsed.get('score')}",
+                    flush=True,
+                )
+            return parsed
         except Exception as e:
             print(f"⚠️  AI Error for BTC-USD: {str(e)}", flush=True)
             sys.stdout.flush()
-            import traceback
-            traceback.print_exc()
-            sys.stdout.flush()
+            if _ai_verbose():
+                import traceback
+
+                traceback.print_exc()
+                sys.stdout.flush()
             return {
                 "symbol": "BTC-USD",
                 "action": "HOLD",

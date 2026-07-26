@@ -55,6 +55,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)
 - [x] Fix Ollama exp commit messages (no shebang-as-description)
 - [x] Full-stack `scripts/healthcheck.sh` (trader, OpenBB, Ollama, loops, portfolio)
+- [x] Quiet AI logs by default (`AI_VERBOSE=0` — one-line results, not full prompt dumps)
 
 ### Phase C — Research other agents (one idea at a time + re-benchmark)
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
