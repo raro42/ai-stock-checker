@@ -213,6 +213,7 @@ def load_desk_snapshot(
 
     ret_pct = ((equity / initial) - 1) * 100 if initial else 0.0
     unrealized_total = market_value - cost
+    unrealized_pct = (unrealized_total / cost * 100) if cost else 0.0
     deployed_pct = ((equity - cash) / equity * 100) if equity else 0.0
 
     for r in rows:
@@ -341,6 +342,7 @@ def load_desk_snapshot(
         "equity_cost": equity_cost,
         "ret_pct": ret_pct,
         "unrealized_total": unrealized_total,
+        "unrealized_pct": unrealized_pct,
         "deployed_pct": deployed_pct,
         "positions": len(rows),
         "holdings": rows,

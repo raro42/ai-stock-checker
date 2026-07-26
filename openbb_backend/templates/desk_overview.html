@@ -17,7 +17,10 @@
 <section class="strip" aria-label="Book snapshot">
   <div>
     <span class="k">Unrealized</span>
-    <span class="v {% if snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">€{{ "{:+,.2f}".format(snap.unrealized_total) }}</span>
+    <span class="v {% if snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">
+      €{{ "{:+,.2f}".format(snap.unrealized_total) }}
+      <small>{{ "%+.2f"|format(snap.unrealized_pct) }}%</small>
+    </span>
   </div>
   <div>
     <span class="k">Realized</span>

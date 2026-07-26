@@ -319,6 +319,16 @@ a:active {
 .strip .v {
   font-family: var(--font-display);
   font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.strip .v small {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72em;
+  font-weight: 500;
+  opacity: 0.92;
 }
 
 .block {

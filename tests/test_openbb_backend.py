@@ -136,6 +136,11 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert aapl["marked"] is True
     assert aapl["last"] == 105
     assert aapl["unrealized"] > 0
+    assert "unrealized_pct" in snap
+    assert snap["unrealized_total"] == snap["market_value"] - snap["cost_basis_total"]
+    if snap["cost_basis_total"]:
+        expected = snap["unrealized_total"] / snap["cost_basis_total"] * 100
+        assert abs(snap["unrealized_pct"] - expected) < 1e-6
     assert snap["recommendations"][0]["symbol"] == "ETH-USD"
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
     assert snap["stock_breakouts"][0]["symbol"] == "AAPL"
