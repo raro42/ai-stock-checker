@@ -215,5 +215,5 @@ def test_render_markdown_contains_guidance():
             ],
         }
     )
-    assert "transferable idea" in md.lower() or "Steal" in md
+    assert "transferable" in md.lower() or "adapt" in md.lower()
     assert "a/b" in md

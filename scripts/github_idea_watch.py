@@ -379,7 +379,7 @@ def render_markdown(digest: dict[str, Any]) -> str:
     lines = [
         f"# GitHub idea watch — {digest.get('generated_at', '')}",
         "",
-        "Curated external repos. Steal **one** transferable idea at a time; re-benchmark before adopting.",
+        "Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.",
         "",
         f"- Repos watched: **{digest.get('repo_count', 0)}**",
         f"- Checked this run: **{digest.get('checked_count', 0)}** · skipped (not due): **{digest.get('skipped_count', 0)}**",

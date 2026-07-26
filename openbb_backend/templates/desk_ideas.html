@@ -4,7 +4,7 @@
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
   <h1>Research &amp; candidates</h1>
-  <p class="lede">Paper scanner picks, shipped transfers from watched repos, and the GitHub research watch — steal one idea at a time.</p>
+  <p class="lede">Paper scanner picks, patterns we’ve already adapted from open research, and the GitHub watch — one idea at a time, re-benchmarked before it lands in trading logic.</p>
 </header>
 
 <section class="block" aria-labelledby="paper-h">
@@ -27,14 +27,14 @@
   {% endif %}
 </section>
 
-<section class="block" aria-labelledby="shipped-h">
-  <h2 id="shipped-h">Already stolen</h2>
-  <p class="sub">Transfers we already shipped into this desk (from IMPROVEMENT Phase C).</p>
-  <ul class="ideas shipped">
-    {% for s in snap.shipped_ideas %}
+<section class="block" aria-labelledby="adopted-h">
+  <h2 id="adopted-h">Adopted here</h2>
+  <p class="sub">Open-source patterns we adapted into this desk (IMPROVEMENT Phase C) — our implementation, their inspiration.</p>
+  <ul class="ideas adopted">
+    {% for s in snap.adopted_ideas %}
     <li>
       <strong>{{ s.title }}</strong>
-      <span class="meta">from {{ s.from }}</span>
+      <span class="meta">inspired by {{ s.from }}</span>
       <span class="why">{{ s.note }}</span>
     </li>
     {% endfor %}

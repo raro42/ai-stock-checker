@@ -395,7 +395,7 @@ def load_desk_snapshot(
                     f"{r['repo']}: latest {r['tip_short'] or '—'} — {r['tip_message']}"
                 )
 
-    shipped_ideas = [
+    adopted_ideas = [
         {
             "title": "Scan pulse on Breadth",
             "from": "xang1234/stock-screener (StockBee-style A/D)",
@@ -467,5 +467,5 @@ def load_desk_snapshot(
         "github_ideas": gh_ideas,
         "github_watch_notes": gh_watch_notes,
         "github_repos": gh_repos,
-        "shipped_ideas": shipped_ideas,
+        "adopted_ideas": adopted_ideas,
     }

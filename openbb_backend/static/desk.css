@@ -606,14 +606,14 @@ a:active {
   font-size: 0.92rem;
 }
 
-.ideas.shipped li {
+.ideas.adopted li {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   color: var(--ink);
 }
 
-.ideas.shipped .meta,
+.ideas.adopted .meta,
 .gh-repos .meta {
   color: var(--muted);
   font-size: 0.8rem;

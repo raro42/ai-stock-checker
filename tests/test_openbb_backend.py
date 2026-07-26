@@ -184,7 +184,7 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["github_ideas"] == []
     assert snap["github_watch_updates"] == 0
     assert snap["github_watch_has_digest"] is False
-    assert snap["shipped_ideas"]
+    assert snap["adopted_ideas"]
     assert snap["github_repos"] == []
     assert snap["github_watch_notes"] == []
 
@@ -224,7 +224,7 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     assert "average buy" in book.text.lower() or "avg cost" in book.text.lower()
     ideas = client.get("/desk/ideas")
     assert "Paper candidates" in ideas.text
-    assert "Already stolen" in ideas.text
+    assert "Adopted here" in ideas.text
     assert "No GitHub watch digest yet" in ideas.text  # seeded fixture has no watch file
     assert "d3.min.js" in client.get("/desk/charts").text
     assert "charts.js" in client.get("/desk/charts").text

@@ -1,6 +1,6 @@
 # GitHub idea watch — 2026-07-26T10:27:37Z
 
-Curated external repos. Steal **one** transferable idea at a time; re-benchmark before adopting.
+Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.
 
 - Repos watched: **12**
 - Checked this run: **12** · skipped (not due): **0**
@@ -19,7 +19,7 @@ _No new commits/releases since last check._
 - Status: quiet
 
 ### [MonsterDeveloper/simple-stock-screener](https://github.com/MonsterDeveloper/simple-stock-screener)
-- Watch reason: Minimal screener — steal simplicity
+- Watch reason: Minimal screener — learn from simplicity
 - A super simple, modern, AI-powered stock screening tool with Notion-style UI.
 - Stars: 0 · pushed: 2025-02-21T11:43:57Z · branch: `main`
 - Cadence: ~0.47 commits/day (avg gap 51.0h) · recheck every 25h · next 2026-07-27T11:55:57Z

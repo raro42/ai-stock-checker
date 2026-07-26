@@ -50,7 +50,7 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 - [x] Soft-migrate / clearer fee-burn reset path for friends
 - [x] Healthcheck + friend onboarding polish
 
-### Phase C — Steal ideas from other agents (research → adopt carefully)
+### Phase C — Learn from other agents (research → adopt carefully)
 
 Study (do not wholesale clone) and extract **one** transferable idea at a time, always re-benchmark:
 
