@@ -24,6 +24,8 @@ Screens (inspired by xang1234/stock-screener’s Daily / Scan / Breadth / Ops fl
 
 Includes favicon, skip-link, landmarks, `aria-current` nav, meta description, and CSP (`img-src 'self'`; `connect-src 'self'` for chart JSON). Countdown via local `desk.js`. Charts use **vendored D3 v7** (`static/d3.min.js`, no CDN). JSON: `/desk/api`, charts: `/desk/api/charts`.
 
+**Visual identity:** [DESIGN.md](DESIGN.md) — forest/brass editorial desk; agents use `.cursor/skills/paper-desk-design/`.
+
 
 ## Paper desk backend (our data → OpenBB)
 

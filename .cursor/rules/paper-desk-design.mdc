@@ -1,0 +1,16 @@
+---
+description: Paper Desk visual identity — anti AI-slop, editorial trading-desk UI
+globs: openbb_backend/templates/**/*.{html,jinja2},openbb_backend/static/**/*.{css,js,svg},**/DESIGN.md
+alwaysApply: false
+---
+
+# Paper Desk Design Rule
+
+Before changing desk UI/CSS/charts:
+
+1. Read and follow `.cursor/skills/paper-desk-design/SKILL.md`
+2. Check `.cursor/skills/paper-desk-design/anti-patterns.md` — ban list wins over trend blogs
+3. Keep forest + brass tokens in `desk.css`; type = serif display + system body + mono data
+4. Prefer sharp geometry, semantic HTML, rare motion; no purple SaaS, glass identity, scroll-jack, or AI prompt chrome
+
+Human brief: `DESIGN.md`.

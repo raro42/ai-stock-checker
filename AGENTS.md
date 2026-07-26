@@ -39,8 +39,9 @@ The human is **tired of prompting** and expects overnight progress (CEST). Do no
 2. **Filter junk**: no stablecoins, leveraged tokens, or known noise symbols (`symbol_filters.py`).
 3. **AI models**: use instruct/general Ollama models (`gemma4:latest`, `qwen3.5:9b`, etc.). **Never** default to coder models for trade decisions.
 4. **OpenBB**: research + Paper Desk widgets via `openbb-backend` (`OPENBB.md`). Earnings blackout before new stock entries.
-5. **Validate before claiming**: backtest with `stock_checker.backtester` (or vectorbt later). No fabricated Sharpe/win-rate claims in docs.
-6. **Primary entrypoint**: `python3 -m stock_checker.intelligent_trader` (not obsolete “enhanced-paper-trader” names).
+5. **Desk UI design**: follow `DESIGN.md` and `.cursor/skills/paper-desk-design/` — editorial trading desk, not AI-SaaS defaults.
+6. **Validate before claiming**: backtest with `stock_checker.backtester` (or vectorbt later). No fabricated Sharpe/win-rate claims in docs.
+7. **Primary entrypoint**: `python3 -m stock_checker.intelligent_trader` (not obsolete “enhanced-paper-trader” names).
 ## Testing
 
 - Prefer offline unit tests (no network) for filters, portfolio, indicators, backtester, market hours.
