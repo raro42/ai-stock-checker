@@ -146,3 +146,64 @@ def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
     assert aapl["last_t"]
     assert "span_hours" in aapl
     assert aapl["span_hours"] >= 0
+    assert aapl["interval"] == "1d"
+
+
+def test_hold_chart_interval_short_vs_long():
+    from openbb_backend.charts import hold_chart_interval
+
+    assert hold_chart_interval(7.0, is_crypto=True) == "15m"
+    assert hold_chart_interval(48.0, is_crypto=True) == "1h"
+    assert hold_chart_interval(200.0, is_crypto=False) == "1d"
+
+
+def test_from_buy_short_crypto_uses_intraday_cache(tmp_path: Path, monkeypatch):
+    """Short holds must not collapse to buy→now when only daily bars exist."""
+    import time
+    from datetime import datetime, timedelta, timezone
+
+    from openbb_backend.charts import build_from_buy_panels
+
+    buy_ts = time.time() - 7 * 3600
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": 90000,
+                "holdings": {"BTC-USD": 0.1},
+                "avg_buy_price": {"BTC-USD": 64000},
+                "total_fees_paid": 1,
+            }
+        )
+    )
+    (tmp_path / "trades.jsonl").write_text("")
+    (tmp_path / "entry_times.json").write_text(json.dumps({"BTC-USD": buy_ts}))
+    (tmp_path / "archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text("{}")
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    t0 = datetime.fromtimestamp(buy_ts, tz=timezone.utc)
+    pts = []
+    for i in range(0, 8 * 4):
+        ts = t0 + timedelta(minutes=15 * i)
+        pts.append(
+            {
+                "t": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "close": 64000 + (i % 5) * 40 - 20,
+            }
+        )
+    (cache / "BTC-USD_15m.json").write_text(
+        json.dumps(
+            {
+                "symbol": "BTC-USD",
+                "interval": "15m",
+                "fetched_at": 9e12,
+                "points": pts,
+            }
+        )
+    )
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    panels = build_from_buy_panels(tmp_path, live=False)
+    btc = next(p for p in panels if p["symbol"] == "BTC-USD")
+    assert btc["interval"] == "15m"
+    assert len(btc["points"]) > 5

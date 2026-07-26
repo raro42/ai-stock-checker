@@ -190,9 +190,39 @@ def build_allocation(data_dir: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _cache_path(data_dir: Path, symbol: str) -> Path:
+def _cache_path(data_dir: Path, symbol: str, interval: str = "1d") -> Path:
     safe = symbol.replace("/", "_")
-    return data_dir / "chart_bars" / f"{safe}.json"
+    # Keep daily cache path stable for existing chart_bars/*.json files.
+    if interval in {"1d", "d", "day", "daily"}:
+        return data_dir / "chart_bars" / f"{safe}.json"
+    safe_iv = interval.replace("/", "_")
+    return data_dir / "chart_bars" / f"{safe}_{safe_iv}.json"
+
+
+def _yf_period_for(days: int, interval: str) -> str:
+    """yfinance period hints by bar size (intraday windows are short)."""
+    if interval in {"15m", "5m", "2m", "1m"}:
+        return "5d" if days <= 5 else "7d"
+    if interval in {"60m", "1h", "90m"}:
+        if days <= 7:
+            return "7d"
+        if days <= 30:
+            return "1mo"
+        return "3mo"
+    return "3mo" if days <= 100 else "6mo"
+
+
+def hold_chart_interval(span_hours: float, *, is_crypto: bool = False) -> str:
+    """
+    Pick bar size so short holds (esp. weekend crypto) are not a 2-point line.
+
+    Daily bars often have zero points between a morning fill and “now”.
+    """
+    if span_hours <= 36:
+        return "15m"
+    if span_hours <= 72 or (is_crypto and span_hours <= 14 * 24):
+        return "1h"
+    return "1d"
 
 
 def fetch_price_history(
@@ -201,11 +231,13 @@ def fetch_price_history(
     *,
     days: int = 90,
     live: bool = True,
+    interval: str = "1d",
 ) -> list[dict[str, Any]]:
-    """Daily closes for symbol; cached under data/chart_bars/."""
-    path = _cache_path(data_dir, symbol)
+    """OHLC closes for symbol; cached under data/chart_bars/ (per interval)."""
+    path = _cache_path(data_dir, symbol, interval=interval)
     cached = _load_json(path, {})
-    max_age = 6 * 3600
+    # Intraday moves faster — shorter cache TTL.
+    max_age = 45 * 60 if interval != "1d" else 6 * 3600
 
     def _clean(points: list) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
@@ -218,6 +250,7 @@ def fetch_price_history(
 
     if (
         cached.get("symbol") == symbol
+        and cached.get("interval", "1d") == interval
         and cached.get("points")
         and (time.time() - float(cached.get("fetched_at") or 0)) < max_age
     ):
@@ -231,8 +264,8 @@ def fetch_price_history(
     try:
         import yfinance as yf
 
-        period = "3mo" if days <= 100 else "6mo"
-        hist = yf.Ticker(symbol).history(period=period)
+        period = _yf_period_for(days, interval)
+        hist = yf.Ticker(symbol).history(period=period, interval=interval)
         points: list[dict[str, Any]] = []
         if hist is not None and not hist.empty:
             for idx, row in hist.iterrows():
@@ -255,6 +288,7 @@ def fetch_price_history(
                 json.dumps(
                     {
                         "symbol": symbol,
+                        "interval": interval,
                         "fetched_at": time.time(),
                         "points": points,
                     }
@@ -293,7 +327,7 @@ def build_price_panels(
     names = resolve_symbol_names(symbols, data_dir, live=False)
     panels = []
     for sym in symbols:
-        pts = fetch_price_history(sym, data_dir, days=days, live=live)
+        pts = fetch_price_history(sym, data_dir, days=days, live=live, interval="1d")
         if len(pts) < 2:
             continue
         base = _finite(pts[0]["close"])
@@ -360,7 +394,26 @@ def build_from_buy_panels(
         if entry_ts > 0:
             buy_dt = datetime.fromtimestamp(entry_ts, tz=timezone.utc)
 
-        hist = fetch_price_history(sym, data_dir, days=days, live=live)
+        now = datetime.now(timezone.utc)
+        span_hours_est = (
+            max(0.0, (now - buy_dt).total_seconds() / 3600.0) if buy_dt else float(days * 24)
+        )
+        is_crypto = "-USD" in sym.upper() or sym.upper().endswith("USDT")
+        interval = hold_chart_interval(span_hours_est, is_crypto=is_crypto)
+        hist_days = max(2, min(days, int(span_hours_est / 24) + 2))
+        if interval != "1d":
+            hist_days = min(hist_days, 7 if interval == "15m" else 30)
+
+        hist = fetch_price_history(
+            sym, data_dir, days=hist_days, live=live, interval=interval
+        )
+        # Fall back to daily if intraday empty (offline / provider gap).
+        if len(hist) < 2 and interval != "1d":
+            hist = fetch_price_history(
+                sym, data_dir, days=days, live=live, interval="1d"
+            )
+            interval = "1d"
+
         pts: list[dict[str, Any]] = []
         for p in hist:
             ts = _parse_trade_ts(str(p.get("t") or ""))
@@ -390,7 +443,7 @@ def build_from_buy_panels(
         # Prefer current scan mark as the right edge so short holds aren't a
         # flat cost→cost stub when the book already shows a different last.
         mark = _finite(marks.get(sym))
-        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         if mark > 0:
             pts = [p for p in pts if p["t"] < now_iso]
             pts.append({"t": now_iso, "close": mark})
@@ -429,6 +482,7 @@ def build_from_buy_panels(
                 "bought_at": buy_iso,
                 "quantity": qty,
                 "points": indexed,
+                "interval": interval,
                 "last": last["close"],
                 "first_t": first_t,
                 "last_t": last_t,
