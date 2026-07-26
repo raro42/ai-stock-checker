@@ -4,7 +4,7 @@ set -euo pipefail
 BASE="${OPENBB_BACKEND_URL:-http://127.0.0.1:7779}"
 fail=0
 echo "Checking $BASE ..."
-for path in /health /widgets.json /apps.json /; do
+for path in /health /widgets.json /apps.json / /desk; do
   code="$(curl -sS -o /tmp/obb_chk.out -w '%{http_code}' --max-time 5 "$BASE$path" || echo 000)"
   if [[ "$code" == "200" ]]; then
     echo "OK  $code $path"

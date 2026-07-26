@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="60" />
+  <title>{{ snap.brand }} — Paper Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/desk/static/desk.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+  <main class="stage">
+    <header class="hero">
+      <p class="brand">{{ snap.brand }}</p>
+      <h1 class="equity">€{{ "{:,.2f}".format(snap.equity) }}</h1>
+      <p class="lede">{{ snap.tagline }}</p>
+      <p class="ret {% if snap.ret_pct >= 0 %}up{% else %}down{% endif %}">
+        {{ "%+.2f"|format(snap.ret_pct) }}% vs start · cash €{{ "{:,.2f}".format(snap.cash) }}
+      </p>
+      <p class="mode">{{ snap.weekend_hint }}</p>
+    </header>
+
+    <section class="strip" aria-label="Snapshot">
+      <div>
+        <span class="k">Positions</span>
+        <span class="v">{{ snap.positions }}</span>
+      </div>
+      <div>
+        <span class="k">Fees</span>
+        <span class="v">€{{ "{:,.2f}".format(snap.fees) }}</span>
+      </div>
+      <div>
+        <span class="k">Trades</span>
+        <span class="v">{{ snap.trade_count }}</span>
+      </div>
+      <div>
+        <span class="k">Realized</span>
+        <span class="v">€{{ "{:+,.2f}".format(snap.realized) }}</span>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Holdings</h2>
+      {% if snap.holdings %}
+      <ul class="holds">
+        {% for h in snap.holdings %}
+        <li>
+          <span class="sym">{{ h.symbol }}</span>
+          <span class="meta">{{ "%.4f"|format(h.quantity) }} · avg €{{ "%.2f"|format(h.avg_buy) }} · {{ h.kind }}</span>
+          <span class="amt">€{{ "{:,.2f}".format(h.cost_basis) }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty">No open positions.</p>
+      {% endif %}
+      {% if snap.reset_note %}
+      <p class="note">{{ snap.reset_note }}</p>
+      {% endif %}
+    </section>
+
+    <section class="block">
+      <h2>Recent fills</h2>
+      {% if snap.recent_trades %}
+      <ul class="trades">
+        {% for t in snap.recent_trades %}
+        <li>
+          <span class="when">{{ t.timestamp or "—" }}</span>
+          <span class="side {{ t.type|lower }}">{{ t.type }}</span>
+          <span class="sym">{{ t.symbol }}</span>
+          <span class="amt">{% if t.profit_loss is defined and t.profit_loss is not none %}€{{ "{:+,.2f}".format(t.profit_loss|float) }}{% else %}—{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty">No trades since the last reset.</p>
+      {% endif %}
+    </section>
+
+    <footer class="foot">
+      <span>Updated {{ snap.generated_at }} · auto-refresh 60s</span>
+      <span><a href="/health">health</a> · <a href="/widgets.json">OpenBB widgets</a></span>
+    </footer>
+  </main>
+</body>
+</html>

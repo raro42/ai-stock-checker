@@ -9,18 +9,30 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from openbb_backend.desk import load_desk_snapshot
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
 API_KEY = os.getenv("OPENBB_BACKEND_API_KEY", "").strip()
+_BACKEND_DIR = Path(__file__).parent
 
 app = FastAPI(
     title="AI Stock Checker → OpenBB",
     description="Paper portfolio, trades, and opportunities for OpenBB Workspace",
-    version="0.5.0",
+    version="0.6.0",
 )
+
+app.mount(
+    "/desk/static",
+    StaticFiles(directory=str(_BACKEND_DIR / "static")),
+    name="desk_static",
+)
+templates = Jinja2Templates(directory=str(_BACKEND_DIR / "templates"))
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,7 +87,19 @@ def root():
         "info": "AI Stock Checker OpenBB backend",
         "data_dir": str(DATA_DIR),
         "auth_required": bool(API_KEY),
+        "desk": "/desk",
     }
+
+
+@app.get("/desk", response_class=HTMLResponse)
+def paper_desk(request: Request):
+    """Local paper desk UI (no OpenBB account required)."""
+    snap = load_desk_snapshot(DATA_DIR)
+    return templates.TemplateResponse(
+        request=request,
+        name="desk.html",
+        context={"snap": snap},
+    )
 
 
 @app.get("/widgets.json")

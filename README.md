@@ -14,6 +14,7 @@ Built for a small group of friends: **honest signals, low churn, fees-aware**, v
 - **AI modes**: `off` (rules), `validate` (AI gates high-conviction ideas), `full` (AI-led)
 - **Multi-factor scoring**: momentum, technicals, fundamentals, volume/sentiment
 - **Earnings blackout**: skip new entries near earnings when Finnhub has dates
+- **Paper desk UI**: browser UI at `http://127.0.0.1:7779/desk` (equity, holdings, fills)
 - **OpenBB backend**: FastAPI widgets on `:7779` (portfolio / trades / opportunities)
 - **Backtester**: OHLCV long-only simulation with commission + slippage
 - **Autoresearch**: overnight strategy loop on `experiment_strategy.py` (see `autoresearch/`)
@@ -46,7 +47,7 @@ docker compose logs -f --tail 50 intelligent-trader openbb-backend
 
 Data persists in `./data/` (`portfolio.json`, `trades.jsonl`, archives). This directory is gitignored.
 
-OpenBB widgets: `http://127.0.0.1:7779` — see [OPENBB.md](OPENBB.md).
+Paper desk: [http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk) · OpenBB widgets: same host — see [OPENBB.md](OPENBB.md).
 
 Defaults (anti-churn):
 

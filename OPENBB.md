@@ -4,6 +4,14 @@ Verified working via Chrome MCP (2026-07-25 CEST).
 
 **Earnings dashboard:** [Earnings Update](https://pro.openbb.co/app/37a492ef-62d8-49ec-b08d-f01d663ad45a)
 
+## Local paper desk (browser)
+
+No OpenBB account needed — open the built-in UI:
+
+**http://127.0.0.1:7779/desk**
+
+Shows equity, cash, holdings, recent fills, weekend crypto-only hint. Auto-refreshes every 60s. Serves from the same `openbb-backend` container.
+
 ## Paper desk backend (our data → OpenBB)
 
 We ship a FastAPI custom backend that exposes paper portfolio widgets:
@@ -11,6 +19,7 @@ We ship a FastAPI custom backend that exposes paper portfolio widgets:
 ```bash
 docker compose up -d --build openbb-backend
 curl -s http://127.0.0.1:7779/health
+open http://127.0.0.1:7779/desk
 curl -s http://127.0.0.1:7779/widgets.json | head
 ```
 

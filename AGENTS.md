@@ -29,7 +29,7 @@ The human is **tired of prompting** and expects overnight progress (CEST). Do no
 - Secrets live in `.env` (never commit). Copy from `.env.example`.
 - Relevant containers:
   - `intelligent-trader` — primary paper trading + market scan loop
-  - `openbb-backend` — FastAPI widgets for OpenBB Pro (`:7779`)
+  - `openbb-backend` — FastAPI widgets + local paper desk UI (`:7779`, `/desk`)
   - `stock-checker` — interactive CLI
   - `monitor` (compose profile `monitor`) — signals only
 
