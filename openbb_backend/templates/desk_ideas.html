@@ -1,23 +1,86 @@
 {% extends "base.html" %}
+{% from "macros.html" import ticker %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
-  <h1>External research watch</h1>
-  <p class="lede">Commits and releases from curated screener / agent repos — steal one idea at a time.</p>
+  <h1>Research &amp; candidates</h1>
+  <p class="lede">Paper scanner picks, shipped transfers from watched repos, and the GitHub research watch — steal one idea at a time.</p>
 </header>
 
-<section class="block" aria-labelledby="ideas-h">
-  <h2 id="ideas-h">Highlights</h2>
-  {% if snap.github_ideas %}
+<section class="block" aria-labelledby="paper-h">
+  <h2 id="paper-h">Paper candidates</h2>
+  <p class="sub">Latest scanner recommendations (same list as Screener). Not advice — paper marks only.</p>
+  {% if snap.recommendations %}
+  <ul class="recs">
+    {% for r in snap.recommendations %}
+    <li>
+      <span class="rank">#{{ r.rank }}</span>
+      {{ ticker(r.symbol, r.name) }}
+      <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · score {{ "%.1f"|format(r.score) }}</span>
+      <span class="why">{{ r.reasoning }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="sub"><a href="/desk/screener">Full screener →</a></p>
+  {% else %}
+  <p class="empty">No opportunity archive yet — wait for the next scanner pass.</p>
+  {% endif %}
+</section>
+
+<section class="block" aria-labelledby="shipped-h">
+  <h2 id="shipped-h">Already stolen</h2>
+  <p class="sub">Transfers we already shipped into this desk (from IMPROVEMENT Phase C).</p>
+  <ul class="ideas shipped">
+    {% for s in snap.shipped_ideas %}
+    <li>
+      <strong>{{ s.title }}</strong>
+      <span class="meta">from {{ s.from }}</span>
+      <span class="why">{{ s.note }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="block" aria-labelledby="gh-h">
+  <h2 id="gh-h">GitHub research watch</h2>
+  {% if snap.github_watch_has_digest %}
   <p class="sub">
-    {{ snap.github_watch_at or "—" }}
-    · {{ snap.github_watch_updates }} repo(s) with new activity since last check
+    Last check {{ snap.github_watch_at or "—" }}
+    · {{ snap.github_watch_repos }} repos
+    · checked {{ snap.github_watch_checked }}
+    · {{ snap.github_watch_updates }} with new activity
   </p>
+
+  {% if snap.github_ideas %}
+  <h3 class="ideas-sub">New since last check</h3>
   <ul class="ideas">
     {% for idea in snap.github_ideas %}
     <li>{{ idea }}</li>
     {% endfor %}
   </ul>
+  {% elif snap.github_watch_notes %}
+  <h3 class="ideas-sub">Quiet — latest tip on each (no new commits this pass)</h3>
+  <ul class="ideas">
+    {% for idea in snap.github_watch_notes %}
+    <li>{{ idea }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">Watch digest present but no tip messages yet.</p>
+  {% endif %}
+
+  {% if snap.github_repos %}
+  <h3 class="ideas-sub">Watched repos</h3>
+  <ul class="gh-repos">
+    {% for r in snap.github_repos %}
+    <li>
+      <a href="{{ r.url }}" rel="noopener noreferrer">{{ r.repo }}</a>
+      <span class="meta">★{{ r.stars }} · {{ r.status }}{% if r.pushed_at %} · pushed {{ r.pushed_at }}{% endif %}</span>
+      {% if r.why %}<span class="why">{{ r.why }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
   {% else %}
   <p class="empty">No GitHub watch digest yet — run <code>./scripts/run_github_watch_once.sh</code>.</p>
   {% endif %}

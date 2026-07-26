@@ -362,6 +362,56 @@ def load_desk_snapshot(
     gh_ideas = list(gh_watch.get("idea_bullets") or [])[:8]
     gh_updates = int(gh_watch.get("update_count") or 0)
     gh_at = gh_watch.get("generated_at") or ""
+    gh_repo_count = int(gh_watch.get("repo_count") or 0)
+    gh_checked = int(gh_watch.get("checked_count") or 0)
+    gh_repos: list[dict[str, Any]] = []
+    for row in (gh_watch.get("repos") or [])[:12]:
+        tip = str(row.get("tip_message") or "").strip()
+        if len(tip) > 110:
+            tip = tip[:109] + "…"
+        sha = str(row.get("tip_sha") or "")
+        gh_repos.append(
+            {
+                "repo": row.get("repo") or "",
+                "url": row.get("url") or "",
+                "why": row.get("why") or "",
+                "stars": int(row.get("stars") or 0),
+                "status": (
+                    "update"
+                    if row.get("has_updates")
+                    else ("error" if row.get("error") else "quiet")
+                ),
+                "tip_short": (sha[:7] if sha else ""),
+                "tip_message": tip,
+                "pushed_at": (row.get("pushed_at") or "")[:10],
+            }
+        )
+    # When the watch is quiet, still surface latest tip per repo so Ideas isn't blank.
+    gh_watch_notes: list[str] = []
+    if not gh_ideas and gh_repos:
+        for r in gh_repos[:6]:
+            if r["tip_message"]:
+                gh_watch_notes.append(
+                    f"{r['repo']}: latest {r['tip_short'] or '—'} — {r['tip_message']}"
+                )
+
+    shipped_ideas = [
+        {
+            "title": "Scan pulse on Breadth",
+            "from": "xang1234/stock-screener (StockBee-style A/D)",
+            "note": "Crypto leaders advance/decline + ±4% movers from our scan lists.",
+        },
+        {
+            "title": "Since-buy holding paths",
+            "from": "portfolio-AI style position charts",
+            "note": "Book + Charts show price since fill vs avg cost — no forecast lines.",
+        },
+        {
+            "title": "Multi-screen paper desk",
+            "from": "xang1234 screener page map",
+            "note": "Overview / Charts / Screener / Breadth / Book / Ideas / Ops.",
+        },
+    ]
 
     return {
         "brand": "AI Stock Checker",
@@ -411,5 +461,11 @@ def load_desk_snapshot(
         "has_scan": bool(opportunities),
         "github_watch_at": gh_at,
         "github_watch_updates": gh_updates,
+        "github_watch_repos": gh_repo_count,
+        "github_watch_checked": gh_checked,
+        "github_watch_has_digest": bool(gh_watch),
         "github_ideas": gh_ideas,
+        "github_watch_notes": gh_watch_notes,
+        "github_repos": gh_repos,
+        "shipped_ideas": shipped_ideas,
     }

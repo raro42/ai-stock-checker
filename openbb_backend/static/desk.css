@@ -606,6 +606,59 @@ a:active {
   font-size: 0.92rem;
 }
 
+.ideas.shipped li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--ink);
+}
+
+.ideas.shipped .meta,
+.gh-repos .meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.ideas .why,
+.gh-repos .why {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.ideas-sub {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 1.25rem 0 0.4rem;
+}
+
+.gh-repos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gh-repos li {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.gh-repos a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--link-underline);
+  text-underline-offset: 0.15em;
+}
+
+.gh-repos a:hover {
+  color: var(--brass, #d4a574);
+}
+
 .system .sysline {
   margin: 0 0 0.4rem;
   color: var(--muted);
