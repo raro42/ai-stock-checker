@@ -8,11 +8,12 @@
 <header class="page-head">
   <p class="eyebrow">Book</p>
   <h1>Holdings &amp; fills</h1>
-  <p class="lede">Full paper ledger — positions since your buy (sparklines), hold times, and executions. No forecast lines.</p>
+  <p class="lede">Full paper ledger — each holding shows price since your buy (rebased to avg cost = 100), with the hold window dated under the path. No forecast lines.</p>
 </header>
 
 <section class="block" aria-labelledby="hold-h">
   <h2 id="hold-h">Holdings</h2>
+  <p class="sub">Dashed line = your average buy. Start/end times on the path are that lot’s window (a 1h crypto hold and a 200d stock are not the same scale).</p>
   {% if snap.holdings %}
   <ul class="holds">
     {% for h in snap.holdings %}

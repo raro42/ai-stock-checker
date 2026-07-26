@@ -440,7 +440,7 @@
 
   function formatDay(d) {
     try {
-      return d3.timeFormat("%Y-%m-%d")(d);
+      return d3.utcFormat("%Y-%m-%d")(d);
     } catch (e) {
       return String(d);
     }
@@ -453,10 +453,10 @@
   function timeTickFormat(domain) {
     var ms = spanMs(domain[0], domain[1]);
     var day = 864e5;
-    if (ms < 2 * day) return d3.timeFormat("%H:%M");
-    if (ms < 100 * day) return d3.timeFormat("%b %d");
-    if (ms < 400 * day) return d3.timeFormat("%b %Y");
-    return d3.timeFormat("%Y");
+    if (ms < 2 * day) return d3.utcFormat("%H:%M");
+    if (ms < 100 * day) return d3.utcFormat("%b %d");
+    if (ms < 400 * day) return d3.utcFormat("%b %Y");
+    return d3.utcFormat("%Y");
   }
 
   function formatRangeLabel(a, b) {
@@ -464,7 +464,9 @@
     var ms = spanMs(a, b);
     var day = 864e5;
     var fmt =
-      ms < 2 * day ? d3.timeFormat("%Y-%m-%d %H:%M") : d3.timeFormat("%Y-%m-%d");
+      ms < 2 * day
+        ? d3.utcFormat("%Y-%m-%d %H:%M")
+        : d3.utcFormat("%Y-%m-%d");
     return fmt(a) + " → " + fmt(b) + " UTC";
   }
 
@@ -896,48 +898,88 @@
           return;
         }
         el.classList.remove("is-empty");
-        el.title =
-          panel.symbol +
-          " since buy · " +
-          pctLabel(panel.change_pct) +
-          " vs avg cost (no forecast)";
-        var width = Math.max(el.clientWidth || 140, 100);
-        var height = 40;
         var data = panel.points.map(function (pt) {
-          return { t: new Date(pt.t), rebased: +pt.rebased };
+          return {
+            t: new Date(pt.t),
+            close: +pt.close,
+            rebased: +pt.rebased,
+          };
         });
+        var t0 = data[0].t;
+        var t1 = data[data.length - 1].t;
+        var range = formatRangeLabel(t0, t1);
+        var spanH = +panel.span_hours;
+        if (!isFinite(spanH)) spanH = spanMs(t0, t1) / 36e5;
+        var spanTxt =
+          spanH < 48
+            ? spanH.toFixed(1) + "h hold"
+            : (spanH / 24).toFixed(1) + "d hold";
+        var tipLine =
+          panel.symbol +
+          " · " +
+          range +
+          " · " +
+          pctLabel(panel.change_pct) +
+          " vs avg cost (100)";
+        el.title = tipLine;
+        el.setAttribute(
+          "aria-label",
+          tipLine + ". Path rebased to average buy; no forecast."
+        );
+
+        var chart = document.createElement("div");
+        chart.className = "hold-spark-chart";
+        el.appendChild(chart);
+
+        var width = Math.max(chart.clientWidth || el.clientWidth || 280, 160);
+        var height = 72;
+        var pad = { top: 10, right: 44, bottom: 22, left: 8 };
+        var innerW = width - pad.left - pad.right;
+        var innerH = height - pad.top - pad.bottom;
+
         var x = d3
-          .scaleTime()
+          .scaleUtc()
           .domain(d3.extent(data, function (d) {
             return d.t;
           }))
-          .range([2, width - 2]);
-        var y = d3
-          .scaleLinear()
-          .domain(
-            d3.extent(data, function (d) {
-              return d.rebased;
-            })
-          )
-          .nice()
-          .range([height - 3, 3]);
+          .range([0, innerW]);
+        var yDomain = d3.extent(data, function (d) {
+          return d.rebased;
+        });
+        // Keep avg-cost (100) in view so the dashed baseline means something.
+        yDomain = [Math.min(yDomain[0], 99.5), Math.max(yDomain[1], 100.5)];
+        var y = d3.scaleLinear().domain(yDomain).nice().range([innerH, 0]);
         var up = panel.change_pct >= 0;
         var stroke = up ? cssVar("--up", "#7dcea0") : cssVar("--down", "#e07a5f");
+        var ink = cssVar("--muted", "#8a9688");
+
         var svg = d3
-          .select(el)
+          .select(chart)
           .append("svg")
           .attr("viewBox", "0 0 " + width + " " + height)
           .attr("aria-hidden", "true");
+        var g = svg
+          .append("g")
+          .attr("transform", "translate(" + pad.left + "," + pad.top + ")");
+
+        // Avg-cost baseline (=100)
         if (y.domain()[0] <= 100 && y.domain()[1] >= 100) {
-          svg
-            .append("line")
+          g.append("line")
             .attr("x1", 0)
-            .attr("x2", width)
+            .attr("x2", innerW)
             .attr("y1", y(100))
             .attr("y2", y(100))
-            .attr("stroke", "rgba(232,239,230,0.2)")
-            .attr("stroke-dasharray", "2 2");
+            .attr("stroke", "rgba(232,239,230,0.28)")
+            .attr("stroke-dasharray", "3 3");
+          g.append("text")
+            .attr("x", 0)
+            .attr("y", y(100) - 3)
+            .attr("fill", ink)
+            .attr("font-size", 9)
+            .attr("font-family", "ui-monospace, SFMono-Regular, Menlo, monospace")
+            .text("avg buy");
         }
+
         var line = d3
           .line()
           .x(function (d) {
@@ -947,13 +989,118 @@
             return y(d.rebased);
           })
           .curve(d3.curveMonotoneX);
-        svg
-          .append("path")
+        g.append("path")
           .datum(data)
           .attr("fill", "none")
           .attr("stroke", stroke)
-          .attr("stroke-width", 1.6)
+          .attr("stroke-width", 1.7)
           .attr("d", line);
+
+        // Buy marker
+        g.append("circle")
+          .attr("cx", x(t0))
+          .attr("cy", y(data[0].rebased))
+          .attr("r", 2.5)
+          .attr("fill", ink);
+        g.append("text")
+          .attr("x", x(t0) + 4)
+          .attr("y", y(data[0].rebased) - 4)
+          .attr("fill", ink)
+          .attr("font-size", 9)
+          .attr("font-family", "ui-monospace, SFMono-Regular, Menlo, monospace")
+          .text("buy");
+
+        // End %
+        g.append("text")
+          .attr("x", innerW + 4)
+          .attr("y", y(data[data.length - 1].rebased) + 3)
+          .attr("fill", stroke)
+          .attr("font-size", 10)
+          .attr("font-family", "ui-monospace, SFMono-Regular, Menlo, monospace")
+          .text(pctLabel(panel.change_pct));
+
+        // Time axis: start / end
+        var tickFmt = timeTickFormat([t0, t1]);
+        g.append("text")
+          .attr("x", 0)
+          .attr("y", innerH + 14)
+          .attr("fill", ink)
+          .attr("font-size", 9)
+          .attr("font-family", "ui-monospace, SFMono-Regular, Menlo, monospace")
+          .text(tickFmt(t0));
+        g.append("text")
+          .attr("x", innerW)
+          .attr("y", innerH + 14)
+          .attr("text-anchor", "end")
+          .attr("fill", ink)
+          .attr("font-size", 9)
+          .attr("font-family", "ui-monospace, SFMono-Regular, Menlo, monospace")
+          .text(tickFmt(t1));
+
+        var tip = document.createElement("div");
+        tip.className = "hold-spark-tip";
+        tip.hidden = true;
+        el.appendChild(tip);
+
+        var overlay = g
+          .append("rect")
+          .attr("width", innerW)
+          .attr("height", innerH)
+          .attr("fill", "transparent")
+          .style("cursor", "crosshair");
+        var cross = g
+          .append("line")
+          .attr("y1", 0)
+          .attr("y2", innerH)
+          .attr("stroke", "rgba(232,239,230,0.35)")
+          .attr("stroke-width", 1)
+          .style("display", "none");
+        var focus = g
+          .append("circle")
+          .attr("r", 3)
+          .attr("fill", stroke)
+          .style("display", "none");
+
+        overlay.on("mousemove", function (event) {
+          var xm = d3.pointer(event, this)[0];
+          var ht = x.invert(xm);
+          var i = d3.bisector(function (d) {
+            return d.t;
+          }).center(data, ht);
+          var d = data[Math.max(0, Math.min(data.length - 1, i))];
+          cross
+            .attr("x1", x(d.t))
+            .attr("x2", x(d.t))
+            .style("display", null);
+          focus.attr("cx", x(d.t)).attr("cy", y(d.rebased)).style("display", null);
+          tip.hidden = false;
+          tip.textContent =
+            formatDay(d.t) +
+            (spanH < 48 ? " " + d3.utcFormat("%H:%M")(d.t) + " UTC" : "") +
+            " · €" +
+            d.close.toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            }) +
+            " · " +
+            pctLabel(d.rebased - 100) +
+            " vs buy";
+        });
+        overlay.on("mouseleave", function () {
+          cross.style("display", "none");
+          focus.style("display", "none");
+          tip.hidden = true;
+        });
+
+        var cap = document.createElement("p");
+        cap.className = "hold-spark-cap";
+        var nPts = data.length;
+        var grain =
+          spanH < 36
+            ? "buy → current mark (intraday; daily bars not useful yet)"
+            : nPts + " marks since buy";
+        cap.textContent =
+          range + " · " + spanTxt + " · " + grain + " · dashed = avg cost (100)";
+        el.appendChild(cap);
       }
     );
   }

@@ -341,6 +341,10 @@ def build_from_buy_panels(
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     entry_times = _load_json(data_dir / "entry_times.json", {})
+    opportunities = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
+    from openbb_backend.desk import _prices_from_scan
+
+    marks = _prices_from_scan(opportunities)
     symbols = [str(s) for s in holdings.keys() if s][:10]
     names = resolve_symbol_names(symbols, data_dir, live=False)
     panels: list[dict[str, Any]] = []
@@ -383,10 +387,15 @@ def build_from_buy_panels(
                 p for p in pts if p["t"] > buy_iso
             ]
 
-        if len(pts) < 2:
-            # Single mark — add "now" at last known / buy so the spark has a segment.
+        # Prefer current scan mark as the right edge so short holds aren't a
+        # flat cost→cost stub when the book already shows a different last.
+        mark = _finite(marks.get(sym))
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if mark > 0:
+            pts = [p for p in pts if p["t"] < now_iso]
+            pts.append({"t": now_iso, "close": mark})
+        elif len(pts) < 2:
             last_close = pts[0]["close"] if pts else buy_price
-            now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             if not pts:
                 pts = [{"t": buy_iso, "close": buy_price}]
             if pts[-1]["t"] != now_iso:
@@ -403,6 +412,15 @@ def build_from_buy_panels(
                 }
             )
         last = indexed[-1]
+        first_t = indexed[0]["t"]
+        last_t = last["t"]
+        span_hours = 0.0
+        try:
+            t0 = datetime.fromisoformat(first_t.replace("Z", "+00:00"))
+            t1 = datetime.fromisoformat(last_t.replace("Z", "+00:00"))
+            span_hours = max(0.0, (t1 - t0).total_seconds() / 3600.0)
+        except ValueError:
+            span_hours = 0.0
         panels.append(
             {
                 "symbol": sym,
@@ -412,6 +430,9 @@ def build_from_buy_panels(
                 "quantity": qty,
                 "points": indexed,
                 "last": last["close"],
+                "first_t": first_t,
+                "last_t": last_t,
+                "span_hours": round(span_hours, 2),
                 "change_pct": round(last["rebased"] - 100, 2),
                 "note": "Rebased to your avg buy (100). No forecast.",
             }

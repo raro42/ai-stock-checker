@@ -215,6 +215,9 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     breadth = client.get("/desk/breadth")
     assert "Scan pulse" in breadth.text
     assert "Crypto A/D" in breadth.text
+    book = client.get("/desk/book")
+    assert "hold-spark" in book.text
+    assert "average buy" in book.text.lower() or "avg cost" in book.text.lower()
     assert "d3.min.js" in client.get("/desk/charts").text
     assert "charts.js" in client.get("/desk/charts").text
     assert "hold-spark" in client.get("/desk/book").text

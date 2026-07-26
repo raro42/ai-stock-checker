@@ -142,3 +142,7 @@ def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
     assert aapl["buy_price"] == 100
     assert aapl["points"][0]["rebased"] == 100
     assert aapl["change_pct"] == 10.0
+    assert aapl["first_t"]
+    assert aapl["last_t"]
+    assert "span_hours" in aapl
+    assert aapl["span_hours"] >= 0

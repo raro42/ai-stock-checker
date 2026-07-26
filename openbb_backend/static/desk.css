@@ -422,8 +422,7 @@ a:active {
 
 .hold-spark {
   width: 100%;
-  height: 2.5rem;
-  margin-top: 0.45rem;
+  margin-top: 0.55rem;
 }
 
 .hold-spark.is-empty {
@@ -431,10 +430,36 @@ a:active {
   margin: 0;
 }
 
-.hold-spark svg {
+.hold-spark-chart {
+  width: 100%;
+  height: 4.5rem;
+}
+
+.hold-spark-chart svg {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.hold-spark-cap {
+  margin: 0.25rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ink);
+  opacity: 0.78;
+}
+
+.hold-spark-tip {
+  margin: 0.15rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  color: var(--ink);
+  min-height: 1em;
+}
+
+.hold-spark-tip[hidden] {
+  display: none;
 }
 
 .bar {
