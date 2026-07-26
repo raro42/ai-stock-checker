@@ -71,7 +71,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Paper Desk design skill + brief (`DESIGN.md`, `.cursor/skills/paper-desk-design`) — anti AI-slop / editorial desk
 - [x] Since-buy holding paths (Charts + Book sparklines; portfolio-AI inspiration) — **no forecast lines**
 - [x] Scan pulse on Breadth (crypto A/D + ±4% movers + near-highs) — xang1234/StockBee-lite from scan lists
-- [ ] Restyle desk CSS to fully match DESIGN.md (grain, sharper borders, mono data figures) in a dedicated pass
+- [x] Restyle desk CSS to match DESIGN.md — `--font-data` on money/%, sharper chart mounts, stronger grain (2026-07-26 improve tick)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
 - [x] Triage GitHub watch → since-buy position charts (one idea)
 - [x] Hourly improve loop (`scripts/run_improve_loop.sh`, 1h) — ≥1 idea/tick + GitHub review

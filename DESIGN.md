@@ -24,9 +24,9 @@ One accent family. No purple SaaS, no acid cyber defaults, no cream-and-terracot
 
 ## Type
 
-- **Display:** Georgia (or similar serif) for screen titles
-- **Body:** system UI sans
-- **Data:** monospace / tabular figures for money and %
+- **Display:** Georgia (or similar serif) for screen titles (`--font-display`)
+- **Body:** system UI sans (`--font-body`)
+- **Data:** monospace / tabular figures for money and % (`--font-data` in `desk.css`)
 
 Typography carries hierarchy; stock “hero art” does not.
 
