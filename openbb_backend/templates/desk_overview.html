@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Overview</p>
+  <h1 class="equity">€{{ "{:,.2f}".format(snap.equity) }}</h1>
+  <p class="lede">Paper book mark-to-market. Honest fees, low churn.</p>
+  <p class="ret {% if snap.ret_pct >= 0 %}up{% else %}down{% endif %}">
+    {{ "%+.2f"|format(snap.ret_pct) }}% vs start
+    · cash €{{ "{:,.2f}".format(snap.cash) }}
+    · deployed {{ "%.0f"|format(snap.deployed_pct) }}%
+  </p>
+  <p class="mode">{{ snap.weekend_hint }}</p>
+  <p class="marks">{{ snap.mark_note }}</p>
+</header>
+
+<section class="strip" aria-label="Book snapshot">
+  <div>
+    <span class="k">Unrealized</span>
+    <span class="v {% if snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">€{{ "{:+,.2f}".format(snap.unrealized_total) }}</span>
+  </div>
+  <div>
+    <span class="k">Realized</span>
+    <span class="v">€{{ "{:+,.2f}".format(snap.realized) }}</span>
+  </div>
+  <div>
+    <span class="k">Fees</span>
+    <span class="v">€{{ "{:,.2f}".format(snap.fees) }}</span>
+  </div>
+  <div>
+    <span class="k">Fills</span>
+    <span class="v">{{ snap.buy_count }}B / {{ snap.sell_count }}S</span>
+  </div>
+</section>
+
+<section class="block" aria-labelledby="hold-h">
+  <h2 id="hold-h">Top holdings</h2>
+  {% if snap.holdings %}
+  <ul class="holds">
+    {% for h in snap.holdings[:5] %}
+    <li>
+      <div class="hold-main">
+        <span class="sym">{{ h.symbol }}</span>
+        <span class="meta">
+          {{ "%.4f"|format(h.quantity) }} · last €{{ "%.2f"|format(h.last) }} · held {{ h.held }}
+        </span>
+        <span class="amt {% if h.unrealized >= 0 %}up{% else %}down{% endif %}">
+          €{{ "{:,.2f}".format(h.market_value) }}
+          <small>{{ "%+.1f"|format(h.unrealized_pct) }}%</small>
+        </span>
+      </div>
+      <div class="bar" aria-hidden="true"><i style="width: {{ '%.1f'|format(h.weight_bar_pct) }}%"></i></div>
+      <span class="weight">{{ "%.1f"|format(h.weight_pct) }}% of book</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="sub"><a href="/desk/book">Full book &amp; fills →</a></p>
+  {% else %}
+  <p class="empty">No open positions.</p>
+  {% endif %}
+</section>
+
+<section class="block" aria-labelledby="pulse-h">
+  <h2 id="pulse-h">Scan pulse</h2>
+  {% if snap.recommendations %}
+  <ul class="recs">
+    {% for r in snap.recommendations[:3] %}
+    <li>
+      <span class="rank">#{{ r.rank }}</span>
+      <span class="sym">{{ r.symbol }}</span>
+      <span class="meta">{{ r.asset_class }} · score {{ "%.1f"|format(r.score) }}</span>
+      <span class="why">{{ r.reasoning }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="sub"><a href="/desk/screener">Open screener →</a></p>
+  {% else %}
+  <p class="empty">No scan archive yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

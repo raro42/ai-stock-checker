@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <p class="eyebrow">Ops</p>
+  <h1>Runtime</h1>
+  <p class="lede">Watchdog, portfolio timestamps, and scan cycle health for overnight autopilot.</p>
+</header>
+
+<section class="block system" aria-labelledby="sys-h">
+  <h2 id="sys-h">System</h2>
+  <p class="sysline">Portfolio updated {{ snap.portfolio_updated or "—" }} · commission {{ "%.2f"|format(snap.commission_rate_pct) }}%/side</p>
+  <p class="sysline">Scan cycle {{ snap.last_full_cycle or "—" }} · history covers {{ snap.scan_history_symbols }} names</p>
+  <p class="sysline">Tracked symbols {{ snap.scanned_symbols }} · latest scan {{ snap.scan_time or "—" }}</p>
+  {% if snap.watchdog %}
+  <h3 class="subhead">Watchdog</h3>
+  <pre class="watch" aria-label="Watchdog status">{{ snap.watchdog }}</pre>
+  {% else %}
+  <p class="empty">No watchdog status file.</p>
+  {% endif %}
+</section>
+{% endblock %}

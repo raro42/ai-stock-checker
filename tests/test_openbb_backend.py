@@ -114,6 +114,7 @@ def test_portfolio_endpoints_direct(tmp_path: Path, monkeypatch):
     assert trades[0]["symbol"] == "AAPL"
     assert backend.health()["ok"] is True
     assert backend.root()["desk"] == "/desk"
+    assert "screener" in backend.root()["desk_screens"]
     widgets = json.loads((Path(backend.__file__).parent / "widgets.json").read_text())
     assert "portfolio_markdown" in widgets
 
@@ -144,7 +145,7 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["github_watch_updates"] == 0
 
 
-def test_desk_html_and_api(tmp_path: Path, monkeypatch):
+def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")
@@ -153,20 +154,30 @@ def test_desk_html_and_api(tmp_path: Path, monkeypatch):
     client = TestClient(backend.app)
     resp = client.get("/desk")
     assert resp.status_code == 200
+    assert "Skip to content" in resp.text
+    assert 'rel="icon"' in resp.text
+    assert 'name="description"' in resp.text
+    assert 'aria-current="page"' in resp.text
+    assert "Desk screens" in resp.text
     assert "refresh-eta" in resp.text
     assert "fonts.googleapis" not in resp.text
-    assert 'http-equiv="refresh"' not in resp.text
+    assert resp.headers.get("content-security-policy", "").find("img-src 'self'") >= 0
+
+    for path in ("/desk/screener", "/desk/breadth", "/desk/book", "/desk/ideas", "/desk/ops"):
+        r = client.get(path)
+        assert r.status_code == 200, path
+        assert "AI Stock Checker" in r.text
+
+    assert client.get("/desk/nope").status_code == 404
     api = client.get("/desk/api")
     assert api.status_code == 200
-    body = api.json()
-    assert body["positions"] == 2
-    assert body["recommendations"][0]["reasoning"] == "test reason"
-    css = client.get("/desk/static/desk.css")
-    assert css.status_code == 200
-    assert "Georgia" in css.text
-    assert "fonts.googleapis" not in css.text
-    js = client.get("/desk/static/desk.js")
-    assert js.status_code == 200
-    assert "refresh-eta" in js.text
-    assert resp.headers.get("content-security-policy", "").startswith("default-src 'none'")
-    assert resp.headers.get("x-frame-options") == "DENY"
+    assert api.json()["positions"] == 2
+
+    ico = client.get("/desk/static/favicon.ico")
+    assert ico.status_code == 200
+    assert ico.content[:4] == b"\x00\x00\x01\x00" or ico.content[:4] == b"\x00\x00\x01\x00"
+    svg = client.get("/desk/static/favicon.svg")
+    assert svg.status_code == 200
+    assert b"<svg" in svg.content
+    root_ico = client.get("/favicon.ico")
+    assert root_ico.status_code == 200

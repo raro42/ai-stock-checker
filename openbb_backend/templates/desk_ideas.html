@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <p class="eyebrow">Ideas</p>
+  <h1>External research watch</h1>
+  <p class="lede">Commits and releases from curated screener / agent repos — steal one idea at a time.</p>
+</header>
+
+<section class="block" aria-labelledby="ideas-h">
+  <h2 id="ideas-h">Highlights</h2>
+  {% if snap.github_ideas %}
+  <p class="sub">
+    {{ snap.github_watch_at or "—" }}
+    · {{ snap.github_watch_updates }} repo(s) with new activity since last check
+  </p>
+  <ul class="ideas">
+    {% for idea in snap.github_ideas %}
+    <li>{{ idea }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No GitHub watch digest yet — run <code>./scripts/run_github_watch_once.sh</code>.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -28,12 +28,78 @@ _DESK_CSP = (
     "base-uri 'none'; "
     "form-action 'none'; "
     "frame-ancestors 'none'; "
-    "img-src 'none'; "
+    "img-src 'self'; "
     "font-src 'none'; "
     "connect-src 'none'; "
     "style-src 'self'; "
     "script-src 'self'"
 )
+
+_DESK_SCREENS = {
+    "overview": {
+        "template": "desk_overview.html",
+        "label": "Overview",
+        "title": "Overview — AI Stock Checker Paper Desk",
+        "description": "Paper portfolio equity, top holdings, and scan pulse for AI Stock Checker.",
+    },
+    "screener": {
+        "template": "desk_screener.html",
+        "label": "Screener",
+        "title": "Screener — AI Stock Checker Paper Desk",
+        "description": "Ranked paper-trading opportunities, crypto leaders, and stock breakouts.",
+    },
+    "breadth": {
+        "template": "desk_breadth.html",
+        "label": "Breadth",
+        "title": "Breadth — AI Stock Checker Paper Desk",
+        "description": "Session mode, cash exposure, scan coverage, and allocation breadth.",
+    },
+    "book": {
+        "template": "desk_book.html",
+        "label": "Book",
+        "title": "Book — AI Stock Checker Paper Desk",
+        "description": "Paper holdings, hold times, and recent fills with fees.",
+    },
+    "ideas": {
+        "template": "desk_ideas.html",
+        "label": "Ideas",
+        "title": "Ideas — AI Stock Checker Paper Desk",
+        "description": "External GitHub research watch highlights for transferable trading ideas.",
+    },
+    "ops": {
+        "template": "desk_ops.html",
+        "label": "Ops",
+        "title": "Ops — AI Stock Checker Paper Desk",
+        "description": "Watchdog and runtime status for the paper trading stack.",
+    },
+}
+
+
+def _desk_nav() -> list[dict[str, str]]:
+    return [
+        {
+            "screen": key,
+            "label": meta["label"],
+            "href": "/desk" if key == "overview" else f"/desk/{key}",
+        }
+        for key, meta in _DESK_SCREENS.items()
+    ]
+
+
+def _desk_page_context(request: Request, screen: str) -> dict:
+    meta = _DESK_SCREENS[screen]
+    path = "/desk" if screen == "overview" else f"/desk/{screen}"
+    return {
+        "snap": load_desk_snapshot(DATA_DIR),
+        "nav": _desk_nav(),
+        "page": {
+            "screen": screen,
+            "title": meta["title"],
+            "description": meta["description"],
+            "canonical": str(request.base_url).rstrip("/") + path,
+        },
+    }
+
 
 
 class DeskSecurityHeaders(BaseHTTPMiddleware):
@@ -55,7 +121,7 @@ class DeskSecurityHeaders(BaseHTTPMiddleware):
 app = FastAPI(
     title="AI Stock Checker → OpenBB",
     description="Paper portfolio, trades, and opportunities for OpenBB Workspace",
-    version="0.7.1",
+    version="0.8.0",
 )
 
 app.add_middleware(DeskSecurityHeaders)
@@ -120,25 +186,36 @@ def root():
         "data_dir": str(DATA_DIR),
         "auth_required": bool(API_KEY),
         "desk": "/desk",
+        "desk_screens": list(_DESK_SCREENS),
         "desk_api": "/desk/api",
     }
-
-
-@app.get("/desk", response_class=HTMLResponse)
-def paper_desk(request: Request):
-    """Local paper desk UI (no OpenBB account required)."""
-    snap = load_desk_snapshot(DATA_DIR)
-    return templates.TemplateResponse(
-        request=request,
-        name="desk.html",
-        context={"snap": snap},
-    )
 
 
 @app.get("/desk/api")
 def paper_desk_api():
     """Same desk snapshot as JSON for scripts / friends tooling."""
     return load_desk_snapshot(DATA_DIR)
+
+
+@app.get("/favicon.ico")
+def favicon_root():
+    """Browser default favicon probe."""
+    path = _BACKEND_DIR / "static" / "favicon.ico"
+    return Response(path.read_bytes(), media_type="image/x-icon")
+
+
+@app.get("/desk", response_class=HTMLResponse)
+@app.get("/desk/{screen}", response_class=HTMLResponse)
+def paper_desk(request: Request, screen: str = "overview"):
+    """Local paper desk UI — multi-screen (no OpenBB account required)."""
+    if screen not in _DESK_SCREENS:
+        raise HTTPException(status_code=404, detail="Unknown desk screen")
+    meta = _DESK_SCREENS[screen]
+    return templates.TemplateResponse(
+        request=request,
+        name=meta["template"],
+        context=_desk_page_context(request, screen),
+    )
 
 
 @app.get("/widgets.json")

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <p class="eyebrow">Screener</p>
+  <h1>Opportunities</h1>
+  <p class="lede">Ranked ideas from the latest scanner pass — inspired by multi-screen workflows, kept paper-honest.</p>
+  <p class="sub">Scan {{ snap.scan_time or "—" }} · {{ snap.scanned_symbols }} symbols tracked</p>
+</header>
+
+<section class="block" aria-labelledby="rec-h">
+  <h2 id="rec-h">Recommendations</h2>
+  {% if snap.recommendations %}
+  <ul class="recs">
+    {% for r in snap.recommendations %}
+    <li>
+      <span class="rank">#{{ r.rank }}</span>
+      <span class="sym">{{ r.symbol }}</span>
+      <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · score {{ "%.1f"|format(r.score) }}</span>
+      <span class="why">{{ r.reasoning }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No opportunity archive yet — wait for the next scanner pass.</p>
+  {% endif %}
+</section>
+
+<section class="split" aria-label="Leaders and breakouts">
+  <div class="block" aria-labelledby="crypto-h">
+    <h2 id="crypto-h">Crypto leaders</h2>
+    {% if snap.crypto_leaders %}
+    <ul class="leaders">
+      {% for c in snap.crypto_leaders %}
+      <li>
+        <span class="sym">{{ c.symbol }}</span>
+        <span class="meta {% if c.change_24h >= 0 %}up{% else %}down{% endif %}">
+          {{ "%+.1f"|format(c.change_24h) }}% 24h · score {{ "%.0f"|format(c.score) }}
+        </span>
+        <span class="amt">€{{ "{:,.4g}".format(c.price) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No crypto scan data.</p>
+    {% endif %}
+  </div>
+  <div class="block" aria-labelledby="brk-h">
+    <h2 id="brk-h">Stock breakouts</h2>
+    {% if snap.stock_breakouts %}
+    <ul class="leaders">
+      {% for s in snap.stock_breakouts %}
+      <li>
+        <span class="sym">{{ s.symbol }}</span>
+        <span class="meta">{{ s.sector }} · {{ s.strength }} · {{ "%.1f"|format(s.pct_from_high * 100) }}% from high</span>
+        <span class="amt">€{{ "{:,.2f}".format(s.price) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No equity breakout data (weekend pause is normal).</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

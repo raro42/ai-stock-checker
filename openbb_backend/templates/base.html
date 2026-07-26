@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="description" content="{{ page.description }}" />
+  <meta name="theme-color" content="#0c1410" />
+  <meta property="og:title" content="{{ page.title }}" />
+  <meta property="og:description" content="{{ page.description }}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="en_US" />
+  <link rel="canonical" href="{{ page.canonical }}" />
+  <link rel="icon" href="/desk/static/favicon.ico" sizes="any" />
+  <link rel="icon" href="/desk/static/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/desk/static/favicon.svg" />
+  <title>{{ page.title }}</title>
+  <link rel="stylesheet" href="/desk/static/desk.css" />
+  <script src="/desk/static/desk.js" defer></script>
+</head>
+<body data-screen="{{ page.screen }}">
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <div class="shell">
+    <header class="top">
+      <div class="brand-row">
+        <a class="brand-link" href="/desk" aria-label="{{ snap.brand }} home">
+          <img class="brand-mark" src="/desk/static/favicon.svg" width="28" height="28" alt="" />
+          <span class="brand">{{ snap.brand }}</span>
+        </a>
+        <p class="brand-tag">{{ snap.tagline }}</p>
+      </div>
+      <nav class="nav" aria-label="Desk screens">
+        <ul>
+          {% for item in nav %}
+          <li>
+            <a href="{{ item.href }}"
+               {% if item.screen == page.screen %}aria-current="page"{% endif %}>{{ item.label }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </nav>
+    </header>
+
+    <main id="main" class="stage" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="foot">
+      <span>
+        Updated <time datetime="{{ snap.generated_at }}">{{ snap.generated_at }}</time>
+        · refresh in <span id="refresh-eta" data-seconds="60">60</span>s
+      </span>
+      <span>
+        <a href="/desk/api">JSON</a>
+        · <a href="/health">health</a>
+        · <a href="/widgets.json">OpenBB</a>
+      </span>
+    </footer>
+  </div>
+</body>
+</html>

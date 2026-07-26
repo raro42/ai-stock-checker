@@ -6,11 +6,23 @@ Verified working via Chrome MCP (2026-07-25 CEST).
 
 ## Local paper desk (browser)
 
-No OpenBB account needed — open the built-in UI:
+No OpenBB account needed — open the built-in multi-screen UI:
 
 **http://127.0.0.1:7779/desk**
 
-Shows MTM equity (scan/live marks), unrealized P&L, allocation bars, hold times, latest recommendations, crypto leaders, stock breakouts, fills with fees, and watchdog status. Countdown refresh via local vanilla `desk.js` (no CDN fonts/frameworks; CSP locked down). JSON twin: `/desk/api`. Serves from the same `openbb-backend` container (`DESK_LIVE_MARKS=0` to skip yfinance).
+Screens (inspired by xang1234/stock-screener’s Daily / Scan / Breadth / Ops flow, kept tiny & vanilla):
+
+| Path | Screen |
+|------|--------|
+| `/desk` | Overview — equity + top holdings + scan pulse |
+| `/desk/screener` | Recommendations, crypto leaders, breakouts |
+| `/desk/breadth` | Session, exposure, allocation |
+| `/desk/book` | Full holdings + fills |
+| `/desk/ideas` | External GitHub idea watch |
+| `/desk/ops` | Watchdog / runtime |
+
+Includes favicon, skip-link, landmarks, `aria-current` nav, meta description, and CSP (`img-src 'self'` only). Countdown refresh via local `desk.js`. JSON twin: `/desk/api`. `DESK_LIVE_MARKS=0` skips yfinance.
+
 
 ## Paper desk backend (our data → OpenBB)
 

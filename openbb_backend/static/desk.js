@@ -1,6 +1,18 @@
-/*! paper desk — local countdown reload (no deps) */
+/*! paper desk — countdown + a11y helpers (no deps) */
 (function () {
   "use strict";
+
+  var skip = document.querySelector("a.skip");
+  if (skip) {
+    skip.addEventListener("click", function () {
+      var main = document.getElementById("main");
+      if (main) {
+        window.setTimeout(function () {
+          main.focus();
+        }, 0);
+      }
+    });
+  }
 
   var el = document.getElementById("refresh-eta");
   if (!el) {
@@ -20,7 +32,6 @@
   }
 
   function reloadSafe() {
-    // Same-document reload only — never navigate off-origin.
     var path = window.location.pathname || "/desk";
     if (path.indexOf("/desk") !== 0) {
       path = "/desk";
