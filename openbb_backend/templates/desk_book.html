@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 {% from "macros.html" import ticker %}
+{% block extra_head %}
+  <script src="/desk/static/d3.min.js" defer></script>
+  <script src="/desk/static/charts.js" defer></script>
+{% endblock %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Book</p>
   <h1>Holdings &amp; fills</h1>
-  <p class="lede">Full paper ledger — positions, hold times, and recent executions.</p>
+  <p class="lede">Full paper ledger — positions since your buy (sparklines), hold times, and executions. No forecast lines.</p>
 </header>
 
 <section class="block" aria-labelledby="hold-h">
@@ -25,6 +29,8 @@
           <small>{{ "%+.1f"|format(h.unrealized_pct) }}%</small>
         </span>
       </div>
+      <div class="hold-spark" data-symbol="{{ h.symbol }}" role="img"
+           aria-label="{{ h.symbol }} path since buy versus average cost"></div>
       <div class="bar" aria-hidden="true"><i style="width: {{ '%.1f'|format(h.weight_bar_pct) }}%"></i></div>
       <span class="weight">{{ "%.1f"|format(h.weight_pct) }}% of book</span>
     </li>

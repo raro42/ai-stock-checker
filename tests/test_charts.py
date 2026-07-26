@@ -53,6 +53,7 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DESK_CHART_LIVE", "0")
     payload = load_chart_payload(tmp_path)
     assert "equity" in payload and "allocation" in payload
+    assert "from_buy" in payload
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
 
@@ -79,3 +80,34 @@ def test_price_history_skips_nan(tmp_path: Path, monkeypatch):
     pts = fetch_price_history("AAPL", tmp_path, live=False)
     assert len(pts) == 2
     assert all(p["close"] == p["close"] for p in pts)  # no NaN
+
+
+def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
+    from openbb_backend.charts import build_from_buy_panels
+
+    _seed(tmp_path)
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"AAPL": 1721476800})  # 2024-07-20-ish unix
+    )
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    (cache / "AAPL.json").write_text(
+        json.dumps(
+            {
+                "symbol": "AAPL",
+                "fetched_at": 9e12,
+                "points": [
+                    {"t": "2024-07-19T00:00:00Z", "close": 90},
+                    {"t": "2024-07-21T00:00:00Z", "close": 100},
+                    {"t": "2024-07-22T00:00:00Z", "close": 110},
+                ],
+            }
+        )
+    )
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    panels = build_from_buy_panels(tmp_path, live=False)
+    assert panels
+    aapl = next(p for p in panels if p["symbol"] == "AAPL")
+    assert aapl["buy_price"] == 100
+    assert aapl["points"][0]["rebased"] == 100
+    assert aapl["change_pct"] == 10.0

@@ -180,11 +180,15 @@ def test_desk_screens_seo_a11y_favicon(tmp_path: Path, monkeypatch):
     assert "Bitcoin" in client.get("/desk").text
     assert "d3.min.js" in client.get("/desk/charts").text
     assert "charts.js" in client.get("/desk/charts").text
+    assert "hold-spark" in client.get("/desk/book").text
+    assert "d3.min.js" in client.get("/desk/book").text
+    assert "Buys / Sells" in client.get("/desk").text
 
     charts = client.get("/desk/api/charts")
     assert charts.status_code == 200
     body = charts.json()
     assert "equity" in body and "allocation" in body
+    assert "from_buy" in body
 
     assert client.get("/desk/nope").status_code == 404
     api = client.get("/desk/api")

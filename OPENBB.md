@@ -15,7 +15,7 @@ Screens (inspired by xang1234/stock-screener’s Daily / Scan / Breadth / Ops fl
 | Path | Screen |
 |------|--------|
 | `/desk` | Overview — equity + top holdings + scan pulse |
-| `/desk/charts` | D3 charts — equity path, allocation, relative prices |
+| `/desk/charts` | D3 charts — equity, allocation, since-buy paths, relative prices |
 | `/desk/screener` | Recommendations, crypto leaders, breakouts |
 | `/desk/breadth` | Session, exposure, allocation |
 | `/desk/book` | Full holdings + fills |

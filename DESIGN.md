@@ -43,6 +43,7 @@ Typography carries hierarchy; stock “hero art” does not.
 - Local D3 only (`static/d3.min.js`); series colors from the desk palette
 - **Legends must wrap and stay readable** — HTML flex-wrap, not fixed SVG rows
 - **Relative prices:** hover legend or chart to highlight one series (others dim); crosshair + tip with date and rebased value
+- **Since your buy:** open lots rebased to avg cost (=100); Book sparklines; **never** draw forecast/trend extrapolations
 - Axes muted; empty states honest; honor `prefers-reduced-motion`
 
 ## Screens

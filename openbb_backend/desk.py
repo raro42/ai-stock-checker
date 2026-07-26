@@ -198,6 +198,13 @@ def load_desk_snapshot(
                 "kind": "crypto" if "-USD" in str(symbol) else "stock",
                 "held": _fmt_hold(held_s) if held_s is not None else "—",
                 "held_seconds": held_s,
+                "bought_at": (
+                    datetime.fromtimestamp(entry_ts, tz=timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    )
+                    if entry_ts
+                    else ""
+                ),
                 "weight_pct": 0.0,
                 "weight_bar_pct": 0.0,
             }

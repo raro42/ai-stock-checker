@@ -3,7 +3,8 @@
   "use strict";
 
   var root = document.getElementById("charts-root");
-  if (!root || typeof d3 === "undefined") {
+  // Book page uses the same script for since-buy sparklines (no #charts-root).
+  if (typeof d3 === "undefined") {
     return;
   }
 
@@ -24,6 +25,7 @@
   }
 
   function showError(msg) {
+    if (!root) return;
     root.innerHTML = "";
     var p = document.createElement("p");
     p.className = "empty";
@@ -31,16 +33,23 @@
     root.appendChild(p);
   }
 
-  function section(title, id) {
+  function section(title, id, note) {
+    if (!root) return null;
     var wrap = document.createElement("section");
     wrap.className = "block chart-block";
     wrap.setAttribute("aria-labelledby", id);
     var h = document.createElement("h2");
     h.id = id;
     h.textContent = title;
+    wrap.appendChild(h);
+    if (note) {
+      var p = document.createElement("p");
+      p.className = "sub";
+      p.textContent = note;
+      wrap.appendChild(p);
+    }
     var mount = document.createElement("div");
     mount.className = "chart-mount";
-    wrap.appendChild(h);
     wrap.appendChild(mount);
     root.appendChild(wrap);
     return mount;
@@ -653,20 +662,124 @@
     }
   }
 
-  function render(payload) {
+  function drawSparks(panels) {
+    var by = {};
+    (panels || []).forEach(function (p) {
+      by[p.symbol] = p;
+    });
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".hold-spark[data-symbol]"),
+      function (el) {
+        var panel = by[el.dataset.symbol];
+        el.innerHTML = "";
+        if (!panel || !panel.points || panel.points.length < 2) {
+          el.classList.add("is-empty");
+          el.title = "No since-buy path yet";
+          return;
+        }
+        el.classList.remove("is-empty");
+        el.title =
+          panel.symbol +
+          " since buy · " +
+          pctLabel(panel.change_pct) +
+          " vs avg cost (no forecast)";
+        var width = Math.max(el.clientWidth || 140, 100);
+        var height = 40;
+        var data = panel.points.map(function (pt) {
+          return { t: new Date(pt.t), rebased: +pt.rebased };
+        });
+        var x = d3
+          .scaleTime()
+          .domain(d3.extent(data, function (d) {
+            return d.t;
+          }))
+          .range([2, width - 2]);
+        var y = d3
+          .scaleLinear()
+          .domain(
+            d3.extent(data, function (d) {
+              return d.rebased;
+            })
+          )
+          .nice()
+          .range([height - 3, 3]);
+        var up = panel.change_pct >= 0;
+        var stroke = up ? cssVar("--up", "#7dcea0") : cssVar("--down", "#e07a5f");
+        var svg = d3
+          .select(el)
+          .append("svg")
+          .attr("viewBox", "0 0 " + width + " " + height)
+          .attr("aria-hidden", "true");
+        if (y.domain()[0] <= 100 && y.domain()[1] >= 100) {
+          svg
+            .append("line")
+            .attr("x1", 0)
+            .attr("x2", width)
+            .attr("y1", y(100))
+            .attr("y2", y(100))
+            .attr("stroke", "rgba(232,239,230,0.2)")
+            .attr("stroke-dasharray", "2 2");
+        }
+        var line = d3
+          .line()
+          .x(function (d) {
+            return x(d.t);
+          })
+          .y(function (d) {
+            return y(d.rebased);
+          })
+          .curve(d3.curveMonotoneX);
+        svg
+          .append("path")
+          .datum(data)
+          .attr("fill", "none")
+          .attr("stroke", stroke)
+          .attr("stroke-width", 1.6)
+          .attr("d", line);
+      }
+    );
+  }
+
+  function renderChartsPage(payload) {
     root.innerHTML = "";
     drawEquity(section("Book equity path", "ch-eq"), payload.equity);
     drawAllocation(section("Allocation", "ch-alloc"), payload.allocation);
-    drawPrices(section("Relative prices (rebased 100)", "ch-px"), payload.prices);
+    drawPrices(
+      section(
+        "Since your buy (avg cost = 100)",
+        "ch-buy",
+        "Open lots only — path from entry vs what you paid. No forecast line."
+      ),
+      payload.from_buy || []
+    );
+    drawPrices(
+      section(
+        "Relative prices (window = 100)",
+        "ch-px",
+        "Same window start for comparison across names (not your fill price)."
+      ),
+      payload.prices
+    );
   }
 
-  fetch("/desk/api/charts", { credentials: "same-origin" })
-    .then(function (r) {
-      if (!r.ok) throw new Error("charts HTTP " + r.status);
-      return r.json();
-    })
-    .then(render)
-    .catch(function () {
+  function loadCharts(onOk, onErr) {
+    fetch("/desk/api/charts", { credentials: "same-origin" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("charts HTTP " + r.status);
+        return r.json();
+      })
+      .then(onOk)
+      .catch(onErr || function () {});
+  }
+
+  var screen = document.body && document.body.getAttribute("data-screen");
+  if (screen === "charts" && root) {
+    loadCharts(renderChartsPage, function () {
       showError("Could not load chart data.");
     });
+  } else if (screen === "book" && typeof d3 !== "undefined") {
+    loadCharts(function (payload) {
+      drawSparks(payload.from_buy || []);
+    });
+  }
 })();

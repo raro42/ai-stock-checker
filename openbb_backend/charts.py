@@ -326,10 +326,105 @@ def build_price_panels(
     return panels
 
 
+def build_from_buy_panels(
+    data_dir: Path, *, days: int = 180, live: Optional[bool] = None
+) -> list[dict[str, Any]]:
+    """Open lots rebased to avg buy (=100). Honest path since entry — no forecast."""
+    if live is None:
+        live = os.getenv("DESK_CHART_LIVE", "1").strip() not in {
+            "0",
+            "false",
+            "False",
+            "no",
+        }
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    holdings = portfolio.get("holdings") or {}
+    avg = portfolio.get("avg_buy_price") or {}
+    entry_times = _load_json(data_dir / "entry_times.json", {})
+    symbols = [str(s) for s in holdings.keys() if s][:10]
+    names = resolve_symbol_names(symbols, data_dir, live=False)
+    panels: list[dict[str, Any]] = []
+
+    for sym in symbols:
+        buy_price = _finite(avg.get(sym))
+        qty = _finite(holdings.get(sym))
+        if buy_price <= 0 or qty <= 0:
+            continue
+        entry_raw = entry_times.get(sym)
+        entry_ts = _finite(entry_raw) if entry_raw not in (None, "") else 0.0
+        buy_dt: Optional[datetime] = None
+        if entry_ts > 0:
+            buy_dt = datetime.fromtimestamp(entry_ts, tz=timezone.utc)
+
+        hist = fetch_price_history(sym, data_dir, days=days, live=live)
+        pts: list[dict[str, Any]] = []
+        for p in hist:
+            ts = _parse_trade_ts(str(p.get("t") or ""))
+            if ts is None:
+                continue
+            if buy_dt and ts < buy_dt:
+                continue
+            close = _finite(p.get("close"), default=float("nan"))
+            if not math.isfinite(close) or close <= 0:
+                continue
+            pts.append({"t": ts.strftime("%Y-%m-%dT%H:%M:%SZ"), "close": close})
+
+        # Always anchor at the fill so short holds still chart.
+        buy_iso = (
+            buy_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if buy_dt
+            else (pts[0]["t"] if pts else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        )
+        if not pts or pts[0]["t"] > buy_iso:
+            pts = [{"t": buy_iso, "close": buy_price}] + pts
+        elif abs(pts[0]["close"] - buy_price) / buy_price > 0.02:
+            # Prefer cost basis as the day-0 mark when history starts mid-hold.
+            pts = [{"t": buy_iso, "close": buy_price}] + [
+                p for p in pts if p["t"] > buy_iso
+            ]
+
+        if len(pts) < 2:
+            # Single mark — add "now" at last known / buy so the spark has a segment.
+            last_close = pts[0]["close"] if pts else buy_price
+            now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if not pts:
+                pts = [{"t": buy_iso, "close": buy_price}]
+            if pts[-1]["t"] != now_iso:
+                pts.append({"t": now_iso, "close": last_close})
+
+        indexed = []
+        for p in pts:
+            close = _finite(p["close"])
+            indexed.append(
+                {
+                    "t": p["t"],
+                    "close": close,
+                    "rebased": round(close / buy_price * 100, 4),
+                }
+            )
+        last = indexed[-1]
+        panels.append(
+            {
+                "symbol": sym,
+                "name": display_name(sym, names) or sym,
+                "buy_price": round(buy_price, 6),
+                "bought_at": buy_iso,
+                "quantity": qty,
+                "points": indexed,
+                "last": last["close"],
+                "change_pct": round(last["rebased"] - 100, 2),
+                "note": "Rebased to your avg buy (100). No forecast.",
+            }
+        )
+    panels.sort(key=lambda p: abs(p["change_pct"]), reverse=True)
+    return panels
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "equity": build_equity_curve(data_dir),
         "allocation": build_allocation(data_dir),
         "prices": build_price_panels(data_dir),
+        "from_buy": build_from_buy_panels(data_dir),
     }

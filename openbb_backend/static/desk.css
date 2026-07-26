@@ -370,6 +370,23 @@ a:active {
   border-bottom: 1px solid var(--line);
 }
 
+.hold-spark {
+  width: 100%;
+  height: 2.5rem;
+  margin-top: 0.45rem;
+}
+
+.hold-spark.is-empty {
+  height: 0;
+  margin: 0;
+}
+
+.hold-spark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .bar {
   margin-top: 0.55rem;
   height: 3px;
