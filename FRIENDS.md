@@ -7,7 +7,7 @@ Repo: https://github.com/raro42/ai-stock-checker
 ## 1. Install
 
 - Docker Desktop
-- Optional: [Ollama](https://ollama.com) + `ollama pull gemma4:latest`
+- Optional LLM: [Ollama](https://ollama.com) **or** a free Groq/OpenRouter key ([MODELS.md](MODELS.md))
 - Optional: free [Finnhub](https://finnhub.io) API key
 
 ## 2. Configure
@@ -16,7 +16,14 @@ Repo: https://github.com/raro42/ai-stock-checker
 git clone https://github.com/raro42/ai-stock-checker.git
 cd ai-stock-checker
 cp .env.example .env
-# put FINNHUB_API_KEY=... and AI_MODEL=gemma4:latest in .env
+# Defaults: AI_MODE=off (no LLM needed). Paper desk still works.
+# Optional: FINNHUB_API_KEY=...
+# Optional cloud AI (no local Ollama):
+#   AI_MODE=validate
+#   LLM_BACKEND=openai
+#   OPENAI_API_KEY=...
+#   OPENAI_BASE_URL=https://api.groq.com/openai/v1
+#   AI_MODEL=llama-3.1-8b-instant
 ```
 
 ## 3. Run paper trader (+ OpenBB widgets)

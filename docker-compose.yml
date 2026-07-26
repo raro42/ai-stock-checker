@@ -26,6 +26,14 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - LLM_BACKEND=${LLM_BACKEND:-ollama}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-gemma4:latest}
+      - AI_MULTI_ROLE=${AI_MULTI_ROLE:-1}
+      - AI_VERBOSE=${AI_VERBOSE:-0}
     restart: unless-stopped
     # Anti-churn defaults: scan every 15m, trade every 5m, hold ≥4h
     command: >
@@ -36,7 +44,7 @@ services:
       --max-positions 8
       --position-size 0.10
       --min-hold-time 14400
-      --ai-mode validate
+      --ai-mode ${AI_MODE:-off}
       --ai-model ${AI_MODEL:-gemma4:latest}
       --top-crypto-count 2
 

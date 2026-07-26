@@ -6,7 +6,7 @@ import re
 import sys
 from typing import Dict
 
-from stock_checker.ai_analyzer import OllamaAnalyzer
+from stock_checker.ai_analyzer import make_analyzer
 
 
 def _ai_verbose() -> bool:
@@ -14,11 +14,10 @@ def _ai_verbose() -> bool:
 
 
 class AIRecommender:
-    """AI-driven recommendation engine using Ollama."""
+    """AI-driven recommendation engine (Ollama or OpenAI-compatible cloud)."""
 
     def __init__(self, model: str = "gemma4:latest"):
-        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        self.analyzer = OllamaAnalyzer(base_url=ollama_host, model=model)
+        self.analyzer = make_analyzer(model)
 
     def _log_block(self, title: str, body: str) -> None:
         if not _ai_verbose():

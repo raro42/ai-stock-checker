@@ -94,7 +94,7 @@ Paper state lives in `./data/` (gitignored). Friends’ short path: [`FRIENDS.md
 | Scan / trade | 15m / 5m |
 | Min hold | **4h** |
 | Max positions | 8 |
-| AI mode | `validate` (gates ideas; doesn’t hallucinate fills) |
+| AI mode | `off` by default (rules-only). Set `AI_MODE=validate` + Ollama or cloud — see [MODELS.md](MODELS.md) |
 
 ---
 
@@ -144,7 +144,7 @@ We cut tagged releases when the desk or trader meaningfully changes — screensh
 | [PAPER_TRADING.md](PAPER_TRADING.md) | Paper loop deep dive |
 | [AUTOPILOT.md](AUTOPILOT.md) | Continuous improvement |
 | [IMPROVEMENT.md](IMPROVEMENT.md) | Backlog |
-| [MODELS.md](MODELS.md) | Which Ollama model for what |
+| [MODELS.md](MODELS.md) | Ollama **or** cheap cloud LLMs (Groq / OpenRouter / DeepSeek) |
 | [GIT.md](GIT.md) | Commit / push ASAP |
 
 ---
