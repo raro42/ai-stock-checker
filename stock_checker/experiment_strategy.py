@@ -14,11 +14,11 @@ from typing import Dict, List
 import math
 
 
-# idea: Tightening the volatility gate by reducing MAX_RETURN_STDEV from 2.0% to 1.5% to improve robustness and reduce signal noise during volatile periods.
+# idea: Adjusting the core SMA periods from (15/40) to a more common pair of (20/50) for better signal generalization across different market regimes.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
-SHORT_SMA = 15
-MED_SMA = 40
+SHORT_SMA = 20  # Changed: From 15
+MED_SMA = 50    # Changed: From 40
 LONG_SMA = 60
 # Require short > med to enter; exit when short < med + price drop confirmation
 REQUIRE_VOLUME_CONFIRM = True
