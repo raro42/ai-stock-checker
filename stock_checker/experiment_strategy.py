@@ -14,13 +14,13 @@ from typing import Dict, List
 import math
 
 
-# idea: Adjusting the core SMA periods from (15/40) to a more common pair of (20/50) for better signal generalization across different market regimes.
+# idea: Switching the structural exit condition from Medium SMA (50) to Long SMA (60). This enforces a deeper, slower signal failure before exiting, reducing premature exits and potential fee burn while maintaining robustness.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
-SHORT_SMA = 20  # Changed: From 15
-MED_SMA = 50    # Changed: From 40
-LONG_SMA = 60
-# Require short > med to enter; exit when short < med + price drop confirmation
+SHORT_SMA = 20  # Core entry trigger
+MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
+LONG_SMA = 60   # Primary exit structural guide
+# Require short > med to enter; exit when short < long + price drop confirmation
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
@@ -30,7 +30,7 @@ MAX_RETURN_STDEV = 0.015  # TIGHTENED: 1.5% daily stdev (was 2.0%)
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
-REQUIRE_REL_STRENGTH = False # NEW: Disabled relative strength requirement for robustness
+REQUIRE_REL_STRENGTH = False # Disabled relative strength requirement for robustness
 RS_LOOKBACK = 30
 
 # --- IMPROVEMENT: RSI Filters ---
@@ -38,8 +38,8 @@ RSI_PERIOD = 14
 MIN_ENTRY_RSI = 35.0   # Minimum acceptable RSI (avoiding oversold entries)
 MAX_ENTRY_RSI = 65.0   # Maximum acceptable RSI (avoiding overbought entries)
 
-# NEW: Exit Confirmation Threshold - Price must drop below MedSMA by this percentage to exit.
-EXIT_DROP_THRESHOLD = 0.02 # Requires price < MedSMA * 0.98
+# NEW: Exit Confirmation Threshold - Price must drop below the structural exit SMA by this percentage to exit.
+EXIT_DROP_THRESHOLD = 0.02 # Requires price < Structural SMA * 0.98
 
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
@@ -120,7 +120,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Improved entry filter using neutral RSI band (35-65). Exit uses structural SMA cross AND price decay confirmation."""
+       Entry uses Short > Medium SMA. Exit uses structural Long SMA cross AND price decay confirmation."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -203,8 +203,8 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if short crosses below medium AND price confirms weakness by dropping below MedSMA * (1 - threshold).
-        elif sma_s < sma_m and in_pos and current_close <= sma_m * (1 - EXIT_DROP_THRESHOLD):
+        # Exit if short crosses below LONG SMA AND price confirms weakness by dropping below LongSMA * (1 - threshold).
+        elif sma_s < sma_l and in_pos and current_close <= sma_l * (1 - EXIT_DROP_THRESHOLD):
             signals[symbol] = "SELL"
 
     return signals
