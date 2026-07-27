@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Softening the structural exit confirmation by requiring Short SMA cross below Medium SMA AND a significant price drop (Price < MedSMA * 0.98) to confirm reversal.
+# idea: Tightening the volatility gate by reducing MAX_RETURN_STDEV from 2.0% to 1.5% to improve robustness and reduce signal noise during volatile periods.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15
@@ -26,7 +26,7 @@ VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
-MAX_RETURN_STDEV = 0.020  # ~2.0% daily stdev
+MAX_RETURN_STDEV = 0.015  # TIGHTENED: 1.5% daily stdev (was 2.0%)
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
