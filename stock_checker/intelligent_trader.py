@@ -35,6 +35,12 @@ from .market_regime import (
     simple_sma,
     snapshot_dict,
 )
+from .exit_policy import (
+    crypto_entry_price_ok,
+    should_rebalance_exit,
+    should_stop_loss,
+    should_take_profit,
+)
 from .fees import DEFAULT_FEE_PRESET, rates_for_preset
 from . import __version__
 
@@ -542,8 +548,8 @@ class IntelligentTrader:
                         if rsi > 70:
                             print(f"   📊 {symbol}: RSI high ({rsi:.1f}) with profit {profit_pct:.2f}% - consider early profit-taking")
 
-                # PROFIT TAKING: +3%
-                if profit_pct >= 3.0:
+                # PROFIT TAKING (clears Revolut-like round-trip + cushion)
+                if should_take_profit(profit_pct):
                     quantity = self.portfolio.holdings[symbol]
                     result = self.portfolio.sell(symbol, price, quantity, timestamp)
                     if result["success"]:
@@ -553,8 +559,8 @@ class IntelligentTrader:
                             del self.position_entry_times[symbol]
                             self.persistence.save_entry_times(self.position_entry_times)
 
-                # STOP LOSS: -5%
-                elif profit_pct <= -5.0:
+                # STOP LOSS — hard risk cut only (not for scan rotation)
+                elif should_stop_loss(profit_pct):
                     quantity = self.portfolio.holdings[symbol]
                     result = self.portfolio.sell(symbol, price, quantity, timestamp)
                     if result["success"]:
@@ -648,6 +654,12 @@ class IntelligentTrader:
                         print(f"   ⚠️ Could not fetch price for {symbol}")
                         continue
                     current_price = binance_data["current_price"]
+                    if not crypto_entry_price_ok(current_price):
+                        print(
+                            f"   ⏸️  Skipping {symbol}: crypto price ${current_price:.4f} "
+                            f"below $1 floor (meme/churn filter)"
+                        )
+                        continue
                     
                     # Check RSI for crypto - skip if overbought
                     tech_indicators = binance.get_technical_indicators(binance_symbol)
@@ -756,15 +768,13 @@ class IntelligentTrader:
 
         rebalanced = False
 
-        # Sell stale holdings (with smart exit logic)
+        # Sell stale holdings only if they are *winners* worth rotating.
+        # Never crystallize a loss just because the scanner found a shinier name.
         for symbol in stale_holdings:
             try:
-                # Check minimum hold time
+                hold_time = 0.0
                 if symbol in self.position_entry_times:
                     hold_time = time.time() - self.position_entry_times[symbol]
-                    if hold_time < self.min_hold_time:
-                        print(f"   ⏳ {symbol}: Holding (only {int(hold_time)}s, min {self.min_hold_time}s)")
-                        continue
 
                 # Get current price
                 is_crypto = "-USD" in symbol
@@ -793,9 +803,13 @@ class IntelligentTrader:
                 avg_buy = self.portfolio.avg_buy_price[symbol]
                 profit_pct = ((price - avg_buy) / avg_buy) * 100
 
-                # Don't sell at a loss unless it's been held long enough or loss is significant
-                if profit_pct < 0 and profit_pct > -2.0 and hold_time < self.min_hold_time * 2:
-                    print(f"   💎 {symbol}: Holding through small loss ({profit_pct:.2f}%)")
+                sell_ok, why = should_rebalance_exit(
+                    profit_pct=profit_pct,
+                    hold_seconds=hold_time,
+                    min_hold_seconds=float(self.min_hold_time),
+                )
+                if not sell_ok:
+                    print(f"   💎 {symbol}: Keep ({why}, {profit_pct:+.2f}%)")
                     continue
 
                 # Sell the position
@@ -804,7 +818,7 @@ class IntelligentTrader:
                 result = self.portfolio.sell(symbol, price, quantity, timestamp)
 
                 if result["success"]:
-                    print(f"   📤 {symbol}: Exited stale position - €{result['transaction']['profit_loss']:+,.2f} ({profit_pct:+.2f}%)")
+                    print(f"   📤 {symbol}: Exited stale winner - €{result['transaction']['profit_loss']:+,.2f} ({profit_pct:+.2f}%)")
                     # Remove from entry times and persist
                     if symbol in self.position_entry_times:
                         del self.position_entry_times[symbol]
@@ -853,6 +867,12 @@ class IntelligentTrader:
                         if not binance_data:
                             continue
                         price = binance_data["current_price"]
+                        if not crypto_entry_price_ok(price):
+                            print(
+                                f"   ⏸️  Skipping {symbol}: crypto price ${price:.4f} "
+                                f"below $1 floor (meme/churn filter)"
+                            )
+                            continue
                         data = {
                             "symbol": symbol,
                             "current_price": price,
