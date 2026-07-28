@@ -141,6 +141,20 @@ app.mount(
 )
 templates = Jinja2Templates(directory=str(_BACKEND_DIR / "templates"))
 
+
+def _format_px(value: Any) -> str:
+    """Show enough decimals for sub-€1 crypto so 0.0908 ≠ 0.08516 as '0.09'."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if abs(v) < 1:
+        return f"{v:.5f}"
+    return f"{v:,.2f}"
+
+
+templates.env.filters["px"] = _format_px
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

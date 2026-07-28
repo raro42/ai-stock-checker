@@ -21,8 +21,8 @@
       <div class="hold-main">
         {{ ticker(h.symbol, h.name) }}
         <span class="meta">
-          {{ "%.4f"|format(h.quantity) }} · avg €{{ "%.2f"|format(h.avg_buy) }}
-          · last €{{ "%.2f"|format(h.last) }}
+          {{ "%.4f"|format(h.quantity) }} · avg €{{ h.avg_buy|px }}
+          · last €{{ h.last|px }}
           · held {{ h.held }} · {{ h.kind }}
         </span>
         <span class="amt {% if h.unrealized >= 0 %}up{% else %}down{% endif %}">
@@ -54,7 +54,7 @@
       <span class="when">{{ t.timestamp }}</span>
       <span class="side {{ t.type|lower }}">{{ t.type }}</span>
       {{ ticker(t.symbol, t.name) }}
-      <span class="meta">{{ "%.4f"|format(t.quantity) }} @ €{{ "%.2f"|format(t.price) }} · fee €{{ "%.2f"|format(t.commission) }}</span>
+      <span class="meta">{{ "%.4f"|format(t.quantity) }} @ €{{ t.price|px }} · fee €{{ "%.2f"|format(t.commission) }}</span>
       <span class="amt">{% if t.profit_loss is not none %}€{{ "{:+,.2f}".format(t.profit_loss|float) }}{% else %}—{% endif %}</span>
     </li>
     {% endfor %}
