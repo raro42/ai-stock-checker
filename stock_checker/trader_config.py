@@ -30,6 +30,9 @@ DEFAULTS: dict[str, Any] = {
     "ai_multi_role": True,
     "regime_gate": True,
     "fee_preset": DEFAULT_FEE_PRESET,
+    # Anti-churn paper defaults (tighter than old compose 8×4h).
+    "max_positions": 5,
+    "min_hold_hours": 24,
 }
 
 
@@ -56,6 +59,14 @@ def _env_defaults() -> dict[str, Any]:
     if fee_preset not in ALLOWED_FEE_PRESETS:
         fee_preset = DEFAULT_FEE_PRESET
     rate, min_eur = rates_for_preset(fee_preset)
+    try:
+        max_pos = int(os.getenv("MAX_POSITIONS") or DEFAULTS["max_positions"])
+    except (TypeError, ValueError):
+        max_pos = int(DEFAULTS["max_positions"])
+    try:
+        min_hold_h = float(os.getenv("MIN_HOLD_HOURS") or DEFAULTS["min_hold_hours"])
+    except (TypeError, ValueError):
+        min_hold_h = float(DEFAULTS["min_hold_hours"])
     return {
         "ai_mode": mode,
         "ai_model": model,
@@ -64,6 +75,8 @@ def _env_defaults() -> dict[str, Any]:
         "fee_preset": fee_preset,
         "commission_rate": rate,
         "commission_min_eur": min_eur,
+        "max_positions": max(1, min(12, max_pos)),
+        "min_hold_hours": max(4.0, min(168.0, min_hold_h)),
     }
 
 
@@ -120,6 +133,28 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
         out["commission_rate"] = rate
         out["commission_min_eur"] = min_eur
 
+    if "max_positions" in raw:
+        try:
+            mp = int(raw.get("max_positions"))
+            if 1 <= mp <= 12:
+                out["max_positions"] = mp
+        except (TypeError, ValueError):
+            pass
+
+    if "min_hold_hours" in raw:
+        try:
+            mh = float(raw.get("min_hold_hours"))
+            if 4.0 <= mh <= 168.0:
+                out["min_hold_hours"] = mh
+        except (TypeError, ValueError):
+            pass
+
+    # Ensure sizing keys always present after merge.
+    if "max_positions" not in out:
+        out["max_positions"] = int(DEFAULTS["max_positions"])
+    if "min_hold_hours" not in out:
+        out["min_hold_hours"] = float(DEFAULTS["min_hold_hours"])
+
     return out
 
 
@@ -149,6 +184,8 @@ def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[st
         "fee_preset": merged["fee_preset"],
         "commission_rate": float(merged["commission_rate"]),
         "commission_min_eur": float(merged["commission_min_eur"]),
+        "max_positions": int(merged["max_positions"]),
+        "min_hold_hours": float(merged["min_hold_hours"]),
     }
     path.write_text(json.dumps(payload, indent=2) + "\n")
     return payload

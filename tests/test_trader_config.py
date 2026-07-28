@@ -54,7 +54,25 @@ def test_save_load_roundtrip(tmp_path: Path):
 
 def test_fee_preset_revolut_standard_default(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("FEE_PRESET", raising=False)
+    monkeypatch.delenv("MAX_POSITIONS", raising=False)
+    monkeypatch.delenv("MIN_HOLD_HOURS", raising=False)
     cfg = load_trader_config(tmp_path)
     assert cfg["fee_preset"] == "revolut_standard"
     assert abs(cfg["commission_rate"] - 0.0025) < 1e-9
     assert abs(cfg["commission_min_eur"] - 1.0) < 1e-9
+    assert cfg["max_positions"] == 5
+    assert cfg["min_hold_hours"] == 24
+
+
+def test_book_limits_clamp(tmp_path: Path):
+    saved = save_trader_config(
+        tmp_path, {"max_positions": 99, "min_hold_hours": 1}
+    )
+    # Invalid values ignored → defaults from base
+    assert saved["max_positions"] == 5
+    assert saved["min_hold_hours"] == 24.0
+    saved2 = save_trader_config(
+        tmp_path, {"max_positions": 4, "min_hold_hours": 48}
+    )
+    assert saved2["max_positions"] == 4
+    assert saved2["min_hold_hours"] == 48.0

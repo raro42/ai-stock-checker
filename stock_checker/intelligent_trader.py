@@ -963,6 +963,26 @@ class IntelligentTrader:
                 f"{fee_rate*100:.2f}%/side · min €{fee_min:.2f}"
             )
 
+        try:
+            new_max = int(cfg.get("max_positions") or self.max_positions)
+        except (TypeError, ValueError):
+            new_max = self.max_positions
+        new_max = max(1, min(12, new_max))
+        try:
+            new_hold_h = float(cfg.get("min_hold_hours") or (self.min_hold_time / 3600.0))
+        except (TypeError, ValueError):
+            new_hold_h = self.min_hold_time / 3600.0
+        new_hold_h = max(4.0, min(168.0, new_hold_h))
+        new_hold_s = int(new_hold_h * 3600)
+        size_changed = new_max != self.max_positions or new_hold_s != self.min_hold_time
+        if size_changed:
+            print(
+                f"   📦 Book limits: max_positions {self.max_positions}→{new_max} · "
+                f"min_hold {self.min_hold_time/3600:.0f}h→{new_hold_h:.0f}h"
+            )
+            self.max_positions = new_max
+            self.min_hold_time = new_hold_s
+
         if new_mode == self.ai_mode and new_model == self.ai_model:
             return
 

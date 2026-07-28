@@ -90,8 +90,9 @@ def _trader_runtime_view() -> dict[str, Any]:
         "llm_key_set": key_set,
         "ai_multi_role": bool(cfg.get("ai_multi_role", True)),
         # Match docker-compose intelligent-trader defaults (not live-parsed argv).
-        "max_positions": 8,
-        "min_hold_hours": 4,
+        # Prefer Ops/file knobs over hard-coded compose display defaults.
+        "max_positions": int(cfg.get("max_positions") or 5),
+        "min_hold_hours": float(cfg.get("min_hold_hours") or 24),
         "scan_interval_min": 15,
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,

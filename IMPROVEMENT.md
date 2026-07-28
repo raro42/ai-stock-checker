@@ -82,6 +82,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Ops editable trader knobs (`trader_config.json` + `/desk/api/config`) — AI mode/model, multi-role, regime gate; trader hot-reloads
 - [x] Revolut-realistic paper fees (default 0.25%/side · €1 min; Ultra 0.12%; Ops fee preset) — replaces optimistic 0.1%
 - [x] Stop loss-rotation: never sell losers to chase new scan names; +5% take-profit; block sub-$1 crypto entries (ESP/BANK autopsy 2026-07-28)
+- [x] Ops book limits: max positions + min hold hours (default 5 / 24h) — anti-churn vs Revolut fees; pyramid-up still optional later
 - [ ] Optional later: full-universe breadth advance/decline series (still needs wider universe stats)
 
 ### Phase D — Share

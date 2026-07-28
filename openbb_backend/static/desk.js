@@ -37,12 +37,16 @@
       var multiEl = document.getElementById("ops-multi-role");
       var regimeEl = document.getElementById("ops-regime");
       var feeEl = document.getElementById("ops-fee-preset");
+      var maxEl = document.getElementById("ops-max-pos");
+      var holdEl = document.getElementById("ops-min-hold");
       var body = {
         ai_mode: modeEl ? modeEl.value : "off",
         ai_model: modelEl ? String(modelEl.value || "").trim() : "",
         ai_multi_role: multiEl ? !!multiEl.checked : true,
         regime_gate: regimeEl ? !!regimeEl.checked : true,
         fee_preset: feeEl ? feeEl.value : "revolut_standard",
+        max_positions: maxEl ? parseInt(maxEl.value, 10) : 5,
+        min_hold_hours: holdEl ? parseFloat(holdEl.value) : 24,
       };
       if (saveBtn) {
         saveBtn.disabled = true;

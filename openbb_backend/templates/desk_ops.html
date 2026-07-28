@@ -8,7 +8,7 @@
 
 <section class="block system" aria-labelledby="cfg-h">
   <h2 id="cfg-h">Trader config</h2>
-  <p class="sub">Saved to <code>data/trader_config.json</code>. The paper trader hot-reloads each loop — no compose restart for AI / regime toggles. Risk intervals still come from compose.</p>
+  <p class="sub">Saved to <code>data/trader_config.json</code>. The paper trader hot-reloads each loop — AI, fees, max positions, and min hold. Scan/trade intervals still come from compose.</p>
 
   <form id="ops-config" class="ops-form" data-ops-config>
     <div class="ops-grid">
@@ -55,6 +55,20 @@
           <option value="revolut_ultra"{% if snap.runtime.fee_preset == "revolut_ultra" %} selected{% endif %}>Revolut Ultra / Trading Pro · 0.12% · €1 min</option>
           <option value="binance_like"{% if snap.runtime.fee_preset == "binance_like" %} selected{% endif %}>Spot-like · 0.1% · no floor</option>
         </select>
+      </label>
+
+      <label class="ops-field">
+        <span class="ops-label">Max positions</span>
+        <input type="number" name="max_positions" id="ops-max-pos"
+               min="1" max="12" step="1"
+               value="{{ snap.runtime.max_positions }}" />
+      </label>
+
+      <label class="ops-field">
+        <span class="ops-label">Min hold (hours)</span>
+        <input type="number" name="min_hold_hours" id="ops-min-hold"
+               min="4" max="168" step="1"
+               value="{{ snap.runtime.min_hold_hours|int }}" />
       </label>
     </div>
 
