@@ -50,8 +50,10 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
   - **2026-07-25 verdict:** `underperforms_baselines` — strategy val≈6.86 vs SPY B&H≈8.40 (same bars).
   - **2026-07-26 WF re-baseline:** strategy WF blend≈0.87 vs SPY WF≈7.06 → do not promote.
   - **2026-07-26 late morning:** new keep `36f77df` (slower med/long exit) WF blend≈**6.86** vs SPY≈**7.06** — gap nearly closed; **still do not promote**. See `docs/history/autoresearch_progress_2026-07-26.md`.
-- [ ] Promote autoresearch champion into production defaults only after **WF beats SPY** + calm paper month
-
+  - **2026-07-29 live-shaped harness:** Revolut 0.25%+€1 min, max 5 positions, min_hold 1 daily bar. WF blend≈**10.47** vs SPY≈**6.69** → `beats_buy_hold_spy_walkforward: true` (offline only). Pre-live-fee `results.tsv` scores are **not** comparable.
+- [x] Live-shaped experiment harness + promote adapter (`promoted_strategy.py`, Ops toggle) — **default off** in code; enable for paper after gate; calm paper month still required before compose default-on
+- [ ] Make `promote_experiment_strategy` default-on in compose only after a calm paper month
+- [ ] Optional later: second autoresearch loop mutating `exit_policy` / Ops knobs against live-shaped sim (only after promote path is stable)
 ### Phase B — Harden
 - [x] OpenBB connection preflight (`scripts/openbb_connection_check.sh`) + CORS regex; UI bind still needs human “allow local network” if Test hangs
 - [x] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)

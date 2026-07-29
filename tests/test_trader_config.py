@@ -56,12 +56,21 @@ def test_fee_preset_revolut_standard_default(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("FEE_PRESET", raising=False)
     monkeypatch.delenv("MAX_POSITIONS", raising=False)
     monkeypatch.delenv("MIN_HOLD_HOURS", raising=False)
+    monkeypatch.delenv("PROMOTE_EXPERIMENT_STRATEGY", raising=False)
     cfg = load_trader_config(tmp_path)
     assert cfg["fee_preset"] == "revolut_standard"
     assert abs(cfg["commission_rate"] - 0.0025) < 1e-9
     assert abs(cfg["commission_min_eur"] - 1.0) < 1e-9
     assert cfg["max_positions"] == 5
     assert cfg["min_hold_hours"] == 24
+    assert cfg["promote_experiment_strategy"] is False
+
+
+def test_promote_flag_roundtrip(tmp_path: Path):
+    saved = save_trader_config(tmp_path, {"promote_experiment_strategy": True})
+    assert saved["promote_experiment_strategy"] is True
+    loaded = load_trader_config(tmp_path)
+    assert loaded["promote_experiment_strategy"] is True
 
 
 def test_book_limits_clamp(tmp_path: Path):

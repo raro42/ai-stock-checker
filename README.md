@@ -120,7 +120,7 @@ docker run --rm ai-stock-checker pytest -q
 
 We do **not** claim live edge without walk-forward evidence vs SPY.
 
-Promote rule: experiment strategies must beat SPY on the walk-forward blend before changing live trader defaults. Full-sample hero curves alone are not enough.
+Promote rule: experiment strategies must beat SPY on the **live-shaped** walk-forward blend (Revolut-standard fees + book caps) before enabling the Ops promote filter. Full-sample hero curves alone are not enough. Compose default-on waits for a calm paper month.
 
 If a README ever reads like a hedge-fund pitch deck, open an issue and yell.
 

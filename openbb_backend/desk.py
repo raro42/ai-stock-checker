@@ -97,6 +97,9 @@ def _trader_runtime_view() -> dict[str, Any]:
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,
         "regime_gate": bool(cfg.get("regime_gate", True)),
+        "promote_experiment_strategy": bool(
+            cfg.get("promote_experiment_strategy", False)
+        ),
         "fee_preset": str(cfg.get("fee_preset") or "revolut_standard"),
         "commission_rate": float(cfg.get("commission_rate") or 0.0025),
         "commission_min_eur": float(cfg.get("commission_min_eur") or 1.0),

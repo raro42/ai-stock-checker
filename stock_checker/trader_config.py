@@ -17,6 +17,7 @@ from stock_checker.fees import (
     FEE_PRESETS,
     rates_for_preset,
 )
+from stock_checker.promoted_strategy import promote_enabled_from_env
 
 ALLOWED_AI_MODES = frozenset({"off", "validate", "full"})
 ALLOWED_FEE_PRESETS = frozenset(FEE_PRESETS.keys()) | frozenset({"custom"})
@@ -33,6 +34,8 @@ DEFAULTS: dict[str, Any] = {
     # Anti-churn paper defaults (tighter than old compose 8×4h).
     "max_positions": 5,
     "min_hold_hours": 24,
+    # Champion entry filter (experiment_strategy). Off until calm paper stretch.
+    "promote_experiment_strategy": False,
 }
 
 
@@ -77,6 +80,9 @@ def _env_defaults() -> dict[str, Any]:
         "commission_min_eur": min_eur,
         "max_positions": max(1, min(12, max_pos)),
         "min_hold_hours": max(4.0, min(168.0, min_hold_h)),
+        "promote_experiment_strategy": promote_enabled_from_env(
+            bool(DEFAULTS["promote_experiment_strategy"])
+        ),
     }
 
 
@@ -149,11 +155,21 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
         except (TypeError, ValueError):
             pass
 
+    if "promote_experiment_strategy" in raw:
+        out["promote_experiment_strategy"] = _as_bool(
+            raw.get("promote_experiment_strategy"),
+            bool(out.get("promote_experiment_strategy", False)),
+        )
+
     # Ensure sizing keys always present after merge.
     if "max_positions" not in out:
         out["max_positions"] = int(DEFAULTS["max_positions"])
     if "min_hold_hours" not in out:
         out["min_hold_hours"] = float(DEFAULTS["min_hold_hours"])
+    if "promote_experiment_strategy" not in out:
+        out["promote_experiment_strategy"] = bool(
+            DEFAULTS["promote_experiment_strategy"]
+        )
 
     return out
 
@@ -186,6 +202,9 @@ def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[st
         "commission_min_eur": float(merged["commission_min_eur"]),
         "max_positions": int(merged["max_positions"]),
         "min_hold_hours": float(merged["min_hold_hours"]),
+        "promote_experiment_strategy": bool(
+            merged.get("promote_experiment_strategy", False)
+        ),
     }
     path.write_text(json.dumps(payload, indent=2) + "\n")
     return payload

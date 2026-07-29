@@ -78,7 +78,11 @@ commit	val_score	status	description
 - Claim live profitability; this is offline/cached bar research only.
 - Reintroduce fee-blind hyper-churn (very short holds / huge trade counts that crush `val_score` via fees).
 - Stop after N experiments or ask “should I continue?”
+- Compare new `val_score` to pre–live-shaped keeps (before Revolut 0.25% harness) — those rows are a different metric era.
 
+## Live-shaped harness (fixed)
+
+Harness matches paper Ops defaults: `revolut_standard` fees (0.25% + €1 min), `max_positions=5`, `min_hold_bars=1` (daily ≈ 24h). Do not soften these overnight.
 ## Ideas when stuck
 
 - Longer vs shorter SMA stacks

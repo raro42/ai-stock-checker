@@ -8,7 +8,7 @@
 
 <section class="block system" aria-labelledby="cfg-h">
   <h2 id="cfg-h">Trader config</h2>
-  <p class="sub">Saved to <code>data/trader_config.json</code>. The paper trader hot-reloads each loop — AI, fees, max positions, and min hold. Scan/trade intervals still come from compose.</p>
+  <p class="sub">Saved to <code>data/trader_config.json</code>. The paper trader hot-reloads each loop — AI, fees, book limits, promote filter. Scan/trade intervals still come from compose.</p>
 
   <form id="ops-config" class="ops-form" data-ops-config>
     <div class="ops-grid">
@@ -46,6 +46,12 @@
         <input type="checkbox" name="regime_gate" id="ops-regime"
                {% if snap.runtime.regime_gate %}checked{% endif %} />
         <span class="ops-label">SMA regime gate (SPY / BTC)</span>
+      </label>
+
+      <label class="ops-field ops-check">
+        <input type="checkbox" name="promote_experiment_strategy" id="ops-promote"
+               {% if snap.runtime.promote_experiment_strategy %}checked{% endif %} />
+        <span class="ops-label">Promote champion entry filter (experiment_strategy)</span>
       </label>
 
       <label class="ops-field">

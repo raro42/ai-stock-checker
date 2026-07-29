@@ -31,17 +31,60 @@ if str(_ROOT) not in sys.path:
 
 from stock_checker.backtester import Backtester
 from stock_checker.experiment_strategy import generate_signals
+from stock_checker.fees import DEFAULT_FEE_PRESET, calc_commission, rates_for_preset
 from stock_checker.walk_forward import walk_forward_val_score
 
-# Fixed harness constants (do not change in overnight runs)
+# Live-shaped harness (match Ops / paper desk defaults — do not soften overnight)
 TIME_BUDGET_SEC = 120  # wall-clock compute budget inside the experiment
 DATA_DIR = Path("data/experiment_bars")
 DEFAULT_SYMBOLS = ["SPY", "QQQ", "IWM", "GLD", "AAPL", "MSFT", "NVDA", "JNJ"]
 INITIAL_CAPITAL = 100_000.0
-COMMISSION = 0.001
+FEE_PRESET = DEFAULT_FEE_PRESET  # revolut_standard
+COMMISSION, COMMISSION_MIN_EUR = rates_for_preset(FEE_PRESET)
 SLIPPAGE = 0.0005
-POSITION_FRACTION = 0.15
+MAX_POSITIONS = 5
+# Daily bars ≈ 24h min hold → 1 bar; position size fills up to max book
+MIN_HOLD_BARS = 1
+POSITION_FRACTION = 1.0 / MAX_POSITIONS
 
+
+def make_backtester() -> Backtester:
+    """Backtester configured like paper Ops (Revolut fees + book caps)."""
+    return Backtester(
+        initial_capital=INITIAL_CAPITAL,
+        commission_rate=COMMISSION,
+        commission_min_eur=COMMISSION_MIN_EUR,
+        slippage_pct=SLIPPAGE,
+        position_fraction=POSITION_FRACTION,
+        max_positions=MAX_POSITIONS,
+        min_hold_bars=MIN_HOLD_BARS,
+    )
+
+
+def estimate_fees_pct(trades, *, capital: float = INITIAL_CAPITAL) -> float:
+    """Round-trip fee estimate using live-shaped rate + min floor."""
+    if not trades or capital <= 0:
+        return 0.0
+    fees = 0.0
+    for t in trades:
+        try:
+            shares = float(t.shares)
+            entry_px = float(t.entry_price)
+            exit_px = float(t.exit_price)
+        except (TypeError, ValueError):
+            continue
+        if not (shares == shares and entry_px == entry_px and exit_px == exit_px):
+            continue  # NaN
+        entry = abs(shares * entry_px)
+        exit_ = abs(shares * exit_px)
+        fees += calc_commission(entry, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+        if exit_px == exit_px and exit_ > 0:
+            fees += calc_commission(exit_, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+        else:
+            # Missing exit mark — still count a second side at entry notional
+            fees += calc_commission(entry, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+    pct = fees / capital * 100.0
+    return pct if pct == pct else 0.0
 
 def _synthetic_bars(symbol: str, n: int = 504, seed: int = 0) -> List[Dict]:
     """Deterministic multi-regime synthetic OHLCV (offline fallback)."""
@@ -177,11 +220,7 @@ def compute_val_score(metrics: dict) -> float:
 def _metrics_for_bars(bt: Backtester, data: Dict[str, List[Dict]]) -> dict:
     result = bt.backtest(data, generate_signals)
     metrics = result.calculate_metrics()
-    fees_pct = 0.0
-    if result.trades:
-        notional = sum(abs(t.shares * t.entry_price) for t in result.trades)
-        fees_pct = (notional * COMMISSION * 2) / INITIAL_CAPITAL * 100.0
-    metrics["fees_pct"] = fees_pct
+    metrics["fees_pct"] = estimate_fees_pct(result.trades)
     return metrics
 
 
@@ -190,12 +229,7 @@ def run() -> int:
     symbols = list(DEFAULT_SYMBOLS)
     data = load_bars(symbols)
 
-    bt = Backtester(
-        initial_capital=INITIAL_CAPITAL,
-        commission_rate=COMMISSION,
-        slippage_pct=SLIPPAGE,
-        position_fraction=POSITION_FRACTION,
-    )
+    bt = make_backtester()
 
     # Full-sample metrics (reporting) + walk-forward mean score (keep/revert)
     full_metrics = _metrics_for_bars(bt, data)
@@ -224,11 +258,15 @@ def run() -> int:
     print(f"total_trades:         {full_metrics['total_trades']}")
     print(f"win_rate:             {full_metrics['win_rate']:.6f}")
     print(f"fees_pct:             {full_metrics.get('fees_pct', 0):.6f}")
+    print(f"fee_preset:           {FEE_PRESET}")
+    print(f"commission_rate:      {COMMISSION}")
+    print(f"commission_min_eur:   {COMMISSION_MIN_EUR}")
+    print(f"max_positions:        {MAX_POSITIONS}")
+    print(f"min_hold_bars:        {MIN_HOLD_BARS}")
     print(f"experiment_seconds:   {elapsed:.1f}")
     print(f"runs:                 {runs}")
     print(f"symbols:              {','.join(symbols)}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(run())

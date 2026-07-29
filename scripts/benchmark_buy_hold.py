@@ -2,6 +2,7 @@
 """
 Benchmark experiment_strategy vs buy-and-hold baselines (same bars, same fees).
 
+Uses the live-shaped harness (Revolut-standard fees, max positions, min hold).
 Prints machine-readable lines and a short verdict. Does not claim live edge.
 """
 
@@ -19,14 +20,21 @@ if str(_ROOT) not in sys.path:
 
 from scripts.run_experiment import (  # noqa: E402
     COMMISSION,
+    COMMISSION_MIN_EUR,
     DEFAULT_SYMBOLS,
+    FEE_PRESET,
     INITIAL_CAPITAL,
+    MAX_POSITIONS,
+    MIN_HOLD_BARS,
     POSITION_FRACTION,
     SLIPPAGE,
+    estimate_fees_pct,
     load_bars,
+    make_backtester,
 )
 from stock_checker.backtester import BacktestResult, Backtester, Trade  # noqa: E402
 from stock_checker.experiment_strategy import generate_signals as strategy_signals  # noqa: E402
+from stock_checker.fees import calc_commission  # noqa: E402
 from stock_checker.walk_forward import walk_forward_val_score  # noqa: E402
 
 
@@ -122,7 +130,7 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
             continue
         shares = alloc / px
         cost = shares * px
-        commission = cost * COMMISSION
+        commission = calc_commission(cost, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
         fees += commission
         cash -= cost + commission
         positions[symbol] = {"shares": shares, "entry_price": px, "entry_time": entry_t}
@@ -140,7 +148,7 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
     for symbol, pos in list(positions.items()):
         exit_px = float(data[symbol][last_i]["close"]) * (1 - SLIPPAGE)
         proceeds = pos["shares"] * exit_px
-        commission = proceeds * COMMISSION
+        commission = calc_commission(proceeds, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
         fees += commission
         cash += proceeds - commission
         pnl = (exit_px - pos["entry_price"]) * pos["shares"] - commission
@@ -177,20 +185,24 @@ def _run(
     fn: Callable,
     *,
     position_fraction: float,
+    max_positions: int = 0,
 ) -> dict:
     bt = Backtester(
         initial_capital=INITIAL_CAPITAL,
         commission_rate=COMMISSION,
+        commission_min_eur=COMMISSION_MIN_EUR,
         slippage_pct=SLIPPAGE,
         position_fraction=position_fraction,
+        max_positions=max_positions,
+        min_hold_bars=MIN_HOLD_BARS if name == "experiment_strategy" or name == "fold" else 0,
     )
+    # SPY B&H: single name — no max-position / min-hold constraints
+    if name == "buy_hold_spy":
+        bt.max_positions = 0
+        bt.min_hold_bars = 0
     result = bt.backtest(data, fn)
     metrics = result.calculate_metrics()
-    fees_pct = 0.0
-    if result.trades:
-        notional = sum(abs(t.shares * t.entry_price) for t in result.trades)
-        fees_pct = (notional * COMMISSION * 2) / INITIAL_CAPITAL * 100.0
-    metrics["fees_pct"] = fees_pct if math.isfinite(fees_pct) else 0.0
+    metrics["fees_pct"] = estimate_fees_pct(result.trades)
     # Prefer last finite equity-curve point for return
     final = None
     for eq in reversed(result.equity_curve or []):
@@ -211,11 +223,19 @@ def _run(
     return metrics
 
 
-def _wf_blend(data, fn, *, position_fraction: float) -> tuple[float, float, float]:
+def _wf_blend(data, fn, *, position_fraction: float, max_positions: int = 0) -> tuple[float, float, float]:
     """Walk-forward blend matching scripts/run_experiment.py."""
 
     def fold_score(fold: Dict[str, List[Dict]]) -> float:
-        return float(_run("fold", fold, fn, position_fraction=position_fraction)["val_score"])
+        return float(
+            _run(
+                "fold",
+                fold,
+                fn,
+                position_fraction=position_fraction,
+                max_positions=max_positions,
+            )["val_score"]
+        )
 
     mean, scores = walk_forward_val_score(data, fold_score, n_folds=3, min_bars=80)
     worst = min(scores) if scores else -100.0
@@ -229,19 +249,35 @@ def main() -> int:
     symbols = list(DEFAULT_SYMBOLS)
     data = load_bars(symbols)
 
+    # Sanity: make_backtester matches strategy path
+    _ = make_backtester()
+
     rows = [
-        _run("experiment_strategy", data, strategy_signals, position_fraction=POSITION_FRACTION),
+        _run(
+            "experiment_strategy",
+            data,
+            strategy_signals,
+            position_fraction=POSITION_FRACTION,
+            max_positions=MAX_POSITIONS,
+        ),
         _run("buy_hold_spy", data, buy_and_hold_spy, position_fraction=0.99),
         run_equal_weight_buy_hold(data),
     ]
-    # Equal-weight EW on folds: approximate with spy-style full-sample only for display;
-    # WF compare uses strategy vs SPY B&H (primary) + EW full-sample secondary.
     strat_wf, strat_mean, strat_min = _wf_blend(
-        data, strategy_signals, position_fraction=POSITION_FRACTION
+        data,
+        strategy_signals,
+        position_fraction=POSITION_FRACTION,
+        max_positions=MAX_POSITIONS,
     )
-    spy_wf, spy_mean, spy_min = _wf_blend(data, buy_and_hold_spy, position_fraction=0.99)
+    spy_wf, spy_mean, spy_min = _wf_blend(
+        data, buy_and_hold_spy, position_fraction=0.99, max_positions=0
+    )
 
     print("--- benchmark ---")
+    print(
+        f"harness: fee_preset={FEE_PRESET} rate={COMMISSION} min_eur={COMMISSION_MIN_EUR} "
+        f"max_positions={MAX_POSITIONS} min_hold_bars={MIN_HOLD_BARS}"
+    )
     for m in rows:
         print(
             f"{m['name']}: full_score={m['val_score']:.6f} "
@@ -260,7 +296,7 @@ def main() -> int:
     print(f"beats_buy_hold_spy_full: {str(beats_spy_full).lower()}")
     print(f"beats_buy_hold_equal_weight_full: {str(beats_ew_full).lower()}")
     print(f"beats_buy_hold_spy_walkforward: {str(beats_spy_wf).lower()}")
-    # Promote gate uses walk-forward vs SPY (honest OOS)
+    # Promote gate uses walk-forward vs SPY under live-shaped fees
     if beats_spy_wf and beats_spy_full and beats_ew_full:
         print("verdict: strategy_beats_baselines (offline only; not live proof)")
     elif beats_spy_wf:

@@ -73,7 +73,7 @@ On startup you may see `High fee burn: …`. That means the old paper book churn
 
 ## Rules of the group
 
-1. Paper trade only until a strategy survives **walk-forward vs SPY** **and** a calm paper month.
+1. Paper trade only until a strategy survives **walk-forward vs SPY under live-shaped fees** **and** a calm paper month.
 2. Do not paste API keys in chat — use `.env`.
 3. Prefer boring holdings over meme churn (current fresh book: **WMT** + cash).
 4. If fees > realized edge, slow down or reset:
@@ -86,4 +86,4 @@ KEEP_SYMBOLS=WMT RESET_CAPITAL=100000 ./scripts/fresh_start_keep.sh
 
 History summaries land in `docs/history/` (committed). Full JSONL backups stay in `data/backup_*`.
 
-As of 2026-07-26 morning: fresh book is **WMT** + cash. Autoresearch WF score rose to ~**6.9** vs SPY ~**7.1** — still **not** promoting experiment rules into the live trader until walk-forward clearly beats SPY.
+As of **2026-07-29**: offline walk-forward **beats SPY** under Revolut-standard fees (0.25%/side · €1 min, max 5 positions). Ops can enable **Promote champion entry filter** so scanner buys also pass `experiment_strategy` rules. That is **not** live proof yet — keep paper, watch fees, wait a calm month before treating it as the group default.

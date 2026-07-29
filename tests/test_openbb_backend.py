@@ -191,7 +191,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["github_repos"] == []
     assert snap["github_watch_notes"] == []
     assert "ai_mode" in snap["runtime"]
-    assert snap["runtime"]["max_positions"] == 8
+    assert snap["runtime"]["max_positions"] == 5
+    assert snap["runtime"]["promote_experiment_strategy"] is False
     assert "trader_version" in snap["runtime"]
     assert "llm_key_set" in snap["runtime"]
     assert "regime_gate" in snap["runtime"]

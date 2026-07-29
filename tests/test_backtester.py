@@ -40,3 +40,57 @@ def test_empty_data_returns_empty_result():
     result = bt.backtest({}, momentum_cross_strategy)
     assert result.trades == []
     assert result.calculate_metrics()["total_trades"] == 0
+
+
+def test_max_positions_caps_book():
+    def buy_all(bars_by_symbol, index, portfolio):
+        if index < 5:
+            return {}
+        return {s: "BUY" for s in bars_by_symbol}
+
+    data = {s: _make_uptrend() for s in ("A", "B", "C", "D")}
+    bt = Backtester(
+        initial_capital=10_000,
+        commission_rate=0.0,
+        slippage_pct=0.0,
+        position_fraction=0.25,
+        max_positions=2,
+    )
+    result = bt.backtest(data, buy_all)
+    # Force-close creates trades for open names only — at most 2
+    assert len(result.trades) <= 2
+
+
+def test_min_hold_bars_blocks_early_exit():
+    def flip_next_bar(bars_by_symbol, index, portfolio):
+        positions = portfolio.get("positions", {})
+        if "AAA" not in positions and index == 10:
+            return {"AAA": "BUY"}
+        if "AAA" in positions and index == 11:
+            return {"AAA": "SELL"}
+        return {}
+
+    data = {"AAA": _make_uptrend(40)}
+    bt = Backtester(
+        initial_capital=10_000,
+        commission_rate=0.0,
+        slippage_pct=0.0,
+        position_fraction=0.5,
+        min_hold_bars=3,
+    )
+    result = bt.backtest(data, flip_next_bar)
+    # Early SELL ignored → only end_of_data close
+    assert len(result.trades) == 1
+    assert result.trades[0].reason == "end_of_data"
+
+
+def test_commission_min_floor_applied():
+    bt = Backtester(
+        initial_capital=1_000,
+        commission_rate=0.0001,
+        commission_min_eur=5.0,
+        slippage_pct=0.0,
+        position_fraction=0.1,
+    )
+    assert bt._fee(100.0) == 5.0
+    assert bt._fee(100_000.0) == 10.0  # 0.01% of 100k = 10 > floor

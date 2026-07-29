@@ -42,8 +42,10 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 
 - [x] Buy-and-hold benchmark vs champion (`scripts/benchmark_buy_hold.py`)
 - [x] Persist latest benchmark under `autoresearch/benchmark_latest.txt` (gitignored)
-- [ ] Only promote champion rules into `intelligent_trader` after **beats both baselines** *and* a calm paper month
-
+- [x] Live-shaped harness (Revolut fees + book caps) — promote gate must pass **under live fees**
+- [x] Promote adapter (`stock_checker/promoted_strategy.py` + Ops `promote_experiment_strategy`) — entry veto only; exits stay in `exit_policy`
+- [ ] Make promote default-on in compose only after **calm paper month** with the flag enabled
+- [ ] Do **not** start a second overnight loop editing `exit_policy` until the promote path is stable
 ### Phase B — Harden paper desk
 
 - [ ] OpenBB Connections UI bind (local network)

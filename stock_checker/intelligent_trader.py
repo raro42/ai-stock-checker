@@ -42,6 +42,10 @@ from .exit_policy import (
     should_take_profit,
 )
 from .fees import DEFAULT_FEE_PRESET, rates_for_preset
+from .promoted_strategy import (
+    build_bars_for_symbols,
+    filter_opportunities as filter_promoted_opportunities,
+)
 from . import __version__
 
 
@@ -95,6 +99,7 @@ class IntelligentTrader:
         self.stock_regime = REGIME_UNKNOWN
         self.crypto_regime = REGIME_UNKNOWN
         self._regime_enabled = regime_gate_enabled()
+        self.promote_experiment_strategy = False
 
         # Load position entry times from disk (survives restarts)
         self.position_entry_times = self.persistence.load_entry_times()
@@ -111,6 +116,7 @@ class IntelligentTrader:
         print(f"   Min hold time: {min_hold_time}s")
         print(f"   Regime gate: {'on' if self._regime_enabled else 'off'} "
               f"(SPY SMA{STOCK_SMA_PERIOD} / BTC SMA{CRYPTO_SMA_PERIOD})")
+        print(f"   Promote champion filter: off (hot-reload from Ops)")
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
             print(f"   AI Model: {ai_model}")
@@ -212,6 +218,19 @@ class IntelligentTrader:
         results = self.scanner.identify_best_opportunities()
 
         opportunities = results['recommendations']
+
+        # Champion entry filter (experiment_strategy) when promote flag is on
+        if self.promote_experiment_strategy and opportunities:
+            symbols = [str(o.get("symbol") or "") for o in opportunities if o.get("symbol")]
+            print(f"\n📐 Promote filter: scoring {len(symbols)} names vs champion rules...")
+            bars = build_bars_for_symbols(symbols)
+            before = len(opportunities)
+            opportunities = filter_promoted_opportunities(opportunities, bars)
+            rejected = before - len(opportunities)
+            print(
+                f"   Promote filter: kept {len(opportunities)}/{before} "
+                f"(rejected {rejected}; no-bars kept)"
+            )
 
         # AI Validation if enabled
         if self.ai_mode != "off" and self.ai_recommender and opportunities:
@@ -982,6 +1001,14 @@ class IntelligentTrader:
             )
             self.max_positions = new_max
             self.min_hold_time = new_hold_s
+
+        promote = bool(cfg.get("promote_experiment_strategy", False))
+        if promote != self.promote_experiment_strategy:
+            print(
+                f"   📐 Promote champion filter: "
+                f"{'on' if promote else 'off'} (was {'on' if self.promote_experiment_strategy else 'off'})"
+            )
+        self.promote_experiment_strategy = promote
 
         if new_mode == self.ai_mode and new_model == self.ai_model:
             return

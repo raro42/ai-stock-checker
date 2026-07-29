@@ -12,6 +12,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from stock_checker.fees import calc_commission
+
 
 @dataclass
 class Trade:
@@ -210,11 +212,26 @@ class Backtester:
         commission_rate: float = 0.001,
         slippage_pct: float = 0.001,
         position_fraction: float = 0.2,
+        commission_min_eur: float = 0.0,
+        max_positions: int = 0,
+        min_hold_bars: int = 0,
     ):
         self.initial_capital = initial_capital
         self.commission_rate = commission_rate
+        self.commission_min_eur = float(commission_min_eur or 0.0)
         self.slippage_pct = slippage_pct
         self.position_fraction = position_fraction
+        # 0 = unlimited
+        self.max_positions = int(max_positions or 0)
+        # Skip signal exits until held at least this many bars (daily ≈ hours/24)
+        self.min_hold_bars = max(0, int(min_hold_bars or 0))
+
+    def _fee(self, notional: float) -> float:
+        return calc_commission(
+            notional,
+            rate=self.commission_rate,
+            min_eur=self.commission_min_eur,
+        )
 
     def backtest(
         self,
@@ -241,7 +258,7 @@ class Backtester:
 
         portfolio = {
             "cash": float(self.initial_capital),
-            "positions": {},  # symbol -> {shares, entry_price, entry_time}
+            "positions": {},  # symbol -> {shares, entry_price, entry_time, entry_i}
         }
 
         def parse_ts(bar: Dict, fallback_i: int) -> datetime:
@@ -264,17 +281,30 @@ class Backtester:
             if end_date and ts > end_date:
                 break
 
-            prices = {s: float(historical_data[s][i]["close"]) for s in symbols}
+            prices = {}
+            for s in symbols:
+                try:
+                    px = float(historical_data[s][i]["close"])
+                except (TypeError, ValueError):
+                    continue
+                if px == px and px > 0:
+                    prices[s] = px
+            if not prices:
+                continue
             signals = strategy_func(historical_data, i, portfolio) or {}
 
             # Process sells first
             for symbol, action in list(signals.items()):
                 if action != "SELL" or symbol not in portfolio["positions"]:
                     continue
-                pos = portfolio["positions"].pop(symbol)
+                pos = portfolio["positions"][symbol]
+                entry_i = int(pos.get("entry_i", i))
+                if self.min_hold_bars > 0 and (i - entry_i) < self.min_hold_bars:
+                    continue
+                portfolio["positions"].pop(symbol)
                 exit_price = prices[symbol] * (1 - self.slippage_pct)
                 proceeds = pos["shares"] * exit_price
-                commission = proceeds * self.commission_rate
+                commission = self._fee(proceeds)
                 net = proceeds - commission
                 portfolio["cash"] += net
                 pnl = (exit_price - pos["entry_price"]) * pos["shares"] - commission
@@ -298,6 +328,8 @@ class Backtester:
             for symbol, action in list(signals.items()):
                 if action != "BUY" or symbol in portfolio["positions"]:
                     continue
+                if self.max_positions > 0 and len(portfolio["positions"]) >= self.max_positions:
+                    break
                 equity = portfolio["cash"] + sum(
                     p["shares"] * prices.get(s, p["entry_price"])
                     for s, p in portfolio["positions"].items()
@@ -308,7 +340,7 @@ class Backtester:
                     continue
                 shares = budget / entry_price
                 cost = shares * entry_price
-                commission = cost * self.commission_rate
+                commission = self._fee(cost)
                 total = cost + commission
                 if total > portfolio["cash"]:
                     continue
@@ -317,6 +349,7 @@ class Backtester:
                     "shares": shares,
                     "entry_price": entry_price,
                     "entry_time": ts,
+                    "entry_i": i,
                 }
 
             # Mark-to-market equity
@@ -332,11 +365,24 @@ class Backtester:
             last_i = min_len - 1
             last_ts = parse_ts(historical_data[symbols[0]][last_i], last_i)
             for symbol, pos in list(portfolio["positions"].items()):
-                exit_price = float(historical_data[symbol][last_i]["close"]) * (
-                    1 - self.slippage_pct
-                )
+                try:
+                    raw_close = float(historical_data[symbol][last_i]["close"])
+                except (TypeError, ValueError):
+                    raw_close = float("nan")
+                if not (raw_close == raw_close and raw_close > 0):
+                    # Walk back to last finite close
+                    raw_close = float(pos["entry_price"])
+                    for j in range(last_i, -1, -1):
+                        try:
+                            c = float(historical_data[symbol][j]["close"])
+                        except (TypeError, ValueError):
+                            continue
+                        if c == c and c > 0:
+                            raw_close = c
+                            break
+                exit_price = raw_close * (1 - self.slippage_pct)
                 proceeds = pos["shares"] * exit_price
-                commission = proceeds * self.commission_rate
+                commission = self._fee(proceeds)
                 portfolio["cash"] += proceeds - commission
                 pnl = (exit_price - pos["entry_price"]) * pos["shares"] - commission
                 entry_notional = pos["shares"] * pos["entry_price"]
