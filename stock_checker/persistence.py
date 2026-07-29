@@ -24,6 +24,7 @@ class DataPersistence:
         self.findings_file = self.data_dir / "findings.jsonl"
         self.state_file = self.data_dir / "state.json"
         self.entry_times_file = self.data_dir / "entry_times.json"
+        self.exit_times_file = self.data_dir / "exit_times.json"
         self.scanned_symbols_file = self.data_dir / "scanned_symbols.json"
 
     def save_portfolio(self, portfolio_data: Dict):
@@ -130,6 +131,19 @@ class DataPersistence:
         if self.entry_times_file.exists():
             with open(self.entry_times_file) as f:
                 return json.load(f)
+        return {}
+
+    def save_exit_times(self, exit_times: Dict[str, float]):
+        """Save last exit timestamps (anti rebuy cooldown)."""
+        with open(self.exit_times_file, "w") as f:
+            json.dump(exit_times, f, indent=2)
+
+    def load_exit_times(self) -> Dict[str, float]:
+        """Load last exit timestamps from disk."""
+        if self.exit_times_file.exists():
+            with open(self.exit_times_file) as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
         return {}
 
     def track_scanned_symbol(self, symbol: str, source: str):

@@ -10,7 +10,7 @@ This combines market scanning with paper trading to:
 4. Monitor existing positions with profit-taking and stop-loss
 """
 
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import time
 import traceback
 from datetime import datetime
@@ -37,6 +37,8 @@ from .market_regime import (
 )
 from .exit_policy import (
     crypto_entry_price_ok,
+    opportunity_symbol_set,
+    should_allow_rebuy,
     should_rebalance_exit,
     should_stop_loss,
     should_take_profit,
@@ -105,6 +107,9 @@ class IntelligentTrader:
         self.position_entry_times = self.persistence.load_entry_times()
         if self.position_entry_times:
             print(f"   Loaded {len(self.position_entry_times)} position entry times from disk")
+        self.position_exit_times = self.persistence.load_exit_times()
+        if self.position_exit_times:
+            print(f"   Loaded {len(self.position_exit_times)} exit cooldowns from disk")
 
         print(f"🤖 Intelligent Trader initialized")
         print(f"   Capital: €{initial_cash:,.2f}")
@@ -203,6 +208,23 @@ class IntelligentTrader:
         print(
             f"   📉 Regime: SPY {stock_regime} (SMA{STOCK_SMA_PERIOD}) · "
             f"BTC {crypto_regime} (SMA{CRYPTO_SMA_PERIOD})"
+        )
+
+    def _record_exit(self, symbol: str) -> None:
+        """Persist exit time so we do not flip-flop rebuy the same name."""
+        self.position_exit_times[symbol] = time.time()
+        self.persistence.save_exit_times(self.position_exit_times)
+        if symbol in self.position_entry_times:
+            del self.position_entry_times[symbol]
+            self.persistence.save_entry_times(self.position_entry_times)
+
+    def _rebuy_allowed(self, symbol: str) -> Tuple[bool, str]:
+        """Block buys inside min-hold cooldown after an exit (fee anti-churn)."""
+        exit_ts = self.position_exit_times.get(symbol)
+        since = (time.time() - float(exit_ts)) if exit_ts is not None else None
+        return should_allow_rebuy(
+            seconds_since_exit=since,
+            cooldown_seconds=float(self.min_hold_time),
         )
 
     def scan_markets(self) -> List[Dict]:
@@ -573,10 +595,7 @@ class IntelligentTrader:
                     result = self.portfolio.sell(symbol, price, quantity, timestamp)
                     if result["success"]:
                         print(f"   💰 {symbol}: Profit target hit (+{profit_pct:.2f}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}")
-                        # Remove from entry times and persist
-                        if symbol in self.position_entry_times:
-                            del self.position_entry_times[symbol]
-                            self.persistence.save_entry_times(self.position_entry_times)
+                        self._record_exit(symbol)
 
                 # STOP LOSS — hard risk cut only (not for scan rotation)
                 elif should_stop_loss(profit_pct):
@@ -584,10 +603,7 @@ class IntelligentTrader:
                     result = self.portfolio.sell(symbol, price, quantity, timestamp)
                     if result["success"]:
                         print(f"   🛑 {symbol}: Stop loss triggered ({profit_pct:.2f}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}")
-                        # Remove from entry times and persist
-                        if symbol in self.position_entry_times:
-                            del self.position_entry_times[symbol]
-                            self.persistence.save_entry_times(self.position_entry_times)
+                        self._record_exit(symbol)
 
             except Exception as e:
                 print(f"   ⚠️ Error checking {symbol}: {str(e)[:120]}")
@@ -637,6 +653,11 @@ class IntelligentTrader:
 
             if not is_tradeable_symbol(str(symbol)):
                 print(f"   ⏸️  Skipping {symbol}: filtered (stable/leveraged/noise)")
+                continue
+
+            rebuy_ok, rebuy_why = self._rebuy_allowed(str(symbol))
+            if not rebuy_ok:
+                print(f"   ⏸️  Skipping {symbol}: {rebuy_why} (anti flip-flop)")
                 continue
 
             blocked, why = is_in_earnings_blackout(str(symbol))
@@ -774,6 +795,9 @@ class IntelligentTrader:
             if (not is_weekend) or ("-USD" in str(opp.get("symbol", "")))
         ][: self.max_positions]
         top_symbols = {opp['symbol'] for opp in top_opportunities}
+        # Keep if still anywhere on the scan list — ranking noise must not
+        # trigger sell→rebuy of the same name a few minutes later (SCHW).
+        still_interesting = opportunity_symbol_set(self.current_opportunities)
 
         # Check if we have capital to add new positions
         portfolio_value = self.portfolio.get_total_value()
@@ -782,10 +806,16 @@ class IntelligentTrader:
         # Identify symbols we should hold but don't
         missing_opportunities = top_symbols - current_holdings
 
-        # Identify symbols we hold but aren't in top opportunities
-        stale_holdings = current_holdings - top_symbols
+        # Only rotate names that fell off the *entire* opportunity list
+        stale_holdings = current_holdings - still_interesting
 
         rebalanced = False
+
+        # Do not sell winners unless we have somewhere better to put the cash.
+        if stale_holdings and not missing_opportunities:
+            for symbol in list(stale_holdings):
+                print(f"   💎 {symbol}: Keep (no stronger replacement in top {self.max_positions})")
+            stale_holdings = set()
 
         # Sell stale holdings only if they are *winners* worth rotating.
         # Never crystallize a loss just because the scanner found a shinier name.
@@ -838,10 +868,7 @@ class IntelligentTrader:
 
                 if result["success"]:
                     print(f"   📤 {symbol}: Exited stale winner - €{result['transaction']['profit_loss']:+,.2f} ({profit_pct:+.2f}%)")
-                    # Remove from entry times and persist
-                    if symbol in self.position_entry_times:
-                        del self.position_entry_times[symbol]
-                        self.persistence.save_entry_times(self.position_entry_times)
+                    self._record_exit(symbol)
                     rebalanced = True
 
             except Exception as e:
@@ -856,6 +883,11 @@ class IntelligentTrader:
                     continue
 
                 if symbol not in missing_opportunities:
+                    continue
+
+                rebuy_ok, rebuy_why = self._rebuy_allowed(str(symbol))
+                if not rebuy_ok:
+                    print(f"   ⏸️  Skipping {symbol}: {rebuy_why} (anti flip-flop)")
                     continue
 
                 try:
