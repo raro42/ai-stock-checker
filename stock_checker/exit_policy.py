@@ -84,6 +84,29 @@ def opportunity_symbol_set(opportunities: Iterable[dict]) -> Set[str]:
     return out
 
 
+def book_action_mode(n_holdings: int, max_positions: int) -> str:
+    """
+    Trading posture from book size vs Ops max.
+
+    - open: room for new entries
+    - at_cap: no new entries; rotation still allowed under exit_policy
+    - overweight: only take-profit / stop-loss — no rotation, no buys
+      (legacy books opened under a higher max must shrink via exits, not churn)
+    """
+    try:
+        n = int(n_holdings)
+        cap = int(max_positions)
+    except (TypeError, ValueError):
+        return "open"
+    if cap < 1:
+        cap = 1
+    if n > cap:
+        return "overweight"
+    if n >= cap:
+        return "at_cap"
+    return "open"
+
+
 def crypto_entry_price_ok(price: float, *, min_usd: float = 1.0) -> bool:
     """Block sub-$1 meme pumps (ESP/BANK-style) from new entries."""
     try:

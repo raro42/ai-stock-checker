@@ -36,6 +36,7 @@ from .market_regime import (
     snapshot_dict,
 )
 from .exit_policy import (
+    book_action_mode,
     crypto_entry_price_ok,
     opportunity_symbol_set,
     should_allow_rebuy,
@@ -774,6 +775,14 @@ class IntelligentTrader:
         if not self.current_opportunities:
             return False
 
+        # Overweight books must shrink via TP/SL only — never rotate/buy here.
+        if book_action_mode(len(self.portfolio.holdings), self.max_positions) == "overweight":
+            print(
+                f"   ⏸️  Rebalance skipped: overweight "
+                f"({len(self.portfolio.holdings)}/{self.max_positions})"
+            )
+            return False
+
         is_weekend = self.scanner.is_weekend()
         if is_weekend:
             print(f"   📅 Weekend: crypto-only rebalancing (stocks paused)")
@@ -874,12 +883,19 @@ class IntelligentTrader:
             except Exception as e:
                 print(f"   ⚠️ Error selling {symbol}: {str(e)[:50]}")
 
-        # Buy missing opportunities if we have cash
+        # Buy missing opportunities if we have cash and room under max_positions
         if available_pct >= self.position_size:
             for opp in top_opportunities:
                 symbol = opp['symbol']
 
-                if symbol in current_holdings:
+                if len(self.portfolio.holdings) >= self.max_positions:
+                    print(
+                        f"   📊 Max positions reached ({self.max_positions}), "
+                        f"stopping rebalance buys"
+                    )
+                    break
+
+                if symbol in self.portfolio.holdings:
                     continue
 
                 if symbol not in missing_opportunities:
@@ -1097,16 +1113,34 @@ class IntelligentTrader:
                 print(f"\n📊 Monitoring {len(self.portfolio.holdings)} positions for profit-taking/stop-loss...")
                 self.check_existing_positions()
 
-            # Execute new trades if we have opportunities and room for more positions
-            if self.current_opportunities and len(self.portfolio.holdings) < self.max_positions:
-                print(f"\n📈 Evaluating new trade opportunities ({len(self.portfolio.holdings)}/{self.max_positions} positions used)...")
-                self.execute_new_trades()
+            posture = book_action_mode(len(self.portfolio.holdings), self.max_positions)
+            if posture == "overweight":
+                print(
+                    f"\n⏸️  Book overweight ({len(self.portfolio.holdings)}/{self.max_positions}) — "
+                    f"exits only (TP/SL). No new buys or scan rotation until at/under cap."
+                )
+            elif posture == "at_cap":
+                print(
+                    f"\n📊 Book at cap ({len(self.portfolio.holdings)}/{self.max_positions}) — "
+                    f"no new entries; rotation only if exit_policy allows."
+                )
+                if self.current_opportunities:
+                    rebalanced = self.evaluate_rebalancing()
+                    if rebalanced:
+                        print(f"\n✅ Portfolio rebalanced")
+            else:
+                # Execute new trades if we have opportunities and room
+                if self.current_opportunities:
+                    print(
+                        f"\n📈 Evaluating new trade opportunities "
+                        f"({len(self.portfolio.holdings)}/{self.max_positions} positions used)..."
+                    )
+                    self.execute_new_trades()
 
-            # Evaluate rebalancing
-            if self.current_opportunities:
-                rebalanced = self.evaluate_rebalancing()
-                if rebalanced:
-                    print(f"\n✅ Portfolio rebalanced")
+                if self.current_opportunities:
+                    rebalanced = self.evaluate_rebalancing()
+                    if rebalanced:
+                        print(f"\n✅ Portfolio rebalanced")
 
             # Show portfolio status summary
             portfolio_value = self.portfolio.get_total_value()

@@ -86,6 +86,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Stop loss-rotation: never sell losers to chase new scan names; +5% take-profit; block sub-$1 crypto entries (ESP/BANK autopsy 2026-07-28)
 - [x] Ops book limits: max positions + min hold hours (default 5 / 24h) — anti-churn vs Revolut fees; pyramid-up still optional later
 - [x] Anti flip-flop: raise rotate hurdle to +3%, rebuy cooldown after exit, only mark stale if off entire scan list + have a replacement (SCHW sell→buy 12m, ~€50 fees)
+- [x] Overweight book posture: if holdings > max_positions → TP/SL only (no buys, no scan rotation); AI paper default dialed to validate (less churn than full)
 - [ ] Optional later: full-universe breadth advance/decline series (still needs wider universe stats)
 
 ### Phase D — Share

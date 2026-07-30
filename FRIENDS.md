@@ -86,4 +86,4 @@ KEEP_SYMBOLS=WMT RESET_CAPITAL=100000 ./scripts/fresh_start_keep.sh
 
 History summaries land in `docs/history/` (committed). Full JSONL backups stay in `data/backup_*`.
 
-As of **2026-07-29**: offline walk-forward **beats SPY** under Revolut-standard fees (0.25%/side · €1 min, max 5 positions). Ops can enable **Promote champion entry filter** so scanner buys also pass `experiment_strategy` rules. That is **not** live proof yet — keep paper, watch fees, wait a calm month before treating it as the group default.
+As of **2026-07-30**: offline walk-forward **beats SPY** under Revolut-standard fees. Promote filter + anti flip-flop + **overweight exits-only** are live. Prefer AI **validate** over **full** while the book is healing. That is **not** live proof — wait a calm month before treating promote as the group default.

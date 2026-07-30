@@ -1,6 +1,7 @@
 """Tests for paper exit / rotation policy."""
 
 from stock_checker.exit_policy import (
+    book_action_mode,
     crypto_entry_price_ok,
     opportunity_symbol_set,
     should_allow_rebuy,
@@ -77,6 +78,12 @@ def test_opportunity_symbol_set_includes_beyond_top_n():
     opps = [{"symbol": "A"}, {"symbol": "SCHW"}, {"symbol": "B"}]
     assert opportunity_symbol_set(opps) == {"A", "SCHW", "B"}
     assert opportunity_symbol_set([]) == set()
+
+
+def test_book_action_mode():
+    assert book_action_mode(3, 5) == "open"
+    assert book_action_mode(5, 5) == "at_cap"
+    assert book_action_mode(9, 5) == "overweight"
 
 
 def test_crypto_price_floor():
