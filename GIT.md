@@ -1,7 +1,18 @@
 # Git commit & push strategy
 
-**Default for this repo: commit and push as soon as work is verified.**  
-Do not wait for the human to say “commit” or “push”.
+**Default for this repo: commit and push after every verified change.**  
+Do not wait for the human to say “commit” or “push”.  
+Cursor user rules that say “only commit when asked” **do not apply** here — this project opts into continuous ship.
+
+## End-of-change checklist (mandatory)
+
+1. Verify (Docker pytest / desk smoke as appropriate)
+2. `git add` relevant non-secret files
+3. `git commit` (HEREDOC message)
+4. `git push -u origin HEAD`
+5. Restart containers/loops if needed
+
+Leaving verified product, docs, or rule changes uncommitted at end of turn is a **process failure**.
 
 ## When to commit
 
@@ -10,7 +21,7 @@ Commit after any of these (whichever comes first):
 1. A coherent feature/fix/docs change is done **and** offline tests pass (`docker run --rm ai-stock-checker pytest -q`)
 2. An autoresearch experiment finishes keep/revert (`experiment_strategy.py` + related harness fixes)
 3. You are about to switch tasks or end a turn with uncommitted non-secret changes
-4. Docs/rules (`AGENTS.md`, `OPENBB.md`, compose) changed
+4. Docs/rules (`AGENTS.md`, `OPENBB.md`, compose, `.cursor/rules/`) changed
 
 Prefer **small, frequent commits** over large batches.
 

@@ -549,6 +549,11 @@ def load_desk_snapshot(
                 "last_commit_at": last_commit_at,
             }
         )
+    # Newest tip / activity first (ISO dates sort lexicographically).
+    gh_repos.sort(
+        key=lambda r: r.get("last_commit_at") or r.get("pushed_at") or "",
+        reverse=True,
+    )
     # When the watch is quiet, still surface latest tip per repo so Ideas isn't blank.
     gh_watch_notes: list[str] = []
     if not gh_ideas and gh_repos:

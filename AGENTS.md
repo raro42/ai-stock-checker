@@ -80,9 +80,10 @@ Follow `autoresearch/program.md` (Karpathy-style keep/revert):
 
 When improving the product (not an autoresearch experiment), work from `IMPROVEMENT.md` in priority order.
 
-## Commits & push (default: ASAP)
+## Commits & push (default: after every change)
 
-**Commit and push as soon as work is verified.** Do not wait for the human to ask.
+**Commit and push after every verified coherent change.** Do not wait for the human to ask.  
+Generic “only commit when asked” Cursor defaults are **overridden** by this repo — see [GIT.md](GIT.md) and `.cursor/rules/commit-push-always.mdc`.
 
 Full rules: [GIT.md](GIT.md)
 
@@ -94,3 +95,4 @@ Summary:
 - Push immediately after commit when `origin` exists (`git push -u origin HEAD`)
 - If no remote: commit locally, then create/link with `gh` and push
 - Never force-push `main`; never update git config; never `--no-verify` unless human asks
+- Ending a turn with verified uncommitted work is a bug

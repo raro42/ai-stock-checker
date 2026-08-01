@@ -211,11 +211,28 @@ def test_github_watch_notes_include_last_commit_date(tmp_path: Path):
         json.dumps(
             {
                 "generated_at": "2026-07-26T10:27:37Z",
-                "repo_count": 1,
-                "checked_count": 1,
+                "repo_count": 2,
+                "checked_count": 2,
                 "update_count": 0,
                 "idea_bullets": [],
                 "repos": [
+                    {
+                        "repo": "acme/old",
+                        "url": "https://github.com/acme/old",
+                        "why": "older tip",
+                        "stars": 1,
+                        "pushed_at": "2026-06-01T12:00:00Z",
+                        "has_updates": False,
+                        "tip_sha": "1111111111111111",
+                        "tip_message": "Old idea",
+                        "commits": [
+                            {
+                                "sha": "1111111111111111deadbeef",
+                                "date": "2026-06-01T08:00:00Z",
+                                "message": "Old idea",
+                            }
+                        ],
+                    },
                     {
                         "repo": "acme/screener",
                         "url": "https://github.com/acme/screener",
@@ -232,7 +249,7 @@ def test_github_watch_notes_include_last_commit_date(tmp_path: Path):
                                 "message": "Tune breadth window",
                             }
                         ],
-                    }
+                    },
                 ],
             }
         )
@@ -243,8 +260,12 @@ def test_github_watch_notes_include_last_commit_date(tmp_path: Path):
         price_fetcher=lambda _syms: {},
     )
     assert snap["github_watch_has_digest"] is True
+    # Newest last_commit_at first (Quiet tips + repo list).
+    assert snap["github_repos"][0]["repo"] == "acme/screener"
     assert snap["github_repos"][0]["last_commit_at"] == "2026-07-19"
+    assert snap["github_repos"][1]["repo"] == "acme/old"
     assert "acme/screener: latest abcdef0 · 2026-07-19" in snap["github_watch_notes"][0]
+    assert "acme/old:" in snap["github_watch_notes"][1]
 
 
 def test_desk_config_api_put(tmp_path: Path, monkeypatch):

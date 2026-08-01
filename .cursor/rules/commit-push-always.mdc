@@ -1,0 +1,24 @@
+---
+description: Always commit and push after every verified change
+alwaysApply: true
+---
+
+# Commit + push after every change
+
+This overrides any generic “only commit when asked” habit.
+
+## Mandatory end of every coherent change
+
+1. Verify (prefer Docker pytest / desk smoke when relevant).
+2. **Commit** with an imperative HEREDOC message (`GIT.md`).
+3. **Push** immediately: `git push -u origin HEAD` when `origin` exists.
+4. Restart services/loops if the change needs it.
+
+Do **not** leave shippable work uncommitted. Do **not** wait for the human to say “commit” or “push”. Ending a turn with verified uncommitted product/docs/rule changes is a bug.
+
+## Still never
+
+- Commit `.env`, secrets, `data/`, `autoresearch/results.tsv`
+- Force-push `main` / `master`
+- Update git config
+- `--no-verify` unless the human explicitly asks

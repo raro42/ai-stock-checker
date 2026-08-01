@@ -22,9 +22,10 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - Keep `README.md` and `AGENTS.md` aligned with code.
 - Full autopilot: follow `AUTOPILOT.md`. Work `IMPROVEMENT.md` top-down without waiting for the human to ask. On `AGENT_LOOP_TICK_improve`, implement, verify, **commit, push, restart services/loops as needed**. Overnight CEST is expected — keep working while the human sleeps.
 
-## Git (commit + push ASAP)
-- Follow `GIT.md`: commit after each verified change; push immediately when `origin` exists.
-- Do **not** wait for the user to say “commit” or “push”.
+## Git (commit + push after EVERY change)
+- Follow `GIT.md` and `.cursor/rules/commit-push-always.mdc`.
+- After each verified coherent change: **commit + push** (`git push -u origin HEAD`).
+- Do **not** wait for the human to say “commit” or “push”. Leaving verified work uncommitted is a bug.
 - Never commit secrets/`data/`; never force-push `main`.
 
 ## Verify
