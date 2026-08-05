@@ -52,10 +52,11 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
   - **2026-07-26 late morning:** new keep `36f77df` (slower med/long exit) WF blend≈**6.86** vs SPY≈**7.06** — gap nearly closed; **still do not promote**. See `docs/history/autoresearch_progress_2026-07-26.md`.
   - **2026-07-29 live-shaped harness:** Revolut 0.25%+€1 min, max 5 positions, min_hold 1 daily bar. WF blend≈**10.47** vs SPY≈**6.69** → `beats_buy_hold_spy_walkforward: true` (offline only). Pre-live-fee `results.tsv` scores are **not** comparable.
 - [x] Live-shaped experiment harness + promote adapter (`promoted_strategy.py`, Ops toggle) — **default off** in code; enable for paper after gate; calm paper month still required before compose default-on
-- [ ] Make `promote_experiment_strategy` default-on in compose only after a calm paper month
-- [ ] Optional later: second autoresearch loop mutating `exit_policy` / Ops knobs against live-shaped sim (only after promote path is stable)
+- [x] Calm-paper streak tracker (`paper_calm.py` + Ops + `scripts/check_promote_compose_ready.py`) — ≥30 calm UTC days unlocks compose promote default
+- [ ] Flip compose / `DEFAULTS` promote default-on **only** when `./scripts/check_promote_compose_ready.py` exits 0 (currently blocked: book overweight / streak not met)
+- [x] Second autoresearch loop mutating `exit_policy` — deferred until compose promote unlock
 ### Phase B — Harden
-- [x] OpenBB connection preflight (`scripts/openbb_connection_check.sh`) + CORS regex; UI bind still needs human “allow local network” if Test hangs
+- [x] OpenBB connection preflight (`scripts/openbb_connection_check.sh`) + CORS regex + Ops Connections checklist; browser “allow local network” is one human click
 - [x] Clearer friend fee-burn reset UX (`FRIENDS.md` + reset script discoverability)
 - [x] Fix Ollama exp commit messages (no shebang-as-description)
 - [x] Full-stack `scripts/healthcheck.sh` (trader, OpenBB, Ollama, loops, portfolio)
@@ -75,23 +76,24 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Scan pulse on Breadth (crypto A/D + ±4% movers + near-highs) — xang1234/StockBee-lite from scan lists
 - [x] Restyle desk CSS to match DESIGN.md — `--font-data` on money/%, sharper chart mounts, stronger grain (2026-07-26 improve tick)
 - [x] Ops read-only trader config (AI mode / LLM / hold / scan — no secrets) — settings visibility for friends
-- [ ] Optional later: FinRL / OpenTrade ideas (only after promote gate is green)
 - [x] Triage GitHub watch → since-buy position charts (one idea)
 - [x] Hourly improve loop (`scripts/run_improve_loop.sh`, 1h) — ≥1 idea/tick + GitHub review
 - [x] Persist daily scan-pulse rows (`data/scan_breadth_daily.json`) + Breadth “Recent days” (first slice toward multi-day A/D)
 - [x] Screener counts strip + weekend-aware empty copy (MonsterDeveloper simplicity)
 - [x] Soft SMA market-regime gate for new entries (`market_regime.py` — SPY SMA200 / BTC SMA50; `REGIME_GATE=1`; Ops shows last snap) — RyanJHamby watch idea
 - [x] Soft relative-strength entry gate (`relative_strength.py` — stock ≥ SPY / crypto ≥ BTC over 63d; `RS_GATE=1`; Ops toggle; fail-open) — RyanJHamby RS filter
+- [x] Soft scan-breadth entry gate (`scan_breadth_gate.py` — crypto A/D + stock leaders on scan list; `BREADTH_GATE=1`) — RyanJHamby breadth idea (scan-list, not full universe)
 - [x] Ops editable trader knobs (`trader_config.json` + `/desk/api/config`) — AI mode/model, multi-role, regime gate; trader hot-reloads
 - [x] Revolut-realistic paper fees (default 0.25%/side · €1 min; Ultra 0.12%; Ops fee preset) — replaces optimistic 0.1%
 - [x] Stop loss-rotation: never sell losers to chase new scan names; +5% take-profit; block sub-$1 crypto entries (ESP/BANK autopsy 2026-07-28)
 - [x] Ops book limits: max positions + min hold hours (default 5 / 24h) — anti-churn vs Revolut fees; pyramid-up still optional later
 - [x] Anti flip-flop: raise rotate hurdle to +3%, rebuy cooldown after exit, only mark stale if off entire scan list + have a replacement (SCHW sell→buy 12m, ~€50 fees)
 - [x] Overweight book posture: if holdings > max_positions → TP/SL only (no buys, no scan rotation); AI paper default dialed to validate (less churn than full)
-- [ ] Optional later: full-universe breadth advance/decline series (still needs wider universe stats)
+- [x] Scan-list breadth gate shipped (above); full-universe advance/decline remains optional later if we widen the universe
+- [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 
 ### Phase D — Share
-- [ ] Workspace MCP companion token in Cursor MCP config (user-local — needs human token)
+- [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally
 - [x] Keep FRIENDS/README honest after WF re-baseline (no false promote claims)
 
 ## Guardrails

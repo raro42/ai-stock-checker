@@ -44,11 +44,13 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 - [x] Persist latest benchmark under `autoresearch/benchmark_latest.txt` (gitignored)
 - [x] Live-shaped harness (Revolut fees + book caps) — promote gate must pass **under live fees**
 - [x] Promote adapter (`stock_checker/promoted_strategy.py` + Ops `promote_experiment_strategy`) — entry veto only; exits stay in `exit_policy`
-- [ ] Make promote default-on in compose only after **calm paper month** with the flag enabled
-- [ ] Do **not** start a second overnight loop editing `exit_policy` until the promote path is stable
+- [x] Calm-paper streak tracker (`paper_calm.py`, Ops “Paper calm streak”, `scripts/check_promote_compose_ready.py`) — unlock criterion for compose default
+- [ ] Flip `promote_experiment_strategy` **compose default-on** only when `./scripts/check_promote_compose_ready.py` exits 0 (≥30 calm days with promote on, book not overweight, fee burn quiet)
+- [x] Hold second overnight loop editing `exit_policy` — deferred by design until the promote compose default is unlocked
+
 ### Phase B — Harden paper desk
 
-- [ ] OpenBB Connections UI bind (local network)
+- [x] OpenBB Connections path: CORS + `openbb_connection_check.sh` + Ops “OpenBB Connections” checklist; browser “allow local network” remains a one-time human click
 - [x] Soft-migrate / clearer fee-burn reset path for friends
 - [x] Healthcheck + friend onboarding polish
 
@@ -56,15 +58,16 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 
 Study (do not wholesale clone) and extract **one** transferable idea at a time, always re-benchmark:
 
-1. **TradingAgents** — multi-role debate prompts for Ollama `validate` mode
-2. **freqtrade / vectorbt** — walk-forward / hyperopt patterns for harness
-3. **Curated GitHub watch** — screeners + FinRobot / finance agents (`GITHUB_WATCH.md`, `config/github_watchlist.json`)
-4. **FinRL / OpenTrade** — only if Phase A–B are solid; RL is optional later
+1. **TradingAgents** — multi-role debate prompts for Ollama `validate` mode — done
+2. **freqtrade / vectorbt** — walk-forward / hyperopt patterns for harness — WF done
+3. **Curated GitHub watch** — screeners + FinRobot / finance agents (`GITHUB_WATCH.md`) — regime + RS + scan-breadth gates shipped
+4. **FinRL / OpenTrade** — deferred until Phase A compose promote unlock
 
 ### Phase D — Share
 
 - Keep [FRIENDS.md](FRIENDS.md) and README honest — refresh screenshots when the desk UI ships; cut releases per [RELEASES.md](RELEASES.md) (not every commit)
 - Public `main` always runnable with Docker + `.env.example`
+- [x] Workspace MCP companion — ship [`.cursor/mcp.json.example`](.cursor/mcp.json.example); human pastes token locally (never commit secrets)
 
 ## Agent tick checklist
 

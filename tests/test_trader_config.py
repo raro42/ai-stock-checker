@@ -86,6 +86,14 @@ def test_fee_preset_revolut_standard_default(tmp_path: Path, monkeypatch):
     assert cfg["min_hold_hours"] == 24
     assert cfg["promote_experiment_strategy"] is False
     assert cfg["rs_gate"] is True
+    assert cfg["breadth_gate"] is True
+
+
+def test_breadth_gate_roundtrip(tmp_path: Path):
+    saved = save_trader_config(tmp_path, {"breadth_gate": False})
+    assert saved["breadth_gate"] is False
+    loaded = load_trader_config(tmp_path)
+    assert loaded["breadth_gate"] is False
 
 
 def test_promote_flag_roundtrip(tmp_path: Path):

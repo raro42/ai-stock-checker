@@ -31,6 +31,7 @@ DEFAULTS: dict[str, Any] = {
     "ai_multi_role": True,
     "regime_gate": True,
     "rs_gate": True,
+    "breadth_gate": True,
     "fee_preset": DEFAULT_FEE_PRESET,
     # Anti-churn paper defaults (tighter than old compose 8×4h).
     "max_positions": 5,
@@ -77,6 +78,7 @@ def _env_defaults() -> dict[str, Any]:
         "ai_multi_role": _as_bool(os.getenv("AI_MULTI_ROLE"), True),
         "regime_gate": _as_bool(os.getenv("REGIME_GATE"), True),
         "rs_gate": _as_bool(os.getenv("RS_GATE"), True),
+        "breadth_gate": _as_bool(os.getenv("BREADTH_GATE"), True),
         "fee_preset": fee_preset,
         "commission_rate": rate,
         "commission_min_eur": min_eur,
@@ -117,6 +119,11 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
 
     if "rs_gate" in raw:
         out["rs_gate"] = _as_bool(raw.get("rs_gate"), out.get("rs_gate", True))
+
+    if "breadth_gate" in raw:
+        out["breadth_gate"] = _as_bool(
+            raw.get("breadth_gate"), out.get("breadth_gate", True)
+        )
 
     if "fee_preset" in raw:
         preset = str(raw.get("fee_preset") or "").strip().lower()
@@ -177,6 +184,8 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
         )
     if "rs_gate" not in out:
         out["rs_gate"] = bool(DEFAULTS["rs_gate"])
+    if "breadth_gate" not in out:
+        out["breadth_gate"] = bool(DEFAULTS["breadth_gate"])
 
     return out
 
@@ -205,6 +214,7 @@ def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[st
         "ai_multi_role": bool(merged["ai_multi_role"]),
         "regime_gate": bool(merged["regime_gate"]),
         "rs_gate": bool(merged.get("rs_gate", True)),
+        "breadth_gate": bool(merged.get("breadth_gate", True)),
         "fee_preset": merged["fee_preset"],
         "commission_rate": float(merged["commission_rate"]),
         "commission_min_eur": float(merged["commission_min_eur"]),

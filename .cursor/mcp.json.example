@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy to ~/.cursor/mcp.json (or merge) and paste your OpenBB Workspace MCP Companion bearer token. Never commit real tokens.",
+  "mcpServers": {
+    "openbb-workspace": {
+      "url": "https://mcp.openbb.co/mcp",
+      "headers": {
+        "Authorization": "Bearer PASTE_OPENBB_WORKSPACE_MCP_TOKEN_HERE"
+      }
+    }
+  }
+}

@@ -55,6 +55,12 @@
       </label>
 
       <label class="ops-field ops-check">
+        <input type="checkbox" name="breadth_gate" id="ops-breadth"
+               {% if snap.runtime.breadth_gate %}checked{% endif %} />
+        <span class="ops-label">Scan-breadth gate (A/D on leaders)</span>
+      </label>
+
+      <label class="ops-field ops-check">
         <input type="checkbox" name="promote_experiment_strategy" id="ops-promote"
                {% if snap.runtime.promote_experiment_strategy %}checked{% endif %} />
         <span class="ops-label">Promote champion entry filter (experiment_strategy)</span>
@@ -139,7 +145,22 @@
       <dt>SPY / BTC regime</dt>
       <dd>{{ snap.runtime.stock_regime }} / {{ snap.runtime.crypto_regime }}{% if snap.runtime.regime_updated %} · {{ snap.runtime.regime_updated }}{% endif %}</dd>
     </div>
+    <div>
+      <dt>Paper calm streak</dt>
+      <dd>{{ snap.runtime.calm_streak_days }}/{{ snap.runtime.calm_required_days }} days{% if snap.runtime.calm_ready %} · <strong>compose promote default ready</strong>{% endif %}{% if snap.runtime.calm_detail %} · {{ snap.runtime.calm_detail }}{% endif %}</dd>
+    </div>
   </dl>
+</section>
+
+<section class="block system" aria-labelledby="obb-h">
+  <h2 id="obb-h">OpenBB Connections</h2>
+  <p class="sub">Backend is local; the browser must allow <code>pro.openbb.co</code> to reach it. Preflight: <code>./scripts/openbb_connection_check.sh</code></p>
+  <ol class="ops-steps">
+    <li>Open <a href="https://pro.openbb.co/app/connections" rel="noopener noreferrer">Connections</a> → Connect Backend</li>
+    <li>URL: <code>http://127.0.0.1:7779</code> (optional <code>X-API-KEY</code> from <code>.env</code>)</li>
+    <li>If Test hangs after a green preflight: allow local network for <code>pro.openbb.co</code>, then Add</li>
+    <li>Apps → AI Stock Checker Paper Desk · details in <a href="https://github.com/raro42/ai-stock-checker/blob/main/OPENBB.md">OPENBB.md</a></li>
+  </ol>
 </section>
 
 <section class="block system" aria-labelledby="sys-h">

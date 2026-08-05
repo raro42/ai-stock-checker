@@ -37,6 +37,7 @@
       var multiEl = document.getElementById("ops-multi-role");
       var regimeEl = document.getElementById("ops-regime");
       var rsEl = document.getElementById("ops-rs");
+      var breadthEl = document.getElementById("ops-breadth");
       var promoteEl = document.getElementById("ops-promote");
       var feeEl = document.getElementById("ops-fee-preset");
       var maxEl = document.getElementById("ops-max-pos");
@@ -47,6 +48,7 @@
         ai_multi_role: multiEl ? !!multiEl.checked : true,
         regime_gate: regimeEl ? !!regimeEl.checked : true,
         rs_gate: rsEl ? !!rsEl.checked : true,
+        breadth_gate: breadthEl ? !!breadthEl.checked : true,
         promote_experiment_strategy: promoteEl ? !!promoteEl.checked : false,
         fee_preset: feeEl ? feeEl.value : "revolut_standard",
         max_positions: maxEl ? parseInt(maxEl.value, 10) : 5,

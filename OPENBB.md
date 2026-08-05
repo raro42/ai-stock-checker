@@ -50,7 +50,7 @@ curl -s http://127.0.0.1:7779/widgets.json | head
 ./scripts/openbb_connection_check.sh
 ```
 
-6. If **Test** spins forever after a green preflight: Chrome/Safari is blocking local-network access from `https://pro.openbb.co` — allow local network for the site, then **Add** (not a backend bug).
+6. If **Test** spins forever after a green preflight: Chrome/Safari is blocking local-network access from `https://pro.openbb.co` — allow local network for the site, then **Add** (not a backend bug). Ops → **OpenBB Connections** repeats this checklist next to the desk.
 7. Open Apps → **AI Stock Checker Paper Desk**
 
 Widgets:
@@ -85,7 +85,13 @@ Typical friend flow:
 
 ## Workspace MCP (agents)
 
-For Cursor / Claude agents to see the live OpenBB UI state, enable **Workspace MCP Companion** in OpenBB (hamburger menu) and add the hosted MCP URL + bearer token to your MCP client. See [OpenBB MCP quickstart](https://docs.openbb.co/agents/workspace-mcp-quickstart).
+For Cursor / Claude agents to see the live OpenBB UI state:
+
+1. Enable **Workspace MCP Companion** in OpenBB (hamburger menu) and copy the bearer token.
+2. Copy [`.cursor/mcp.json.example`](.cursor/mcp.json.example) → your user MCP config (e.g. `~/.cursor/mcp.json`) and paste the token.
+3. See [OpenBB MCP quickstart](https://docs.openbb.co/agents/workspace-mcp-quickstart).
+
+Never commit a real token. The example file is the shippable half of Phase D; the token stays user-local.
 
 ## Example Copilot prompt
 

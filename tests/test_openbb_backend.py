@@ -197,6 +197,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert "llm_key_set" in snap["runtime"]
     assert "regime_gate" in snap["runtime"]
     assert "rs_gate" in snap["runtime"]
+    assert "breadth_gate" in snap["runtime"]
+    assert "calm_streak_days" in snap["runtime"]
     assert "stock_regime" in snap["runtime"]
     assert "config_source" in snap["runtime"]
     # Never leak secrets into the desk snapshot
@@ -288,6 +290,7 @@ def test_desk_config_api_put(tmp_path: Path, monkeypatch):
             "ai_multi_role": True,
             "regime_gate": True,
             "rs_gate": True,
+            "breadth_gate": True,
             "fee_preset": "revolut_standard",
         },
     )
@@ -295,6 +298,7 @@ def test_desk_config_api_put(tmp_path: Path, monkeypatch):
     assert ok.json()["ai_mode"] == "validate"
     assert ok.json()["fee_preset"] == "revolut_standard"
     assert ok.json().get("rs_gate") is True
+    assert ok.json().get("breadth_gate") is True
     assert abs(ok.json()["commission_rate"] - 0.0025) < 1e-9
     assert (tmp_path / "trader_config.json").exists()
     got = client.get("/desk/api/config")

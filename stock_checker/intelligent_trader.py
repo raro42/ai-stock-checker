@@ -41,6 +41,13 @@ from .relative_strength import (
     rs_gate_enabled,
     rs_lookback,
 )
+from .scan_breadth_gate import (
+    breadth_gate_enabled,
+    new_entry_breadth_allowed,
+    pulse_from_opportunities,
+    summarize_pulse,
+)
+from .paper_calm import upsert_calm_day
 from .exit_policy import (
     book_action_mode,
     crypto_entry_price_ok,
@@ -110,6 +117,8 @@ class IntelligentTrader:
         self._regime_enabled = regime_gate_enabled()
         self._rs_enabled = rs_gate_enabled()
         self._rs_lookback = rs_lookback()
+        self._breadth_enabled = breadth_gate_enabled()
+        self._scan_pulse: dict = {}
         self._spy_closes: List[float] = []
         self._btc_closes: List[float] = []
         self.promote_experiment_strategy = False
@@ -134,6 +143,8 @@ class IntelligentTrader:
               f"(SPY SMA{STOCK_SMA_PERIOD} / BTC SMA{CRYPTO_SMA_PERIOD})")
         print(f"   RS gate: {'on' if self._rs_enabled else 'off'} "
               f"(lookback {self._rs_lookback}d vs SPY/BTC)")
+        print(f"   Breadth gate: {'on' if self._breadth_enabled else 'off'} "
+              f"(scan-list A/D)")
         print(f"   Promote champion filter: off (hot-reload from Ops)")
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
@@ -338,8 +349,36 @@ class IntelligentTrader:
 
         self.current_opportunities = opportunities
         self.last_scan_time = time.time()
+        self._scan_pulse = pulse_from_opportunities(opportunities)
+        if self._breadth_enabled:
+            print(f"   📊 Breadth pulse: {summarize_pulse(self._scan_pulse)}")
+        self._refresh_paper_calm()
 
         return self.current_opportunities
+
+    def _refresh_paper_calm(self) -> None:
+        """Upsert today's calm-paper streak (promote → compose-default gate)."""
+        snap = upsert_calm_day(
+            self.persistence.data_dir,
+            promote_on=bool(self.promote_experiment_strategy),
+            holdings_count=len(self.portfolio.holdings),
+            max_positions=int(self.max_positions),
+        )
+        streak = int(snap.get("streak_days") or 0)
+        need = int(snap.get("required_days") or 30)
+        ready = bool(snap.get("ready_for_compose_default"))
+        print(
+            f"   🕊️  Paper calm: {streak}/{need} days"
+            f"{' — READY for compose promote default' if ready else ''}"
+            f" ({snap.get('detail') or ''})"
+        )
+
+    def _breadth_entry_ok(self, is_crypto: bool) -> Tuple[bool, str]:
+        return new_entry_breadth_allowed(
+            is_crypto=is_crypto,
+            pulse=self._scan_pulse,
+            enabled=self._breadth_enabled,
+        )
 
     def _ai_validate_opportunities(self, opportunities: List[Dict]) -> List[Dict]:
         """
@@ -767,6 +806,11 @@ class IntelligentTrader:
                     print(f"   ⏸️  Skipping {symbol}: RS gate ({rs_why})")
                     continue
 
+                breadth_ok, breadth_why = self._breadth_entry_ok(is_crypto)
+                if not breadth_ok:
+                    print(f"   ⏸️  Skipping {symbol}: breadth gate ({breadth_why})")
+                    continue
+
                 if is_crypto:
                     binance_symbol = binance.convert_symbol(symbol)
                     binance_data = binance.get_crypto_price(binance_symbol)
@@ -1013,6 +1057,11 @@ class IntelligentTrader:
                     if not rs_ok:
                         print(f"   ⏸️  Skipping {symbol}: RS gate ({rs_why})")
                         continue
+
+                    breadth_ok, breadth_why = self._breadth_entry_ok(is_crypto)
+                    if not breadth_ok:
+                        print(f"   ⏸️  Skipping {symbol}: breadth gate ({breadth_why})")
+                        continue
                     
                     if is_crypto:
                         binance_symbol = binance.convert_symbol(symbol)
@@ -1094,6 +1143,7 @@ class IntelligentTrader:
         multi = bool(cfg.get("ai_multi_role", True))
         regime = bool(cfg.get("regime_gate", True))
         rs_gate = bool(cfg.get("rs_gate", True))
+        breadth_gate = bool(cfg.get("breadth_gate", True))
         fee_preset = str(cfg.get("fee_preset") or DEFAULT_FEE_PRESET)
         fee_rate = float(cfg.get("commission_rate") or rates_for_preset(fee_preset)[0])
         fee_min = float(cfg.get("commission_min_eur") or rates_for_preset(fee_preset)[1])
@@ -1101,9 +1151,11 @@ class IntelligentTrader:
         os.environ["AI_MULTI_ROLE"] = "1" if multi else "0"
         os.environ["REGIME_GATE"] = "1" if regime else "0"
         os.environ["RS_GATE"] = "1" if rs_gate else "0"
+        os.environ["BREADTH_GATE"] = "1" if breadth_gate else "0"
         self._regime_enabled = regime
         self._rs_enabled = rs_gate
         self._rs_lookback = rs_lookback()
+        self._breadth_enabled = breadth_gate
 
         fee_changed = (
             abs(float(self.portfolio.commission_rate) - fee_rate) > 1e-12
@@ -1147,6 +1199,7 @@ class IntelligentTrader:
                 f"{'on' if promote else 'off'} (was {'on' if self.promote_experiment_strategy else 'off'})"
             )
         self.promote_experiment_strategy = promote
+        self._refresh_paper_calm()
 
         if new_mode == self.ai_mode and new_model == self.ai_model:
             return
@@ -1163,7 +1216,8 @@ class IntelligentTrader:
         print(f"   ⚙️  Runtime config: AI {prev} → {new_mode}/{new_model} "
               f"(multi-role={'on' if multi else 'off'}, "
               f"regime={'on' if regime else 'off'}, "
-              f"rs={'on' if rs_gate else 'off'})")
+              f"rs={'on' if rs_gate else 'off'}, "
+              f"breadth={'on' if breadth_gate else 'off'})")
 
     def run(self):
         """

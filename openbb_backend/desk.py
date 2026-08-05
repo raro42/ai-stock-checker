@@ -81,6 +81,9 @@ def _trader_runtime_view() -> dict[str, Any]:
     regime_snap = _load_json(data_dir / "market_regime.json", {})
     if not isinstance(regime_snap, dict):
         regime_snap = {}
+    calm_snap = _load_json(data_dir / "paper_calm.json", {})
+    if not isinstance(calm_snap, dict):
+        calm_snap = {}
 
     return {
         "trader_version": __version__,
@@ -98,6 +101,7 @@ def _trader_runtime_view() -> dict[str, Any]:
         "desk_live_marks": live_marks,
         "regime_gate": bool(cfg.get("regime_gate", True)),
         "rs_gate": bool(cfg.get("rs_gate", True)),
+        "breadth_gate": bool(cfg.get("breadth_gate", True)),
         "promote_experiment_strategy": bool(
             cfg.get("promote_experiment_strategy", False)
         ),
@@ -107,6 +111,10 @@ def _trader_runtime_view() -> dict[str, Any]:
         "stock_regime": str(regime_snap.get("stock_regime") or "—"),
         "crypto_regime": str(regime_snap.get("crypto_regime") or "—"),
         "regime_updated": str(regime_snap.get("updated_at") or ""),
+        "calm_streak_days": int(calm_snap.get("streak_days") or 0),
+        "calm_required_days": int(calm_snap.get("required_days") or 30),
+        "calm_ready": bool(calm_snap.get("ready_for_compose_default")),
+        "calm_detail": str(calm_snap.get("detail") or ""),
         "config_source": "file"
         if (data_dir / "trader_config.json").is_file()
         else "env",
@@ -601,6 +609,11 @@ def load_desk_snapshot(
             "title": "Relative-strength entry gate",
             "from": "RyanJHamby/stock-screener (RS as primary filter)",
             "note": "Soft block new buys lagging SPY/BTC over ~63 sessions; Ops toggle; fail-open.",
+        },
+        {
+            "title": "Scan-breadth entry gate",
+            "from": "RyanJHamby/stock-screener (market breadth)",
+            "note": "Soft block new buys when scan-list A/D looks weak; not full-universe A/D.",
         },
     ]
 
