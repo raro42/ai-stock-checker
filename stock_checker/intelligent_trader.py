@@ -740,32 +740,36 @@ class IntelligentTrader:
                 if not is_transient_network_error(e):
                     print(f"   Traceback: {traceback.format_exc()}")
 
-        # Overweight trim: one name per cycle after TP/SL, past min hold, worst mark first.
-        mode = book_action_mode(len(self.portfolio.holdings), self.max_positions)
-        if mode == "overweight":
-            still = [
-                m
-                for m in marks
-                if m["symbol"] in self.portfolio.holdings
-            ]
+        # Overweight trim: sell past-min-hold names (worst first) until at_cap.
+        # Cap loops so a bad mark list cannot spin forever.
+        trim_budget = max(1, int(self.max_positions) + 5)
+        while (
+            book_action_mode(len(self.portfolio.holdings), self.max_positions)
+            == "overweight"
+            and trim_budget > 0
+        ):
+            trim_budget -= 1
+            still = [m for m in marks if m["symbol"] in self.portfolio.holdings]
             pick, why = pick_overweight_trim_candidate(
                 still, min_hold_seconds=float(self.min_hold_time)
             )
-            if pick:
-                row = next(m for m in still if m["symbol"] == pick)
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                quantity = self.portfolio.holdings[pick]
-                result = self.portfolio.sell(pick, float(row["price"]), quantity, timestamp)
-                if result["success"]:
-                    print(
-                        f"   ✂️  {pick}: {why} — SOLD "
-                        f"€{result['transaction']['profit_loss']:+,.2f} "
-                        f"(book {len(self.portfolio.holdings)}/{self.max_positions})"
-                    )
-                    self._record_exit(pick)
-            else:
-                print(f"   ✂️  Overweight trim skipped: {why}")
-            self._refresh_paper_calm()
+            if not pick:
+                print(f"   ✂️  Overweight trim paused: {why}")
+                break
+            row = next(m for m in still if m["symbol"] == pick)
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            quantity = self.portfolio.holdings[pick]
+            result = self.portfolio.sell(pick, float(row["price"]), quantity, timestamp)
+            if not result["success"]:
+                print(f"   ✂️  Trim sell failed for {pick}")
+                break
+            print(
+                f"   ✂️  {pick}: {why} — SOLD "
+                f"€{result['transaction']['profit_loss']:+,.2f} "
+                f"(book {len(self.portfolio.holdings)}/{self.max_positions})"
+            )
+            self._record_exit(pick)
+        self._refresh_paper_calm()
 
     def execute_new_trades(self):
         """

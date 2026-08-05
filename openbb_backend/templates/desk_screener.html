@@ -7,7 +7,7 @@
 <header class="page-head">
   <p class="eyebrow">Screener</p>
   <h1>Opportunities</h1>
-  <p class="lede">One scan, three lists — ranked ideas, crypto leaders, stock breakouts. Minimal chrome, paper-honest.</p>
+  <p class="lede">One scan, three lists — ranked ideas, crypto leaders, stock breakouts. Risk notes are display-only (day-range / vol proxy), not live stops.</p>
   <p class="sub">Scan {{ snap.scan_time or "—" }} · {{ snap.scanned_symbols }} symbols tracked</p>
   <p class="mode">{{ snap.weekend_hint }}</p>
 </header>
@@ -42,6 +42,9 @@
       {{ ticker(r.symbol, r.name) }}
       <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · score {{ "%.1f"|format(r.score) }}</span>
       <span class="why">{{ r.reasoning }}</span>
+      {% if r.risk_note %}
+      <span class="meta risk {% if r.risk_rr_ok %}up{% elif r.risk_rr_ok is sameas false %}down{% endif %}">{{ r.risk_note }}</span>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -61,6 +64,7 @@
         <span class="meta {% if c.change_24h >= 0 %}up{% else %}down{% endif %}">
           {{ "%+.1f"|format(c.change_24h) }}% 24h · score {{ "%.0f"|format(c.score) }}
         </span>
+        {% if c.risk_note %}<span class="meta risk">{{ c.risk_note }}</span>{% endif %}
         <span class="amt">€{{ "{:,.4g}".format(c.price) }}</span>
       </li>
       {% endfor %}
@@ -77,6 +81,7 @@
       <li>
         {{ ticker(s.symbol, s.name) }}
         <span class="meta">{{ s.sector }} · {{ s.strength }} · {{ "%.1f"|format(s.pct_from_high * 100) }}% from high</span>
+        {% if s.risk_note %}<span class="meta risk">{{ s.risk_note }}</span>{% endif %}
         <span class="amt">€{{ "{:,.2f}".format(s.price) }}</span>
       </li>
       {% endfor %}

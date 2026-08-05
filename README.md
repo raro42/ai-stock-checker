@@ -112,7 +112,7 @@ No secret sauce. No “proprietary neural alpha.” Just a few rude filters betw
 | **SMA regime** | Soft block new buys when SPY is below SMA200 or BTC below SMA50 — “buy the dip” can wait until the dip stops dipping |
 | **Relative strength** | Soft block names lagging SPY (stocks) or BTC (crypto) over ~63 sessions — leaders over laggards; missing data fails *open*, not frozen |
 | **Scan breadth** | Soft block when our scan-list A/D looks weak (crypto advance ratio / stock leaders) — not full-universe magic |
-| **Overweight trim** | If the book is above Ops max, sell **one** past-min-hold name per cycle (worst mark first) — size discipline, not FOMO rotation |
+| **Overweight trim** | If the book is above Ops max, sell past-min-hold names (worst mark first) **until at cap** — size discipline, not FOMO rotation |
 | **Anti flip-flop** | Min hold + rebuy cooldown + “don’t sell losers just to rotate” — SCHW → SCHW twelve minutes later is not a strategy, it’s a tip jar |
 | **Book posture** | Overweight → TP/SL only (no buys, no scan rotation). Slim books heal; fat books diet |
 

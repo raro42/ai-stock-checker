@@ -555,6 +555,13 @@ a:active {
   grid-column: 2 / -1;
 }
 
+.meta.risk {
+  grid-column: 2 / -1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
 .rank {
   color: var(--accent);
   font-family: var(--font-display);

@@ -59,6 +59,7 @@ class MarketScanner:
         # Initialize persistence for symbol tracking
         from .persistence import DataPersistence
         self.persistence = DataPersistence(data_dir="/data")
+        self._last_stock_scan_pulse: dict = {}
 
     def is_weekend(self) -> bool:
         """
@@ -349,10 +350,13 @@ class MarketScanner:
         # Get stocks to scan (limit depends on weekend mode)
         stocks_to_scan, cycle_just_reset = self.universe_manager.get_stocks_to_scan(limit=scan_limit, max_age_hours=max_age_hours)
         
-        # Refresh curated seed + Yahoo movers when a full cycle completes (or weekends).
-        if cycle_just_reset or is_weekend:
+        # Curated seed + Yahoo movers: on cycle reset, weekends, or when discovery is stale (≥24h).
+        discovery_due = self.universe_manager.yahoo_discovery_due(max_age_hours=24)
+        if cycle_just_reset or is_weekend or discovery_due:
             print(f"\n🔍 Universe refresh (seed merge + Yahoo movers discovery)...")
-            self._add_stocks_from_coinmarketcap()
+            self._add_stocks_from_coinmarketcap(
+                force_yahoo=cycle_just_reset or is_weekend or discovery_due
+            )
             # Re-fetch batch if we just grew the universe on an empty unscanned set.
             stocks_to_scan, cycle_just_reset = self.universe_manager.get_stocks_to_scan(
                 limit=scan_limit, max_age_hours=max_age_hours
@@ -366,6 +370,11 @@ class MarketScanner:
         sys.stdout.flush()
 
         breakouts = []
+        # Batch advance/decline for this scan slice (broader than breakouts-only).
+        stock_up = 0
+        stock_down = 0
+        stock_flat = 0
+        stock_priced = 0
 
         for idx, symbol in enumerate(stocks_to_scan, 1):
             # Get sector info for display
@@ -397,6 +406,17 @@ class MarketScanner:
 
                 price = data['current_price']
                 high_52w = data.get('52_week_high')
+                try:
+                    day_chg = float(data.get("daily_change_pct") or 0)
+                    stock_priced += 1
+                    if day_chg > 0:
+                        stock_up += 1
+                    elif day_chg < 0:
+                        stock_down += 1
+                    else:
+                        stock_flat += 1
+                except (TypeError, ValueError):
+                    day_chg = 0.0
 
                 # Skip if no 52-week high data
                 if high_52w is None or high_52w == 0 or high_52w == "None":
@@ -433,12 +453,23 @@ class MarketScanner:
                 if pct_from_high >= -5:
                     print(f"🔥 BREAKOUT! ({pct_from_high:+.2f}% from high)")
                     sys.stdout.flush()
+                    from stock_checker.atr_risk import note_from_day_range
+
+                    risk = note_from_day_range(
+                        entry=price,
+                        day_high=data.get("day_high"),
+                        day_low=data.get("day_low"),
+                    )
                     breakouts.append({
                         'symbol': symbol,
                         'sector': sector_name,
                         'price': price,
                         'pct_from_high': pct_from_high,
-                        'strength': 'STRONG' if pct_from_high >= -1 else 'MODERATE'
+                        'strength': 'STRONG' if pct_from_high >= -1 else 'MODERATE',
+                        'daily_change_pct': day_chg,
+                        'risk_note': risk.get("summary") or "risk n/a",
+                        'risk_rr': risk.get("rr"),
+                        'risk_rr_ok': risk.get("rr_ok"),
                     })
                 else:
                     print("✓")
@@ -461,6 +492,15 @@ class MarketScanner:
 
         # Sort by proximity to highs
         breakouts.sort(key=lambda x: x['pct_from_high'], reverse=True)
+
+        # Stash batch A/D for identify_best_opportunities / desk Breadth.
+        self._last_stock_scan_pulse = {
+            "stock_scan_n": stock_priced,
+            "stock_scan_up": stock_up,
+            "stock_scan_down": stock_down,
+            "stock_scan_flat": stock_flat,
+            "stock_scan_batch": len(stocks_to_scan),
+        }
 
         if breakouts:
             print(f"\n{'Symbol':<10} {'Sector':<15} {'Price':<12} {'From High':<12} {'Strength'}")
@@ -487,7 +527,7 @@ class MarketScanner:
         print(f"{'='*70}\n")
         return breakouts
 
-    def _add_stocks_from_coinmarketcap(self):
+    def _add_stocks_from_coinmarketcap(self, *, force_yahoo: bool = False):
         """
         Expand the stock universe: curated seed merge + Yahoo movers discovery.
 
@@ -495,7 +535,7 @@ class MarketScanner:
         """
         try:
             print("   🌱 Refreshing stock universe (seed merge + Yahoo movers)...")
-            added = self.universe_manager.discover_and_add_stocks()
+            added = self.universe_manager.discover_and_add_stocks(force_yahoo=force_yahoo)
             if added:
                 print(f"   ✅ Universe grew by {added} name(s)")
             else:
@@ -736,14 +776,39 @@ class MarketScanner:
 
         # Top stock breakouts
         for i, stock in enumerate(breakouts[:3], len(recommendations) + 1):
+            risk_bit = stock.get("risk_note") or ""
+            reasoning = (
+                f"{stock['strength']} breakout, {stock['pct_from_high']:+.2f}% from 52w high"
+            )
+            if risk_bit and risk_bit != "risk n/a":
+                reasoning = f"{reasoning} · {risk_bit}"
             recommendations.append({
                 'rank': i,
                 'symbol': stock['symbol'],
                 'asset_class': 'stock',
                 'strategy': 'breakout',
                 'score': stock['pct_from_high'],
-                'reasoning': f"{stock['strength']} breakout, {stock['pct_from_high']:+.2f}% from 52w high"
+                'reasoning': reasoning,
+                'risk_note': risk_bit,
+                'risk_rr': stock.get('risk_rr'),
+                'risk_rr_ok': stock.get('risk_rr_ok'),
             })
+
+        # Crypto risk notes (volatility as ATR%)
+        from stock_checker.atr_risk import note_from_day_range
+
+        for crypto in crypto_leaders:
+            try:
+                px = float(crypto.get("price") or 0)
+                vol = float(crypto.get("volatility") or 0)
+            except (TypeError, ValueError):
+                continue
+            if px <= 0:
+                continue
+            risk = note_from_day_range(entry=px, volatility_pct=vol)
+            crypto["risk_note"] = risk.get("summary") or "risk n/a"
+            crypto["risk_rr"] = risk.get("rr")
+            crypto["risk_rr_ok"] = risk.get("rr_ok")
 
         # Display final recommendations
         print(f"\n{'='*70}")
@@ -767,7 +832,8 @@ class MarketScanner:
             'crypto_leaders': filter_ranked_opportunities(crypto_leaders),
             'stock_breakouts': filter_ranked_opportunities(breakouts),
             'recommendations': recommendations,
-            'scan_time': datetime.now().isoformat()
+            'scan_time': datetime.now().isoformat(),
+            'stock_scan_pulse': getattr(self, "_last_stock_scan_pulse", {}) or {},
         }
         
         # Auto-save to archive when market is closed

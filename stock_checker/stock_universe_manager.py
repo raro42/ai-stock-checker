@@ -299,6 +299,23 @@ class StockUniverseManager:
             print(f"🌱 Universe seed merge: +{added} (now {after} names)")
         return added
 
+    def yahoo_discovery_due(self, *, max_age_hours: int = 24) -> bool:
+        """True when Yahoo movers have never run or last run is older than max_age."""
+        meta = self.universe.get("meta")
+        if not isinstance(meta, dict):
+            return True
+        last = str(meta.get("last_yahoo_discovery") or "").strip()
+        if not last:
+            return True
+        try:
+            then = datetime.fromisoformat(last.replace("Z", "+00:00"))
+            if then.tzinfo is not None:
+                then = then.replace(tzinfo=None)
+            age_h = (datetime.now() - then).total_seconds() / 3600.0
+            return age_h >= float(max_age_hours)
+        except (TypeError, ValueError):
+            return True
+
     def discover_yahoo_movers(self, *, per_screen: int = 25, max_new: int = 40) -> int:
         """
         Add Yahoo day gainers/losers/actives into the universe (discovery only).
@@ -319,8 +336,14 @@ class StockUniverseManager:
                 break
             if self.add_stock(sym, sector="yahoo_mover", exchange="US"):
                 added += 1
+        meta = self.universe.setdefault("meta", {})
+        if not isinstance(meta, dict):
+            meta = {}
+            self.universe["meta"] = meta
+        meta["last_yahoo_discovery"] = datetime.now().isoformat()
+        meta["last_yahoo_added"] = added
+        self._save_universe()
         if added:
-            self._save_universe()
             print(f"   📡 Yahoo movers → universe: +{added} (cap {max_new})")
         else:
             print("   📡 Yahoo movers → universe: no new names")
@@ -433,9 +456,17 @@ class StockUniverseManager:
             "last_full_cycle": self.scan_history.get("last_full_cycle")
         }
 
-    def discover_and_add_stocks(self) -> int:
+    def discover_and_add_stocks(
+        self, *, force_yahoo: bool = False, yahoo_max_age_hours: int = 24
+    ) -> int:
         """Merge curated seed + Yahoo movers into the universe (discovery only)."""
         added = self.ensure_curated_seed()
+        run_yahoo = force_yahoo or self.yahoo_discovery_due(
+            max_age_hours=yahoo_max_age_hours
+        )
+        if not run_yahoo:
+            print("   📡 Yahoo movers skipped (discovery fresh <24h)")
+            return added
         try:
             added += self.discover_yahoo_movers()
         except Exception as e:

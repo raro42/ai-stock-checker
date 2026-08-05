@@ -118,7 +118,7 @@ def pick_overweight_trim_candidate(
     Rules (anti-churn, not scan-chase):
     - Must be past min hold (same floor as normal exits).
     - Prefer the weakest mark (lowest unrealized %).
-    - At most one candidate — caller sells one per cycle.
+    - Returns one candidate; caller may loop until at_cap while eligible.
 
     This can crystallize a loss; that is intentional for *size* discipline,
     not for rotating into a new scan darling.

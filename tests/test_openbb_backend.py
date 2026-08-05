@@ -100,6 +100,9 @@ def _seed_portfolio(data: Path) -> None:
                         "price": 105,
                         "pct_from_high": 1.5,
                         "strength": "STRONG",
+                        "risk_note": "stop atr €100.00 (−4.8%) · tgt +20% · R:R 4.2 (ok)",
+                        "risk_rr": 4.2,
+                        "risk_rr_ok": True,
                     },
                     {
                         "symbol": "MSFT",
@@ -109,6 +112,13 @@ def _seed_portfolio(data: Path) -> None:
                         "strength": "WEAK",
                     },
                 ],
+                "stock_scan_pulse": {
+                    "stock_scan_n": 30,
+                    "stock_scan_up": 18,
+                    "stock_scan_down": 10,
+                    "stock_scan_flat": 2,
+                    "stock_scan_batch": 30,
+                },
             }
         )
     )
@@ -178,6 +188,10 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert abs(sb["crypto_avg_chg"] - ((2.5 - 5.0 + 0.0) / 3)) < 1e-9
     assert sb["stock_breakouts_n"] == 2
     assert sb["stock_within_5pct_high"] == 1
+    assert sb["stock_scan_n"] == 30
+    assert sb["stock_scan_up"] == 18
+    assert sb["stock_scan_down"] == 10
+    assert snap["stock_breakouts"][0]["risk_note"]
     assert snap["scan_breadth_history"]
     assert snap["scan_breadth_history"][-1]["crypto_up"] == 1
     assert (tmp_path / "scan_breadth_daily.json").exists()
@@ -199,6 +213,7 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert "rs_gate" in snap["runtime"]
     assert "breadth_gate" in snap["runtime"]
     assert "calm_streak_days" in snap["runtime"]
+    assert "calm_hint" in snap["runtime"]
     assert "stock_regime" in snap["runtime"]
     assert "config_source" in snap["runtime"]
     # Never leak secrets into the desk snapshot

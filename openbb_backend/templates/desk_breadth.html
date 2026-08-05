@@ -52,6 +52,11 @@
       <span class="v">{{ pulse.stock_within_5pct_high|default(0) }}</span>
       <span class="weight">of {{ pulse.stock_breakouts_n|default(0) }} breakouts ≤5% from high</span>
     </div>
+    <div>
+      <span class="k">Stock batch A/D</span>
+      <span class="v">{{ pulse.stock_scan_up|default(0) }} / {{ pulse.stock_scan_down|default(0) }}</span>
+      <span class="weight">of {{ pulse.stock_scan_n|default(0) }} priced this cycle · flat {{ pulse.stock_scan_flat|default(0) }}</span>
+    </div>
   </section>
   {% if snap.scan_breadth_history %}
   <h3 class="subhead">Recent days</h3>

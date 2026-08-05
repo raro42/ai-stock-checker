@@ -115,6 +115,10 @@ def _trader_runtime_view() -> dict[str, Any]:
         "calm_required_days": int(calm_snap.get("required_days") or 30),
         "calm_ready": bool(calm_snap.get("ready_for_compose_default")),
         "calm_detail": str(calm_snap.get("detail") or ""),
+        "calm_hint": (
+            "Compose promote default unlocks after 30 calm UTC days "
+            "(promote on, book ≤ max, quiet fees)."
+        ),
         "config_source": "file"
         if (data_dir / "trader_config.json").is_file()
         else "env",
@@ -394,6 +398,20 @@ def load_desk_snapshot(
     stock_near = sum(
         1 for r in stock_raw_all if float(r.get("pct_from_high") or 99) <= 5.0
     )
+    stock_pulse = opportunities.get("stock_scan_pulse") or {}
+    if not isinstance(stock_pulse, dict):
+        stock_pulse = {}
+    stock_scan_n = int(stock_pulse.get("stock_scan_n") or 0)
+    stock_scan_up = int(stock_pulse.get("stock_scan_up") or 0)
+    stock_scan_down = int(stock_pulse.get("stock_scan_down") or 0)
+    stock_scan_flat = int(stock_pulse.get("stock_scan_flat") or 0)
+    if stock_scan_n > 0:
+        stock_ad_note = (
+            f"Stock batch A/D {stock_scan_up}/{stock_scan_down} "
+            f"of {stock_scan_n} priced names this scan"
+        )
+    else:
+        stock_ad_note = "Stock batch A/D awaits next equity scan"
     scan_breadth = {
         "crypto_n": len(crypto_raw_all),
         "crypto_up": crypto_up,
@@ -403,7 +421,16 @@ def load_desk_snapshot(
         "crypto_big_movers": crypto_big,
         "stock_breakouts_n": len(stock_raw_all),
         "stock_within_5pct_high": stock_near,
-        "note": "Scan-list pulse (leaders/breakouts), not full-universe advance/decline.",
+        "stock_scan_n": stock_scan_n,
+        "stock_scan_up": stock_scan_up,
+        "stock_scan_down": stock_scan_down,
+        "stock_scan_flat": stock_scan_flat,
+        "note": (
+            "Scan-list pulse: crypto leaders + this-cycle stock batch A/D "
+            "(not full-universe advance/decline). "
+            + stock_ad_note
+            + "."
+        ),
     }
     scan_time = opportunities.get("scan_time") or ""
     # First slice toward multi-day A/D: upsert today's pulse when a scan exists.
@@ -470,6 +497,9 @@ def load_desk_snapshot(
                 "strategy": r.get("strategy"),
                 "score": float(r.get("score") or 0),
                 "reasoning": r.get("reasoning") or "",
+                "risk_note": r.get("risk_note") or "",
+                "risk_rr": r.get("risk_rr"),
+                "risk_rr_ok": r.get("risk_rr_ok"),
             }
         )
 
@@ -485,6 +515,9 @@ def load_desk_snapshot(
                 "score": float(r.get("score") or 0),
                 "volume_surge_pct": float(r.get("volume_surge_pct") or 0),
                 "tradeable": bool(r.get("tradeable", True)),
+                "risk_note": r.get("risk_note") or "",
+                "risk_rr": r.get("risk_rr"),
+                "risk_rr_ok": r.get("risk_rr_ok"),
             }
         )
 
@@ -499,6 +532,9 @@ def load_desk_snapshot(
                 "price": float(r.get("price") or 0),
                 "pct_from_high": float(r.get("pct_from_high") or 0),
                 "strength": r.get("strength") or "",
+                "risk_note": r.get("risk_note") or "",
+                "risk_rr": r.get("risk_rr"),
+                "risk_rr_ok": r.get("risk_rr_ok"),
             }
         )
 
@@ -614,6 +650,11 @@ def load_desk_snapshot(
             "title": "Scan-breadth entry gate",
             "from": "RyanJHamby/stock-screener (market breadth)",
             "note": "Soft block new buys when scan-list A/D looks weak; not full-universe A/D.",
+        },
+        {
+            "title": "ATR / R:R risk notes",
+            "from": "RyanJHamby/stock-screener (stop + R:R framing)",
+            "note": "Screener shows day-range / vol proxy stops + rough R:R — display only, not exits.",
         },
         {
             "title": "Yahoo movers → universe only",

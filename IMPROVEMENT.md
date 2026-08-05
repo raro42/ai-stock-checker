@@ -83,15 +83,17 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Soft SMA market-regime gate for new entries (`market_regime.py` — SPY SMA200 / BTC SMA50; `REGIME_GATE=1`; Ops shows last snap) — RyanJHamby watch idea
 - [x] Soft relative-strength entry gate (`relative_strength.py` — stock ≥ SPY / crypto ≥ BTC over 63d; `RS_GATE=1`; Ops toggle; fail-open) — RyanJHamby RS filter
 - [x] Soft scan-breadth entry gate (`scan_breadth_gate.py` — crypto A/D + stock leaders on scan list; `BREADTH_GATE=1`) — RyanJHamby breadth idea (scan-list, not full universe)
-- [x] Overweight trim-to-cap: one exit/cycle past min-hold, worst mark first (`pick_overweight_trim_candidate`) — unlocks calm streak without scan-chase rotation
-- [x] Curated universe refresh + Yahoo movers discovery-only (`yahoo_universe_discovery.py`, `scripts/refresh_stock_universe.py`) — grows scan list, not auto-buy firehose
+- [x] Overweight trim-to-cap: sell past-min-hold names until at_cap (`pick_overweight_trim_candidate` loop) — unlocks calm streak without scan-chase rotation
+- [x] Curated universe refresh + Yahoo movers discovery-only (`yahoo_universe_discovery.py`, daily stale throttle, `scripts/refresh_stock_universe.py`) — grows scan list, not auto-buy firehose
+- [x] ATR / R:R risk notes on Screener (`atr_risk.py` — day-range / vol proxy; display only)
+- [x] Broader scan A/D pulse: stock batch up/down this cycle on Breadth + crypto leaders (still not full-universe)
 - [x] Ops editable trader knobs (`trader_config.json` + `/desk/api/config`) — AI mode/model, multi-role, regime gate; trader hot-reloads
 - [x] Revolut-realistic paper fees (default 0.25%/side · €1 min; Ultra 0.12%; Ops fee preset) — replaces optimistic 0.1%
 - [x] Stop loss-rotation: never sell losers to chase new scan names; +5% take-profit; block sub-$1 crypto entries (ESP/BANK autopsy 2026-07-28)
 - [x] Ops book limits: max positions + min hold hours (default 5 / 24h) — anti-churn vs Revolut fees; pyramid-up still optional later
 - [x] Anti flip-flop: raise rotate hurdle to +3%, rebuy cooldown after exit, only mark stale if off entire scan list + have a replacement (SCHW sell→buy 12m, ~€50 fees)
 - [x] Overweight book posture: if holdings > max_positions → TP/SL only (no buys, no scan rotation); AI paper default dialed to validate (less churn than full)
-- [x] Scan-list breadth gate shipped (above); full-universe advance/decline remains optional later if we widen the universe
+- [x] Scan-list breadth gate shipped (above); stock-batch A/D on Breadth (this-cycle priced names); full-universe A/D still optional later
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 
 ### Phase D — Share

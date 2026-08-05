@@ -148,6 +148,7 @@
     <div>
       <dt>Paper calm streak</dt>
       <dd>{{ snap.runtime.calm_streak_days }}/{{ snap.runtime.calm_required_days }} days{% if snap.runtime.calm_ready %} · <strong>compose promote default ready</strong>{% endif %}{% if snap.runtime.calm_detail %} · {{ snap.runtime.calm_detail }}{% endif %}</dd>
+      <dd class="sub">{{ snap.runtime.calm_hint }}</dd>
     </div>
   </dl>
 </section>
