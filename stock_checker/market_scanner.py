@@ -349,10 +349,14 @@ class MarketScanner:
         # Get stocks to scan (limit depends on weekend mode)
         stocks_to_scan, cycle_just_reset = self.universe_manager.get_stocks_to_scan(limit=scan_limit, max_age_hours=max_age_hours)
         
-        # If weekend and all stocks scanned, try to add new stocks from CoinMarketCap
-        if is_weekend and cycle_just_reset and self.cmc:
-            print(f"\n🔍 All stocks scanned! Fetching new opportunities from CoinMarketCap...")
+        # Refresh curated seed + Yahoo movers when a full cycle completes (or weekends).
+        if cycle_just_reset or is_weekend:
+            print(f"\n🔍 Universe refresh (seed merge + Yahoo movers discovery)...")
             self._add_stocks_from_coinmarketcap()
+            # Re-fetch batch if we just grew the universe on an empty unscanned set.
+            stocks_to_scan, cycle_just_reset = self.universe_manager.get_stocks_to_scan(
+                limit=scan_limit, max_age_hours=max_age_hours
+            )
 
         if cycle_just_reset:
             print(f"📋  Starting new cycle: Scanning {len(stocks_to_scan)} stocks")
@@ -485,70 +489,19 @@ class MarketScanner:
 
     def _add_stocks_from_coinmarketcap(self):
         """
-        Fetch new stock opportunities and add them to the universe.
-        On weekends, when all stocks are scanned, we expand the universe
-        with additional stocks from watchlist or discovered opportunities.
+        Expand the stock universe: curated seed merge + Yahoo movers discovery.
+
+        Does not place trades — only grows the scan list behind existing filters.
         """
         try:
-            # Try to load additional stocks from watchlist file
-            # Check multiple possible locations
-            possible_paths = [
-                Path("/data/../watchlist.txt"),  # Relative to data dir
-                Path("watchlist.txt"),  # Current directory
-                Path(__file__).parent.parent.parent / "watchlist.txt",  # Project root
-            ]
-            
-            watchlist_path = None
-            for path in possible_paths:
-                if path.exists():
-                    watchlist_path = path
-                    break
-            
-            new_stocks_added = 0
-            
-            if watchlist_path:
-                print(f"   📋 Loading additional stocks from watchlist ({watchlist_path})...")
-                with open(watchlist_path, 'r') as f:
-                    for line in f:
-                        symbol = line.strip().upper()
-                        if symbol and not symbol.startswith('#'):
-                            # Try to add to universe if not already present
-                            if symbol not in self.universe_manager.universe.get("stocks", {}):
-                                # Try to determine sector (default to "unknown")
-                                sector = "unknown"
-                                exchange = "unknown"
-                                
-                                # Add to universe
-                                if self.universe_manager.add_stock(symbol, sector, exchange):
-                                    new_stocks_added += 1
-                                    print(f"      ✅ Added {symbol} to universe")
+            print("   🌱 Refreshing stock universe (seed merge + Yahoo movers)...")
+            added = self.universe_manager.discover_and_add_stocks()
+            if added:
+                print(f"   ✅ Universe grew by {added} name(s)")
             else:
-                print(f"   ℹ️  Watchlist file not found, skipping watchlist expansion")
-            
-            # Also check CoinMarketCap for crypto-related stock opportunities
-            if self.cmc:
-                print(f"   📡 Checking CoinMarketCap for additional opportunities...")
-                try:
-                    movers = self.cmc.get_top_movers()
-                    
-                    if movers.get('gainers'):
-                        print(f"      Found {len(movers['gainers'])} top gainers (crypto symbols)")
-                        # Note: CoinMarketCap returns crypto, not stocks
-                        # But we can use this data to identify related stock opportunities
-                except Exception as e:
-                    print(f"      ⚠️  Error fetching CoinMarketCap data: {e}")
-            
-            if new_stocks_added > 0:
-                print(f"   ✅ Added {new_stocks_added} new stocks to universe for weekend scanning")
-                # Save the updated universe
-                self.universe_manager._save_universe()
-            else:
-                print(f"   ℹ️  No new stocks to add (all watchlist stocks already in universe)")
-            
+                print("   ℹ️  Universe unchanged this pass")
         except Exception as e:
             print(f"   ⚠️  Error expanding stock universe: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _format_opportunities_report(self, results: dict) -> str:
         """

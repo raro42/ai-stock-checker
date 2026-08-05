@@ -139,7 +139,6 @@ class StockUniverseManager:
             "SLB": {"sector": "energy", "exchange": "NYSE"},
             "OXY": {"sector": "energy", "exchange": "NYSE"},
             "EOG": {"sector": "energy", "exchange": "NYSE"},
-            "PXD": {"sector": "energy", "exchange": "NASDAQ"},
             "MPC": {"sector": "energy", "exchange": "NYSE"},
             "PSX": {"sector": "energy", "exchange": "NYSE"},
             "VLO": {"sector": "energy", "exchange": "NYSE"},
@@ -208,6 +207,32 @@ class StockUniverseManager:
             "MMM": {"sector": "industrial", "exchange": "NYSE"},
             "EMR": {"sector": "industrial", "exchange": "NYSE"},
             "ETN": {"sector": "industrial", "exchange": "NYSE"},
+
+            # Large-cap refresh (2026-08) — liquid names missing from older seed
+            "IBM": {"sector": "technology", "exchange": "NYSE"},
+            "CSCO": {"sector": "technology", "exchange": "NASDAQ"},
+            "ACN": {"sector": "technology", "exchange": "NYSE"},
+            "NOW": {"sector": "cloud", "exchange": "NYSE"},
+            "INTU": {"sector": "software", "exchange": "NASDAQ"},
+            "TXN": {"sector": "semiconductor", "exchange": "NASDAQ"},
+            "ADI": {"sector": "semiconductor", "exchange": "NASDAQ"},
+            "ISRG": {"sector": "healthcare", "exchange": "NASDAQ"},
+            "SYK": {"sector": "healthcare", "exchange": "NYSE"},
+            "MDT": {"sector": "healthcare", "exchange": "NYSE"},
+            "PEP": {"sector": "consumer", "exchange": "NASDAQ"},
+            "KO": {"sector": "consumer", "exchange": "NYSE"},
+            "PG": {"sector": "consumer", "exchange": "NYSE"},
+            "PM": {"sector": "consumer", "exchange": "NYSE"},
+            "TMUS": {"sector": "telecom", "exchange": "NASDAQ"},
+            "VZ": {"sector": "telecom", "exchange": "NYSE"},
+            "T": {"sector": "telecom", "exchange": "NYSE"},
+            "UBER": {"sector": "travel", "exchange": "NYSE"},
+            "ABNB": {"sector": "travel", "exchange": "NASDAQ"},
+            "SHOP": {"sector": "retail", "exchange": "NYSE"},
+            "MELI": {"sector": "retail", "exchange": "NASDAQ"},
+            "APP": {"sector": "software", "exchange": "NASDAQ"},
+            "ARM": {"sector": "semiconductor", "exchange": "NASDAQ"},
+            "SMCI": {"sector": "technology", "exchange": "NASDAQ"},
         }
 
         for symbol, info in initial_stocks.items():
@@ -215,6 +240,91 @@ class StockUniverseManager:
 
         self._save_universe()
         print(f"✅ Seeded {len(initial_stocks)} stocks")
+
+    def ensure_curated_seed(self) -> int:
+        """
+        Merge curated seed into an existing universe (add missing only).
+
+        Safe for live data/: does not delete Yahoo-discovered names.
+        Returns count of newly added symbols.
+        """
+        before = len(self.universe.get("stocks") or {})
+        removed = False
+        for dead in ("PXD",):
+            if dead in self.universe.get("stocks", {}):
+                del self.universe["stocks"][dead]
+                removed = True
+                for idx in (self.universe.get("sectors"), self.universe.get("exchanges")):
+                    if not isinstance(idx, dict):
+                        continue
+                    for key, syms in list(idx.items()):
+                        if isinstance(syms, list) and dead in syms:
+                            idx[key] = [s for s in syms if s != dead]
+
+        # Large-cap refresh + liquid US names (same block as seed).
+        extras = {
+            "IBM": {"sector": "technology", "exchange": "NYSE"},
+            "CSCO": {"sector": "technology", "exchange": "NASDAQ"},
+            "ACN": {"sector": "technology", "exchange": "NYSE"},
+            "NOW": {"sector": "cloud", "exchange": "NYSE"},
+            "INTU": {"sector": "software", "exchange": "NASDAQ"},
+            "TXN": {"sector": "semiconductor", "exchange": "NASDAQ"},
+            "ADI": {"sector": "semiconductor", "exchange": "NASDAQ"},
+            "ISRG": {"sector": "healthcare", "exchange": "NASDAQ"},
+            "SYK": {"sector": "healthcare", "exchange": "NYSE"},
+            "MDT": {"sector": "healthcare", "exchange": "NYSE"},
+            "PEP": {"sector": "consumer", "exchange": "NASDAQ"},
+            "KO": {"sector": "consumer", "exchange": "NYSE"},
+            "PG": {"sector": "consumer", "exchange": "NYSE"},
+            "PM": {"sector": "consumer", "exchange": "NYSE"},
+            "TMUS": {"sector": "telecom", "exchange": "NASDAQ"},
+            "VZ": {"sector": "telecom", "exchange": "NYSE"},
+            "T": {"sector": "telecom", "exchange": "NYSE"},
+            "UBER": {"sector": "travel", "exchange": "NYSE"},
+            "ABNB": {"sector": "travel", "exchange": "NASDAQ"},
+            "SHOP": {"sector": "retail", "exchange": "NYSE"},
+            "MELI": {"sector": "retail", "exchange": "NASDAQ"},
+            "APP": {"sector": "software", "exchange": "NASDAQ"},
+            "ARM": {"sector": "semiconductor", "exchange": "NASDAQ"},
+            "SMCI": {"sector": "technology", "exchange": "NASDAQ"},
+        }
+        added = 0
+        for symbol, info in extras.items():
+            if self.add_stock(symbol, info["sector"], info["exchange"]):
+                added += 1
+        if added or removed:
+            self._save_universe()
+        after = len(self.universe.get("stocks") or {})
+        if added or removed:
+            print(f"🌱 Universe seed merge: +{added} (now {after} names)")
+        return added
+
+    def discover_yahoo_movers(self, *, per_screen: int = 25, max_new: int = 40) -> int:
+        """
+        Add Yahoo day gainers/losers/actives into the universe (discovery only).
+
+        Does not buy anything. Caps new adds per call to avoid universe bloat.
+        """
+        from stock_checker.yahoo_universe_discovery import discover_yahoo_mover_symbols
+
+        try:
+            symbols = discover_yahoo_mover_symbols(per_screen=per_screen)
+        except Exception as e:
+            print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
+            return 0
+
+        added = 0
+        for sym in symbols:
+            if added >= max_new:
+                break
+            if self.add_stock(sym, sector="yahoo_mover", exchange="US"):
+                added += 1
+        if added:
+            self._save_universe()
+            print(f"   📡 Yahoo movers → universe: +{added} (cap {max_new})")
+        else:
+            print("   📡 Yahoo movers → universe: no new names")
+        return added
 
     def add_stock(self, symbol: str, sector: str = "unknown", exchange: str = "unknown"):
         """Add a stock to the universe."""
@@ -323,11 +433,11 @@ class StockUniverseManager:
             "last_full_cycle": self.scan_history.get("last_full_cycle")
         }
 
-    def discover_and_add_stocks(self):
-        """
-        Discover new stocks from various sources and add them.
-        This can be expanded to fetch from APIs, screeners, etc.
-        """
-        # TODO: Add integration with stock screeners/APIs
-        # For now, this is a placeholder for future expansion
-        pass
+    def discover_and_add_stocks(self) -> int:
+        """Merge curated seed + Yahoo movers into the universe (discovery only)."""
+        added = self.ensure_curated_seed()
+        try:
+            added += self.discover_yahoo_movers()
+        except Exception as e:
+            print(f"⚠️  Yahoo discovery skipped: {str(e)[:100]}")
+        return added

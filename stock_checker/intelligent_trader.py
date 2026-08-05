@@ -52,6 +52,7 @@ from .exit_policy import (
     book_action_mode,
     crypto_entry_price_ok,
     opportunity_symbol_set,
+    pick_overweight_trim_candidate,
     should_allow_rebuy,
     should_rebalance_exit,
     should_stop_loss,
@@ -661,7 +662,7 @@ class IntelligentTrader:
 
     def check_existing_positions(self):
         """
-        Monitor existing positions for profit-taking and stop-loss.
+        Monitor existing positions for profit-taking, stop-loss, and overweight trim.
         """
         from .fetcher import StockFetcher
         from .binance_fetcher import BinanceFetcher
@@ -670,6 +671,8 @@ class IntelligentTrader:
         binance = BinanceFetcher()
 
         holdings = list(self.portfolio.holdings.keys())
+        marks: List[Dict] = []
+        now = time.time()
 
         for symbol in holdings:
             try:
@@ -690,6 +693,20 @@ class IntelligentTrader:
                 # Check profit-taking and stop-loss
                 avg_buy = self.portfolio.avg_buy_price[symbol]
                 profit_pct = ((price - avg_buy) / avg_buy) * 100
+                hold_seconds = (
+                    now - float(self.position_entry_times[symbol])
+                    if symbol in self.position_entry_times
+                    else float(self.min_hold_time)
+                )
+                marks.append(
+                    {
+                        "symbol": symbol,
+                        "price": price,
+                        "profit_pct": profit_pct,
+                        "hold_seconds": hold_seconds,
+                        "is_crypto": is_crypto,
+                    }
+                )
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -722,6 +739,33 @@ class IntelligentTrader:
                 # DNS/provider blips are expected; dumping chained Tracebacks wakes the watchdog
                 if not is_transient_network_error(e):
                     print(f"   Traceback: {traceback.format_exc()}")
+
+        # Overweight trim: one name per cycle after TP/SL, past min hold, worst mark first.
+        mode = book_action_mode(len(self.portfolio.holdings), self.max_positions)
+        if mode == "overweight":
+            still = [
+                m
+                for m in marks
+                if m["symbol"] in self.portfolio.holdings
+            ]
+            pick, why = pick_overweight_trim_candidate(
+                still, min_hold_seconds=float(self.min_hold_time)
+            )
+            if pick:
+                row = next(m for m in still if m["symbol"] == pick)
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                quantity = self.portfolio.holdings[pick]
+                result = self.portfolio.sell(pick, float(row["price"]), quantity, timestamp)
+                if result["success"]:
+                    print(
+                        f"   ✂️  {pick}: {why} — SOLD "
+                        f"€{result['transaction']['profit_loss']:+,.2f} "
+                        f"(book {len(self.portfolio.holdings)}/{self.max_positions})"
+                    )
+                    self._record_exit(pick)
+            else:
+                print(f"   ✂️  Overweight trim skipped: {why}")
+            self._refresh_paper_calm()
 
     def execute_new_trades(self):
         """

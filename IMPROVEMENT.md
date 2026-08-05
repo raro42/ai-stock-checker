@@ -83,6 +83,8 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Soft SMA market-regime gate for new entries (`market_regime.py` — SPY SMA200 / BTC SMA50; `REGIME_GATE=1`; Ops shows last snap) — RyanJHamby watch idea
 - [x] Soft relative-strength entry gate (`relative_strength.py` — stock ≥ SPY / crypto ≥ BTC over 63d; `RS_GATE=1`; Ops toggle; fail-open) — RyanJHamby RS filter
 - [x] Soft scan-breadth entry gate (`scan_breadth_gate.py` — crypto A/D + stock leaders on scan list; `BREADTH_GATE=1`) — RyanJHamby breadth idea (scan-list, not full universe)
+- [x] Overweight trim-to-cap: one exit/cycle past min-hold, worst mark first (`pick_overweight_trim_candidate`) — unlocks calm streak without scan-chase rotation
+- [x] Curated universe refresh + Yahoo movers discovery-only (`yahoo_universe_discovery.py`, `scripts/refresh_stock_universe.py`) — grows scan list, not auto-buy firehose
 - [x] Ops editable trader knobs (`trader_config.json` + `/desk/api/config`) — AI mode/model, multi-role, regime gate; trader hot-reloads
 - [x] Revolut-realistic paper fees (default 0.25%/side · €1 min; Ultra 0.12%; Ops fee preset) — replaces optimistic 0.1%
 - [x] Stop loss-rotation: never sell losers to chase new scan names; +5% take-profit; block sub-$1 crypto entries (ESP/BANK autopsy 2026-07-28)

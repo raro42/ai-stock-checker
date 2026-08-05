@@ -90,7 +90,7 @@ def book_action_mode(n_holdings: int, max_positions: int) -> str:
 
     - open: room for new entries
     - at_cap: no new entries; rotation still allowed under exit_policy
-    - overweight: only take-profit / stop-loss — no rotation, no buys
+    - overweight: TP/SL plus slow trim-to-cap (not scan rotation)
       (legacy books opened under a higher max must shrink via exits, not churn)
     """
     try:
@@ -105,6 +105,46 @@ def book_action_mode(n_holdings: int, max_positions: int) -> str:
     if n >= cap:
         return "at_cap"
     return "open"
+
+
+def pick_overweight_trim_candidate(
+    rows: Iterable[dict],
+    *,
+    min_hold_seconds: float,
+) -> Tuple[str | None, str]:
+    """
+    When overweight, pick one name to exit so the book can return to max_positions.
+
+    Rules (anti-churn, not scan-chase):
+    - Must be past min hold (same floor as normal exits).
+    - Prefer the weakest mark (lowest unrealized %).
+    - At most one candidate — caller sells one per cycle.
+
+    This can crystallize a loss; that is intentional for *size* discipline,
+    not for rotating into a new scan darling.
+    """
+    eligible: list[tuple[float, str]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        sym = row.get("symbol")
+        if not sym:
+            continue
+        try:
+            hold = float(row.get("hold_seconds") or 0)
+            pnl = float(row.get("profit_pct"))
+        except (TypeError, ValueError):
+            continue
+        if hold < float(min_hold_seconds):
+            continue
+        eligible.append((pnl, str(sym)))
+
+    if not eligible:
+        return None, "no trim candidates past min hold"
+
+    eligible.sort(key=lambda t: t[0])  # worst first
+    pnl, sym = eligible[0]
+    return sym, f"trim overweight (worst mark {pnl:+.2f}%)"
 
 
 def crypto_entry_price_ok(price: float, *, min_usd: float = 1.0) -> bool:

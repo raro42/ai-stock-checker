@@ -615,6 +615,11 @@ def load_desk_snapshot(
             "from": "RyanJHamby/stock-screener (market breadth)",
             "note": "Soft block new buys when scan-list A/D looks weak; not full-universe A/D.",
         },
+        {
+            "title": "Yahoo movers → universe only",
+            "from": "Yahoo Finance day gainers/losers/actives",
+            "note": "Discovery into the scan list; buys still need regime/RS/breadth/fees.",
+        },
     ]
 
     return {

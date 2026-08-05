@@ -86,6 +86,28 @@ def test_book_action_mode():
     assert book_action_mode(9, 5) == "overweight"
 
 
+def test_pick_overweight_trim_prefers_worst_past_min_hold():
+    from stock_checker.exit_policy import pick_overweight_trim_candidate
+
+    pick, why = pick_overweight_trim_candidate(
+        [
+            {"symbol": "WIN", "profit_pct": 8.0, "hold_seconds": 90000},
+            {"symbol": "LOSE", "profit_pct": -2.0, "hold_seconds": 90000},
+            {"symbol": "FRESH", "profit_pct": -9.0, "hold_seconds": 60},
+        ],
+        min_hold_seconds=14400,
+    )
+    assert pick == "LOSE"
+    assert "trim overweight" in why
+
+    none, why2 = pick_overweight_trim_candidate(
+        [{"symbol": "FRESH", "profit_pct": -9.0, "hold_seconds": 60}],
+        min_hold_seconds=14400,
+    )
+    assert none is None
+    assert "min hold" in why2
+
+
 def test_crypto_price_floor():
     assert crypto_entry_price_ok(1.0)
     assert crypto_entry_price_ok(64000)
