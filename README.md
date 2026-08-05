@@ -44,7 +44,7 @@ Seven screens. One chrome. Local D3 — no CDN roulette.
 | **Breadth** | Session exposure + scan pulse (A/D on leaders) |
 | **Book** | Holdings with dated paths since your buy |
 | **Ideas** | Scanner picks + open research watch |
-| **Ops** | Runtime / watchdog honesty |
+| **Ops** | Runtime knobs, gates, watchdog honesty |
 
 Open locally after compose: **[http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk)**
 
@@ -92,17 +92,38 @@ Paper state lives in `./data/` (gitignored). Friends’ short path: [`FRIENDS.md
 |--|--|
 | Capital | €100,000 paper |
 | Scan / trade | 15m / 5m |
-| Min hold | **4h** |
-| Max positions | 8 |
+| Min hold | **24h** (Ops; floor still ≥4h — we are not day-trading for sport) |
+| Max positions | **5** (Ops; less book = less fee theater) |
+| Regime / RS gates | **on** by default — toggle on Ops if you enjoy buying weakness |
 | AI mode | `off` by default (rules-only). Set `AI_MODE=validate` + Ollama or cloud — see [MODELS.md](MODELS.md) |
+
+---
+
+## How we (try to) trade
+
+No secret sauce. No “proprietary neural alpha.” Just a few rude filters between a scan list and a paper buy — because fees are real and FOMO is free.
+
+**The vibe:** buy strength in healthy markets, hold long enough that Revolut doesn’t eat the thesis, don’t rotate losers to chase shiny new names. AI is optional seasoning, not the chef.
+
+| Gate | What it actually does |
+|------|------------------------|
+| **Junk filter** | Stables, leveraged carnival tickets, and known noise stay in the lobby (`symbol_filters.py`) |
+| **Earnings blackout** | No new stock entries when Finnhub says the calendar is about to punch you |
+| **SMA regime** | Soft block new buys when SPY is below SMA200 or BTC below SMA50 — “buy the dip” can wait until the dip stops dipping |
+| **Relative strength** | Soft block names lagging SPY (stocks) or BTC (crypto) over ~63 sessions — leaders over laggards; missing data fails *open*, not frozen |
+| **Anti flip-flop** | Min hold + rebuy cooldown + “don’t sell losers just to rotate” — SCHW → SCHW twelve minutes later is not a strategy, it’s a tip jar |
+| **Book posture** | Overweight → TP/SL only (no buys, no scan rotation). Slim books heal; fat books diet |
+
+Yes, some of this smells like Minervini / Stage-2 hygiene we borrowed from open screeners ([GitHub watch](GITHUB_WATCH.md)). We stole the **discipline**, not their backtest screenshots. Ours still has to survive Revolut-shaped paper fees and a walk-forward promote gate before anyone gets to brag.
+
+Ops checkboxes for regime + RS if you want to turn “boring” back into “interesting.” Interesting is usually expensive.
 
 ---
 
 ## What’s inside
 
 - **Intelligent trader** — scan → rank → paper trade with persistence
-- **Symbol filters** — stables, leveraged junk, known noise out
-- **Earnings blackout** — skip new entries near earnings when Finnhub has dates
+- **Entry gates** — regime + relative strength + earnings + junk filters (see above)
 - **OpenBB widgets** — same `:7779` backend for Pro workspace ([OPENBB.md](OPENBB.md))
 - **Autoresearch** — overnight strategy search with walk-forward promote gate
 - **GitHub research watch** — adapt one transferable pattern at a time ([GITHUB_WATCH.md](GITHUB_WATCH.md))
