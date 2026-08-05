@@ -81,6 +81,7 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 - [x] Persist daily scan-pulse rows (`data/scan_breadth_daily.json`) + Breadth “Recent days” (first slice toward multi-day A/D)
 - [x] Screener counts strip + weekend-aware empty copy (MonsterDeveloper simplicity)
 - [x] Soft SMA market-regime gate for new entries (`market_regime.py` — SPY SMA200 / BTC SMA50; `REGIME_GATE=1`; Ops shows last snap) — RyanJHamby watch idea
+- [x] Soft relative-strength entry gate (`relative_strength.py` — stock ≥ SPY / crypto ≥ BTC over 63d; `RS_GATE=1`; Ops toggle; fail-open) — RyanJHamby RS filter
 - [x] Ops editable trader knobs (`trader_config.json` + `/desk/api/config`) — AI mode/model, multi-role, regime gate; trader hot-reloads
 - [x] Revolut-realistic paper fees (default 0.25%/side · €1 min; Ultra 0.12%; Ops fee preset) — replaces optimistic 0.1%
 - [x] Stop loss-rotation: never sell losers to chase new scan names; +5% take-profit; block sub-$1 crypto entries (ESP/BANK autopsy 2026-07-28)

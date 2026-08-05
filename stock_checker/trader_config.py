@@ -30,6 +30,7 @@ DEFAULTS: dict[str, Any] = {
     "ai_model": DEFAULT_AI_MODEL,
     "ai_multi_role": True,
     "regime_gate": True,
+    "rs_gate": True,
     "fee_preset": DEFAULT_FEE_PRESET,
     # Anti-churn paper defaults (tighter than old compose 8×4h).
     "max_positions": 5,
@@ -75,6 +76,7 @@ def _env_defaults() -> dict[str, Any]:
         "ai_model": model,
         "ai_multi_role": _as_bool(os.getenv("AI_MULTI_ROLE"), True),
         "regime_gate": _as_bool(os.getenv("REGIME_GATE"), True),
+        "rs_gate": _as_bool(os.getenv("RS_GATE"), True),
         "fee_preset": fee_preset,
         "commission_rate": rate,
         "commission_min_eur": min_eur,
@@ -112,6 +114,9 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
 
     if "regime_gate" in raw:
         out["regime_gate"] = _as_bool(raw.get("regime_gate"), out["regime_gate"])
+
+    if "rs_gate" in raw:
+        out["rs_gate"] = _as_bool(raw.get("rs_gate"), out.get("rs_gate", True))
 
     if "fee_preset" in raw:
         preset = str(raw.get("fee_preset") or "").strip().lower()
@@ -170,6 +175,8 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
         out["promote_experiment_strategy"] = bool(
             DEFAULTS["promote_experiment_strategy"]
         )
+    if "rs_gate" not in out:
+        out["rs_gate"] = bool(DEFAULTS["rs_gate"])
 
     return out
 
@@ -197,6 +204,7 @@ def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[st
         "ai_model": merged["ai_model"],
         "ai_multi_role": bool(merged["ai_multi_role"]),
         "regime_gate": bool(merged["regime_gate"]),
+        "rs_gate": bool(merged.get("rs_gate", True)),
         "fee_preset": merged["fee_preset"],
         "commission_rate": float(merged["commission_rate"]),
         "commission_min_eur": float(merged["commission_min_eur"]),

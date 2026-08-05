@@ -49,6 +49,12 @@
       </label>
 
       <label class="ops-field ops-check">
+        <input type="checkbox" name="rs_gate" id="ops-rs"
+               {% if snap.runtime.rs_gate %}checked{% endif %} />
+        <span class="ops-label">Relative-strength gate (vs SPY / BTC)</span>
+      </label>
+
+      <label class="ops-field ops-check">
         <input type="checkbox" name="promote_experiment_strategy" id="ops-promote"
                {% if snap.runtime.promote_experiment_strategy %}checked{% endif %} />
         <span class="ops-label">Promote champion entry filter (experiment_strategy)</span>

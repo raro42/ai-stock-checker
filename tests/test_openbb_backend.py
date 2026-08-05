@@ -196,6 +196,7 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert "trader_version" in snap["runtime"]
     assert "llm_key_set" in snap["runtime"]
     assert "regime_gate" in snap["runtime"]
+    assert "rs_gate" in snap["runtime"]
     assert "stock_regime" in snap["runtime"]
     assert "config_source" in snap["runtime"]
     # Never leak secrets into the desk snapshot
@@ -286,12 +287,14 @@ def test_desk_config_api_put(tmp_path: Path, monkeypatch):
             "ai_model": "gemma4:latest",
             "ai_multi_role": True,
             "regime_gate": True,
+            "rs_gate": True,
             "fee_preset": "revolut_standard",
         },
     )
     assert ok.status_code == 200
     assert ok.json()["ai_mode"] == "validate"
     assert ok.json()["fee_preset"] == "revolut_standard"
+    assert ok.json().get("rs_gate") is True
     assert abs(ok.json()["commission_rate"] - 0.0025) < 1e-9
     assert (tmp_path / "trader_config.json").exists()
     got = client.get("/desk/api/config")

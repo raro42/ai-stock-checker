@@ -16,17 +16,33 @@ def test_normalize_rejects_coder_model_and_bad_mode():
         "ai_model": "gemma4:latest",
         "ai_multi_role": True,
         "regime_gate": True,
+        "rs_gate": True,
         "fee_preset": "revolut_standard",
         "commission_rate": 0.0025,
         "commission_min_eur": 1.0,
     }
     out = normalize_config(
-        {"ai_mode": "nope", "ai_model": "qwen2.5-coder:latest", "regime_gate": "0"},
+        {
+            "ai_mode": "nope",
+            "ai_model": "qwen2.5-coder:latest",
+            "regime_gate": "0",
+            "rs_gate": "0",
+        },
         base=base,
     )
     assert out["ai_mode"] == "off"
     assert out["ai_model"] == "gemma4:latest"
     assert out["regime_gate"] is False
+    assert out["rs_gate"] is False
+
+
+def test_rs_gate_roundtrip(tmp_path: Path):
+    saved = save_trader_config(tmp_path, {"rs_gate": False})
+    assert saved["rs_gate"] is False
+    loaded = load_trader_config(tmp_path)
+    assert loaded["rs_gate"] is False
+    saved2 = save_trader_config(tmp_path, {"rs_gate": True})
+    assert saved2["rs_gate"] is True
 
 
 def test_save_load_roundtrip(tmp_path: Path):
@@ -37,19 +53,23 @@ def test_save_load_roundtrip(tmp_path: Path):
             "ai_model": "gemma4:latest",
             "ai_multi_role": False,
             "regime_gate": True,
+            "rs_gate": False,
             "fee_preset": "revolut_ultra",
         },
     )
     assert saved["ai_mode"] == "validate"
     assert saved["fee_preset"] == "revolut_ultra"
+    assert saved["rs_gate"] is False
     assert abs(saved["commission_rate"] - 0.0012) < 1e-9
     assert (tmp_path / "trader_config.json").is_file()
     loaded = load_trader_config(tmp_path)
     assert loaded["ai_mode"] == "validate"
     assert loaded["ai_multi_role"] is False
     assert loaded["fee_preset"] == "revolut_ultra"
+    assert loaded["rs_gate"] is False
     raw = json.loads((tmp_path / "trader_config.json").read_text())
     assert "api_key" not in raw
+    assert "rs_gate" in raw
 
 
 def test_fee_preset_revolut_standard_default(tmp_path: Path, monkeypatch):
@@ -57,6 +77,7 @@ def test_fee_preset_revolut_standard_default(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("MAX_POSITIONS", raising=False)
     monkeypatch.delenv("MIN_HOLD_HOURS", raising=False)
     monkeypatch.delenv("PROMOTE_EXPERIMENT_STRATEGY", raising=False)
+    monkeypatch.delenv("RS_GATE", raising=False)
     cfg = load_trader_config(tmp_path)
     assert cfg["fee_preset"] == "revolut_standard"
     assert abs(cfg["commission_rate"] - 0.0025) < 1e-9
@@ -64,6 +85,7 @@ def test_fee_preset_revolut_standard_default(tmp_path: Path, monkeypatch):
     assert cfg["max_positions"] == 5
     assert cfg["min_hold_hours"] == 24
     assert cfg["promote_experiment_strategy"] is False
+    assert cfg["rs_gate"] is True
 
 
 def test_promote_flag_roundtrip(tmp_path: Path):

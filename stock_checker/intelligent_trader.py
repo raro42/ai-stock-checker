@@ -35,6 +35,12 @@ from .market_regime import (
     simple_sma,
     snapshot_dict,
 )
+from .relative_strength import (
+    DEFAULT_RS_LOOKBACK,
+    new_entry_rs_allowed,
+    rs_gate_enabled,
+    rs_lookback,
+)
 from .exit_policy import (
     book_action_mode,
     crypto_entry_price_ok,
@@ -102,6 +108,10 @@ class IntelligentTrader:
         self.stock_regime = REGIME_UNKNOWN
         self.crypto_regime = REGIME_UNKNOWN
         self._regime_enabled = regime_gate_enabled()
+        self._rs_enabled = rs_gate_enabled()
+        self._rs_lookback = rs_lookback()
+        self._spy_closes: List[float] = []
+        self._btc_closes: List[float] = []
         self.promote_experiment_strategy = False
 
         # Load position entry times from disk (survives restarts)
@@ -122,6 +132,8 @@ class IntelligentTrader:
         print(f"   Min hold time: {min_hold_time}s")
         print(f"   Regime gate: {'on' if self._regime_enabled else 'off'} "
               f"(SPY SMA{STOCK_SMA_PERIOD} / BTC SMA{CRYPTO_SMA_PERIOD})")
+        print(f"   RS gate: {'on' if self._rs_enabled else 'off'} "
+              f"(lookback {self._rs_lookback}d vs SPY/BTC)")
         print(f"   Promote champion filter: off (hot-reload from Ops)")
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
@@ -136,17 +148,22 @@ class IntelligentTrader:
 
     def refresh_market_regime(self) -> None:
         """
-        Update SPY / BTC SMA regimes and persist for Ops.
+        Update SPY / BTC SMA regimes (+ RS benchmark closes) and persist for Ops.
 
         Fail-open on fetch errors (unknown → allow new entries).
+        Fetches benchmarks when regime and/or RS gates are enabled.
         """
         self._regime_enabled = regime_gate_enabled()
+        self._rs_enabled = rs_gate_enabled()
+        self._rs_lookback = rs_lookback()
         stock_regime = REGIME_UNKNOWN
         crypto_regime = REGIME_UNKNOWN
         stock_sma = stock_close = crypto_sma = crypto_close = None
         detail_parts: List[str] = []
+        self._spy_closes = []
+        self._btc_closes = []
 
-        if not self._regime_enabled:
+        if not self._regime_enabled and not self._rs_enabled:
             self.stock_regime = REGIME_UNKNOWN
             self.crypto_regime = REGIME_UNKNOWN
             save_regime_snapshot(
@@ -158,8 +175,13 @@ class IntelligentTrader:
                     detail="REGIME_GATE=0",
                 ),
             )
-            print("   📉 Regime gate off (REGIME_GATE=0)")
+            print("   📉 Regime gate off · RS gate off")
             return
+
+        if not self._regime_enabled:
+            print("   📉 Regime gate off (REGIME_GATE=0)")
+
+        btc_limit = max(CRYPTO_SMA_PERIOD, self._rs_lookback) + 5
 
         try:
             from .fetcher import StockFetcher
@@ -168,6 +190,7 @@ class IntelligentTrader:
                 STOCK_BENCHMARK, period="1y", interval="1d"
             )
             closes = closes_from_yfinance_hist(hist)
+            self._spy_closes = list(closes)
             stock_regime = classify_close_vs_sma(closes, STOCK_SMA_PERIOD)
             stock_sma = simple_sma(closes, STOCK_SMA_PERIOD)
             stock_close = float(closes[-1]) if closes else None
@@ -181,9 +204,10 @@ class IntelligentTrader:
             from .binance_fetcher import BinanceFetcher
 
             klines = BinanceFetcher().get_klines(
-                CRYPTO_BENCHMARK, interval="1d", limit=CRYPTO_SMA_PERIOD + 5
+                CRYPTO_BENCHMARK, interval="1d", limit=btc_limit
             )
             closes = closes_from_binance_klines(klines)
+            self._btc_closes = list(closes)
             crypto_regime = classify_close_vs_sma(closes, CRYPTO_SMA_PERIOD)
             crypto_sma = simple_sma(closes, CRYPTO_SMA_PERIOD)
             crypto_close = float(closes[-1]) if closes else None
@@ -202,13 +226,61 @@ class IntelligentTrader:
             crypto_sma=crypto_sma,
             stock_close=stock_close,
             crypto_close=crypto_close,
-            enabled=True,
+            enabled=self._regime_enabled,
             detail="; ".join(detail_parts),
         )
         save_regime_snapshot(self.persistence.data_dir, snap)
-        print(
-            f"   📉 Regime: SPY {stock_regime} (SMA{STOCK_SMA_PERIOD}) · "
-            f"BTC {crypto_regime} (SMA{CRYPTO_SMA_PERIOD})"
+        if self._regime_enabled:
+            print(
+                f"   📉 Regime: SPY {stock_regime} (SMA{STOCK_SMA_PERIOD}) · "
+                f"BTC {crypto_regime} (SMA{CRYPTO_SMA_PERIOD})"
+            )
+        if self._rs_enabled:
+            print(
+                f"   📐 RS gate on (lookback {self._rs_lookback}d · "
+                f"SPY bars={len(self._spy_closes)} · BTC bars={len(self._btc_closes)})"
+            )
+
+    def _asset_closes_for_rs(
+        self, symbol: str, is_crypto: bool, *, fetcher=None, binance=None
+    ) -> List[float]:
+        """Daily closes for RS check; empty list on failure (fail-open upstream)."""
+        need = max(self._rs_lookback, DEFAULT_RS_LOOKBACK) + 5
+        try:
+            if is_crypto:
+                from .binance_fetcher import BinanceFetcher
+
+                client = binance or BinanceFetcher()
+                bsym = client.convert_symbol(symbol)
+                klines = client.get_klines(bsym, interval="1d", limit=need)
+                return closes_from_binance_klines(klines)
+            from .fetcher import StockFetcher
+
+            sf = fetcher or StockFetcher()
+            hist = sf.get_historical_data(symbol, period="1y", interval="1d")
+            return closes_from_yfinance_hist(hist)
+        except Exception as e:
+            if not is_transient_network_error(e):
+                print(f"   ⚠️ RS history {symbol}: {str(e)[:100]}")
+            return []
+
+    def _rs_entry_ok(
+        self, symbol: str, is_crypto: bool, *, fetcher=None, binance=None
+    ) -> Tuple[bool, str]:
+        """Soft RS gate using cached SPY/BTC closes + per-symbol history."""
+        if not self._rs_enabled:
+            return True, "RS gate off"
+        asset_closes = self._asset_closes_for_rs(
+            symbol, is_crypto, fetcher=fetcher, binance=binance
+        )
+        return new_entry_rs_allowed(
+            symbol=str(symbol),
+            is_crypto=is_crypto,
+            asset_closes=asset_closes,
+            spy_closes=self._spy_closes,
+            btc_closes=self._btc_closes,
+            lookback=self._rs_lookback,
+            enabled=True,
         )
 
     def _record_exit(self, symbol: str) -> None:
@@ -688,6 +760,13 @@ class IntelligentTrader:
                     print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
                     continue
 
+                rs_ok, rs_why = self._rs_entry_ok(
+                    str(symbol), is_crypto, fetcher=fetcher, binance=binance
+                )
+                if not rs_ok:
+                    print(f"   ⏸️  Skipping {symbol}: RS gate ({rs_why})")
+                    continue
+
                 if is_crypto:
                     binance_symbol = binance.convert_symbol(symbol)
                     binance_data = binance.get_crypto_price(binance_symbol)
@@ -927,6 +1006,13 @@ class IntelligentTrader:
                     if not allowed:
                         print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
                         continue
+
+                    rs_ok, rs_why = self._rs_entry_ok(
+                        str(symbol), is_crypto, fetcher=fetcher, binance=binance
+                    )
+                    if not rs_ok:
+                        print(f"   ⏸️  Skipping {symbol}: RS gate ({rs_why})")
+                        continue
                     
                     if is_crypto:
                         binance_symbol = binance.convert_symbol(symbol)
@@ -997,7 +1083,7 @@ class IntelligentTrader:
         """
         Hot-reload Ops knobs from data/trader_config.json (env fallback).
 
-        AI mode/model and regime gate can change without recreating the container.
+        AI mode/model, regime gate, and RS gate can change without recreating the container.
         """
         from .trader_config import load_trader_config
         import os
@@ -1007,13 +1093,17 @@ class IntelligentTrader:
         new_model = str(cfg.get("ai_model") or "gemma4:latest")
         multi = bool(cfg.get("ai_multi_role", True))
         regime = bool(cfg.get("regime_gate", True))
+        rs_gate = bool(cfg.get("rs_gate", True))
         fee_preset = str(cfg.get("fee_preset") or DEFAULT_FEE_PRESET)
         fee_rate = float(cfg.get("commission_rate") or rates_for_preset(fee_preset)[0])
         fee_min = float(cfg.get("commission_min_eur") or rates_for_preset(fee_preset)[1])
 
         os.environ["AI_MULTI_ROLE"] = "1" if multi else "0"
         os.environ["REGIME_GATE"] = "1" if regime else "0"
+        os.environ["RS_GATE"] = "1" if rs_gate else "0"
         self._regime_enabled = regime
+        self._rs_enabled = rs_gate
+        self._rs_lookback = rs_lookback()
 
         fee_changed = (
             abs(float(self.portfolio.commission_rate) - fee_rate) > 1e-12
@@ -1071,7 +1161,9 @@ class IntelligentTrader:
         else:
             self.ai_recommender = None
         print(f"   ⚙️  Runtime config: AI {prev} → {new_mode}/{new_model} "
-              f"(multi-role={'on' if multi else 'off'}, regime={'on' if regime else 'off'})")
+              f"(multi-role={'on' if multi else 'off'}, "
+              f"regime={'on' if regime else 'off'}, "
+              f"rs={'on' if rs_gate else 'off'})")
 
     def run(self):
         """

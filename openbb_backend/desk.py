@@ -97,6 +97,7 @@ def _trader_runtime_view() -> dict[str, Any]:
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,
         "regime_gate": bool(cfg.get("regime_gate", True)),
+        "rs_gate": bool(cfg.get("rs_gate", True)),
         "promote_experiment_strategy": bool(
             cfg.get("promote_experiment_strategy", False)
         ),
@@ -595,6 +596,11 @@ def load_desk_snapshot(
             "title": "SMA market-regime gate",
             "from": "RyanJHamby/stock-screener (regime filtering)",
             "note": "Soft block new buys when SPY is below SMA200 or BTC below SMA50; holds untouched.",
+        },
+        {
+            "title": "Relative-strength entry gate",
+            "from": "RyanJHamby/stock-screener (RS as primary filter)",
+            "note": "Soft block new buys lagging SPY/BTC over ~63 sessions; Ops toggle; fail-open.",
         },
     ]
 
