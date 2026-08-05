@@ -3,6 +3,8 @@
 Ship **tagged GitHub Releases** when the product moves — not every commit.
 Aim for roughly **every 1–2 weeks**, or sooner after a desk / trader milestone.
 
+User-facing history lives in [`CHANGELOG.md`](CHANGELOG.md). When you cut a tag, move the relevant **Unreleased** bullets into a new version section.
+
 ## When to cut a release
 
 Cut one if any of these landed since the last tag:
