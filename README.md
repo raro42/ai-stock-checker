@@ -114,7 +114,7 @@ No secret sauce. No “proprietary neural alpha.” Just a few rude filters betw
 | **Anti flip-flop** | Min hold + rebuy cooldown + “don’t sell losers just to rotate” — SCHW → SCHW twelve minutes later is not a strategy, it’s a tip jar |
 | **Book posture** | Overweight → TP/SL only (no buys, no scan rotation). Slim books heal; fat books diet |
 
-Yes, some of this smells like Minervini / Stage-2 hygiene we borrowed from open screeners ([GitHub watch](GITHUB_WATCH.md)). We stole the **discipline**, not their backtest screenshots. Ours still has to survive Revolut-shaped paper fees and a walk-forward promote gate before anyone gets to brag.
+Yes, some of this smells like Minervini / Stage-2 hygiene we borrowed from open screeners ([GitHub watch](GITHUB_WATCH.md)). We’ve been inspired by the **discipline**, not their backtest screenshots. Ours still has to survive Revolut-shaped paper fees and a walk-forward promote gate before anyone gets to brag.
 
 Ops checkboxes for regime + RS if you want to turn “boring” back into “interesting.” Interesting is usually expensive.
 
