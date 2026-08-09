@@ -1,8 +1,8 @@
 # AI Stock Checker
 
-**A local paper-trading desk that refuses to lie to you.**
+**We scan stocks and crypto on your machine, paper-trade them with realistic fees and anti-churn rules, and show the book in a local browser desk — so friends can test strategies honestly before risking real money.**
 
-Docker-first stock & crypto scanning with anti-churn defaults, fee-aware paper fills, optional Ollama AI, and a quiet editorial UI — built for friends who want honest marks, not dashboard theater.
+Docker-first scanning, fee-aware paper fills, optional Ollama AI, and a quiet editorial UI — not dashboard theater.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-d4a574?style=flat-square)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-7dcea0?style=flat-square)](https://www.python.org/)
