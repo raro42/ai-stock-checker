@@ -98,19 +98,20 @@ Harness matches paper Ops defaults: `revolut_standard` fees (0.25% + €1 min), 
 Preferred for overnight when Ollama is up — **no Cursor agent tokens**:
 
 ```bash
-# one experiment
+# one experiment (no-ops outside night window unless FORCE=1)
 ./scripts/run_ollama_autoresearch_once.sh
 # optional: push keeps
 OLLAMA_AUTOSEARCH_PUSH=1 ./scripts/run_ollama_autoresearch_once.sh
 
-# overnight loop (default every 480s)
+# overnight loop (ticks every 480s only inside 23:00–08:00 Europe/Berlin)
 ./scripts/run_ollama_autoresearch_loop.sh
 ```
 
 Env: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_AUTOSEARCH_MODEL` (default `gemma4:latest`).
+Night window: `OLLAMA_AUTOSEARCH_NIGHT_START=23`, `OLLAMA_AUTOSEARCH_NIGHT_END=8`, `OLLAMA_AUTOSEARCH_TZ=Europe/Berlin`. Daytime override: `OLLAMA_AUTOSEARCH_FORCE=1`.
 
 Do **not** run Cursor `AGENT_LOOP_TICK_autoresearch` and the Ollama loop at the same time (git races). Pick one.
 
 ## CEST overnight note
 
-Human timezone is **CEST**. Prefer steady progress until morning. Log every run in `results.tsv` so breakfast review is easy.
+Human timezone is **CEST**. Autoresearch is **night-only** (23:00–08:00 Europe/Berlin) so daytime CPU/GPU stay free. Log every run in `results.tsv` so breakfast review is easy.

@@ -83,8 +83,15 @@ check_openbb_http() {
 }
 
 ensure_ollama_loop() {
+  # Keep the supervisor process up 24/7; the loop itself sleeps outside
+  # 23:00–08:00 Europe/Berlin and will not run experiments during the day.
   if pgrep -f 'run_ollama_autoresearch_loop.sh' >/dev/null 2>&1; then
-    log "OK: ollama autoresearch loop"
+    win="$(python3 -m stock_checker.autoresearch_schedule in_window 2>/dev/null || echo 0)"
+    if [[ "$win" == "1" ]]; then
+      log "OK: ollama autoresearch loop (in night window)"
+    else
+      log "OK: ollama autoresearch loop (day idle until night window)"
+    fi
     return
   fi
   log "RESTART: ollama autoresearch loop"

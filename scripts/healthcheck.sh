@@ -35,7 +35,11 @@ else
 fi
 
 if pgrep -f 'run_ollama_autoresearch_loop.sh' >/dev/null 2>&1; then
-  ok "ollama autoresearch loop"
+  if [[ "$(python3 -m stock_checker.autoresearch_schedule in_window 2>/dev/null || echo 0)" == "1" ]]; then
+    ok "ollama autoresearch loop (night window active)"
+  else
+    ok "ollama autoresearch loop (day idle; ticks 23:00-08:00 Europe/Berlin)"
+  fi
 else
   echo "WARN ollama autoresearch loop not running (optional overnight)"
 fi

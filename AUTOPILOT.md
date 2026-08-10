@@ -15,7 +15,7 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 
 While the human sleeps:
 
-- Keep **Ollama autoresearch** looping (strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`).
+- Keep **Ollama autoresearch** looping **night-only** (23:00–08:00 Europe/Berlin; strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`). Process may stay up daytime but must idle.
 - Keep **product improve** looping hourly (`./scripts/run_improve_loop.sh` → `AGENT_LOOP_TICK_improve`) — **≥1 idea per hour**, including GitHub watch triage.
 - Keep paper stack up: `docker compose up -d intelligent-trader openbb-backend`.
 - Keep **GitHub idea watch** looping (`./scripts/run_github_watch_loop.sh`) so external screener/agent repos surface transferable ideas.
@@ -28,7 +28,7 @@ While the human sleeps:
 |------|-------|---------|---------|
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
 | GitHub idea watch | `./scripts/run_github_watch_loop.sh` | cadence-aware | Commits/releases on curated repos when due → `AGENT_LOOP_TICK_github_watch` |
-| Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m | Strategy `val_score` keep/revert (no Cursor tokens) |
+| Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m **only 23:00–08:00 Europe/Berlin** | Strategy `val_score` keep/revert (no Cursor tokens); day idle |
 | Product improve | `./scripts/run_improve_loop.sh` → `AGENT_LOOP_TICK_improve` | **1h** | ≥1 idea/tick; always review GitHub watch digest |
 | Clean-code agent | `./scripts/run_clean_code_agent.sh` | on improve ticks / manual | Ruff + move ad-hoc slop; gemma4 advisory review |
 

@@ -9,14 +9,18 @@ Overnight keep/revert loop inspired by [karpathy/autoresearch](https://github.co
 
 ## Local Ollama (recommended overnight)
 
-Zero Cursor tokens — Ollama proposes the next strategy file; Docker scores it:
+Zero Cursor tokens — Ollama proposes the next strategy file; Docker scores it.
+
+**Night window only:** experiments run **23:00–08:00 Europe/Berlin** (CEST/CET). The loop process can stay up all day; it sleeps until the window opens. Manual daytime run: `OLLAMA_AUTOSEARCH_FORCE=1`.
 
 ```bash
 ./scripts/run_ollama_autoresearch_once.sh
-./scripts/run_ollama_autoresearch_loop.sh   # every 8m until killed
+./scripts/run_ollama_autoresearch_loop.sh   # ticks every 8m inside the night window
 ```
 
 Model default: `gemma4:latest` (`OLLAMA_AUTOSEARCH_MODEL`). Set `OLLAMA_AUTOSEARCH_PUSH=1` to push keeps. See [MODELS.md](../MODELS.md).
+
+Env overrides: `OLLAMA_AUTOSEARCH_NIGHT_START` (default 23), `OLLAMA_AUTOSEARCH_NIGHT_END` (default 8), `OLLAMA_AUTOSEARCH_TZ` (default `Europe/Berlin`).
 
 ## Cursor agent loop
 
