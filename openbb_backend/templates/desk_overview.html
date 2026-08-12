@@ -8,9 +8,8 @@
 <header class="hero">
   <p class="eyebrow">Overview</p>
   <h1 class="equity">€{{ "{:,.2f}".format(snap.equity) }}</h1>
-  <p class="lede">Paper book mark-to-market. Honest fees, low churn.</p>
   <p class="ret {% if snap.ret_pct >= 0 %}up{% else %}down{% endif %}">
-    {{ "%+.2f"|format(snap.ret_pct) }}% vs start
+    {{ "%+.2f"|format(snap.ret_pct) }}% vs start{% if snap.book_age_label %} · {{ snap.book_age_label }}{% endif %}
     · cash €{{ "{:,.2f}".format(snap.cash) }}
     · deployed {{ "%.0f"|format(snap.deployed_pct) }}%
   </p>

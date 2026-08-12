@@ -26,7 +26,7 @@ def _seed_portfolio(data: Path) -> None:
     (data / "trades.jsonl").write_text(
         json.dumps(
             {
-                "timestamp": "t",
+                "timestamp": "2026-07-26 10:11:35",
                 "type": "BUY",
                 "symbol": "AAPL",
                 "quantity": 10,
@@ -37,7 +37,7 @@ def _seed_portfolio(data: Path) -> None:
         + "\n"
         + json.dumps(
             {
-                "timestamp": "t2",
+                "timestamp": "2026-07-28 12:00:00",
                 "type": "SELL",
                 "symbol": "AAPL",
                 "quantity": 1,
@@ -161,6 +161,9 @@ def test_desk_snapshot_rich(tmp_path: Path):
     )
     assert snap["cash"] == 5000
     assert snap["positions"] == 2
+    assert snap["book_start"] == "2026-07-26"
+    assert snap["book_age_days"] is not None
+    assert snap["book_age_label"].startswith("2026-07-26 (")
     assert snap["realized"] == 9.0
     assert snap["buy_count"] == 1
     assert snap["sell_count"] == 1

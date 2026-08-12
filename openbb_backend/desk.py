@@ -40,6 +40,64 @@ def _load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+def _parse_book_ts(raw: Any) -> Optional[datetime]:
+    """Parse portfolio reset_at or trade timestamp into aware UTC."""
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    # ISO with optional Z
+    try:
+        iso = text.replace("Z", "+00:00") if text.endswith("Z") else text
+        dt = datetime.fromisoformat(iso)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text[:19] if len(text) >= 19 else text, fmt).replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            continue
+    return None
+
+
+def book_start_meta(
+    portfolio: dict,
+    trades: list[dict],
+    *,
+    now: Optional[datetime] = None,
+) -> dict[str, Any]:
+    """Book start date + age for Overview (reset_at, else first fill)."""
+    start = _parse_book_ts(portfolio.get("reset_at"))
+    if start is None:
+        for t in trades:
+            cand = _parse_book_ts(t.get("timestamp"))
+            if cand is not None:
+                start = cand
+                break
+    if start is None:
+        return {
+            "book_start": "",
+            "book_age_days": None,
+            "book_age_label": "",
+        }
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+    days = max(0, (clock.date() - start.astimezone(timezone.utc).date()).days)
+    date_s = start.strftime("%Y-%m-%d")
+    return {
+        "book_start": date_s,
+        "book_age_days": days,
+        "book_age_label": f"{date_s} ({days}d)",
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -242,6 +300,7 @@ def load_desk_snapshot(
 
     portfolio = _load_json(data_dir / "portfolio.json", {})
     trades = _load_jsonl(data_dir / "trades.jsonl")
+    age = book_start_meta(portfolio if isinstance(portfolio, dict) else {}, trades)
     entry_times = _load_json(data_dir / "entry_times.json", {})
     scan_history = _load_json(data_dir / "stock_scan_history.json", {})
     scanned = _load_json(data_dir / "scanned_symbols.json", {})
@@ -679,6 +738,9 @@ def load_desk_snapshot(
         "equity": equity,
         "equity_cost": equity_cost,
         "ret_pct": ret_pct,
+        "book_start": age["book_start"],
+        "book_age_days": age["book_age_days"],
+        "book_age_label": age["book_age_label"],
         "unrealized_total": unrealized_total,
         "unrealized_pct": unrealized_pct,
         "deployed_pct": deployed_pct,
