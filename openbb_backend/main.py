@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from datetime import datetime
@@ -11,13 +12,14 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import load_desk_snapshot
+from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
 from openbb_backend.repo_meta import load_repo_meta
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
@@ -78,7 +80,7 @@ _DESK_SCREENS = {
         "template": "desk_ops.html",
         "label": "Ops",
         "title": "Ops — AI Stock Checker Paper Desk",
-        "description": "Watchdog, runtime status, and editable AI / regime knobs for the paper trading stack.",
+        "description": "Watchdog, runtime logs, and editable AI / regime knobs for the paper trading stack.",
     },
 }
 
@@ -279,6 +281,48 @@ async def desk_config_put(request: Request):
 def paper_desk_charts():
     """Equity / allocation / price series for the Charts screen."""
     return load_chart_payload(DATA_DIR)
+
+
+@app.get("/desk/api/logs")
+def desk_logs_list():
+    """Allowlisted log files under DATA_DIR (shared volume with the trader)."""
+    return {"sources": list_log_sources(DATA_DIR), "default": "trader"}
+
+
+@app.get("/desk/api/logs/{source}")
+def desk_logs_tail(source: str, max_bytes: int = Query(64_000, ge=1024, le=512_000)):
+    """Snapshot tail of one allowlisted log."""
+    if source not in LOG_SOURCES:
+        raise HTTPException(status_code=404, detail="Unknown log source")
+    return read_log_tail(DATA_DIR, source, max_bytes=max_bytes)
+
+
+@app.get("/desk/api/logs/{source}/stream")
+async def desk_logs_stream(source: str):
+    """SSE live tail — same files the trader/loops write under /data."""
+    if source not in LOG_SOURCES:
+        raise HTTPException(status_code=404, detail="Unknown log source")
+
+    async def event_gen():
+        try:
+            async for chunk in follow_log(DATA_DIR, source):
+                for line in chunk.splitlines() or [""]:
+                    yield f"data: {line}\n"
+                yield "\n"
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — surface to client then end
+            yield f"event: logerror\ndata: {exc}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/favicon.ico")

@@ -3,7 +3,7 @@
 <header class="page-head">
   <p class="eyebrow">Ops</p>
   <h1>Runtime</h1>
-  <p class="lede">Watchdog, portfolio timestamps, and trader knobs — configure AI here; no secrets in the browser.</p>
+  <p class="lede">Watchdog, live logs from shared <code>data/</code>, and trader knobs — configure AI here; no secrets in the browser.</p>
 </header>
 
 <section class="block system" aria-labelledby="cfg-h">
@@ -151,6 +151,28 @@
       <dd class="sub">{{ snap.runtime.calm_hint }}</dd>
     </div>
   </dl>
+</section>
+
+<section class="block system" aria-labelledby="logs-h">
+  <h2 id="logs-h">Live logs</h2>
+  <p class="sub">Shared <code>data/</code> volume — trader tees to <code>logs/trader.log</code>; overnight loops write <code>run_*.log</code>. No Docker socket.</p>
+  <div class="ops-logs" data-ops-logs>
+    <div class="ops-logs-toolbar">
+      <label class="ops-field">
+        <span class="ops-label">Source</span>
+        <select id="ops-log-source" aria-label="Log source">
+          <option value="trader">trader</option>
+          <option value="watchdog">watchdog loop</option>
+          <option value="watchdog_detail">watchdog detail</option>
+          <option value="ollama">ollama autoresearch</option>
+          <option value="improve">improve loop</option>
+          <option value="github_watch">github watch</option>
+        </select>
+      </label>
+      <p id="ops-log-meta" class="ops-logs-meta" aria-live="polite"></p>
+    </div>
+    <pre id="ops-log-view" class="ops-log-view" aria-label="Live log output" tabindex="0"></pre>
+  </div>
 </section>
 
 <section class="block system" aria-labelledby="obb-h">

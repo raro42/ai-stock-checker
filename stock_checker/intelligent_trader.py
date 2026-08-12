@@ -1356,6 +1356,12 @@ class IntelligentTrader:
 
 def main():
     import argparse
+    import os
+    from pathlib import Path
+
+    from .runtime_log import install_runtime_log
+
+    install_runtime_log("trader", data_dir=Path(os.getenv("DATA_DIR", "/data")))
 
     parser = argparse.ArgumentParser(description="Intelligent trading with continuous market analysis")
     parser.add_argument("--capital", type=float, default=10000.0, help="Initial capital")

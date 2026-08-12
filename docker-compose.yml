@@ -25,6 +25,7 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - DATA_DIR=/data
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - LLM_BACKEND=${LLM_BACKEND:-ollama}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}

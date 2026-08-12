@@ -44,7 +44,7 @@ Seven screens. One chrome. Local D3 — no CDN roulette.
 | **Breadth** | Session exposure + scan pulse (A/D on leaders) |
 | **Book** | Holdings with dated paths since your buy |
 | **Ideas** | Scanner picks + open research watch |
-| **Ops** | Runtime knobs, gates, watchdog honesty |
+| **Ops** | Runtime knobs, gates, watchdog honesty, live logs from `data/` |
 
 Open locally after compose: **[http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk)**
 

@@ -95,6 +95,84 @@
     });
   }
 
+  var logRoot = document.querySelector("[data-ops-logs]");
+  if (logRoot) {
+    var sourceEl = document.getElementById("ops-log-source");
+    var viewEl = document.getElementById("ops-log-view");
+    var metaEl = document.getElementById("ops-log-meta");
+    var es = null;
+    var stickBottom = true;
+
+    function setMeta(text) {
+      if (metaEl) {
+        metaEl.textContent = text || "";
+      }
+    }
+
+    function appendLines(text) {
+      if (!viewEl || !text) {
+        return;
+      }
+      viewEl.textContent += text;
+      if (viewEl.textContent.length > 400000) {
+        viewEl.textContent = viewEl.textContent.slice(-300000);
+      }
+      if (stickBottom) {
+        viewEl.scrollTop = viewEl.scrollHeight;
+      }
+    }
+
+    if (viewEl) {
+      viewEl.addEventListener("scroll", function () {
+        var gap = viewEl.scrollHeight - viewEl.scrollTop - viewEl.clientHeight;
+        stickBottom = gap < 48;
+      });
+    }
+
+    function connect() {
+      if (!sourceEl || !viewEl) {
+        return;
+      }
+      if (es) {
+        es.close();
+        es = null;
+      }
+      var source = sourceEl.value || "trader";
+      viewEl.textContent = "";
+      stickBottom = true;
+      setMeta("Connecting " + source + "…");
+      es = new EventSource("/desk/api/logs/" + encodeURIComponent(source) + "/stream");
+      es.onopen = function () {
+        setMeta(source + " · live");
+      };
+      es.onmessage = function (ev) {
+        appendLines((ev.data || "") + "\n");
+      };
+      es.addEventListener("logerror", function (ev) {
+        if (ev && ev.data) {
+          setMeta("Error: " + ev.data);
+        }
+      });
+      es.onerror = function () {
+        if (es && es.readyState === EventSource.CLOSED) {
+          setMeta(source + " · disconnected");
+        } else {
+          setMeta(source + " · reconnecting…");
+        }
+      };
+    }
+
+    if (sourceEl) {
+      sourceEl.addEventListener("change", connect);
+    }
+    connect();
+    window.addEventListener("beforeunload", function () {
+      if (es) {
+        es.close();
+      }
+    });
+  }
+
   var el = document.getElementById("refresh-eta");
   if (!el) {
     return;

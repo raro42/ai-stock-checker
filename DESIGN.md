@@ -48,7 +48,7 @@ Typography carries hierarchy; stock “hero art” does not.
 
 ## Screens
 
-Overview · Screener · Breadth · Book · Charts · Ideas · Ops — same chrome, different job.
+Overview · Screener · Breadth · Book · Charts · Ideas · Ops — same chrome, different job. Ops includes a quiet live log tail from shared `data/` (not a neon terminal).
 
 ## What we refuse
 

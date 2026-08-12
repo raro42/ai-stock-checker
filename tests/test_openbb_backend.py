@@ -332,6 +332,8 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert resp.status_code == 200
     assert 'data-ops-config' in resp.text
     assert 'id="ops-ai-mode"' in resp.text
+    assert 'data-ops-logs' in resp.text
+    assert 'id="ops-log-view"' in resp.text
 
     _seed_portfolio(tmp_path)
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
@@ -383,6 +385,17 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
 
     assert client.get("/desk/ops").text.find("Trader config") >= 0
     assert "AI mode" in client.get("/desk/ops").text
+    assert "Live logs" in client.get("/desk/ops").text
+
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "logs" / "trader.log").write_text("tee-line\n", encoding="utf-8")
+    logs_list = client.get("/desk/api/logs")
+    assert logs_list.status_code == 200
+    assert logs_list.json()["default"] == "trader"
+    tail = client.get("/desk/api/logs/trader")
+    assert tail.status_code == 200
+    assert "tee-line" in tail.json()["text"]
+    assert client.get("/desk/api/logs/nope").status_code == 404
 
     charts = client.get("/desk/api/charts")
     assert charts.status_code == 200

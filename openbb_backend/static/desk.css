@@ -1127,6 +1127,46 @@ a:active {
   word-break: break-all;
 }
 
+.ops-logs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.5rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.ops-logs-toolbar .ops-field {
+  margin: 0;
+  min-width: 12rem;
+}
+
+.ops-logs-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: var(--font-data);
+}
+
+.ops-log-view {
+  margin: 0;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-data);
+  background: transparent;
+}
+
+.ops-log-view:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
 @media (max-width: 720px) {
   .ops-grid {
     grid-template-columns: 1fr;
