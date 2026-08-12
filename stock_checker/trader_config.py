@@ -33,7 +33,7 @@ DEFAULTS: dict[str, Any] = {
     "rs_gate": True,
     "breadth_gate": True,
     "fee_preset": DEFAULT_FEE_PRESET,
-    # Anti-churn paper defaults (tighter than old compose 8×4h).
+    # Anti-churn paper defaults — single source of truth with compose + IntelligentTrader.
     "max_positions": 5,
     "min_hold_hours": 24,
     # Champion entry filter (experiment_strategy). Off until calm paper stretch.

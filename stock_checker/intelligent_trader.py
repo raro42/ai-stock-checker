@@ -63,8 +63,12 @@ from .promoted_strategy import (
     build_bars_for_symbols,
     filter_opportunities as filter_promoted_opportunities,
 )
+from .trader_config import DEFAULTS as TRADER_DEFAULTS
 from . import __version__
 
+
+_DEFAULT_MAX_POSITIONS = int(TRADER_DEFAULTS["max_positions"])
+_DEFAULT_MIN_HOLD_SECONDS = int(float(TRADER_DEFAULTS["min_hold_hours"]) * 3600)
 
 class IntelligentTrader:
     """
@@ -76,10 +80,10 @@ class IntelligentTrader:
         initial_cash: float = 10000.0,
         scan_interval: int = 900,  # 15 minutes
         trade_interval: int = 300,  # 5 minutes
-        max_positions: int = 8,
+        max_positions: int = _DEFAULT_MAX_POSITIONS,
         position_size: float = 0.10,  # 10% per position
-        rebalance_threshold: float = 0.15,  # 15% score difference to trigger rebalance
-        min_hold_time: int = 14400,  # 4 hours minimum hold (anti-churn)
+        rebalance_threshold: float = 0.15,  # unused (legacy print only)
+        min_hold_time: int = _DEFAULT_MIN_HOLD_SECONDS,  # Ops default hours → seconds
         ai_mode: str = "off",  # off, validate, full
         ai_model: str = "gemma4:latest",
         top_crypto_count: int = 2
@@ -1367,9 +1371,19 @@ def main():
     parser.add_argument("--capital", type=float, default=10000.0, help="Initial capital")
     parser.add_argument("--scan-interval", type=int, default=900, help="Market scan interval (seconds)")
     parser.add_argument("--trade-interval", type=int, default=300, help="Trading check interval (seconds)")
-    parser.add_argument("--max-positions", type=int, default=8, help="Maximum positions")
+    parser.add_argument(
+        "--max-positions",
+        type=int,
+        default=_DEFAULT_MAX_POSITIONS,
+        help=f"Maximum positions (default {_DEFAULT_MAX_POSITIONS}, matches Ops)",
+    )
     parser.add_argument("--position-size", type=float, default=0.10, help="Position size as % of portfolio")
-    parser.add_argument("--min-hold-time", type=int, default=14400, help="Minimum hold time (seconds)")
+    parser.add_argument(
+        "--min-hold-time",
+        type=int,
+        default=_DEFAULT_MIN_HOLD_SECONDS,
+        help=f"Minimum hold time seconds (default {_DEFAULT_MIN_HOLD_SECONDS}, matches Ops hours)",
+    )
     parser.add_argument("--ai-mode", type=str, default="off", choices=["off", "validate", "full"],
                         help="AI analysis mode: off (rule-based only), validate (AI validates HIGH signals), full (AI-driven)")
     parser.add_argument("--ai-model", type=str, default="gemma4:latest",

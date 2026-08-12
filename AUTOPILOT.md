@@ -45,7 +45,9 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 - [x] Live-shaped harness (Revolut fees + book caps) — promote gate must pass **under live fees**
 - [x] Promote adapter (`stock_checker/promoted_strategy.py` + Ops `promote_experiment_strategy`) — entry veto only; exits stay in `exit_policy`
 - [x] Calm-paper streak tracker (`paper_calm.py`, Ops “Paper calm streak”, `scripts/check_promote_compose_ready.py`) — unlock criterion for compose default
-- [ ] Flip `promote_experiment_strategy` **compose default-on** only when `./scripts/check_promote_compose_ready.py` exits 0 (≥30 calm days with promote on, book not overweight, fee burn quiet)
+- [x] Compose + trader CLI book limits aligned with Ops DEFAULTS (5 positions / 24h hold) — `tests/test_book_limit_defaults.py`
+- [ ] **Before trusting promote:** fee-adjusted promote-on vs promote-off paper comparison (same book rules); calm streak ≠ edge
+- [ ] Flip `promote_experiment_strategy` **compose default-on** only when calm gate passes **and** promote A/B is documented positive (or explicitly waived by human)
 - [x] Hold second overnight loop editing `exit_policy` — deferred by design until the promote compose default is unlocked
 
 ### Phase B — Harden paper desk

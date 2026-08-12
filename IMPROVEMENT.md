@@ -4,6 +4,14 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 
 **Autopilot:** see [AUTOPILOT.md](AUTOPILOT.md). Do not wait for the human to ask — implement continuously via `AGENT_LOOP_TICK_improve`.
 
+## Next (maintenance / trust — work top-down)
+
+- [x] **One config truth:** compose + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ regression test)
+- [ ] **Promote A/B:** fee-adjusted promote-on vs promote-off paper window before treating champion as live edge (calm streak alone is not enough)
+- [ ] **Breadth gate honesty:** fail-open / schema issues under missing `change_24h` — fix or disable by default
+- [ ] **Carve god-loop:** entry vs exit vs gates + one offline single-cycle test; quarantine dead `rebalance_threshold` / non-live ATR path
+- [ ] **Loop reliability:** durable watchdog so night autoresearch actually ticks
+
 ## Done (2026-07-25)
 
 - [x] Remove hardcoded Finnhub key from compose; use `.env` / `.env.example`

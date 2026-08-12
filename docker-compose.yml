@@ -37,15 +37,15 @@ services:
       - AI_VERBOSE=${AI_VERBOSE:-0}
       - REGIME_GATE=${REGIME_GATE:-1}
     restart: unless-stopped
-    # Anti-churn defaults: scan every 15m, trade every 5m, hold ≥4h
+    # Anti-churn defaults: scan 15m, trade 5m, max 5, hold 24h (match Ops trader_config.DEFAULTS)
     command: >
       python3 -u -m stock_checker.intelligent_trader
       --capital 100000
       --scan-interval 900
       --trade-interval 300
-      --max-positions 8
+      --max-positions 5
       --position-size 0.10
-      --min-hold-time 14400
+      --min-hold-time 86400
       --ai-mode ${AI_MODE:-off}
       --ai-model ${AI_MODEL:-gemma4:latest}
       --top-crypto-count 2
