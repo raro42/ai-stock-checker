@@ -771,14 +771,17 @@ class MarketScanner:
                 'asset_class': 'crypto',
                 'strategy': 'momentum',
                 'score': crypto.get('final_score', crypto['score']),
+                'change_24h': crypto.get('change_24h'),
                 'reasoning': f"+{crypto['change_24h']:.2f}% 24h momentum, {crypto['volatility']:.1f}% volatility"
             })
 
-        # Top stock breakouts
+        # Top stock breakouts — score band so near-highs can compete with crypto
+        # momentum points without raw 24h% domination (review A11).
         for i, stock in enumerate(breakouts[:3], len(recommendations) + 1):
             risk_bit = stock.get("risk_note") or ""
+            pct = float(stock.get("pct_from_high") or 0)
             reasoning = (
-                f"{stock['strength']} breakout, {stock['pct_from_high']:+.2f}% from 52w high"
+                f"{stock['strength']} breakout, {pct:+.2f}% from 52w high"
             )
             if risk_bit and risk_bit != "risk n/a":
                 reasoning = f"{reasoning} · {risk_bit}"
@@ -787,7 +790,10 @@ class MarketScanner:
                 'symbol': stock['symbol'],
                 'asset_class': 'stock',
                 'strategy': 'breakout',
-                'score': stock['pct_from_high'],
+                # Map [-5, 0] near-high into ~[35, 40] so sort slots aren't crypto-only.
+                'score': 40.0 + pct,
+                'pct_from_high': pct,
+                'change_24h': stock.get('daily_change_pct'),
                 'reasoning': reasoning,
                 'risk_note': risk_bit,
                 'risk_rr': stock.get('risk_rr'),

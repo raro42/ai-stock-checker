@@ -44,9 +44,11 @@ from .relative_strength import (
 from .scan_breadth_gate import (
     breadth_gate_enabled,
     new_entry_breadth_allowed,
-    pulse_from_opportunities,
+    pulse_from_scan_lists,
     summarize_pulse,
 )
+from .gate_audit import log_soft_allow
+from .entry_slots import interleave_asset_slots
 from .paper_calm import upsert_calm_day
 from .exit_policy import (
     book_action_mode,
@@ -126,6 +128,7 @@ class IntelligentTrader:
         self._rs_lookback = rs_lookback()
         self._breadth_enabled = breadth_gate_enabled()
         self._scan_pulse: dict = {}
+        self._last_scan_results: dict = {}
         self._spy_closes: List[float] = []
         self._btc_closes: List[float] = []
         self.promote_experiment_strategy = False
@@ -291,7 +294,7 @@ class IntelligentTrader:
         asset_closes = self._asset_closes_for_rs(
             symbol, is_crypto, fetcher=fetcher, binance=binance
         )
-        return new_entry_rs_allowed(
+        ok, why = new_entry_rs_allowed(
             symbol=str(symbol),
             is_crypto=is_crypto,
             asset_closes=asset_closes,
@@ -300,6 +303,9 @@ class IntelligentTrader:
             lookback=self._rs_lookback,
             enabled=True,
         )
+        if ok:
+            log_soft_allow("rs", why)
+        return ok, why
 
     def _record_exit(self, symbol: str) -> None:
         """Persist exit time so we do not flip-flop rebuy the same name."""
@@ -338,6 +344,7 @@ class IntelligentTrader:
         results = self.scanner.identify_best_opportunities()
 
         opportunities = results['recommendations']
+        self._last_scan_results = results
 
         # Champion entry filter (experiment_strategy) when promote flag is on
         if self.promote_experiment_strategy and opportunities:
@@ -351,6 +358,9 @@ class IntelligentTrader:
                 f"   Promote filter: kept {len(opportunities)}/{before} "
                 f"(rejected {rejected}; no-bars kept)"
             )
+            for opp in opportunities:
+                if str(opp.get("promoted_filter") or "") == "skip_no_bars":
+                    log_soft_allow("promote", f"{opp.get('symbol')}: skip_no_bars")
 
         # AI Validation if enabled
         if self.ai_mode != "off" and self.ai_recommender and opportunities:
@@ -363,7 +373,11 @@ class IntelligentTrader:
 
         self.current_opportunities = opportunities
         self.last_scan_time = time.time()
-        self._scan_pulse = pulse_from_opportunities(opportunities)
+        self._scan_pulse = pulse_from_scan_lists(
+            crypto_leaders=(results or {}).get("crypto_leaders"),
+            stock_breakouts=(results or {}).get("stock_breakouts"),
+            recommendations=opportunities,
+        )
         if self._breadth_enabled:
             print(f"   📊 Breadth pulse: {summarize_pulse(self._scan_pulse)}")
         self._refresh_paper_calm()
@@ -389,11 +403,14 @@ class IntelligentTrader:
         )
 
     def _breadth_entry_ok(self, is_crypto: bool) -> Tuple[bool, str]:
-        return new_entry_breadth_allowed(
+        ok, why = new_entry_breadth_allowed(
             is_crypto=is_crypto,
             pulse=self._scan_pulse,
             enabled=self._breadth_enabled,
         )
+        if ok:
+            log_soft_allow("breadth", why)
+        return ok, why
 
     def _ai_validate_opportunities(self, opportunities: List[Dict]) -> List[Dict]:
         """
@@ -804,11 +821,13 @@ class IntelligentTrader:
         # US cash session closed? stocks skip; crypto still OK on weekdays too
         market_closed = self.scanner.is_market_closed()
 
-        # Sort opportunities by score (highest first)
-        sorted_opportunities = sorted(
-            self.current_opportunities,
-            key=lambda x: x.get("score", 0),
-            reverse=True
+        # Interleave crypto/stock slots (A11) instead of pure global score sort
+        max_c = max(1, int(self.top_crypto_count))
+        max_s = max(1, int(self.max_positions) - max_c + 1)
+        sorted_opportunities = interleave_asset_slots(
+            list(self.current_opportunities),
+            max_crypto=max_c,
+            max_stock=max_s,
         )
 
         trades_executed = 0
@@ -860,6 +879,7 @@ class IntelligentTrader:
                 if not allowed:
                     print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
                     continue
+                log_soft_allow("regime", regime_why)
 
                 rs_ok, rs_why = self._rs_entry_ok(
                     str(symbol), is_crypto, fetcher=fetcher, binance=binance
@@ -1118,6 +1138,7 @@ class IntelligentTrader:
                     if not allowed:
                         print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
                         continue
+                    log_soft_allow("regime", regime_why)
 
                     rs_ok, rs_why = self._rs_entry_ok(
                         str(symbol), is_crypto, fetcher=fetcher, binance=binance

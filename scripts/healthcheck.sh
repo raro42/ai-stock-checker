@@ -41,13 +41,31 @@ if pgrep -f 'run_ollama_autoresearch_loop.sh' >/dev/null 2>&1; then
     ok "ollama autoresearch loop (day idle; ticks 23:00-08:00 Europe/Berlin)"
   fi
 else
-  echo "WARN ollama autoresearch loop not running (optional overnight)"
+  if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
+    bad "ollama autoresearch loop not running"
+  else
+    echo "WARN ollama autoresearch loop not running (optional overnight)"
+  fi
 fi
 
 if pgrep -f 'run_watchdog_loop.sh' >/dev/null 2>&1; then
   ok "watchdog loop"
 else
-  echo "WARN watchdog loop not running (optional overnight)"
+  if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
+    bad "watchdog loop not running"
+  else
+    echo "WARN watchdog loop not running (optional overnight)"
+  fi
+fi
+
+if pgrep -f 'run_improve_loop.sh' >/dev/null 2>&1; then
+  ok "improve loop"
+else
+  if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
+    bad "improve loop not running"
+  else
+    echo "WARN improve loop not running (optional overnight)"
+  fi
 fi
 
 if pgrep -f 'run_github_watch_loop.sh' >/dev/null 2>&1; then

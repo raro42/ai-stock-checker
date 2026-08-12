@@ -432,6 +432,20 @@ def load_desk_snapshot(
         r["weight_bar_pct"] = min(max(w, 0.0), 100.0)
     rows.sort(key=lambda r: r["market_value"], reverse=True)
 
+    # Stuck capital (A15): past min-hold and underwater — visible, not silent.
+    min_hold_h = float(cfg_fees.get("min_hold_hours") or 24)
+    min_hold_s = max(4.0, min_hold_h) * 3600.0
+    stuck = [
+        {
+            "symbol": r["symbol"],
+            "unrealized_pct": r["unrealized_pct"],
+            "held": r["held"],
+            "held_seconds": r.get("held_seconds"),
+        }
+        for r in rows
+        if (r.get("held_seconds") or 0) >= min_hold_s and float(r.get("unrealized_pct") or 0) < 0
+    ]
+
     sells = [t for t in trades if t.get("type") == "SELL"]
     buys = [t for t in trades if t.get("type") == "BUY"]
     realized = sum(float(t.get("profit_loss") or 0) for t in sells)
@@ -746,6 +760,12 @@ def load_desk_snapshot(
         "deployed_pct": deployed_pct,
         "positions": len(rows),
         "holdings": rows,
+        "stuck_underwater": stuck,
+        "stuck_note": (
+            f"{len(stuck)} name(s) past min-hold and underwater — capital trapped until TP/SL/trim"
+            if stuck
+            else ""
+        ),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

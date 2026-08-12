@@ -79,6 +79,7 @@ def pulse_from_opportunities(
     crypto_up = crypto_down = 0
     stock_n = 0
     stock_near = 0
+    crypto_missing_chg = 0
     for row in rows:
         sym = str(row.get("symbol") or "")
         if not sym:
@@ -86,6 +87,7 @@ def pulse_from_opportunities(
         if _is_crypto_symbol(sym):
             chg = _change_pct(row)
             if chg is None:
+                crypto_missing_chg += 1
                 continue
             if chg > 0:
                 crypto_up += 1
@@ -94,19 +96,46 @@ def pulse_from_opportunities(
         else:
             stock_n += 1
             try:
-                near = float(row.get("pct_from_high") or 99)
+                near = float(row.get("pct_from_high")) if row.get("pct_from_high") is not None else None
             except (TypeError, ValueError):
-                near = 99.0
-            score = float(row.get("score") or 0)
-            if near <= 5.0 or score > 0:
+                near = None
+            if near is None:
+                # Fall back: stock score band is 40 + pct_from_high when enriched.
+                try:
+                    score = float(row.get("score") or 0)
+                except (TypeError, ValueError):
+                    score = 0.0
+                if 30.0 <= score <= 45.0:
+                    near = score - 40.0
+                else:
+                    near = 99.0
+            if near <= 5.0:
                 stock_near += 1
     return {
         "crypto_up": crypto_up,
         "crypto_down": crypto_down,
         "crypto_n": crypto_up + crypto_down,
+        "crypto_missing_chg": crypto_missing_chg,
         "stock_n": stock_n,
         "stock_leaders": stock_near,
     }
+
+
+def pulse_from_scan_lists(
+    *,
+    crypto_leaders: Sequence[Mapping[str, Any]] | None = None,
+    stock_breakouts: Sequence[Mapping[str, Any]] | None = None,
+    recommendations: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Prefer full leader/breakout lists; fall back to recommendations."""
+    rows: list[Mapping[str, Any]] = []
+    for src in (crypto_leaders, stock_breakouts):
+        for row in src or []:
+            if isinstance(row, Mapping):
+                rows.append(row)
+    if not rows:
+        return pulse_from_opportunities(recommendations)
+    return pulse_from_opportunities(rows)
 
 
 def new_entry_breadth_allowed(
