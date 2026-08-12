@@ -29,7 +29,8 @@ Prefer **small, frequent commits** over large batches.
 
 - Imperative, scoped, English: `fix earnings blackout weekend path`
 - Focus on **why** in one short subject (≤72 chars); optional body for context
-- Use a HEREDOC:
+- Use a HEREDOC
+- **Never** add Cursor/agent marketing: no `Co-authored-by: Cursor`, no `Made-with: Cursor`, no `--trailer` for cursoragent. Run `./scripts/install-git-hooks.sh` once so hooks strip those lines if injected.
 
 ```bash
 git commit -m "$(cat <<'EOF'

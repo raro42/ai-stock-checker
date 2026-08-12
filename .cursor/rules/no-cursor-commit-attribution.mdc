@@ -1,0 +1,31 @@
+---
+description: Never put Cursor/agent marketing or Co-authored-by trailers in commits
+alwaysApply: true
+---
+
+# No Cursor attribution in commits
+
+Do **not** add any Cursor / agent / IDE marketing to git commits.
+
+## Forbidden in commit messages
+
+- `Co-authored-by: Cursor <cursoragent@cursor.com>` (or any Cursor/cursoragent co-author)
+- `Signed-off-by:` lines that name Cursor/agents
+- `Made-with: Cursor` / similar tool ads
+- Body lines that advertise the agent or IDE
+
+## How to commit
+
+Use a plain HEREDOC message only — **no** `--trailer` for Cursor:
+
+```bash
+git commit -m "$(cat <<'EOF'
+Short imperative summary.
+
+EOF
+)"
+```
+
+Local enforcement: `./scripts/install-git-hooks.sh` installs hooks that strip these lines. Do not use `--no-verify` to bypass that.
+
+Same policy as the POS repo (`prepare-commit-msg` strip + AGENTS rule).

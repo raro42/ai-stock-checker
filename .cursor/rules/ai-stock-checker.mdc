@@ -27,6 +27,7 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - After each verified coherent change: **commit + push** (`git push -u origin HEAD`).
 - Do **not** wait for the human to say “commit” or “push”. Leaving verified work uncommitted is a bug.
 - Never commit secrets/`data/`; never force-push `main`.
+- Never add Cursor/agent commit trailers (`Co-authored-by: Cursor`, etc.). Use `./scripts/install-git-hooks.sh`.
 
 ## Verify
 `docker build -t ai-stock-checker . && docker run --rm ai-stock-checker pytest -q`

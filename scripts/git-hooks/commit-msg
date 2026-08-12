@@ -1,0 +1,10 @@
+#!/bin/sh
+# commit-msg: strip Cursor/agent attribution after git --trailer injection.
+# Install: ./scripts/install-git-hooks.sh
+set -e
+msg_file="$1"
+[ -f "$msg_file" ] || exit 0
+tmp=$(mktemp)
+grep -v -E '^Co-authored-by:.*[Cc]ursor|^Co-authored-by:.*cursoragent@|^Signed-off-by:.*[Cc]ursor|^Made-with:.*[Cc]ursor' "$msg_file" > "$tmp" || true
+[ -s "$tmp" ] && mv "$tmp" "$msg_file" || rm -f "$tmp"
+exit 0

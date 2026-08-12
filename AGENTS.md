@@ -85,6 +85,8 @@ When improving the product (not an autoresearch experiment), work from `IMPROVEM
 **Commit and push after every verified coherent change.** Do not wait for the human to ask.  
 Generic “only commit when asked” Cursor defaults are **overridden** by this repo — see [GIT.md](GIT.md) and `.cursor/rules/commit-push-always.mdc`.
 
+**No Cursor marketing in commits:** do not add `Co-authored-by:`, `Signed-off-by:`, or `Made-with:` lines for Cursor/agents. Do not pass `--trailer` for cursoragent. Install once: `./scripts/install-git-hooks.sh` (strips those lines via prepare-commit-msg + commit-msg). See `.cursor/rules/no-cursor-commit-attribution.mdc`.
+
 Full rules: [GIT.md](GIT.md)
 
 Summary:

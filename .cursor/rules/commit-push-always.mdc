@@ -22,3 +22,4 @@ Do **not** leave shippable work uncommitted. Do **not** wait for the human to sa
 - Force-push `main` / `master`
 - Update git config
 - `--no-verify` unless the human explicitly asks
+- Cursor/agent attribution in commit messages (`Co-authored-by: Cursor`, `Made-with: Cursor`, `--trailer` for cursoragent) — see `no-cursor-commit-attribution.mdc`
