@@ -29,7 +29,6 @@ from .market_regime import (
     classify_close_vs_sma,
     closes_from_binance_klines,
     closes_from_yfinance_hist,
-    new_entry_allowed,
     regime_gate_enabled,
     save_regime_snapshot,
     simple_sma,
@@ -43,12 +42,12 @@ from .relative_strength import (
 )
 from .scan_breadth_gate import (
     breadth_gate_enabled,
-    new_entry_breadth_allowed,
     pulse_from_scan_lists,
     summarize_pulse,
 )
-from .gate_audit import log_soft_allow
-from .entry_slots import interleave_asset_slots
+from .entry_gates import soft_entry_gates_ok
+from .entry_pipeline import apply_promote_entry_filter, order_entry_candidates
+from .trader_cycle import run_one_cycle
 from .paper_calm import upsert_calm_day
 from .exit_policy import (
     book_action_mode,
@@ -61,10 +60,6 @@ from .exit_policy import (
     should_take_profit,
 )
 from .fees import DEFAULT_FEE_PRESET, rates_for_preset
-from .promoted_strategy import (
-    build_bars_for_symbols,
-    filter_opportunities as filter_promoted_opportunities,
-)
 from .trader_config import DEFAULTS as TRADER_DEFAULTS
 from . import __version__
 
@@ -303,8 +298,6 @@ class IntelligentTrader:
             lookback=self._rs_lookback,
             enabled=True,
         )
-        if ok:
-            log_soft_allow("rs", why)
         return ok, why
 
     def _record_exit(self, symbol: str) -> None:
@@ -346,21 +339,14 @@ class IntelligentTrader:
         opportunities = results['recommendations']
         self._last_scan_results = results
 
-        # Champion entry filter (experiment_strategy) when promote flag is on
         if self.promote_experiment_strategy and opportunities:
-            symbols = [str(o.get("symbol") or "") for o in opportunities if o.get("symbol")]
-            print(f"\n📐 Promote filter: scoring {len(symbols)} names vs champion rules...")
-            bars = build_bars_for_symbols(symbols)
-            before = len(opportunities)
-            opportunities = filter_promoted_opportunities(opportunities, bars)
-            rejected = before - len(opportunities)
             print(
-                f"   Promote filter: kept {len(opportunities)}/{before} "
-                f"(rejected {rejected}; no-bars kept)"
+                f"\n📐 Promote filter: scoring "
+                f"{sum(1 for o in opportunities if o.get('symbol'))} names vs champion rules..."
             )
-            for opp in opportunities:
-                if str(opp.get("promoted_filter") or "") == "skip_no_bars":
-                    log_soft_allow("promote", f"{opp.get('symbol')}: skip_no_bars")
+            opportunities = apply_promote_entry_filter(
+                opportunities, promote_on=True
+            )
 
         # AI Validation if enabled
         if self.ai_mode != "off" and self.ai_recommender and opportunities:
@@ -402,15 +388,19 @@ class IntelligentTrader:
             f" ({snap.get('detail') or ''})"
         )
 
-    def _breadth_entry_ok(self, is_crypto: bool) -> Tuple[bool, str]:
-        ok, why = new_entry_breadth_allowed(
+    def _soft_gates_ok(self, symbol: str, is_crypto: bool, *, fetcher=None, binance=None) -> Tuple[bool, str]:
+        """Regime → RS → breadth (shared by new trades and rebalance buys)."""
+        return soft_entry_gates_ok(
             is_crypto=is_crypto,
-            pulse=self._scan_pulse,
-            enabled=self._breadth_enabled,
+            stock_regime=self.stock_regime,
+            crypto_regime=self.crypto_regime,
+            regime_enabled=self._regime_enabled,
+            rs_check=lambda: self._rs_entry_ok(
+                str(symbol), is_crypto, fetcher=fetcher, binance=binance
+            ),
+            breadth_pulse=self._scan_pulse,
+            breadth_enabled=self._breadth_enabled,
         )
-        if ok:
-            log_soft_allow("breadth", why)
-        return ok, why
 
     def _ai_validate_opportunities(self, opportunities: List[Dict]) -> List[Dict]:
         """
@@ -821,10 +811,9 @@ class IntelligentTrader:
         # US cash session closed? stocks skip; crypto still OK on weekdays too
         market_closed = self.scanner.is_market_closed()
 
-        # Interleave crypto/stock slots (A11) instead of pure global score sort
         max_c = max(1, int(self.top_crypto_count))
         max_s = max(1, int(self.max_positions) - max_c + 1)
-        sorted_opportunities = interleave_asset_slots(
+        sorted_opportunities = order_entry_candidates(
             list(self.current_opportunities),
             max_crypto=max_c,
             max_stock=max_s,
@@ -870,27 +859,11 @@ class IntelligentTrader:
                     print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
                     continue
 
-                allowed, regime_why = new_entry_allowed(
-                    is_crypto=is_crypto,
-                    stock_regime=self.stock_regime,
-                    crypto_regime=self.crypto_regime,
-                    enabled=self._regime_enabled,
-                )
-                if not allowed:
-                    print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
-                    continue
-                log_soft_allow("regime", regime_why)
-
-                rs_ok, rs_why = self._rs_entry_ok(
+                gates_ok, gates_why = self._soft_gates_ok(
                     str(symbol), is_crypto, fetcher=fetcher, binance=binance
                 )
-                if not rs_ok:
-                    print(f"   ⏸️  Skipping {symbol}: RS gate ({rs_why})")
-                    continue
-
-                breadth_ok, breadth_why = self._breadth_entry_ok(is_crypto)
-                if not breadth_ok:
-                    print(f"   ⏸️  Skipping {symbol}: breadth gate ({breadth_why})")
+                if not gates_ok:
+                    print(f"   ⏸️  Skipping {symbol}: {gates_why}")
                     continue
 
                 if is_crypto:
@@ -1129,27 +1102,11 @@ class IntelligentTrader:
                             print(f"   ⏸️  Skipping {symbol}: earnings blackout ({why})")
                             continue
 
-                    allowed, regime_why = new_entry_allowed(
-                        is_crypto=is_crypto,
-                        stock_regime=self.stock_regime,
-                        crypto_regime=self.crypto_regime,
-                        enabled=self._regime_enabled,
-                    )
-                    if not allowed:
-                        print(f"   ⏸️  Skipping {symbol}: regime gate ({regime_why})")
-                        continue
-                    log_soft_allow("regime", regime_why)
-
-                    rs_ok, rs_why = self._rs_entry_ok(
+                    gates_ok, gates_why = self._soft_gates_ok(
                         str(symbol), is_crypto, fetcher=fetcher, binance=binance
                     )
-                    if not rs_ok:
-                        print(f"   ⏸️  Skipping {symbol}: RS gate ({rs_why})")
-                        continue
-
-                    breadth_ok, breadth_why = self._breadth_entry_ok(is_crypto)
-                    if not breadth_ok:
-                        print(f"   ⏸️  Skipping {symbol}: breadth gate ({breadth_why})")
+                    if not gates_ok:
+                        print(f"   ⏸️  Skipping {symbol}: {gates_why}")
                         continue
                     
                     if is_crypto:
@@ -1328,54 +1285,26 @@ class IntelligentTrader:
             print(f"⏰  Iteration #{iteration} - {timestamp}")
             print(f"{'='*70}")
 
-            self.apply_runtime_config()
-
-            # Periodic market scan
-            if self.should_scan():
-                opportunities = self.scan_markets()
-
-                # Show top 5 opportunities
+            result = run_one_cycle(self)
+            if result.scanned and self.current_opportunities:
                 print(f"\n🎯 Top 5 Opportunities:")
-                for i, opp in enumerate(opportunities[:5], 1):
-                    print(f"   {i}. {opp['symbol']} - {opp['strategy']} - {opp['reasoning']}")
-
-            # Display detailed position analysis
-            if self.portfolio.holdings:
-                self.display_position_details()
-
-            # Check existing positions (profit-taking, stop-loss)
-            if self.portfolio.holdings:
-                print(f"\n📊 Monitoring {len(self.portfolio.holdings)} positions for profit-taking/stop-loss...")
-                self.check_existing_positions()
-
-            posture = book_action_mode(len(self.portfolio.holdings), self.max_positions)
-            if posture == "overweight":
+                for i, opp in enumerate(self.current_opportunities[:5], 1):
+                    print(
+                        f"   {i}. {opp.get('symbol')} - "
+                        f"{opp.get('strategy')} - {opp.get('reasoning')}"
+                    )
+            if result.posture == "overweight":
                 print(
                     f"\n⏸️  Book overweight ({len(self.portfolio.holdings)}/{self.max_positions}) — "
                     f"exits only (TP/SL). No new buys or scan rotation until at/under cap."
                 )
-            elif posture == "at_cap":
+            elif result.posture == "at_cap":
                 print(
                     f"\n📊 Book at cap ({len(self.portfolio.holdings)}/{self.max_positions}) — "
                     f"no new entries; rotation only if exit_policy allows."
                 )
-                if self.current_opportunities:
-                    rebalanced = self.evaluate_rebalancing()
-                    if rebalanced:
-                        print(f"\n✅ Portfolio rebalanced")
-            else:
-                # Execute new trades if we have opportunities and room
-                if self.current_opportunities:
-                    print(
-                        f"\n📈 Evaluating new trade opportunities "
-                        f"({len(self.portfolio.holdings)}/{self.max_positions} positions used)..."
-                    )
-                    self.execute_new_trades()
-
-                if self.current_opportunities:
-                    rebalanced = self.evaluate_rebalancing()
-                    if rebalanced:
-                        print(f"\n✅ Portfolio rebalanced")
+            if result.ran_rebalance:
+                print(f"\n✅ Portfolio rebalance phase ran")
 
             # Show portfolio status summary
             portfolio_value = self.portfolio.get_total_value()

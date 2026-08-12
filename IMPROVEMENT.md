@@ -11,7 +11,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 ### A — Trading logic (strategy behavior)
 
 - [x] **A1** One config truth: compose + CLI + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ `tests/test_book_limit_defaults.py`)
-- [x] **A2** Promote A/B: method + baseline artifact [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — **control windows still pending**
+- [x] **A2** Promote A/B: method + baseline + **Window A (promote off) started** 2026-08-12 — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — Window B + fee-adjusted verdict still pending
 - [ ] **A3** Do not flip compose promote default-on until A2 is positive (or human explicitly waives) **and** calm gate passes
 - [x] **A4** Breadth gate honesty: enrich recs with change_24h/pct_from_high; pulse from leaders/breakouts; stock leader detection fixed
 - [x] **A5** Fail-open audit: `gate_audit.log_soft_allow` on regime/RS/breadth/promote skip_no_bars
@@ -32,7 +32,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 
 ### B — Maintainability (ops reliability)
 
-- [ ] **B1** Carve `intelligent_trader` god-loop: entry pipeline vs exits vs gates modules + one offline single-cycle fixture test
+- [x] **B1** Carve `intelligent_trader` god-loop: `entry_gates` / `entry_pipeline` / `trader_cycle` + offline single-cycle fixture (`tests/test_trader_cycle.py`)
 - [x] **B2** Overnight loop durability: `scripts/ensure_overnight_loops.sh` + healthcheck fails when `REQUIRE_OVERNIGHT_LOOPS=1`
 - [x] **B3** Docs diet: redirect/archive `USAGE.md`, `PAPER_TRADING.md`, `MONITORING.md`, `plan.md` → README/FRIENDS
 - [x] **B4** Log retention: trader tee rotates at 5MiB (`runtime_log.py`); loop logs under `data/run_*.log` (Ops live tail)
