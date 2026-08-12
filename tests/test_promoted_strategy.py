@@ -63,6 +63,18 @@ def test_filter_keeps_when_no_bars():
     assert kept[0]["promoted_filter"] == "skip_no_bars"
 
 
+def test_promote_ignores_champion_sell_for_entry_filter():
+    """Contract: promote is entry BUY filter only — SELL signals do not pass as buys."""
+
+    def only_sell(bars_by_symbol, index, portfolio):
+        return {s: "SELL" for s in bars_by_symbol if s != "SPY"}
+
+    bars = {"AAA": bars_from_closes(_rising()), "SPY": bars_from_closes(_rising())}
+    opps = [{"symbol": "AAA", "score": 10.0, "rank": 1}]
+    kept = filter_opportunities(opps, bars, signal_fn=only_sell)
+    assert kept == []
+
+
 def test_champion_wants_buy_none_on_short_series():
     bars = {"AAA": bars_from_closes([1.0, 2.0, 3.0])}
     assert champion_wants_buy(bars, "AAA") is None

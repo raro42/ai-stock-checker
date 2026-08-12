@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 """
-Intelligent trader that continuously scans markets and auto-rebalances portfolio.
+Intelligent trader — continuous scan + paper book management.
 
-This combines market scanning with paper trading to:
-1. Scan markets every 5 minutes for top opportunities
-2. Compare current holdings against best opportunities
-3. Rebalance portfolio if better opportunities emerge
-4. Monitor existing positions with profit-taking and stop-loss
+Combines market scanning with paper trading to:
+1. Scan markets on compose interval (default 15m) for top opportunities
+2. Trade/check on compose interval (default 5m): marks, TP/SL, trim, entries
+3. Apply soft entry gates (regime / RS / breadth / earnings / optional promote)
+4. Exit via exit_policy only (champion promote does not own exits)
 """
 
 from typing import List, Dict, Tuple
@@ -103,8 +103,10 @@ class IntelligentTrader:
         self.trade_interval = trade_interval
         self.max_positions = max_positions
         self.position_size = position_size
-        self.rebalance_threshold = rebalance_threshold
+        self.rebalance_threshold = rebalance_threshold  # UNUSED — not consulted by buy/sell
         self.min_hold_time = min_hold_time
+        self._rebuy_blocks_utc_day = ""
+        self._rebuy_blocks_today = 0
 
         # AI configuration
         self.ai_mode = ai_mode
@@ -142,7 +144,7 @@ class IntelligentTrader:
         print(f"   Position size: {position_size*100}%")
         print(f"   Scan interval: {scan_interval}s")
         print(f"   Trade interval: {trade_interval}s")
-        print(f"   Rebalance threshold: {rebalance_threshold*100}%")
+        print(f"   Rebalance threshold: UNUSED (legacy={rebalance_threshold*100:.0f}% print-only)")
         print(f"   Min hold time: {min_hold_time}s")
         print(f"   Regime gate: {'on' if self._regime_enabled else 'off'} "
               f"(SPY SMA{STOCK_SMA_PERIOD} / BTC SMA{CRYPTO_SMA_PERIOD})")
@@ -311,10 +313,17 @@ class IntelligentTrader:
         """Block buys inside min-hold cooldown after an exit (fee anti-churn)."""
         exit_ts = self.position_exit_times.get(symbol)
         since = (time.time() - float(exit_ts)) if exit_ts is not None else None
-        return should_allow_rebuy(
+        ok, why = should_allow_rebuy(
             seconds_since_exit=since,
             cooldown_seconds=float(self.min_hold_time),
         )
+        if not ok:
+            day = datetime.utcnow().strftime("%Y-%m-%d")
+            if self._rebuy_blocks_utc_day != day:
+                self._rebuy_blocks_utc_day = day
+                self._rebuy_blocks_today = 0
+            self._rebuy_blocks_today += 1
+        return ok, why
 
     def scan_markets(self) -> List[Dict]:
         """
@@ -368,6 +377,7 @@ class IntelligentTrader:
             promote_on=bool(self.promote_experiment_strategy),
             holdings_count=len(self.portfolio.holdings),
             max_positions=int(self.max_positions),
+            flip_flop_blocked_today=int(self._rebuy_blocks_today),
         )
         streak = int(snap.get("streak_days") or 0)
         need = int(snap.get("required_days") or 30)
@@ -700,7 +710,7 @@ class IntelligentTrader:
                 hold_seconds = (
                     now - float(self.position_entry_times[symbol])
                     if symbol in self.position_entry_times
-                    else float(self.min_hold_time)
+                    else 0.0  # unknown entry → enforce min-hold (do not treat as aged-in)
                 )
                 marks.append(
                     {
@@ -1092,6 +1102,12 @@ class IntelligentTrader:
                     if not is_crypto and market_closed:
                         print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
                         continue
+
+                    if not is_crypto:
+                        blocked, why = is_in_earnings_blackout(str(symbol))
+                        if blocked:
+                            print(f"   ⏸️  Skipping {symbol}: earnings blackout ({why})")
+                            continue
 
                     allowed, regime_why = new_entry_allowed(
                         is_crypto=is_crypto,

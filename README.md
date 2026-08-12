@@ -141,9 +141,13 @@ docker run --rm ai-stock-checker pytest -q
 
 ## Honesty policy
 
-We do **not** claim live edge without walk-forward evidence vs SPY.
+We do **not** claim live edge without evidence.
 
-Promote rule: experiment strategies must beat SPY on the **live-shaped** walk-forward blend (Revolut-standard fees + book caps) before enabling the Ops promote filter. Full-sample hero curves alone are not enough. Compose default-on waits for a calm paper month.
+**What actually trades:** the live paper book is **scanner + `exit_policy`** (anti-churn exits, Revolut-like fees). The overnight champion (`experiment_strategy.py`) is an optional **entry filter** when Ops promote is on — it does **not** own exits. Offline walk-forward `val_score` ≠ live expectancy.
+
+Promote: beat SPY on the **live-shaped** walk-forward blend before enabling the Ops promote filter; then measure fee-adjusted **promote-on vs promote-off** paper windows ([docs/PROMOTE_AB.md](docs/PROMOTE_AB.md)). Calm days unlock a process gate, not proof of edge. Compose default-on waits for both.
+
+Paper fees model **0.25%/side · €1 min** (or Ops Ultra / spot-like). Free Revolut monthly allowance and crypto-specific fee schedules are **not** modeled.
 
 If a README ever reads like a hedge-fund pitch deck, open an issue and yell.
 

@@ -4,13 +4,56 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 
 **Autopilot:** see [AUTOPILOT.md](AUTOPILOT.md). Do not wait for the human to ask — implement continuously via `AGENT_LOOP_TICK_improve`.
 
-## Next (maintenance / trust — work top-down)
+## Next — external review assimilation (THREE parts; work top-down, miss nothing)
 
-- [x] **One config truth:** compose + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ regression test)
-- [ ] **Promote A/B:** fee-adjusted promote-on vs promote-off paper window before treating champion as live edge (calm streak alone is not enough)
-- [ ] **Breadth gate honesty:** fail-open / schema issues under missing `change_24h` — fix or disable by default
-- [ ] **Carve god-loop:** entry vs exit vs gates + one offline single-cycle test; quarantine dead `rebalance_threshold` / non-live ATR path
-- [ ] **Loop reliability:** durable watchdog so night autoresearch actually ticks
+Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability assessment, (C) red-team. Every bullet below maps to at least one finding. Do not skip items because they are “small.”
+
+### A — Trading logic (strategy behavior)
+
+- [x] **A1** One config truth: compose + CLI + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ `tests/test_book_limit_defaults.py`)
+- [ ] **A2** Promote A/B: fee-adjusted promote-on vs promote-off paper window; calm streak alone ≠ edge; method: [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) — **run still pending**
+- [ ] **A3** Do not flip compose promote default-on until A2 is positive (or human explicitly waives) **and** calm gate passes
+- [ ] **A4** Breadth gate honesty: schema/`change_24h` fail-open or stock starvation — fix pulse inputs **or** default gate off until proven
+- [ ] **A5** Fail-open audit: regime / RS / promote `skip_no_bars` — log soft-allows; decide fail-closed vs fail-open per gate (document)
+- [x] **A6** Earnings blackout on **rebalance buys** (parity with `execute_new_trades`)
+- [x] **A7** Missing `position_entry_times`: do **not** treat as “already past min-hold” (now `hold_seconds = 0`)
+- [x] **A8** Wire `flip_flop_blocked_today` into `upsert_calm_day` (rebuy-block counter)
+- [x] **A9** Dead `rebalance_threshold`: logged as UNUSED (not consulted by buy/sell)
+- [x] **A10** Quarantine non-live ATR/`risk_manager` as display-only (IMPROVEMENT guardrail + README honesty)
+- [ ] **A11** Score asymmetry: crypto scores dwarf stock near-high scores — normalize or separate crypto/stock slots so stocks are not systematically crowded out
+- [x] **A12** Honest product framing: live book = scanner + `exit_policy`; overnight champion = entry filter only — README/PAPER_TRADING/AUTOPILOT
+- [x] **A13** Fee model gaps: documented (fees.py + README — allowance/crypto fees not modeled)
+- [ ] **A14** Regime vs RS overlap: review redundancy; keep, merge, or make one optional with measured rationale
+- [ ] **A15** Min-hold capital trap: Ops note + optional “stuck underwater” desk/ops visibility (age + unrealized) — no silent forever holds without visibility
+- [x] **A16** Overweight trim crystallizes losses by design — documented in `exit_policy.pick_overweight_trim_candidate` (winners-only trim = future experiment)
+- [x] **A17** Fix trader module docstring (“scan every 5 minutes” lie → match compose 15m/5m)
+- [x] **A18** Promote contract test: promote on ⇒ entry filter only; SELL does not pass as buy (`test_promote_ignores_champion_sell_for_entry_filter`)
+- [x] **A19** Autoresearch universe vs live crypto: noted in PROMOTE_AB / README honesty
+
+### B — Maintainability (ops reliability)
+
+- [ ] **B1** Carve `intelligent_trader` god-loop: entry pipeline vs exits vs gates modules + one offline single-cycle fixture test
+- [ ] **B2** Overnight loop durability: launchd/cron or always-on watchdog; healthcheck **fails** if required loops down when `REQUIRE_OVERNIGHT_LOOPS=1`
+- [x] **B3** Docs diet: redirect/archive `USAGE.md`, `PAPER_TRADING.md`, `MONITORING.md`, `plan.md` → README/FRIENDS
+- [x] **B4** Log retention: trader tee rotates at 5MiB (`runtime_log.py`); loop logs under `data/run_*.log` (Ops live tail)
+- [ ] **B5** Thin tests: add focused offline tests for `market_scanner` ranking invariants (at least crypto-vs-stock score ordering awareness)
+- [x] **B6** Quarantine or delete unused live paths: `paper_trader` vs primary `intelligent_trader` clarity in deprecated PAPER_TRADING + README honesty
+- [x] **B7** Reduce AI↔trading path coupling docs: AI validate is optional — README/AGENTS still rules+gates first
+- [x] **B8** Extend weekly docs check: forbid stale capital/entrypoint phrases; require deprecated stubs
+
+### C — Red-team (skeptical trust)
+
+- [x] **C1** Gate thinning policy: **no new entry gates** until A4–A5 and A14 addressed (IMPROVEMENT + AUTOPILOT)
+- [x] **C2** Success criterion for promote: fee-adjusted live edge vs promote-off control — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) (execution = A2)
+- [x] **C3** Explicit “anti-loss packaging ≠ edge” in AUTOPILOT mandate
+- [ ] **C4** Answer trust questions in `docs/history/` when A2 runs: Ops knobs, breadth flow, crypto vs stock PnL share, ±5% vs ATR intent
+
+### Keep (do not regress — strengths from review A)
+
+- No loss-rotation + rotate hurdle ≥3% + rebuy cooldown
+- Harsh Revolut-like paper fees as default
+- Promote as **entry veto only**
+- Overweight → exits-only / no scan-chase buys
 
 ## Done (2026-07-25)
 
@@ -110,9 +153,11 @@ Living checklist for agents. Work top-down. Check items off when done and verifi
 
 ## Guardrails
 
+- ATR / R:R on Screener is **display-only** (`atr_risk.py`); live exits are fixed ±5% via `exit_policy`, not ATR stops.
 - Do not reintroduce sub-hour default hold times.
 - Do not add API keys to compose or docs.
 - Do not claim Sharpe/win-rate improvements without a backtest artifact.
+- **No new entry gates** until IMPROVEMENT A4–A5 and A14 are done.
 - Rotate any Finnhub key that was previously committed; use a fresh key in `.env`.
 - Commit + push verified work per [GIT.md](GIT.md); never commit `data/`, `.env`, or `autoresearch/results.tsv`.
 - Human should not need to re-prompt for continuous improvement — follow AUTOPILOT.md.

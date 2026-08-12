@@ -63,6 +63,34 @@ if ! grep -q 'github.com/raro42/ai-stock-checker' FRIENDS.md; then
   fail=1
 fi
 
+# Non-history docs must not advertise obsolete entrypoints / toy capital
+stale_hits="$(git grep -nE 'enhanced-paper-trader|€10,000|€10000|scan every 5 minutes' -- \
+  ':!docs/history/**' ':!CHANGELOG.md' ':!IMPROVEMENT.md' ':!USAGE.md' ':!PAPER_TRADING.md' \
+  ':!MONITORING.md' ':!plan.md' ':!ENHANCED_SYSTEM_README.md' ':!scripts/docs_weekly_check.sh' \
+  ':!AGENTS.md' 2>/dev/null || true)"
+# AGENTS may mention obsolete names only as forbidden examples — checked separately:
+if git grep -nE 'enhanced-paper-trader' -- AGENTS.md 2>/dev/null | grep -viE 'not obsolete|forbidden|never|do not|prefer' >/dev/null; then
+  echo "STALE AGENTS.md: enhanced-paper-trader mentioned without forbid context"
+  fail=1
+fi
+if [[ -n "$stale_hits" ]]; then
+  echo "STALE phrasing in active docs/code:"
+  echo "$stale_hits" | head -20
+  fail=1
+else
+  echo "ok: no obsolete entrypoint/capital phrases in active docs"
+fi
+
+# Deprecated stubs must point at README
+for f in USAGE.md PAPER_TRADING.md MONITORING.md plan.md; do
+  if [[ -f "$f" ]] && ! grep -qiE 'Deprecated|see README|FRIENDS' "$f"; then
+    echo "STALE: $f should be a short redirect to README/FRIENDS"
+    fail=1
+  else
+    echo "ok: $f is redirect/deprecated stub"
+  fi
+done
+
 echo "=== building + offline tests ==="
 docker build -t ai-stock-checker . >/tmp/docs_weekly_build.log 2>&1
 docker run --rm ai-stock-checker pytest -q -m "not network" >/tmp/docs_weekly_pytest.log 2>&1 || {

@@ -118,6 +118,8 @@ def pick_overweight_trim_candidate(
     Rules (anti-churn, not scan-chase):
     - Must be past min hold (same floor as normal exits).
     - Prefer the weakest mark (lowest unrealized %).
+      Tradeoff (review A16): this can crystallize losses to shrink an oversized book.
+      Winners-only trim is a future experiment — do not change silently.
     - Returns one candidate; caller may loop until at_cap while eligible.
 
     This can crystallize a loss; that is intentional for *size* discipline,

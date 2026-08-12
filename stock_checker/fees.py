@@ -4,6 +4,10 @@ Paper trading commission helpers.
 Defaults target Revolut EEA stock pricing after free monthly allowance:
 0.25%/side with €1 minimum (Ultra/Pro: 0.12%). This is harsher than the old
 0.1% spot-like assumption — intentional for honest friend-group paper.
+
+Not modeled (paper can over/under-state real brokerage):
+- Free monthly Revolut stock allowance
+- Crypto fee schedules / spreads
 """
 
 from __future__ import annotations

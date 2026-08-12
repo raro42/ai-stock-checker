@@ -612,7 +612,9 @@ def main():
     """Main entry point for paper trading."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Paper trading simulator with €10,000 capital")
+    parser = argparse.ArgumentParser(
+        description="Legacy paper trading simulator (prefer intelligent_trader)"
+    )
     parser.add_argument(
         "-c",
         "--capital",

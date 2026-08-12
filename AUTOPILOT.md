@@ -8,8 +8,9 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 2. After each coherent verified change: **commit + push** per [GIT.md](GIT.md) and `.cursor/rules/commit-push-always.mdc`. Never leave shippable work unpushed overnight — and never leave it uncommitted at end of turn.
 3. **Restart as needed**: Docker services (`intelligent-trader`, `openbb-backend`), Ollama autoresearch loop, improve/docs loops — if a process dies, hangs, or code that requires a reload shipped, restart it. Do not wait to be asked. `openbb-backend` runs uvicorn with `--reload` on the mounted package; still run `./scripts/smoke_desk_http.sh` after desk changes.
 4. Prefer Docker for tests/runs. Never install on the host. Never commit `.env` / `data/` / `results.tsv`.
-5. Do not invent performance claims — require backtest/benchmark artifacts.
-6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), **ship at least one idea**: read GitHub watch digests + IMPROVEMENT.md, implement the best small slice, verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
+5. Do not invent performance claims — require backtest/benchmark artifacts. **Anti-churn packaging ≠ edge.** Offline `val_score` and calm streaks do not prove live expectancy.
+6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), **ship at least one idea**: read GitHub watch digests + IMPROVEMENT.md **external review assimilation** section top-down, implement the best small slice, verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
+7. **No new entry gates** until IMPROVEMENT A4–A5 and A14 are addressed (gate thinning / fail-open / regime↔RS overlap).
 
 ## Overnight (CEST)
 
@@ -46,7 +47,7 @@ Never run Cursor `AGENT_LOOP_TICK_autoresearch` alongside the Ollama strategy lo
 - [x] Promote adapter (`stock_checker/promoted_strategy.py` + Ops `promote_experiment_strategy`) — entry veto only; exits stay in `exit_policy`
 - [x] Calm-paper streak tracker (`paper_calm.py`, Ops “Paper calm streak”, `scripts/check_promote_compose_ready.py`) — unlock criterion for compose default
 - [x] Compose + trader CLI book limits aligned with Ops DEFAULTS (5 positions / 24h hold) — `tests/test_book_limit_defaults.py`
-- [ ] **Before trusting promote:** fee-adjusted promote-on vs promote-off paper comparison (same book rules); calm streak ≠ edge
+- [ ] **Promote trust:** fee-adjusted promote-on vs promote-off paper comparison (same book rules). Calm streak ≠ edge. See [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md).
 - [ ] Flip `promote_experiment_strategy` **compose default-on** only when calm gate passes **and** promote A/B is documented positive (or explicitly waived by human)
 - [x] Hold second overnight loop editing `exit_policy` — deferred by design until the promote compose default is unlocked
 
