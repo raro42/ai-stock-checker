@@ -597,6 +597,58 @@ a:active {
   font-size: 0.9rem;
 }
 
+.breadth-days .sym a,
+.breadth-days .day-log {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.breadth-days .sym a:hover,
+.breadth-days .day-log:hover {
+  color: var(--accent);
+}
+
+.pulse-key {
+  display: grid;
+  gap: 0.35rem 1rem;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0;
+  grid-template-columns: auto 1fr;
+}
+
+.pulse-key div {
+  display: contents;
+}
+
+.pulse-key dt {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+.pulse-key dd {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.scan-log {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  max-height: min(70vh, 42rem);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg0) 88%, black);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .breadth-days .meta {
   font-family: var(--font-data);
   font-size: 0.82rem;

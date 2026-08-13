@@ -194,6 +194,10 @@ def _upsert_scan_breadth_daily(
     rows: list[dict[str, Any]] = [
         r for r in rows_raw if isinstance(r, dict) and r.get("day")
     ] if isinstance(rows_raw, list) else []
+    archive_name = ""
+    arch = find_day_scan_archive(data_dir, day)
+    if arch is not None:
+        archive_name = arch.name
     entry = {
         "day": day,
         "scan_time": scan_time or "",
@@ -204,6 +208,7 @@ def _upsert_scan_breadth_daily(
         "crypto_big_movers": int(pulse.get("crypto_big_movers") or 0),
         "stock_breakouts_n": int(pulse.get("stock_breakouts_n") or 0),
         "stock_within_5pct_high": int(pulse.get("stock_within_5pct_high") or 0),
+        "archive_file": archive_name,
     }
     out = [r for r in rows if str(r.get("day")) != day]
     out.append(entry)
@@ -213,8 +218,42 @@ def _upsert_scan_breadth_daily(
         data_dir.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, indent=2) + "\n")
     except OSError:
-        return rows[-14:]
-    return out[-14:]
+        return _annotate_scan_history(data_dir, rows[-14:])
+    return _annotate_scan_history(data_dir, out[-14:])
+
+
+def find_day_scan_archive(data_dir: Path, day: str) -> Optional[Path]:
+    """Latest opportunities_YYYYMMDD_*.txt for a UTC calendar day."""
+    day_s = str(day or "").strip()
+    if len(day_s) != 10 or day_s[4] != "-" or day_s[7] != "-":
+        return None
+    ymd = day_s.replace("-", "")
+    if not ymd.isdigit():
+        return None
+    arch = Path(data_dir) / "archive"
+    if not arch.is_dir():
+        return None
+    files = sorted(arch.glob(f"opportunities_{ymd}_*.txt"))
+    return files[-1] if files else None
+
+
+def _annotate_scan_history(
+    data_dir: Path, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Attach scan-log link flags for the Breadth Recent days list."""
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        row = dict(r)
+        day = str(row.get("day") or "")
+        path = find_day_scan_archive(data_dir, day)
+        row["has_scan_log"] = path is not None
+        if path is not None:
+            row["archive_file"] = path.name
+            row["scan_log_href"] = f"/desk/scan-log/{day}"
+        else:
+            row["scan_log_href"] = ""
+        out.append(row)
+    return out
 
 
 def _fmt_hold(seconds: float) -> str:
@@ -513,10 +552,13 @@ def load_desk_snapshot(
         )
     else:
         hist_raw = _load_json(data_dir / "scan_breadth_daily.json", [])
-        scan_breadth_history = (
-            [r for r in hist_raw if isinstance(r, dict)][-14:]
-            if isinstance(hist_raw, list)
-            else []
+        scan_breadth_history = _annotate_scan_history(
+            data_dir,
+            (
+                [r for r in hist_raw if isinstance(r, dict)][-14:]
+                if isinstance(hist_raw, list)
+                else []
+            ),
         )
 
     name_symbols: list[str] = []

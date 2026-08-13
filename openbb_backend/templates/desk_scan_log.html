@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-head">
+  <p class="eyebrow">Breadth</p>
+  <h1>Scan log · {{ day }}</h1>
+  <p class="lede">
+    Latest trader opportunity report for this UTC day.
+    These names feed the Recent days pulse counts.
+  </p>
+  <p class="sysline">
+    <a href="/desk/breadth">← Back to Breadth</a>
+    {% if archive_file %} · file {{ archive_file }}{% endif %}
+  </p>
+</header>
+
+<section class="block" aria-labelledby="scan-log-h">
+  <h2 id="scan-log-h">Report</h2>
+  <pre class="scan-log" tabindex="0">{{ body }}</pre>
+</section>
+{% endblock %}

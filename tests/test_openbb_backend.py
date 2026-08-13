@@ -338,6 +338,8 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert 'data-ops-logs' in resp.text
     assert 'id="ops-log-view"' in resp.text
 
+
+def test_desk_html_screens(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")
@@ -371,6 +373,38 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert "Scan pulse" in breadth.text
     assert "Crypto A/D" in breadth.text
     assert "Recent days" in breadth.text
+    assert 'aria-label="Pulse number key"' in breadth.text
+    assert "near-high" in breadth.text
+
+    # Seed a day archive so Breadth can link the scan log.
+    day = "2026-07-26"
+    arch = tmp_path / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / f"opportunities_{day.replace('-', '')}_120000.txt").write_text(
+        "TOP NAMES\nBTC-USD\n", encoding="utf-8"
+    )
+    hist = tmp_path / "scan_breadth_daily.json"
+    hist.write_text(
+        json.dumps(
+            [
+                {
+                    "day": day,
+                    "crypto_up": 1,
+                    "crypto_down": 0,
+                    "crypto_avg_chg": 1.0,
+                    "crypto_big_movers": 0,
+                    "stock_within_5pct_high": 1,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    breadth2 = client.get("/desk/breadth")
+    assert f"/desk/scan-log/{day}" in breadth2.text
+    log_page = client.get(f"/desk/scan-log/{day}")
+    assert log_page.status_code == 200
+    assert "BTC-USD" in log_page.text
+    assert client.get("/desk/scan-log/1999-01-01").status_code == 404
     book = client.get("/desk/book")
     assert "hold-spark" in book.text
     assert "average buy" in book.text.lower() or "avg cost" in book.text.lower()

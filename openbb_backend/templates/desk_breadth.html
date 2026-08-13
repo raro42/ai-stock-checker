@@ -60,12 +60,35 @@
   </section>
   {% if snap.scan_breadth_history %}
   <h3 class="subhead">Recent days</h3>
-  <p class="sub">UTC daily snapshots of the same scan-list pulse (builds as the desk loads with a scan).</p>
+  <p class="sub">
+    One UTC snapshot per day from our scan lists (not the full market).
+    Open a day scan log to see the names behind the counts.
+  </p>
+  <dl class="pulse-key" aria-label="Pulse number key">
+    <div><dt>A/D</dt><dd>Crypto leaders up / down on 24h change</dd></div>
+    <div><dt>avg</dt><dd>Mean 24h % change across those crypto leaders</dd></div>
+    <div><dt>±4%</dt><dd>How many leaders moved at least 4% (up or down)</dd></div>
+    <div><dt>near-high</dt><dd>Stock breakouts within 5% of their 52-week high</dd></div>
+  </dl>
   <ul class="breadth-days" aria-label="Scan pulse history">
     {% for d in snap.scan_breadth_history|reverse %}
     <li>
-      <span class="sym">{{ d.day }}</span>
-      <span class="meta">A/D {{ d.crypto_up }}/{{ d.crypto_down }} · avg {{ "%+.1f"|format(d.crypto_avg_chg) }}% · ±4% {{ d.crypto_big_movers }} · near-high {{ d.stock_within_5pct_high }}</span>
+      <span class="sym">
+        {% if d.has_scan_log and d.scan_log_href %}
+        <a href="{{ d.scan_log_href }}" title="Open scan log for {{ d.day }}">{{ d.day }}</a>
+        {% else %}
+        {{ d.day }}
+        {% endif %}
+      </span>
+      <span class="meta">
+        A/D {{ d.crypto_up }}/{{ d.crypto_down }}
+        · avg {{ "%+.1f"|format(d.crypto_avg_chg) }}%
+        · ±4% {{ d.crypto_big_movers }}
+        · near-high {{ d.stock_within_5pct_high }}
+        {% if d.has_scan_log and d.scan_log_href %}
+        · <a class="day-log" href="{{ d.scan_log_href }}">scan log</a>
+        {% endif %}
+      </span>
     </li>
     {% endfor %}
   </ul>

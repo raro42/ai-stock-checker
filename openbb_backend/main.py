@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import load_desk_snapshot
+from openbb_backend.desk import find_day_scan_archive, load_desk_snapshot
 from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
 from openbb_backend.repo_meta import load_repo_meta
 
@@ -330,6 +330,39 @@ def favicon_root():
     """Browser default favicon probe."""
     path = _BACKEND_DIR / "static" / "favicon.ico"
     return Response(path.read_bytes(), media_type="image/x-icon")
+
+
+@app.get("/desk/scan-log/{day}", response_class=HTMLResponse)
+def desk_scan_log(request: Request, day: str):
+    """Show the latest scan opportunity report for a UTC day (Breadth Recent days)."""
+    path = find_day_scan_archive(DATA_DIR, day)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="No scan log for that day")
+    try:
+        body = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)[:120]) from exc
+    # Cap huge archives for the browser view.
+    if len(body) > 200_000:
+        body = body[:200_000] + "\n\n… truncated …\n"
+    return templates.TemplateResponse(
+        request=request,
+        name="desk_scan_log.html",
+        context={
+            "snap": load_desk_snapshot(DATA_DIR),
+            "nav": _desk_nav(),
+            "repo": load_repo_meta(),
+            "day": day,
+            "archive_file": path.name,
+            "body": body,
+            "page": {
+                "screen": "breadth",
+                "title": f"Scan log {day} — AI Stock Checker Paper Desk",
+                "description": f"Trader opportunity report for UTC day {day}.",
+                "canonical": str(request.base_url).rstrip("/") + f"/desk/scan-log/{day}",
+            },
+        },
+    )
 
 
 @app.get("/desk", response_class=HTMLResponse)
