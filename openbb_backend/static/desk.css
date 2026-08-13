@@ -576,62 +576,69 @@ a:active {
   align-items: start;
 }
 
-.breadth-days {
-  list-style: none;
-  margin: 0.5rem 0 0;
-  padding: 0;
+.breadth-days-wrap {
+  margin-top: 0.85rem;
 }
 
-.breadth-days li {
-  display: grid;
-  grid-template-columns: 7.5rem 1fr;
-  gap: 0.65rem;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--line);
-  align-items: baseline;
-}
-
-.breadth-days .sym {
+.breadth-days-table {
+  width: 100%;
+  border-collapse: collapse;
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
 }
 
-.breadth-days .sym a,
-.breadth-days .day-log {
+.breadth-days-table th,
+.breadth-days-table td {
+  padding: 0.55rem 0.65rem 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.breadth-days-table thead th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom-color: color-mix(in srgb, var(--line) 70%, var(--accent));
+}
+
+.breadth-days-table tbody th.sym {
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.breadth-days-table td {
+  color: var(--ink);
+}
+
+.breadth-days-table th.sym a,
+.breadth-days-table .day-log {
   color: var(--link);
   text-decoration: underline;
   text-underline-offset: 0.12em;
 }
 
-.breadth-days .sym a:hover,
-.breadth-days .day-log:hover {
+.breadth-days-table th.sym a:hover,
+.breadth-days-table .day-log:hover {
   color: var(--accent);
 }
 
-.pulse-key {
-  display: grid;
-  gap: 0.35rem 1rem;
-  margin: 0.75rem 0 0.25rem;
-  padding: 0;
-  grid-template-columns: auto 1fr;
-}
-
-.pulse-key div {
-  display: contents;
-}
-
-.pulse-key dt {
-  margin: 0;
-  font-family: var(--font-data);
-  font-size: 0.82rem;
-  color: var(--accent);
-}
-
-.pulse-key dd {
-  margin: 0;
-  font-size: 0.88rem;
+.pulse-key-note {
+  margin: 0.75rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem;
+  line-height: 1.45;
   color: var(--muted);
+}
+
+.pulse-key-note .k {
+  color: var(--accent);
+  font-family: var(--font-data);
 }
 
 .scan-log {
@@ -649,10 +656,11 @@ a:active {
   word-break: break-word;
 }
 
-.breadth-days .meta {
-  font-family: var(--font-data);
-  font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
+/* Legacy list class kept only if referenced elsewhere — no longer used on Breadth. */
+.breadth-days {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
 }
 
 .trades li {

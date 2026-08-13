@@ -373,7 +373,8 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "Scan pulse" in breadth.text
     assert "Crypto A/D" in breadth.text
     assert "Recent days" in breadth.text
-    assert 'aria-label="Pulse number key"' in breadth.text
+    assert 'id="pulse-key"' in breadth.text
+    assert "breadth-days-table" in breadth.text
     assert "near-high" in breadth.text
 
     # Seed a day archive so Breadth can link the scan log.
