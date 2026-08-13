@@ -85,7 +85,8 @@ class IntelligentTrader:
         ai_model: str = "gemma4:latest",
         top_crypto_count: int = 2
     ):
-        self.scanner = MarketScanner(top_crypto_count=top_crypto_count)
+        self.top_crypto_count = int(top_crypto_count)
+        self.scanner = MarketScanner(top_crypto_count=self.top_crypto_count)
         self.persistence = DataPersistence()
         rate, min_eur = rates_for_preset(DEFAULT_FEE_PRESET)
         self.portfolio = Portfolio(
