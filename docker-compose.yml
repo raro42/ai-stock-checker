@@ -48,7 +48,7 @@ services:
       --min-hold-time 86400
       --ai-mode ${AI_MODE:-off}
       --ai-model ${AI_MODEL:-gemma4:latest}
-      --top-crypto-count 2
+      --top-crypto-count 1
 
   # OpenBB Workspace custom backend (portfolio / trades / opportunities)
   openbb-backend:

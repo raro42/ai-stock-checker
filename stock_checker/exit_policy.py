@@ -22,6 +22,19 @@ DEFAULT_STOP_LOSS_PCT = 5.0
 DEFAULT_ROTATE_MIN_PROFIT_PCT = 3.0
 
 
+def exit_thresholds_for_asset(*, is_crypto: bool) -> Tuple[float, float]:
+    """
+    Stock keeps ±5%. Crypto majors use wider bands (see crypto_policy).
+
+    Returns (take_profit_pct, stop_loss_pct) as positive magnitudes.
+    """
+    if is_crypto:
+        from .crypto_policy import crypto_exit_thresholds
+
+        return crypto_exit_thresholds()
+    return DEFAULT_TAKE_PROFIT_PCT, DEFAULT_STOP_LOSS_PCT
+
+
 def should_take_profit(profit_pct: float, *, threshold: float = DEFAULT_TAKE_PROFIT_PCT) -> bool:
     return profit_pct >= threshold
 

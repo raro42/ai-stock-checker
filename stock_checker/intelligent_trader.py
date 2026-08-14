@@ -52,12 +52,19 @@ from .paper_calm import upsert_calm_day
 from .exit_policy import (
     book_action_mode,
     crypto_entry_price_ok,
+    exit_thresholds_for_asset,
     opportunity_symbol_set,
     pick_overweight_trim_candidate,
     should_allow_rebuy,
     should_rebalance_exit,
     should_stop_loss,
     should_take_profit,
+)
+from .crypto_policy import (
+    DEFAULT_MAX_CRYPTO_POSITIONS,
+    crypto_buy_block_reason,
+    crypto_slot_available,
+    is_crypto_symbol,
 )
 from .fees import DEFAULT_FEE_PRESET, rates_for_preset
 from .trader_config import DEFAULTS as TRADER_DEFAULTS
@@ -83,9 +90,10 @@ class IntelligentTrader:
         min_hold_time: int = _DEFAULT_MIN_HOLD_SECONDS,  # Ops default hours → seconds
         ai_mode: str = "off",  # off, validate, full
         ai_model: str = "gemma4:latest",
-        top_crypto_count: int = 2
+        top_crypto_count: int = 1
     ):
         self.top_crypto_count = int(top_crypto_count)
+        self.max_crypto_positions = int(DEFAULT_MAX_CRYPTO_POSITIONS)
         self.scanner = MarketScanner(top_crypto_count=self.top_crypto_count)
         self.persistence = DataPersistence()
         rate, min_eur = rates_for_preset(DEFAULT_FEE_PRESET)
@@ -151,6 +159,8 @@ class IntelligentTrader:
               f"(lookback {self._rs_lookback}d vs SPY/BTC)")
         print(f"   Breadth gate: {'on' if self._breadth_enabled else 'off'} "
               f"(scan-list A/D)")
+        print(f"   Crypto live: BTC/ETH only · max {self.max_crypto_positions} slot · "
+              f"TP/SL ±10% (stocks stay ±5%)")
         print(f"   Promote champion filter: off (hot-reload from Ops)")
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
@@ -732,7 +742,7 @@ class IntelligentTrader:
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                # RSI-based exit signal for crypto (early profit-taking consideration)
+                # RSI note for crypto (informational; exits use crypto ±10% bands)
                 if is_crypto and profit_pct > 5.0:
                     tech_indicators = binance.get_technical_indicators(binance_symbol)
                     if tech_indicators and 'rsi' in tech_indicators:
@@ -740,20 +750,28 @@ class IntelligentTrader:
                         if rsi > 70:
                             print(f"   📊 {symbol}: RSI high ({rsi:.1f}) with profit {profit_pct:.2f}% - consider early profit-taking")
 
+                tp_thr, sl_thr = exit_thresholds_for_asset(is_crypto=is_crypto)
+
                 # PROFIT TAKING (clears Revolut-like round-trip + cushion)
-                if should_take_profit(profit_pct):
+                if should_take_profit(profit_pct, threshold=tp_thr):
                     quantity = self.portfolio.holdings[symbol]
                     result = self.portfolio.sell(symbol, price, quantity, timestamp)
                     if result["success"]:
-                        print(f"   💰 {symbol}: Profit target hit (+{profit_pct:.2f}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}")
+                        print(
+                            f"   💰 {symbol}: Profit target hit (+{profit_pct:.2f}% "
+                            f"/ thr {tp_thr:g}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}"
+                        )
                         self._record_exit(symbol)
 
                 # STOP LOSS — hard risk cut only (not for scan rotation)
-                elif should_stop_loss(profit_pct):
+                elif should_stop_loss(profit_pct, threshold=sl_thr):
                     quantity = self.portfolio.holdings[symbol]
                     result = self.portfolio.sell(symbol, price, quantity, timestamp)
                     if result["success"]:
-                        print(f"   🛑 {symbol}: Stop loss triggered ({profit_pct:.2f}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}")
+                        print(
+                            f"   🛑 {symbol}: Stop loss triggered ({profit_pct:.2f}% "
+                            f"/ thr −{sl_thr:g}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}"
+                        )
                         self._record_exit(symbol)
 
             except Exception as e:
@@ -837,6 +855,20 @@ class IntelligentTrader:
             if not is_tradeable_symbol(str(symbol)):
                 print(f"   ⏸️  Skipping {symbol}: filtered (stable/leveraged/noise)")
                 continue
+
+            crypto_block = crypto_buy_block_reason(str(symbol))
+            if crypto_block:
+                print(f"   ⏸️  Skipping {symbol}: {crypto_block}")
+                continue
+
+            if is_crypto_symbol(str(symbol)):
+                slot_ok, slot_why = crypto_slot_available(
+                    self.portfolio.holdings.keys(),
+                    max_crypto=self.max_crypto_positions,
+                )
+                if not slot_ok:
+                    print(f"   ⏸️  Skipping {symbol}: {slot_why}")
+                    continue
 
             rebuy_ok, rebuy_why = self._rebuy_allowed(str(symbol))
             if not rebuy_ok:
@@ -1079,6 +1111,20 @@ class IntelligentTrader:
 
                 if symbol not in missing_opportunities:
                     continue
+
+                crypto_block = crypto_buy_block_reason(str(symbol))
+                if crypto_block:
+                    print(f"   ⏸️  Skipping {symbol}: {crypto_block}")
+                    continue
+
+                if is_crypto_symbol(str(symbol)):
+                    slot_ok, slot_why = crypto_slot_available(
+                        self.portfolio.holdings.keys(),
+                        max_crypto=self.max_crypto_positions,
+                    )
+                    if not slot_ok:
+                        print(f"   ⏸️  Skipping {symbol}: {slot_why}")
+                        continue
 
                 rebuy_ok, rebuy_why = self._rebuy_allowed(str(symbol))
                 if not rebuy_ok:
@@ -1355,7 +1401,7 @@ def main():
                         help="AI analysis mode: off (rule-based only), validate (AI validates HIGH signals), full (AI-driven)")
     parser.add_argument("--ai-model", type=str, default="gemma4:latest",
                         help="Ollama instruct/general model (not coder models)")
-    parser.add_argument("--top-crypto-count", type=int, default=2, help="Number of top crypto opportunities to include")
+    parser.add_argument("--top-crypto-count", type=int, default=1, help="Max crypto names in entry interleave (live buys still BTC/ETH only)")
 
     args = parser.parse_args()
 

@@ -108,6 +108,7 @@ No secret sauce. No “proprietary neural alpha.” Just a few rude filters betw
 | Gate | What it actually does |
 |------|------------------------|
 | **Junk filter** | Stables, leveraged carnival tickets, and known noise stay in the lobby (`symbol_filters.py`) |
+| **Crypto live policy** | Buys: **BTC/ETH only**, max **1** crypto slot, exits **±10%** (stocks stay ±5%). Alts may still appear on Screener — trader will not buy them (`crypto_policy.py`) |
 | **Earnings blackout** | No new stock entries when Finnhub says the calendar is about to punch you |
 | **SMA regime** | Soft block new buys when SPY is below SMA200 or BTC below SMA50 — “buy the dip” can wait until the dip stops dipping |
 | **Relative strength** | Soft block names lagging SPY (stocks) or BTC (crypto) over ~63 sessions — leaders over laggards; missing data fails *open*, not frozen |
