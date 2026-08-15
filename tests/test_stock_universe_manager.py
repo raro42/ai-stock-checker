@@ -23,4 +23,5 @@ def test_ensure_curated_seed_adds_missing_and_drops_pxd(tmp_path: Path):
     assert "PXD" not in mgr.universe["stocks"]
     assert "IBM" in mgr.universe["stocks"]
     assert "AAPL" in mgr.universe["stocks"]
+    assert "SAP.DE" in mgr.universe["stocks"]
     assert added >= 1

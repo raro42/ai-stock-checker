@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 from pathlib import Path
 
+from stock_checker.german_universe import GERMAN_XETRA_SEED
+
 
 class StockUniverseManager:
     """Manage dynamic stock universe with disk persistence."""
@@ -183,11 +185,9 @@ class StockUniverseManager:
             "BITF": {"sector": "crypto", "exchange": "NASDAQ"},
             "CIFR": {"sector": "crypto", "exchange": "NASDAQ"},
 
-            # European Stocks
-            "ADS.DE": {"sector": "apparel", "exchange": "XETRA"},
+            # German Xetra (.DE) + a few other EU / ADR names
+            **GERMAN_XETRA_SEED,
             "SAP": {"sector": "technology", "exchange": "NYSE"},
-            "SIE.DE": {"sector": "industrial", "exchange": "XETRA"},
-            "VOW3.DE": {"sector": "automotive", "exchange": "XETRA"},
             "AIR.PA": {"sector": "aerospace", "exchange": "EURONEXT"},
             "OR.PA": {"sector": "luxury", "exchange": "EURONEXT"},
             "MC.PA": {"sector": "luxury", "exchange": "EURONEXT"},
@@ -261,7 +261,7 @@ class StockUniverseManager:
                         if isinstance(syms, list) and dead in syms:
                             idx[key] = [s for s in syms if s != dead]
 
-        # Large-cap refresh + liquid US names (same block as seed).
+        # Large-cap refresh + liquid US names + German Xetra (same as seed).
         extras = {
             "IBM": {"sector": "technology", "exchange": "NYSE"},
             "CSCO": {"sector": "technology", "exchange": "NASDAQ"},
@@ -287,6 +287,7 @@ class StockUniverseManager:
             "APP": {"sector": "software", "exchange": "NASDAQ"},
             "ARM": {"sector": "semiconductor", "exchange": "NASDAQ"},
             "SMCI": {"sector": "technology", "exchange": "NASDAQ"},
+            **GERMAN_XETRA_SEED,
         }
         added = 0
         for symbol, info in extras.items():

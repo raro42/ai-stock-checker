@@ -108,6 +108,8 @@ No secret sauce. No “proprietary neural alpha.” Just a few rude filters betw
 | Gate | What it actually does |
 |------|------------------------|
 | **Junk filter** | Stables, leveraged carnival tickets, and known noise stay in the lobby (`symbol_filters.py`) |
+| **Universe** | Curated US + **German Xetra (`.DE`)** seed (DAX/liquid names) merged into `stock_universe.json`; Yahoo movers still US-screen oriented |
+| **Session hours** | US equities: RTH 09:30–16:00 ET. German `.DE`: Xetra ~09:00–17:30 Europe/Berlin. Crypto 24/7 |
 | **Crypto live policy** | Buys **and live scan**: **BTC/ETH only**, max **1** crypto slot, exits **±10%** (stocks stay ±5%). Full alt scans are not part of the live paper path (`crypto_policy.py`) |
 | **Earnings blackout** | No new stock entries when Finnhub says the calendar is about to punch you |
 | **SMA regime** | Soft block new buys when SPY is below SMA200 or BTC below SMA50 — “buy the dip” can wait until the dip stops dipping |

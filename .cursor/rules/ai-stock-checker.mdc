@@ -15,6 +15,7 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - Paper fees: Revolut-like default (0.25%/side · €1 min); configurable on Ops.
 - Filter stables/leveraged/noise via `stock_checker/symbol_filters.py`.
 - Live crypto buys: BTC/ETH only, max 1 crypto slot, ±10% exits (`stock_checker/crypto_policy.py`); live scan is majors-only too.
+- Equity universe: curated US + German Xetra (`.DE`); per-symbol session hours (`market_hours.py`).
 - Prefer Chrome MCP for live `pro.openbb.co` research (see `OPENBB.md`); do not invent OpenBB data.
 - Desk UI: follow `DESIGN.md` + `.cursor/skills/paper-desk-design/` (anti AI-slop).
 - AI: instruct models only (`gemma4:latest`, `qwen3.5:9b`) — not coder models.

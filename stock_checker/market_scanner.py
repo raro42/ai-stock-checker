@@ -3,7 +3,7 @@
 from typing import Dict, List
 import time
 import json
-from datetime import datetime, time as dt_time
+from datetime import datetime
 from pathlib import Path
 import pytz
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -78,34 +78,28 @@ class MarketScanner:
 
     def is_market_closed(self) -> bool:
         """
-        Check if US stock market is currently closed.
-        Market hours: 9:30 AM - 4:00 PM ET, Monday-Friday
-        
-        Returns:
-            True if market is closed (weekend, before 9:30 AM ET, or after 4:00 PM ET)
-            False if market is open
+        US cash session closed? (9:30–16:00 America/New_York, Mon–Fri).
+
+        For per-symbol hours (German .DE uses Xetra), use
+        ``is_symbol_session_closed``.
         """
         try:
-            # Get current time in ET timezone
-            et_tz = pytz.timezone('US/Eastern')
-            now_et = datetime.now(et_tz)
-            
-            # Check if weekend
-            if now_et.weekday() >= 5:  # Saturday = 5, Sunday = 6
-                return True
-            
-            # Market hours: 9:30 AM - 4:00 PM ET
-            market_open = dt_time(9, 30)
-            market_close = dt_time(16, 0)
-            current_time = now_et.time()
-            
-            # Market is closed if before 9:30 AM or after 4:00 PM
-            return current_time < market_open or current_time >= market_close
+            from .market_hours import is_us_cash_session_closed
+
+            return is_us_cash_session_closed()
         except Exception as e:
-            # If timezone detection fails, assume market might be open
-            # (safer to not save during potential market hours)
             print(f"⚠️  Market hours detection failed: {e}, assuming market might be open")
             return False
+
+    def is_symbol_session_closed(self, symbol: str) -> bool:
+        """True when this equity should not open a new paper trade for hours."""
+        try:
+            from .market_hours import is_equity_session_closed
+
+            return is_equity_session_closed(symbol)
+        except Exception as e:
+            print(f"⚠️  Symbol session detection failed for {symbol}: {e}")
+            return self.is_market_closed()
 
     def scan_crypto_momentum(self, top_n: int = 10) -> List[Dict]:
         """

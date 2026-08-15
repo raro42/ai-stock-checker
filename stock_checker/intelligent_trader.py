@@ -60,6 +60,7 @@ from .exit_policy import (
     should_stop_loss,
     should_take_profit,
 )
+from .market_hours import is_equity_session_closed
 from .crypto_policy import (
     DEFAULT_MAX_CRYPTO_POSITIONS,
     crypto_buy_block_reason,
@@ -827,9 +828,6 @@ class IntelligentTrader:
         if is_weekend:
             print(f"   📅 Weekend: crypto-only trading (stocks paused)")
 
-        # US cash session closed? stocks skip; crypto still OK on weekdays too
-        market_closed = self.scanner.is_market_closed()
-
         max_c = max(1, int(self.top_crypto_count))
         max_s = max(1, int(self.max_positions) - max_c + 1)
         sorted_opportunities = order_entry_candidates(
@@ -887,9 +885,12 @@ class IntelligentTrader:
                 if is_weekend and not is_crypto:
                     continue
 
-                # Skip stock trades if market is closed
-                if not is_crypto and market_closed:
-                    print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
+                # Per-symbol hours: US cash vs Xetra (.DE); crypto 24/7
+                if not is_crypto and is_equity_session_closed(str(symbol)):
+                    print(
+                        f"   ⏸️  Skipping {symbol}: session closed "
+                        f"(US RTH or Xetra hours)"
+                    )
                     continue
 
                 gates_ok, gates_why = self._soft_gates_ok(
@@ -1002,9 +1003,6 @@ class IntelligentTrader:
         binance = BinanceFetcher()
         recommender = RecommendationEngine()
 
-        # Check if market is closed (for stocks only - crypto trades 24/7)
-        market_closed = self.scanner.is_market_closed()
-
         # Get current holdings
         current_holdings = set(self.portfolio.holdings.keys())
 
@@ -1051,9 +1049,11 @@ class IntelligentTrader:
                 if is_weekend and not is_crypto:
                     continue
 
-                # Skip stock trades if market is closed
-                if not is_crypto and market_closed:
-                    print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
+                if not is_crypto and is_equity_session_closed(str(symbol)):
+                    print(
+                        f"   ⏸️  Skipping {symbol}: session closed "
+                        f"(US RTH or Xetra hours)"
+                    )
                     continue
                 
                 if is_crypto:
@@ -1138,9 +1138,11 @@ class IntelligentTrader:
                     if is_weekend and not is_crypto:
                         continue
 
-                    # Skip stock trades if market is closed
-                    if not is_crypto and market_closed:
-                        print(f"   ⏸️  Skipping {symbol}: Market is closed (stocks only trade during market hours)")
+                    if not is_crypto and is_equity_session_closed(str(symbol)):
+                        print(
+                            f"   ⏸️  Skipping {symbol}: session closed "
+                            f"(US RTH or Xetra hours)"
+                        )
                         continue
 
                     if not is_crypto:
