@@ -65,6 +65,8 @@
         t: new Date(d.t),
         equity: +d.equity,
         label: d.label || "",
+        cash: d.cash != null ? +d.cash : null,
+        invested: d.invested != null ? +d.invested : null,
       };
     });
 
@@ -72,12 +74,19 @@
     var height = 280;
     var margin = { top: 16, right: 16, bottom: 40, left: 56 };
 
+    var tip = document.createElement("div");
+    tip.className = "chart-tip";
+    tip.hidden = true;
+    tip.setAttribute("role", "status");
+    tip.setAttribute("aria-live", "polite");
+    mount.appendChild(tip);
+
     var svg = d3
       .select(mount)
       .append("svg")
       .attr("viewBox", "0 0 " + width + " " + height)
       .attr("role", "img")
-      .attr("aria-label", "Paper book equity over time");
+      .attr("aria-label", "Paper book equity over time — hover for values");
 
     var defs = svg.append("defs");
     var grad = defs
@@ -149,16 +158,89 @@
       .attr("r", 3.5)
       .attr("fill", "#e8efe6")
       .attr("stroke", "#d4a574")
-      .attr("stroke-width", 1.5)
-      .append("title")
-      .text(function (d) {
-        return (
-          formatDay(d.t) +
-          " · " +
-          d.label +
-          " · €" +
-          d3.format(",.2f")(d.equity)
-        );
+      .attr("stroke-width", 1.5);
+
+    var focus = svg.append("g").style("display", "none");
+    focus
+      .append("line")
+      .attr("class", "focus-x")
+      .attr("y1", margin.top)
+      .attr("y2", height - margin.bottom)
+      .attr("stroke", "rgba(232,239,230,0.35)")
+      .attr("stroke-dasharray", "3 3");
+    var focusDot = focus
+      .append("circle")
+      .attr("r", 5)
+      .attr("fill", "#e8efe6")
+      .attr("stroke", "#d4a574")
+      .attr("stroke-width", 1.5);
+
+    var bisect = d3.bisector(function (d) { return d.t; }).left;
+
+    function tipHtml(d) {
+      var meta = formatDay(d.t);
+      if (d.label) meta += " · " + d.label;
+      var extra = "";
+      if (d.cash != null && d.invested != null) {
+        extra =
+          "<span class='chart-tip-val'>cash €" +
+          d3.format(",.0f")(d.cash) +
+          " · invested €" +
+          d3.format(",.0f")(d.invested) +
+          "</span>";
+      }
+      return (
+        "<strong>€" +
+        d3.format(",.2f")(d.equity) +
+        "</strong>" +
+        "<span class='chart-tip-meta'>" +
+        meta +
+        "</span>" +
+        extra
+      );
+    }
+
+    function placeTip(d) {
+      tip.hidden = false;
+      tip.innerHTML = tipHtml(d);
+      var mountRect = mount.getBoundingClientRect();
+      var svgRect = svg.node().getBoundingClientRect();
+      var scaleX = svgRect.width / width;
+      var scaleY = svgRect.height / height;
+      var left = svgRect.left - mountRect.left + x(d.t) * scaleX + 14;
+      var top = svgRect.top - mountRect.top + y(d.equity) * scaleY - 18;
+      if (left + tip.offsetWidth > mountRect.width - 8) {
+        left = svgRect.left - mountRect.left + x(d.t) * scaleX - tip.offsetWidth - 14;
+      }
+      tip.style.left = Math.max(4, left) + "px";
+      tip.style.top = Math.max(4, top) + "px";
+    }
+
+    svg
+      .append("rect")
+      .attr("class", "equity-hover")
+      .attr("x", margin.left)
+      .attr("y", margin.top)
+      .attr("width", width - margin.left - margin.right)
+      .attr("height", height - margin.top - margin.bottom)
+      .attr("fill", "transparent")
+      .style("cursor", "crosshair")
+      .on("mousemove", function (event) {
+        var mx = d3.pointer(event, svg.node())[0];
+        var t0 = x.invert(mx);
+        var i = bisect(data, t0, 1);
+        var a = data[i - 1];
+        var b = data[i] || a;
+        if (!a) return;
+        var d = t0 - a.t > b.t - t0 ? b : a;
+        focus.style("display", null);
+        focus.select(".focus-x").attr("x1", x(d.t)).attr("x2", x(d.t));
+        focusDot.attr("cx", x(d.t)).attr("cy", y(d.equity));
+        placeTip(d);
+      })
+      .on("mouseleave", function () {
+        focus.style("display", "none");
+        tip.hidden = true;
       });
 
     appendRangeCaption(mount, data[0].t, data[data.length - 1].t);
@@ -1107,7 +1189,14 @@
 
   function renderChartsPage(payload) {
     root.innerHTML = "";
-    drawEquity(section("Book equity path", "ch-eq"), payload.equity);
+    drawEquity(
+      section(
+        "Book equity path",
+        "ch-eq",
+        "Hover the path to read equity at each fill (cash + invested cost basis)."
+      ),
+      payload.equity
+    );
     drawUnrealized(
       section(
         "Unrealized P&L",
