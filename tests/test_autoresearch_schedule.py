@@ -1,4 +1,4 @@
-"""Night-only autoresearch window (Europe/Berlin)."""
+"""Night-only autoresearch window (local TZ, overridable)."""
 
 from __future__ import annotations
 
@@ -8,13 +8,22 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from stock_checker.autoresearch_schedule import (
+    default_local_tz_name,
     in_night_window,
     night_window_bounds,
+    seconds_until_local_hour,
     seconds_until_night_window,
 )
 
 
 TZ = ZoneInfo("Europe/Berlin")
+
+
+@pytest.fixture(autouse=True)
+def _berlin_tz(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_AUTOSEARCH_TZ", "Europe/Berlin")
+    monkeypatch.delenv("ASC_LOCAL_TZ", raising=False)
+    monkeypatch.delenv("OLLAMA_AUTOSEARCH_FORCE", raising=False)
 
 
 def _dt(y: int, m: int, d: int, hh: int, mm: int = 0) -> datetime:
@@ -26,6 +35,18 @@ def test_default_bounds() -> None:
     assert start == 23
     assert end == 8
     assert tz == "Europe/Berlin"
+
+
+def test_explicit_tz_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_AUTOSEARCH_TZ", "America/New_York")
+    _s, _e, tz = night_window_bounds()
+    assert tz == "America/New_York"
+
+
+def test_default_local_tz_name_respects_asc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OLLAMA_AUTOSEARCH_TZ", raising=False)
+    monkeypatch.setenv("ASC_LOCAL_TZ", "Asia/Tokyo")
+    assert default_local_tz_name() == "Asia/Tokyo"
 
 
 @pytest.mark.parametrize(
@@ -40,8 +61,7 @@ def test_default_bounds() -> None:
         (_dt(2026, 8, 11, 15, 0), False),
     ],
 )
-def test_in_night_window(when: datetime, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OLLAMA_AUTOSEARCH_FORCE", raising=False)
+def test_in_night_window(when: datetime, expected: bool) -> None:
     assert in_night_window(when) is expected
 
 
@@ -51,24 +71,22 @@ def test_force_bypass(monkeypatch: pytest.MonkeyPatch) -> None:
     assert seconds_until_night_window(_dt(2026, 8, 10, 15, 0)) == 0
 
 
-def test_seconds_until_open_daytime(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OLLAMA_AUTOSEARCH_FORCE", raising=False)
+def test_seconds_until_open_daytime() -> None:
     now = _dt(2026, 8, 10, 15, 0)
     wait = seconds_until_night_window(now)
-    # 15:00 → 23:00 same day = 8 hours
     assert wait == 8 * 3600
 
 
-def test_seconds_until_open_after_midnight_still_inside(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("OLLAMA_AUTOSEARCH_FORCE", raising=False)
+def test_seconds_until_open_after_midnight_still_inside() -> None:
     assert seconds_until_night_window(_dt(2026, 8, 11, 3, 0)) == 0
 
 
-def test_seconds_until_open_just_after_close(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OLLAMA_AUTOSEARCH_FORCE", raising=False)
+def test_seconds_until_open_just_after_close() -> None:
     now = _dt(2026, 8, 11, 8, 0)
     wait = seconds_until_night_window(now)
-    # 08:00 → 23:00 same day = 15 hours
     assert wait == 15 * 3600
+
+
+def test_seconds_until_morning() -> None:
+    # 07:00 → 08:00 = 1h
+    assert seconds_until_local_hour(8, _dt(2026, 8, 11, 7, 0)) == 3600

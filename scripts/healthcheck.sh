@@ -38,7 +38,7 @@ if pgrep -f 'run_ollama_autoresearch_loop.sh' >/dev/null 2>&1; then
   if [[ "$(python3 -m stock_checker.autoresearch_schedule in_window 2>/dev/null || echo 0)" == "1" ]]; then
     ok "ollama autoresearch loop (night window active)"
   else
-    ok "ollama autoresearch loop (day idle; ticks 23:00-08:00 Europe/Berlin)"
+    ok "ollama autoresearch loop (day idle; night window = local TZ 23:00-08:00)"
   fi
 else
   if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then

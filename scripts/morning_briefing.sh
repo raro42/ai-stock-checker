@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# Build a morning briefing of overnight work (CEST). Writes docs/history/morning_YYYY-MM-DD.md
+# Build a morning briefing of overnight work (local TZ). Writes docs/history/morning_YYYY-MM-DD.md
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-DAY="$(TZ=Europe/Berlin date +%Y-%m-%d)"
+# Local calendar day + 18h lookback (ASC_LOCAL_TZ / OLLAMA_AUTOSEARCH_TZ / system)
+read -r DAY TZ_NAME SINCE < <(python3 -c "from datetime import datetime,timedelta; from zoneinfo import ZoneInfo; from stock_checker.autoresearch_schedule import night_window_bounds as b; tz=b()[2]; n=datetime.now(ZoneInfo(tz)); print(n.strftime('%Y-%m-%d'), tz, (n-timedelta(hours=18)).strftime('%Y-%m-%d %H:%M'))")
 OUT="$ROOT/docs/history/morning_${DAY}.md"
 mkdir -p "$ROOT/docs/history"
 
-SINCE="$(TZ=Europe/Berlin date -v-18H '+%Y-%m-%d %H:%M' 2>/dev/null || TZ=Europe/Berlin date -d '18 hours ago' '+%Y-%m-%d %H:%M')"
-
 {
-  echo "# Morning briefing — ${DAY} (CEST)"
+  echo "# Morning briefing — ${DAY} (${TZ_NAME})"
   echo
   echo "Night workshift enhancements for review."
   echo

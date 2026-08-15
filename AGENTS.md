@@ -36,7 +36,7 @@ The human is **tired of prompting** and expects overnight progress (CEST). Do no
 ## Trading Product Rules (non-negotiable)
 
 1. **Anti-churn**: default min hold **24h** (Ops/compose; floor still ≥4h); scan ≥15m; trade check ≥5m. Paper fees default to Revolut-like **0.25%/side · €1 min** (Ops can switch Ultra 0.12% or spot-like 0.1%) — overtrading loses.
-2. **Filter junk**: no stablecoins, leveraged tokens, or known noise symbols (`symbol_filters.py`). Live crypto **buys** are majors only (BTC/ETH), max one crypto slot, ±10% exits (`crypto_policy.py`) — scanner may still list other cryptos for research.
+2. **Filter junk**: no stablecoins, leveraged tokens, or known noise symbols (`symbol_filters.py`). Live crypto **scan + buys** are majors only (BTC/ETH), max one crypto slot, ±10% exits (`crypto_policy.py`).
 3. **AI models**: use instruct/general Ollama models (`gemma4:latest`, `qwen3.5:9b`, etc.). **Never** default to coder models for trade decisions.
 4. **OpenBB**: research + Paper Desk widgets via `openbb-backend` (`OPENBB.md`). Earnings blackout before new stock entries.
 5. **Desk UI design**: follow `DESIGN.md` and `.cursor/skills/paper-desk-design/` — editorial trading desk, not AI-SaaS defaults.

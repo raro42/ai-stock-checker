@@ -4,8 +4,7 @@ Live crypto policy — majors only, wider exits, one slot.
 Why (paper book Jul–Aug 2026): ESP/BANK/PROM-class alts + flat ±5% stops
 burned large fees/P&L. Stocks were fine. PROM later bounced after a −5% stop —
 tight stops on noisy alts are the wrong tool. Fix = allow only BTC/ETH for
-*buys*, use wider crypto TP/SL, cap at one crypto position. Scanner may still
-*list* other cryptos for research; the trader must not buy them.
+*live scan + buys*, use wider crypto TP/SL, cap at one crypto position.
 """
 
 from __future__ import annotations

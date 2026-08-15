@@ -315,6 +315,55 @@ class MarketScanner:
         sys.stdout.flush()
         return ranked[:top_n]
 
+    def scan_live_crypto_majors(self) -> List[Dict]:
+        """
+        Price/momentum for LIVE_CRYPTO_SYMBOLS only (BTC/ETH).
+
+        Used by the live paper path — no full Binance alt scan.
+        """
+        from stock_checker.crypto_policy import LIVE_CRYPTO_SYMBOLS, normalize_live_crypto_symbol
+
+        import sys
+
+        print(f"\n{'='*70}")
+        print(f"🔍  LIVE CRYPTO MAJORS - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{'='*70}")
+        out: List[Dict] = []
+        for yf_sym in sorted(LIVE_CRYPTO_SYMBOLS):
+            bsym = yf_sym.replace("-USD", "USDT")
+            data = self.binance.get_crypto_price(bsym)
+            if not data:
+                print(f"   ⚠️  No price for {bsym}")
+                continue
+            price = float(data["current_price"])
+            chg = float(data.get("change_24h") or 0)
+            high = float(data.get("high_24h") or price)
+            low = float(data.get("low_24h") or price)
+            vol_range = ((high - low) / low) * 100 if low > 0 else 0.0
+            volume_usdt = float(data.get("volume_24h") or 0) * price
+            score = chg + min(vol_range * 0.5, 20) + min(volume_usdt / 10_000_000, 10)
+            row = {
+                "symbol": normalize_live_crypto_symbol(yf_sym),
+                "binance_symbol": bsym,
+                "price": price,
+                "change_24h": chg,
+                "volume_24h": float(data.get("volume_24h") or 0),
+                "volume_usdt": volume_usdt,
+                "volatility": vol_range,
+                "score": score,
+                "final_score": score,
+                "tradeable": True,
+            }
+            out.append(row)
+            print(f"   {row['symbol']}: ${price:,.2f}  24h {chg:+.2f}%  score {score:.1f}")
+        self.persistence.track_scanned_symbols_batch(
+            [r["symbol"] for r in out], "crypto"
+        )
+        out.sort(key=lambda x: x.get("final_score", x["score"]), reverse=True)
+        print(f"{'='*70}\n")
+        sys.stdout.flush()
+        return out
+
     def scan_stock_breakouts(self, sector: str = None) -> List[Dict]:
         """
         Scan for stocks breaking to new highs with momentum.
@@ -733,8 +782,12 @@ class MarketScanner:
         print(f"🎯  MARKET OPPORTUNITY ANALYSIS")
         print(f"{'#'*70}\n")
 
-        # Scan crypto
-        crypto_leaders = self.scan_crypto_momentum(10)
+        # Live crypto: majors only (BTC/ETH). Do not scan the alt carnival —
+        # trader will not buy them; scanning them wastes time and confuses Screener.
+        from stock_checker.crypto_policy import LIVE_CRYPTO_SYMBOLS
+
+        print(f"\n📋 Scanning live crypto majors only: {', '.join(sorted(LIVE_CRYPTO_SYMBOLS))}")
+        crypto_leaders = self.scan_live_crypto_majors()
 
         # Scan stocks
         breakouts = self.scan_stock_breakouts()
@@ -742,29 +795,10 @@ class MarketScanner:
         # Generate recommendations
         recommendations = []
 
-        # Major cryptos that should always be considered if available
-        major_cryptos = ['BTC-USD', 'ETH-USD']
-        
-        # Collect top N crypto momentum plays
-        top_cryptos = list(crypto_leaders[:self.top_crypto_count])
-        top_crypto_symbols = {c['symbol'] for c in top_cryptos}
-        
-        # Ensure major cryptos are included (replace lowest-ranked if needed)
-        for major in major_cryptos:
-            major_crypto = next((c for c in crypto_leaders if c['symbol'] == major), None)
-            if major_crypto and major not in top_crypto_symbols:
-                # Remove the lowest-ranked crypto and add the major crypto
-                if len(top_cryptos) >= self.top_crypto_count:
-                    removed = top_cryptos.pop()
-                    print(f"   ⭐ Including major crypto {major} (ranked #{crypto_leaders.index(major_crypto) + 1}, replacing {removed['symbol']})")
-                else:
-                    print(f"   ⭐ Including major crypto {major} (ranked #{crypto_leaders.index(major_crypto) + 1})")
-                # Insert at beginning for priority
-                top_cryptos.insert(0, major_crypto)
-                top_crypto_symbols.add(major)
-        
-        # Top N crypto momentum plays (now includes major cryptos if needed)
-        for i, crypto in enumerate(top_cryptos[:self.top_crypto_count], 1):
+        # At most top_crypto_count majors (policy also caps open crypto slots to 1)
+        top_cryptos = list(crypto_leaders[: max(1, int(self.top_crypto_count))])
+
+        for i, crypto in enumerate(top_cryptos, 1):
             recommendations.append({
                 'rank': i,
                 'symbol': crypto['symbol'],

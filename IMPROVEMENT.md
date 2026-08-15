@@ -13,7 +13,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] **A1** One config truth: compose + CLI + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ `tests/test_book_limit_defaults.py`)
 - [x] **A2** Promote A/B: method + baseline + **Window A (promote off) started** 2026-08-12 — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — Window B + fee-adjusted verdict still pending
 - [ ] **A3** Do not flip compose promote default-on until A2 is positive (or human explicitly waives) **and** calm gate passes
-- [x] **Crypto live policy (2026-08-14):** BTC/ETH buys only · max 1 crypto slot · crypto TP/SL ±10% (stocks ±5%) — `crypto_policy.py` (PROM/ESP/BANK autopsy; alts remain on scan UI only)
+- [x] **Crypto live policy (2026-08-14/15):** BTC/ETH **scan + buys** only · max 1 crypto slot · crypto TP/SL ±10% — `crypto_policy.py` / `scan_live_crypto_majors`
+- [x] **Local TZ night window (2026-08-15):** autoresearch + morning briefing use system/`ASC_LOCAL_TZ` (not hard-coded Berlin)
 - [x] **A4** Breadth gate honesty: enrich recs with change_24h/pct_from_high; pulse from leaders/breakouts; stock leader detection fixed
 - [x] **A5** Fail-open audit: `gate_audit.log_soft_allow` on regime/RS/breadth/promote skip_no_bars
 - [x] **A6** Earnings blackout on **rebalance buys** (parity with `execute_new_trades`)

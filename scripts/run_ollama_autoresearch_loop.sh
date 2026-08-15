@@ -18,7 +18,7 @@ seconds_until_open() {
 }
 
 echo "ollama autoresearch loop every ${INTERVAL}s (model=${OLLAMA_AUTOSEARCH_MODEL:-gemma4:latest})"
-echo "night window only (default 23:00-08:00 Europe/Berlin); FORCE=1 to bypass"
+echo "night window only (default 23:00-08:00 local TZ; set ASC_LOCAL_TZ / OLLAMA_AUTOSEARCH_TZ); FORCE=1 to bypass"
 echo "Stop Cursor AGENT_LOOP_TICK_autoresearch first to avoid git races."
 python3 -m stock_checker.autoresearch_schedule status || true
 
