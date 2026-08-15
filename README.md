@@ -129,6 +129,7 @@ Ops checkboxes for regime + RS if you want to turn “boring” back into “int
 - **Entry gates** — regime + relative strength + earnings + junk filters (see above)
 - **OpenBB widgets** — same `:7779` backend for Pro workspace ([OPENBB.md](OPENBB.md))
 - **Autoresearch** — overnight strategy search with walk-forward promote gate
+- **Overnight loops** — LaunchAgent keeps shell loops alive while the Mac is awake (`./scripts/install_overnight_launchagent.sh`; see [AUTOPILOT.md](AUTOPILOT.md))
 - **GitHub research watch** — adapt one transferable pattern at a time ([GITHUB_WATCH.md](GITHUB_WATCH.md))
 - **CLI** — `info`, `history`, `bitcoin`, `movers`, `backtest`
 

@@ -13,8 +13,8 @@ The human is **tired of prompting** and expects overnight progress (CEST). Do no
 
 - Follow [AUTOPILOT.md](AUTOPILOT.md) and work [IMPROVEMENT.md](IMPROVEMENT.md) top-down continuously.
 - On `AGENT_LOOP_TICK_improve`: ship the next item, verify, **commit, push, restart** what needs it — never ask “should I continue?”
-- Strategy overnight: prefer Ollama loop; product code: Cursor improve loop.
-- If a loop or container dies while the human sleeps: restart it.
+- Strategy overnight: prefer Ollama loop; product code: Cursor improve loop (`ASC_CURSOR_IMPROVE=1` via LaunchAgent → `cursor agent` CLI).
+- If a loop or container dies while the human sleeps: restart it. Keep LaunchAgent installed (`./scripts/install_overnight_launchagent.sh`).
 
 ## Coding Style & Naming
 

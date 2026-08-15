@@ -34,7 +34,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 ### B — Maintainability (ops reliability)
 
 - [x] **B1** Carve `intelligent_trader` god-loop: `entry_gates` / `entry_pipeline` / `trader_cycle` + offline single-cycle fixture (`tests/test_trader_cycle.py`)
-- [x] **B2** Overnight loop durability: `scripts/ensure_overnight_loops.sh` + healthcheck fails when `REQUIRE_OVERNIGHT_LOOPS=1`
+- [x] **B2** Overnight loop durability: LaunchAgent `com.raro42.ai-stock-checker.overnight-loops` (15m ensure) + `ASC_CURSOR_IMPROVE=1` → `cursor agent` CLI (`scripts/install_overnight_launchagent.sh`); healthcheck checks LaunchAgent / loops when `REQUIRE_OVERNIGHT_LOOPS=1`
 - [x] **B3** Docs diet: redirect/archive `USAGE.md`, `PAPER_TRADING.md`, `MONITORING.md`, `plan.md` → README/FRIENDS
 - [x] **B4** Log retention: trader tee rotates at 5MiB (`runtime_log.py`); loop logs under `data/run_*.log` (Ops live tail)
 - [x] **B5** Thin tests: entry slots + breadth pulse honesty (`tests/test_entry_slots.py`)

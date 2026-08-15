@@ -68,6 +68,18 @@ else
   fi
 fi
 
+LABEL="com.raro42.ai-stock-checker.overnight-loops"
+UID_NUM="$(id -u)"
+if launchctl print "gui/${UID_NUM}/${LABEL}" >/dev/null 2>&1; then
+  ok "LaunchAgent $LABEL loaded"
+else
+  if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
+    bad "LaunchAgent missing — ./scripts/install_overnight_launchagent.sh"
+  else
+    echo "WARN LaunchAgent $LABEL not loaded — ./scripts/install_overnight_launchagent.sh"
+  fi
+fi
+
 if pgrep -f 'run_github_watch_loop.sh' >/dev/null 2>&1; then
   ok "github idea watch loop"
 else

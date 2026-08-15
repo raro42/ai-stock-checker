@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template: scripts/install_overnight_launchagent.sh rewrites paths for this machine.
+  Every 15 minutes: ensure watchdog / improve / ollama / github / morning loops are up.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.raro42.ai-stock-checker.overnight-loops</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/raro42/projects/ai-stock-checker/scripts/ensure_overnight_loops.sh</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/raro42/projects/ai-stock-checker</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>900</integer>
+	<key>AbandonProcessGroup</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/raro42/projects/ai-stock-checker/data/launchagent_overnight_loops.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/raro42/projects/ai-stock-checker/data/launchagent_overnight_loops.log</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>/Users/raro42</string>
+		<key>PATH</key>
+		<string>/Users/raro42/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>ASC_CURSOR_IMPROVE</key>
+		<string>1</string>
+		<key>OLLAMA_AUTOSEARCH_PUSH</key>
+		<string>1</string>
+	</dict>
+</dict>
+</plist>

@@ -16,13 +16,24 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 
 While the human sleeps:
 
+- **Durable keep-alive:** macOS LaunchAgent `com.raro42.ai-stock-checker.overnight-loops` runs `./scripts/ensure_overnight_loops.sh` every **15 minutes** (install: `./scripts/install_overnight_launchagent.sh`). Re-starts dead shell loops after crashes / closed terminals.
+- **Limit:** LaunchAgents do **not** fire while the Mac is fully asleep. Leave the machine awake (or power adapter + prevent sleep) for overnight ticks.
 - Keep **Ollama autoresearch** looping **night-only** (23:00–08:00 Europe/Berlin; strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`). Process may stay up daytime but must idle.
-- Keep **product improve** looping hourly (`./scripts/run_improve_loop.sh` → `AGENT_LOOP_TICK_improve`) — **≥1 idea per hour**, including GitHub watch triage.
+- Keep **product improve** looping hourly (`./scripts/run_improve_loop.sh`). With `ASC_CURSOR_IMPROVE=1` (LaunchAgent default), each tick runs `cursor agent -p -f` via `./scripts/run_cursor_improve_once.sh` — logs in `data/run_cursor_improve.log`. Ticks are no longer “print only.”
 - Keep paper stack up: `docker compose up -d intelligent-trader openbb-backend`.
 - Keep **GitHub idea watch** looping (`./scripts/run_github_watch_loop.sh`) so external screener/agent repos surface transferable ideas.
 - If git lock / loop crash / container unhealthy → fix and restart; commit+push the fix.
 - Morning should show new commits on GitHub and progress in `IMPROVEMENT.md` / `results.tsv`.
 
+### What is durable vs what needs the Mac awake
+
+| Piece | Durable? |
+|-------|----------|
+| Docker trader / desk | Yes (`restart: unless-stopped`) |
+| Shell loops via LaunchAgent ensure | Yes while Mac is awake / logged in |
+| Ollama autoresearch worker | Yes if loop process up + night window |
+| Cursor improve CLI ticks | Yes if `ASC_CURSOR_IMPROVE=1` + `cursor` on PATH + Mac awake |
+| Improve while Mac sleeps | **No** — OS suspends LaunchAgent timers |
 ## Parallel loops (do not collide)
 
 | Loop | Owner | Cadence | Purpose |
