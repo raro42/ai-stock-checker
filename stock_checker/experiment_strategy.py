@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Switching the structural exit condition from Medium SMA (50) to Long SMA (60). This enforces a deeper, slower signal failure before exiting, reducing premature exits and potential fee burn while maintaining robustness.
+# idea: Simplifying the exit confirmation requirement by replacing the strict percentage price drop check (Price <= Long SMA * 0.98) with a simpler, structural check: Price must drop below the Medium SMA (50). This maintains the long-term structural signal (Short < Long) while allowing for timely profit-taking without requiring an overly deep, aggressive price drop confirmation.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger
@@ -38,8 +38,7 @@ RSI_PERIOD = 14
 MIN_ENTRY_RSI = 35.0   # Minimum acceptable RSI (avoiding oversold entries)
 MAX_ENTRY_RSI = 65.0   # Maximum acceptable RSI (avoiding overbought entries)
 
-# NEW: Exit Confirmation Threshold - Price must drop below the structural exit SMA by this percentage to exit.
-EXIT_DROP_THRESHOLD = 0.02 # Requires price < Structural SMA * 0.98
+# Note: EXIT_DROP_THRESHOLD is implicitly removed/replaced by using MED_SMA below.
 
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
@@ -120,7 +119,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Entry uses Short > Medium SMA. Exit uses structural Long SMA cross AND price decay confirmation."""
+       Entry uses Short > Medium SMA. Exit uses structural Long SMA cross AND price confirmation (Price < Medium SMA)."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -203,8 +202,8 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if short crosses below LONG SMA AND price confirms weakness by dropping below LongSMA * (1 - threshold).
-        elif sma_s < sma_l and in_pos and current_close <= sma_l * (1 - EXIT_DROP_THRESHOLD):
+        # Exit if short crosses below LONG SMA (structural weakness) AND price confirms weakness by dropping below the Medium SMA.
+        elif sma_s < sma_l and in_pos and current_close <= sma_m:
             signals[symbol] = "SELL"
 
     return signals
