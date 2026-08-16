@@ -14,13 +14,13 @@ from typing import Dict, List
 import math
 
 
-# idea: Simplifying the exit confirmation requirement by replacing the strict percentage price drop check (Price <= Long SMA * 0.98) with a simpler, structural check: Price must drop below the Medium SMA (50). This maintains the long-term structural signal (Short < Long) while allowing for timely profit-taking without requiring an overly deep, aggressive price drop confirmation.
+# idea: Modifying the exit condition to require the current price to drop significantly (Price < Short SMA * 0.95) in addition to the structural failure (Short SMA < Long SMA). This tightens the profit-taking confirmation to be relative to the entry signal, potentially catching downturns faster than relying solely on the Medium SMA.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 60   # Primary exit structural guide
-# Require short > med to enter; exit when short < long + price drop confirmation
+# Require short > med to enter; exit when short < long AND price drops significantly relative to Short SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
@@ -38,7 +38,8 @@ RSI_PERIOD = 14
 MIN_ENTRY_RSI = 35.0   # Minimum acceptable RSI (avoiding oversold entries)
 MAX_ENTRY_RSI = 65.0   # Maximum acceptable RSI (avoiding overbought entries)
 
-# Note: EXIT_DROP_THRESHOLD is implicitly removed/replaced by using MED_SMA below.
+# New exit requirement: Price must drop below 95% of the Short SMA for confirmation.
+EXIT_PRICE_CONFIRMATION_MULTIPLIER = 0.95
 
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
@@ -119,7 +120,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Entry uses Short > Medium SMA. Exit uses structural Long SMA cross AND price confirmation (Price < Medium SMA)."""
+       Entry uses Short > Medium SMA. Exit uses structural Long SMA cross AND tight price confirmation (Price < Short SMA * 0.95)."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -202,8 +203,8 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if short crosses below LONG SMA (structural weakness) AND price confirms weakness by dropping below the Medium SMA.
-        elif sma_s < sma_l and in_pos and current_close <= sma_m:
+        # Exit if short crosses below LONG SMA (structural weakness) AND price confirms weakness by dropping below a critical level relative to the Short SMA.
+        elif sma_s < sma_l and in_pos and current_close < sma_s * EXIT_PRICE_CONFIRMATION_MULTIPLIER:
             signals[symbol] = "SELL"
 
     return signals
