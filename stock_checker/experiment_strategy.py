@@ -14,12 +14,12 @@ from typing import Dict, List
 import math
 
 
-# idea: Making the primary structural exit guide (LONG_SMA) more sensitive by reducing it from 60 to 40. This will allow the system to exit sooner during a structural decline, capturing more profit and reducing the chance of holding through a protracted downturn, while maintaining the dual SMA confirmation structure.
+# idea: Making the relative strength check more reactive by reducing the RS_LOOKBACK period from 30 to 20. This allows the strategy to capture timely relative strength signals based on recent momentum without waiting for a longer, potentially stale, period.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
-LONG_SMA = 40   # Primary exit structural guide (Changed from 60 to 40 for faster exit)
+LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
 # Require short > med to enter; exit when short < long AND medium < long AND price drops significantly relative to Short SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
@@ -31,7 +31,7 @@ MAX_RETURN_STDEV = 0.015  # TIGHTENED: 1.5% daily stdev (was 2.0%)
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
 REQUIRE_REL_STRENGTH = False # Disabled relative strength requirement for robustness
-RS_LOOKBACK = 30
+RS_LOOKBACK = 20 # CHANGED: Reduced lookback for faster reaction
 
 # --- IMPROVEMENT: RSI Filters ---
 RSI_PERIOD = 14
@@ -47,10 +47,16 @@ def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
     if not closes or len(closes) < period:
         return 0.0
     
-    window = closes[-period:] if not exclude_last else closes[:-1][-period:]
-    if not window:
+    # Determine the window to use
+    if exclude_last:
+        window = closes[:-1]
+    else:
+        window = closes
+        
+    if len(window) < period:
         return 0.0
-    return sum(window) / period
+        
+    return sum(window[-period:]) / period
 
 
 def _return_stdev(closes: List[float], lookback: int) -> float:
@@ -59,7 +65,8 @@ def _return_stdev(closes: List[float], lookback: int) -> float:
         return 0.0
     rets = []
     # Calculate returns for the last 'lookback' periods
-    for i in range(-lookback, 0):
+    # We need 'lookback' returns, meaning 'lookback + 1' data points
+    for i in range(len(closes) - 1, len(closes) - lookback - 1, -1):
         prev = closes[i - 1]
         current = closes[i]
         if prev <= 0:
@@ -92,17 +99,18 @@ def _rsi(closes: List[float], period: int) -> float:
         return 50.0 # Neutral default if not enough data
 
     diffs = []
-    # We only need 'period' changes to calculate RSI for the current bar
-    for i in range(len(closes) - 1, period - 2, -1):
+    # We need to calculate 'period' changes ending at the current bar
+    for i in range(len(closes) - 1, len(closes) - period - 2, -1):
         change = closes[i] - closes[i-1]
         diffs.append(change)
     
     if len(diffs) < period:
         return 50.0
 
-    gains = [max(0, d) for d in diffs[:period]]
-    losses = [-min(0, d) for d in diffs[:period]]
+    gains = [max(0, d) for d in diffs]
+    losses = [-min(0, d) for d in diffs]
     
+    # Since we gathered the last 'period' changes, we use these lists directly
     avg_gain = sum(gains) / period
     avg_loss = sum(losses) / period
 
@@ -138,6 +146,7 @@ def generate_signals(
     spy_ok = True
     spy_ret = 0.0
     if "SPY" in bars_by_symbol and index >= need:
+        # Use float conversion on the fly for safety
         spy_closes = [float(b["close"]) for b in bars_by_symbol["SPY"][: index + 1]]
         
         # Check SPY UPTREND (Medium SMA)
