@@ -14,10 +14,11 @@ from typing import Dict, List
 import math
 
 
-# idea: Reduced the Short SMA (20->15) for faster entry reaction and tightened the volatility gate (0.015->0.012) for higher signal quality.
+# idea: Added a short-term momentum confirmation filter (5-period SMA) to ensure the 15-period SMA is actively rising before entry.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15  # Core entry trigger (Reduced for faster reaction)
+SHORT_MOMENTUM_SMA = 5 # NEW: Short-term filter to confirm immediate momentum
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
 # Require short > med to enter; exit when medium < long AND price drops significantly relative to Short SMA.
@@ -128,18 +129,19 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Entry uses Short > Medium SMA. Exit uses structural Medium SMA cross confirmation (SMA_M < SMA_L) AND tight price confirmation."""
+       Entry uses Short > Medium SMA AND Short Momentum SMA confirms strength. Exit uses structural Medium SMA cross confirmation (SMA_M < SMA_L) AND tight price confirmation."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
     need = max(
         SHORT_SMA,
+        SHORT_MOMENTUM_SMA, # Updated requirement
         MED_SMA,
         LONG_SMA,
         VOLUME_LOOKBACK if REQUIRE_VOLUME_CONFIRM else 0,
         VOLATILITY_LOOKBACK + 1,
-        RSI_PERIOD + 1, # Need enough data for RSI calculation
-        LONG_SMA + 1, # Need at least one previous bar for exit check (Long SMA)
+        RSI_PERIOD + 1,
+        LONG_SMA + 1,
     )
 
     # --- SPY Filters (Market Context) ---
@@ -172,6 +174,7 @@ def generate_signals(
         sma_s = _sma(closes, SHORT_SMA)
         sma_m = _sma(closes, MED_SMA)
         sma_l = _sma(closes, LONG_SMA)
+        sma_mon = _sma(closes, SHORT_MOMENTUM_SMA) # Calculated Momentum SMA
         current_close = float(bars[-1]["close"])
 
         # 1. Volume Confirmation Check
@@ -200,8 +203,10 @@ def generate_signals(
             rs_ok = current_ret >= spy_ret # This branch only executes if REQUIRE_REL_STRENGTH is True
 
         # --- ENTRY LOGIC (BUY) ---
+        # Entry requires: 1. Short > Medium, 2. Short > Momentum SMA (NEW FILTER), 3. Volume/Vol/RSI/Market checks pass.
         if (
             sma_s > sma_m  # Core signal: Short crosses above Medium
+            and sma_s > sma_mon # Momentum confirmation: Short SMA must be above its 5-period SMA
             and vol_ok
             and calm
             and market_ok
