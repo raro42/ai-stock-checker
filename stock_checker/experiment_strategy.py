@@ -14,12 +14,12 @@ from typing import Dict, List
 import math
 
 
-# idea: Tightening the structural exit condition by requiring both the Short SMA and the Medium SMA to fall below the Long SMA (SMA_S < SMA_L AND SMA_M < SMA_L) in addition to the price drop confirmation. This demands a more sustained, multi-layered structural breakdown before exiting, reducing premature exits during minor pullbacks.
+# idea: Making the primary structural exit guide (LONG_SMA) more sensitive by reducing it from 60 to 40. This will allow the system to exit sooner during a structural decline, capturing more profit and reducing the chance of holding through a protracted downturn, while maintaining the dual SMA confirmation structure.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
-LONG_SMA = 60   # Primary exit structural guide
+LONG_SMA = 40   # Primary exit structural guide (Changed from 60 to 40 for faster exit)
 # Require short > med to enter; exit when short < long AND medium < long AND price drops significantly relative to Short SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
