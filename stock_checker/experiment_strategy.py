@@ -14,10 +14,10 @@ from typing import Dict, List
 import math
 
 
-# idea: Simplified the structural exit condition by relying solely on the Medium SMA falling below the Long SMA (structural confirmation) and the price dropping significantly relative to the Short SMA, removing the redundant requirement that the Short SMA must also fall below the Long SMA.
+# idea: Reduced the Short SMA (20->15) for faster entry reaction and tightened the volatility gate (0.015->0.012) for higher signal quality.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
-SHORT_SMA = 20  # Core entry trigger
+SHORT_SMA = 15  # Core entry trigger (Reduced for faster reaction)
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
 # Require short > med to enter; exit when medium < long AND price drops significantly relative to Short SMA.
@@ -26,7 +26,7 @@ VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
-MAX_RETURN_STDEV = 0.015  # TIGHTENED: 1.5% daily stdev (was 2.0%)
+MAX_RETURN_STDEV = 0.012  # TIGHTENED: 1.2% daily stdev (was 1.5%)
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
