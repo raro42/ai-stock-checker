@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Added a short-term momentum confirmation filter (5-period SMA) to ensure the 15-period SMA is actively rising before entry.
+# idea: Loosened the minimum volume confirmation requirement (MIN_VOLUME_RATIO) from 1.3 to 1.1 to capture more signals during periods of normal, elevated institutional volume.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15  # Core entry trigger (Reduced for faster reaction)
@@ -24,7 +24,7 @@ LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faste
 # Require short > med to enter; exit when medium < long AND price drops significantly relative to Short SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
-MIN_VOLUME_RATIO = 1.3
+MIN_VOLUME_RATIO = 1.1 # MODIFIED: Loosened from 1.3 to 1.1
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
 MAX_RETURN_STDEV = 0.012  # TIGHTENED: 1.2% daily stdev (was 1.5%)
