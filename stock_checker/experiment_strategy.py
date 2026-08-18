@@ -14,13 +14,13 @@ from typing import Dict, List
 import math
 
 
-# idea: Making the relative strength check more reactive by reducing the RS_LOOKBACK period from 30 to 20. This allows the strategy to capture timely relative strength signals based on recent momentum without waiting for a longer, potentially stale, period.
+# idea: Simplified the structural exit condition by relying solely on the Medium SMA falling below the Long SMA (structural confirmation) and the price dropping significantly relative to the Short SMA, removing the redundant requirement that the Short SMA must also fall below the Long SMA.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
-# Require short > med to enter; exit when short < long AND medium < long AND price drops significantly relative to Short SMA.
+# Require short > med to enter; exit when medium < long AND price drops significantly relative to Short SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.3
@@ -128,7 +128,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Entry uses Short > Medium SMA. Exit uses structural Long SMA cross confirmation (SMA_S < SMA_L AND SMA_M < SMA_L) AND tight price confirmation."""
+       Entry uses Short > Medium SMA. Exit uses structural Medium SMA cross confirmation (SMA_M < SMA_L) AND tight price confirmation."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -212,12 +212,11 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if short crosses below LONG SMA (structural weakness) AND medium confirms weakness (Medium SMA < Long SMA) AND price confirms weakness.
+        # Exit if Medium SMA confirms structural weakness (Medium SMA < Long SMA) AND price confirms weakness relative to Short SMA.
         elif (
-            sma_s < sma_l # Short SMA breaks long structure
-            and sma_m < sma_l # Medium SMA confirms long structure break
+            sma_m < sma_l # Medium SMA confirms structural weakness (Key structural filter)
             and in_pos
-            and current_close < sma_s * EXIT_PRICE_CONFIRMATION_MULTIPLIER
+            and current_close < sma_s * EXIT_PRICE_CONFIRMATION_MULTIPLIER # Price must confirm pullback relative to Short SMA
         ):
             signals[symbol] = "SELL"
 
