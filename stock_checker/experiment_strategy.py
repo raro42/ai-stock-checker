@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Using the Short Momentum SMA (SHORT_MOMENTUM_SMA) as the tighter exit confirmation anchor instead of the Short SMA.
+# idea: Slightly loosening the MAX_RETURN_STDEV threshold (from 0.012 to 0.0135) to capture more trades during mild pullbacks without sacrificing robustness.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15  # Core entry trigger (Reduced for faster reaction)
@@ -27,7 +27,7 @@ VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.1 # MODIFIED: Loosened from 1.3 to 1.1
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
-MAX_RETURN_STDEV = 0.012  # TIGHTENED: 1.2% daily stdev (was 1.5%)
+MAX_RETURN_STDEV = 0.0135  # MODIFIED: Slightly loosened from 0.012 to 1.35% daily stdev
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
