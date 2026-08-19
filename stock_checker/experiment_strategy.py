@@ -14,14 +14,14 @@ from typing import Dict, List
 import math
 
 
-# idea: Requiring the Medium SMA (MED_SMA) to be non-decreasing (>= previous day's MED_SMA) at entry to confirm accelerating trend strength.
+# idea: Using the Short Momentum SMA (SHORT_MOMENTUM_SMA) as the tighter exit confirmation anchor instead of the Short SMA.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15  # Core entry trigger (Reduced for faster reaction)
 SHORT_MOMENTUM_SMA = 5 # NEW: Short-term filter to confirm immediate momentum
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
-# Require short > med to enter; exit when medium < long AND price drops significantly relative to Short SMA.
+# Require short > med to enter; exit when medium < long AND price drops significantly relative to Short Momentum SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.1 # MODIFIED: Loosened from 1.3 to 1.1
@@ -39,7 +39,7 @@ RSI_PERIOD = 14
 MIN_ENTRY_RSI = 35.0   # Minimum acceptable RSI (avoiding oversold entries)
 MAX_ENTRY_RSI = 65.0   # Maximum acceptable RSI (avoiding overbought entries)
 
-# New exit requirement: Price must drop below 95% of the Short SMA for confirmation.
+# New exit requirement: Price must drop below 95% of the Short Momentum SMA for confirmation.
 EXIT_PRICE_CONFIRMATION_MULTIPLIER = 0.95
 
 
@@ -129,7 +129,8 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Entry uses Short > Medium SMA AND Short Momentum SMA confirms strength AND Medium SMA is rising. Exit uses structural Medium SMA cross confirmation (SMA_M < SMA_L) AND tight price confirmation."""
+       Entry uses Short > Medium SMA AND Short Momentum SMA confirms strength AND Medium SMA is rising. 
+       Exit uses structural Medium SMA cross confirmation (SMA_M < SMA_L) AND tight price confirmation relative to Short Momentum SMA."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -208,11 +209,11 @@ def generate_signals(
             rs_ok = current_ret >= spy_ret
 
         # --- ENTRY LOGIC (BUY) ---
-        # Entry requires: 1. Short > Medium, 2. Short > Momentum SMA, 3. Medium SMA is rising (NEW), 4. Volume/Vol/RSI/Market checks pass.
+        # Entry requires: 1. Short > Medium, 2. Short > Momentum SMA, 3. Medium SMA is rising, 4. Volume/Vol/RSI/Market checks pass.
         if (
             sma_s > sma_m  # Core signal: Short crosses above Medium
             and sma_s > sma_mon # Momentum confirmation: Short SMA must be above its 5-period SMA
-            and sma_m >= sma_m_prev # NEW: Medium SMA must be non-decreasing (confirming accelerating trend)
+            and sma_m >= sma_m_prev # Medium SMA must be non-decreasing (confirming accelerating trend)
             and vol_ok
             and calm
             and market_ok
@@ -223,11 +224,11 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if Medium SMA confirms structural weakness (Medium SMA < Long SMA) AND price confirms weakness relative to Short SMA.
+        # Exit if Medium SMA confirms structural weakness (Medium SMA < Long SMA) AND price confirms weakness relative to Short Momentum SMA.
         elif (
             sma_m < sma_l # Medium SMA confirms structural weakness (Key structural filter)
             and in_pos
-            and current_close < sma_s * EXIT_PRICE_CONFIRMATION_MULTIPLIER # Price must confirm pullback relative to Short SMA
+            and current_close < sma_mon * EXIT_PRICE_CONFIRMATION_MULTIPLIER # MODIFIED: Exit uses Short Momentum SMA for tighter, faster confirmation
         ):
             signals[symbol] = "SELL"
 
