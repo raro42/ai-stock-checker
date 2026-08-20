@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Changing the structural exit trigger from requiring SMA_M < SMA_L to requiring the current close price to drop below the LONG_SMA for robust structural weakness confirmation.
+# idea: Loosening the minimum required volume confirmation ratio (MIN_VOLUME_RATIO) from 1.1 to 1.0 to increase trade frequency during stable market conditions.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 15  # Core entry trigger (Reduced for faster reaction)
@@ -24,7 +24,7 @@ LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faste
 # Require short > med to enter; exit when price drops significantly below the LONG_SMA AND price confirms weakness relative to Short Momentum SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
-MIN_VOLUME_RATIO = 1.1 # MODIFIED: Loosened from 1.3 to 1.1
+MIN_VOLUME_RATIO = 1.0 # MODIFIED: Loosened from 1.1 to 1.0 to increase signal volume
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
 MAX_RETURN_STDEV = 0.0135  # MODIFIED: Slightly loosened from 0.012 to 1.35% daily stdev
@@ -190,6 +190,7 @@ def generate_signals(
             avg_vol = sum(vols[-VOLUME_LOOKBACK:]) / VOLUME_LOOKBACK
             cur_vol = vols[-1]
             if avg_vol > 0:
+                # Changed ratio check to >= 1.0
                 vol_ok = (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
 
         # 2. Volatility Gate Check
