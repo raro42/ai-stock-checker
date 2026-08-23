@@ -60,6 +60,9 @@
         €{{ "{:+,.2f}".format(t.profit_loss|float) }}{% if t.profit_loss_pct is not none %}<small>{{ "%+.1f"|format(t.profit_loss_pct|float) }}%</small>{% endif %}
         {% else %}—{% endif %}
       </span>
+      {% if t.type == 'BUY' and (t.note or t.strategy) %}
+      <span class="trade-why why">{% if t.strategy %}<span class="strat">{{ t.strategy }}</span>{% if t.note %} · {% endif %}{% endif %}{{ t.note or '' }}{% if t.score is not none %} · score {{ "%.0f"|format(t.score|float) }}{% endif %}</span>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>

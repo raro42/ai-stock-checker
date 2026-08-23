@@ -686,6 +686,18 @@ a:active {
   color: var(--down);
 }
 
+.trades .trade-why {
+  grid-column: 1 / -1;
+  margin-top: -0.15rem;
+  padding-bottom: 0.15rem;
+}
+
+.trades .trade-why .strat {
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
 .empty,
 .note {
   color: var(--muted);
@@ -898,6 +910,10 @@ a:active {
   }
 
   .trades .meta {
+    grid-column: 1 / -1;
+  }
+
+  .trades .trade-why {
     grid-column: 1 / -1;
   }
 }

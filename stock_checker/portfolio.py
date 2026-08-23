@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from .risk_manager import RiskManager
 from .fees import (
     DEFAULT_FEE_PRESET,
@@ -149,7 +149,15 @@ class Portfolio:
         total_cost = cost + commission
         return self.cash >= total_cost
 
-    def buy(self, symbol: str, price: float, quantity: float, timestamp: str) -> Dict:
+    def buy(
+        self,
+        symbol: str,
+        price: float,
+        quantity: float,
+        timestamp: str,
+        *,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict:
         """
         Execute buy order.
 
@@ -194,6 +202,11 @@ class Portfolio:
             "total_cost": total_cost,
             "cash_remaining": self.cash,
         }
+        if context:
+            for key in ("strategy", "note", "score", "confidence", "source"):
+                val = context.get(key)
+                if val is not None and val != "":
+                    transaction[key] = val
         self.transactions.append(transaction)
 
         # Persist trade and state

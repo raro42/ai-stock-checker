@@ -32,6 +32,10 @@ def _seed_portfolio(data: Path) -> None:
                 "quantity": 10,
                 "price": 100,
                 "commission": 1,
+                "strategy": "breakout",
+                "note": "strong breakout, -1.20% from 52w high",
+                "score": 38.8,
+                "source": "scan",
             }
         )
         + "\n"
@@ -411,6 +415,8 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "hold-spark" in book.text
     assert "average buy" in book.text.lower() or "avg cost" in book.text.lower()
     assert "+10.0%" in book.text
+    assert "breakout" in book.text
+    assert "52w high" in book.text
     ideas = client.get("/desk/ideas")
     assert "Paper candidates" in ideas.text
     assert "Adopted here" in ideas.text

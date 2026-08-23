@@ -12,6 +12,7 @@ from stock_checker.binance_fetcher import BinanceFetcher
 from stock_checker.market_analyzer import MarketAnalyzer
 from stock_checker.recommender import RecommendationEngine
 from stock_checker.ai_recommender import AIRecommender
+from stock_checker.trade_context import buy_note_from_opportunity
 from stock_checker.portfolio import Portfolio
 from stock_checker.persistence import DataPersistence
 from stock_checker import __version__
@@ -259,7 +260,23 @@ class PaperTrader:
                 quantity = round(quantity, 4)
 
             if quantity > 0 and self.portfolio.can_buy(symbol, price, quantity):
-                result = self.portfolio.buy(symbol, price, quantity, timestamp)
+                result = self.portfolio.buy(
+                    symbol,
+                    price,
+                    quantity,
+                    timestamp,
+                    context=buy_note_from_opportunity(
+                        {
+                            "strategy": recommendation.get("strategy"),
+                            "reasoning": (recommendation.get("reasons") or [None])[0],
+                            "score": score,
+                            "confidence": confidence,
+                            "ai_reasoning": recommendation.get("ai_reasoning"),
+                        },
+                        source="interactive",
+                        recommendation=recommendation,
+                    ),
+                )
 
                 if result["success"]:
                     tx = result["transaction"]

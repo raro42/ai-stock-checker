@@ -69,6 +69,7 @@ from .crypto_policy import (
 )
 from .fees import DEFAULT_FEE_PRESET, rates_for_preset
 from .trader_config import DEFAULTS as TRADER_DEFAULTS
+from .trade_context import buy_note_from_opportunity
 from . import __version__
 
 
@@ -942,14 +943,23 @@ class IntelligentTrader:
 
                 # Execute the buy order
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                result = self.portfolio.buy(symbol, current_price, shares, timestamp)
+                result = self.portfolio.buy(
+                    symbol,
+                    current_price,
+                    shares,
+                    timestamp,
+                    context=buy_note_from_opportunity(opportunity, source="scan"),
+                )
 
                 if result["success"]:
                     trades_executed += 1
                     action = opportunity.get("action", "BUY")
-                    confidence = opportunity.get("confidence", "UNKNOWN")
+                    confidence = opportunity.get("ai_confidence") or opportunity.get(
+                        "confidence", "UNKNOWN"
+                    )
                     score = opportunity.get("score", 0)
-                    reason = opportunity.get("reasons", ["No reason provided"])[0]
+                    ctx = buy_note_from_opportunity(opportunity, source="scan")
+                    reason = ctx.get("note") or "No reason recorded"
 
                     print(f"   ✅ EXECUTED: {symbol}")
                     print(f"      Action: {action} | Confidence: {confidence} | Score: {score:+.0f}")
@@ -1202,7 +1212,17 @@ class IntelligentTrader:
                         # Execute buy
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         if quantity > 0 and self.portfolio.can_buy(symbol, price, quantity):
-                            result = self.portfolio.buy(symbol, price, quantity, timestamp)
+                            result = self.portfolio.buy(
+                                symbol,
+                                price,
+                                quantity,
+                                timestamp,
+                                context=buy_note_from_opportunity(
+                                    opp,
+                                    source="rebalance",
+                                    recommendation=recommendation,
+                                ),
+                            )
 
                             if result["success"]:
                                 print(f"   📥 {symbol}: Added new opportunity ({opp['strategy']}) - €{result['transaction']['total_cost']:,.2f}")
