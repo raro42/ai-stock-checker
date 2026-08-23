@@ -595,6 +595,7 @@ def load_desk_snapshot(
                 "price": float(t.get("price") or 0),
                 "commission": float(t.get("commission") or 0),
                 "profit_loss": t.get("profit_loss"),
+                "profit_loss_pct": t.get("profit_loss_pct"),
                 "total_cost": t.get("total_cost"),
                 "cash_remaining": t.get("cash_remaining"),
             }
