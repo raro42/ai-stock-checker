@@ -13,7 +13,7 @@ Combines market scanning with paper trading to:
 from typing import List, Dict, Tuple
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from .market_scanner import MarketScanner
 from .portfolio import Portfolio
 from .persistence import DataPersistence
@@ -1348,7 +1348,7 @@ class IntelligentTrader:
 
         while True:
             iteration += 1
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
             print(f"\n{'='*70}")
             print(f"⏰  Iteration #{iteration} - {timestamp}")
