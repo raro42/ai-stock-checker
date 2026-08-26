@@ -6,6 +6,10 @@
       "why": "Top Claude trading skills — position sizer, pre-trade gate, trader memory, postmortem (borrow ideas only; no FMP/Alpaca install)"
     },
     {
+      "repo": "VictorVVedtion/trading-skills",
+      "why": "Pre-trade gate + tilt detector checklists (markdown only; never curl|bash install; masters are roleplay)"
+    },
+    {
       "repo": "staskh/trading_skills",
       "why": "Trading skills + risk/portfolio report patterns (IBKR-heavy — ideas only, no live broker wiring)"
     },
