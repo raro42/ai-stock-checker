@@ -4,7 +4,7 @@ Poll curated external repos for **commits and releases**, then surface transfera
 
 ## Watchlist
 
-Edit [`config/github_watchlist.json`](config/github_watchlist.json). Current set includes FinRobot, finance-agent-v2, value-investing / portfolio AI agents, and several stock screeners.
+Edit [`config/github_watchlist.json`](config/github_watchlist.json). Includes Claude/Agent **trading skill** repos (borrow ideas only), FinRobot, finance-agent-v2, portfolio AI agents, and stock screeners.
 
 ## Cadence
 

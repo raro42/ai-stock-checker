@@ -62,7 +62,7 @@ _DESK_SCREENS = {
         "template": "desk_breadth.html",
         "label": "Breadth",
         "title": "Breadth — AI Stock Checker Paper Desk",
-        "description": "Session mode, cash exposure, scan coverage, and allocation breadth.",
+        "description": "Session mode, cash exposure, and scan coverage breadth.",
     },
     "book": {
         "template": "desk_book.html",

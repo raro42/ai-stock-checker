@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -138,30 +137,5 @@
       <dd>{{ snap.scan_time or "—" }}</dd>
     </div>
   </dl>
-</section>
-
-<section class="block" aria-labelledby="alloc-h">
-  <h2 id="alloc-h">Allocation</h2>
-  {% if snap.holdings %}
-  <ul class="holds">
-    {% for h in snap.holdings %}
-    <li>
-      <div class="hold-main">
-        {{ ticker(h.symbol, h.name) }}
-        <span class="meta">{{ h.kind }} · {{ "%.1f"|format(h.weight_pct) }}%</span>
-        <span class="amt">€{{ "{:,.2f}".format(h.market_value) }}</span>
-      </div>
-      <div class="bar" role="meter"
-           aria-label="{{ h.symbol }}{% if h.name %} {{ h.name }}{% endif %} weight {{ '%.1f'|format(h.weight_pct) }} percent"
-           aria-valuemin="0" aria-valuemax="100"
-           aria-valuenow="{{ '%.0f'|format(h.weight_bar_pct) }}">
-        <i style="width: {{ '%.1f'|format(h.weight_bar_pct) }}%"></i>
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="empty">All cash — no allocation bars yet.</p>
-  {% endif %}
 </section>
 {% endblock %}

@@ -1,6 +1,26 @@
 {
-  "description": "External GitHub repos to watch for transferable ideas (not to clone wholesale).",
+  "description": "External GitHub repos to watch for transferable ideas (not to clone wholesale). Prefer SKILL.md trading/workflow repos + screeners we already track.",
   "repos": [
+    {
+      "repo": "tradermonty/claude-trading-skills",
+      "why": "Top Claude trading skills — position sizer, pre-trade gate, trader memory, postmortem (borrow ideas only; no FMP/Alpaca install)"
+    },
+    {
+      "repo": "staskh/trading_skills",
+      "why": "Trading skills + risk/portfolio report patterns (IBKR-heavy — ideas only, no live broker wiring)"
+    },
+    {
+      "repo": "agiprolabs/claude-trading-skills",
+      "why": "Large Agent Skills catalog (risk, sizing, backtest, tax) — scan for thin transferable patterns"
+    },
+    {
+      "repo": "mphinance/alpha-skills",
+      "why": "Quant/alpha skill pack — backtest and strategy workflow ideas"
+    },
+    {
+      "repo": "pedrobraiti/vizier-trading-skill",
+      "why": "Paper-first trading skill framing — good cultural fit to review"
+    },
     {
       "repo": "xang1234/stock-screener",
       "why": "Stock screener patterns and signals UX"
