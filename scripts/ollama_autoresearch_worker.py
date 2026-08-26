@@ -117,11 +117,15 @@ def query_ollama(prompt: str, model: str, timeout: int = 300) -> str:
 
 
 def build_prompt(current: str, best_score: float, best_desc: str) -> str:
-    ideas = (
-        "Try ONE unused idea: loosen/tighten MAX_RETURN_STDEV; toggle REQUIRE_REL_STRENGTH; "
-        "change RS_LOOKBACK 10–40; SMA 12/30/90; exit when short < long (slower exit); "
-        "volume ratio 1.0–1.5; disable SPY uptrend for one run; RSI entry band 35–65 only."
-    )
+    bank_path = ROOT / "autoresearch" / "idea_bank.md"
+    if bank_path.exists():
+        bank = bank_path.read_text(encoding="utf-8")[:3500]
+    else:
+        bank = (
+            "Try ONE unused idea: loosen/tighten MAX_RETURN_STDEV; toggle REQUIRE_REL_STRENGTH; "
+            "change RS_LOOKBACK 10–40; SMA 12/30/90; exit when short < long (slower exit); "
+            "volume ratio 1.0–1.5; disable SPY uptrend for one run; RSI entry band 35–65 only."
+        )
     banned = recent_discard_phrases()
     banned_txt = "; ".join(banned) if banned else "(none)"
     score_txt = f"{best_score:.4f}" if best_score > float("-inf") else "n/a"
@@ -143,7 +147,8 @@ CURRENT BEST KEEP (walk-forward era only): val_score={score_txt} ({best_desc or 
 RECENT RESULTS (commit, score, status, description):
 {recent_rows()}
 
-IDEA BANK: {ideas}
+IDEA BANK (pick ONE unused testable idea):
+{bank}
 
 CURRENT FILE stock_checker/experiment_strategy.py:
 ```python

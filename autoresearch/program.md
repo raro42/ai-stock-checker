@@ -85,6 +85,10 @@ commit	val_score	status	description
 Harness matches paper Ops defaults: `revolut_standard` fees (0.25% + €1 min), `max_positions=5`, `min_hold_bars=1` (daily ≈ 24h). Do not soften these overnight.
 ## Ideas when stuck
 
+See curated bank: [`idea_bank.md`](idea_bank.md) (Ollama worker loads this). Prefer one unused bank line over random SMA jitter.
+
+Also:
+
 - Longer vs shorter SMA stacks
 - Volume confirmation on/off
 - Trend filter: only trade if SPY medium SMA rising (if SPY in universe)
