@@ -7,12 +7,17 @@ Research note: public Claude/Cursor **trading skill** repos to screen for transf
 
 | Repo | Stars (approx) | Why watch |
 |------|----------------|-----------|
-| [tradermonty/claude-trading-skills](https://github.com/tradermonty/claude-trading-skills) | ~2.7k | Best-known pack: position sizer, pre-trade gate, trader memory, postmortem |
-| [VictorVVedtion/trading-skills](https://github.com/VictorVVedtion/trading-skills) | ~16 | Pre-trade gate + tilt checklists (markdown; never `curl\|bash`) |
+| [tradermonty/claude-trading-skills](https://github.com/tradermonty/claude-trading-skills) | ~2.7k | Workflows: position sizer, pre-trade gate, trader memory, postmortem |
 | [staskh/trading_skills](https://github.com/staskh/trading_skills) | ~340 | Risk/portfolio report patterns (IBKR-heavy — ideas only) |
-| [agiprolabs/claude-trading-skills](https://github.com/agiprolabs/claude-trading-skills) | ~320 | Large Agent Skills catalog (risk, sizing, backtest) |
 | [mphinance/alpha-skills](https://github.com/mphinance/alpha-skills) | ~19 | Quant/alpha workflow ideas |
-| [pedrobraiti/vizier-trading-skill](https://github.com/pedrobraiti/vizier-trading-skill) | ~5 | Paper-first framing — cultural fit |
+
+## Removed from watch (marketing-heavy / low substance)
+
+| Repo | Why removed |
+|------|-------------|
+| VictorVVedtion/trading-skills | Persona + vibe-sensei upsell; ideas already captured in IMPROVEMENT C-* |
+| agiprolabs/claude-trading-skills | Marketplace catalog marketing |
+| pedrobraiti/vizier-trading-skill | Product framing; little ongoing signal |
 
 ## Skipped (low signal or risk)
 

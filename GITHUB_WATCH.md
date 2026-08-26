@@ -4,7 +4,7 @@ Poll curated external repos for **commits and releases**, then surface transfera
 
 ## Watchlist
 
-Edit [`config/github_watchlist.json`](config/github_watchlist.json). Includes Claude/Agent **trading skill** repos (borrow ideas only), FinRobot, finance-agent-v2, portfolio AI agents, and stock screeners.
+Edit [`config/github_watchlist.json`](config/github_watchlist.json). Includes a few substance-first Claude trading-skill repos (borrow ideas only), FinRobot, finance-agent-v2, portfolio AI agents, and stock screeners. Skip marketing catalogs / vibe-upsell repos.
 
 ## Cadence
 

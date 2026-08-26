@@ -58,4 +58,4 @@ So: skills repos feed **Ideas → IMPROVEMENT**. Autoresearch feeds **strategy c
 
 ## Watchlist action
 
-Add `VictorVVedtion/trading-skills` for **pre-trade gate / tilt** idea screening (despite low stars / stale push), with explicit “markdown only; no install.sh.”
+**Removed from watch (2026-08-26):** marketing-heavy / upsell-first. Gate/tilt ideas stay in IMPROVEMENT (`C-gate`, `C-dd`, `C-conc`, `C-tilt`). Do not re-add without new substance.
