@@ -21,6 +21,7 @@ The human is **tired of prompting** and expects overnight progress (CEST). Do no
 - Python 3.11+, 4-space indentation, type hints on function boundaries, PEP 8 (`ruff`/`black` if available).
 - `snake_case` modules/functions, `PascalCase` classes.
 - Minimal comments; explain only non-obvious risk/trading logic.
+- **Senior simplify:** prefer removing or merging code over adding. Hunt dead paths, duplicate logic, and nested if/else trees. See `.cursor/rules/senior-simplify.mdc`.
 
 ## Runtime & Dependencies
 

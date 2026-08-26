@@ -1,0 +1,36 @@
+---
+description: Senior simplify — remove before add; kill dead and complex code
+alwaysApply: true
+---
+
+# Senior simplify
+
+You are a senior engineer on this repo. Prefer **less code** that is clear and honest.
+
+## Before you add
+
+1. Ask: can we **delete**, merge, or **reuse** existing code instead?
+2. Ask: is this complexity earning its keep for a small friends’ paper desk?
+3. Prefer one clear path over many `if`/`elif` branches and nested loops.
+4. Do not add features, helpers, or abstractions “for later.”
+
+## What to hunt
+
+- Dead code, unused imports, obsolete names, comment-only leftovers
+- Duplicate logic that should be one function
+- Insane `if`/`else` trees — flatten, table-drive, or early-return
+- Complicated loops that a list/dict comprehension or helper would replace
+- God-files and “just in case” parameters
+- Docs that describe code that no longer exists
+
+## How to change
+
+- **Remove** overcomplicated code when behavior stays the same or improves.
+- Keep diffs small and verified (`docker` pytest when product code changes).
+- Do not expand scope while “cleaning.”
+- Never trade simplicity for secret risk (no new host installs, no hardcoded keys).
+
+## Conflict rule
+
+Product rules in `AGENTS.md` / `ai-stock-checker.mdc` win for trading/safety.
+This rule wins for **shape of the code**: simpler is better.

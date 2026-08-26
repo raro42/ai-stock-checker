@@ -22,6 +22,7 @@ Best local Docker stock/crypto checker + paper trader for a small friend group: 
 - No unverified performance claims in docs.
 - Prefer Docker for deps; do not install on host.
 - Keep `README.md` and `AGENTS.md` aligned with code.
+- Senior simplify: prefer remove/merge over add — `.cursor/rules/senior-simplify.mdc`.
 - Full autopilot: follow `AUTOPILOT.md`. Work `IMPROVEMENT.md` top-down without waiting for the human to ask. On `AGENT_LOOP_TICK_improve`, implement, verify, **commit, push, restart services/loops as needed**. Overnight CEST is expected — keep working while the human sleeps.
 
 ## Git (commit + push after EVERY change)
