@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Relaxing the volatility gate (MAX_RETURN_STDEV) and stabilizing the primary entry SMA (SHORT_SMA) to capture profitable trades in moderately volatile periods.
+# idea: Tightening the volatility gate (MAX_RETURN_STDEV) to increase robustness by only entering during periods of stable, moderate volatility, filtering out high-chop periods.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
@@ -27,7 +27,7 @@ VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.0 # MODIFIED: Loosened from 1.1 to 1.0 to increase signal volume
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
-MAX_RETURN_STDEV = 0.015  # MODIFIED: Slightly loosened from 0.0135 to 1.5% daily stdev
+MAX_RETURN_STDEV = 0.013  # TIGHTENED: Reduced from 0.015 to 1.3% daily stdev for higher robustness
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
