@@ -7,3 +7,27 @@
   {%- endif %}
 </span>
 {%- endmacro %}
+
+{% macro fill_row(t) -%}
+<li>
+  <span class="when">{{ t.timestamp }}</span>
+  <span class="side {{ t.type|lower }}">{{ t.type }}</span>
+  {{ ticker(t.symbol, t.name) }}
+  <span class="meta">{{ "%.4f"|format(t.quantity) }} @ €{{ t.price|px }} · fee €{{ "%.2f"|format(t.commission) }}</span>
+  <span class="amt{% if t.profit_loss is not none %} {% if t.profit_loss|float >= 0 %}up{% else %}down{% endif %}{% endif %}">
+    {% if t.profit_loss is not none %}
+    €{{ "{:+,.2f}".format(t.profit_loss|float) }}{% if t.profit_loss_pct is not none %}<small>{{ "%+.1f"|format(t.profit_loss_pct|float) }}%</small>{% endif %}
+    {% else %}—{% endif %}
+  </span>
+  {% if t.note or t.strategy or t.exit_reason %}
+  <span class="trade-why why">
+    {%- if t.type == 'SELL' and t.exit_reason -%}
+    <span class="strat">{{ t.exit_reason }}</span>{% if t.note %} · {% endif %}
+    {%- elif t.strategy -%}
+    <span class="strat">{{ t.strategy }}</span>{% if t.note %} · {% endif %}
+    {%- endif -%}
+    {{ t.note or '' }}{% if t.type == 'BUY' and t.score is not none %} · score {{ "%.0f"|format(t.score|float) }}{% endif %}
+  </span>
+  {% endif %}
+</li>
+{%- endmacro %}

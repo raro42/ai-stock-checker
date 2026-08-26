@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker %}
+{% from "macros.html" import ticker, fill_row %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -47,25 +47,23 @@
 
 <section class="block" aria-labelledby="fills-h">
   <h2 id="fills-h">Recent fills</h2>
+  <p class="sub">Complete ledger lives in <code>data/trades.jsonl</code> on disk. Below: latest {{ snap.recent_fills_limit }} of {{ snap.trade_count }} fills since reset.</p>
   {% if snap.recent_trades %}
   <ul class="trades">
     {% for t in snap.recent_trades %}
-    <li>
-      <span class="when">{{ t.timestamp }}</span>
-      <span class="side {{ t.type|lower }}">{{ t.type }}</span>
-      {{ ticker(t.symbol, t.name) }}
-      <span class="meta">{{ "%.4f"|format(t.quantity) }} @ €{{ t.price|px }} · fee €{{ "%.2f"|format(t.commission) }}</span>
-      <span class="amt{% if t.profit_loss is not none %} {% if t.profit_loss|float >= 0 %}up{% else %}down{% endif %}{% endif %}">
-        {% if t.profit_loss is not none %}
-        €{{ "{:+,.2f}".format(t.profit_loss|float) }}{% if t.profit_loss_pct is not none %}<small>{{ "%+.1f"|format(t.profit_loss_pct|float) }}%</small>{% endif %}
-        {% else %}—{% endif %}
-      </span>
-      {% if t.type == 'BUY' and (t.note or t.strategy) %}
-      <span class="trade-why why">{% if t.strategy %}<span class="strat">{{ t.strategy }}</span>{% if t.note %} · {% endif %}{% endif %}{{ t.note or '' }}{% if t.score is not none %} · score {{ "%.0f"|format(t.score|float) }}{% endif %}</span>
-      {% endif %}
-    </li>
+    {{ fill_row(t) }}
     {% endfor %}
   </ul>
+  {% if snap.older_trades %}
+  <details class="fills-more">
+    <summary>Show all {{ snap.trade_count }} fills</summary>
+    <ul class="trades">
+      {% for t in snap.older_trades %}
+      {{ fill_row(t) }}
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
   {% else %}
   <p class="empty">No trades since the last reset.</p>
   {% endif %}

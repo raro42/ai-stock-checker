@@ -220,7 +220,15 @@ class Portfolio:
         """Check if we have enough shares to sell."""
         return symbol in self.holdings and self.holdings[symbol] >= quantity
 
-    def sell(self, symbol: str, price: float, quantity: float, timestamp: str) -> Dict:
+    def sell(
+        self,
+        symbol: str,
+        price: float,
+        quantity: float,
+        timestamp: str,
+        *,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict:
         """
         Execute sell order.
 
@@ -265,6 +273,11 @@ class Portfolio:
             "profit_loss_pct": (profit_loss / (buy_price * quantity)) * 100,
             "cash_remaining": self.cash,
         }
+        if context:
+            for key in ("exit_reason", "note", "source"):
+                val = context.get(key)
+                if val is not None and val != "":
+                    transaction[key] = val
         self.transactions.append(transaction)
 
         # Persist trade and state

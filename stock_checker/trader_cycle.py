@@ -46,6 +46,9 @@ def run_one_cycle(trader: CycleTrader, *, force_scan: bool = False) -> CycleResu
     result = CycleResult()
     trader.apply_runtime_config()
     result.phases.append("config")
+    if hasattr(trader, "begin_trade_cycle"):
+        trader.begin_trade_cycle()
+        result.phases.append("cycle_reset")
 
     if force_scan or trader.should_scan():
         trader.scan_markets()

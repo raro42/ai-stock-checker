@@ -49,6 +49,8 @@ def _seed_portfolio(data: Path) -> None:
                 "commission": 1,
                 "profit_loss": 9.0,
                 "profit_loss_pct": 10.0,
+                "exit_reason": "tp",
+                "note": "Profit target +10.0% (thr +5%)",
             }
         )
         + "\n"
@@ -417,6 +419,8 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "+10.0%" in book.text
     assert "breakout" in book.text
     assert "52w high" in book.text
+    assert "Profit target" in book.text
+    assert "data/trades.jsonl" in book.text
     ideas = client.get("/desk/ideas")
     assert "Paper candidates" in ideas.text
     assert "Adopted here" in ideas.text

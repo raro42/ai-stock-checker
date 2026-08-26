@@ -69,7 +69,7 @@ from .crypto_policy import (
 )
 from .fees import DEFAULT_FEE_PRESET, rates_for_preset
 from .trader_config import DEFAULTS as TRADER_DEFAULTS
-from .trade_context import buy_note_from_opportunity
+from .trade_context import buy_note_from_opportunity, sell_note_from_exit
 from . import __version__
 
 
@@ -115,6 +115,7 @@ class IntelligentTrader:
         self.min_hold_time = min_hold_time
         self._rebuy_blocks_utc_day = ""
         self._rebuy_blocks_today = 0
+        self._cycle_had_stop_loss = False
 
         # AI configuration
         self.ai_mode = ai_mode
@@ -170,6 +171,52 @@ class IntelligentTrader:
         from stock_checker.fee_burn import maybe_print_fee_burn_warning
 
         maybe_print_fee_burn_warning(str(self.persistence.data_dir))
+
+    def begin_trade_cycle(self) -> None:
+        """Reset per-cycle flags (called from trader_cycle.run_one_cycle)."""
+        self._cycle_had_stop_loss = False
+
+    def _entries_blocked_this_cycle(self) -> bool:
+        if self._cycle_had_stop_loss:
+            print(
+                "   ⏸️  New buys paused this cycle "
+                "(stop-loss exit — wait for next check)"
+            )
+            return True
+        return False
+
+    def _scan_entry_allowed(self, opportunity: dict) -> Tuple[bool, str, float]:
+        from .entry_guards import scan_entry_guards
+
+        sym = str(opportunity.get("symbol") or "")
+        is_crypto = is_crypto_symbol(sym) or "-USD" in sym
+        _, sl_thr = exit_thresholds_for_asset(is_crypto=is_crypto)
+        return scan_entry_guards(
+            opportunity,
+            ai_action=opportunity.get("ai_action"),
+            ai_confidence=opportunity.get("ai_confidence"),
+            stop_loss_pct=sl_thr,
+        )
+
+    def _sell_position(
+        self,
+        symbol: str,
+        price: float,
+        quantity: float,
+        timestamp: str,
+        *,
+        exit_reason: str,
+        profit_pct: float | None = None,
+        threshold: float | None = None,
+        detail: str = "",
+    ) -> dict:
+        ctx = sell_note_from_exit(
+            exit_reason=exit_reason,
+            profit_pct=profit_pct,
+            threshold=threshold,
+            detail=detail,
+        )
+        return self.portfolio.sell(symbol, price, quantity, timestamp, context=ctx)
 
     def should_scan(self) -> bool:
         """Check if it's time for a new market scan."""
@@ -551,7 +598,18 @@ class IntelligentTrader:
                         sys.stdout.flush()
                         continue
                     elif ai_result['action'] == 'HOLD':
-                        print(f"   ⚠️  {symbol}: AI suggests HOLD (neutral) - keeping with lower confidence")
+                        conf = str(ai_result.get('confidence') or '').upper()
+                        if conf == 'LOW':
+                            print(
+                                f"   ❌ {symbol}: AI HOLD (LOW confidence) — filtering out"
+                            )
+                            print(f"      Reasoning: {ai_result['reasons'][0]}")
+                            sys.stdout.flush()
+                            continue
+                        print(
+                            f"   ⚠️  {symbol}: AI suggests HOLD (neutral) "
+                            f"- keeping with lower confidence"
+                        )
                         sys.stdout.flush()
                         # Lower the opportunity score
                         opp['score'] = opp.get('score', 0) * 0.7
@@ -757,7 +815,15 @@ class IntelligentTrader:
                 # PROFIT TAKING (clears Revolut-like round-trip + cushion)
                 if should_take_profit(profit_pct, threshold=tp_thr):
                     quantity = self.portfolio.holdings[symbol]
-                    result = self.portfolio.sell(symbol, price, quantity, timestamp)
+                    result = self._sell_position(
+                        symbol,
+                        price,
+                        quantity,
+                        timestamp,
+                        exit_reason="tp",
+                        profit_pct=profit_pct,
+                        threshold=tp_thr,
+                    )
                     if result["success"]:
                         print(
                             f"   💰 {symbol}: Profit target hit (+{profit_pct:.2f}% "
@@ -768,8 +834,17 @@ class IntelligentTrader:
                 # STOP LOSS — hard risk cut only (not for scan rotation)
                 elif should_stop_loss(profit_pct, threshold=sl_thr):
                     quantity = self.portfolio.holdings[symbol]
-                    result = self.portfolio.sell(symbol, price, quantity, timestamp)
+                    result = self._sell_position(
+                        symbol,
+                        price,
+                        quantity,
+                        timestamp,
+                        exit_reason="sl",
+                        profit_pct=profit_pct,
+                        threshold=sl_thr,
+                    )
                     if result["success"]:
+                        self._cycle_had_stop_loss = True
                         print(
                             f"   🛑 {symbol}: Stop loss triggered ({profit_pct:.2f}% "
                             f"/ thr −{sl_thr:g}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}"
@@ -801,7 +876,15 @@ class IntelligentTrader:
             row = next(m for m in still if m["symbol"] == pick)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             quantity = self.portfolio.holdings[pick]
-            result = self.portfolio.sell(pick, float(row["price"]), quantity, timestamp)
+            result = self._sell_position(
+                pick,
+                float(row["price"]),
+                quantity,
+                timestamp,
+                exit_reason="trim",
+                profit_pct=float(row.get("profit_pct") or 0),
+                detail=why,
+            )
             if not result["success"]:
                 print(f"   ✂️  Trim sell failed for {pick}")
                 break
@@ -838,6 +921,9 @@ class IntelligentTrader:
         )
 
         trades_executed = 0
+
+        if self._entries_blocked_this_cycle():
+            return
 
         for opportunity in sorted_opportunities:
             # Check if we still have room for more positions
@@ -929,8 +1015,20 @@ class IntelligentTrader:
                         print(f"   ⚠️ Could not fetch price for {symbol}")
                         continue
 
+                allowed, guard_why, size_mult = self._scan_entry_allowed(opportunity)
+                if not allowed:
+                    print(f"   ⏸️  Skipping {symbol}: {guard_why}")
+                    continue
+                if size_mult < 0.999:
+                    print(
+                        f"   📐 {symbol}: position size ×{size_mult:.2f} "
+                        f"(tight implied stop)"
+                    )
+
                 # Calculate investment amount (position_size % of portfolio)
-                investment_amount = self.portfolio.cash * self.position_size
+                investment_amount = (
+                    self.portfolio.cash * self.position_size * size_mult
+                )
 
                 # Calculate shares to buy
                 shares = investment_amount / current_price
@@ -1094,10 +1192,23 @@ class IntelligentTrader:
                 # Sell the position
                 quantity = self.portfolio.holdings[symbol]
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                result = self.portfolio.sell(symbol, price, quantity, timestamp)
+                result = self._sell_position(
+                    symbol,
+                    price,
+                    quantity,
+                    timestamp,
+                    exit_reason="rotation",
+                    profit_pct=profit_pct,
+                    detail=why,
+                )
 
                 if result["success"]:
-                    print(f"   📤 {symbol}: Exited stale winner - €{result['transaction']['profit_loss']:+,.2f} ({profit_pct:+.2f}%)")
+                    tx = result["transaction"]
+                    note = tx.get("note") or why
+                    print(
+                        f"   📤 {symbol}: Exited stale winner - "
+                        f"€{tx['profit_loss']:+,.2f} ({profit_pct:+.2f}%) · {note}"
+                    )
                     self._record_exit(symbol)
                     rebalanced = True
 
@@ -1105,7 +1216,7 @@ class IntelligentTrader:
                 print(f"   ⚠️ Error selling {symbol}: {str(e)[:50]}")
 
         # Buy missing opportunities if we have cash and room under max_positions
-        if available_pct >= self.position_size:
+        if available_pct >= self.position_size and not self._entries_blocked_this_cycle():
             for opp in top_opportunities:
                 symbol = opp['symbol']
 
@@ -1194,13 +1305,25 @@ class IntelligentTrader:
                         if not price:
                             continue
 
+                    allowed, guard_why, size_mult = self._scan_entry_allowed(opp)
+                    if not allowed:
+                        print(f"   ⏸️  Skipping {symbol}: {guard_why}")
+                        continue
+                    if size_mult < 0.999:
+                        print(
+                            f"   📐 {symbol}: position size ×{size_mult:.2f} "
+                            f"(tight implied stop)"
+                        )
+
                     # Get recommendation to validate buy
                     recommendation = recommender.analyze_stock_recommendation(data)
 
                     if recommendation["action"] == "BUY":
                         # Calculate position size
                         portfolio_value = self.portfolio.get_total_value()
-                        max_investment = portfolio_value * self.position_size
+                        max_investment = (
+                            portfolio_value * self.position_size * size_mult
+                        )
                         quantity = max_investment / price
 
                         # Round quantity

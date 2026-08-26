@@ -513,6 +513,7 @@ class MarketScanner:
                         'risk_note': risk.get("summary") or "risk n/a",
                         'risk_rr': risk.get("rr"),
                         'risk_rr_ok': risk.get("rr_ok"),
+                        'risk_pct': risk.get("risk_pct"),
                     })
                 else:
                     print("✓")
@@ -826,6 +827,7 @@ class MarketScanner:
                 'risk_note': risk_bit,
                 'risk_rr': stock.get('risk_rr'),
                 'risk_rr_ok': stock.get('risk_rr_ok'),
+                'risk_pct': stock.get('risk_pct'),
             })
 
         # Crypto risk notes (volatility as ATR%)

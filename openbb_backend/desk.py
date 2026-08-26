@@ -40,6 +40,32 @@ def _load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+RECENT_FILLS_LIMIT = 20
+
+
+def _serialize_trade_row(t: dict, names: dict[str, str]) -> dict[str, Any]:
+    sym = t.get("symbol") or "—"
+    return {
+        "timestamp": t.get("timestamp") or "—",
+        "type": t.get("type") or "—",
+        "symbol": sym,
+        "name": display_name(str(sym), names),
+        "quantity": float(t.get("quantity") or 0),
+        "price": float(t.get("price") or 0),
+        "commission": float(t.get("commission") or 0),
+        "profit_loss": t.get("profit_loss"),
+        "profit_loss_pct": t.get("profit_loss_pct"),
+        "strategy": t.get("strategy"),
+        "note": t.get("note"),
+        "score": t.get("score"),
+        "confidence": t.get("confidence"),
+        "source": t.get("source"),
+        "exit_reason": t.get("exit_reason"),
+        "total_cost": t.get("total_cost"),
+        "cash_remaining": t.get("cash_remaining"),
+    }
+
+
 def _parse_book_ts(raw: Any) -> Optional[datetime]:
     """Parse portfolio reset_at or trade timestamp into aware UTC."""
     if raw is None:
@@ -582,29 +608,9 @@ def load_desk_snapshot(
     for r in rows:
         r["name"] = display_name(r["symbol"], names)
 
-    recent = []
-    for t in reversed(trades[-20:]):
-        sym = t.get("symbol") or "—"
-        recent.append(
-            {
-                "timestamp": t.get("timestamp") or "—",
-                "type": t.get("type") or "—",
-                "symbol": sym,
-                "name": display_name(str(sym), names),
-                "quantity": float(t.get("quantity") or 0),
-                "price": float(t.get("price") or 0),
-                "commission": float(t.get("commission") or 0),
-                "profit_loss": t.get("profit_loss"),
-                "profit_loss_pct": t.get("profit_loss_pct"),
-                "strategy": t.get("strategy"),
-                "note": t.get("note"),
-                "score": t.get("score"),
-                "confidence": t.get("confidence"),
-                "source": t.get("source"),
-                "total_cost": t.get("total_cost"),
-                "cash_remaining": t.get("cash_remaining"),
-            }
-        )
+    all_trade_rows = [_serialize_trade_row(t, names) for t in reversed(trades)]
+    recent = all_trade_rows[:RECENT_FILLS_LIMIT]
+    older_trades = all_trade_rows[RECENT_FILLS_LIMIT:]
 
     recs = []
     for r in recs_raw:
@@ -819,6 +825,8 @@ def load_desk_snapshot(
         "buy_count": len(buys),
         "sell_count": len(sells),
         "recent_trades": recent,
+        "older_trades": older_trades,
+        "recent_fills_limit": RECENT_FILLS_LIMIT,
         "reset_note": portfolio.get("reset_note") or "",
         "weekend_mode": weekend,
         "weekend_hint": "Weekend: crypto-only trading; US stocks paused."

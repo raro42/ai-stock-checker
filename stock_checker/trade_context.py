@@ -58,3 +58,34 @@ def buy_note_from_opportunity(
     if confidence:
         ctx["confidence"] = str(confidence)[:16]
     return ctx
+
+
+def sell_note_from_exit(
+    *,
+    exit_reason: str,
+    profit_pct: float | None = None,
+    threshold: float | None = None,
+    detail: str = "",
+) -> dict[str, Any]:
+    """Short ledger note for SELL rows (Book / audit)."""
+    reason = str(exit_reason or "exit")[:24]
+    note = ""
+    if reason == "tp" and profit_pct is not None and threshold is not None:
+        note = f"Profit target {profit_pct:+.1f}% (thr +{threshold:g}%)"
+    elif reason == "sl" and profit_pct is not None and threshold is not None:
+        note = f"Stop loss {profit_pct:+.1f}% (thr −{threshold:g}%)"
+    elif reason == "rotation":
+        note = detail or "Scan rotation (winner past hurdle)"
+    elif reason == "trim":
+        note = detail or "Overweight trim"
+    elif reason == "stale":
+        note = detail or "Stale winner exit"
+    elif detail:
+        note = detail
+    else:
+        note = reason.replace("_", " ")
+
+    ctx: dict[str, Any] = {"exit_reason": reason, "source": "exit_policy"}
+    if note.strip():
+        ctx["note"] = _clip(note)
+    return ctx
