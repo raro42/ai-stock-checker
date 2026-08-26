@@ -178,6 +178,18 @@ def reset_hard(commit: str) -> None:
 
 
 def run_experiment() -> Tuple[int, str]:
+    use_host = os.getenv("AUTOSEARCH_HOST_SCORE", "0") == "1"
+    if use_host:
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "run_experiment.py")],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+        log = proc.stdout + proc.stderr
+        RUN_LOG.parent.mkdir(parents=True, exist_ok=True)
+        RUN_LOG.write_text(log)
+        return proc.returncode, log
     proc = subprocess.run(
         ["bash", str(EXPERIMENT_SH)],
         cwd=ROOT,

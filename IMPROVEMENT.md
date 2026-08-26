@@ -116,6 +116,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Quiet AI logs by default (`AI_VERBOSE=0` — one-line results, not full prompt dumps)
 - [x] Autoresearch: WF-era keep scoring only + diversity prompt (stop comparing to pre-WF ~14 scores / repeated SMA-exit ideas)
 - [x] Autoresearch curated `idea_bank.md` loaded by Ollama worker (testable knobs only; no marketing personas)
+- [x] Autoresearch speed: net interval (default 120s), 2h sprint script, host-score flag, param-grid worker for dense no-LLM tests
 - [ ] Autoresearch keep gate: discard keeps that fail buy-and-hold SPY walk-forward on the same bars (`benchmark_buy_hold` / `beats_buy_hold_spy_walkforward`)
 - [ ] Autoresearch idea ledger: tag each `results.tsv` row with bank-id / family so morning review shows which idea families stall
 - [x] Weekend **crypto-only** trading (stocks still paused Sat/Sun) — crypto is 24/7

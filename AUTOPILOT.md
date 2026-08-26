@@ -40,7 +40,9 @@ While the human sleeps:
 |------|-------|---------|---------|
 | Watchdog | `./scripts/run_watchdog_loop.sh` | ~5m | Restart dead containers/loops; wake agent on repeated Tracebacks |
 | GitHub idea watch | `./scripts/run_github_watch_loop.sh` | cadence-aware | Commits/releases on curated repos when due → `AGENT_LOOP_TICK_github_watch` |
-| Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~8m **only 23:00–08:00 local TZ** | Strategy `val_score` keep/revert (no Cursor tokens); day idle |
+| Ollama autoresearch | `./scripts/run_ollama_autoresearch_loop.sh` | ~120s **net** only 23:00–08:00 local TZ | Strategy `val_score` keep/revert (no Cursor tokens); day idle |
+| Ollama 2h sprint | `./scripts/run_ollama_autoresearch_sprint.sh` | ~45s net for `SPRINT_SEC` (default 2h) | Dense Ollama burst; FORCE=1 by default |
+| Param grid (no LLM) | `./scripts/run_param_autoresearch_loop.sh` | ~5s | High-volume knob search; **not** with Ollama loop |
 | Product improve | `./scripts/run_improve_loop.sh` → `AGENT_LOOP_TICK_improve` | **1h** | ≥1 idea/tick; always review GitHub watch digest |
 | Clean-code agent | `./scripts/run_clean_code_agent.sh` | on improve ticks / manual | Ruff + move ad-hoc slop; gemma4 advisory review |
 
