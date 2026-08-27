@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Tightening the volatility gate (MAX_RETURN_STDEV) to increase robustness by only entering during periods of stable, moderate volatility, filtering out high-chop periods.
+# idea: Refining the exit logic to require both structural failure (Price < LONG_SMA) AND confirmation that the price has fallen significantly below the short-term trend (Price < Short_SMA - (Medium_SMA - Short_SMA)).
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
@@ -130,7 +130,7 @@ def generate_signals(
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
        Entry uses Short > Medium SMA AND Short Momentum SMA confirms strength AND Medium SMA is rising. 
-       Exit uses structural price confirmation (Price < LONG_SMA) AND tight price confirmation relative to Short Momentum SMA."""
+       Exit uses structural price confirmation (Price < LONG_SMA) AND confirms weakness relative to the short-term trend spread."""
     signals: Dict[str, str] = {}
     
     # Determine minimum required data length for all checks
@@ -225,11 +225,11 @@ def generate_signals(
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if price drops below the long-term structural average (LONG_SMA) AND price confirms weakness relative to Short Momentum SMA.
+        # Exit if price drops below the long-term structural average (LONG_SMA) AND confirms weakness by falling below the structural trend line (Short_SMA - (Medium_SMA - Short_SMA)).
         elif (
-            current_close < sma_l # STRUCTURAL CHANGE: Using current price vs LONG_SMA instead of SMA_M < SMA_L
+            current_close < sma_l # Structural requirement: Price below long-term SMA
             and in_pos
-            and current_close < sma_mon * EXIT_PRICE_CONFIRMATION_MULTIPLIER # Exit uses Short Momentum SMA for tighter, faster confirmation
+            and current_close < (sma_s - (sma_m - sma_s)) * EXIT_PRICE_CONFIRMATION_MULTIPLIER # New exit filter: Price must fall below the line extrapolated from the short-term trend spread
         ):
             signals[symbol] = "SELL"
 
