@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Refining the exit logic to require both structural failure (Price < LONG_SMA) AND confirmation that the price has fallen significantly below the short-term trend (Price < Short_SMA - (Medium_SMA - Short_SMA)).
+# idea: Tightening the volume confirmation gate (MIN_VOLUME_RATIO) from 1.0 to 1.1 to filter for higher conviction breakouts.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
@@ -24,7 +24,7 @@ LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faste
 # Require short > med to enter; exit when price drops significantly below the LONG_SMA AND price confirms weakness relative to Short Momentum SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
-MIN_VOLUME_RATIO = 1.0 # MODIFIED: Loosened from 1.1 to 1.0 to increase signal volume
+MIN_VOLUME_RATIO = 1.1 # MODIFIED: Increased from 1.0 to 1.1 for higher conviction volume filter
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
 MAX_RETURN_STDEV = 0.013  # TIGHTENED: Reduced from 0.015 to 1.3% daily stdev for higher robustness
@@ -190,7 +190,7 @@ def generate_signals(
             avg_vol = sum(vols[-VOLUME_LOOKBACK:]) / VOLUME_LOOKBACK
             cur_vol = vols[-1]
             if avg_vol > 0:
-                # Changed ratio check to >= 1.0
+                # Check ratio against the increased threshold
                 vol_ok = (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
 
         # 2. Volatility Gate Check
