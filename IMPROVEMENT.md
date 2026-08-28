@@ -125,7 +125,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [ ] **C-gate** Desk/Ops pre-trade checklist (PASS/WARN/FAIL): heat, concentration, stop/R:R, regime — inspired by VictorVVedtion pre-trade-gate + tradermonty discipline gate (paper only; wire into entry path gradually)
 - [ ] **C-dd** Soft daily loss halt: block new buys after N% realized loss today (UTC) — VictorVVedtion gate #9
 - [ ] **C-conc** Soft single-name concentration cap at entry (~25–35% equity) — gate #2/#3
-- [ ] **C-tilt** Extend post-stop cooldown: after SL, no new equity buys for ≥1 trade interval (revenge refill) — tilt-detector + our same-cycle pause
+- [x] **C-tilt** Extend post-stop cooldown: after SL, block new buys ≥1h (floor) / ≥1 trade interval — arms `_buy_block_until` (breaks EOG→EXPE→NTRA same-minute refill); same-cycle flag kept
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
 - [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold)
 - [x] Re-baseline under walk-forward + WF-aware buy-and-hold benchmark

@@ -116,6 +116,8 @@ class IntelligentTrader:
         self._rebuy_blocks_utc_day = ""
         self._rebuy_blocks_today = 0
         self._cycle_had_stop_loss = False
+        # After a stop-loss, block new buys until this epoch (anti revenge-refill).
+        self._buy_block_until = 0.0
 
         # AI configuration
         self.ai_mode = ai_mode
@@ -176,6 +178,10 @@ class IntelligentTrader:
         """Reset per-cycle flags (called from trader_cycle.run_one_cycle)."""
         self._cycle_had_stop_loss = False
 
+    def _post_stop_cooldown_seconds(self) -> float:
+        """Block new buys after SL: ≥1 trade interval, floor 1h (C-tilt)."""
+        return float(max(int(self.trade_interval), 3600))
+
     def _entries_blocked_this_cycle(self) -> bool:
         if self._cycle_had_stop_loss:
             print(
@@ -183,7 +189,21 @@ class IntelligentTrader:
                 "(stop-loss exit — wait for next check)"
             )
             return True
+        now = time.time()
+        if now < float(getattr(self, "_buy_block_until", 0.0) or 0.0):
+            left = int(self._buy_block_until - now)
+            print(
+                f"   ⏸️  New buys paused ({left}s left) "
+                f"(post stop-loss cooldown — anti revenge refill)"
+            )
+            return True
         return False
+
+    def _arm_post_stop_cooldown(self) -> None:
+        """Extend buy block past this cycle so the next tick cannot refill."""
+        self._cycle_had_stop_loss = True
+        until = time.time() + self._post_stop_cooldown_seconds()
+        self._buy_block_until = max(float(getattr(self, "_buy_block_until", 0.0) or 0.0), until)
 
     def _scan_entry_allowed(self, opportunity: dict) -> Tuple[bool, str, float]:
         from .entry_guards import scan_entry_guards
@@ -844,10 +864,14 @@ class IntelligentTrader:
                         threshold=sl_thr,
                     )
                     if result["success"]:
-                        self._cycle_had_stop_loss = True
+                        self._arm_post_stop_cooldown()
                         print(
                             f"   🛑 {symbol}: Stop loss triggered ({profit_pct:.2f}% "
                             f"/ thr −{sl_thr:g}%) - SOLD €{result['transaction']['profit_loss']:+,.2f}"
+                        )
+                        print(
+                            f"   ⏸️  Post-SL buy cooldown "
+                            f"{self._post_stop_cooldown_seconds():.0f}s armed"
                         )
                         self._record_exit(symbol)
 
