@@ -23,6 +23,8 @@ if str(ROOT) not in sys.path:
 
 from stock_checker.ollama_autoresearch import (  # noqa: E402
     extract_python,
+    idea_family,
+    parse_beats_spy_walkforward,
     parse_val_score,
     validate_strategy_source,
 )
@@ -162,9 +164,10 @@ Rewrite the full file with one improvement that might beat val_score {score_txt}
 def append_result(commit: str, score: float, status: str, description: str) -> None:
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not RESULTS_PATH.exists():
-        RESULTS_PATH.write_text("commit\tval_score\tstatus\tdescription\n")
+        RESULTS_PATH.write_text("commit\tval_score\tstatus\tdescription\tfamily\n")
+    fam = idea_family(description)
     with RESULTS_PATH.open("a") as fh:
-        fh.write(f"{commit}\t{score:.6f}\t{status}\t{description}\n")
+        fh.write(f"{commit}\t{score:.6f}\t{status}\t{description}\t{fam}\n")
 
 
 def commit_strategy(message: str) -> str:
@@ -296,6 +299,20 @@ def one_iteration(
 
     print(f"val_score: {score:.6f} (best keep was {best_score})")
     if score > best_score:
+        beats = parse_beats_spy_walkforward(log)
+        if beats is False:
+            append_result(
+                new_commit,
+                score,
+                "discard",
+                f"fails SPY WF gate | {idea}"[:120],
+            )
+            reset_hard(keep_commit)
+            print(
+                f"status: discard; beats_buy_hold_spy_walkforward=false "
+                f"(reverted to {keep_commit})"
+            )
+            return 0
         append_result(new_commit, score, "keep", idea)
         print("status: keep")
         if os.getenv("OLLAMA_AUTOSEARCH_PUSH", "0") == "1":

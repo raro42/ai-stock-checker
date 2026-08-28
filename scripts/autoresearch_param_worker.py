@@ -22,7 +22,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from stock_checker.ollama_autoresearch import parse_val_score  # noqa: E402
+from stock_checker.ollama_autoresearch import (  # noqa: E402
+    idea_family,
+    parse_beats_spy_walkforward,
+    parse_val_score,
+)
 
 STRATEGY_PATH = ROOT / "stock_checker" / "experiment_strategy.py"
 RESULTS_PATH = ROOT / "autoresearch" / "results.tsv"
@@ -144,9 +148,10 @@ def pick_mutation(rng: random.Random) -> Tuple[str, Any, str]:
 def append_result(commit: str, score: float, status: str, description: str) -> None:
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not RESULTS_PATH.exists():
-        RESULTS_PATH.write_text("commit\tval_score\tstatus\tdescription\n")
+        RESULTS_PATH.write_text("commit\tval_score\tstatus\tdescription\tfamily\n")
+    fam = idea_family(description)
     with RESULTS_PATH.open("a") as f:
-        f.write(f"{commit}\t{score:.6f}\t{status}\t{description}\n")
+        f.write(f"{commit}\t{score:.6f}\t{status}\t{description}\t{fam}\n")
 
 
 def commit_strategy(message: str) -> str:
@@ -216,6 +221,20 @@ def one_iteration(*, seed: Optional[int] = None) -> int:
 
     print(f"val_score: {score:.6f} (best keep was {best})")
     if score > best:
+        beats = parse_beats_spy_walkforward(log)
+        if beats is False:
+            append_result(
+                new_commit,
+                score,
+                "discard",
+                f"fails SPY WF gate | {idea}"[:120],
+            )
+            reset_hard(keep_commit)
+            print(
+                f"status: discard; beats_buy_hold_spy_walkforward=false "
+                f"(reverted to {keep_commit})"
+            )
+            return 0
         append_result(new_commit, score, "keep", idea)
         print("status: keep")
         if os.getenv("OLLAMA_AUTOSEARCH_PUSH", "0") == "1":

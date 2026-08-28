@@ -55,3 +55,39 @@ def parse_val_score(log_text: str) -> Optional[float]:
         return float(m.group(1))
     except ValueError:
         return None
+
+
+def parse_beats_spy_walkforward(log_text: str) -> Optional[bool]:
+    m = re.search(
+        r"^beats_buy_hold_spy_walkforward:\s*(true|false)",
+        log_text,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if not m:
+        return None
+    return m.group(1).lower() == "true"
+
+
+def idea_family(description: str) -> str:
+    """Coarse idea family for morning stall review."""
+    low = (description or "").lower()
+    if low.startswith("param:") or "param: " in low:
+        name = low.split("param:", 1)[-1].strip().split("=")[0].strip()
+        if name:
+            return f"param:{name}"
+        return "param"
+    if "fails spy wf" in low:
+        return "spy_gate"
+    if "rsi" in low:
+        return "rsi"
+    if "volume" in low or "min_volume" in low:
+        return "volume"
+    if "rel_strength" in low or "relative strength" in low or "rs_lookback" in low:
+        return "rs"
+    if "spy" in low and "uptrend" in low:
+        return "spy_filter"
+    if "stdev" in low or "volatil" in low or "true range" in low:
+        return "vol"
+    if "exit" in low or "sma" in low:
+        return "sma_exit"
+    return "other"

@@ -177,6 +177,18 @@ class IntelligentTrader:
     def begin_trade_cycle(self) -> None:
         """Reset per-cycle flags (called from trader_cycle.run_one_cycle)."""
         self._cycle_had_stop_loss = False
+        try:
+            from .risk_halts import pretrade_status
+
+            level, notes = pretrade_status(
+                str(self.persistence.data_dir),
+                initial_cash=float(getattr(self.portfolio, "initial_cash", 0) or 0),
+                buy_block_until=float(getattr(self, "_buy_block_until", 0.0) or 0.0),
+            )
+            if level != "PASS":
+                print(f"   🧭 Pre-trade gate: {level} — {'; '.join(notes)}")
+        except Exception:  # noqa: BLE001
+            pass
 
     def _post_stop_cooldown_seconds(self) -> float:
         """Block new buys after SL: ≥1 trade interval, floor 1h (C-tilt)."""
@@ -197,7 +209,24 @@ class IntelligentTrader:
                 f"(post stop-loss cooldown — anti revenge refill)"
             )
             return True
+        from .risk_halts import daily_loss_halt
+
+        data_dir = str(self.persistence.data_dir)
+        initial = float(getattr(self.portfolio, "initial_cash", 0) or 0)
+        halt, why, _pnl = daily_loss_halt(data_dir, initial_cash=initial)
+        if halt:
+            print(f"   ⏸️  New buys paused ({why})")
+            return True
         return False
+
+    def _concentration_ok(self, *, notional: float) -> Tuple[bool, str]:
+        from .risk_halts import concentration_allows
+
+        try:
+            equity = float(self.portfolio.get_total_value())
+        except Exception:  # noqa: BLE001
+            equity = float(getattr(self.portfolio, "initial_cash", 0) or 0)
+        return concentration_allows(notional=notional, portfolio_value=equity)
 
     def _arm_post_stop_cooldown(self) -> None:
         """Extend buy block past this cycle so the next tick cannot refill."""
@@ -1063,6 +1092,11 @@ class IntelligentTrader:
                     print(f"   ⚠️ Insufficient cash for {symbol} (need €{total_cost:,.2f}, have €{self.portfolio.cash:,.2f})")
                     continue
 
+                conc_ok, conc_why = self._concentration_ok(notional=total_cost)
+                if not conc_ok:
+                    print(f"   ⏸️  Skipping {symbol}: {conc_why}")
+                    continue
+
                 # Execute the buy order
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 result = self.portfolio.buy(
@@ -1355,6 +1389,12 @@ class IntelligentTrader:
                             quantity = round(quantity, 2)
                         else:
                             quantity = round(quantity, 4)
+
+                        notional = quantity * price
+                        conc_ok, conc_why = self._concentration_ok(notional=notional)
+                        if not conc_ok:
+                            print(f"   ⏸️  Skipping {symbol}: {conc_why}")
+                            continue
 
                         # Execute buy
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

@@ -1,6 +1,7 @@
 """Post stop-loss buy cooldown (anti revenge refill)."""
 
 import time
+from types import SimpleNamespace
 
 from stock_checker.intelligent_trader import IntelligentTrader
 
@@ -10,20 +11,19 @@ def test_post_stop_cooldown_blocks_after_arm(tmp_path):
     t.trade_interval = 300
     t._cycle_had_stop_loss = False
     t._buy_block_until = 0.0
+    t.persistence = SimpleNamespace(data_dir=tmp_path)
+    t.portfolio = SimpleNamespace(initial_cash=100_000.0)
     assert t._entries_blocked_this_cycle() is False
 
     t._arm_post_stop_cooldown()
     assert t._cycle_had_stop_loss is True
     assert t._buy_block_until > time.time()
-    # Same-cycle flag alone
     assert t._entries_blocked_this_cycle() is True
 
-    # After cycle reset, durable timestamp still blocks
     t.begin_trade_cycle()
     assert t._cycle_had_stop_loss is False
     assert t._entries_blocked_this_cycle() is True
 
-    # Expired cooldown allows entries
     t._buy_block_until = time.time() - 1
     assert t._entries_blocked_this_cycle() is False
 

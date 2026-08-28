@@ -224,6 +224,47 @@ def _metrics_for_bars(bt: Backtester, data: Dict[str, List[Dict]]) -> dict:
     return metrics
 
 
+def _buy_and_hold_spy(bars_by_symbol, index, portfolio):
+    """All-in SPY once; hold forever (keep-gate baseline)."""
+    if "SPY" not in bars_by_symbol:
+        return {}
+    if "SPY" in portfolio.get("positions", {}):
+        return {}
+    if index < 1:
+        return {}
+    return {"SPY": "BUY"}
+
+
+def _spy_walkforward_blend(data: Dict[str, List[Dict]]) -> float:
+    """SPY buy-and-hold WF blend on the same bars (live-shaped fees)."""
+    bt = Backtester(
+        initial_capital=INITIAL_CAPITAL,
+        commission_rate=COMMISSION,
+        commission_min_eur=COMMISSION_MIN_EUR,
+        slippage_pct=SLIPPAGE,
+        position_fraction=0.99,
+        max_positions=0,
+        min_hold_bars=MIN_HOLD_BARS,
+    )
+
+    def fold_score(fold_data: Dict[str, List[Dict]]) -> float:
+        result = bt.backtest(fold_data, _buy_and_hold_spy)
+        metrics = result.calculate_metrics()
+        metrics["fees_pct"] = estimate_fees_pct(result.trades)
+        # Allow single round-trip (buy-and-hold)
+        sharpe = float(metrics.get("sharpe_ratio") or 0)
+        dd = float(metrics.get("max_drawdown") or 0)
+        ret = float(metrics.get("total_return_pct") or 0)
+        fees_pct = float(metrics.get("fees_pct") or 0)
+        score = sharpe * 10.0 + ret * 0.05 - dd * 0.15 - fees_pct * 0.5
+        return score if score == score else -100.0
+
+    wf_score, fold_scores = walk_forward_val_score(data, fold_score, n_folds=3, min_bars=80)
+    worst = min(fold_scores) if fold_scores else -100.0
+    blend = 0.75 * wf_score + 0.25 * worst
+    return blend if blend == blend else -100.0
+
+
 def run() -> int:
     t0 = time.time()
     symbols = list(DEFAULT_SYMBOLS)
@@ -244,6 +285,9 @@ def run() -> int:
     if best_score != best_score:
         best_score = -100.0
 
+    spy_wf = _spy_walkforward_blend(data)
+    beats_spy = best_score > spy_wf
+
     elapsed = time.time() - t0
     runs = 1 + len(fold_scores)
 
@@ -252,6 +296,8 @@ def run() -> int:
     print(f"wf_score_mean:        {wf_score:.6f}")
     print(f"wf_score_min:         {worst:.6f}")
     print(f"wf_fold_scores:       {','.join(f'{s:.4f}' for s in fold_scores)}")
+    print(f"spy_wf_blend:         {spy_wf:.6f}")
+    print(f"beats_buy_hold_spy_walkforward: {str(beats_spy).lower()}")
     print(f"total_return_pct:     {full_metrics['total_return_pct']:.6f}")
     print(f"max_drawdown_pct:     {full_metrics['max_drawdown']:.6f}")
     print(f"sharpe_ratio:         {full_metrics['sharpe_ratio']:.6f}")
