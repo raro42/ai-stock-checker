@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Tightening the volume confirmation gate (MIN_VOLUME_RATIO) from 1.0 to 1.1 to filter for higher conviction breakouts.
+# idea: Slightly loosening the volatility gate (MAX_RETURN_STDEV) from 0.013 to 0.014 to capture breakouts during slightly higher, but still constrained, volatility periods.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
@@ -27,7 +27,7 @@ VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.1 # MODIFIED: Increased from 1.0 to 1.1 for higher conviction volume filter
 # Skip entries when recent daily-return stdev is elevated
 VOLATILITY_LOOKBACK = 15
-MAX_RETURN_STDEV = 0.013  # TIGHTENED: Reduced from 0.015 to 1.3% daily stdev for higher robustness
+MAX_RETURN_STDEV = 0.014  # MODIFIED: Increased from 0.013 to 0.014 to allow entries during slightly higher volatility periods
 # Only buy non-SPY names when SPY medium SMA is rising
 REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
