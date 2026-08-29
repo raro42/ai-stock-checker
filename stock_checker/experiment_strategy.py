@@ -14,14 +14,14 @@ from typing import Dict, List
 import math
 
 
-# idea: Slightly loosening the volatility gate (MAX_RETURN_STDEV) from 0.013 to 0.014 to capture breakouts during slightly higher, but still constrained, volatility periods.
+# idea: Enforcing a strict structural trend stack (Short > Medium > Long) for entry confirmation, requiring the Medium SMA to be above the Long SMA.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
 SHORT_MOMENTUM_SMA = 5 # NEW: Short-term filter to confirm immediate momentum
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
-# Require short > med to enter; exit when price drops significantly below the LONG_SMA AND price confirms weakness relative to Short Momentum SMA.
+# Require short > med > long structure; exit when price drops significantly below the LONG_SMA AND price confirms weakness relative to Short Momentum SMA.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.1 # MODIFIED: Increased from 1.0 to 1.1 for higher conviction volume filter
@@ -129,7 +129,7 @@ def generate_signals(
     portfolio: Dict,
 ) -> Dict[str, str]:
     """Multi-SMA + volume + vol/SPY filters + relative strength vs SPY. 
-       Entry uses Short > Medium SMA AND Short Momentum SMA confirms strength AND Medium SMA is rising. 
+       Entry uses Short > Medium > Long structural stack AND Short Momentum SMA confirms strength AND Medium SMA is rising. 
        Exit uses structural price confirmation (Price < LONG_SMA) AND confirms weakness relative to the short-term trend spread."""
     signals: Dict[str, str] = {}
     
@@ -210,9 +210,10 @@ def generate_signals(
             rs_ok = current_ret >= spy_ret
 
         # --- ENTRY LOGIC (BUY) ---
-        # Entry requires: 1. Short > Medium, 2. Short > Momentum SMA, 3. Medium SMA is rising, 4. Volume/Vol/RSI/Market checks pass.
+        # Entry requires: 1. Short > Medium > Long (Structural Stack), 2. Short > Momentum SMA, 3. Medium SMA is rising, 4. All filters pass.
         if (
             sma_s > sma_m  # Core signal: Short crosses above Medium
+            and sma_m > sma_l # NEW STRUCTURAL CHECK: Medium must be above Long (Short > Medium > Long)
             and sma_s > sma_mon # Momentum confirmation: Short SMA must be above its 5-period SMA
             and sma_m >= sma_m_prev # Medium SMA must be non-decreasing (confirming accelerating trend)
             and vol_ok
