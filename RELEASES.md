@@ -17,11 +17,11 @@ Skip a release for pure chore/docs typos unless bundled with the above.
 
 ## Checklist
 
-1. `main` is green locally: `docker run --rm ai-stock-checker pytest -q -m "not network"`
-2. Desk up: `./scripts/smoke_desk_http.sh`
-3. Refresh screenshots: capture tab PNGs → `./scripts/make_desk_tour_gif.sh` (and still JPGs via `./scripts/capture_desk_screenshots.sh`)
-4. Update README hero copy if the story changed
-5. `./scripts/cut_release.sh vX.Y.Z` — creates annotated tag + GitHub Release notes
+1. Update [`CHANGELOG.md`](CHANGELOG.md): move **Unreleased** → `## [vX.Y.Z] - YYYY-MM-DD`, fix footer links, **commit + push**.
+2. `main` is green locally: `docker run --rm ai-stock-checker pytest -q -m "not network"`
+3. Desk up: `./scripts/smoke_desk_http.sh`
+4. Refresh screenshots if UI changed: capture tab PNGs → `./scripts/make_desk_tour_gif.sh`
+5. `./scripts/cut_release.sh vX.Y.Z` — refuses to tag if CHANGELOG lacks that version; creates annotated tag + GitHub Release
 
 Versioning: **semver**. Bump **minor** for user-visible desk/trader features; **patch** for fixes; **major** only for breaking compose/CLI contracts.
 
