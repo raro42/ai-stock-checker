@@ -33,8 +33,9 @@ Do **not** dump marketing skill personas here — only testable strategy knobs.
 ## Diversity / anti-stuck
 
 - Combine two near-miss discards that almost kept (one change only)
-- If last 5 discards are SMA-period tweaks, force a **filter** idea next
+- If last 5 discards are SMA / exit tweaks (`sma_exit` family), force a **filter** idea next (RS, volume, vol, RSI, SPY) — do **not** propose another SMA-exit rewrite
 - If last 5 are filter tweaks, force an **exit** idea next
+- Ban repeating the same `# idea:` phrase from the last 12 discards
 
 ## Out of scope (not this file)
 

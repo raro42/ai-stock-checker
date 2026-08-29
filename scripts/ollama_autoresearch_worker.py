@@ -118,6 +118,22 @@ def query_ollama(prompt: str, model: str, timeout: int = 300) -> str:
     return result.get("response") or ""
 
 
+def recent_families(limit: int = 8) -> List[str]:
+    if not RESULTS_PATH.exists():
+        return []
+    out: List[str] = []
+    for line in RESULTS_PATH.read_text().splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) < 5:
+            continue
+        if parts[2].strip() not in {"discard", "crash"}:
+            continue
+        fam = parts[4].strip()
+        if fam:
+            out.append(fam)
+    return out[-limit:]
+
+
 def build_prompt(current: str, best_score: float, best_desc: str) -> str:
     bank_path = ROOT / "autoresearch" / "idea_bank.md"
     if bank_path.exists():
@@ -130,6 +146,14 @@ def build_prompt(current: str, best_score: float, best_desc: str) -> str:
         )
     banned = recent_discard_phrases()
     banned_txt = "; ".join(banned) if banned else "(none)"
+    families = recent_families()
+    diversity = ""
+    if families and sum(1 for f in families if f == "sma_exit") >= 4:
+        diversity = (
+            "\nDIVERSITY RULE: Recent failures are mostly sma_exit. "
+            "You MUST pick a FILTER idea (RS / volume / volatility / RSI / SPY), "
+            "not another SMA exit rewrite.\n"
+        )
     score_txt = f"{best_score:.4f}" if best_score > float("-inf") else "n/a"
     return f"""You are optimizing a long-only paper trading strategy for an offline walk-forward backtest.
 
@@ -143,7 +167,7 @@ CONSTRAINTS:
 - Change ONE clear NEW idea vs the current file.
 - Do NOT repeat these recent failed ideas: {banned_txt}
 - First line after the module docstring should be a short comment: # idea: <your unique idea>
-
+{diversity}
 CURRENT BEST KEEP (walk-forward era only): val_score={score_txt} ({best_desc or 'n/a'})
 
 RECENT RESULTS (commit, score, status, description):

@@ -130,13 +130,10 @@ def pick_overweight_trim_candidate(
 
     Rules (anti-churn, not scan-chase):
     - Must be past min hold (same floor as normal exits).
-    - Prefer the weakest mark (lowest unrealized %).
-      Tradeoff (review A16): this can crystallize losses to shrink an oversized book.
-      Winners-only trim is a future experiment — do not change silently.
+    - Prefer a **winner** first (weakest winner) so we free a slot without
+      crystallizing a −2% mark when a green name exists (Aug 28 trim lesson).
+    - If no winner past min hold, prefer the weakest mark (lowest unrealized %).
     - Returns one candidate; caller may loop until at_cap while eligible.
-
-    This can crystallize a loss; that is intentional for *size* discipline,
-    not for rotating into a new scan darling.
     """
     eligible: list[tuple[float, str]] = []
     for row in rows or []:
@@ -156,6 +153,12 @@ def pick_overweight_trim_candidate(
 
     if not eligible:
         return None, "no trim candidates past min hold"
+
+    winners = [t for t in eligible if t[0] > 0]
+    if winners:
+        winners.sort(key=lambda t: t[0])  # weakest winner first
+        pnl, sym = winners[0]
+        return sym, f"trim overweight (winner {pnl:+.2f}%)"
 
     eligible.sort(key=lambda t: t[0])  # worst first
     pnl, sym = eligible[0]

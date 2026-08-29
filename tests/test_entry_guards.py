@@ -7,10 +7,15 @@ from stock_checker.entry_guards import (
 )
 
 
-def test_ai_blocks_hold_low() -> None:
-    ok, why = ai_entry_allows("HOLD", "LOW")
+def test_ai_blocks_low_confidence_breakout() -> None:
+    ok, why = ai_entry_allows("BUY", "LOW", strategy="breakout")
     assert not ok
-    assert "LOW" in why
+    assert "breakout" in why.lower()
+
+
+def test_ai_allows_medium_breakout() -> None:
+    ok, _ = ai_entry_allows("BUY", "MEDIUM", strategy="breakout")
+    assert ok
 
 
 def test_breakout_blocks_extended_peak() -> None:

@@ -86,19 +86,38 @@ def test_book_action_mode():
     assert book_action_mode(9, 5) == "overweight"
 
 
-def test_pick_overweight_trim_prefers_worst_past_min_hold():
+def test_pick_overweight_trim_prefers_winner_when_available():
     from stock_checker.exit_policy import pick_overweight_trim_candidate
 
     pick, why = pick_overweight_trim_candidate(
         [
-            {"symbol": "WIN", "profit_pct": 8.0, "hold_seconds": 90000},
+            {"symbol": "WIN", "profit_pct": 3.0, "hold_seconds": 90000},
             {"symbol": "LOSE", "profit_pct": -2.0, "hold_seconds": 90000},
             {"symbol": "FRESH", "profit_pct": -9.0, "hold_seconds": 60},
         ],
         min_hold_seconds=14400,
     )
-    assert pick == "LOSE"
-    assert "trim overweight" in why
+    assert pick == "WIN"
+    assert "winner" in why
+
+
+def test_pick_overweight_trim_prefers_worst_when_no_winner():
+    from stock_checker.exit_policy import pick_overweight_trim_candidate
+
+    pick, why = pick_overweight_trim_candidate(
+        [
+            {"symbol": "LOSE", "profit_pct": -2.0, "hold_seconds": 90000},
+            {"symbol": "WORSE", "profit_pct": -4.0, "hold_seconds": 90000},
+            {"symbol": "FRESH", "profit_pct": -9.0, "hold_seconds": 60},
+        ],
+        min_hold_seconds=14400,
+    )
+    assert pick == "WORSE"
+    assert "worst mark" in why
+
+
+def test_pick_overweight_trim_none_past_min_hold():
+    from stock_checker.exit_policy import pick_overweight_trim_candidate
 
     none, why2 = pick_overweight_trim_candidate(
         [{"symbol": "FRESH", "profit_pct": -9.0, "hold_seconds": 60}],

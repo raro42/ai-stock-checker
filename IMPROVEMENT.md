@@ -27,7 +27,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] **A13** Fee model gaps: documented (fees.py + README — allowance/crypto fees not modeled)
 - [x] **A14** Regime vs RS overlap: documented in `stock_checker/gate_roles.py` (keep both; prefer RS off first if starved)
 - [x] **A15** Min-hold capital trap: Overview stuck line + Ops note
-- [x] **A16** Overweight trim crystallizes losses by design — documented in `exit_policy.pick_overweight_trim_candidate` (winners-only trim = future experiment)
+- [x] **A16** Overweight trim: prefer weakest **winner** when available; else worst mark (Aug 28 crystallize lesson) — `pick_overweight_trim_candidate`
+- [x] Block stock **breakout** entries when AI confidence is LOW (EXPE/NTRA chain) — `entry_guards.ai_entry_allows`
 - [x] **A17** Fix trader module docstring (“scan every 5 minutes” lie → match compose 15m/5m)
 - [x] **A18** Promote contract test: promote on ⇒ entry filter only; SELL does not pass as buy (`test_promote_ignores_champion_sell_for_entry_filter`)
 - [x] **A19** Autoresearch universe vs live crypto: noted in PROMOTE_AB / README honesty

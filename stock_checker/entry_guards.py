@@ -48,14 +48,21 @@ def implied_risk_pct(opportunity: Mapping[str, Any]) -> float | None:
 def ai_entry_allows(
     ai_action: str | None,
     ai_confidence: str | None,
+    *,
+    strategy: str | None = None,
 ) -> Tuple[bool, str]:
     action = str(ai_action or "").upper()
     conf = str(ai_confidence or "").upper()
+    strat = str(strategy or "").lower()
     if action == "SELL":
         return False, "AI SELL"
     if action == "HOLD" and conf == "LOW":
         return False, "AI HOLD (LOW confidence)"
+    # Breakouts with LOW confidence drove EXPE/NTRA-style stop chains.
+    if conf == "LOW" and strat == "breakout":
+        return False, "AI LOW confidence on breakout"
     return True, "AI ok"
+
 
 
 def breakout_pullback_allows(
@@ -131,7 +138,11 @@ def scan_entry_guards(
 
     Returns (allowed, reason, position_size_multiplier).
     """
-    ok, why = ai_entry_allows(ai_action, ai_confidence)
+    ok, why = ai_entry_allows(
+        ai_action,
+        ai_confidence,
+        strategy=str(opportunity.get("strategy") or ""),
+    )
     if not ok:
         return False, why, 1.0
 
