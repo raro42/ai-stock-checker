@@ -40,7 +40,7 @@ def test_crypto_slot_cap():
 def test_crypto_exits_wider_than_stocks():
     tp_s, sl_s = exit_thresholds_for_asset(is_crypto=False)
     tp_c, sl_c = exit_thresholds_for_asset(is_crypto=True)
-    assert tp_s == 5.0 and sl_s == 5.0
+    assert tp_s == 8.0 and sl_s == 5.0
     assert tp_c == CRYPTO_TAKE_PROFIT_PCT == 10.0
     assert sl_c == CRYPTO_STOP_LOSS_PCT == 10.0
     # PROM-style −5.27% must NOT stop crypto majors under new bands

@@ -165,7 +165,7 @@ class IntelligentTrader:
         print(f"   Breadth gate: {'on' if self._breadth_enabled else 'off'} "
               f"(scan-list A/D)")
         print(f"   Crypto live: BTC/ETH only · max {self.max_crypto_positions} slot · "
-              f"TP/SL ±10% (stocks stay ±5%)")
+              f"TP/SL ±10% (stocks TP +8% / SL −5%)")
         print(f"   Promote champion filter: off (hot-reload from Ops)")
         print(f"   AI Mode: {ai_mode}")
         if ai_mode != "off":
@@ -191,8 +191,8 @@ class IntelligentTrader:
             pass
 
     def _post_stop_cooldown_seconds(self) -> float:
-        """Block new buys after SL: ≥1 trade interval, floor 1h (C-tilt)."""
-        return float(max(int(self.trade_interval), 3600))
+        """Block new buys after SL: ≥4h (floor) / ≥1 trade interval (anti refill)."""
+        return float(max(int(self.trade_interval), 4 * 3600))
 
     def _entries_blocked_this_cycle(self) -> bool:
         if self._cycle_had_stop_loss:

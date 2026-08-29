@@ -53,11 +53,11 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 
 ### Keep (do not regress — strengths from review A)
 
-- No loss-rotation + rotate hurdle ≥3% + rebuy cooldown
+- No loss-rotation + rotate hurdle ≥5% + rebuy cooldown
 - Harsh Revolut-like paper fees as default
 - Promote as **entry veto only**
 - Overweight → exits-only / no scan-chase buys
-
+- Stock payoff: TP **+8%** / SL **−5%** (asymmetric on purpose)
 ## Done (2026-07-25)
 
 - [x] Remove hardcoded Finnhub key from compose; use `.env` / `.env.example`
@@ -126,7 +126,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] **C-gate** Desk pre-trade checklist PASS/WARN/FAIL (`risk_halts.pretrade_status` — daily loss FAIL; fee burn / post-SL cooldown WARN; logged each cycle)
 - [x] **C-dd** Soft daily loss halt: block new buys after ≥2% realized loss today (UTC) — `risk_halts.daily_loss_halt`
 - [x] **C-conc** Soft single-name concentration cap at entry (30% equity) — `risk_halts.concentration_allows`
-- [x] **C-tilt** Extend post-stop cooldown: after SL, block new buys ≥1h (floor) / ≥1 trade interval — arms `_buy_block_until` (breaks EOG→EXPE→NTRA same-minute refill); same-cycle flag kept
+- [x] **C-tilt** Extend post-stop cooldown: after SL, block new buys ≥**4h** (floor) / ≥1 trade interval — arms `_buy_block_until`
+- [x] Stock exit asymmetry fix (2026-08-29): TP **+8%**, rotate ≥**+5%**, SL **−5%**; breakouts need AI **BUY** + pullback ≤**−2%** from high
 - [x] TradingAgents-style multi-role prompts for Ollama validate mode (`ai_multi_role.py`, `AI_MULTI_ROLE=1` default)
 - [x] Walk-forward OOS folds in experiment harness (`walk_forward.py`; `val_score` = 0.75·mean + 0.25·min fold)
 - [x] Re-baseline under walk-forward + WF-aware buy-and-hold benchmark
@@ -164,7 +165,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 
 ## Guardrails
 
-- ATR / R:R on Screener is **display-only** (`atr_risk.py`); live exits are fixed ±5% via `exit_policy`, not ATR stops.
+- ATR / R:R on Screener is **display-only** (`atr_risk.py`); live stock exits are **TP +8% / SL −5%** via `exit_policy` (not ATR stops).
 - Do not reintroduce sub-hour default hold times.
 - Do not add API keys to compose or docs.
 - Do not claim Sharpe/win-rate improvements without a backtest artifact.

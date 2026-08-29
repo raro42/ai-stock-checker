@@ -7,15 +7,29 @@ from stock_checker.entry_guards import (
 )
 
 
+def test_ai_blocks_hold_on_breakout() -> None:
+    ok, why = ai_entry_allows("HOLD", "MEDIUM", strategy="breakout")
+    assert not ok
+    assert "BUY" in why
+
+
 def test_ai_blocks_low_confidence_breakout() -> None:
     ok, why = ai_entry_allows("BUY", "LOW", strategy="breakout")
     assert not ok
     assert "breakout" in why.lower()
 
 
-def test_ai_allows_medium_breakout() -> None:
+def test_ai_allows_buy_medium_breakout() -> None:
     ok, _ = ai_entry_allows("BUY", "MEDIUM", strategy="breakout")
     assert ok
+
+
+def test_breakout_blocks_shallow_pullback() -> None:
+    ok, why = breakout_pullback_allows(
+        {"asset_class": "stock", "strategy": "breakout", "pct_from_high": -1.6}
+    )
+    assert not ok
+    assert "extended" in why
 
 
 def test_breakout_blocks_extended_peak() -> None:

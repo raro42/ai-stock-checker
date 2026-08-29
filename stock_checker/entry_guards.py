@@ -10,9 +10,9 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Tuple
 
-# Breakout band: near highs but not the exact peak (CACI was −0.5%).
+# Breakout band: need a real pullback (CACI −0.5% / froth entries hurt Aug 2026).
 BREAKOUT_PCT_MIN = -5.0
-BREAKOUT_PCT_MAX = -1.5
+BREAKOUT_PCT_MAX = -2.0
 
 DEFAULT_STOP_LOSS_PCT = 5.0
 # Implied swing/ATR stop must leave headroom beyond the book stop.
@@ -58,9 +58,14 @@ def ai_entry_allows(
         return False, "AI SELL"
     if action == "HOLD" and conf == "LOW":
         return False, "AI HOLD (LOW confidence)"
-    # Breakouts with LOW confidence drove EXPE/NTRA-style stop chains.
-    if conf == "LOW" and strat == "breakout":
-        return False, "AI LOW confidence on breakout"
+    # Breakouts need an explicit BUY — HOLD/neutral drove EXPE/NTRA stop chains.
+    if strat == "breakout":
+        if action != "BUY":
+            return False, "breakout needs AI BUY"
+        if conf == "LOW":
+            return False, "AI LOW confidence on breakout"
+    elif conf == "LOW" and action == "HOLD":
+        return False, "AI HOLD (LOW confidence)"
     return True, "AI ok"
 
 

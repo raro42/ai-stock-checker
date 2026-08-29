@@ -15,16 +15,17 @@ from __future__ import annotations
 from typing import Iterable, Set, Tuple
 
 # Gross % moves (price vs avg buy), before commission.
-DEFAULT_TAKE_PROFIT_PCT = 5.0
+# Asymmetric on purpose (Aug 2026): thin +3% rotates lost to −5% stops.
+DEFAULT_TAKE_PROFIT_PCT = 8.0
 DEFAULT_STOP_LOSS_PCT = 5.0
-# Revolut round-trip ≈ 0.5% + floors; need real edge before rotating a winner.
-# SCHW was rotated at +1.6% then rebought — 1% was far too low.
-DEFAULT_ROTATE_MIN_PROFIT_PCT = 3.0
+# Revolut round-trip ≈ 0.5% + floors; rotate only when edge clears a full stop-sized win.
+# Was 3.0% — too easy to bank thin winners then refill into breakouts that stop out.
+DEFAULT_ROTATE_MIN_PROFIT_PCT = 5.0
 
 
 def exit_thresholds_for_asset(*, is_crypto: bool) -> Tuple[float, float]:
     """
-    Stock keeps ±5%. Crypto majors use wider bands (see crypto_policy).
+    Stocks: take-profit +8% / stop −5%. Crypto majors use wider bands (crypto_policy).
 
     Returns (take_profit_pct, stop_loss_pct) as positive magnitudes.
     """

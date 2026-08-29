@@ -12,8 +12,8 @@ from stock_checker.exit_policy import (
 
 
 def test_take_profit_and_stop():
-    assert should_take_profit(5.0)
-    assert not should_take_profit(4.9)
+    assert should_take_profit(8.0)
+    assert not should_take_profit(7.9)
     assert should_stop_loss(-5.0)
     assert not should_stop_loss(-4.9)
 
@@ -38,16 +38,17 @@ def test_rotate_only_clear_winners_after_min_hold():
     assert sell_thin is False
     assert why_thin == "below rotate hurdle"
 
-    sell, why = should_rebalance_exit(
-        profit_pct=0.5,
+    # +3% was the old hurdle — still too thin vs −5% stops
+    sell_mid, why_mid = should_rebalance_exit(
+        profit_pct=3.0,
         hold_seconds=86400,
         min_hold_seconds=14400,
     )
-    assert sell is False
-    assert why == "below rotate hurdle"
+    assert sell_mid is False
+    assert why_mid == "below rotate hurdle"
 
     sell2, why2 = should_rebalance_exit(
-        profit_pct=3.0,
+        profit_pct=5.0,
         hold_seconds=86400,
         min_hold_seconds=14400,
     )
@@ -55,7 +56,7 @@ def test_rotate_only_clear_winners_after_min_hold():
     assert why2 == "rotate winner"
 
     held, why3 = should_rebalance_exit(
-        profit_pct=5.0,
+        profit_pct=8.0,
         hold_seconds=100,
         min_hold_seconds=14400,
     )

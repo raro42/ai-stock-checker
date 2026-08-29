@@ -28,9 +28,9 @@ def test_post_stop_cooldown_blocks_after_arm(tmp_path):
     assert t._entries_blocked_this_cycle() is False
 
 
-def test_post_stop_cooldown_at_least_one_hour():
+def test_post_stop_cooldown_at_least_four_hours():
     t = IntelligentTrader.__new__(IntelligentTrader)
     t.trade_interval = 300
-    assert t._post_stop_cooldown_seconds() == 3600.0
-    t.trade_interval = 7200
-    assert t._post_stop_cooldown_seconds() == 7200.0
+    assert t._post_stop_cooldown_seconds() == 14400.0
+    t.trade_interval = 20000
+    assert t._post_stop_cooldown_seconds() == 20000.0
