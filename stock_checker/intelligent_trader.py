@@ -67,7 +67,7 @@ from .crypto_policy import (
     crypto_slot_available,
     is_crypto_symbol,
 )
-from .fees import DEFAULT_FEE_PRESET, rates_for_preset
+from .fees import DEFAULT_FEE_PRESET, free_legs_for_preset, rates_for_preset
 from .trader_config import DEFAULTS as TRADER_DEFAULTS
 from .trade_context import buy_note_from_opportunity, sell_note_from_exit
 from . import __version__
@@ -1466,12 +1466,12 @@ class IntelligentTrader:
             or str(getattr(self.portfolio, "fee_preset", "")) != fee_preset
         )
         if fee_changed:
-            self.portfolio.set_fee_schedule(
-                rate=fee_rate, min_eur=fee_min, preset=fee_preset, persist=True
-            )
+            self.portfolio.apply_fee_preset(fee_preset, persist=True)
+            free = free_legs_for_preset(fee_preset)
             print(
                 f"   💶 Fee schedule: {fee_preset} · "
-                f"{fee_rate*100:.2f}%/side · min €{fee_min:.2f}"
+                f"{fee_rate*100:.2f}%/side · min €{fee_min:.2f} · "
+                f"{free} free leg(s)/mo"
             )
 
         try:

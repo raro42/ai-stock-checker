@@ -23,6 +23,7 @@ from scripts.run_experiment import (  # noqa: E402
     COMMISSION_MIN_EUR,
     DEFAULT_SYMBOLS,
     FEE_PRESET,
+    FREE_LEGS_PER_MONTH,
     INITIAL_CAPITAL,
     MAX_POSITIONS,
     MIN_HOLD_BARS,
@@ -34,7 +35,7 @@ from scripts.run_experiment import (  # noqa: E402
 )
 from stock_checker.backtester import BacktestResult, Backtester, Trade  # noqa: E402
 from stock_checker.experiment_strategy import generate_signals as strategy_signals  # noqa: E402
-from stock_checker.fees import calc_commission  # noqa: E402
+from stock_checker.fees import FeeAllowanceLedger  # noqa: E402
 from stock_checker.walk_forward import walk_forward_val_score  # noqa: E402
 
 
@@ -124,13 +125,17 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
 
     entry_t = ts(entry_i)
     fees = 0.0
+    ledger = FeeAllowanceLedger(FREE_LEGS_PER_MONTH)
+    entry_ts = entry_t.strftime("%Y-%m-%d")
     for symbol in symbols:
         px = float(data[symbol][entry_i]["close"]) * (1 + SLIPPAGE)
         if px <= 0:
             continue
         shares = alloc / px
         cost = shares * px
-        commission = calc_commission(cost, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+        commission = ledger.commission_for_leg(
+            cost, entry_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
+        )
         fees += commission
         cash -= cost + commission
         positions[symbol] = {"shares": shares, "entry_price": px, "entry_time": entry_t}
@@ -145,10 +150,13 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
 
     last_i = min_len - 1
     last_t = ts(last_i)
+    exit_ts = last_t.strftime("%Y-%m-%d")
     for symbol, pos in list(positions.items()):
         exit_px = float(data[symbol][last_i]["close"]) * (1 - SLIPPAGE)
         proceeds = pos["shares"] * exit_px
-        commission = calc_commission(proceeds, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+        commission = ledger.commission_for_leg(
+            proceeds, exit_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
+        )
         fees += commission
         cash += proceeds - commission
         pnl = (exit_px - pos["entry_price"]) * pos["shares"] - commission
@@ -276,6 +284,7 @@ def main() -> int:
     print("--- benchmark ---")
     print(
         f"harness: fee_preset={FEE_PRESET} rate={COMMISSION} min_eur={COMMISSION_MIN_EUR} "
+        f"free_legs={FREE_LEGS_PER_MONTH} "
         f"max_positions={MAX_POSITIONS} min_hold_bars={MIN_HOLD_BARS}"
     )
     for m in rows:

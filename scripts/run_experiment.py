@@ -31,7 +31,12 @@ if str(_ROOT) not in sys.path:
 
 from stock_checker.backtester import Backtester
 from stock_checker.experiment_strategy import generate_signals
-from stock_checker.fees import DEFAULT_FEE_PRESET, calc_commission, rates_for_preset
+from stock_checker.fees import (
+    DEFAULT_FEE_PRESET,
+    FeeAllowanceLedger,
+    free_legs_for_preset,
+    rates_for_preset,
+)
 from stock_checker.walk_forward import walk_forward_val_score
 
 # Live-shaped harness (match Ops / paper desk defaults — do not soften overnight)
@@ -41,6 +46,7 @@ DEFAULT_SYMBOLS = ["SPY", "QQQ", "IWM", "GLD", "AAPL", "MSFT", "NVDA", "JNJ"]
 INITIAL_CAPITAL = 100_000.0
 FEE_PRESET = DEFAULT_FEE_PRESET  # revolut_standard
 COMMISSION, COMMISSION_MIN_EUR = rates_for_preset(FEE_PRESET)
+FREE_LEGS_PER_MONTH = free_legs_for_preset(FEE_PRESET)
 SLIPPAGE = 0.0005
 MAX_POSITIONS = 5
 # Daily bars ≈ 24h min hold → 1 bar; position size fills up to max book
@@ -58,13 +64,15 @@ def make_backtester() -> Backtester:
         position_fraction=POSITION_FRACTION,
         max_positions=MAX_POSITIONS,
         min_hold_bars=MIN_HOLD_BARS,
+        free_legs_per_month=FREE_LEGS_PER_MONTH,
     )
 
 
 def estimate_fees_pct(trades, *, capital: float = INITIAL_CAPITAL) -> float:
-    """Round-trip fee estimate using live-shaped rate + min floor."""
+    """Round-trip fee estimate with monthly free-leg allowance."""
     if not trades or capital <= 0:
         return 0.0
+    ledger = FeeAllowanceLedger(FREE_LEGS_PER_MONTH)
     fees = 0.0
     for t in trades:
         try:
@@ -77,12 +85,19 @@ def estimate_fees_pct(trades, *, capital: float = INITIAL_CAPITAL) -> float:
             continue  # NaN
         entry = abs(shares * entry_px)
         exit_ = abs(shares * exit_px)
-        fees += calc_commission(entry, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+        entry_ts = t.entry_time.strftime("%Y-%m-%d") if hasattr(t, "entry_time") else ""
+        exit_ts = t.exit_time.strftime("%Y-%m-%d") if hasattr(t, "exit_time") else entry_ts
+        fees += ledger.commission_for_leg(
+            entry, entry_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
+        )
         if exit_px == exit_px and exit_ > 0:
-            fees += calc_commission(exit_, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+            fees += ledger.commission_for_leg(
+                exit_, exit_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
+            )
         else:
-            # Missing exit mark — still count a second side at entry notional
-            fees += calc_commission(entry, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR)
+            fees += ledger.commission_for_leg(
+                entry, exit_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
+            )
     pct = fees / capital * 100.0
     return pct if pct == pct else 0.0
 
@@ -307,6 +322,7 @@ def run() -> int:
     print(f"fee_preset:           {FEE_PRESET}")
     print(f"commission_rate:      {COMMISSION}")
     print(f"commission_min_eur:   {COMMISSION_MIN_EUR}")
+    print(f"free_legs_per_month:  {FREE_LEGS_PER_MONTH}")
     print(f"max_positions:        {MAX_POSITIONS}")
     print(f"min_hold_bars:        {MIN_HOLD_BARS}")
     print(f"experiment_seconds:   {elapsed:.1f}")

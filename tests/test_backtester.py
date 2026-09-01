@@ -85,12 +85,19 @@ def test_min_hold_bars_blocks_early_exit():
 
 
 def test_commission_min_floor_applied():
+    from datetime import datetime
+
+    from stock_checker.fees import FeeAllowanceLedger
+
     bt = Backtester(
         initial_capital=1_000,
         commission_rate=0.0001,
         commission_min_eur=5.0,
         slippage_pct=0.0,
         position_fraction=0.1,
+        free_legs_per_month=0,
     )
-    assert bt._fee(100.0) == 5.0
-    assert bt._fee(100_000.0) == 10.0  # 0.01% of 100k = 10 > floor
+    ledger = FeeAllowanceLedger(0)
+    ts = datetime(2026, 1, 1)
+    assert bt._fee(100.0, ts, ledger) == 5.0
+    assert bt._fee(100_000.0, ts, ledger) == 10.0  # 0.01% of 100k = 10 > floor

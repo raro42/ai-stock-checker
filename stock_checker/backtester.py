@@ -12,7 +12,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from stock_checker.fees import calc_commission
+from stock_checker.fees import FeeAllowanceLedger
 
 
 @dataclass
@@ -215,10 +215,12 @@ class Backtester:
         commission_min_eur: float = 0.0,
         max_positions: int = 0,
         min_hold_bars: int = 0,
+        free_legs_per_month: int = 0,
     ):
         self.initial_capital = initial_capital
         self.commission_rate = commission_rate
         self.commission_min_eur = float(commission_min_eur or 0.0)
+        self.free_legs_per_month = max(0, int(free_legs_per_month or 0))
         self.slippage_pct = slippage_pct
         self.position_fraction = position_fraction
         # 0 = unlimited
@@ -226,9 +228,16 @@ class Backtester:
         # Skip signal exits until held at least this many bars (daily ≈ hours/24)
         self.min_hold_bars = max(0, int(min_hold_bars or 0))
 
-    def _fee(self, notional: float) -> float:
-        return calc_commission(
+    def _fee(
+        self,
+        notional: float,
+        ts: datetime,
+        ledger: FeeAllowanceLedger,
+    ) -> float:
+        ts_str = ts.strftime("%Y-%m-%d") if isinstance(ts, datetime) else str(ts)
+        return ledger.commission_for_leg(
             notional,
+            ts_str,
             rate=self.commission_rate,
             min_eur=self.commission_min_eur,
         )
@@ -249,6 +258,8 @@ class Backtester:
         result = BacktestResult(self.initial_capital)
         if not historical_data:
             return result
+
+        fee_ledger = FeeAllowanceLedger(self.free_legs_per_month)
 
         # Align on common length (shortest series)
         symbols = list(historical_data.keys())
@@ -304,7 +315,7 @@ class Backtester:
                 portfolio["positions"].pop(symbol)
                 exit_price = prices[symbol] * (1 - self.slippage_pct)
                 proceeds = pos["shares"] * exit_price
-                commission = self._fee(proceeds)
+                commission = self._fee(proceeds, ts, fee_ledger)
                 net = proceeds - commission
                 portfolio["cash"] += net
                 pnl = (exit_price - pos["entry_price"]) * pos["shares"] - commission
@@ -340,7 +351,7 @@ class Backtester:
                     continue
                 shares = budget / entry_price
                 cost = shares * entry_price
-                commission = self._fee(cost)
+                commission = self._fee(cost, ts, fee_ledger)
                 total = cost + commission
                 if total > portfolio["cash"]:
                     continue
@@ -382,7 +393,7 @@ class Backtester:
                             break
                 exit_price = raw_close * (1 - self.slippage_pct)
                 proceeds = pos["shares"] * exit_price
-                commission = self._fee(proceeds)
+                commission = self._fee(proceeds, ts, fee_ledger)
                 portfolio["cash"] += proceeds - commission
                 pnl = (exit_price - pos["entry_price"]) * pos["shares"] - commission
                 entry_notional = pos["shares"] * pos["entry_price"]

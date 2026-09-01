@@ -168,6 +168,20 @@ def _trader_runtime_view() -> dict[str, Any]:
     calm_snap = _load_json(data_dir / "paper_calm.json", {})
     if not isinstance(calm_snap, dict):
         calm_snap = {}
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    if not isinstance(portfolio, dict):
+        portfolio = {}
+    free_legs = int(
+        portfolio.get("free_legs_per_month")
+        or cfg.get("free_legs_per_month")
+        or 0
+    )
+    allowance_used = int(portfolio.get("fee_allowance_used") or 0)
+    allowance_month = str(portfolio.get("fee_allowance_month") or "")
+    current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+    if allowance_month != current_month:
+        allowance_used = 0
+    allowance_remaining = max(0, free_legs - allowance_used)
 
     return {
         "trader_version": __version__,
@@ -192,6 +206,10 @@ def _trader_runtime_view() -> dict[str, Any]:
         "fee_preset": str(cfg.get("fee_preset") or "revolut_standard"),
         "commission_rate": float(cfg.get("commission_rate") or 0.0025),
         "commission_min_eur": float(cfg.get("commission_min_eur") or 1.0),
+        "free_legs_per_month": free_legs,
+        "fee_allowance_used": allowance_used,
+        "fee_allowance_remaining": allowance_remaining,
+        "fee_allowance_month": current_month,
         "stock_regime": str(regime_snap.get("stock_regime") or "—"),
         "crypto_regime": str(regime_snap.get("crypto_regime") or "—"),
         "regime_updated": str(regime_snap.get("updated_at") or ""),

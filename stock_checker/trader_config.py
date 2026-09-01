@@ -15,6 +15,7 @@ from typing import Any, Optional
 from stock_checker.fees import (
     DEFAULT_FEE_PRESET,
     FEE_PRESETS,
+    free_legs_for_preset,
     rates_for_preset,
 )
 from stock_checker.promoted_strategy import promote_enabled_from_env
@@ -82,6 +83,7 @@ def _env_defaults() -> dict[str, Any]:
         "fee_preset": fee_preset,
         "commission_rate": rate,
         "commission_min_eur": min_eur,
+        "free_legs_per_month": free_legs_for_preset(fee_preset),
         "max_positions": max(1, min(12, max_pos)),
         "min_hold_hours": max(4.0, min(168.0, min_hold_h)),
         "promote_experiment_strategy": promote_enabled_from_env(
@@ -94,9 +96,11 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
     """Merge raw over base (or env defaults) and clamp to allowed values."""
     out = dict(base if base is not None else _env_defaults())
     if not isinstance(raw, dict):
-        rate, min_eur = rates_for_preset(str(out.get("fee_preset") or DEFAULT_FEE_PRESET))
+        preset = str(out.get("fee_preset") or DEFAULT_FEE_PRESET)
+        rate, min_eur = rates_for_preset(preset)
         out["commission_rate"] = rate
         out["commission_min_eur"] = min_eur
+        out["free_legs_per_month"] = free_legs_for_preset(preset)
         return out
 
     if "ai_mode" in raw:
@@ -147,9 +151,11 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
             except (TypeError, ValueError):
                 pass
     else:
-        rate, min_eur = rates_for_preset(str(out.get("fee_preset") or DEFAULT_FEE_PRESET))
+        preset = str(out.get("fee_preset") or DEFAULT_FEE_PRESET)
+        rate, min_eur = rates_for_preset(preset)
         out["commission_rate"] = rate
         out["commission_min_eur"] = min_eur
+        out["free_legs_per_month"] = free_legs_for_preset(preset)
 
     if "max_positions" in raw:
         try:
@@ -218,6 +224,10 @@ def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[st
         "fee_preset": merged["fee_preset"],
         "commission_rate": float(merged["commission_rate"]),
         "commission_min_eur": float(merged["commission_min_eur"]),
+        "free_legs_per_month": int(
+            merged.get("free_legs_per_month")
+            or free_legs_for_preset(str(merged.get("fee_preset") or DEFAULT_FEE_PRESET))
+        ),
         "max_positions": int(merged["max_positions"]),
         "min_hold_hours": float(merged["min_hold_hours"]),
         "promote_experiment_strategy": bool(

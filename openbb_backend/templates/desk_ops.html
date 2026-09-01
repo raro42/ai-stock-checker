@@ -69,8 +69,9 @@
       <label class="ops-field">
         <span class="ops-label">Trading fees (paper)</span>
         <select name="fee_preset" id="ops-fee-preset">
-          <option value="revolut_standard"{% if snap.runtime.fee_preset == "revolut_standard" %} selected{% endif %}>Revolut Standard–Metal · 0.25% · €1 min</option>
-          <option value="revolut_ultra"{% if snap.runtime.fee_preset == "revolut_ultra" %} selected{% endif %}>Revolut Ultra / Trading Pro · 0.12% · €1 min</option>
+          <option value="revolut_standard"{% if snap.runtime.fee_preset == "revolut_standard" %} selected{% endif %}>Revolut Standard · 0.25% · €1 min · 1 free/mo</option>
+          <option value="revolut_plus"{% if snap.runtime.fee_preset == "revolut_plus" %} selected{% endif %}>Revolut Plus · 0.25% · €1 min · 3 free/mo</option>
+          <option value="revolut_ultra"{% if snap.runtime.fee_preset == "revolut_ultra" %} selected{% endif %}>Revolut Ultra / Trading Pro · 0.12% · €1 min · 10 free/mo</option>
           <option value="binance_like"{% if snap.runtime.fee_preset == "binance_like" %} selected{% endif %}>Spot-like · 0.1% · no floor</option>
         </select>
       </label>
@@ -140,7 +141,11 @@
     </div>
     <div>
       <dt>Paper fees</dt>
-      <dd>{{ "%.2f"|format(snap.runtime.commission_rate * 100) }}%/side · min €{{ "%.2f"|format(snap.runtime.commission_min_eur) }}</dd>
+      <dd>{{ "%.2f"|format(snap.runtime.commission_rate * 100) }}%/side · min €{{ "%.2f"|format(snap.runtime.commission_min_eur) }} · {{ snap.runtime.free_legs_per_month }} free/mo</dd>
+    </div>
+    <div>
+      <dt>Free legs left ({{ snap.runtime.fee_allowance_month }})</dt>
+      <dd>{{ snap.runtime.fee_allowance_remaining }} / {{ snap.runtime.free_legs_per_month }}</dd>
     </div>
     <div>
       <dt>SPY / BTC regime</dt>

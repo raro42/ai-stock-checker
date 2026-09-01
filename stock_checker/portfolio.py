@@ -6,7 +6,8 @@ from .fees import (
     DEFAULT_FEE_PRESET,
     REVOLUT_STANDARD_MIN_EUR,
     REVOLUT_STANDARD_RATE,
-    calc_commission,
+    FeeAllowanceLedger,
+    free_legs_for_preset,
     rates_for_preset,
 )
 
@@ -55,6 +56,7 @@ class Portfolio:
                 self.avg_buy_price = loaded["avg_buy_price"]
                 self.total_fees_paid = loaded["total_fees_paid"]
                 self.transactions = self.persistence.load_trades()
+                self._init_fee_allowance(loaded)
                 self.enable_risk_management = enable_risk_management
                 if self.enable_risk_management:
                     self.risk_manager = RiskManager()
@@ -71,6 +73,7 @@ class Portfolio:
         self.avg_buy_price: Dict[str, float] = {}  # symbol -> avg price
         self.transactions: List[Dict] = []
         self.total_fees_paid = 0.0
+        self._init_fee_allowance(None)
 
         # Initialize risk management
         self.enable_risk_management = enable_risk_management
@@ -83,13 +86,30 @@ class Portfolio:
         if self.persistence:
             self._save_state()
 
-    def commission_for(self, notional: float) -> float:
-        """One-side commission with floor."""
-        return calc_commission(
+    def _init_fee_allowance(self, loaded: Optional[Dict[str, Any]]) -> None:
+        free = free_legs_for_preset(self.fee_preset)
+        if isinstance(loaded, dict) and loaded.get("fee_allowance_month"):
+            self._fee_allowance = FeeAllowanceLedger.from_state(
+                loaded, free_legs_per_month=free
+            )
+        elif self.transactions:
+            self._fee_allowance = FeeAllowanceLedger.reconcile_from_transactions(
+                self.transactions, free_legs_per_month=free
+            )
+        else:
+            self._fee_allowance = FeeAllowanceLedger(free)
+
+    def commission_for(self, notional: float, timestamp: str = "") -> float:
+        """One-side commission with monthly free-leg allowance."""
+        return self._fee_allowance.commission_for_leg(
             notional,
+            timestamp,
             rate=self.commission_rate,
             min_eur=self.commission_min_eur,
         )
+
+    def fee_allowance_remaining(self) -> int:
+        return self._fee_allowance.remaining()
 
     def set_fee_schedule(
         self,
@@ -97,19 +117,28 @@ class Portfolio:
         rate: float,
         min_eur: float,
         preset: str = "custom",
+        free_legs_per_month: Optional[int] = None,
         persist: bool = True,
     ) -> None:
         """Update live fee schedule (Ops hot-reload). Affects future fills only."""
         self.commission_rate = float(rate)
         self.commission_min_eur = max(0.0, float(min_eur))
         self.fee_preset = str(preset or "custom")
+        if free_legs_per_month is not None:
+            self._fee_allowance.free_legs_per_month = max(0, int(free_legs_per_month))
+        elif preset != "custom":
+            self._fee_allowance.free_legs_per_month = free_legs_for_preset(preset)
         if persist and self.persistence:
             self._save_state()
 
     def apply_fee_preset(self, preset: str, *, persist: bool = True) -> None:
         rate, min_eur = rates_for_preset(preset)
         self.set_fee_schedule(
-            rate=rate, min_eur=min_eur, preset=preset, persist=persist
+            rate=rate,
+            min_eur=min_eur,
+            preset=preset,
+            free_legs_per_month=free_legs_for_preset(preset),
+            persist=persist,
         )
     def get_portfolio_value(self, current_prices: Dict[str, float]) -> float:
         """Calculate total portfolio value including cash and holdings."""
@@ -145,7 +174,7 @@ class Portfolio:
     def can_buy(self, symbol: str, price: float, quantity: float) -> bool:
         """Check if we have enough cash to buy."""
         cost = price * quantity
-        commission = self.commission_for(cost)
+        commission = self.commission_for(cost, timestamp)
         total_cost = cost + commission
         return self.cash >= total_cost
 
@@ -164,7 +193,7 @@ class Portfolio:
         Returns transaction details or None if insufficient funds.
         """
         cost = price * quantity
-        commission = self.commission_for(cost)
+        commission = self.commission_for(cost, timestamp)
         total_cost = cost + commission
 
         if self.cash < total_cost:
@@ -243,7 +272,7 @@ class Portfolio:
             }
 
         proceeds = price * quantity
-        commission = self.commission_for(proceeds)
+        commission = self.commission_for(proceeds, timestamp)
         net_proceeds = proceeds - commission
 
         # Calculate profit/loss
@@ -299,6 +328,7 @@ class Portfolio:
                 "holdings": self.holdings,
                 "avg_buy_price": self.avg_buy_price,
                 "total_fees_paid": self.total_fees_paid,
+                **self._fee_allowance.to_state(),
             })
 
     def get_position(self, symbol: str, current_price: float) -> Optional[Dict]:

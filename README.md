@@ -151,7 +151,7 @@ We do **not** claim live edge without evidence.
 
 Promote: beat SPY on the **live-shaped** walk-forward blend before enabling the Ops promote filter; then measure fee-adjusted **promote-on vs promote-off** paper windows ([docs/PROMOTE_AB.md](docs/PROMOTE_AB.md)). Calm days unlock a process gate, not proof of edge. Compose default-on waits for both.
 
-Paper fees model **0.25%/side · €1 min** (or Ops Ultra / spot-like). Free Revolut monthly allowance and crypto-specific fee schedules are **not** modeled.
+Paper fees model Revolut-style **monthly free order legs** (Standard 1 · Plus 3 · Ultra 10), then **0.25%/side · €1 min** (or Ops Ultra / spot-like). Crypto-specific fee schedules are **not** modeled.
 
 If a README ever reads like a hedge-fund pitch deck, open an issue and yell.
 
