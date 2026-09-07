@@ -1007,6 +1007,11 @@ def load_desk_snapshot(
             "from": "tradermonty/claude-trading-skills (trader memory) + A5",
             "note": "Ops lists recent regime/RS/breadth/promote soft-allows when bars/data are missing.",
         },
+        {
+            "title": "Ops breadth beside gate knobs",
+            "from": "xang1234/stock-screener (StockBee-lite next to controls)",
+            "note": "Ops shows scan-list A/D above trader knobs — context before flipping breadth gate.",
+        },
     ]
 
     from stock_checker.gate_audit import recent_soft_allows

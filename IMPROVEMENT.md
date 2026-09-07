@@ -168,6 +168,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 + portfolio AI Book breadth (2026-09-07 improve): scan-list A/D glance on Book beside risk strip — context for adds, display only; shared `breadth_glance` macro
 - [x] xang1234 Ideas breadth (2026-09-07 improve): scan-list A/D glance above paper candidates — research context, display only
 - [x] xang1234 Charts breadth (2026-09-07 improve): `/desk/api/charts` + charts.js glance above equity path — scan-list A/D, display only
+- [x] xang1234 Ops breadth (2026-09-07 improve): scan-list A/D glance above Ops knobs — context before flipping breadth gate, display only
+- [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

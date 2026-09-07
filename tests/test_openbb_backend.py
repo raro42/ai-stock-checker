@@ -355,6 +355,9 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert "Fail-open soft-allows" in resp.text
     assert "skip_no_bars" in resp.text
     assert "[promote]" in resp.text
+    assert "breadth-glance" in resp.text
+    assert "ops-breadth-h" in resp.text
+    assert "breadth gate" in resp.text
 
 
 def test_desk_html_screens(tmp_path: Path, monkeypatch):
@@ -506,9 +509,13 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "Next buy" in overview.text or "No new buy size" in overview.text
     assert "Pre-trade + position sizer" in client.get("/desk/ideas").text
 
-    assert client.get("/desk/ops").text.find("Trader config") >= 0
-    assert "AI mode" in client.get("/desk/ops").text
-    assert "Live logs" in client.get("/desk/ops").text
+    ops = client.get("/desk/ops")
+    assert ops.text.find("Trader config") >= 0
+    assert "AI mode" in ops.text
+    assert "Live logs" in ops.text
+    assert "breadth-glance" in ops.text
+    assert "ops-breadth-h" in ops.text
+    assert "Ops breadth beside gate knobs" in client.get("/desk/ideas").text
 
     (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
     (tmp_path / "logs" / "trader.log").write_text("tee-line\n", encoding="utf-8")

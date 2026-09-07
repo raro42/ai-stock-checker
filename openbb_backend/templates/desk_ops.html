@@ -1,10 +1,18 @@
 {% extends "base.html" %}
+{% from "macros.html" import breadth_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
   <h1>Runtime</h1>
   <p class="lede">Watchdog, live logs from shared <code>data/</code>, and trader knobs — configure AI here; no secrets in the browser.</p>
 </header>
+
+{{ breadth_glance(
+  snap,
+  "ops-breadth-h",
+  "Scan breadth beside ops knobs",
+  "Scan-list A/D before you flip the breadth gate — display only; the gate still uses leaders on the scan list."
+) }}
 
 <section class="block system" aria-labelledby="cfg-h">
   <h2 id="cfg-h">Trader config</h2>
