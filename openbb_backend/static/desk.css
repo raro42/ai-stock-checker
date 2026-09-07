@@ -498,6 +498,36 @@ a:active {
   color: var(--muted);
 }
 
+.soft-allows {
+  margin: 0 0 1.75rem;
+}
+
+.soft-allow-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+}
+
+.soft-allow-list li {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) auto 1fr;
+  gap: 0.45rem 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+
+.soft-allow-list .why {
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .soft-allow-list li {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
 .unreal-link {
   color: inherit;
   text-decoration: none;

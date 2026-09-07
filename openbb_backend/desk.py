@@ -924,13 +924,21 @@ def load_desk_snapshot(
             "from": "staskh/trading_skills + portfolio AI (risk / mix report)",
             "note": "Book shows slots, posture, cash %, largest name, equity/crypto mix — display only.",
         },
+        {
+            "title": "Fail-open soft-allow memory",
+            "from": "tradermonty/claude-trading-skills (trader memory) + A5",
+            "note": "Ops lists recent regime/RS/breadth/promote soft-allows when bars/data are missing.",
+        },
     ]
 
+    from stock_checker.gate_audit import recent_soft_allows
     from stock_checker.risk_halts import (
         book_risk_report,
         pretrade_status,
         suggest_entry_notional,
     )
+
+    soft_allows = recent_soft_allows(data_dir, limit=12)
 
     max_pos = int(cfg_fees.get("max_positions") or 5)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
@@ -982,6 +990,7 @@ def load_desk_snapshot(
         "pretrade_notes": pretrade_notes,
         "entry_size": entry_size,
         "book_risk": book_risk,
+        "soft_allows": soft_allows,
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

@@ -98,6 +98,24 @@
     </div>
   </form>
 
+  <section class="block soft-allows" aria-labelledby="soft-h">
+    <h3 id="soft-h" class="subhead">Fail-open soft-allows</h3>
+    <p class="sub">When a gate passes because data is missing (unknown / no bars), the trader keeps a short memory here — not a block list.</p>
+    {% if snap.soft_allows %}
+    <ul class="soft-allow-list">
+      {% for e in snap.soft_allows %}
+      <li>
+        <span class="ops-mono">{{ e.at }}</span>
+        <span class="meta">[{{ e.gate }}]</span>
+        <span class="why">{{ e.reason }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No soft-allows recorded yet — gates are either hard-blocking or have full data.</p>
+    {% endif %}
+  </section>
+
   <dl class="facts runtime-facts">
     <div>
       <dt>Trader version</dt>

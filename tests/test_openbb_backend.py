@@ -187,6 +187,7 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["recommendations"][0]["symbol"] == "ETH-USD"
     assert snap["pretrade_level"] in {"PASS", "WARN", "FAIL"}
     assert isinstance(snap["pretrade_notes"], list)
+    assert isinstance(snap["soft_allows"], list)
     assert "eur" in snap["entry_size"]
     assert snap["entry_size"]["slots_open"] >= 0
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
@@ -337,6 +338,9 @@ def test_desk_config_api_put(tmp_path: Path, monkeypatch):
 
 def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
+    from stock_checker.gate_audit import record_soft_allow
+
+    record_soft_allow(tmp_path, "promote", "XYZ: skip_no_bars")
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")
     from starlette.testclient import TestClient
@@ -348,6 +352,9 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert 'id="ops-ai-mode"' in resp.text
     assert 'data-ops-logs' in resp.text
     assert 'id="ops-log-view"' in resp.text
+    assert "Fail-open soft-allows" in resp.text
+    assert "skip_no_bars" in resp.text
+    assert "[promote]" in resp.text
 
 
 def test_desk_html_screens(tmp_path: Path, monkeypatch):
