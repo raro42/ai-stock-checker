@@ -479,7 +479,12 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     log_page = client.get(f"/desk/scan-log/{day}")
     assert log_page.status_code == 200
     assert "BTC-USD" in log_page.text
+    assert "breadth-glance" in log_page.text
+    assert "scan-log-breadth-h" in log_page.text
+    assert "crypto 1/0" in log_page.text
+    assert "stock batch 8/3" in log_page.text
     assert client.get("/desk/scan-log/1999-01-01").status_code == 404
+    assert "Scan-log day breadth glance" in client.get("/desk/ideas").text
     book = client.get("/desk/book")
     assert "hold-spark" in book.text
     assert "average buy" in book.text.lower() or "avg cost" in book.text.lower()

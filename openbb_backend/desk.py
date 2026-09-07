@@ -305,6 +305,22 @@ def _annotate_scan_history(
     return out
 
 
+def scan_breadth_pulse_for_day(
+    data_dir: Path, day: str
+) -> dict[str, Any] | None:
+    """UTC-day scan-list pulse row from Breadth history (display only)."""
+    rows = _load_json(data_dir / "scan_breadth_daily.json", [])
+    if not isinstance(rows, list):
+        return None
+    want = str(day or "").strip()
+    if not want:
+        return None
+    for row in rows:
+        if isinstance(row, dict) and str(row.get("day") or "") == want:
+            return row
+    return None
+
+
 def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     """One-line scan-list glance for HTML screens + Charts API (display only; not a gate)."""
     empty = {
@@ -318,12 +334,13 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     }
     if not isinstance(pulse, dict):
         return empty
-    crypto_n = int(pulse.get("crypto_n") or 0)
     crypto_up = int(pulse.get("crypto_up") or 0)
     crypto_down = int(pulse.get("crypto_down") or 0)
-    stock_n = int(pulse.get("stock_scan_n") or 0)
     stock_up = int(pulse.get("stock_scan_up") or 0)
     stock_down = int(pulse.get("stock_scan_down") or 0)
+    # Infer n from up+down when daily rows omit crypto_n / stock_scan_n.
+    crypto_n = int(pulse.get("crypto_n") or 0) or (crypto_up + crypto_down)
+    stock_n = int(pulse.get("stock_scan_n") or 0) or (stock_up + stock_down)
     near = int(pulse.get("stock_within_5pct_high") or 0)
     breakouts_n = int(pulse.get("stock_breakouts_n") or 0)
     movers = int(pulse.get("crypto_big_movers") or 0)
@@ -1011,6 +1028,11 @@ def load_desk_snapshot(
             "title": "Ops breadth beside gate knobs",
             "from": "xang1234/stock-screener (StockBee-lite next to controls)",
             "note": "Ops shows scan-list A/D above trader knobs — context before flipping breadth gate.",
+        },
+        {
+            "title": "Scan-log day breadth glance",
+            "from": "xang1234/stock-screener (StockBee day drill-down)",
+            "note": "Scan log shows that UTC day’s scan-list A/D above the archive report — display only.",
         },
     ]
 

@@ -1,12 +1,45 @@
 """Offline tests for Breadth multi-day A/D sparklines (display only)."""
 
-from openbb_backend.desk import build_breadth_ad_spark, build_breadth_glance
+from pathlib import Path
+
+from openbb_backend.desk import (
+    build_breadth_ad_spark,
+    build_breadth_glance,
+    scan_breadth_pulse_for_day,
+)
 
 
 def test_breadth_glance_empty_when_no_scan():
     assert build_breadth_glance(None)["ready"] is False
     assert build_breadth_glance({})["ready"] is False
     assert build_breadth_glance({"crypto_n": 0, "stock_scan_n": 0})["ready"] is False
+
+
+def test_breadth_glance_infers_n_from_up_down():
+    g = build_breadth_glance(
+        {
+            "crypto_up": 2,
+            "crypto_down": 1,
+            "stock_scan_up": 4,
+            "stock_scan_down": 1,
+        }
+    )
+    assert g["ready"] is True
+    assert g["crypto_net"] == 1
+    assert g["stock_net"] == 3
+    assert g["tone"] == "up"
+    assert "crypto 2/1 (+1)" in g["line"]
+
+
+def test_scan_breadth_pulse_for_day(tmp_path: Path):
+    (tmp_path / "scan_breadth_daily.json").write_text(
+        '[{"day":"2026-09-01","crypto_up":1,"crypto_down":0},'
+        '{"day":"2026-09-02","crypto_up":0,"crypto_down":2}]\n',
+        encoding="utf-8",
+    )
+    assert scan_breadth_pulse_for_day(tmp_path, "2026-09-02")["crypto_down"] == 2
+    assert scan_breadth_pulse_for_day(tmp_path, "1999-01-01") is None
+    assert scan_breadth_pulse_for_day(tmp_path, "") is None
 
 
 def test_breadth_glance_sums_nets_and_tone():

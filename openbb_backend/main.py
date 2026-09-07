@@ -18,7 +18,12 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import find_day_scan_archive, load_desk_snapshot
+from openbb_backend.desk import (
+    build_breadth_glance,
+    find_day_scan_archive,
+    load_desk_snapshot,
+    scan_breadth_pulse_for_day,
+)
 from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
 from openbb_backend.repo_meta import load_repo_meta
 
@@ -345,11 +350,19 @@ def desk_scan_log(request: Request, day: str):
     # Cap huge archives for the browser view.
     if len(body) > 200_000:
         body = body[:200_000] + "\n\n… truncated …\n"
+    snap = load_desk_snapshot(DATA_DIR)
+    # Day-specific glance (not "latest") — StockBee-style drill-down, display only.
+    snap = {
+        **snap,
+        "breadth_glance": build_breadth_glance(
+            scan_breadth_pulse_for_day(DATA_DIR, day)
+        ),
+    }
     return templates.TemplateResponse(
         request=request,
         name="desk_scan_log.html",
         context={
-            "snap": load_desk_snapshot(DATA_DIR),
+            "snap": snap,
             "nav": _desk_nav(),
             "repo": load_repo_meta(),
             "day": day,
