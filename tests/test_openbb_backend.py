@@ -485,9 +485,14 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "52w high" in book.text
     assert "Profit target" in book.text
     assert "data/trades.jsonl" in book.text
+    assert "breadth-glance" in book.text
+    assert "book-breadth-h" in book.text
+    assert "Full breadth" in book.text
+    assert "context for adds" in book.text
     ideas = client.get("/desk/ideas")
     assert "Paper candidates" in ideas.text
     assert "Adopted here" in ideas.text
+    assert "Book breadth beside holdings" in ideas.text
     assert "No GitHub watch digest yet" in ideas.text  # seeded fixture has no watch file
     assert "d3.min.js" in client.get("/desk/charts").text
     assert "charts.js" in client.get("/desk/charts").text

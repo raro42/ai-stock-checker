@@ -165,6 +165,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 stock-batch multi-day A/D (2026-09-07 improve): persist `stock_scan_*` in daily pulse + stock A/D spark/column on Breadth — still scan-list, display only
 - [x] xang1234 Overview breadth glance (2026-09-07 improve): one-line scan-list A/D + near-high on Overview (`build_breadth_glance`) — display only, link to Breadth
 - [x] xang1234 Screener breadth beside lists (2026-09-07 improve): same glance on Screener + ±4% movers in line — StockBee-lite context next to opportunities, display only
+- [x] xang1234 + portfolio AI Book breadth (2026-09-07 improve): scan-list A/D glance on Book beside risk strip — context for adds, display only; shared `breadth_glance` macro
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

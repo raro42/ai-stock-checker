@@ -8,6 +8,24 @@
 </span>
 {%- endmacro %}
 
+{# Scan-list breadth glance (display only). heading_id must be unique per page. #}
+{% macro breadth_glance(snap, heading_id, heading_label, sub) -%}
+{% set glance = snap.breadth_glance if snap.breadth_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="breadth-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">{{ heading_label }}</h2>
+  <p class="breadth-glance-line">
+    <span class="breadth-glance-tone {{ glance.tone }}">Breadth</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="breadth-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="breadth-glance-link" href="/desk/breadth">Full breadth →</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>

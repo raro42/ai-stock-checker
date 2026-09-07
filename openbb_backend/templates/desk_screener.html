@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker %}
+{% from "macros.html" import ticker, breadth_glance %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -32,20 +32,12 @@
   </div>
 </section>
 
-{% set glance = snap.breadth_glance if snap.breadth_glance is mapping else {} %}
-{% if glance.ready %}
-<section class="breadth-glance" aria-labelledby="screener-breadth-h">
-  <h2 id="screener-breadth-h" class="visually-hidden">Scan breadth beside screener</h2>
-  <p class="breadth-glance-line">
-    <span class="breadth-glance-tone {{ glance.tone }}">Breadth</span>
-    <span class="pretrade-sep" aria-hidden="true">·</span>
-    <span class="breadth-glance-body">{{ glance.line }}</span>
-    <span class="pretrade-sep" aria-hidden="true">·</span>
-    <a class="breadth-glance-link" href="/desk/breadth">Full breadth →</a>
-  </p>
-  <p class="sub">Scan-list A/D + near-high / ±4% movers — context for the lists below, not an entry gate.</p>
-</section>
-{% endif %}
+{{ breadth_glance(
+  snap,
+  "screener-breadth-h",
+  "Scan breadth beside screener",
+  "Scan-list A/D + near-high / ±4% movers — context for the lists below, not an entry gate."
+) }}
 
 <section class="block" aria-labelledby="rec-h">
   <h2 id="rec-h">Recommendations</h2>

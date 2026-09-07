@@ -306,7 +306,7 @@ def _annotate_scan_history(
 
 
 def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
-    """One-line scan-list glance for Overview + Screener (display only; not a gate)."""
+    """One-line scan-list glance for Overview / Screener / Book (display only; not a gate)."""
     empty = {
         "ready": False,
         "tone": "flat",
@@ -986,6 +986,11 @@ def load_desk_snapshot(
             "title": "Book risk report strip",
             "from": "staskh/trading_skills + portfolio AI (risk / mix report)",
             "note": "Book shows slots, posture, cash %, largest name, equity/crypto mix — display only.",
+        },
+        {
+            "title": "Book breadth beside holdings",
+            "from": "xang1234/stock-screener + portfolio AI (risk context)",
+            "note": "Book shows scan-list A/D glance next to risk strip — context for adds, not a gate.",
         },
         {
             "title": "Fail-open soft-allow memory",
