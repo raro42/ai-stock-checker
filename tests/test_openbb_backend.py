@@ -386,6 +386,9 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     screener = client.get("/desk/screener")
     assert 'aria-label="Screener counts"' in screener.text
     assert "populated this scan" in screener.text
+    assert "breadth-glance" in screener.text
+    assert "screener-breadth-h" in screener.text
+    assert "Full breadth" in screener.text
     overview = client.get("/desk")
     assert "Bitcoin" in overview.text
     assert "breadth-glance" in overview.text

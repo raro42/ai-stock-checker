@@ -161,11 +161,12 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] **C-sizer** Overview pre-trade PASS/WARN/FAIL + display-only next-buy € (`suggest_entry_notional` — cash frac · concentration · slots) — tradermonty sizer / pre-trade gate
 - [x] **C-risk** Book risk-report strip (`book_risk_report` — slots/posture/cash %/largest/equity·crypto mix; display only) — staskh + portfolio AI
 - [x] **C-softmem** Ops fail-open soft-allow memory (`gate_audit` ring buffer + Ops list) — tradermonty trader memory + A5 honesty (2026-09-07 improve)
-- [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
-- [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 - [x] xang1234 multi-day breadth sparkline (2026-09-07): Breadth “Recent days” + crypto A/D net SVG (`build_breadth_ad_spark`) — scan-list only, display only
 - [x] xang1234 stock-batch multi-day A/D (2026-09-07 improve): persist `stock_scan_*` in daily pulse + stock A/D spark/column on Breadth — still scan-list, display only
 - [x] xang1234 Overview breadth glance (2026-09-07 improve): one-line scan-list A/D + near-high on Overview (`build_breadth_glance`) — display only, link to Breadth
+- [x] xang1234 Screener breadth beside lists (2026-09-07 improve): same glance on Screener + ±4% movers in line — StockBee-lite context next to opportunities, display only
+- [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
+- [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

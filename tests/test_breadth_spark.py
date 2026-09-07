@@ -20,16 +20,19 @@ def test_breadth_glance_sums_nets_and_tone():
             "stock_scan_down": 5,
             "stock_breakouts_n": 3,
             "stock_within_5pct_high": 2,
+            "crypto_big_movers": 1,
         }
     )
     assert g["ready"] is True
     assert g["crypto_net"] == 2
     assert g["stock_net"] == -3
     assert g["near_high"] == 2
+    assert g["big_movers"] == 1
     assert g["tone"] == "down"  # +2 + −3 = −1
     assert "crypto 3/1 (+2)" in g["line"]
     assert "stock batch 2/5 (-3)" in g["line"]
     assert "2 near-high" in g["line"]
+    assert "1 ±4% movers" in g["line"]
 
 
 def test_breadth_glance_up_when_crypto_leads():
@@ -46,6 +49,8 @@ def test_breadth_glance_up_when_crypto_leads():
     assert g["ready"] is True
     assert g["tone"] == "up"
     assert g["stock_net"] == 0
+    assert g["big_movers"] == 0
+    assert "±4% movers" not in g["line"]
 
 
 def test_breadth_ad_spark_needs_two_days():

@@ -306,7 +306,7 @@ def _annotate_scan_history(
 
 
 def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
-    """One-line Overview glance from scan-list pulse (display only; not a gate)."""
+    """One-line scan-list glance for Overview + Screener (display only; not a gate)."""
     empty = {
         "ready": False,
         "tone": "flat",
@@ -314,6 +314,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "crypto_net": 0,
         "stock_net": 0,
         "near_high": 0,
+        "big_movers": 0,
     }
     if not isinstance(pulse, dict):
         return empty
@@ -325,6 +326,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     stock_down = int(pulse.get("stock_scan_down") or 0)
     near = int(pulse.get("stock_within_5pct_high") or 0)
     breakouts_n = int(pulse.get("stock_breakouts_n") or 0)
+    movers = int(pulse.get("crypto_big_movers") or 0)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
 
@@ -340,6 +342,8 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         score += stock_net
     if breakouts_n > 0 or near > 0:
         parts.append(f"{near} near-high")
+    if movers > 0:
+        parts.append(f"{movers} ±4% movers")
     if not parts:
         return empty
     if score > 0:
@@ -355,6 +359,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "crypto_net": crypto_net,
         "stock_net": stock_net if stock_n > 0 else 0,
         "near_high": near,
+        "big_movers": movers,
     }
 
 
@@ -931,6 +936,11 @@ def load_desk_snapshot(
             "title": "Daily scan-pulse history + A/D spark",
             "from": "xang1234/StockBee-style breadth over time",
             "note": "Breadth keeps UTC daily A/D snapshots and a multi-day net A/D sparkline.",
+        },
+        {
+            "title": "Screener breadth beside lists",
+            "from": "xang1234/stock-screener (StockBee-lite next to screen)",
+            "note": "Screener shows scan-list A/D + near-high / ±4% movers above opportunity lists — display only.",
         },
         {
             "title": "Screener counts strip",
