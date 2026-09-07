@@ -1,6 +1,51 @@
 """Offline tests for Breadth multi-day A/D sparklines (display only)."""
 
-from openbb_backend.desk import build_breadth_ad_spark
+from openbb_backend.desk import build_breadth_ad_spark, build_breadth_glance
+
+
+def test_breadth_glance_empty_when_no_scan():
+    assert build_breadth_glance(None)["ready"] is False
+    assert build_breadth_glance({})["ready"] is False
+    assert build_breadth_glance({"crypto_n": 0, "stock_scan_n": 0})["ready"] is False
+
+
+def test_breadth_glance_sums_nets_and_tone():
+    g = build_breadth_glance(
+        {
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "stock_scan_n": 10,
+            "stock_scan_up": 2,
+            "stock_scan_down": 5,
+            "stock_breakouts_n": 3,
+            "stock_within_5pct_high": 2,
+        }
+    )
+    assert g["ready"] is True
+    assert g["crypto_net"] == 2
+    assert g["stock_net"] == -3
+    assert g["near_high"] == 2
+    assert g["tone"] == "down"  # +2 + −3 = −1
+    assert "crypto 3/1 (+2)" in g["line"]
+    assert "stock batch 2/5 (-3)" in g["line"]
+    assert "2 near-high" in g["line"]
+
+
+def test_breadth_glance_up_when_crypto_leads():
+    g = build_breadth_glance(
+        {
+            "crypto_n": 3,
+            "crypto_up": 3,
+            "crypto_down": 0,
+            "stock_scan_n": 0,
+            "stock_breakouts_n": 0,
+            "stock_within_5pct_high": 0,
+        }
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "up"
+    assert g["stock_net"] == 0
 
 
 def test_breadth_ad_spark_needs_two_days():

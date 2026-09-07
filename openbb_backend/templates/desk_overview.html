@@ -92,6 +92,21 @@
   {% endif %}
 </section>
 
+{% set glance = snap.breadth_glance if snap.breadth_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="breadth-glance" aria-labelledby="breadth-glance-h">
+  <h2 id="breadth-glance-h" class="visually-hidden">Scan breadth glance</h2>
+  <p class="breadth-glance-line">
+    <span class="breadth-glance-tone {{ glance.tone }}">Breadth</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="breadth-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="breadth-glance-link" href="/desk/breadth">Full breadth →</a>
+  </p>
+  <p class="sub">Scan-list A/D only — not full-universe advance/decline.</p>
+</section>
+{% endif %}
+
 <section class="block" aria-labelledby="pulse-h">
   <h2 id="pulse-h">Scan pulse</h2>
   {% if snap.recommendations %}

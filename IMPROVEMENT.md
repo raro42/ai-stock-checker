@@ -165,6 +165,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 - [x] xang1234 multi-day breadth sparkline (2026-09-07): Breadth “Recent days” + crypto A/D net SVG (`build_breadth_ad_spark`) — scan-list only, display only
 - [x] xang1234 stock-batch multi-day A/D (2026-09-07 improve): persist `stock_scan_*` in daily pulse + stock A/D spark/column on Breadth — still scan-list, display only
+- [x] xang1234 Overview breadth glance (2026-09-07 improve): one-line scan-list A/D + near-high on Overview (`build_breadth_glance`) — display only, link to Breadth
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

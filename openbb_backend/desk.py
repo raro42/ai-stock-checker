@@ -305,6 +305,59 @@ def _annotate_scan_history(
     return out
 
 
+def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
+    """One-line Overview glance from scan-list pulse (display only; not a gate)."""
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "crypto_net": 0,
+        "stock_net": 0,
+        "near_high": 0,
+    }
+    if not isinstance(pulse, dict):
+        return empty
+    crypto_n = int(pulse.get("crypto_n") or 0)
+    crypto_up = int(pulse.get("crypto_up") or 0)
+    crypto_down = int(pulse.get("crypto_down") or 0)
+    stock_n = int(pulse.get("stock_scan_n") or 0)
+    stock_up = int(pulse.get("stock_scan_up") or 0)
+    stock_down = int(pulse.get("stock_scan_down") or 0)
+    near = int(pulse.get("stock_within_5pct_high") or 0)
+    breakouts_n = int(pulse.get("stock_breakouts_n") or 0)
+    if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
+        return empty
+
+    crypto_net = crypto_up - crypto_down
+    stock_net = stock_up - stock_down
+    parts: list[str] = []
+    score = 0
+    if crypto_n > 0:
+        parts.append(f"crypto {crypto_up}/{crypto_down} ({crypto_net:+d})")
+        score += crypto_net
+    if stock_n > 0:
+        parts.append(f"stock batch {stock_up}/{stock_down} ({stock_net:+d})")
+        score += stock_net
+    if breakouts_n > 0 or near > 0:
+        parts.append(f"{near} near-high")
+    if not parts:
+        return empty
+    if score > 0:
+        tone = "up"
+    elif score < 0:
+        tone = "down"
+    else:
+        tone = "flat"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": " · ".join(parts),
+        "crypto_net": crypto_net,
+        "stock_net": stock_net if stock_n > 0 else 0,
+        "near_high": near,
+    }
+
+
 def build_breadth_ad_spark(
     rows: list[dict[str, Any]],
     *,
@@ -1017,6 +1070,7 @@ def load_desk_snapshot(
         "stock_breakouts": stock_breakouts,
         "scan_breadth": scan_breadth,
         "scan_breadth_history": scan_breadth_history,
+        "breadth_glance": build_breadth_glance(scan_breadth),
         "breadth_ad_spark": build_breadth_ad_spark(scan_breadth_history),
         "breadth_stock_ad_spark": build_breadth_ad_spark(
             scan_breadth_history,
