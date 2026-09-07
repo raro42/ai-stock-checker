@@ -117,3 +117,50 @@ def test_suggest_entry_notional_book_full() -> None:
     assert out["eur"] == 0.0
     assert out["capped_by"] == "book_full"
     assert out["slots_open"] == 0
+
+
+def test_book_risk_report_mix_and_warn() -> None:
+    from stock_checker.risk_halts import book_risk_report
+
+    out = book_risk_report(
+        cash=20_000,
+        equity=100_000,
+        max_positions=5,
+        holdings=[
+            {"symbol": "JPM", "market_value": 40_000, "kind": "stock"},
+            {"symbol": "ETH-USD", "market_value": 25_000, "kind": "crypto"},
+            {"symbol": "HALO", "market_value": 15_000, "kind": "stock"},
+        ],
+    )
+    assert out["slots"] == "3/5"
+    assert out["posture"] == "open"
+    assert out["cash_pct"] == 20.0
+    assert out["largest_symbol"] == "JPM"
+    assert out["largest_pct"] == 40.0
+    assert out["concentration_warn"] is True
+    assert out["equity_pct"] == 68.8  # 55k / 80k
+    assert out["crypto_pct"] == 31.2
+
+
+def test_book_risk_report_empty_book() -> None:
+    from stock_checker.risk_halts import book_risk_report
+
+    out = book_risk_report(cash=100_000, equity=100_000, holdings=[], max_positions=5)
+    assert out["slots"] == "0/5"
+    assert out["posture"] == "open"
+    assert out["largest_symbol"] == ""
+    assert out["concentration_warn"] is False
+    assert out["cash_pct"] == 100.0
+
+
+def test_book_risk_report_overweight() -> None:
+    from stock_checker.risk_halts import book_risk_report
+
+    holds = [
+        {"symbol": f"S{i}", "market_value": 10_000, "kind": "stock"} for i in range(6)
+    ]
+    out = book_risk_report(
+        cash=40_000, equity=100_000, holdings=holds, max_positions=5
+    )
+    assert out["posture"] == "overweight"
+    assert out["slots"] == "6/5"

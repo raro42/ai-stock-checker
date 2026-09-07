@@ -137,6 +137,104 @@ def concentration_allows(
     return True, f"concentration {pct:.1f}% ok"
 
 
+def book_risk_report(
+    *,
+    cash: float,
+    equity: float,
+    holdings: list[dict[str, Any]],
+    max_positions: int = 5,
+    max_name_pct: float = DEFAULT_MAX_NAME_PCT,
+) -> dict[str, Any]:
+    """
+    Display-only book risk strip (staskh / portfolio-AI style).
+
+    Cash %, slots, posture, largest name, equity vs crypto mix.
+    Does not change entries or exits.
+    """
+    from stock_checker.exit_policy import book_action_mode
+
+    try:
+        cash_f = float(cash)
+        equity_f = float(equity)
+        max_n = int(max_positions)
+        cap_pct = abs(float(max_name_pct))
+    except (TypeError, ValueError):
+        return {
+            "cash_pct": 0.0,
+            "slots": "0/5",
+            "open_positions": 0,
+            "max_positions": 5,
+            "posture": "open",
+            "largest_symbol": "",
+            "largest_pct": 0.0,
+            "equity_pct": 0.0,
+            "crypto_pct": 0.0,
+            "concentration_warn": False,
+            "note": "unreadable book inputs",
+        }
+
+    if max_n < 1:
+        max_n = 1
+    rows = [h for h in holdings if isinstance(h, dict)]
+    open_n = len(rows)
+    posture = book_action_mode(open_n, max_n)
+    cash_pct = (cash_f / equity_f * 100.0) if equity_f > 0 else 0.0
+
+    largest_symbol = ""
+    largest_pct = 0.0
+    equity_mv = 0.0
+    crypto_mv = 0.0
+    for h in rows:
+        try:
+            mv = float(h.get("market_value") or 0.0)
+        except (TypeError, ValueError):
+            mv = 0.0
+        sym = str(h.get("symbol") or "")
+        kind = str(h.get("kind") or "")
+        if not kind:
+            kind = "crypto" if "-USD" in sym else "stock"
+        if kind == "crypto":
+            crypto_mv += mv
+        else:
+            equity_mv += mv
+        w = (mv / equity_f * 100.0) if equity_f > 0 else 0.0
+        if w > largest_pct:
+            largest_pct = w
+            largest_symbol = sym
+
+    invested = equity_mv + crypto_mv
+    if invested > 0:
+        eq_share = equity_mv / invested * 100.0
+        cr_share = crypto_mv / invested * 100.0
+    else:
+        eq_share = 0.0
+        cr_share = 0.0
+
+    concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
+    bits = [f"{open_n}/{max_n} slots · {posture}"]
+    if largest_symbol:
+        bits.append(f"largest {largest_symbol} {largest_pct:.0f}%")
+    bits.append(f"cash {cash_pct:.0f}%")
+    if invested > 0:
+        bits.append(f"mix equity {eq_share:.0f}% / crypto {cr_share:.0f}%")
+    if concentration_warn:
+        bits.append(f"≥{cap_pct:g}% name weight")
+
+    return {
+        "cash_pct": round(cash_pct, 1),
+        "slots": f"{open_n}/{max_n}",
+        "open_positions": open_n,
+        "max_positions": max_n,
+        "posture": posture,
+        "largest_symbol": largest_symbol,
+        "largest_pct": round(largest_pct, 1),
+        "equity_pct": round(eq_share, 1),
+        "crypto_pct": round(cr_share, 1),
+        "concentration_warn": concentration_warn,
+        "note": " · ".join(bits),
+    }
+
+
 def suggest_entry_notional(
     *,
     cash: float,

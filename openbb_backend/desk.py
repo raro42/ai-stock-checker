@@ -829,17 +829,33 @@ def load_desk_snapshot(
             "from": "tradermonty/claude-trading-skills (pre-trade gate / sizer)",
             "note": "Overview shows PASS/WARN/FAIL + suggested next-buy € (cash frac · concentration · slots).",
         },
+        {
+            "title": "Book risk report strip",
+            "from": "staskh/trading_skills + portfolio AI (risk / mix report)",
+            "note": "Book shows slots, posture, cash %, largest name, equity/crypto mix — display only.",
+        },
     ]
 
-    from stock_checker.risk_halts import pretrade_status, suggest_entry_notional
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        pretrade_status,
+        suggest_entry_notional,
+    )
 
+    max_pos = int(cfg_fees.get("max_positions") or 5)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
     entry_size = suggest_entry_notional(
         cash=cash,
         equity=equity,
         open_positions=len(rows),
-        max_positions=int(cfg_fees.get("max_positions") or 5),
+        max_positions=max_pos,
         position_size=0.10,
+    )
+    book_risk = book_risk_report(
+        cash=cash,
+        equity=equity,
+        holdings=rows,
+        max_positions=max_pos,
     )
 
     return {
@@ -875,6 +891,7 @@ def load_desk_snapshot(
         "pretrade_level": pretrade_level,
         "pretrade_notes": pretrade_notes,
         "entry_size": entry_size,
+        "book_risk": book_risk,
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

@@ -11,6 +11,35 @@
   <p class="lede">Full paper ledger — each holding shows price since your buy (rebased to avg cost = 100), with the hold window dated under the path. No forecast lines.</p>
 </header>
 
+<section class="risk-report" aria-labelledby="risk-h">
+  <h2 id="risk-h" class="visually-hidden">Book risk</h2>
+  <p class="risk-line">
+    <span class="risk-posture {{ snap.book_risk.posture }}">{{ snap.book_risk.posture }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="risk-note">{{ snap.book_risk.note }}</span>
+  </p>
+  <ul class="risk-strip" aria-label="Risk metrics">
+    <li><span class="k">Slots</span><span class="v">{{ snap.book_risk.slots }}</span></li>
+    <li><span class="k">Cash</span><span class="v">{{ "%.0f"|format(snap.book_risk.cash_pct) }}%</span></li>
+    <li>
+      <span class="k">Largest</span>
+      <span class="v {% if snap.book_risk.concentration_warn %}warn{% endif %}">
+        {% if snap.book_risk.largest_symbol %}
+        {{ snap.book_risk.largest_symbol }} {{ "%.0f"|format(snap.book_risk.largest_pct) }}%
+        {% else %}—{% endif %}
+      </span>
+    </li>
+    <li>
+      <span class="k">Mix</span>
+      <span class="v">
+        {% if snap.book_risk.equity_pct or snap.book_risk.crypto_pct %}
+        eq {{ "%.0f"|format(snap.book_risk.equity_pct) }}% / cr {{ "%.0f"|format(snap.book_risk.crypto_pct) }}%
+        {% else %}—{% endif %}
+      </span>
+    </li>
+  </ul>
+</section>
+
 <section class="block" aria-labelledby="hold-h">
   <h2 id="hold-h">Holdings</h2>
   <p class="sub">Dashed line = your average buy. Start/end times on the path are that lot’s window (a 1h crypto hold and a 200d stock are not the same scale).</p>

@@ -159,8 +159,10 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Scan-list breadth gate shipped (above); stock-batch A/D on Breadth (this-cycle priced names); full-universe A/D still optional later
 - [x] **C-postmortem** Closed-round trader memory on Book (`trade_postmortem.py` — thesis → exit → hold → mark P&L; no MAE/MFE without path) — tradermonty watch idea
 - [x] **C-sizer** Overview pre-trade PASS/WARN/FAIL + display-only next-buy € (`suggest_entry_notional` — cash frac · concentration · slots) — tradermonty sizer / pre-trade gate
+- [x] **C-risk** Book risk-report strip (`book_risk_report` — slots/posture/cash %/largest/equity·crypto mix; display only) — staskh + portfolio AI
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
+- [ ] Optional later: xang1234 multi-day breadth sparkline beyond “Recent days” table (defer — table already ships)
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

@@ -375,6 +375,75 @@ a:active {
   opacity: 0.92;
 }
 
+.risk-report {
+  margin: 0 0 2.25rem;
+  padding: 0 0 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.risk-line {
+  margin: 0 0 0.65rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.risk-posture {
+  font-family: var(--font-data);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.risk-posture.open {
+  color: var(--up);
+}
+
+.risk-posture.at_cap {
+  color: var(--accent);
+}
+
+.risk-posture.overweight {
+  color: var(--down);
+}
+
+.risk-note {
+  color: var(--muted);
+}
+
+.risk-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.risk-strip .k {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.risk-strip .v {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.risk-strip .v.warn {
+  color: var(--down);
+}
+
+@media (max-width: 640px) {
+  .risk-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .pretrade {
   margin: -1.5rem 0 2.5rem;
   padding: 0.85rem 0 1.1rem;
