@@ -158,6 +158,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Overweight book posture: if holdings > max_positions → TP/SL only (no buys, no scan rotation); AI paper default dialed to validate (less churn than full)
 - [x] Scan-list breadth gate shipped (above); stock-batch A/D on Breadth (this-cycle priced names); full-universe A/D still optional later
 - [x] **C-postmortem** Closed-round trader memory on Book (`trade_postmortem.py` — thesis → exit → hold → mark P&L; no MAE/MFE without path) — tradermonty watch idea
+- [x] **C-sizer** Overview pre-trade PASS/WARN/FAIL + display-only next-buy € (`suggest_entry_notional` — cash frac · concentration · slots) — tradermonty sizer / pre-trade gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

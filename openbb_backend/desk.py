@@ -824,7 +824,23 @@ def load_desk_snapshot(
             "from": "tradermonty/claude-trading-skills (trader memory)",
             "note": "Book pairs BUY→SELL: thesis → exit → hold → mark P&L. No inventing MAE/MFE.",
         },
+        {
+            "title": "Pre-trade + position sizer",
+            "from": "tradermonty/claude-trading-skills (pre-trade gate / sizer)",
+            "note": "Overview shows PASS/WARN/FAIL + suggested next-buy € (cash frac · concentration · slots).",
+        },
     ]
+
+    from stock_checker.risk_halts import pretrade_status, suggest_entry_notional
+
+    pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
+    entry_size = suggest_entry_notional(
+        cash=cash,
+        equity=equity,
+        open_positions=len(rows),
+        max_positions=int(cfg_fees.get("max_positions") or 5),
+        position_size=0.10,
+    )
 
     return {
         "brand": "AI Stock Checker",
@@ -856,6 +872,9 @@ def load_desk_snapshot(
             if stuck
             else ""
         ),
+        "pretrade_level": pretrade_level,
+        "pretrade_notes": pretrade_notes,
+        "entry_size": entry_size,
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

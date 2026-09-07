@@ -137,6 +137,85 @@ def concentration_allows(
     return True, f"concentration {pct:.1f}% ok"
 
 
+def suggest_entry_notional(
+    *,
+    cash: float,
+    equity: float,
+    open_positions: int,
+    max_positions: int = 5,
+    position_size: float = 0.10,
+    max_name_pct: float = DEFAULT_MAX_NAME_PCT,
+) -> dict[str, Any]:
+    """
+    Display-only next-buy size (tradermonty-style sizer).
+
+    Matches live defaults: ~10% of cash, capped by concentration vs equity
+    and by open book slots. Does not place orders.
+    """
+    try:
+        cash_f = float(cash)
+        equity_f = float(equity)
+        open_n = int(open_positions)
+        max_n = int(max_positions)
+        frac = float(position_size)
+        cap_pct = abs(float(max_name_pct))
+    except (TypeError, ValueError):
+        return {
+            "eur": 0.0,
+            "cash_frac": 0.10,
+            "slots_open": 0,
+            "capped_by": "unreadable",
+            "note": "unreadable book inputs",
+        }
+
+    if max_n < 1:
+        max_n = 1
+    if frac <= 0:
+        frac = 0.10
+    slots_open = max(0, max_n - max(0, open_n))
+    if slots_open <= 0:
+        return {
+            "eur": 0.0,
+            "cash_frac": frac,
+            "slots_open": 0,
+            "capped_by": "book_full",
+            "note": f"book full ({open_n}/{max_n})",
+        }
+    if cash_f <= 0 or equity_f <= 0:
+        return {
+            "eur": 0.0,
+            "cash_frac": frac,
+            "slots_open": slots_open,
+            "capped_by": "no_cash",
+            "note": "no cash for a new entry",
+        }
+
+    from_cash = cash_f * frac
+    from_conc = equity_f * (cap_pct / 100.0)
+    eur = min(from_cash, from_conc, cash_f)
+    if eur <= 0:
+        return {
+            "eur": 0.0,
+            "cash_frac": frac,
+            "slots_open": slots_open,
+            "capped_by": "no_cash",
+            "note": "no cash for a new entry",
+        }
+    if from_conc < from_cash:
+        capped_by = "concentration"
+        note = f"~{frac * 100:.0f}% cash · capped at {cap_pct:g}% equity"
+    else:
+        capped_by = "cash_frac"
+        note = f"~{frac * 100:.0f}% of cash ({slots_open} slot{'s' if slots_open != 1 else ''} open)"
+    return {
+        "eur": round(eur, 2),
+        "cash_frac": frac,
+        "slots_open": slots_open,
+        "capped_by": capped_by,
+        "note": note,
+    }
+
+
 def pretrade_status(
     data_dir: Path | str,
     *,

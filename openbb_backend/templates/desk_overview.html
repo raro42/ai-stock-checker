@@ -47,6 +47,24 @@
   </div>
 </section>
 
+<section class="pretrade" aria-labelledby="pretrade-h">
+  <h2 id="pretrade-h" class="visually-hidden">Pre-trade</h2>
+  <p class="pretrade-line">
+    <span class="pretrade-level {{ snap.pretrade_level|lower }}">{{ snap.pretrade_level }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="pretrade-notes">{{ snap.pretrade_notes|join("; ") }}</span>
+  </p>
+  <p class="pretrade-size">
+    {% if snap.entry_size.eur > 0 %}
+    Next buy ~€{{ "{:,.0f}".format(snap.entry_size.eur) }}
+    <span class="meta">{{ snap.entry_size.note }}</span>
+    {% else %}
+    No new buy size
+    <span class="meta">{{ snap.entry_size.note }}</span>
+    {% endif %}
+  </p>
+</section>
+
 <section class="block" aria-labelledby="hold-h">
   <h2 id="hold-h">Top holdings</h2>
   {% if snap.holdings %}

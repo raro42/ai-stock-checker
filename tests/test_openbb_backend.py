@@ -185,6 +185,10 @@ def test_desk_snapshot_rich(tmp_path: Path):
         expected = snap["unrealized_total"] / snap["cost_basis_total"] * 100
         assert abs(snap["unrealized_pct"] - expected) < 1e-6
     assert snap["recommendations"][0]["symbol"] == "ETH-USD"
+    assert snap["pretrade_level"] in {"PASS", "WARN", "FAIL"}
+    assert isinstance(snap["pretrade_notes"], list)
+    assert "eur" in snap["entry_size"]
+    assert snap["entry_size"]["slots_open"] >= 0
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
     assert len(snap["crypto_leaders"]) == 3  # top list capped for UI; pulse uses full scan
     assert snap["stock_breakouts"][0]["symbol"] == "AAPL"
@@ -432,6 +436,10 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "Buys / Sells" in client.get("/desk").text
     assert "unreal-spark" in client.get("/desk").text
     assert "ch-unreal" in client.get("/desk").text
+    overview = client.get("/desk")
+    assert "pretrade" in overview.text
+    assert "Next buy" in overview.text or "No new buy size" in overview.text
+    assert "Pre-trade + position sizer" in client.get("/desk/ideas").text
 
     assert client.get("/desk/ops").text.find("Trader config") >= 0
     assert "AI mode" in client.get("/desk/ops").text

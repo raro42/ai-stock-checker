@@ -39,6 +39,18 @@ body {
   outline-offset: 3px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Default text links — never rely on browser blue/purple */
 a {
   color: var(--link);
@@ -361,6 +373,60 @@ a:active {
   font-size: 0.72em;
   font-weight: 500;
   opacity: 0.92;
+}
+
+.pretrade {
+  margin: -1.5rem 0 2.5rem;
+  padding: 0.85rem 0 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.pretrade-line {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.pretrade-level {
+  font-family: var(--font-data);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pretrade-level.pass {
+  color: var(--up);
+}
+
+.pretrade-level.warn {
+  color: var(--accent);
+}
+
+.pretrade-level.fail {
+  color: var(--down);
+}
+
+.pretrade-sep {
+  margin: 0 0.35rem;
+  color: var(--muted);
+}
+
+.pretrade-notes {
+  color: var(--muted);
+}
+
+.pretrade-size {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+
+.pretrade-size .meta {
+  margin-left: 0.45rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
 .unreal-link {

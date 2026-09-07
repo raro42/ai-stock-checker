@@ -84,3 +84,36 @@ def test_pretrade_status_warn_on_cooldown(tmp_path: Path) -> None:
     )
     assert level == "WARN"
     assert any("cooldown" in n for n in notes)
+
+
+def test_suggest_entry_notional_cash_frac() -> None:
+    from stock_checker.risk_halts import suggest_entry_notional
+
+    out = suggest_entry_notional(
+        cash=50_000, equity=100_000, open_positions=2, max_positions=5
+    )
+    assert out["eur"] == 5_000.0
+    assert out["capped_by"] == "cash_frac"
+    assert out["slots_open"] == 3
+
+
+def test_suggest_entry_notional_concentration_cap() -> None:
+    from stock_checker.risk_halts import suggest_entry_notional
+
+    # 10% of cash = 20k, but 30% of equity = 9k → concentration wins
+    out = suggest_entry_notional(
+        cash=200_000, equity=30_000, open_positions=0, max_positions=5
+    )
+    assert out["eur"] == 9_000.0
+    assert out["capped_by"] == "concentration"
+
+
+def test_suggest_entry_notional_book_full() -> None:
+    from stock_checker.risk_halts import suggest_entry_notional
+
+    out = suggest_entry_notional(
+        cash=50_000, equity=100_000, open_positions=5, max_positions=5
+    )
+    assert out["eur"] == 0.0
+    assert out["capped_by"] == "book_full"
+    assert out["slots_open"] == 0
