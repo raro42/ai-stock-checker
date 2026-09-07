@@ -64,18 +64,36 @@
     Open a day scan log to see the names behind the counts.
   </p>
   {% set spark = snap.breadth_ad_spark if snap.breadth_ad_spark is mapping else {} %}
-  {% if spark.ready %}
-  <figure class="breadth-ad-spark" id="breadth-ad-spark">
-    {{ spark.svg|safe }}
-    <figcaption>
-      Crypto A/D net (up − down) · {{ spark.n }} days ·
-      latest
-      <span class="v {% if spark.latest_net >= 0 %}up{% else %}down{% endif %}">
-        {{ "%+d"|format(spark.latest_net) }}
-      </span>
-      · {{ spark.first_day }} → {{ spark.last_day }}
-    </figcaption>
-  </figure>
+  {% set stock_spark = snap.breadth_stock_ad_spark if snap.breadth_stock_ad_spark is mapping else {} %}
+  {% if spark.ready or stock_spark.ready %}
+  <div class="breadth-ad-sparks" aria-label="Multi-day A/D sparklines">
+    {% if spark.ready %}
+    <figure class="breadth-ad-spark" id="breadth-ad-spark">
+      {{ spark.svg|safe }}
+      <figcaption>
+        Crypto A/D net (up − down) · {{ spark.n }} days ·
+        latest
+        <span class="v {% if spark.latest_net >= 0 %}up{% else %}down{% endif %}">
+          {{ "%+d"|format(spark.latest_net) }}
+        </span>
+        · {{ spark.first_day }} → {{ spark.last_day }}
+      </figcaption>
+    </figure>
+    {% endif %}
+    {% if stock_spark.ready %}
+    <figure class="breadth-ad-spark" id="breadth-stock-ad-spark">
+      {{ stock_spark.svg|safe }}
+      <figcaption>
+        Stock batch A/D net · {{ stock_spark.n }} days ·
+        latest
+        <span class="v {% if stock_spark.latest_net >= 0 %}up{% else %}down{% endif %}">
+          {{ "%+d"|format(stock_spark.latest_net) }}
+        </span>
+        · {{ stock_spark.first_day }} → {{ stock_spark.last_day }}
+      </figcaption>
+    </figure>
+    {% endif %}
+  </div>
   {% endif %}
   <div class="breadth-days-wrap">
     <table class="breadth-days-table" aria-label="Scan pulse history">
@@ -86,6 +104,7 @@
           <th scope="col" title="Mean 24h % change across those crypto leaders">avg</th>
           <th scope="col" title="How many leaders moved at least 4% (up or down)">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high">near-high</th>
+          <th scope="col" title="Stock batch priced this cycle: up / down">stock A/D</th>
           <th scope="col">Log</th>
         </tr>
       </thead>
@@ -104,6 +123,13 @@
           <td>{{ d.crypto_big_movers }}</td>
           <td>{{ d.stock_within_5pct_high }}</td>
           <td>
+            {% if d.stock_scan_n is defined and d.stock_scan_n %}
+            {{ d.stock_scan_up|default(0) }}/{{ d.stock_scan_down|default(0) }}
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td>
             {% if d.has_scan_log and d.scan_log_href %}
             <a class="day-log" href="{{ d.scan_log_href }}">scan log</a>
             {% else %}
@@ -118,7 +144,8 @@
       <span class="k">A/D</span> crypto leaders up/down ·
       <span class="k">avg</span> mean 24h % ·
       <span class="k">±4%</span> |move| ≥ 4% ·
-      <span class="k">near-high</span> stocks ≤5% from 52w high
+      <span class="k">near-high</span> stocks ≤5% from 52w high ·
+      <span class="k">stock A/D</span> priced batch this cycle
     </p>
   </div>
   {% endif %}

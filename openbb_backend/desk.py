@@ -254,6 +254,9 @@ def _upsert_scan_breadth_daily(
         "crypto_big_movers": int(pulse.get("crypto_big_movers") or 0),
         "stock_breakouts_n": int(pulse.get("stock_breakouts_n") or 0),
         "stock_within_5pct_high": int(pulse.get("stock_within_5pct_high") or 0),
+        "stock_scan_n": int(pulse.get("stock_scan_n") or 0),
+        "stock_scan_up": int(pulse.get("stock_scan_up") or 0),
+        "stock_scan_down": int(pulse.get("stock_scan_down") or 0),
         "archive_file": archive_name,
     }
     out = [r for r in rows if str(r.get("day")) != day]
@@ -305,11 +308,15 @@ def _annotate_scan_history(
 def build_breadth_ad_spark(
     rows: list[dict[str, Any]],
     *,
+    up_key: str = "crypto_up",
+    down_key: str = "crypto_down",
+    label: str = "Crypto",
+    aria_unit: str = "leaders up minus down",
     width: float = 320.0,
     height: float = 52.0,
     pad: float = 5.0,
 ) -> dict[str, Any]:
-    """Inline SVG: multi-day crypto A/D net (up−down). Display only; needs ≥2 days."""
+    """Inline SVG: multi-day A/D net (up−down). Display only; needs ≥2 days."""
     series: list[tuple[str, int]] = []
     for r in rows:
         if not isinstance(r, dict):
@@ -317,8 +324,11 @@ def build_breadth_ad_spark(
         day = str(r.get("day") or "").strip()
         if not day:
             continue
-        up = int(r.get("crypto_up") or 0)
-        down = int(r.get("crypto_down") or 0)
+        # Skip days that never recorded this A/D pair (old history rows).
+        if up_key not in r and down_key not in r:
+            continue
+        up = int(r.get(up_key) or 0)
+        down = int(r.get(down_key) or 0)
         series.append((day, up - down))
     empty = {
         "ready": False,
@@ -328,6 +338,7 @@ def build_breadth_ad_spark(
         "latest_net": 0,
         "first_day": "",
         "last_day": "",
+        "label": label,
     }
     if len(series) < 2:
         return empty
@@ -355,8 +366,8 @@ def build_breadth_ad_spark(
     tone = "up" if last_net >= 0 else "down"
     first_day, last_day = series[0][0], series[-1][0]
     aria = (
-        f"Crypto advance/decline net over {n} UTC days from {first_day} to {last_day}. "
-        f"Latest net {last_net:+d} (leaders up minus down)."
+        f"{label} advance/decline net over {n} UTC days from {first_day} to {last_day}. "
+        f"Latest net {last_net:+d} ({aria_unit})."
     )
     lx, ly = coords[-1]
     svg = (
@@ -377,6 +388,7 @@ def build_breadth_ad_spark(
         "latest_net": last_net,
         "first_day": first_day,
         "last_day": last_day,
+        "label": label,
     }
 
 
@@ -997,6 +1009,13 @@ def load_desk_snapshot(
         "scan_breadth": scan_breadth,
         "scan_breadth_history": scan_breadth_history,
         "breadth_ad_spark": build_breadth_ad_spark(scan_breadth_history),
+        "breadth_stock_ad_spark": build_breadth_ad_spark(
+            scan_breadth_history,
+            up_key="stock_scan_up",
+            down_key="stock_scan_down",
+            label="Stock batch",
+            aria_unit="priced scan names up minus down",
+        ),
         "scan_time": opportunities.get("scan_time") or "",
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,

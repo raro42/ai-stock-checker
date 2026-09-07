@@ -424,6 +424,41 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert 'id="breadth-ad-spark"' in breadth2.text
     assert "Crypto A/D net" in breadth2.text
     assert "breadth-ad-spark-svg" in breadth2.text
+    assert "stock A/D" in breadth2.text
+    # Seed stock batch A/D history → second spark appears after ≥2 days.
+    hist.write_text(
+        json.dumps(
+            [
+                {
+                    "day": "2026-07-25",
+                    "crypto_up": 0,
+                    "crypto_down": 2,
+                    "crypto_avg_chg": -1.0,
+                    "crypto_big_movers": 1,
+                    "stock_within_5pct_high": 0,
+                    "stock_scan_n": 10,
+                    "stock_scan_up": 2,
+                    "stock_scan_down": 6,
+                },
+                {
+                    "day": day,
+                    "crypto_up": 1,
+                    "crypto_down": 0,
+                    "crypto_avg_chg": 1.0,
+                    "crypto_big_movers": 0,
+                    "stock_within_5pct_high": 1,
+                    "stock_scan_n": 12,
+                    "stock_scan_up": 8,
+                    "stock_scan_down": 3,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    breadth3 = client.get("/desk/breadth")
+    assert 'id="breadth-stock-ad-spark"' in breadth3.text
+    assert "Stock batch A/D net" in breadth3.text
+    assert "8/3" in breadth3.text
     log_page = client.get(f"/desk/scan-log/{day}")
     assert log_page.status_code == 200
     assert "BTC-USD" in log_page.text
