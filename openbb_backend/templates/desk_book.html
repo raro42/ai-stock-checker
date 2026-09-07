@@ -45,6 +45,44 @@
   {% endif %}
 </section>
 
+<section class="block" aria-labelledby="post-h">
+  <h2 id="post-h">Closed rounds</h2>
+  <p class="sub">Trader memory — thesis at buy, exit reason, hold time, mark P&L. FIFO match from the ledger. No MAE/MFE without a price path.</p>
+  {% if snap.postmortems %}
+  <ul class="postmortems">
+    {% for r in snap.postmortems %}
+    <li>
+      <div class="post-main">
+        {{ ticker(r.symbol, r.name) }}
+        <span class="meta">
+          {{ "%.4f"|format(r.quantity) }} · buy €{{ r.buy_price|px }} → sell €{{ r.sell_price|px }}
+          {% if r.held %} · held {{ r.held }}{% endif %}
+          {% if r.exit_reason %} · <span class="strat">{{ r.exit_reason }}</span>{% endif %}
+        </span>
+        <span class="amt {% if r.profit_loss is not none and r.profit_loss|float >= 0 %}up{% else %}down{% endif %}">
+          {% if r.profit_loss is not none %}
+          €{{ "{:+,.2f}".format(r.profit_loss|float) }}{% if r.profit_loss_pct is not none %}<small>{{ "%+.1f"|format(r.profit_loss_pct|float) }}%</small>{% endif %}
+          {% else %}—{% endif %}
+        </span>
+      </div>
+      <p class="post-thesis why">
+        <span class="label">In</span>
+        {% if r.strategy %}<span class="strat">{{ r.strategy }}</span>{% if r.thesis %} · {% endif %}{% endif %}
+        {{ r.thesis or '—' }}{% if r.score is not none %} · score {{ "%.0f"|format(r.score|float) }}{% endif %}
+      </p>
+      <p class="post-exit why">
+        <span class="label">Out</span>
+        {{ r.exit_note or r.exit_reason or '—' }}
+        <span class="when-quiet">{{ r.buy_at }} → {{ r.sell_at }}</span>
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No closed rounds yet — need a matched BUY then SELL.</p>
+  {% endif %}
+</section>
+
 <section class="block" aria-labelledby="fills-h">
   <h2 id="fills-h">Recent fills</h2>
   <p class="sub">Complete ledger lives in <code>data/trades.jsonl</code> on disk. Below: latest {{ snap.recent_fills_limit }} of {{ snap.trade_count }} fills since reset.</p>

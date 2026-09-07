@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from openbb_backend.symbol_names import display_name, resolve_symbol_names
+from stock_checker.trade_postmortem import DEFAULT_LIMIT as POSTMORTEM_LIMIT
+from stock_checker.trade_postmortem import closed_rounds
 
 
 def _load_json(path: Path, default: Any) -> Any:
@@ -611,6 +613,10 @@ def load_desk_snapshot(
     for t in trades[-20:]:
         if t.get("symbol"):
             name_symbols.append(str(t["symbol"]))
+    postmortems_raw = closed_rounds(trades, limit=POSTMORTEM_LIMIT)
+    for r in postmortems_raw:
+        if r.get("symbol"):
+            name_symbols.append(str(r["symbol"]))
     for r in recs_raw + crypto_raw + stock_raw:
         if r.get("symbol"):
             name_symbols.append(str(r["symbol"]))
@@ -629,6 +635,13 @@ def load_desk_snapshot(
     all_trade_rows = [_serialize_trade_row(t, names) for t in reversed(trades)]
     recent = all_trade_rows[:RECENT_FILLS_LIMIT]
     older_trades = all_trade_rows[RECENT_FILLS_LIMIT:]
+    postmortems = [
+        {
+            **r,
+            "name": display_name(str(r.get("symbol") or ""), names),
+        }
+        for r in postmortems_raw
+    ]
 
     recs = []
     for r in recs_raw:
@@ -806,6 +819,11 @@ def load_desk_snapshot(
             "from": "Yahoo Finance day gainers/losers/actives",
             "note": "Discovery into the scan list; buys still need regime/RS/breadth/fees.",
         },
+        {
+            "title": "Closed-round postmortem",
+            "from": "tradermonty/claude-trading-skills (trader memory)",
+            "note": "Book pairs BUY→SELL: thesis → exit → hold → mark P&L. No inventing MAE/MFE.",
+        },
     ]
 
     return {
@@ -845,6 +863,8 @@ def load_desk_snapshot(
         "recent_trades": recent,
         "older_trades": older_trades,
         "recent_fills_limit": RECENT_FILLS_LIMIT,
+        "postmortems": postmortems,
+        "postmortem_limit": POSTMORTEM_LIMIT,
         "reset_note": portfolio.get("reset_note") or "",
         "weekend_mode": weekend,
         "weekend_hint": "Weekend: crypto-only trading; US stocks paused."

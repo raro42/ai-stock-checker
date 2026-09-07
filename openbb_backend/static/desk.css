@@ -698,6 +698,59 @@ a:active {
   text-transform: lowercase;
 }
 
+.postmortems {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.postmortems li {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.post-main {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 11rem) 1fr auto;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.post-main .strat,
+.post-thesis .strat {
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.post-thesis,
+.post-exit {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.post-thesis .label,
+.post-exit .label {
+  display: inline-block;
+  min-width: 1.6rem;
+  margin-right: 0.35rem;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.post-exit .when-quiet {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--font-data, ui-monospace, monospace);
+  font-size: 0.78rem;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
 .fills-more {
   margin-top: 0.75rem;
 }
