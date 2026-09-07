@@ -302,6 +302,84 @@ def _annotate_scan_history(
     return out
 
 
+def build_breadth_ad_spark(
+    rows: list[dict[str, Any]],
+    *,
+    width: float = 320.0,
+    height: float = 52.0,
+    pad: float = 5.0,
+) -> dict[str, Any]:
+    """Inline SVG: multi-day crypto A/D net (up−down). Display only; needs ≥2 days."""
+    series: list[tuple[str, int]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        day = str(r.get("day") or "").strip()
+        if not day:
+            continue
+        up = int(r.get("crypto_up") or 0)
+        down = int(r.get("crypto_down") or 0)
+        series.append((day, up - down))
+    empty = {
+        "ready": False,
+        "n": len(series),
+        "svg": "",
+        "aria": "",
+        "latest_net": 0,
+        "first_day": "",
+        "last_day": "",
+    }
+    if len(series) < 2:
+        return empty
+
+    nets = [net for _, net in series]
+    y_min = min(min(nets), 0)
+    y_max = max(max(nets), 0)
+    if y_min == y_max:
+        y_min -= 1
+        y_max += 1
+    span = float(y_max - y_min)
+    inner_w = width - 2 * pad
+    inner_h = height - 2 * pad
+    n = len(series)
+
+    def _xy(i: int, net: int) -> tuple[float, float]:
+        x = pad + (inner_w * i / (n - 1))
+        y = pad + inner_h * (1.0 - ((net - y_min) / span))
+        return x, y
+
+    coords = [_xy(i, net) for i, (_, net) in enumerate(series)]
+    points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+    y0 = pad + inner_h * (1.0 - ((0 - y_min) / span))
+    last_net = nets[-1]
+    tone = "up" if last_net >= 0 else "down"
+    first_day, last_day = series[0][0], series[-1][0]
+    aria = (
+        f"Crypto advance/decline net over {n} UTC days from {first_day} to {last_day}. "
+        f"Latest net {last_net:+d} (leaders up minus down)."
+    )
+    lx, ly = coords[-1]
+    svg = (
+        f'<svg class="breadth-ad-spark-svg" viewBox="0 0 {width:.0f} {height:.0f}" '
+        f'width="{width:.0f}" height="{height:.0f}" role="img" aria-label="{aria}">'
+        f'<line class="breadth-spark-zero" x1="{pad:.1f}" y1="{y0:.1f}" '
+        f'x2="{width - pad:.1f}" y2="{y0:.1f}" />'
+        f'<polyline class="breadth-spark-line is-{tone}" fill="none" '
+        f'points="{points}" />'
+        f'<circle class="breadth-spark-dot is-{tone}" cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" />'
+        f"</svg>"
+    )
+    return {
+        "ready": True,
+        "n": n,
+        "svg": svg,
+        "aria": aria,
+        "latest_net": last_net,
+        "first_day": first_day,
+        "last_day": last_day,
+    }
+
+
 def _fmt_hold(seconds: float) -> str:
     if seconds < 0:
         return "—"
@@ -785,9 +863,9 @@ def load_desk_snapshot(
             "note": "Overview / Charts / Screener / Breadth / Book / Ideas / Ops.",
         },
         {
-            "title": "Daily scan-pulse history",
+            "title": "Daily scan-pulse history + A/D spark",
             "from": "xang1234/StockBee-style breadth over time",
-            "note": "Breadth keeps UTC daily A/D snapshots from our scan lists.",
+            "note": "Breadth keeps UTC daily A/D snapshots and a multi-day net A/D sparkline.",
         },
         {
             "title": "Screener counts strip",
@@ -918,6 +996,7 @@ def load_desk_snapshot(
         "stock_breakouts": stock_breakouts,
         "scan_breadth": scan_breadth,
         "scan_breadth_history": scan_breadth_history,
+        "breadth_ad_spark": build_breadth_ad_spark(scan_breadth_history),
         "scan_time": opportunities.get("scan_time") or "",
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,

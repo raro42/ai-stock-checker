@@ -63,6 +63,20 @@
     One UTC snapshot per day from our scan lists (not the full market).
     Open a day scan log to see the names behind the counts.
   </p>
+  {% set spark = snap.breadth_ad_spark if snap.breadth_ad_spark is mapping else {} %}
+  {% if spark.ready %}
+  <figure class="breadth-ad-spark" id="breadth-ad-spark">
+    {{ spark.svg|safe }}
+    <figcaption>
+      Crypto A/D net (up − down) · {{ spark.n }} days ·
+      latest
+      <span class="v {% if spark.latest_net >= 0 %}up{% else %}down{% endif %}">
+        {{ "%+d"|format(spark.latest_net) }}
+      </span>
+      · {{ spark.first_day }} → {{ spark.last_day }}
+    </figcaption>
+  </figure>
+  {% endif %}
   <div class="breadth-days-wrap">
     <table class="breadth-days-table" aria-label="Scan pulse history">
       <thead>

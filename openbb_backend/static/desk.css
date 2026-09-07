@@ -711,6 +711,62 @@ a:active {
   align-items: start;
 }
 
+.breadth-ad-spark {
+  margin: 0.35rem 0 0.95rem;
+  padding: 0;
+  max-width: 22rem;
+}
+
+.breadth-ad-spark-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.breadth-spark-zero {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.breadth-spark-line {
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.breadth-spark-line.is-up,
+.breadth-spark-dot.is-up {
+  stroke: var(--up);
+  fill: var(--up);
+}
+
+.breadth-spark-line.is-down,
+.breadth-spark-dot.is-down {
+  stroke: var(--down);
+  fill: var(--down);
+}
+
+.breadth-spark-line.is-up {
+  fill: none;
+}
+
+.breadth-spark-line.is-down {
+  fill: none;
+}
+
+.breadth-ad-spark figcaption {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.breadth-ad-spark figcaption .v {
+  font-variant-numeric: tabular-nums;
+}
+
 .breadth-days-wrap {
   margin-top: 0.85rem;
 }
