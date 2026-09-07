@@ -306,7 +306,7 @@ def _annotate_scan_history(
 
 
 def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
-    """One-line scan-list glance for Overview / Screener / Book (display only; not a gate)."""
+    """One-line scan-list glance for Overview / Screener / Book / Ideas (display only; not a gate)."""
     empty = {
         "ready": False,
         "tone": "flat",
@@ -941,6 +941,11 @@ def load_desk_snapshot(
             "title": "Screener breadth beside lists",
             "from": "xang1234/stock-screener (StockBee-lite next to screen)",
             "note": "Screener shows scan-list A/D + near-high / ±4% movers above opportunity lists — display only.",
+        },
+        {
+            "title": "Ideas breadth beside candidates",
+            "from": "xang1234/stock-screener (breadth next to research picks)",
+            "note": "Ideas shows the same scan-list A/D glance above paper candidates — display only.",
         },
         {
             "title": "Screener counts strip",

@@ -1,11 +1,18 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker %}
+{% from "macros.html" import ticker, breadth_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
   <h1>Research &amp; candidates</h1>
   <p class="lede">Paper scanner picks, patterns we’ve already adapted from open research, and the GitHub watch — one idea at a time, re-benchmarked before it lands in trading logic.</p>
 </header>
+
+{{ breadth_glance(
+  snap,
+  "ideas-breadth-h",
+  "Scan breadth beside ideas",
+  "Scan-list A/D context for paper candidates — not a research score or entry gate."
+) }}
 
 <section class="block" aria-labelledby="paper-h">
   <h2 id="paper-h">Paper candidates</h2>
