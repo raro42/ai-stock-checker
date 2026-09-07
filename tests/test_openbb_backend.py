@@ -192,6 +192,9 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["entry_size"]["slots_open"] >= 0
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
     assert len(snap["crypto_leaders"]) == 3  # top list capped for UI; pulse uses full scan
+    assert "tone" in snap["scan_freshness"]
+    assert snap["scan_freshness"]["ready"] is True
+    assert snap["scan_freshness"]["tone"] in {"fresh", "aging", "stale", "unknown"}
     assert snap["stock_breakouts"][0]["symbol"] == "AAPL"
     assert snap["stock_breakouts"][0]["name"] == "Apple"
     sb = snap["scan_breadth"]

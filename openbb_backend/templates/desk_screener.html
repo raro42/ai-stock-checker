@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -8,7 +8,8 @@
   <p class="eyebrow">Screener</p>
   <h1>Opportunities</h1>
   <p class="lede">One scan, three lists — ranked ideas, crypto leaders, stock breakouts. Risk notes are display-only (day-range / vol proxy), not live stops.</p>
-  <p class="sub">Scan {{ snap.scan_time or "—" }} · {{ snap.scanned_symbols }} symbols tracked</p>
+  {{ scan_freshness(snap) }}
+  <p class="sub">{{ snap.scanned_symbols }} symbols tracked</p>
   <p class="mode">{{ snap.weekend_hint }}</p>
 </header>
 

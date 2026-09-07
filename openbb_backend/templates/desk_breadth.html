@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "macros.html" import scan_freshness %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
   <h1>Session &amp; exposure</h1>
   <p class="lede">Market-regime style snapshot for our paper stack — session mode, deployment, and scan coverage.</p>
+  {{ scan_freshness(snap) }}
 </header>
 
 <section class="strip" aria-label="Exposure meters">
@@ -175,7 +177,7 @@
     </div>
     <div>
       <dt>Latest scan</dt>
-      <dd>{{ snap.scan_time or "—" }}</dd>
+      <dd>{% if snap.scan_freshness and snap.scan_freshness.ready %}{{ snap.scan_freshness.line }}{% else %}{{ snap.scan_time or "—" }}{% endif %}</dd>
     </div>
   </dl>
 </section>

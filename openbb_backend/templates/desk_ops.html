@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
   <h1>Runtime</h1>
   <p class="lede">Watchdog, live logs from shared <code>data/</code>, and trader knobs — configure AI here; no secrets in the browser.</p>
+  {{ scan_freshness(snap) }}
 </header>
 
 {{ breadth_glance(
@@ -222,7 +223,7 @@
   <h2 id="sys-h">System</h2>
   <p class="sysline">Portfolio updated {{ snap.portfolio_updated or "—" }} · commission {{ "%.2f"|format(snap.commission_rate_pct) }}%/side · min €{{ "%.2f"|format(snap.commission_min_eur) }} ({{ snap.fee_preset }})</p>
   <p class="sysline">Scan cycle {{ snap.last_full_cycle or "—" }} · history covers {{ snap.scan_history_symbols }} names</p>
-  <p class="sysline">Tracked symbols {{ snap.scanned_symbols }} · latest scan {{ snap.scan_time or "—" }}</p>
+  <p class="sysline">Tracked symbols {{ snap.scanned_symbols }} · {{ snap.scan_freshness.line if snap.scan_freshness and snap.scan_freshness.ready else ("latest scan " ~ (snap.scan_time or "—")) }}</p>
   {% if snap.watchdog %}
   <h3 class="subhead">Watchdog</h3>
   <pre class="watch" aria-label="Watchdog status">{{ snap.watchdog }}</pre>

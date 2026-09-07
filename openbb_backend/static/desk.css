@@ -539,6 +539,42 @@ a:active {
   font-size: 0.85rem;
 }
 
+.scan-fresh {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.scan-fresh-tone {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.scan-fresh.fresh .scan-fresh-tone {
+  color: var(--up);
+}
+
+.scan-fresh.aging .scan-fresh-tone {
+  color: var(--accent);
+}
+
+.scan-fresh.stale .scan-fresh-tone,
+.scan-fresh.unknown .scan-fresh-tone {
+  color: var(--down);
+}
+
+.scan-fresh-body,
+.scan-fresh-when {
+  color: var(--ink);
+}
+
+.scan-fresh-when {
+  color: var(--muted);
+}
+
 .breadth-glance .sub {
   margin: 0.35rem 0 0;
 }

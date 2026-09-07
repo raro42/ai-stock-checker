@@ -126,6 +126,71 @@ def book_start_meta(
     }
 
 
+
+def _format_age_short(age_sec: float) -> str:
+    """Human age for scan freshness (display only)."""
+    sec = max(0, int(age_sec))
+    if sec < 60:
+        return "just now"
+    if sec < 3600:
+        return f"{sec // 60}m ago"
+    if sec < 36 * 3600:
+        return f"{sec // 3600}h ago"
+    return f"{sec // 86400}d ago"
+
+
+def build_scan_freshness(
+    scan_time: Any,
+    *,
+    now: Optional[datetime] = None,
+    scan_interval_sec: int = 900,
+) -> dict[str, Any]:
+    """Scan archive age honesty (RyanJHamby cache-freshness pattern; display only).
+
+    fresh < 2× scan interval · aging < 8× · else stale. Not an entry gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "unknown",
+        "age_sec": None,
+        "age_label": "",
+        "line": "",
+        "scan_time": "",
+    }
+    raw = str(scan_time or "").strip()
+    if not raw:
+        return empty
+    when = _parse_book_ts(raw)
+    if when is None:
+        return {
+            **empty,
+            "ready": True,
+            "tone": "unknown",
+            "line": f"Scan {raw} · age unknown",
+            "scan_time": raw,
+        }
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+    age_sec = max(0.0, (clock - when).total_seconds())
+    interval = max(60, int(scan_interval_sec or 900))
+    if age_sec < 2 * interval:
+        tone = "fresh"
+    elif age_sec < 8 * interval:
+        tone = "aging"
+    else:
+        tone = "stale"
+    age_label = _format_age_short(age_sec)
+    return {
+        "ready": True,
+        "tone": tone,
+        "age_sec": int(age_sec),
+        "age_label": age_label,
+        "line": f"Scan {age_label} · {tone}",
+        "scan_time": raw,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1034,6 +1099,11 @@ def load_desk_snapshot(
             "from": "xang1234/stock-screener (StockBee day drill-down)",
             "note": "Scan log shows that UTC day’s scan-list A/D above the archive report — display only.",
         },
+        {
+            "title": "Scan freshness honesty",
+            "from": "RyanJHamby/stock-screener (cache / daily-scan age)",
+            "note": "Desk shows scan age as fresh / aging / stale vs scan interval — display only, not a gate.",
+        },
     ]
 
     from stock_checker.gate_audit import recent_soft_allows
@@ -1060,6 +1130,9 @@ def load_desk_snapshot(
         holdings=rows,
         max_positions=max_pos,
     )
+    runtime = _trader_runtime_view()
+    scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
+    scan_time_raw = opportunities.get("scan_time") or ""
 
     return {
         "brand": "AI Stock Checker",
@@ -1131,7 +1204,11 @@ def load_desk_snapshot(
             label="Stock batch",
             aria_unit="priced scan names up minus down",
         ),
-        "scan_time": opportunities.get("scan_time") or "",
+        "scan_time": scan_time_raw,
+        "scan_freshness": build_scan_freshness(
+            scan_time_raw,
+            scan_interval_sec=scan_interval_sec,
+        ),
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,
         "last_full_cycle": last_full or "",
@@ -1146,5 +1223,5 @@ def load_desk_snapshot(
         "github_watch_notes": gh_watch_notes,
         "github_repos": gh_repos,
         "adopted_ideas": adopted_ideas,
-        "runtime": _trader_runtime_view(),
+        "runtime": runtime,
     }

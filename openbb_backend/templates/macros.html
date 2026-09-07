@@ -26,6 +26,23 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Scan archive age honesty (display only). #}
+{% macro scan_freshness(snap) -%}
+{% set fresh = snap.scan_freshness if snap.scan_freshness is mapping else {} %}
+{% if fresh.ready %}
+<p class="scan-fresh {{ fresh.tone }}" title="{{ fresh.scan_time }}">
+  <span class="scan-fresh-tone">{{ fresh.tone }}</span>
+  <span class="pretrade-sep" aria-hidden="true">·</span>
+  <span class="scan-fresh-body">{{ fresh.age_label or fresh.line }}</span>
+  {% if fresh.scan_time and fresh.age_label %}
+  <span class="pretrade-sep" aria-hidden="true">·</span>
+  <span class="scan-fresh-when">{{ fresh.scan_time }}</span>
+  {% endif %}
+</p>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>
