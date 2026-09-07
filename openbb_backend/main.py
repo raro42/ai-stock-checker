@@ -50,7 +50,7 @@ _DESK_SCREENS = {
         "template": "desk_charts.html",
         "label": "Charts",
         "title": "Charts — AI Stock Checker Paper Desk",
-        "description": "D3 charts for paper equity path, allocation, and relative prices.",
+        "description": "D3 charts for paper equity path, allocation, relative prices, and scan-list breadth glance.",
     },
     "screener": {
         "template": "desk_screener.html",

@@ -54,8 +54,40 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     payload = load_chart_payload(tmp_path)
     assert "equity" in payload and "allocation" in payload
     assert "from_buy" in payload
+    assert "breadth_glance" in payload
+    assert payload["breadth_glance"]["ready"] is False
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
+
+
+def test_chart_payload_breadth_glance_from_daily(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "scan_breadth_daily.json").write_text(
+        json.dumps(
+            [
+                {
+                    "day": "2026-09-07",
+                    "crypto_n": 4,
+                    "crypto_up": 3,
+                    "crypto_down": 1,
+                    "crypto_big_movers": 1,
+                    "stock_scan_n": 10,
+                    "stock_scan_up": 6,
+                    "stock_scan_down": 4,
+                    "stock_within_5pct_high": 2,
+                    "stock_breakouts_n": 3,
+                }
+            ]
+        )
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["breadth_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "up"
+    assert "crypto 3/1" in glance["line"]
+    assert "stock batch 6/4" in glance["line"]
 
 
 def test_price_history_skips_nan(tmp_path: Path, monkeypatch):

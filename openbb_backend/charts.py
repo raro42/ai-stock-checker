@@ -650,7 +650,19 @@ def build_unrealized_curve(
     return [by_day[k] for k in sorted(by_day)]
 
 
+def _latest_scan_breadth_pulse(data_dir: Path) -> dict[str, Any] | None:
+    """Latest UTC-day scan-list pulse from Breadth history (display only)."""
+    rows = _load_json(data_dir / "scan_breadth_daily.json", [])
+    if not isinstance(rows, list) or not rows:
+        return None
+    last = rows[-1]
+    return last if isinstance(last, dict) else None
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
+    # Local import keeps charts free of desk module load at import time.
+    from openbb_backend.desk import build_breadth_glance
+
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "equity": build_equity_curve(data_dir),
@@ -658,4 +670,5 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "allocation": build_allocation(data_dir),
         "prices": build_price_panels(data_dir),
         "from_buy": build_from_buy_panels(data_dir),
+        "breadth_glance": build_breadth_glance(_latest_scan_breadth_pulse(data_dir)),
     }

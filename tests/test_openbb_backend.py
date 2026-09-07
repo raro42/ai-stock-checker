@@ -526,6 +526,8 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "equity" in body and "allocation" in body
     assert "from_buy" in body
     assert "unrealized" in body
+    assert "breadth_glance" in body
+    assert "ready" in body["breadth_glance"]
 
     assert client.get("/desk/nope").status_code == 404
     api = client.get("/desk/api")
