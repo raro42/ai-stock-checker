@@ -175,7 +175,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] tradermonty soft-allow glance (2026-09-08 improve): Overview + Book one-line fail-open count (`build_soft_allow_glance`) → Ops memory — display only
 - [x] tradermonty + xang1234 Screener/Ideas soft-allow (2026-09-08 improve): same glance beside opportunity lists — fail-open honesty before chasing scan names, display only
 - [x] tradermonty soft-allow on Charts/Breadth/scan-log (2026-09-08 improve): same glance beside breadth context + chart payload — fail-open honesty on remaining screens, display only
-- [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate)
+- [x] tradermonty Ops pretrade + soft-allow (2026-09-08 improve): PASS/WARN/FAIL + fail-open glance above Ops knobs — honesty before gate flips; soft-allow links to `#soft-h`
+- [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch was README-only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

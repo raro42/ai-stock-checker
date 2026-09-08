@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -13,6 +13,24 @@
   "ops-breadth-h",
   "Scan breadth beside ops knobs",
   "Scan-list A/D before you flip the breadth gate — display only; the gate still uses leaders on the scan list."
+) }}
+
+<section class="pretrade" aria-labelledby="ops-pretrade-h">
+  <h2 id="ops-pretrade-h" class="visually-hidden">Pre-trade</h2>
+  <p class="pretrade-line">
+    <span class="pretrade-level {{ snap.pretrade_level|lower }}">{{ snap.pretrade_level }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="pretrade-notes">{{ snap.pretrade_notes|join("; ") }}</span>
+  </p>
+  <p class="sub">Buy-halt honesty before knobs (tradermonty) — next-buy size stays on Overview.</p>
+</section>
+
+{{ soft_allow_glance(
+  snap,
+  heading_id="ops-soft-allow-glance-h",
+  link_href="#soft-h",
+  link_label="Memory below →",
+  sub="Fail-open count before you flip gates — full list under the form; not a hard block."
 ) }}
 
 <section class="block system" aria-labelledby="cfg-h">

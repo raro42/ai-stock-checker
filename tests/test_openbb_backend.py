@@ -363,6 +363,12 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert "breadth-glance" in resp.text
     assert "ops-breadth-h" in resp.text
     assert "breadth gate" in resp.text
+    assert "ops-pretrade-h" in resp.text
+    assert "pretrade-level" in resp.text
+    assert "Buy-halt honesty before knobs" in resp.text
+    assert "soft-allow-glance" in resp.text
+    assert 'href="#soft-h"' in resp.text
+    assert "Memory below" in resp.text
 
 
 def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
