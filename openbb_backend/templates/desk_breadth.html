@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance %}
+{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -32,6 +32,14 @@
   "/desk/ops#calm-h",
   "Ops calm →",
   "Promote compose-default unlock beside breadth — calm ≠ edge; detail on Ops."
+) }}
+
+{{ fee_burn_glance(
+  snap,
+  "breadth-fee-burn-h",
+  "/desk/ops#ops-fee-preset",
+  "Ops fees →",
+  "Fee drag vs start beside breadth — high (≥2%) before chasing adds. Not a gate."
 ) }}
 
 {{ book_risk_glance(

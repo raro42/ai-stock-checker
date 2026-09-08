@@ -1514,6 +1514,51 @@
     root.appendChild(wrap);
   }
 
+  function renderFeeBurnGlance(payload) {
+    var glance = payload && payload.fee_burn_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "fee-burn-glance";
+    wrap.setAttribute("aria-labelledby", "charts-fee-burn-h");
+    var h = document.createElement("h2");
+    h.id = "charts-fee-burn-h";
+    h.className = "visually-hidden";
+    h.textContent = "Fee burn";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "fee-burn-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "fee-burn-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Fees";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "fee-burn-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "fee-burn-glance-link";
+    link.href = "/desk/ops#ops-fee-preset";
+    link.textContent = "Ops fees →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Fee drag vs start beside charts — high (≥2%) before chasing adds. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
@@ -1521,6 +1566,7 @@
     renderSoftAllowGlance(payload);
     renderEntryGatesGlance(payload);
     renderCalmStreakGlance(payload);
+    renderFeeBurnGlance(payload);
     renderBookRiskGlance(payload);
     renderBreadthGlance(payload);
     drawEquity(

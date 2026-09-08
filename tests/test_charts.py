@@ -74,6 +74,10 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert "calm_streak_glance" in payload
     assert payload["calm_streak_glance"]["ready"] is True
     assert "0/30" in payload["calm_streak_glance"]["line"]
+    assert "fee_burn_glance" in payload
+    assert payload["fee_burn_glance"]["ready"] is True
+    assert payload["fee_burn_glance"]["tone"] == "quiet"
+    assert "€1.00 fees" in payload["fee_burn_glance"]["line"]
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
 
@@ -126,6 +130,30 @@ def test_chart_payload_calm_streak_glance(tmp_path: Path, monkeypatch):
     assert "12/30" in glance["line"]
     assert "building" in glance["line"]
     assert "fee quiet" in glance["line"]
+
+
+def test_chart_payload_fee_burn_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 10000,
+                "cash": 8000,
+                "holdings": {"AAPL": 10},
+                "avg_buy_price": {"AAPL": 100},
+                "total_fees_paid": 250,
+            }
+        )
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["fee_burn_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "warn"
+    assert glance["high"] is True
+    assert "2.5%" in glance["line"]
+    assert "high" in glance["line"]
 
 
 def test_chart_payload_book_risk_glance(tmp_path: Path, monkeypatch):

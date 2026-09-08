@@ -725,6 +725,15 @@ def _calm_streak_glance_from_data(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]:
+    """Fee-drag % of start from portfolio.json (display only)."""
+    from openbb_backend.desk import build_fee_burn_glance
+
+    fees = float(portfolio.get("total_fees_paid") or 0)
+    initial = float(portfolio.get("initial_cash") or 0)
+    return build_fee_burn_glance(fees, initial)
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
@@ -761,5 +770,6 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         ),
         "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),
+        "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }
