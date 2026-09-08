@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -24,6 +24,14 @@
 ) }}
 
 {{ soft_allow_glance(snap) }}
+
+{{ entry_gates_glance(
+  snap,
+  "scan-log-gates-h",
+  "/desk/ops#cfg-h",
+  "Ops knobs →",
+  "Soft entry filters beside the day archive — display only; flip on Ops."
+) }}
 
 {{ book_risk_glance(
   snap,

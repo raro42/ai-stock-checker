@@ -690,6 +690,24 @@ def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) 
     )
 
 
+def _entry_gates_glance_from_config(data_dir: Path) -> dict[str, Any]:
+    """Regime/RS/breadth/promote on/off from Ops file (display only)."""
+    from openbb_backend.desk import build_entry_gates_glance
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(data_dir)
+    return build_entry_gates_glance(
+        {
+            "regime_gate": bool(cfg.get("regime_gate", True)),
+            "rs_gate": bool(cfg.get("rs_gate", True)),
+            "breadth_gate": bool(cfg.get("breadth_gate", True)),
+            "promote_experiment_strategy": bool(
+                cfg.get("promote_experiment_strategy", False)
+            ),
+        }
+    )
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
@@ -724,5 +742,6 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "soft_allow_glance": build_soft_allow_glance(
             recent_soft_allows(data_dir, limit=12)
         ),
+        "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }

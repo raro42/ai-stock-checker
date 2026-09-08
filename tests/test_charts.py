@@ -67,8 +67,38 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert "pretrade_glance" in payload
     assert payload["pretrade_glance"]["ready"] is True
     assert payload["pretrade_glance"]["level"] == "PASS"
+    assert "entry_gates_glance" in payload
+    assert payload["entry_gates_glance"]["ready"] is True
+    assert payload["entry_gates_glance"]["tone"] == "strict"
+    assert "regime on" in payload["entry_gates_glance"]["line"]
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
+
+
+def test_chart_payload_entry_gates_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps(
+            {
+                "regime_gate": True,
+                "rs_gate": False,
+                "breadth_gate": True,
+                "promote_experiment_strategy": True,
+            }
+        )
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["entry_gates_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "mixed"
+    assert glance["regime"] is True
+    assert glance["rs"] is False
+    assert glance["breadth"] is True
+    assert glance["promote"] is True
+    assert "RS off" in glance["line"]
+    assert "promote on" in glance["line"]
 
 
 def test_chart_payload_book_risk_glance(tmp_path: Path, monkeypatch):
