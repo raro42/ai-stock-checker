@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -38,6 +38,14 @@
   "screener-breadth-h",
   "Scan breadth beside screener",
   "Scan-list A/D + near-high / ±4% movers — context for the lists below, not an entry gate."
+) }}
+
+{{ pretrade_glance(
+  snap,
+  "screener-pretrade-h",
+  "/desk",
+  "Overview →",
+  "Checklist before chasing scan names — FAIL blocks buys; WARN is fee burn / cooldown."
 ) }}
 
 {{ soft_allow_glance(snap) }}

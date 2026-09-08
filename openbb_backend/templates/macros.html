@@ -44,6 +44,33 @@
 {%- endmacro %}
 
 
+{# Pre-trade PASS/WARN/FAIL glance (display only). Overview keeps the full section. #}
+{% macro pretrade_glance(
+  snap,
+  heading_id='pretrade-glance-h',
+  link_href='/desk',
+  link_label='Overview →',
+  sub='Daily-loss FAIL · fee burn / post-SL cooldown WARN. Full checklist + size on Overview.'
+) -%}
+{% set glance = snap.pretrade_glance if snap.pretrade_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="pretrade-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Pre-trade checklist</h2>
+  <p class="pretrade-glance-line">
+    <span class="pretrade-glance-tone {{ glance.tone }}">Pre-trade</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="pretrade-level {{ glance.tone }}">{{ glance.level }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="pretrade-glance-body">{{ glance.notes|join("; ") if glance.notes else glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="pretrade-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fail-open soft-allow glance (display only). Ops can point at #soft-h. #}
 {% macro soft_allow_glance(
   snap,

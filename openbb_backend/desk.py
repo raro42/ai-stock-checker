@@ -228,6 +228,38 @@ def build_soft_allow_glance(
     }
 
 
+def build_pretrade_glance(
+    level: str | None,
+    notes: list[str] | None,
+) -> dict[str, Any]:
+    """Compact PASS/WARN/FAIL checklist (tradermonty pre-trade gate; display only).
+
+    Overview / Ops keep the full section + size hint; other screens get this line.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "level": "",
+        "line": "",
+        "notes": [],
+    }
+    raw = str(level or "").strip().upper()
+    if raw not in {"PASS", "WARN", "FAIL"}:
+        return empty
+    note_list = [str(n).strip() for n in (notes or []) if str(n).strip()]
+    joined = "; ".join(note_list) if note_list else "ok"
+    if len(joined) > 96:
+        joined = joined[:95] + "…"
+    tone = raw.lower()
+    return {
+        "ready": True,
+        "tone": tone,
+        "level": raw,
+        "line": f"{raw} · {joined}",
+        "notes": note_list,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1146,6 +1178,11 @@ def load_desk_snapshot(
             "from": "tradermonty/claude-trading-skills (trader memory)",
             "note": "One-line fail-open soft-allow count beside pretrade / risk — Ops keeps the full list; display only.",
         },
+        {
+            "title": "Pretrade glance on Screener / Ideas / Book",
+            "from": "tradermonty/claude-trading-skills (pre-trade gate)",
+            "note": "PASS/WARN/FAIL one-liner before opportunity lists and holdings — Overview/Ops keep full checklist; display only.",
+        },
     ]
 
     from stock_checker.gate_audit import recent_soft_allows
@@ -1208,6 +1245,7 @@ def load_desk_snapshot(
         ),
         "pretrade_level": pretrade_level,
         "pretrade_notes": pretrade_notes,
+        "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "entry_size": entry_size,
         "book_risk": book_risk,
         "soft_allows": soft_allows,
