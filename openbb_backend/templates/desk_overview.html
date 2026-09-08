@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -98,6 +98,14 @@
   "/desk/book",
   "Book →",
   "Min-hold capital trap before top holdings — hero lists names; Book has marks."
+) }}
+
+{{ postmortem_glance(
+  snap,
+  "overview-post-h",
+  "/desk/book#post-h",
+  "Book rounds →",
+  "Newest closed round before top holdings — full thesis list on Book. Not a gate."
 ) }}
 
 {{ book_risk_glance(

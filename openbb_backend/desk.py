@@ -494,6 +494,68 @@ def build_stuck_capital_glance(
     }
 
 
+def build_postmortem_glance(
+    postmortems: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Compact last closed-round line (tradermonty / portfolio AI; display only).
+
+    Book keeps the full FIFO postmortem list. Other screens get the newest exit
+    so friends see recent paper memory before chasing scan adds. Not a gate.
+    No MAE/MFE without a price path.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "count": 0,
+        "symbol": "",
+        "exit_reason": "",
+        "profit_loss_pct": None,
+    }
+    if not isinstance(postmortems, list) or not postmortems:
+        return empty
+    rows = [r for r in postmortems if isinstance(r, dict) and str(r.get("symbol") or "").strip()]
+    if not rows:
+        return empty
+    latest = rows[0]
+    sym = str(latest.get("symbol") or "").strip()
+    exit_reason = str(latest.get("exit_reason") or "").strip()[:24]
+    held = str(latest.get("held") or "").strip()
+    try:
+        pnl_pct = latest.get("profit_loss_pct")
+        pnl_pct_f = float(pnl_pct) if pnl_pct is not None else None
+    except (TypeError, ValueError):
+        pnl_pct_f = None
+    count = len(rows)
+    bits = [f"Last exit · {sym}"]
+    if exit_reason:
+        bits.append(exit_reason)
+    if held:
+        bits.append(held)
+    if pnl_pct_f is not None:
+        bits.append(f"{pnl_pct_f:+.1f}%")
+    if count > 1:
+        bits.append(f"{count} closed")
+    line = " · ".join(bits)
+    if len(line) > 96:
+        line = line[:95] + "…"
+    if pnl_pct_f is None:
+        tone = "flat"
+    elif pnl_pct_f >= 0:
+        tone = "up"
+    else:
+        tone = "down"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "count": count,
+        "symbol": sym,
+        "exit_reason": exit_reason,
+        "profit_loss_pct": pnl_pct_f,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1494,6 +1556,7 @@ def load_desk_snapshot(
         "calm_streak_glance": build_calm_streak_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
+        "postmortem_glance": build_postmortem_glance(postmortems),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

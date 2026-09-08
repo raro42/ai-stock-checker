@@ -220,6 +220,31 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Last closed-round memory (display only). Book keeps the full list. #}
+{% macro postmortem_glance(
+  snap,
+  heading_id='postmortem-glance-h',
+  link_href='/desk/book#post-h',
+  link_label='Book rounds →',
+  sub='Newest FIFO exit — thesis lives on Book. No MAE/MFE without a path. Not a gate.'
+) -%}
+{% set glance = snap.postmortem_glance if snap.postmortem_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="postmortem-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Last closed round</h2>
+  <p class="postmortem-glance-line">
+    <span class="postmortem-glance-tone {{ glance.tone }}">Exit</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="postmortem-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="postmortem-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -63,6 +63,14 @@
   "/desk/book",
   "Book →",
   "Past min-hold underwater before flipping min-hold hours — capital trapped until TP/SL/trim."
+) }}
+
+{{ postmortem_glance(
+  snap,
+  "ops-post-h",
+  "/desk/book#post-h",
+  "Book rounds →",
+  "Newest closed round before flipping knobs — recent exit memory. Not a gate."
 ) }}
 
 {{ book_risk_glance(
