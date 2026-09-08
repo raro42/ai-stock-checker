@@ -420,6 +420,10 @@ def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     assert log_page.status_code == 200
     assert "soft-allow-glance" in log_page.text
     assert "no SPY bars" in log_page.text
+    assert "pretrade-glance" in log_page.text
+    assert "scan-log-pretrade-h" in log_page.text
+    assert "book-risk-glance" in log_page.text
+    assert "scan-log-book-risk-h" in log_page.text
 
 
 def test_desk_html_screens(tmp_path: Path, monkeypatch):
@@ -548,6 +552,11 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "scan-log-breadth-h" in log_page.text
     assert "crypto 1/0" in log_page.text
     assert "stock batch 8/3" in log_page.text
+    assert "scan-fresh" in log_page.text
+    assert "pretrade-glance" in log_page.text
+    assert "scan-log-pretrade-h" in log_page.text
+    assert "book-risk-glance" in log_page.text
+    assert "scan-log-book-risk-h" in log_page.text
     assert client.get("/desk/scan-log/1999-01-01").status_code == 404
     assert "Scan-log day breadth glance" in client.get("/desk/ideas").text
     book = client.get("/desk/book")

@@ -179,10 +179,11 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] tradermonty Screener/Ideas/Book pretrade glance (2026-09-08 improve): PASS/WARN/FAIL one-liner before opportunity lists and holdings — Overview/Ops keep full checklist; display only
 - [x] tradermonty + xang1234 Charts/Breadth pretrade (2026-09-08 improve): PASS/WARN/FAIL glance on Breadth + `/desk/api/charts` — soft-allow parity; display only
 - [x] staskh + portfolio AI book risk glance (2026-09-08 improve): Overview / Screener / Ideas one-line slots/posture (`build_book_risk_glance`) — Book keeps full strip; display only
+- [x] staskh + portfolio AI book risk on Charts/Breadth/Ops (2026-09-08 improve): same slots/posture glance parity — Charts via `/desk/api/charts`; display only
+- [x] tradermonty + xang1234 + portfolio AI scan-log risk parity (2026-09-08 improve): pretrade + soft-allow + book risk + scan freshness on `/desk/scan-log/{day}` beside day breadth — display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch was README-only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [x] staskh + portfolio AI book risk on Charts/Breadth/Ops (2026-09-08 improve): same slots/posture glance parity — Charts via `/desk/api/charts`; display only
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

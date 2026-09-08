@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, soft_allow_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -8,13 +8,30 @@
     Latest trader opportunity report for this UTC day.
     These names feed the Recent days pulse counts.
   </p>
+  {{ scan_freshness(snap) }}
   <p class="sysline">
     <a href="/desk/breadth">← Back to Breadth</a>
     {% if archive_file %} · file {{ archive_file }}{% endif %}
   </p>
 </header>
 
+{{ pretrade_glance(
+  snap,
+  "scan-log-pretrade-h",
+  "/desk",
+  "Overview →",
+  "Checklist beside the day archive — FAIL blocks buys; WARN is fee burn / cooldown."
+) }}
+
 {{ soft_allow_glance(snap) }}
+
+{{ book_risk_glance(
+  snap,
+  "scan-log-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture beside the day archive — overweight means exits-only."
+) }}
 
 {{ breadth_glance(
   snap,
