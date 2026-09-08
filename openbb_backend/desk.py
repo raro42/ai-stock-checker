@@ -1102,7 +1102,7 @@ def load_desk_snapshot(
         {
             "title": "Scan freshness honesty",
             "from": "RyanJHamby/stock-screener (cache / daily-scan age)",
-            "note": "Desk shows scan age as fresh / aging / stale vs scan interval — display only, not a gate.",
+            "note": "Overview / Screener / Breadth / Ops / Book / Ideas / Charts show scan age as fresh / aging / stale — display only, not a gate.",
         },
     ]
 

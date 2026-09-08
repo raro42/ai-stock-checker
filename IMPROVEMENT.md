@@ -171,6 +171,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 Ops breadth (2026-09-07 improve): scan-list A/D glance above Ops knobs — context before flipping breadth gate, display only
 - [x] xang1234 Scan-log day breadth (2026-09-08 improve): day drill-down glance on `/desk/scan-log/{day}` from `scan_breadth_daily` — display only
 - [x] RyanJHamby scan freshness (2026-09-08 improve): Screener/Overview/Ops/Breadth show scan age as fresh/aging/stale vs 15m interval (`build_scan_freshness`) — display only, not a gate
+- [x] RyanJHamby + portfolio AI scan freshness on Book/Ideas/Charts (2026-09-08 improve): same age strip beside holdings, candidates, and chart payload — display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

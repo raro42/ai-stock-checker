@@ -661,7 +661,12 @@ def _latest_scan_breadth_pulse(data_dir: Path) -> dict[str, Any] | None:
 
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
-    from openbb_backend.desk import build_breadth_glance
+    from openbb_backend.desk import build_breadth_glance, build_scan_freshness
+
+    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
+    scan_time = ""
+    if isinstance(opp, dict):
+        scan_time = str(opp.get("scan_time") or "")
 
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -671,4 +676,5 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "prices": build_price_panels(data_dir),
         "from_buy": build_from_buy_panels(data_dir),
         "breadth_glance": build_breadth_glance(_latest_scan_breadth_pulse(data_dir)),
+        "scan_freshness": build_scan_freshness(scan_time),
     }

@@ -1187,6 +1187,39 @@
     );
   }
 
+  function renderScanFreshness(payload) {
+    var fresh = payload && payload.scan_freshness;
+    if (!fresh || !fresh.ready) return;
+    var p = document.createElement("p");
+    p.className = "scan-fresh " + (fresh.tone || "unknown");
+    if (fresh.scan_time) p.title = String(fresh.scan_time);
+    var tone = document.createElement("span");
+    tone.className = "scan-fresh-tone";
+    tone.textContent = String(fresh.tone || "unknown");
+    p.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    p.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "scan-fresh-body";
+    body.textContent = String(fresh.age_label || fresh.line || "");
+    p.appendChild(body);
+    if (fresh.scan_time && fresh.age_label) {
+      var sep2 = document.createElement("span");
+      sep2.className = "pretrade-sep";
+      sep2.setAttribute("aria-hidden", "true");
+      sep2.textContent = "·";
+      p.appendChild(sep2);
+      var when = document.createElement("span");
+      when.className = "scan-fresh-when";
+      when.textContent = String(fresh.scan_time);
+      p.appendChild(when);
+    }
+    root.appendChild(p);
+  }
+
   function renderBreadthGlance(payload) {
     var glance = payload && payload.breadth_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1234,6 +1267,7 @@
 
   function renderChartsPage(payload) {
     root.innerHTML = "";
+    renderScanFreshness(payload);
     renderBreadthGlance(payload);
     drawEquity(
       section(

@@ -56,8 +56,28 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert "from_buy" in payload
     assert "breadth_glance" in payload
     assert payload["breadth_glance"]["ready"] is False
+    assert "scan_freshness" in payload
+    assert payload["scan_freshness"]["ready"] is False
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
+
+
+def test_chart_payload_scan_freshness_from_archive(tmp_path: Path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    scan_when = datetime.now(timezone.utc) - timedelta(minutes=5)
+    stamp = scan_when.strftime("%Y-%m-%d %H:%M:%S")
+    (tmp_path / "archive" / "opportunities_latest.json").write_text(
+        json.dumps({"scan_time": stamp})
+    )
+    payload = load_chart_payload(tmp_path)
+    fresh = payload["scan_freshness"]
+    assert fresh["ready"] is True
+    assert fresh["tone"] == "fresh"
+    assert fresh["scan_time"] == stamp
 
 
 def test_chart_payload_breadth_glance_from_daily(tmp_path: Path, monkeypatch):

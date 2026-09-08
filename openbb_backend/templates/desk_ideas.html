@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
   <h1>Research &amp; candidates</h1>
   <p class="lede">Paper scanner picks, patterns we’ve already adapted from open research, and the GitHub watch — one idea at a time, re-benchmarked before it lands in trading logic.</p>
+  {{ scan_freshness(snap) }}
 </header>
 
 {{ breadth_glance(
