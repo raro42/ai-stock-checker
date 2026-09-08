@@ -78,6 +78,8 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert payload["fee_burn_glance"]["ready"] is True
     assert payload["fee_burn_glance"]["tone"] == "quiet"
     assert "€1.00 fees" in payload["fee_burn_glance"]["line"]
+    assert "postmortem_glance" in payload
+    assert payload["postmortem_glance"]["ready"] is False
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
 
@@ -199,6 +201,50 @@ def test_chart_payload_stuck_capital_glance(tmp_path: Path, monkeypatch):
     assert glance["count"] == 1
     assert "EXPE" in glance["line"]
     assert "past min-hold underwater" in glance["line"]
+
+
+def test_chart_payload_postmortem_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "trades.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-07-20 10:00:00",
+                        "type": "BUY",
+                        "symbol": "AAPL",
+                        "quantity": 10,
+                        "price": 100,
+                        "commission": 1,
+                        "note": "momentum",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-07-21 12:00:00",
+                        "type": "SELL",
+                        "symbol": "AAPL",
+                        "quantity": 10,
+                        "price": 108,
+                        "commission": 1,
+                        "exit_reason": "take_profit",
+                        "profit_loss": 80,
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["postmortem_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "up"
+    assert glance["symbol"] == "AAPL"
+    assert "Last exit · AAPL" in glance["line"]
+    assert "take_profit" in glance["line"]
+    assert "+8.0%" in glance["line"]
 
 
 def test_chart_payload_book_risk_glance(tmp_path: Path, monkeypatch):

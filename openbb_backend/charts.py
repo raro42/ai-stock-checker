@@ -792,6 +792,16 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     return build_stuck_capital_glance(stuck)
 
 
+def _postmortem_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """Newest closed-round glance from trades.jsonl (display only)."""
+    from openbb_backend.desk import build_postmortem_glance
+    from stock_checker.trade_postmortem import DEFAULT_LIMIT as POSTMORTEM_LIMIT
+    from stock_checker.trade_postmortem import closed_rounds
+
+    trades = _load_jsonl(data_dir / "trades.jsonl")
+    return build_postmortem_glance(closed_rounds(trades, limit=POSTMORTEM_LIMIT))
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
@@ -830,5 +840,6 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
+        "postmortem_glance": _postmortem_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }
