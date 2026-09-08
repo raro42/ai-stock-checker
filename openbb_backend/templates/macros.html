@@ -43,6 +43,25 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Fail-open soft-allow glance (display only). #}
+{% macro soft_allow_glance(snap) -%}
+{% set glance = snap.soft_allow_glance if snap.soft_allow_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="soft-allow-glance" aria-labelledby="soft-allow-glance-h">
+  <h2 id="soft-allow-glance-h" class="visually-hidden">Fail-open soft-allows</h2>
+  <p class="soft-allow-glance-line">
+    <span class="soft-allow-glance-tone {{ glance.tone }}">Soft-allow</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="soft-allow-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="soft-allow-glance-link" href="/desk/ops#soft-h">Ops memory →</a>
+  </p>
+  <p class="sub">Gate passed with missing data — not a hard block. Full list on Ops.</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>

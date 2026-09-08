@@ -188,6 +188,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["pretrade_level"] in {"PASS", "WARN", "FAIL"}
     assert isinstance(snap["pretrade_notes"], list)
     assert isinstance(snap["soft_allows"], list)
+    assert "ready" in snap["soft_allow_glance"]
+    assert snap["soft_allow_glance"]["ready"] is False
     assert "eur" in snap["entry_size"]
     assert snap["entry_size"]["slots_open"] >= 0
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
@@ -361,6 +363,27 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert "breadth-glance" in resp.text
     assert "ops-breadth-h" in resp.text
     assert "breadth gate" in resp.text
+
+
+def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
+    _seed_portfolio(tmp_path)
+    from stock_checker.gate_audit import record_soft_allow
+
+    record_soft_allow(tmp_path, "regime", "unknown — no SPY bars")
+    monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    from starlette.testclient import TestClient
+
+    client = TestClient(backend.app)
+    overview = client.get("/desk/")
+    assert overview.status_code == 200
+    assert "soft-allow-glance" in overview.text
+    assert "no SPY bars" in overview.text
+    assert "/desk/ops#soft-h" in overview.text
+    book = client.get("/desk/book")
+    assert book.status_code == 200
+    assert "soft-allow-glance" in book.text
+    assert "Ops memory" in book.text
 
 
 def test_desk_html_screens(tmp_path: Path, monkeypatch):

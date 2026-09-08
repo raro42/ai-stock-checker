@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -65,6 +65,8 @@
     {% endif %}
   </p>
 </section>
+
+{{ soft_allow_glance(snap) }}
 
 <section class="block" aria-labelledby="hold-h">
   <h2 id="hold-h">Top holdings</h2>

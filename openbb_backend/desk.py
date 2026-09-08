@@ -191,6 +191,43 @@ def build_scan_freshness(
     }
 
 
+def build_soft_allow_glance(
+    events: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Compact fail-open soft-allow memory (tradermonty; display only).
+
+    Shows only when the ring buffer has rows — links friends to Ops detail.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "count": 0,
+        "line": "",
+        "last_gate": "",
+        "last_reason": "",
+    }
+    rows = [e for e in (events or []) if isinstance(e, dict)]
+    if not rows:
+        return empty
+    last = rows[0]
+    gate = str(last.get("gate") or "?").strip() or "?"
+    reason = str(last.get("reason") or "").strip()
+    reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
+    n = len(rows)
+    noun = "soft-allow" if n == 1 else "soft-allows"
+    line = f"{n} recent {noun} · last [{gate}]"
+    if reason_short:
+        line = f"{line} {reason_short}"
+    return {
+        "ready": True,
+        "tone": "warn",
+        "count": n,
+        "line": line,
+        "last_gate": gate,
+        "last_reason": reason_short,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1104,6 +1141,11 @@ def load_desk_snapshot(
             "from": "RyanJHamby/stock-screener (cache / daily-scan age)",
             "note": "Overview / Screener / Breadth / Ops / Book / Ideas / Charts show scan age as fresh / aging / stale — display only, not a gate.",
         },
+        {
+            "title": "Soft-allow glance on Overview / Book",
+            "from": "tradermonty/claude-trading-skills (trader memory)",
+            "note": "One-line fail-open soft-allow count beside pretrade / risk — Ops keeps the full list; display only.",
+        },
     ]
 
     from stock_checker.gate_audit import recent_soft_allows
@@ -1169,6 +1211,7 @@ def load_desk_snapshot(
         "entry_size": entry_size,
         "book_risk": book_risk,
         "soft_allows": soft_allows,
+        "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),
