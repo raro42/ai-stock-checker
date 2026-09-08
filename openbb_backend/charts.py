@@ -659,6 +659,37 @@ def _latest_scan_breadth_pulse(data_dir: Path) -> dict[str, Any] | None:
     return last if isinstance(last, dict) else None
 
 
+def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) -> dict[str, Any]:
+    """Slots/posture glance from cost marks (display only; Book has full strip)."""
+    from openbb_backend.desk import build_book_risk_glance
+    from stock_checker.risk_halts import book_risk_report
+    from stock_checker.trader_config import load_trader_config
+
+    cash = _finite(portfolio.get("cash"))
+    holdings_raw = portfolio.get("holdings") or {}
+    avg = portfolio.get("avg_buy_price") or {}
+    rows: list[dict[str, Any]] = []
+    cost = 0.0
+    if isinstance(holdings_raw, dict):
+        for sym, qty in holdings_raw.items():
+            q = _finite(qty)
+            px = _finite(avg.get(sym) if isinstance(avg, dict) else 0)
+            mv = q * px
+            cost += mv
+            rows.append({"symbol": str(sym), "market_value": mv})
+    equity = cash + cost
+    cfg = load_trader_config(data_dir)
+    max_pos = int(cfg.get("max_positions") or 5)
+    return build_book_risk_glance(
+        book_risk_report(
+            cash=cash,
+            equity=equity,
+            holdings=rows,
+            max_positions=max_pos,
+        )
+    )
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
@@ -675,7 +706,9 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     if isinstance(opp, dict):
         scan_time = str(opp.get("scan_time") or "")
     portfolio = _load_json(data_dir / "portfolio.json", {})
-    initial = float(portfolio.get("initial_cash") or 0) if isinstance(portfolio, dict) else 0.0
+    if not isinstance(portfolio, dict):
+        portfolio = {}
+    initial = float(portfolio.get("initial_cash") or 0)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
 
     return {
@@ -691,4 +724,5 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "soft_allow_glance": build_soft_allow_glance(
             recent_soft_allows(data_dir, limit=12)
         ),
+        "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }

@@ -372,6 +372,9 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert "soft-allow-glance" in resp.text
     assert 'href="#soft-h"' in resp.text
     assert "Memory below" in resp.text
+    assert "book-risk-glance" in resp.text
+    assert "ops-book-risk-h" in resp.text
+    assert "book limits" in resp.text
 
 
 def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
@@ -463,6 +466,9 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert 'id="pulse-key"' in breadth.text
     assert "breadth-days-table" in breadth.text
     assert "near-high" in breadth.text
+    assert "book-risk-glance" in breadth.text
+    assert "breadth-book-risk-h" in breadth.text
+    assert "Slots and posture beside breadth" in breadth.text
 
     # Seed a day archive so Breadth can link the scan log.
     day = "2026-07-26"

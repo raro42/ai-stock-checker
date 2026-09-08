@@ -1369,11 +1369,67 @@
     root.appendChild(wrap);
   }
 
+  function renderBookRiskGlance(payload) {
+    var glance = payload && payload.book_risk_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "book-risk-glance";
+    wrap.setAttribute("aria-labelledby", "charts-book-risk-h");
+    var h = document.createElement("h2");
+    h.id = "charts-book-risk-h";
+    h.className = "visually-hidden";
+    h.textContent = "Book risk";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "book-risk-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "book-risk-glance-tone";
+    tone.textContent = "Book";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var posture = document.createElement("span");
+    posture.className = "risk-posture " + (glance.posture || "open");
+    posture.textContent = String(glance.posture || "");
+    line.appendChild(posture);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var body = document.createElement("span");
+    body.className =
+      "book-risk-glance-body" + (glance.concentration_warn ? " warn" : "");
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep3 = document.createElement("span");
+    sep3.className = "pretrade-sep";
+    sep3.setAttribute("aria-hidden", "true");
+    sep3.textContent = "·";
+    line.appendChild(sep3);
+    var link = document.createElement("a");
+    link.className = "book-risk-glance-link";
+    link.href = "/desk/book";
+    link.textContent = "Full book →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Slots and posture beside charts — overweight means exits-only. Full strip on Book.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
     renderPretradeGlance(payload);
     renderSoftAllowGlance(payload);
+    renderBookRiskGlance(payload);
     renderBreadthGlance(payload);
     drawEquity(
       section(

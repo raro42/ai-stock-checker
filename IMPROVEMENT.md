@@ -182,7 +182,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch was README-only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [ ] Optional later: book risk glance on Charts/Breadth/Ops (parity; defer — Overview/Screener/Ideas shipped)
+- [x] staskh + portfolio AI book risk on Charts/Breadth/Ops (2026-09-08 improve): same slots/posture glance parity — Charts via `/desk/api/charts`; display only
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

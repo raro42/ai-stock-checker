@@ -60,11 +60,27 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert payload["scan_freshness"]["ready"] is False
     assert "soft_allow_glance" in payload
     assert payload["soft_allow_glance"]["ready"] is False
+    assert "book_risk_glance" in payload
+    assert payload["book_risk_glance"]["ready"] is True
+    assert payload["book_risk_glance"]["posture"] == "open"
+    assert "1/5" in payload["book_risk_glance"]["slots"]
     assert "pretrade_glance" in payload
     assert payload["pretrade_glance"]["ready"] is True
     assert payload["pretrade_glance"]["level"] == "PASS"
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
+
+
+def test_chart_payload_book_risk_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    payload = load_chart_payload(tmp_path)
+    glance = payload["book_risk_glance"]
+    assert glance["ready"] is True
+    assert glance["posture"] == "open"
+    assert glance["slots"] == "1/5"
+    assert "1/5" in glance["line"]
 
 
 def test_chart_payload_pretrade_glance(tmp_path: Path, monkeypatch):

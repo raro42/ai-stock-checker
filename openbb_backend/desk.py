@@ -265,8 +265,8 @@ def build_book_risk_glance(
 ) -> dict[str, Any]:
     """Compact slots/posture line (staskh + portfolio AI; display only).
 
-    Book keeps the full risk strip; Overview / Screener / Ideas get this glance
-    so friends see overweight / at_cap before chasing scan names.
+    Book keeps the full risk strip; other desk screens get this glance so
+    friends see overweight / at_cap before chasing scan names or flipping knobs.
     """
     empty = {
         "ready": False,
