@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
@@ -14,6 +14,8 @@
   "Scan breadth beside ideas",
   "Scan-list A/D context for paper candidates — not a research score or entry gate."
 ) }}
+
+{{ soft_allow_glance(snap) }}
 
 <section class="block" aria-labelledby="paper-h">
   <h2 id="paper-h">Paper candidates</h2>

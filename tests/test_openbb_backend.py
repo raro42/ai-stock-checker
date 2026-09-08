@@ -384,6 +384,13 @@ def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     assert book.status_code == 200
     assert "soft-allow-glance" in book.text
     assert "Ops memory" in book.text
+    screener = client.get("/desk/screener")
+    assert screener.status_code == 200
+    assert "soft-allow-glance" in screener.text
+    ideas = client.get("/desk/ideas")
+    assert ideas.status_code == 200
+    assert "soft-allow-glance" in ideas.text
+    assert "no SPY bars" in ideas.text
 
 
 def test_desk_html_screens(tmp_path: Path, monkeypatch):

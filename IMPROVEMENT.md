@@ -173,7 +173,9 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] RyanJHamby scan freshness (2026-09-08 improve): Screener/Overview/Ops/Breadth show scan age as fresh/aging/stale vs 15m interval (`build_scan_freshness`) — display only, not a gate
 - [x] RyanJHamby + portfolio AI scan freshness on Book/Ideas/Charts (2026-09-08 improve): same age strip beside holdings, candidates, and chart payload — display only
 - [x] tradermonty soft-allow glance (2026-09-08 improve): Overview + Book one-line fail-open count (`build_soft_allow_glance`) → Ops memory — display only
+- [x] tradermonty + xang1234 Screener/Ideas soft-allow (2026-09-08 improve): same glance beside opportunity lists — fail-open honesty before chasing scan names, display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate)
+- [ ] Optional later: soft-allow glance on Charts/Breadth/scan-log (defer — less entry-adjacent than Screener/Ideas)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 
