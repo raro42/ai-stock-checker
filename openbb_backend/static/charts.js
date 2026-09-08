@@ -1469,12 +1469,58 @@
     root.appendChild(wrap);
   }
 
+  function renderCalmStreakGlance(payload) {
+    var glance = payload && payload.calm_streak_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "calm-streak-glance";
+    wrap.setAttribute("aria-labelledby", "charts-calm-h");
+    var h = document.createElement("h2");
+    h.id = "charts-calm-h";
+    h.className = "visually-hidden";
+    h.textContent = "Paper calm streak";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "calm-streak-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "calm-streak-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Calm";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "calm-streak-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "calm-streak-glance-link";
+    link.href = "/desk/ops#calm-h";
+    link.textContent = "Ops calm →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Promote compose-default unlock beside charts — calm ≠ edge; detail on Ops.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
     renderPretradeGlance(payload);
     renderSoftAllowGlance(payload);
     renderEntryGatesGlance(payload);
+    renderCalmStreakGlance(payload);
     renderBookRiskGlance(payload);
     renderBreadthGlance(payload);
     drawEquity(

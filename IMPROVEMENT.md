@@ -184,7 +184,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] RyanJHamby entry-gates glance (2026-09-08 improve): Overview / Screener / Ideas / Ops one-line regime·RS·breadth·promote on/off (`build_entry_gates_glance`) — display only; Ops keeps toggles
 - [x] RyanJHamby + xang1234 entry-gates parity (2026-09-08 improve): same glance on Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] Phase A + portfolio AI calm-streak glance (2026-09-08 improve): Overview / Screener / Ideas / Ops one-line `{n}/{need} calm days` promote-unlock progress (`build_calm_streak_glance`) — display only; calm ≠ edge; Ops keeps full facts
-- [ ] Optional later: calm-streak glance parity on Book / Charts / Breadth / scan-log
+- [x] Phase A + portfolio AI calm-streak parity (2026-09-08 improve): same glance on Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch was README-only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

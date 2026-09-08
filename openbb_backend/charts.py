@@ -708,6 +708,23 @@ def _entry_gates_glance_from_config(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _calm_streak_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """Paper-calm promote-unlock line from paper_calm.json (display only)."""
+    from openbb_backend.desk import build_calm_streak_glance
+
+    calm = _load_json(data_dir / "paper_calm.json", {})
+    if not isinstance(calm, dict):
+        calm = {}
+    return build_calm_streak_glance(
+        {
+            "calm_streak_days": int(calm.get("streak_days") or 0),
+            "calm_required_days": int(calm.get("required_days") or 30),
+            "calm_ready": bool(calm.get("ready_for_compose_default")),
+            "calm_detail": str(calm.get("detail") or ""),
+        }
+    )
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
@@ -743,5 +760,6 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
             recent_soft_allows(data_dir, limit=12)
         ),
         "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
+        "calm_streak_glance": _calm_streak_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }

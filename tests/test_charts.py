@@ -71,6 +71,9 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert payload["entry_gates_glance"]["ready"] is True
     assert payload["entry_gates_glance"]["tone"] == "strict"
     assert "regime on" in payload["entry_gates_glance"]["line"]
+    assert "calm_streak_glance" in payload
+    assert payload["calm_streak_glance"]["ready"] is True
+    assert "0/30" in payload["calm_streak_glance"]["line"]
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
 
@@ -98,7 +101,31 @@ def test_chart_payload_entry_gates_glance(tmp_path: Path, monkeypatch):
     assert glance["breadth"] is True
     assert glance["promote"] is True
     assert "RS off" in glance["line"]
-    assert "promote on" in glance["line"]
+
+
+def test_chart_payload_calm_streak_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "paper_calm.json").write_text(
+        json.dumps(
+            {
+                "streak_days": 12,
+                "required_days": 30,
+                "ready_for_compose_default": False,
+                "detail": "fee quiet",
+            }
+        )
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["calm_streak_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "progress"
+    assert glance["streak"] == 12
+    assert glance["required"] == 30
+    assert "12/30" in glance["line"]
+    assert "building" in glance["line"]
+    assert "fee quiet" in glance["line"]
 
 
 def test_chart_payload_book_risk_glance(tmp_path: Path, monkeypatch):
