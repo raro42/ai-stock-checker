@@ -78,6 +78,9 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert "calm_streak_glance" in payload
     assert payload["calm_streak_glance"]["ready"] is True
     assert "0/30" in payload["calm_streak_glance"]["line"]
+    assert "promote_ab_glance" in payload
+    assert payload["promote_ab_glance"]["ready"] is True
+    assert "Window" in payload["promote_ab_glance"]["line"]
     assert "fee_burn_glance" in payload
     assert payload["fee_burn_glance"]["ready"] is True
     assert payload["fee_burn_glance"]["tone"] == "quiet"
@@ -136,6 +139,24 @@ def test_chart_payload_calm_streak_glance(tmp_path: Path, monkeypatch):
     assert "12/30" in glance["line"]
     assert "building" in glance["line"]
     assert "fee quiet" in glance["line"]
+
+
+
+def test_chart_payload_promote_ab_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"promote_experiment_strategy": True})
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["promote_ab_glance"]
+    assert glance["ready"] is True
+    assert glance["promote_on"] is True
+    assert glance["protocol_ok"] is False
+    assert glance["tone"] == "warn"
+    assert "Window A" in glance["line"]
+    assert "promote on" in glance["line"]
 
 
 def test_chart_payload_fee_burn_glance(tmp_path: Path, monkeypatch):

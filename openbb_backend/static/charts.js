@@ -1514,6 +1514,51 @@
     root.appendChild(wrap);
   }
 
+  function renderPromoteAbGlance(payload) {
+    var glance = payload && payload.promote_ab_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "promote-ab-glance";
+    wrap.setAttribute("aria-labelledby", "charts-promote-ab-h");
+    var h = document.createElement("h2");
+    h.id = "charts-promote-ab-h";
+    h.className = "visually-hidden";
+    h.textContent = "Promote A/B";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "promote-ab-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "promote-ab-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "A/B";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "promote-ab-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "promote-ab-glance-link";
+    link.href = "/desk/ops#ops-promote";
+    link.textContent = "Ops promote →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Fee-adjusted A/B window beside charts — do not flip promote mid-window. Not edge.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeBurnGlance(payload) {
     var glance = payload && payload.fee_burn_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1703,6 +1748,7 @@
     renderSoftAllowGlance(payload);
     renderEntryGatesGlance(payload);
     renderCalmStreakGlance(payload);
+    renderPromoteAbGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);
