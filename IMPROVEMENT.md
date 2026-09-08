@@ -187,6 +187,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Phase A + portfolio AI calm-streak parity (2026-09-08 improve): same glance on Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] portfolio AI fee-burn glance (2026-09-08 improve): Overview / Screener / Ideas / Ops one-line fees % of start (`build_fee_burn_glance`) — quiet vs high (≥2%); display only; not a gate
 - [x] portfolio AI fee-burn parity (2026-09-08 improve): same glance on Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
+- [x] portfolio AI + A15 stuck-capital glance (2026-09-08 improve): Overview / Screener / Ideas / Ops / Book one-line past-min-hold underwater (`build_stuck_capital_glance`) — display only; not a gate
+- [x] portfolio AI + A15 stuck-capital parity (2026-09-08 improve): same glance on Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch was README-only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

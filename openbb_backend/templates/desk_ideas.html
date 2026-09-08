@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
@@ -47,6 +47,14 @@
   "/desk/ops#ops-fee-preset",
   "Ops fees →",
   "Fee drag vs start beside candidates — high (≥2%) is churn honesty, not a research score."
+) }}
+
+{{ stuck_capital_glance(
+  snap,
+  "ideas-stuck-h",
+  "/desk/book",
+  "Book →",
+  "Past min-hold underwater beside candidates — capital trapped until TP/SL/trim."
 ) }}
 
 {{ book_risk_glance(

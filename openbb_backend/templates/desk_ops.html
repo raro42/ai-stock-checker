@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -55,6 +55,14 @@
   "#ops-fee-preset",
   "Fee preset →",
   "Fee drag vs start before you flip fee preset — high (≥2%) suggests reset or longer holds."
+) }}
+
+{{ stuck_capital_glance(
+  snap,
+  "ops-stuck-h",
+  "/desk/book",
+  "Book →",
+  "Past min-hold underwater before flipping min-hold hours — capital trapped until TP/SL/trim."
 ) }}
 
 {{ book_risk_glance(

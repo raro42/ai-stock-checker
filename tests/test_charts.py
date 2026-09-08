@@ -156,6 +156,51 @@ def test_chart_payload_fee_burn_glance(tmp_path: Path, monkeypatch):
     assert "high" in glance["line"]
 
 
+def test_chart_payload_stuck_capital_glance(tmp_path: Path, monkeypatch):
+    import time
+
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    now = 1_700_000_000.0
+    monkeypatch.setattr(time, "time", lambda: now)
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 10000,
+                "cash": 5000,
+                "holdings": {"EXPE": 10},
+                "avg_buy_price": {"EXPE": 100},
+                "total_fees_paid": 0,
+            }
+        )
+    )
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"EXPE": now - 48 * 3600})
+    )
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"min_hold_hours": 24})
+    )
+    arch = tmp_path / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "stock_breakouts": [
+                    {"symbol": "EXPE", "price": 92.0, "pct_from_high": 0.05}
+                ]
+            }
+        )
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["stuck_capital_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "warn"
+    assert glance["count"] == 1
+    assert "EXPE" in glance["line"]
+    assert "past min-hold underwater" in glance["line"]
+
+
 def test_chart_payload_book_risk_glance(tmp_path: Path, monkeypatch):
     _seed(tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")

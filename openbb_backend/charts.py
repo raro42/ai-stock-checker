@@ -734,6 +734,64 @@ def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]
     return build_fee_burn_glance(fees, initial)
 
 
+def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """A15 min-hold underwater glance from portfolio + scan marks (display only)."""
+    import time
+
+    from openbb_backend.desk import (
+        _fmt_hold,
+        _prices_from_scan,
+        build_stuck_capital_glance,
+    )
+    from stock_checker.trader_config import load_trader_config
+
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    if not isinstance(portfolio, dict):
+        portfolio = {}
+    entry_times = _load_json(data_dir / "entry_times.json", {})
+    if not isinstance(entry_times, dict):
+        entry_times = {}
+    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
+    if not isinstance(opp, dict):
+        opp = {}
+    cfg = load_trader_config(data_dir)
+    min_hold_s = max(4.0, float(cfg.get("min_hold_hours") or 24)) * 3600.0
+    holdings = portfolio.get("holdings") or {}
+    avg = portfolio.get("avg_buy_price") or {}
+    if not isinstance(holdings, dict) or not isinstance(avg, dict):
+        return build_stuck_capital_glance([])
+    marks = _prices_from_scan(opp)
+    now = time.time()
+    stuck: list[dict[str, Any]] = []
+    for sym, qty in holdings.items():
+        try:
+            q = float(qty)
+            buy = float(avg.get(sym) or 0)
+        except (TypeError, ValueError):
+            continue
+        if q <= 0 or buy <= 0:
+            continue
+        last = float(marks.get(str(sym)) or 0) or buy
+        unreal_pct = ((last - buy) / buy) * 100.0
+        try:
+            entry_ts = float(entry_times.get(sym) or 0) or None
+        except (TypeError, ValueError):
+            entry_ts = None
+        if not entry_ts:
+            continue
+        held_s = now - entry_ts
+        if held_s >= min_hold_s and unreal_pct < 0:
+            stuck.append(
+                {
+                    "symbol": str(sym),
+                    "unrealized_pct": unreal_pct,
+                    "held": _fmt_hold(held_s),
+                    "held_seconds": held_s,
+                }
+            )
+    return build_stuck_capital_glance(stuck)
+
+
 def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
@@ -771,5 +829,6 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
+        "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }

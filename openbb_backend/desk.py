@@ -448,6 +448,52 @@ def build_fee_burn_glance(
     }
 
 
+def build_stuck_capital_glance(
+    stuck: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Compact A15 min-hold capital-trap line (portfolio AI risk UX; display only).
+
+    Overview keeps the detailed stuck list; other screens get this one-liner so
+    friends see trapped underwater names before chasing scan adds. Not a gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "count": 0,
+        "symbols": [],
+    }
+    if not isinstance(stuck, list) or not stuck:
+        return empty
+    rows = [r for r in stuck if isinstance(r, dict) and str(r.get("symbol") or "").strip()]
+    if not rows:
+        return empty
+    count = len(rows)
+    symbols = [str(r.get("symbol") or "").strip() for r in rows][:5]
+    bits: list[str] = []
+    for r in rows[:3]:
+        sym = str(r.get("symbol") or "").strip()
+        try:
+            pct = float(r.get("unrealized_pct") or 0)
+        except (TypeError, ValueError):
+            pct = 0.0
+        bits.append(f"{sym} {pct:+.1f}%")
+    line = f"{count} past min-hold underwater"
+    if bits:
+        line = f"{line} · {' · '.join(bits)}"
+    if count > 3:
+        line = f"{line} · +{count - 3} more"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "warn",
+        "line": line,
+        "count": count,
+        "symbols": symbols,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1447,6 +1493,7 @@ def load_desk_snapshot(
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
+        "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

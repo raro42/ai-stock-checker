@@ -197,6 +197,29 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro stuck_capital_glance(
+  snap,
+  heading_id='stuck-capital-glance-h',
+  link_href='/desk/book',
+  link_label='Book →',
+  sub='Past min-hold and underwater — capital trapped until TP/SL/trim. Not a gate.'
+) -%}
+{% set glance = snap.stuck_capital_glance if snap.stuck_capital_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="stuck-capital-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Stuck capital</h2>
+  <p class="stuck-capital-glance-line">
+    <span class="stuck-capital-glance-tone {{ glance.tone }}">Stuck</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="stuck-capital-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="stuck-capital-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>

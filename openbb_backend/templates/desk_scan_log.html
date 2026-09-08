@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -47,6 +47,14 @@
   "/desk/ops#ops-fee-preset",
   "Ops fees →",
   "Fee drag vs start beside the day archive — high (≥2%) before chasing adds. Not a gate."
+) }}
+
+{{ stuck_capital_glance(
+  snap,
+  "scan-log-stuck-h",
+  "/desk/book",
+  "Book →",
+  "Past min-hold underwater beside the day archive — capital trapped until TP/SL/trim."
 ) }}
 
 {{ book_risk_glance(

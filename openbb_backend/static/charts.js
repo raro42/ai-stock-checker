@@ -1559,6 +1559,51 @@
     root.appendChild(wrap);
   }
 
+  function renderStuckCapitalGlance(payload) {
+    var glance = payload && payload.stuck_capital_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "stuck-capital-glance";
+    wrap.setAttribute("aria-labelledby", "charts-stuck-h");
+    var h = document.createElement("h2");
+    h.id = "charts-stuck-h";
+    h.className = "visually-hidden";
+    h.textContent = "Stuck capital";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "stuck-capital-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "stuck-capital-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Stuck";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "stuck-capital-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "stuck-capital-glance-link";
+    link.href = "/desk/book";
+    link.textContent = "Book →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Past min-hold underwater beside charts — capital trapped until TP/SL/trim. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
@@ -1567,6 +1612,7 @@
     renderEntryGatesGlance(payload);
     renderCalmStreakGlance(payload);
     renderFeeBurnGlance(payload);
+    renderStuckCapitalGlance(payload);
     renderBookRiskGlance(payload);
     renderBreadthGlance(payload);
     drawEquity(
