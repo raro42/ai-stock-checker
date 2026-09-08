@@ -690,6 +690,40 @@ def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) 
     )
 
 
+
+def _next_buy_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) -> dict[str, Any]:
+    """Suggested next-buy € from cost marks (display only; Overview has full block)."""
+    from openbb_backend.desk import build_next_buy_glance
+    from stock_checker.risk_halts import suggest_entry_notional
+    from stock_checker.trader_config import load_trader_config
+
+    cash = _finite(portfolio.get("cash"))
+    holdings_raw = portfolio.get("holdings") or {}
+    avg = portfolio.get("avg_buy_price") or {}
+    cost = 0.0
+    open_n = 0
+    if isinstance(holdings_raw, dict):
+        for sym, qty in holdings_raw.items():
+            q = _finite(qty)
+            if q <= 0:
+                continue
+            open_n += 1
+            px = _finite(avg.get(sym) if isinstance(avg, dict) else 0)
+            cost += q * px
+    equity = cash + cost
+    cfg = load_trader_config(data_dir)
+    max_pos = int(cfg.get("max_positions") or 5)
+    return build_next_buy_glance(
+        suggest_entry_notional(
+            cash=cash,
+            equity=equity,
+            open_positions=open_n,
+            max_positions=max_pos,
+            position_size=0.10,
+        )
+    )
+
+
 def _entry_gates_glance_from_config(data_dir: Path) -> dict[str, Any]:
     """Regime/RS/breadth/promote on/off from Ops file (display only)."""
     from openbb_backend.desk import build_entry_gates_glance
@@ -833,6 +867,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "breadth_glance": build_breadth_glance(_latest_scan_breadth_pulse(data_dir)),
         "scan_freshness": build_scan_freshness(scan_time),
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
+        "next_buy_glance": _next_buy_glance_from_portfolio(data_dir, portfolio),
         "soft_allow_glance": build_soft_allow_glance(
             recent_soft_allows(data_dir, limit=12)
         ),

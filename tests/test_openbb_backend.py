@@ -195,6 +195,8 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["book_risk_glance"]["posture"] in {"open", "at_cap", "overweight"}
     assert "eur" in snap["entry_size"]
     assert snap["entry_size"]["slots_open"] >= 0
+    assert "ready" in snap["next_buy_glance"]
+    assert snap["next_buy_glance"]["ready"] is True
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"
     assert len(snap["crypto_leaders"]) == 3  # top list capped for UI; pulse uses full scan
     assert "tone" in snap["scan_freshness"]

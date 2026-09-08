@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -22,8 +22,16 @@
     <span class="pretrade-sep" aria-hidden="true">·</span>
     <span class="pretrade-notes">{{ snap.pretrade_notes|join("; ") }}</span>
   </p>
-  <p class="sub">Buy-halt honesty before knobs (tradermonty) — next-buy size stays on Overview.</p>
+  <p class="sub">Buy-halt honesty before knobs (tradermonty) — size glance below; full block on Overview.</p>
 </section>
+
+{{ next_buy_glance(
+  snap,
+  "ops-size-h",
+  "/desk",
+  "Overview size →",
+  "Suggested next-buy € before flipping knobs — Overview keeps the full size block."
+) }}
 
 {{ soft_allow_glance(
   snap,

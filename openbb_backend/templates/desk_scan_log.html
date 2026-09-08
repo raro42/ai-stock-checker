@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -21,6 +21,14 @@
   "/desk",
   "Overview →",
   "Checklist beside the day archive — FAIL blocks buys; WARN is fee burn / cooldown."
+) }}
+
+{{ next_buy_glance(
+  snap,
+  "scan-log-size-h",
+  "/desk",
+  "Overview size →",
+  "Suggested next-buy € beside the day archive — display only; not a gate."
 ) }}
 
 {{ soft_allow_glance(snap) }}

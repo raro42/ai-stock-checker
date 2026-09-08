@@ -67,6 +67,10 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert "pretrade_glance" in payload
     assert payload["pretrade_glance"]["ready"] is True
     assert payload["pretrade_glance"]["level"] == "PASS"
+    assert "next_buy_glance" in payload
+    assert payload["next_buy_glance"]["ready"] is True
+    assert payload["next_buy_glance"]["tone"] == "open"
+    assert "Next buy" in payload["next_buy_glance"]["line"]
     assert "entry_gates_glance" in payload
     assert payload["entry_gates_glance"]["ready"] is True
     assert payload["entry_gates_glance"]["tone"] == "strict"
@@ -201,6 +205,21 @@ def test_chart_payload_stuck_capital_glance(tmp_path: Path, monkeypatch):
     assert glance["count"] == 1
     assert "EXPE" in glance["line"]
     assert "past min-hold underwater" in glance["line"]
+
+
+
+
+def test_chart_payload_next_buy_glance(tmp_path: Path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    payload = load_chart_payload(tmp_path)
+    glance = payload["next_buy_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "open"
+    assert glance["eur"] > 0
+    assert glance["slots_open"] == 4
+    assert "Next buy" in glance["line"]
 
 
 def test_chart_payload_postmortem_glance(tmp_path: Path, monkeypatch):

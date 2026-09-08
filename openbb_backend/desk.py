@@ -494,6 +494,56 @@ def build_stuck_capital_glance(
     }
 
 
+def build_next_buy_glance(
+    entry_size: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compact next-buy € line (tradermonty sizer / portfolio AI; display only).
+
+    Overview keeps the full pre-trade size block. Other screens get this glance
+    so friends see suggested notional before chasing scan names. Not a gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "eur": 0.0,
+        "slots_open": 0,
+        "capped_by": "",
+    }
+    if not isinstance(entry_size, dict):
+        return empty
+    note = str(entry_size.get("note") or "").strip()
+    capped_by = str(entry_size.get("capped_by") or "").strip()
+    if not note and not capped_by:
+        return empty
+    try:
+        eur = float(entry_size.get("eur") or 0.0)
+    except (TypeError, ValueError):
+        eur = 0.0
+    try:
+        slots_open = max(0, int(entry_size.get("slots_open") or 0))
+    except (TypeError, ValueError):
+        slots_open = 0
+    if eur > 0:
+        line = f"Next buy ~€{eur:,.0f}"
+        if note:
+            line = f"{line} · {note}"
+        tone = "warn" if capped_by == "concentration" else "open"
+    else:
+        line = f"No new buy · {note}" if note else "No new buy"
+        tone = "warn" if capped_by in {"book_full", "no_cash"} else "flat"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "eur": round(eur, 2),
+        "slots_open": slots_open,
+        "capped_by": capped_by,
+    }
+
+
 def build_postmortem_glance(
     postmortems: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -1435,6 +1485,11 @@ def load_desk_snapshot(
             "note": "Overview shows PASS/WARN/FAIL + suggested next-buy € (cash frac · concentration · slots).",
         },
         {
+            "title": "Next-buy sizer glance",
+            "from": "tradermonty/claude-trading-skills + portfolio AI (position sizer)",
+            "note": "Screener / Ideas / Book / Ops / Charts / Breadth / scan-log show one-line next-buy € — Overview keeps the full size block; display only.",
+        },
+        {
             "title": "Book risk report strip",
             "from": "staskh/trading_skills + portfolio AI (risk / mix report)",
             "note": "Book shows slots, posture, cash %, largest name, equity/crypto mix — display only.",
@@ -1548,6 +1603,7 @@ def load_desk_snapshot(
         "pretrade_notes": pretrade_notes,
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "entry_size": entry_size,
+        "next_buy_glance": build_next_buy_glance(entry_size),
         "book_risk": book_risk,
         "book_risk_glance": build_book_risk_glance(book_risk),
         "soft_allows": soft_allows,

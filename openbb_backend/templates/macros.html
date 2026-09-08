@@ -245,6 +245,32 @@
 {% endif %}
 {%- endmacro %}
 
+
+
+{# Display-only next-buy € (tradermonty sizer). Overview keeps the full size block. #}
+{% macro next_buy_glance(
+  snap,
+  heading_id='next-buy-glance-h',
+  link_href='/desk',
+  link_label='Overview size →',
+  sub='Suggested notional (cash frac · concentration · slots) — display only; not a gate.'
+) -%}
+{% set glance = snap.next_buy_glance if snap.next_buy_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="next-buy-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Next buy size</h2>
+  <p class="next-buy-glance-line">
+    <span class="next-buy-glance-tone {{ glance.tone }}">Size</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="next-buy-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="next-buy-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>

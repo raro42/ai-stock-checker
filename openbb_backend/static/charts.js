@@ -1649,10 +1649,57 @@
     root.appendChild(wrap);
   }
 
+
+  function renderNextBuyGlance(payload) {
+    var glance = payload && payload.next_buy_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "next-buy-glance";
+    wrap.setAttribute("aria-labelledby", "charts-size-h");
+    var h = document.createElement("h2");
+    h.id = "charts-size-h";
+    h.className = "visually-hidden";
+    h.textContent = "Next buy size";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "next-buy-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "next-buy-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Size";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "next-buy-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "next-buy-glance-link";
+    link.href = "/desk";
+    link.textContent = "Overview size →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Suggested next-buy € beside charts — Overview keeps the full size block. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
     renderPretradeGlance(payload);
+    renderNextBuyGlance(payload);
     renderSoftAllowGlance(payload);
     renderEntryGatesGlance(payload);
     renderCalmStreakGlance(payload);
