@@ -1265,6 +1265,65 @@
     root.appendChild(wrap);
   }
 
+  function renderPretradeGlance(payload) {
+    var glance = payload && payload.pretrade_glance;
+    if (!glance || !glance.ready || !glance.level) return;
+    var wrap = document.createElement("section");
+    wrap.className = "pretrade-glance";
+    wrap.setAttribute("aria-labelledby", "charts-pretrade-h");
+    var h = document.createElement("h2");
+    h.id = "charts-pretrade-h";
+    h.className = "visually-hidden";
+    h.textContent = "Pre-trade checklist";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "pretrade-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "pretrade-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Pre-trade";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var level = document.createElement("span");
+    level.className = "pretrade-level " + (glance.tone || "flat");
+    level.textContent = String(glance.level);
+    line.appendChild(level);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var body = document.createElement("span");
+    body.className = "pretrade-glance-body";
+    var notes = glance.notes;
+    if (notes && notes.length) {
+      body.textContent = notes.join("; ");
+    } else {
+      body.textContent = String(glance.line || "");
+    }
+    line.appendChild(body);
+    var sep3 = document.createElement("span");
+    sep3.className = "pretrade-sep";
+    sep3.setAttribute("aria-hidden", "true");
+    sep3.textContent = "·";
+    line.appendChild(sep3);
+    var link = document.createElement("a");
+    link.className = "pretrade-glance-link";
+    link.href = "/desk";
+    link.textContent = "Overview →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Checklist beside charts — FAIL blocks buys; WARN is fee burn / cooldown.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderSoftAllowGlance(payload) {
     var glance = payload && payload.soft_allow_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1313,6 +1372,7 @@
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
+    renderPretradeGlance(payload);
     renderSoftAllowGlance(payload);
     renderBreadthGlance(payload);
     drawEquity(

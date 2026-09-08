@@ -1179,9 +1179,9 @@ def load_desk_snapshot(
             "note": "One-line fail-open soft-allow count beside pretrade / risk — Ops keeps the full list; display only.",
         },
         {
-            "title": "Pretrade glance on Screener / Ideas / Book",
+            "title": "Pretrade glance on Screener / Ideas / Book / Charts / Breadth",
             "from": "tradermonty/claude-trading-skills (pre-trade gate)",
-            "note": "PASS/WARN/FAIL one-liner before opportunity lists and holdings — Overview/Ops keep full checklist; display only.",
+            "note": "PASS/WARN/FAIL one-liner before lists, holdings, charts, and breadth — Overview/Ops keep full checklist; display only.",
         },
     ]
 

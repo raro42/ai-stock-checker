@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import scan_freshness, soft_allow_glance %}
+{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -7,6 +7,14 @@
   <p class="lede">Market-regime style snapshot for our paper stack — session mode, deployment, and scan coverage.</p>
   {{ scan_freshness(snap) }}
 </header>
+
+{{ pretrade_glance(
+  snap,
+  "breadth-pretrade-h",
+  "/desk",
+  "Overview →",
+  "Checklist beside breadth — FAIL blocks buys; WARN is fee burn / cooldown."
+) }}
 
 {{ soft_allow_glance(snap) }}
 

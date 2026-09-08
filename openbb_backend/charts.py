@@ -663,15 +663,20 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
         build_breadth_glance,
+        build_pretrade_glance,
         build_scan_freshness,
         build_soft_allow_glance,
     )
     from stock_checker.gate_audit import recent_soft_allows
+    from stock_checker.risk_halts import pretrade_status
 
     opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
     scan_time = ""
     if isinstance(opp, dict):
         scan_time = str(opp.get("scan_time") or "")
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    initial = float(portfolio.get("initial_cash") or 0) if isinstance(portfolio, dict) else 0.0
+    pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
 
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -682,6 +687,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "from_buy": build_from_buy_panels(data_dir),
         "breadth_glance": build_breadth_glance(_latest_scan_breadth_pulse(data_dir)),
         "scan_freshness": build_scan_freshness(scan_time),
+        "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "soft_allow_glance": build_soft_allow_glance(
             recent_soft_allows(data_dir, limit=12)
         ),

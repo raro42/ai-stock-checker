@@ -401,6 +401,9 @@ def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     assert breadth.status_code == 200
     assert "soft-allow-glance" in breadth.text
     assert "Ops memory" in breadth.text
+    assert "pretrade-glance" in breadth.text
+    assert "breadth-pretrade-h" in breadth.text
+    assert "Pre-trade" in breadth.text
     day = "2026-09-08"
     arch = tmp_path / "archive"
     arch.mkdir(parents=True, exist_ok=True)
