@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -49,6 +49,14 @@
 ) }}
 
 {{ soft_allow_glance(snap) }}
+
+{{ book_risk_glance(
+  snap,
+  "screener-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture before chasing scan names — overweight means exits-only."
+) }}
 
 <section class="block" aria-labelledby="rec-h">
   <h2 id="rec-h">Recommendations</h2>

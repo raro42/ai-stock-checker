@@ -190,6 +190,9 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert isinstance(snap["soft_allows"], list)
     assert "ready" in snap["soft_allow_glance"]
     assert snap["soft_allow_glance"]["ready"] is False
+    assert "ready" in snap["book_risk_glance"]
+    assert snap["book_risk_glance"]["ready"] is True
+    assert snap["book_risk_glance"]["posture"] in {"open", "at_cap", "overweight"}
     assert "eur" in snap["entry_size"]
     assert snap["entry_size"]["slots_open"] >= 0
     assert snap["crypto_leaders"][0]["symbol"] == "BTC-USD"

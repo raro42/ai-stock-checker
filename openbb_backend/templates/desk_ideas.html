@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
@@ -24,6 +24,14 @@
 ) }}
 
 {{ soft_allow_glance(snap) }}
+
+{{ book_risk_glance(
+  snap,
+  "ideas-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture beside paper candidates — overweight means exits-only."
+) }}
 
 <section class="block" aria-labelledby="paper-h">
   <h2 id="paper-h">Paper candidates</h2>

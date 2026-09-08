@@ -260,6 +260,47 @@ def build_pretrade_glance(
     }
 
 
+def build_book_risk_glance(
+    book_risk: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compact slots/posture line (staskh + portfolio AI; display only).
+
+    Book keeps the full risk strip; Overview / Screener / Ideas get this glance
+    so friends see overweight / at_cap before chasing scan names.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "posture": "",
+        "line": "",
+        "slots": "",
+        "concentration_warn": False,
+    }
+    if not isinstance(book_risk, dict):
+        return empty
+    posture = str(book_risk.get("posture") or "").strip().lower()
+    slots = str(book_risk.get("slots") or "").strip()
+    if posture not in {"open", "at_cap", "overweight"} or not slots:
+        return empty
+    note = str(book_risk.get("note") or "").strip()
+    line = note if note else f"{slots} slots · {posture}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    tone = {
+        "open": "open",
+        "at_cap": "at_cap",
+        "overweight": "overweight",
+    }.get(posture, "flat")
+    return {
+        "ready": True,
+        "tone": tone,
+        "posture": posture,
+        "line": line,
+        "slots": slots,
+        "concentration_warn": bool(book_risk.get("concentration_warn")),
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1183,6 +1224,11 @@ def load_desk_snapshot(
             "from": "tradermonty/claude-trading-skills (pre-trade gate)",
             "note": "PASS/WARN/FAIL one-liner before lists, holdings, charts, and breadth — Overview/Ops keep full checklist; display only.",
         },
+        {
+            "title": "Book risk glance on Overview / Screener / Ideas",
+            "from": "staskh/trading_skills + portfolio AI (risk / mix report)",
+            "note": "One-line slots/posture beside holdings and opportunity lists — Book keeps the full strip; display only.",
+        },
     ]
 
     from stock_checker.gate_audit import recent_soft_allows
@@ -1248,6 +1294,7 @@ def load_desk_snapshot(
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "entry_size": entry_size,
         "book_risk": book_risk,
+        "book_risk_glance": build_book_risk_glance(book_risk),
         "soft_allows": soft_allows,
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "realized": realized,

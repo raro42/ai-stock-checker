@@ -95,6 +95,33 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Book slots/posture glance (display only). Book keeps the full risk strip. #}
+{% macro book_risk_glance(
+  snap,
+  heading_id='book-risk-glance-h',
+  link_href='/desk/book',
+  link_label='Full book →',
+  sub='Slots and posture before adds — overweight means exits-only. Full strip on Book.'
+) -%}
+{% set glance = snap.book_risk_glance if snap.book_risk_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="book-risk-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Book risk</h2>
+  <p class="book-risk-glance-line">
+    <span class="book-risk-glance-tone">Book</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="risk-posture {{ glance.posture }}">{{ glance.posture }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="book-risk-glance-body{% if glance.concentration_warn %} warn{% endif %}">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="book-risk-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>
