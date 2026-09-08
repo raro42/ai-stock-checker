@@ -33,7 +33,7 @@ def _dt(y: int, m: int, d: int, hh: int, mm: int = 0) -> datetime:
 def test_default_bounds() -> None:
     start, end, tz = night_window_bounds()
     assert start == 23
-    assert end == 8
+    assert end == 5
     assert tz == "Europe/Berlin"
 
 
@@ -56,7 +56,9 @@ def test_default_local_tz_name_respects_asc(monkeypatch: pytest.MonkeyPatch) -> 
         (_dt(2026, 8, 10, 23, 0), True),
         (_dt(2026, 8, 10, 23, 30), True),
         (_dt(2026, 8, 11, 0, 0), True),
-        (_dt(2026, 8, 11, 7, 59), True),
+        (_dt(2026, 8, 11, 4, 59), True),
+        (_dt(2026, 8, 11, 5, 0), False),
+        (_dt(2026, 8, 11, 7, 59), False),
         (_dt(2026, 8, 11, 8, 0), False),
         (_dt(2026, 8, 11, 15, 0), False),
     ],
@@ -82,9 +84,9 @@ def test_seconds_until_open_after_midnight_still_inside() -> None:
 
 
 def test_seconds_until_open_just_after_close() -> None:
-    now = _dt(2026, 8, 11, 8, 0)
+    now = _dt(2026, 8, 11, 5, 0)
     wait = seconds_until_night_window(now)
-    assert wait == 15 * 3600
+    assert wait == 18 * 3600
 
 
 def test_seconds_until_morning() -> None:

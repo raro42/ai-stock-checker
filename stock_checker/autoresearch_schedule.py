@@ -1,7 +1,7 @@
 """Local night window for Ollama autoresearch (no daytime GPU/CPU burn).
 
-Default window: 23:00 ≤ t < 08:00 in the **machine local** timezone
-(detected from the OS / `$TZ` / `$ASC_LOCAL_TZ`). Falls back to Europe/Berlin
+Default window: 23:00 ≤ t < 05:00 Europe/Berlin (CEST/CET).
+TZ detection: OS / `$TZ` / `$ASC_LOCAL_TZ`; falls back to Europe/Berlin
 only if detection fails.
 
 Override with OLLAMA_AUTOSEARCH_NIGHT_START / _NIGHT_END / _TZ (or ASC_LOCAL_TZ),
@@ -59,7 +59,7 @@ def default_local_tz_name() -> str:
 
 def night_window_bounds() -> tuple[int, int, str]:
     start = _env_int("OLLAMA_AUTOSEARCH_NIGHT_START", 23)
-    end = _env_int("OLLAMA_AUTOSEARCH_NIGHT_END", 8)
+    end = _env_int("OLLAMA_AUTOSEARCH_NIGHT_END", 5)
     # Explicit OLLAMA_AUTOSEARCH_TZ wins; else ASC_LOCAL_TZ / system local.
     tz_name = (os.getenv("OLLAMA_AUTOSEARCH_TZ") or "").strip() or default_local_tz_name()
     if not (0 <= start <= 23 and 0 <= end <= 23):
@@ -89,7 +89,7 @@ def in_night_window(now: Optional[datetime] = None) -> bool:
     start, end, tz_name = night_window_bounds()
     local = _now(tz_name, now)
     h = local.hour + local.minute / 60.0 + local.second / 3600.0
-    # Compare on fractional hour so 08:00:00 is outside [23, 8).
+    # Compare on fractional hour so 05:00:00 is outside [23, 5).
     if start > end:
         return h >= start or h < end
     return start <= h < end

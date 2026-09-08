@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One Ollama-proposed autoresearch experiment (host Python → Ollama; Docker for backtest).
-# Refuses daytime runs unless OLLAMA_AUTOSEARCH_FORCE=1 (night window: 23:00–08:00 local TZ).
+# Refuses daytime runs unless OLLAMA_AUTOSEARCH_FORCE=1 (night window: 23:00–05:00 local TZ).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

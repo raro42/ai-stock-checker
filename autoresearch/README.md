@@ -32,7 +32,7 @@ Host score (skip Docker cold path): `AUTOSEARCH_HOST_SCORE=1` (param loop defaul
 
 Zero Cursor tokens — Ollama proposes the next strategy file; Docker (or host) scores it.
 
-**Night window only:** experiments run **23:00–08:00** in the **host local timezone** (`ASC_LOCAL_TZ` / `OLLAMA_AUTOSEARCH_TZ` / system). The loop process can stay up all day; it sleeps until the window opens. Manual daytime run: `OLLAMA_AUTOSEARCH_FORCE=1`.
+**Night window only:** experiments run **23:00–05:00** in the **host local timezone** (`ASC_LOCAL_TZ` / `OLLAMA_AUTOSEARCH_TZ` / system). The loop process can stay up all day; it sleeps until the window opens. Manual daytime run: `OLLAMA_AUTOSEARCH_FORCE=1`.
 
 ```bash
 ./scripts/run_ollama_autoresearch_once.sh
@@ -43,7 +43,7 @@ Zero Cursor tokens — Ollama proposes the next strategy file; Docker (or host) 
 
 Model default: `gemma4:latest` (`OLLAMA_AUTOSEARCH_MODEL`). Set `OLLAMA_AUTOSEARCH_PUSH=1` to push keeps. See [MODELS.md](../MODELS.md).
 
-Env overrides: `OLLAMA_AUTOSEARCH_NIGHT_START` (default 23), `OLLAMA_AUTOSEARCH_NIGHT_END` (default 8), `OLLAMA_AUTOSEARCH_TZ` or `ASC_LOCAL_TZ` (default = system local), `OLLAMA_AUTOSEARCH_INTERVAL_SEC` (default 120), `OLLAMA_AUTOSEARCH_SPRINT_SEC` (default 7200).
+Env overrides: `OLLAMA_AUTOSEARCH_NIGHT_START` (default 23), `OLLAMA_AUTOSEARCH_NIGHT_END` (default 5), `OLLAMA_AUTOSEARCH_TZ` or `ASC_LOCAL_TZ` (default = system local), `OLLAMA_AUTOSEARCH_INTERVAL_SEC` (default 120), `OLLAMA_AUTOSEARCH_SPRINT_SEC` (default 7200).
 
 ## Cursor agent loop
 

@@ -107,7 +107,7 @@ Preferred for overnight when Ollama is up — **no Cursor agent tokens**:
 # optional: push keeps
 OLLAMA_AUTOSEARCH_PUSH=1 ./scripts/run_ollama_autoresearch_once.sh
 
-# overnight loop (≈120s net ticks only inside 23:00–08:00 local TZ)
+# overnight loop (≈120s net ticks only inside 23:00–05:00 local TZ)
 ./scripts/run_ollama_autoresearch_loop.sh
 # 2h dense Ollama burst:
 ./scripts/run_ollama_autoresearch_sprint.sh
@@ -116,10 +116,10 @@ OLLAMA_AUTOSEARCH_PUSH=1 ./scripts/run_ollama_autoresearch_once.sh
 ```
 
 Env: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_AUTOSEARCH_MODEL` (default `gemma4:latest`).
-Night window: `OLLAMA_AUTOSEARCH_NIGHT_START=23`, `OLLAMA_AUTOSEARCH_NIGHT_END=8`, `OLLAMA_AUTOSEARCH_TZ` / `ASC_LOCAL_TZ`. Daytime override: `OLLAMA_AUTOSEARCH_FORCE=1`.
+Night window: `OLLAMA_AUTOSEARCH_NIGHT_START=23`, `OLLAMA_AUTOSEARCH_NIGHT_END=5`, `OLLAMA_AUTOSEARCH_TZ` / `ASC_LOCAL_TZ`. Daytime override: `OLLAMA_AUTOSEARCH_FORCE=1`.
 
 Do **not** run Cursor `AGENT_LOOP_TICK_autoresearch` and the Ollama loop at the same time (git races). Pick one.
 
 ## CEST overnight note
 
-Human timezone is **CEST**. Autoresearch is **night-only** (23:00–08:00 Europe/Berlin) so daytime CPU/GPU stay free. Log every run in `results.tsv` so breakfast review is easy.
+Human timezone is **CEST**. Autoresearch is **night-only** (23:00–05:00 Europe/Berlin) so daytime CPU/GPU stay free. Log every run in `results.tsv` so breakfast review is easy.
