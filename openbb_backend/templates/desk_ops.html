@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -31,6 +31,14 @@
   link_href="#soft-h",
   link_label="Memory below →",
   sub="Fail-open count before you flip gates — full list under the form; not a hard block."
+) }}
+
+{{ entry_gates_glance(
+  snap,
+  "ops-gates-h",
+  "#cfg-h",
+  "Knobs below →",
+  "Current soft-gate posture before you flip toggles — display only."
 ) }}
 
 {{ book_risk_glance(

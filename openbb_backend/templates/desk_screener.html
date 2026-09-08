@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -49,6 +49,14 @@
 ) }}
 
 {{ soft_allow_glance(snap) }}
+
+{{ entry_gates_glance(
+  snap,
+  "screener-gates-h",
+  "/desk/ops#cfg-h",
+  "Ops knobs →",
+  "Soft entry filters before chasing scan names — not a new gate; flip on Ops."
+) }}
 
 {{ book_risk_glance(
   snap,

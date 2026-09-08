@@ -181,6 +181,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] staskh + portfolio AI book risk glance (2026-09-08 improve): Overview / Screener / Ideas one-line slots/posture (`build_book_risk_glance`) — Book keeps full strip; display only
 - [x] staskh + portfolio AI book risk on Charts/Breadth/Ops (2026-09-08 improve): same slots/posture glance parity — Charts via `/desk/api/charts`; display only
 - [x] tradermonty + xang1234 + portfolio AI scan-log risk parity (2026-09-08 improve): pretrade + soft-allow + book risk + scan freshness on `/desk/scan-log/{day}` beside day breadth — display only
+- [x] RyanJHamby entry-gates glance (2026-09-08 improve): Overview / Screener / Ideas / Ops one-line regime·RS·breadth·promote on/off (`build_entry_gates_glance`) — display only; Ops keeps toggles
+- [ ] Optional later: entry-gates glance parity on Book / Charts / Breadth / scan-log
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch was README-only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

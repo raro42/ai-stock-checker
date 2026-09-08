@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
@@ -24,6 +24,14 @@
 ) }}
 
 {{ soft_allow_glance(snap) }}
+
+{{ entry_gates_glance(
+  snap,
+  "ideas-gates-h",
+  "/desk/ops#cfg-h",
+  "Ops knobs →",
+  "Soft entry filters beside paper candidates — not a research score; flip on Ops."
+) }}
 
 {{ book_risk_glance(
   snap,

@@ -301,6 +301,56 @@ def build_book_risk_glance(
     }
 
 
+def build_entry_gates_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compact soft-gate on/off line (RyanJHamby regime UX; display only).
+
+    Shows regime / RS / breadth / promote so friends see active filters before
+    chasing scan names. Ops keeps the toggles; this is honesty, not a new gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "regime": False,
+        "rs": False,
+        "breadth": False,
+        "promote": False,
+        "soft_on": 0,
+    }
+    if not isinstance(runtime, dict) or not runtime:
+        return empty
+    regime = bool(runtime.get("regime_gate"))
+    rs = bool(runtime.get("rs_gate"))
+    breadth = bool(runtime.get("breadth_gate"))
+    promote = bool(runtime.get("promote_experiment_strategy"))
+    soft_on = int(regime) + int(rs) + int(breadth)
+    parts = [
+        f"regime {'on' if regime else 'off'}",
+        f"RS {'on' if rs else 'off'}",
+        f"breadth {'on' if breadth else 'off'}",
+        f"promote {'on' if promote else 'off'}",
+    ]
+    line = " · ".join(parts)
+    if soft_on == 3:
+        tone = "strict"
+    elif soft_on == 0:
+        tone = "loose"
+    else:
+        tone = "mixed"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "regime": regime,
+        "rs": rs,
+        "breadth": breadth,
+        "promote": promote,
+        "soft_on": soft_on,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1297,6 +1347,7 @@ def load_desk_snapshot(
         "book_risk_glance": build_book_risk_glance(book_risk),
         "soft_allows": soft_allows,
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
+        "entry_gates_glance": build_entry_gates_glance(runtime),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

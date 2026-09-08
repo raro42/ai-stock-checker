@@ -1,11 +1,11 @@
-# GitHub idea watch — 2026-09-08T08:18:13Z
+# GitHub idea watch — 2026-09-08T10:33:49Z
 
 Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.
 
 - Repos watched: **15**
-- Checked this run: **1** · skipped (not due): **14**
+- Checked this run: **3** · skipped (not due): **12**
 - Repos with new activity: **0**
-- Next loop sleep: **8134s** (cadence-aware)
+- Next loop sleep: **3556s** (cadence-aware)
 
 _No new commits/releases since last check._
 
@@ -14,9 +14,9 @@ _No new commits/releases since last check._
 ### [tradermonty/claude-trading-skills](https://github.com/tradermonty/claude-trading-skills)
 - Watch reason: Claude trading skills with real workflows — position sizer, pre-trade gate, trader memory, postmortem (borrow ideas only; no FMP/Alpaca install)
 - Claude Code skills for equity investors and traders — market analysis, technical charting, economic calendars, screeners, and trading strategy development.
-- Stars: 2790 · pushed: 2026-09-07T02:08:29Z · branch: `main`
-- Cadence: ~5.21 commits/day (avg gap 4.6h) · recheck every 3h · next 2026-09-08T10:33:47Z
-- Status: **skipped** (not due yet)
+- Stars: 2792 · pushed: 2026-09-07T02:08:29Z · branch: `main`
+- Cadence: ~5.21 commits/day (avg gap 4.6h) · recheck every 3h · next 2026-09-08T13:33:47Z
+- Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [staskh/trading_skills](https://github.com/staskh/trading_skills)
 - Watch reason: Trading skills + risk/portfolio report patterns (IBKR-heavy — ideas only, no live broker wiring)
@@ -36,8 +36,8 @@ _No new commits/releases since last check._
 - Watch reason: Stock screener patterns and signals UX
 - Stock scanner with multiple fundamental and technical criteria. Features 80+ filters, AI chatbot (Groq/DeepSeek/Gemini),   theme discovery, and StockBee-style breadth indicators.
 - Stars: 305 · pushed: 2026-09-08T03:16:50Z · branch: `main`
-- Cadence: ~28.52 commits/day (avg gap 0.8h) · recheck every 3h · next 2026-09-08T10:33:47Z
-- Status: **skipped** (not due yet)
+- Cadence: ~28.52 commits/day (avg gap 0.8h) · recheck every 3h · next 2026-09-08T13:33:47Z
+- Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [MonsterDeveloper/simple-stock-screener](https://github.com/MonsterDeveloper/simple-stock-screener)
 - Watch reason: Minimal screener — learn from simplicity
@@ -78,14 +78,14 @@ _No new commits/releases since last check._
 - Watch reason: Screener implementation variants
 - A tool that helps scanning, filtering and ranking a list of stocks 
 - Stars: 0 · pushed: 2023-08-13T19:18:50Z · branch: `main`
-- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-09-08T10:33:47Z
-- Status: **skipped** (not due yet)
+- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-09-08T13:33:47Z
+- Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [ba1int/stock_screener](https://github.com/ba1int/stock_screener)
 - Watch reason: Screener implementation variants
 - Stars: 37 · pushed: 2025-04-08T10:45:11Z · branch: `main`
 - Cadence: ~3.29 commits/day (avg gap 7.3h) · recheck every 3h · next 2026-09-08T11:56:54Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Status: **skipped** (not due yet)
 
 ### [simonchalder/Stock-Screener](https://github.com/simonchalder/Stock-Screener)
 - Watch reason: Screener implementation variants

@@ -122,6 +122,31 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Soft entry-gate on/off (display only). Ops keeps the toggles. #}
+{% macro entry_gates_glance(
+  snap,
+  heading_id='entry-gates-glance-h',
+  link_href='/desk/ops#cfg-h',
+  link_label='Ops knobs →',
+  sub='Regime / RS / breadth / promote filters — display only; flip toggles on Ops.'
+) -%}
+{% set glance = snap.entry_gates_glance if snap.entry_gates_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="entry-gates-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Entry gates</h2>
+  <p class="entry-gates-glance-line">
+    <span class="entry-gates-glance-tone {{ glance.tone }}">Gates</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="entry-gates-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="entry-gates-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>
