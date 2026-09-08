@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -39,6 +39,14 @@
   "#cfg-h",
   "Knobs below →",
   "Current soft-gate posture before you flip toggles — display only."
+) }}
+
+{{ calm_streak_glance(
+  snap,
+  "ops-calm-glance-h",
+  "#calm-h",
+  "Facts below →",
+  "Promote compose-default unlock — calm ≠ edge; full streak facts below."
 ) }}
 
 {{ book_risk_glance(
@@ -212,7 +220,7 @@
       <dt>SPY / BTC regime</dt>
       <dd>{{ snap.runtime.stock_regime }} / {{ snap.runtime.crypto_regime }}{% if snap.runtime.regime_updated %} · {{ snap.runtime.regime_updated }}{% endif %}</dd>
     </div>
-    <div>
+    <div id="calm-h">
       <dt>Paper calm streak</dt>
       <dd>{{ snap.runtime.calm_streak_days }}/{{ snap.runtime.calm_required_days }} days{% if snap.runtime.calm_ready %} · <strong>compose promote default ready</strong>{% endif %}{% if snap.runtime.calm_detail %} · {{ snap.runtime.calm_detail }}{% endif %}</dd>
       <dd class="sub">{{ snap.runtime.calm_hint }}</dd>

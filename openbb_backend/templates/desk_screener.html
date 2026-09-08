@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -56,6 +56,14 @@
   "/desk/ops#cfg-h",
   "Ops knobs →",
   "Soft entry filters before chasing scan names — not a new gate; flip on Ops."
+) }}
+
+{{ calm_streak_glance(
+  snap,
+  "screener-calm-h",
+  "/desk/ops#calm-h",
+  "Ops calm →",
+  "Promote unlock streak before chasing scan names — calm ≠ edge."
 ) }}
 
 {{ book_risk_glance(

@@ -351,6 +351,55 @@ def build_entry_gates_glance(
     }
 
 
+def build_calm_streak_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compact paper-calm promote-unlock line (Phase A / portfolio AI; display only).
+
+    Surfaces streak progress outside Ops facts. Calm days unlock compose promote
+    default — not live edge. Not an entry gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "streak": 0,
+        "required": 0,
+        "calm_ready": False,
+    }
+    if not isinstance(runtime, dict) or not runtime:
+        return empty
+    if "calm_streak_days" not in runtime and "calm_required_days" not in runtime:
+        return empty
+    streak = max(0, int(runtime.get("calm_streak_days") or 0))
+    need = max(1, int(runtime.get("calm_required_days") or 30))
+    calm_ready = bool(runtime.get("calm_ready"))
+    detail = str(runtime.get("calm_detail") or "").strip()
+    if calm_ready:
+        tone = "ready"
+        status = "compose promote default ready"
+    elif streak <= 0:
+        tone = "blocked"
+        status = "streak not started"
+    else:
+        tone = "progress"
+        status = "building"
+    line = f"{streak}/{need} calm days · {status}"
+    if detail and not calm_ready:
+        short = detail if len(detail) <= 48 else (detail[:47] + "…")
+        line = f"{line} · {short}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "streak": streak,
+        "required": need,
+        "calm_ready": calm_ready,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1348,6 +1397,7 @@ def load_desk_snapshot(
         "soft_allows": soft_allows,
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
+        "calm_streak_glance": build_calm_streak_glance(runtime),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),

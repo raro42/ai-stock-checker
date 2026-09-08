@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -74,6 +74,14 @@
   "/desk/ops#cfg-h",
   "Ops knobs →",
   "Soft entry filters before top holdings — not a new gate; flip on Ops."
+) }}
+
+{{ calm_streak_glance(
+  snap,
+  "overview-calm-h",
+  "/desk/ops#calm-h",
+  "Ops calm →",
+  "Promote compose-default unlock progress — calm ≠ edge; detail on Ops."
 ) }}
 
 {{ book_risk_glance(

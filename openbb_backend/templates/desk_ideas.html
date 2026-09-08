@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, book_risk_glance, entry_gates_glance, calm_streak_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ideas</p>
@@ -31,6 +31,14 @@
   "/desk/ops#cfg-h",
   "Ops knobs →",
   "Soft entry filters beside paper candidates — not a research score; flip on Ops."
+) }}
+
+{{ calm_streak_glance(
+  snap,
+  "ideas-calm-h",
+  "/desk/ops#calm-h",
+  "Ops calm →",
+  "Promote unlock streak beside candidates — calm ≠ edge; not a research score."
 ) }}
 
 {{ book_risk_glance(

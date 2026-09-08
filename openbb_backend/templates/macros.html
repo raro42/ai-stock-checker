@@ -147,6 +147,31 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Paper-calm promote-unlock progress (display only). Ops keeps full facts. #}
+{% macro calm_streak_glance(
+  snap,
+  heading_id='calm-streak-glance-h',
+  link_href='/desk/ops#calm-h',
+  link_label='Ops calm →',
+  sub='Calm UTC days unlock compose promote default — not live edge. Detail on Ops.'
+) -%}
+{% set glance = snap.calm_streak_glance if snap.calm_streak_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="calm-streak-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Paper calm streak</h2>
+  <p class="calm-streak-glance-line">
+    <span class="calm-streak-glance-tone {{ glance.tone }}">Calm</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="calm-streak-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="calm-streak-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>
