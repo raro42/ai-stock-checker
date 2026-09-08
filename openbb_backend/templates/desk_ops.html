@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -55,6 +55,14 @@
   "#calm-h",
   "Facts below →",
   "Promote compose-default unlock — calm ≠ edge; full streak facts below."
+) }}
+
+{{ promote_ab_glance(
+  snap,
+  "ops-promote-ab-h",
+  "#ops-promote",
+  "Promote toggle →",
+  "Window A/B trading-day progress before you flip promote — fee-adjusted verdict still required."
 ) }}
 
 {{ fee_burn_glance(

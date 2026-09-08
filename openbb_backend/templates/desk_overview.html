@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -82,6 +82,14 @@
   "/desk/ops#calm-h",
   "Ops calm →",
   "Promote compose-default unlock progress — calm ≠ edge; detail on Ops."
+) }}
+
+{{ promote_ab_glance(
+  snap,
+  "overview-promote-ab-h",
+  "/desk/ops#ops-promote",
+  "Ops promote →",
+  "Fee-adjusted A/B window vs calm unlock — do not flip promote mid-window. Not edge."
 ) }}
 
 {{ fee_burn_glance(

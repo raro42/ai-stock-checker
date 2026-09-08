@@ -26,6 +26,12 @@ Live `data/trader_config.json` flipped `promote_experiment_strategy=false`.
 
 Do **not** flip promote back on until Window A completes, then start Window B with the same capital baseline note.
 
+### Checkpoint 2026-09-09 (calendar only)
+
+- Weekday count since start (Mon–Fri inclusive through 2026-09-09): **≥10** → Window A **duration target met**.
+- Desk now shows promote A/B glance on Overview / Ops (`build_promote_ab_glance`) — display only.
+- **Still pending:** fee-adjusted summarize (`scripts/summarize_trades.py` + equity/fees/trade counts) before starting Window B. No promote edge claim.
+
 ## Window B — promote **ON** — not started
 
 ## Trust questions (C4) — fill when windows complete

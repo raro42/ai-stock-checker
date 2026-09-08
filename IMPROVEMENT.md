@@ -192,7 +192,9 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] tradermonty + portfolio AI postmortem glance (2026-09-08 improve): Overview / Screener / Ideas / Ops / Book one-line newest closed round (`build_postmortem_glance`) — display only; Book keeps full list; no MAE/MFE
 - [x] tradermonty + portfolio AI postmortem parity (2026-09-08 improve): same glance on Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] tradermonty + portfolio AI next-buy sizer glance (2026-09-08 improve): Screener / Ideas / Book / Ops / Charts / Breadth / scan-log one-line next-buy € (`build_next_buy_glance`) — Overview keeps full size block; display only
-- [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08 watch quiet / README-only)
+- [x] Phase A + portfolio AI promote A/B glance (2026-09-09 improve): Overview / Ops Window A/B trading-day progress (`build_promote_ab_glance` + `promote_ab.py`) — protocol honesty before flipping promote; calm ≠ edge; display only
+- [ ] Optional later: promote A/B glance parity on Screener / Ideas / Book / Charts / Breadth / scan-log (Overview/Ops enough for now)
+- [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

@@ -173,6 +173,31 @@
 {%- endmacro %}
 
 
+{# Promote A/B window honesty (display only). Ops keeps the promote toggle. #}
+{% macro promote_ab_glance(
+  snap,
+  heading_id='promote-ab-glance-h',
+  link_href='/desk/ops#ops-promote',
+  link_label='Ops promote →',
+  sub='Fee-adjusted Window A/B progress — calm ≠ edge. Do not flip promote mid-window.'
+) -%}
+{% set glance = snap.promote_ab_glance if snap.promote_ab_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="promote-ab-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Promote A/B</h2>
+  <p class="promote-ab-glance-line">
+    <span class="promote-ab-glance-tone {{ glance.tone }}">A/B</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="promote-ab-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="promote-ab-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,

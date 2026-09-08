@@ -11,7 +11,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -397,6 +397,73 @@ def build_calm_streak_glance(
         "streak": streak,
         "required": need,
         "calm_ready": calm_ready,
+    }
+
+
+
+def build_promote_ab_glance(
+    runtime: dict[str, Any] | None,
+    *,
+    as_of: date | None = None,
+) -> dict[str, Any]:
+    """Compact promote A/B window line (Phase A / portfolio AI; display only).
+
+    Shows Window A/B trading-day progress and whether live promote matches the
+    protocol (A = off, B = on). Calm ≠ edge; fee-adjusted verdict still required.
+    Not an entry gate.
+    """
+    from stock_checker.promote_ab import promote_ab_snapshot
+
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "window": "",
+        "trading_days": 0,
+        "target_days": 0,
+        "target_met": False,
+        "protocol_ok": False,
+        "promote_on": False,
+    }
+    if not isinstance(runtime, dict):
+        return empty
+    promote_on = bool(runtime.get("promote_experiment_strategy"))
+    snap = promote_ab_snapshot(promote_on, as_of=as_of or date.today())
+    window = str(snap.get("window") or "A")
+    days = int(snap.get("trading_days") or 0)
+    need = int(snap.get("target_days") or 10)
+    target_met = bool(snap.get("target_met"))
+    protocol_ok = bool(snap.get("protocol_ok"))
+    promote_label = "on" if promote_on else "off"
+    if not protocol_ok:
+        tone = "warn"
+        if window == "A":
+            status = "promote should be OFF for control"
+        else:
+            status = "promote should be ON for Window B"
+    elif target_met:
+        tone = "ready"
+        status = (
+            "target met · summarize before B"
+            if window == "A"
+            else "target met · write fee-adjusted verdict"
+        )
+    else:
+        tone = "progress"
+        status = "running"
+    line = f"Window {window} · promote {promote_label} · {days}/{need} days · {status}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "window": window,
+        "trading_days": days,
+        "target_days": need,
+        "target_met": target_met,
+        "protocol_ok": protocol_ok,
+        "promote_on": promote_on,
     }
 
 
@@ -1610,6 +1677,7 @@ def load_desk_snapshot(
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
+        "promote_ab_glance": build_promote_ab_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),
