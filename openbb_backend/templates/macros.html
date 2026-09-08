@@ -172,6 +172,31 @@
 {% endif %}
 {%- endmacro %}
 
+
+{# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
+{% macro fee_burn_glance(
+  snap,
+  heading_id='fee-burn-glance-h',
+  link_href='/desk/ops#ops-fee-preset',
+  link_label='Ops fees →',
+  sub='Fees vs start capital — high (≥2%) suggests reset or longer holds. Not a gate.'
+) -%}
+{% set glance = snap.fee_burn_glance if snap.fee_burn_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="fee-burn-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Fee burn</h2>
+  <p class="fee-burn-glance-line">
+    <span class="fee-burn-glance-tone {{ glance.tone }}">Fees</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="fee-burn-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="fee-burn-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {% macro fill_row(t) -%}
 <li>
   <span class="when">{{ t.timestamp }}</span>

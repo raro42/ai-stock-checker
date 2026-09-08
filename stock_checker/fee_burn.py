@@ -5,16 +5,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 
-def fee_burn_warning(
+def fee_burn_facts(
     data_dir: str = "/data",
     *,
     fee_pct_of_capital: float = 0.02,
-) -> Optional[str]:
+) -> Optional[dict[str, Any]]:
     """
-    Return a warning string if fees paid exceed fee_pct_of_capital of initial cash.
+    Return fee drag vs start capital when both are positive.
+
+    Used by the desk glance (always) and the startup/pretrade warning (when high).
     """
     path = Path(data_dir) / "portfolio.json"
     if not path.exists():
@@ -30,9 +32,30 @@ def fee_burn_warning(
         return None
 
     ratio = fees / initial
-    if ratio < fee_pct_of_capital:
+    return {
+        "fees": fees,
+        "initial": initial,
+        "ratio": ratio,
+        "threshold": float(fee_pct_of_capital),
+        "high": ratio >= float(fee_pct_of_capital),
+    }
+
+
+def fee_burn_warning(
+    data_dir: str = "/data",
+    *,
+    fee_pct_of_capital: float = 0.02,
+) -> Optional[str]:
+    """
+    Return a warning string if fees paid exceed fee_pct_of_capital of initial cash.
+    """
+    facts = fee_burn_facts(data_dir, fee_pct_of_capital=fee_pct_of_capital)
+    if not facts or not facts["high"]:
         return None
 
+    fees = float(facts["fees"])
+    initial = float(facts["initial"])
+    ratio = float(facts["ratio"])
     return (
         f"High fee burn: €{fees:,.2f} fees on €{initial:,.2f} capital "
         f"({ratio*100:.1f}%). Consider resetting paper book or raising min-hold-time."

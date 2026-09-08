@@ -790,6 +790,51 @@ a:active {
   margin: 0.35rem 0 0;
 }
 
+.fee-burn-glance {
+  margin: 0 0 2.25rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.fee-burn-glance-line {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.fee-burn-glance-tone {
+  font-family: var(--font-data);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fee-burn-glance-tone.warn {
+  color: var(--down);
+}
+
+.fee-burn-glance-tone.quiet {
+  color: var(--muted);
+}
+
+.fee-burn-glance-tone.flat {
+  color: var(--muted);
+}
+
+.fee-burn-glance-body {
+  font-family: var(--font-data);
+  color: var(--ink);
+}
+
+.fee-burn-glance-link {
+  font-size: 0.85rem;
+}
+
+.fee-burn-glance .sub {
+  margin: 0.35rem 0 0;
+}
+
 .soft-allows {
   margin: 0 0 1.75rem;
 }

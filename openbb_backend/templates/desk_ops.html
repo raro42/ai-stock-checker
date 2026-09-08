@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, fee_burn_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -47,6 +47,14 @@
   "#calm-h",
   "Facts below →",
   "Promote compose-default unlock — calm ≠ edge; full streak facts below."
+) }}
+
+{{ fee_burn_glance(
+  snap,
+  "ops-fee-burn-h",
+  "#ops-fee-preset",
+  "Fee preset →",
+  "Fee drag vs start before you flip fee preset — high (≥2%) suggests reset or longer holds."
 ) }}
 
 {{ book_risk_glance(

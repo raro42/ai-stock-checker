@@ -400,6 +400,54 @@ def build_calm_streak_glance(
     }
 
 
+def build_fee_burn_glance(
+    fees: float | None,
+    initial: float | None,
+    *,
+    threshold: float = 0.02,
+) -> dict[str, Any]:
+    """Compact fee-drag line (portfolio AI / churn honesty; display only).
+
+    Overview strip shows raw fees; this line adds % of start capital so friends
+    see burn before the 2% pretrade WARN. Not an entry gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "fees": 0.0,
+        "initial": 0.0,
+        "ratio": 0.0,
+        "high": False,
+    }
+    try:
+        fee_v = float(fees) if fees is not None else 0.0
+        init_v = float(initial) if initial is not None else 0.0
+    except (TypeError, ValueError):
+        return empty
+    if fee_v <= 0 or init_v <= 0:
+        return empty
+    ratio = fee_v / init_v
+    thr = float(threshold) if threshold > 0 else 0.02
+    high = ratio >= thr
+    tone = "warn" if high else "quiet"
+    status = "high" if high else "quiet"
+    line = (
+        f"€{fee_v:,.2f} fees · {ratio * 100:.1f}% of €{init_v:,.0f} start · {status}"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "fees": fee_v,
+        "initial": init_v,
+        "ratio": ratio,
+        "high": high,
+    }
+
+
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
@@ -1398,6 +1446,7 @@ def load_desk_snapshot(
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
+        "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "realized": realized,
         "trade_count": len(trades),
         "buy_count": len(buys),
