@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance %}
+{% from "macros.html" import breadth_glance, soft_allow_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -13,6 +13,8 @@
     {% if archive_file %} · file {{ archive_file }}{% endif %}
   </p>
 </header>
+
+{{ soft_allow_glance(snap) }}
 
 {{ breadth_glance(
   snap,

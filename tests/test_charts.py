@@ -58,8 +58,25 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert payload["breadth_glance"]["ready"] is False
     assert "scan_freshness" in payload
     assert payload["scan_freshness"]["ready"] is False
+    assert "soft_allow_glance" in payload
+    assert payload["soft_allow_glance"]["ready"] is False
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])
     assert any(a["symbol"] == "AAPL" for a in payload["allocation"])
+
+
+def test_chart_payload_soft_allow_glance(tmp_path: Path, monkeypatch):
+    from stock_checker.gate_audit import record_soft_allow
+
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    record_soft_allow(tmp_path, "rs", "insufficient history")
+    payload = load_chart_payload(tmp_path)
+    glance = payload["soft_allow_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "warn"
+    assert "[rs]" in glance["line"]
+    assert "insufficient history" in glance["line"]
 
 
 def test_chart_payload_scan_freshness_from_archive(tmp_path: Path, monkeypatch):

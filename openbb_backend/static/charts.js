@@ -1265,9 +1265,55 @@
     root.appendChild(wrap);
   }
 
+  function renderSoftAllowGlance(payload) {
+    var glance = payload && payload.soft_allow_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "soft-allow-glance";
+    wrap.setAttribute("aria-labelledby", "charts-soft-allow-h");
+    var h = document.createElement("h2");
+    h.id = "charts-soft-allow-h";
+    h.className = "visually-hidden";
+    h.textContent = "Fail-open soft-allows";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "soft-allow-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "soft-allow-glance-tone " + (glance.tone || "warn");
+    tone.textContent = "Soft-allow";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "soft-allow-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "soft-allow-glance-link";
+    link.href = "/desk/ops#soft-h";
+    link.textContent = "Ops memory →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Gate passed with missing data — not a hard block. Full list on Ops.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderChartsPage(payload) {
     root.innerHTML = "";
     renderScanFreshness(payload);
+    renderSoftAllowGlance(payload);
     renderBreadthGlance(payload);
     drawEquity(
       section(

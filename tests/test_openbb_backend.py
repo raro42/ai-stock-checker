@@ -391,6 +391,20 @@ def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     assert ideas.status_code == 200
     assert "soft-allow-glance" in ideas.text
     assert "no SPY bars" in ideas.text
+    breadth = client.get("/desk/breadth")
+    assert breadth.status_code == 200
+    assert "soft-allow-glance" in breadth.text
+    assert "Ops memory" in breadth.text
+    day = "2026-09-08"
+    arch = tmp_path / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / f"opportunities_{day.replace('-', '')}_120000.txt").write_text(
+        "TOP NAMES\nBTC-USD\n", encoding="utf-8"
+    )
+    log_page = client.get(f"/desk/scan-log/{day}")
+    assert log_page.status_code == 200
+    assert "soft-allow-glance" in log_page.text
+    assert "no SPY bars" in log_page.text
 
 
 def test_desk_html_screens(tmp_path: Path, monkeypatch):
