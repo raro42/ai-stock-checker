@@ -605,6 +605,56 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     }
 
 
+def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
+    """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
+
+    Shows Ops ai_mode / model / ai_multi_role so friends see whether rules-only,
+    validate, or full LLM path is live. Not a new gate — config mirror only.
+    """
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "ai_mode": "",
+        "ai_model": "",
+        "ai_multi_role": False,
+    }
+    if not isinstance(runtime, dict):
+        return empty
+
+    mode = str(runtime.get("ai_mode") or "off").strip().lower() or "off"
+    model = str(runtime.get("ai_model") or "gemma4:latest").strip() or "gemma4:latest"
+    model_short = model.split("/")[-1]
+    if len(model_short) > 28:
+        model_short = model_short[:27] + "…"
+    multi = bool(runtime.get("ai_multi_role", True))
+    multi_txt = "multi-role on" if multi else "multi-role off"
+
+    if mode == "off":
+        tone = "off"
+        line = f"off · rules only · {multi_txt}"
+    elif mode == "validate":
+        tone = "validate"
+        line = f"validate · {model_short} · {multi_txt}"
+    elif mode == "full":
+        tone = "full"
+        line = f"full · {model_short} · {multi_txt}"
+    else:
+        tone = "flat"
+        line = f"{mode} · {model_short} · {multi_txt}"
+
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "ai_mode": mode,
+        "ai_model": model,
+        "ai_multi_role": multi,
+    }
+
+
 _FEE_PRESET_SHORT: dict[str, str] = {
     "revolut_standard": "Revolut Std 0.25%·€1",
     "revolut_plus": "Revolut Plus 0.25%·€1",
@@ -2219,6 +2269,7 @@ def load_desk_snapshot(
         "crypto_policy_glance": build_crypto_policy_glance(rows),
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),
+        "ai_mode_glance": build_ai_mode_glance(runtime),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

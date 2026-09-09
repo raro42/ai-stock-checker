@@ -273,6 +273,31 @@
 {%- endmacro %}
 
 
+{# AI mode + multi-role honesty (display only). FinRobot / TradingAgents. #}
+{% macro ai_mode_glance(
+  snap,
+  heading_id='ai-mode-glance-h',
+  link_href='/desk/ops#ops-ai-mode',
+  link_label='Ops AI →',
+  sub='AI path: off / validate / full + multi-role debate. Rules and gates still first. Display only.'
+) -%}
+{% set glance = snap.ai_mode_glance if snap.ai_mode_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="ai-mode-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">AI mode</h2>
+  <p class="ai-mode-glance-line">
+    <span class="ai-mode-glance-tone {{ glance.tone }}">AI</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="ai-mode-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="ai-mode-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,
