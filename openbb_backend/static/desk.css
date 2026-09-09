@@ -842,7 +842,8 @@ a:active {
 .crypto-policy-glance,
 .exit-policy-glance,
 .book-limits-glance,
-.rebuy-cooldown-glance {
+.rebuy-cooldown-glance,
+.daily-loss-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
   border-bottom: 1px solid var(--line);
@@ -851,7 +852,8 @@ a:active {
 .crypto-policy-glance-line,
 .exit-policy-glance-line,
 .book-limits-glance-line,
-.rebuy-cooldown-glance-line {
+.rebuy-cooldown-glance-line,
+.daily-loss-glance-line {
   margin: 0;
   font-size: 0.92rem;
   color: var(--ink);
@@ -861,7 +863,8 @@ a:active {
 .crypto-policy-glance-tone,
 .exit-policy-glance-tone,
 .book-limits-glance-tone,
-.rebuy-cooldown-glance-tone {
+.rebuy-cooldown-glance-tone,
+.daily-loss-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -880,13 +883,18 @@ a:active {
 .book-limits-glance-tone.flat,
 .rebuy-cooldown-glance-tone.clear,
 .rebuy-cooldown-glance-tone.off,
-.rebuy-cooldown-glance-tone.flat {
+.rebuy-cooldown-glance-tone.flat,
+.daily-loss-glance-tone.clear,
+.daily-loss-glance-tone.off,
+.daily-loss-glance-tone.flat {
   color: var(--muted);
 }
 
 .crypto-policy-glance-tone.warn,
 .book-limits-glance-tone.warn,
-.rebuy-cooldown-glance-tone.warn {
+.rebuy-cooldown-glance-tone.warn,
+.daily-loss-glance-tone.warn,
+.daily-loss-glance-tone.halt {
   color: var(--down);
 }
 
@@ -901,7 +909,8 @@ a:active {
 .crypto-policy-glance-body,
 .exit-policy-glance-body,
 .book-limits-glance-body,
-.rebuy-cooldown-glance-body {
+.rebuy-cooldown-glance-body,
+.daily-loss-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
 }
@@ -909,14 +918,16 @@ a:active {
 .crypto-policy-glance-link,
 .exit-policy-glance-link,
 .book-limits-glance-link,
-.rebuy-cooldown-glance-link {
+.rebuy-cooldown-glance-link,
+.daily-loss-glance-link {
   font-size: 0.85rem;
 }
 
 .crypto-policy-glance .sub,
 .exit-policy-glance .sub,
 .book-limits-glance .sub,
-.rebuy-cooldown-glance .sub {
+.rebuy-cooldown-glance .sub,
+.daily-loss-glance .sub {
   margin: 0.35rem 0 0;
 }
 

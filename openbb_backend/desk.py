@@ -717,6 +717,82 @@ def build_crypto_policy_glance(
     }
 
 
+def build_daily_loss_glance(
+    realized_pnl: float | None,
+    initial: float | None,
+    *,
+    threshold_pct: float | None = None,
+) -> dict[str, Any]:
+    """Compact UTC-day loss halt progress (tradermonty / portfolio AI; display only).
+
+    Soft halt blocks new buys after ≥threshold% realized loss vs start capital.
+    Pretrade FAIL when tripped; this line shows headroom before that. Not a new gate.
+    """
+    from stock_checker.risk_halts import DEFAULT_DAILY_LOSS_PCT
+
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "pnl": 0.0,
+        "initial": 0.0,
+        "threshold_pct": 0.0,
+        "halted": False,
+        "ratio": 0.0,
+    }
+    try:
+        pnl_v = float(realized_pnl) if realized_pnl is not None else 0.0
+        init_v = float(initial) if initial is not None else 0.0
+    except (TypeError, ValueError):
+        return empty
+    if init_v <= 0:
+        return empty
+    try:
+        thr = abs(float(threshold_pct if threshold_pct is not None else DEFAULT_DAILY_LOSS_PCT))
+    except (TypeError, ValueError):
+        thr = float(DEFAULT_DAILY_LOSS_PCT)
+    if thr <= 0:
+        return {
+            "ready": True,
+            "tone": "off",
+            "line": "daily loss halt off",
+            "pnl": pnl_v,
+            "initial": init_v,
+            "threshold_pct": 0.0,
+            "halted": False,
+            "ratio": 0.0,
+        }
+    limit = -init_v * (thr / 100.0)
+    ratio = pnl_v / init_v
+    halted = pnl_v <= limit
+    if halted:
+        tone = "halt"
+        line = (
+            f"HALT · UTC day €{pnl_v:,.2f} · ≤ −{thr:g}% of start — buys blocked"
+        )
+    elif pnl_v < 0:
+        tone = "warn"
+        line = (
+            f"UTC day €{pnl_v:,.2f} · {abs(ratio) * 100:.1f}% of start · "
+            f"halt at −{thr:g}%"
+        )
+    else:
+        tone = "clear"
+        line = f"UTC day €{pnl_v:,.2f} · halt at −{thr:g}% of start · clear"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "pnl": pnl_v,
+        "initial": init_v,
+        "threshold_pct": thr,
+        "halted": halted,
+        "ratio": ratio,
+    }
+
+
 def build_fee_burn_glance(
     fees: float | None,
     initial: float | None,
@@ -1865,6 +1941,7 @@ def load_desk_snapshot(
     from stock_checker.risk_halts import (
         book_risk_report,
         pretrade_status,
+        realized_pnl_for_utc_day,
         suggest_entry_notional,
     )
 
@@ -1938,6 +2015,10 @@ def load_desk_snapshot(
             exit_times_raw,
             cooldown_seconds=max(0.0, float(runtime.get("min_hold_hours") or 24))
             * 3600.0,
+        ),
+        "daily_loss_glance": build_daily_loss_glance(
+            realized_pnl_for_utc_day(data_dir),
+            initial,
         ),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),

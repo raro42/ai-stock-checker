@@ -298,6 +298,31 @@
 {%- endmacro %}
 
 
+{# Soft daily-loss halt progress (display only). Pretrade FAIL when tripped. #}
+{% macro daily_loss_glance(
+  snap,
+  heading_id='daily-loss-glance-h',
+  link_href='/desk/ops',
+  link_label='Ops →',
+  sub='UTC-day realized loss vs −2% start capital — soft buy halt. Not a new gate.'
+) -%}
+{% set glance = snap.daily_loss_glance if snap.daily_loss_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="daily-loss-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Daily loss halt</h2>
+  <p class="daily-loss-glance-line">
+    <span class="daily-loss-glance-tone {{ glance.tone }}">Day loss</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="daily-loss-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="daily-loss-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,
