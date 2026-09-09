@@ -636,6 +636,28 @@ def build_session_glance(
     }
 
 
+def build_breakout_guard_glance() -> dict[str, Any]:
+    """Stock breakout entry honesty (portfolio AI / screener risk UX; display only).
+
+    Breakouts need AI BUY, reject LOW confidence, and a mild pullback band
+    (EXPE/NTRA lesson). Mirrors entry_guards — not a new gate.
+    """
+    from stock_checker.entry_guards import BREAKOUT_PCT_MAX, BREAKOUT_PCT_MIN
+
+    lo = float(BREAKOUT_PCT_MIN)
+    hi = float(BREAKOUT_PCT_MAX)
+    line = f"breakouts · AI BUY · LOW blocked · pullback {lo:g}%…{hi:g}%"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "breakout",
+        "line": line,
+        "pullback_min_pct": lo,
+        "pullback_max_pct": hi,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2302,6 +2324,7 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),
+        "breakout_guard_glance": build_breakout_guard_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

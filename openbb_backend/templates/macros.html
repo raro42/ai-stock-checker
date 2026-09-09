@@ -323,6 +323,31 @@
 {%- endmacro %}
 
 
+{# Stock breakout entry honesty (display only). EXPE/NTRA lesson. #}
+{% macro breakout_guard_glance(
+  snap,
+  heading_id='breakout-guard-glance-h',
+  link_href='/desk/screener#brk-h',
+  link_label='Breakouts →',
+  sub='Stock breakouts need AI BUY, reject LOW, and a mild pullback. Display only — not a new gate.'
+) -%}
+{% set glance = snap.breakout_guard_glance if snap.breakout_guard_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="breakout-guard-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Breakout entry guards</h2>
+  <p class="breakout-guard-glance-line">
+    <span class="breakout-guard-glance-tone {{ glance.tone }}">Breakout</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="breakout-guard-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="breakout-guard-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,
