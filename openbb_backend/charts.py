@@ -872,6 +872,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     # Local import keeps charts free of desk module load at import time.
     from openbb_backend.desk import (
         build_breadth_glance,
+        build_exit_policy_glance,
         build_pretrade_glance,
         build_scan_freshness,
         build_soft_allow_glance,
@@ -907,6 +908,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),
         "promote_ab_glance": _promote_ab_glance_from_data(data_dir),
         "crypto_policy_glance": _crypto_policy_glance_from_portfolio(portfolio),
+        "exit_policy_glance": build_exit_policy_glance(),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
