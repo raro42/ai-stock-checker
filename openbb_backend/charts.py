@@ -662,6 +662,25 @@ def _latest_scan_breadth_pulse(data_dir: Path) -> dict[str, Any] | None:
 def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) -> dict[str, Any]:
     """Slots/posture glance from cost marks (display only; Book has full strip)."""
     from openbb_backend.desk import build_book_risk_glance
+
+    return build_book_risk_glance(_book_risk_report_from_portfolio(data_dir, portfolio))
+
+
+def _concentration_glance_from_portfolio(
+    data_dir: Path, portfolio: dict[str, Any]
+) -> dict[str, Any]:
+    """Largest-name vs 30% entry cap from cost marks (display only)."""
+    from openbb_backend.desk import build_concentration_glance
+
+    return build_concentration_glance(
+        _book_risk_report_from_portfolio(data_dir, portfolio)
+    )
+
+
+def _book_risk_report_from_portfolio(
+    data_dir: Path, portfolio: dict[str, Any]
+) -> dict[str, Any]:
+    """Shared book_risk_report from cost marks (display only)."""
     from stock_checker.risk_halts import book_risk_report
     from stock_checker.trader_config import load_trader_config
 
@@ -680,13 +699,11 @@ def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) 
     equity = cash + cost
     cfg = load_trader_config(data_dir)
     max_pos = int(cfg.get("max_positions") or 5)
-    return build_book_risk_glance(
-        book_risk_report(
-            cash=cash,
-            equity=equity,
-            holdings=rows,
-            max_positions=max_pos,
-        )
+    return book_risk_report(
+        cash=cash,
+        equity=equity,
+        holdings=rows,
+        max_positions=max_pos,
     )
 
 
@@ -965,6 +982,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
+        "concentration_glance": _concentration_glance_from_portfolio(data_dir, portfolio),
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -95,6 +95,14 @@
   "/desk#pretrade-h",
   "Pre-trade →",
   "UTC-day realized vs −2% halt beside the day archive — headroom before FAIL. Soft buy block only."
+) }}
+
+{{ concentration_glance(
+  snap,
+  "scan-log-conc-h",
+  "/desk/book",
+  "Book →",
+  "Largest name vs 30% entry cap beside the day archive — headroom before size blocks."
 ) }}
 
 {{ post_sl_cooldown_glance(

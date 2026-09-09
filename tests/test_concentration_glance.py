@@ -83,3 +83,17 @@ def test_concentration_glance_in_snapshot(tmp_path) -> None:
     g = snap["concentration_glance"]
     assert g["ready"] is True
     assert "cap" in g["line"].lower() or "30%" in g["line"]
+
+
+def test_concentration_glance_in_chart_payload(tmp_path) -> None:
+    from openbb_backend.charts import load_chart_payload
+
+    (tmp_path / "portfolio.json").write_text(
+        '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '
+        '"total_fees_paid": 0}',
+        encoding="utf-8",
+    )
+    (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
+    g = load_chart_payload(tmp_path)["concentration_glance"]
+    assert g["ready"] is True
+    assert "cap" in g["line"].lower() or "30%" in g["line"]
