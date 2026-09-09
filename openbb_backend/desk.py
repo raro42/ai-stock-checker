@@ -504,6 +504,97 @@ _FEE_PRESET_SHORT: dict[str, str] = {
 }
 
 
+def _fmt_cooldown_left(seconds: float) -> str:
+    """Short remaining-time label for rebuy cooldown glance."""
+    s = max(0.0, float(seconds))
+    if s >= 3600.0:
+        h = s / 3600.0
+        if h >= 10:
+            return f"~{h:.0f}h"
+        txt = f"{h:.1f}".rstrip("0").rstrip(".")
+        return f"~{txt}h"
+    if s >= 60.0:
+        return f"~{int(s // 60)}m"
+    return f"~{int(s)}s"
+
+
+def build_rebuy_cooldown_glance(
+    exit_times: dict[str, Any] | None,
+    *,
+    cooldown_seconds: float,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Compact anti flip-flop rebuy cooldown (tradermonty / SCHW; display only).
+
+    After an exit, the same symbol stays blocked for min-hold seconds.
+    Desk shows how many names are still cooling — not a new entry gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "cooling": 0,
+        "cooldown_hours": 0.0,
+        "symbols": [],
+    }
+    try:
+        cd = float(cooldown_seconds)
+    except (TypeError, ValueError):
+        return empty
+    if cd <= 0:
+        return {
+            "ready": True,
+            "tone": "off",
+            "line": "rebuy cooldown off",
+            "cooling": 0,
+            "cooldown_hours": 0.0,
+            "symbols": [],
+        }
+    ts_now = float(now if now is not None else time.time())
+    cooling: list[tuple[str, float]] = []
+    if isinstance(exit_times, dict):
+        for raw_sym, raw_ts in exit_times.items():
+            sym = str(raw_sym or "").strip().upper()
+            if not sym:
+                continue
+            try:
+                exit_ts = float(raw_ts)
+            except (TypeError, ValueError):
+                continue
+            left = cd - (ts_now - exit_ts)
+            if left > 0:
+                cooling.append((sym, left))
+    cooling.sort(key=lambda row: row[1])  # soonest clear first
+    n = len(cooling)
+    hold_h = cd / 3600.0
+    hold_txt = f"{hold_h:g}h" if hold_h != int(hold_h) else f"{int(hold_h)}h"
+    shown = [f"{sym} {_fmt_cooldown_left(left)}" for sym, left in cooling[:3]]
+    if n == 0:
+        tone = "clear"
+        status = "clear"
+    elif n >= 3:
+        tone = "warn"
+        status = f"{n} cooling"
+    else:
+        tone = "cooling"
+        status = f"{n} cooling"
+    line = f"{status} · ≥{hold_txt} rebuy lock"
+    if shown:
+        line = f"{status} · {', '.join(shown)} · ≥{hold_txt} lock"
+    if n >= 3:
+        line = f"{line} · flip-flop pressure"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "cooling": n,
+        "cooldown_hours": hold_h,
+        "symbols": [sym for sym, _ in cooling[:5]],
+    }
+
+
 def build_book_limits_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -1258,6 +1349,9 @@ def load_desk_snapshot(
     trades = _load_jsonl(data_dir / "trades.jsonl")
     age = book_start_meta(portfolio if isinstance(portfolio, dict) else {}, trades)
     entry_times = _load_json(data_dir / "entry_times.json", {})
+    exit_times_raw = _load_json(data_dir / "exit_times.json", {})
+    if not isinstance(exit_times_raw, dict):
+        exit_times_raw = {}
     scan_history = _load_json(data_dir / "stock_scan_history.json", {})
     scanned = _load_json(data_dir / "scanned_symbols.json", {})
     watchdog_path = data_dir / "watchdog" / "status.txt"
@@ -1840,6 +1934,11 @@ def load_desk_snapshot(
         "crypto_policy_glance": build_crypto_policy_glance(rows),
         "exit_policy_glance": build_exit_policy_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
+        "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
+            exit_times_raw,
+            cooldown_seconds=max(0.0, float(runtime.get("min_hold_hours") or 24))
+            * 3600.0,
+        ),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),

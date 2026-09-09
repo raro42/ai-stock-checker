@@ -273,6 +273,31 @@
 {%- endmacro %}
 
 
+{# Anti flip-flop rebuy cooldown honesty (display only). #}
+{% macro rebuy_cooldown_glance(
+  snap,
+  heading_id='rebuy-cooldown-glance-h',
+  link_href='/desk/ops#ops-min-hold',
+  link_label='Ops hold →',
+  sub='Same-symbol rebuy lock after exit (min hold) — SCHW flip-flop lesson. Not a gate.'
+) -%}
+{% set glance = snap.rebuy_cooldown_glance if snap.rebuy_cooldown_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="rebuy-cooldown-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Rebuy cooldown</h2>
+  <p class="rebuy-cooldown-glance-line">
+    <span class="rebuy-cooldown-glance-tone {{ glance.tone }}">Rebuy</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="rebuy-cooldown-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="rebuy-cooldown-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,

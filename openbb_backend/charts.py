@@ -806,6 +806,22 @@ def _book_limits_glance_from_config(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _rebuy_cooldown_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """Anti flip-flop rebuy cooldown from exit_times.json (display only)."""
+    from openbb_backend.desk import build_rebuy_cooldown_glance
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(data_dir)
+    exit_times = _load_json(data_dir / "exit_times.json", {})
+    if not isinstance(exit_times, dict):
+        exit_times = {}
+    hold_h = float(cfg.get("min_hold_hours") or 24)
+    return build_rebuy_cooldown_glance(
+        exit_times,
+        cooldown_seconds=max(0.0, hold_h) * 3600.0,
+    )
+
+
 def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]:
     """Fee-drag % of start from portfolio.json (display only)."""
     from openbb_backend.desk import build_fee_burn_glance
@@ -925,6 +941,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "crypto_policy_glance": _crypto_policy_glance_from_portfolio(portfolio),
         "exit_policy_glance": build_exit_policy_glance(),
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
+        "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
