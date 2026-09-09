@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, fill_row, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import ticker, fill_row, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -79,6 +79,14 @@
   "/desk/ops#ops-promote",
   "Ops promote →",
   "Fee-adjusted A/B window beside holdings — do not flip promote mid-window. Not edge."
+) }}
+
+{{ crypto_policy_glance(
+  snap,
+  "book-crypto-h",
+  "/desk/screener#crypto-h",
+  "Screener crypto →",
+  "Live crypto slot beside holdings — BTC/ETH only · one slot · ±10% exits. Not a gate."
 ) }}
 
 {{ fee_burn_glance(

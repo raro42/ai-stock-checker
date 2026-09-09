@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -55,6 +55,14 @@
   "/desk/ops#ops-promote",
   "Ops promote →",
   "Fee-adjusted A/B window beside the day archive — do not flip promote mid-window."
+) }}
+
+{{ crypto_policy_glance(
+  snap,
+  "scan-log-crypto-h",
+  "/desk/screener#crypto-h",
+  "Screener crypto →",
+  "Live crypto slot beside the day archive — BTC/ETH only · one slot · ±10% exits. Not a gate."
 ) }}
 
 {{ fee_burn_glance(

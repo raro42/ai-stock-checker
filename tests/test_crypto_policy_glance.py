@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from openbb_backend.charts import _crypto_policy_glance_from_portfolio
 from openbb_backend.desk import build_crypto_policy_glance
 
 
@@ -48,3 +49,14 @@ def test_crypto_policy_glance_empty_book() -> None:
     assert g["ready"] is True
     assert g["tone"] == "open"
     assert "slot open 0/1" in g["line"]
+
+
+def test_crypto_policy_glance_from_portfolio_dict() -> None:
+    g = _crypto_policy_glance_from_portfolio(
+        {"holdings": {"AAPL": 1.0, "ETH-USD": 0.5}}
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "full"
+    assert g["count"] == 1
+    assert "ETH-USD" in g["line"]
+

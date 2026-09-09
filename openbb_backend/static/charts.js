@@ -1559,6 +1559,52 @@
     root.appendChild(wrap);
   }
 
+
+  function renderCryptoPolicyGlance(payload) {
+    var glance = payload && payload.crypto_policy_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "crypto-policy-glance";
+    wrap.setAttribute("aria-labelledby", "charts-crypto-h");
+    var h = document.createElement("h2");
+    h.id = "charts-crypto-h";
+    h.className = "visually-hidden";
+    h.textContent = "Crypto policy";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "crypto-policy-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "crypto-policy-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Crypto";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "crypto-policy-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "crypto-policy-glance-link";
+    link.href = "/desk/screener#crypto-h";
+    link.textContent = "Screener crypto →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Live crypto beside charts — BTC/ETH only · one slot · ±10% exits. Leaders ≠ auto-buy.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeBurnGlance(payload) {
     var glance = payload && payload.fee_burn_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1749,6 +1795,7 @@
     renderEntryGatesGlance(payload);
     renderCalmStreakGlance(payload);
     renderPromoteAbGlance(payload);
+    renderCryptoPolicyGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);
