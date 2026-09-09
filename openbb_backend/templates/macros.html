@@ -298,6 +298,31 @@
 {%- endmacro %}
 
 
+{# UTC session / weekend honesty (display only). xang1234 screener session UX. #}
+{% macro session_glance(
+  snap,
+  heading_id='session-glance-h',
+  link_href='/desk/screener',
+  link_label='Screener →',
+  sub='Weekday: stocks + crypto. Weekend: crypto-only (US equities paused). Display only.'
+) -%}
+{% set glance = snap.session_glance if snap.session_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="session-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Session mode</h2>
+  <p class="session-glance-line">
+    <span class="session-glance-tone {{ glance.tone }}">Session</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="session-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="session-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,

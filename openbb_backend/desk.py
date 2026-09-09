@@ -605,6 +605,37 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     }
 
 
+def build_session_glance(
+    *,
+    weekend: bool | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """UTC session mode honesty (xang1234 screener session UX; display only).
+
+    Weekday: stocks + crypto. Weekend: crypto-only (US equities paused).
+    Not a new gate — mirrors existing weekend trading rule.
+    """
+    if weekend is None:
+        ts = now if now is not None else datetime.now(timezone.utc)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        weekend = ts.astimezone(timezone.utc).weekday() >= 5
+    if weekend:
+        line = "weekend · crypto-only · stocks paused"
+        tone = "weekend"
+    else:
+        line = "weekday · stocks + crypto"
+        tone = "weekday"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "weekend_mode": bool(weekend),
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2270,6 +2301,7 @@ def load_desk_snapshot(
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
+        "session_glance": build_session_glance(weekend=weekend),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

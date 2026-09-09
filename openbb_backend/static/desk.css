@@ -843,6 +843,7 @@ a:active {
 .exit-policy-glance,
 .earnings-blackout-glance,
 .ai-mode-glance,
+.session-glance,
 .book-limits-glance,
 .rebuy-cooldown-glance,
 .daily-loss-glance,
@@ -857,6 +858,7 @@ a:active {
 .exit-policy-glance-line,
 .earnings-blackout-glance-line,
 .ai-mode-glance-line,
+.session-glance-line,
 .book-limits-glance-line,
 .rebuy-cooldown-glance-line,
 .daily-loss-glance-line,
@@ -872,6 +874,7 @@ a:active {
 .exit-policy-glance-tone,
 .earnings-blackout-glance-tone,
 .ai-mode-glance-tone,
+.session-glance-tone,
 .book-limits-glance-tone,
 .rebuy-cooldown-glance-tone,
 .daily-loss-glance-tone,
@@ -896,6 +899,8 @@ a:active {
 .ai-mode-glance-tone.off,
 .ai-mode-glance-tone.validate,
 .ai-mode-glance-tone.flat,
+.session-glance-tone.weekday,
+.session-glance-tone.flat,
 .book-limits-glance-tone.book,
 .book-limits-glance-tone.flat,
 .rebuy-cooldown-glance-tone.clear,
@@ -924,6 +929,7 @@ a:active {
   color: var(--down);
 }
 
+.session-glance-tone.weekend,
 .rebuy-cooldown-glance-tone.cooling {
   color: var(--brass, var(--muted));
 }
@@ -936,6 +942,7 @@ a:active {
 .exit-policy-glance-body,
 .earnings-blackout-glance-body,
 .ai-mode-glance-body,
+.session-glance-body,
 .book-limits-glance-body,
 .rebuy-cooldown-glance-body,
 .daily-loss-glance-body,
@@ -953,6 +960,7 @@ a:active {
 .exit-policy-glance-link,
 .earnings-blackout-glance-link,
 .ai-mode-glance-link,
+.session-glance-link,
 .book-limits-glance-link,
 .rebuy-cooldown-glance-link,
 .daily-loss-glance-link,
@@ -965,6 +973,7 @@ a:active {
 .exit-policy-glance .sub,
 .earnings-blackout-glance .sub,
 .ai-mode-glance .sub,
+.session-glance .sub,
 .book-limits-glance .sub,
 .rebuy-cooldown-glance .sub,
 .daily-loss-glance .sub,
