@@ -823,6 +823,21 @@ def _book_limits_glance_from_config(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _ai_mode_glance_from_config(data_dir: Path) -> dict[str, Any]:
+    """AI mode · model · multi-role from Ops file (display only)."""
+    from openbb_backend.desk import build_ai_mode_glance
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(data_dir)
+    return build_ai_mode_glance(
+        {
+            "ai_mode": cfg.get("ai_mode"),
+            "ai_model": cfg.get("ai_model"),
+            "ai_multi_role": cfg.get("ai_multi_role", True),
+        }
+    )
+
+
 def _rebuy_cooldown_glance_from_data(data_dir: Path) -> dict[str, Any]:
     """Anti flip-flop rebuy cooldown from exit_times.json (display only)."""
     from openbb_backend.desk import build_rebuy_cooldown_glance
@@ -981,6 +996,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "crypto_policy_glance": _crypto_policy_glance_from_portfolio(portfolio),
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),
+        "ai_mode_glance": _ai_mode_glance_from_config(data_dir),
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
