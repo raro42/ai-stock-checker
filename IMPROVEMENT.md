@@ -209,7 +209,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] staskh + portfolio AI concentration glance (2026-09-09 improve): Overview / Ops largest name vs 30% entry cap (`build_concentration_glance`) — headroom before soft size blocks; Book risk still has full strip; display only; not a new gate
 - [x] staskh + portfolio AI concentration parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] portfolio AI + FinRobot earnings-blackout glance (2026-09-09 improve): Overview / Ops stock entry calendar window (`build_earnings_blackout_glance` + `DEFAULT_DAYS_*`) — 2d before / 1d after; crypto exempt; policy honesty only; not a new gate
-- [ ] portfolio AI + FinRobot earnings-blackout parity: same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
+- [x] portfolio AI + FinRobot earnings-blackout parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
