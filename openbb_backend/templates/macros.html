@@ -223,6 +223,31 @@
 {%- endmacro %}
 
 
+{# Stock exit asymmetry honesty (display only). Crypto uses wider bands. #}
+{% macro exit_policy_glance(
+  snap,
+  heading_id='exit-policy-glance-h',
+  link_href='/desk/book',
+  link_label='Book →',
+  sub='Live stock exits: TP +8% / SL −5% / rotate ≥+5%. Not ATR. Crypto uses ±10% (crypto glance).'
+) -%}
+{% set glance = snap.exit_policy_glance if snap.exit_policy_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="exit-policy-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Stock exits</h2>
+  <p class="exit-policy-glance-line">
+    <span class="exit-policy-glance-tone {{ glance.tone }}">Exits</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="exit-policy-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="exit-policy-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,

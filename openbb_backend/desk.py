@@ -467,6 +467,34 @@ def build_promote_ab_glance(
     }
 
 
+def build_exit_policy_glance() -> dict[str, Any]:
+    """Compact stock exit asymmetry line (portfolio AI / exit_policy; display only).
+
+    Live stock exits are TP +8% / SL −5% / rotate ≥+5%. Crypto uses wider bands
+    (see crypto_policy glance). Not ATR stops; not a new entry gate.
+    """
+    from stock_checker.exit_policy import (
+        DEFAULT_ROTATE_MIN_PROFIT_PCT,
+        DEFAULT_STOP_LOSS_PCT,
+        DEFAULT_TAKE_PROFIT_PCT,
+    )
+
+    tp = float(DEFAULT_TAKE_PROFIT_PCT)
+    sl = float(DEFAULT_STOP_LOSS_PCT)
+    rot = float(DEFAULT_ROTATE_MIN_PROFIT_PCT)
+    line = f"stocks TP +{tp:g}% · SL −{sl:g}% · rotate ≥+{rot:g}%"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "stock",
+        "line": line,
+        "take_profit_pct": tp,
+        "stop_loss_pct": sl,
+        "rotate_min_pct": rot,
+    }
+
+
 def build_crypto_policy_glance(
     holdings: list[Any] | None,
     *,
@@ -1748,6 +1776,7 @@ def load_desk_snapshot(
         "calm_streak_glance": build_calm_streak_glance(runtime),
         "promote_ab_glance": build_promote_ab_glance(runtime),
         "crypto_policy_glance": build_crypto_policy_glance(rows),
+        "exit_policy_glance": build_exit_policy_glance(),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),

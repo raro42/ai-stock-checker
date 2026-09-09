@@ -196,6 +196,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Phase A + portfolio AI promote A/B parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] portfolio AI + crypto_policy glance (2026-09-09 improve): Overview / Ops live crypto honesty (`build_crypto_policy_glance`) — BTC/ETH · 1 slot · ±10% exits; Screener leaders ≠ auto-buy; display only
 - [x] portfolio AI + crypto_policy parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
+- [x] portfolio AI + exit_policy glance (2026-09-09 improve): Overview / Ops stock exit honesty (`build_exit_policy_glance`) — TP +8% / SL −5% / rotate ≥+5%; not ATR; pairs with crypto ±10% glance; display only
+- [ ] portfolio AI + exit_policy parity (later): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

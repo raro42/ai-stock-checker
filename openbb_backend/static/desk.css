@@ -839,20 +839,23 @@ a:active {
   margin: 0.35rem 0 0;
 }
 
-.crypto-policy-glance {
+.crypto-policy-glance,
+.exit-policy-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
   border-bottom: 1px solid var(--line);
 }
 
-.crypto-policy-glance-line {
+.crypto-policy-glance-line,
+.exit-policy-glance-line {
   margin: 0;
   font-size: 0.92rem;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-.crypto-policy-glance-tone {
+.crypto-policy-glance-tone,
+.exit-policy-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -863,7 +866,10 @@ a:active {
   color: var(--up);
 }
 
-.crypto-policy-glance-tone.full {
+.crypto-policy-glance-tone.full,
+.crypto-policy-glance-tone.flat,
+.exit-policy-glance-tone.stock,
+.exit-policy-glance-tone.flat {
   color: var(--muted);
 }
 
@@ -871,20 +877,19 @@ a:active {
   color: var(--down);
 }
 
-.crypto-policy-glance-tone.flat {
-  color: var(--muted);
-}
-
-.crypto-policy-glance-body {
+.crypto-policy-glance-body,
+.exit-policy-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
 }
 
-.crypto-policy-glance-link {
+.crypto-policy-glance-link,
+.exit-policy-glance-link {
   font-size: 0.85rem;
 }
 
-.crypto-policy-glance .sub {
+.crypto-policy-glance .sub,
+.exit-policy-glance .sub {
   margin: 0.35rem 0 0;
 }
 
