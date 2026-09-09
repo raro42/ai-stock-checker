@@ -1740,6 +1740,51 @@
     root.appendChild(wrap);
   }
 
+  function renderDailyLossGlance(payload) {
+    var glance = payload && payload.daily_loss_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "daily-loss-glance";
+    wrap.setAttribute("aria-labelledby", "charts-day-loss-h");
+    var h = document.createElement("h2");
+    h.id = "charts-day-loss-h";
+    h.className = "visually-hidden";
+    h.textContent = "Daily loss halt";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "daily-loss-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "daily-loss-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Day loss";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "daily-loss-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "daily-loss-glance-link";
+    link.href = "/desk#pretrade-h";
+    link.textContent = "Pre-trade →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "UTC-day realized vs −2% halt beside charts — headroom before FAIL. Soft buy block only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeBurnGlance(payload) {
     var glance = payload && payload.fee_burn_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1934,6 +1979,7 @@
     renderExitPolicyGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
+    renderDailyLossGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);

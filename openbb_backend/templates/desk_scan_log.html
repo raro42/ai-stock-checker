@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -87,6 +87,14 @@
   "/desk/ops#ops-min-hold",
   "Ops hold →",
   "Same-symbol rebuy lock beside the day archive — SCHW flip-flop honesty. Not a gate."
+) }}
+
+{{ daily_loss_glance(
+  snap,
+  "scan-log-day-loss-h",
+  "/desk#pretrade-h",
+  "Pre-trade →",
+  "UTC-day realized vs −2% halt beside the day archive — headroom before FAIL. Soft buy block only."
 ) }}
 
 {{ fee_burn_glance(

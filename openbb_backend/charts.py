@@ -822,6 +822,17 @@ def _rebuy_cooldown_glance_from_data(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _daily_loss_glance_from_data(
+    data_dir: Path, portfolio: dict[str, Any]
+) -> dict[str, Any]:
+    """UTC-day realized vs −2% soft halt from trades.jsonl (display only)."""
+    from openbb_backend.desk import build_daily_loss_glance
+    from stock_checker.risk_halts import realized_pnl_for_utc_day
+
+    initial = float(portfolio.get("initial_cash") or 0)
+    return build_daily_loss_glance(realized_pnl_for_utc_day(data_dir), initial)
+
+
 def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]:
     """Fee-drag % of start from portfolio.json (display only)."""
     from openbb_backend.desk import build_fee_burn_glance
@@ -942,6 +953,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "exit_policy_glance": build_exit_policy_glance(),
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
+        "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),

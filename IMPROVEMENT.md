@@ -203,7 +203,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] tradermonty + portfolio AI rebuy-cooldown glance (2026-09-09 improve): Overview / Ops same-symbol rebuy lock from `exit_times.json` (`build_rebuy_cooldown_glance`) — SCHW flip-flop honesty; display only; not a gate
 - [x] tradermonty + portfolio AI rebuy-cooldown parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] tradermonty + portfolio AI daily-loss glance (2026-09-09 improve): Overview / Ops UTC-day realized vs −2% soft halt (`build_daily_loss_glance`) — headroom before pretrade FAIL; display only; not a new gate
-- [ ] tradermonty + portfolio AI daily-loss parity: Screener / Ideas / Book / Charts / Breadth / scan-log
+- [x] tradermonty + portfolio AI daily-loss parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
