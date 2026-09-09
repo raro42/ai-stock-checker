@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import build_book_limits_glance
 
 
@@ -54,3 +55,11 @@ def test_book_limits_glance_optimistic_spot_fees() -> None:
     assert g["ready"] is True
     assert g["tone"] == "optimistic"
     assert "Spot-like" in g["line"]
+
+
+def test_book_limits_glance_in_chart_payload(tmp_path) -> None:
+    payload = load_chart_payload(tmp_path)
+    g = payload["book_limits_glance"]
+    assert g["ready"] is True
+    assert g["max_positions"] >= 1
+    assert "slots" in g["line"]

@@ -791,6 +791,21 @@ def _crypto_policy_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str,
     return build_crypto_policy_glance(rows)
 
 
+def _book_limits_glance_from_config(data_dir: Path) -> dict[str, Any]:
+    """Slots · min hold · fee preset from Ops file (display only)."""
+    from openbb_backend.desk import build_book_limits_glance
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(data_dir)
+    return build_book_limits_glance(
+        {
+            "max_positions": cfg.get("max_positions"),
+            "min_hold_hours": cfg.get("min_hold_hours"),
+            "fee_preset": cfg.get("fee_preset"),
+        }
+    )
+
+
 def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]:
     """Fee-drag % of start from portfolio.json (display only)."""
     from openbb_backend.desk import build_fee_burn_glance
@@ -909,6 +924,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "promote_ab_glance": _promote_ab_glance_from_data(data_dir),
         "crypto_policy_glance": _crypto_policy_glance_from_portfolio(portfolio),
         "exit_policy_glance": build_exit_policy_glance(),
+        "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
