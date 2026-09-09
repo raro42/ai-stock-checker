@@ -301,6 +301,88 @@ def build_book_risk_glance(
     }
 
 
+def build_concentration_glance(
+    book_risk: dict[str, Any] | None,
+    *,
+    max_name_pct: float | None = None,
+) -> dict[str, Any]:
+    """Largest name vs entry concentration cap (staskh / portfolio AI; display only).
+
+    Soft entry cap blocks a new fill whose notional exceeds max_name_pct of equity.
+    Book risk already lists the largest weight; this line shows headroom vs the
+    30% default so friends see single-name risk before adds. Not a new gate.
+    """
+    from stock_checker.risk_halts import DEFAULT_MAX_NAME_PCT
+
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "symbol": "",
+        "largest_pct": 0.0,
+        "cap_pct": 0.0,
+        "headroom_pp": 0.0,
+        "warn": False,
+    }
+    try:
+        cap = float(
+            max_name_pct if max_name_pct is not None else DEFAULT_MAX_NAME_PCT
+        )
+    except (TypeError, ValueError):
+        cap = float(DEFAULT_MAX_NAME_PCT)
+    if cap <= 0:
+        return {
+            "ready": True,
+            "tone": "off",
+            "line": "concentration cap off",
+            "symbol": "",
+            "largest_pct": 0.0,
+            "cap_pct": 0.0,
+            "headroom_pp": 0.0,
+            "warn": False,
+        }
+    if not isinstance(book_risk, dict):
+        return empty
+    sym = str(book_risk.get("largest_symbol") or "").strip().upper()
+    try:
+        pct = float(book_risk.get("largest_pct") or 0.0)
+    except (TypeError, ValueError):
+        pct = 0.0
+    cap_txt = f"{cap:g}"
+    if not sym:
+        return {
+            "ready": True,
+            "tone": "clear",
+            "line": f"no open names · entry cap {cap_txt}% equity",
+            "symbol": "",
+            "largest_pct": 0.0,
+            "cap_pct": cap,
+            "headroom_pp": cap,
+            "warn": False,
+        }
+    warn = bool(book_risk.get("concentration_warn")) or pct >= cap
+    headroom = max(0.0, cap - pct)
+    if warn:
+        line = f"WARN · {sym} {pct:.0f}% ≥ {cap_txt}% entry cap"
+        tone = "warn"
+    else:
+        hr = f"{headroom:.0f}"
+        line = f"{sym} {pct:.0f}% · cap {cap_txt}% · {hr}pp headroom"
+        tone = "clear"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "symbol": sym,
+        "largest_pct": round(pct, 1),
+        "cap_pct": cap,
+        "headroom_pp": round(headroom, 1),
+        "warn": warn,
+    }
+
+
 def build_entry_gates_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2100,6 +2182,7 @@ def load_desk_snapshot(
         "next_buy_glance": build_next_buy_glance(entry_size),
         "book_risk": book_risk,
         "book_risk_glance": build_book_risk_glance(book_risk),
+        "concentration_glance": build_concentration_glance(book_risk),
         "soft_allows": soft_allows,
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
