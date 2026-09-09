@@ -467,6 +467,75 @@ def build_promote_ab_glance(
     }
 
 
+def build_crypto_policy_glance(
+    holdings: list[Any] | None,
+    *,
+    max_crypto: int | None = None,
+) -> dict[str, Any]:
+    """Compact live crypto policy line (portfolio AI / crypto_policy; display only).
+
+    Screener may list crypto leaders for research. Live buys stay BTC/ETH only,
+    max one crypto slot, wider ±10% exits. Not a new entry gate.
+    """
+    from stock_checker.crypto_policy import (
+        CRYPTO_STOP_LOSS_PCT,
+        CRYPTO_TAKE_PROFIT_PCT,
+        DEFAULT_MAX_CRYPTO_POSITIONS,
+        count_crypto_holdings,
+        is_crypto_symbol,
+    )
+
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "count": 0,
+        "cap": 0,
+        "slot_open": False,
+        "symbols": [],
+    }
+    if holdings is None or not isinstance(holdings, list):
+        return empty
+    symbols: list[str] = []
+    for row in holdings:
+        if isinstance(row, dict):
+            sym = str(row.get("symbol") or "").strip()
+        else:
+            sym = str(row or "").strip()
+        if sym:
+            symbols.append(sym)
+    cap = max(0, int(max_crypto if max_crypto is not None else DEFAULT_MAX_CRYPTO_POSITIONS))
+    n = count_crypto_holdings(symbols)
+    held = [s for s in symbols if is_crypto_symbol(s)][:3]
+    slot_open = n < cap
+    tp = float(CRYPTO_TAKE_PROFIT_PCT)
+    sl = float(CRYPTO_STOP_LOSS_PCT)
+    if n > cap:
+        tone = "warn"
+        status = f"over cap {n}/{cap}"
+    elif slot_open:
+        tone = "open"
+        status = f"slot open {n}/{cap}"
+    else:
+        tone = "full"
+        status = f"slot full {n}/{cap}"
+    exits = f"exits ±{tp:g}%" if tp == sl else f"exits +{tp:g}%/−{sl:g}%"
+    line = f"{status} · BTC/ETH only · {exits}"
+    if held:
+        line = f"{line} · {', '.join(held)}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "count": n,
+        "cap": cap,
+        "slot_open": slot_open,
+        "symbols": held,
+    }
+
+
 def build_fee_burn_glance(
     fees: float | None,
     initial: float | None,
@@ -1678,6 +1747,7 @@ def load_desk_snapshot(
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
         "promote_ab_glance": build_promote_ab_glance(runtime),
+        "crypto_policy_glance": build_crypto_policy_glance(rows),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),

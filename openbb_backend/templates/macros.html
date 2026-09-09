@@ -198,6 +198,31 @@
 {%- endmacro %}
 
 
+{# Live crypto policy honesty (display only). Screener may still list leaders. #}
+{% macro crypto_policy_glance(
+  snap,
+  heading_id='crypto-policy-glance-h',
+  link_href='/desk/screener#crypto-h',
+  link_label='Screener crypto →',
+  sub='Live buys: BTC/ETH only, one crypto slot, ±10% exits. Leaders on Screener are research, not auto-buy.'
+) -%}
+{% set glance = snap.crypto_policy_glance if snap.crypto_policy_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="crypto-policy-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Crypto policy</h2>
+  <p class="crypto-policy-glance-line">
+    <span class="crypto-policy-glance-tone {{ glance.tone }}">Crypto</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="crypto-policy-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="crypto-policy-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,
