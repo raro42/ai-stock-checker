@@ -495,6 +495,68 @@ def build_exit_policy_glance() -> dict[str, Any]:
     }
 
 
+_FEE_PRESET_SHORT: dict[str, str] = {
+    "revolut_standard": "Revolut Std 0.25%·€1",
+    "revolut_plus": "Revolut Plus 0.25%·€1",
+    "revolut_ultra": "Revolut Ultra 0.12%·€1",
+    "binance_like": "Spot-like 0.1%",
+    "custom": "Custom fees",
+}
+
+
+def build_book_limits_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Compact book caps + fee schedule (portfolio AI / Ops; display only).
+
+    Anti-churn packaging: max slots, min hold, Revolut-like fees. Not edge.
+    Not a new entry gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "max_positions": 0,
+        "min_hold_hours": 0.0,
+        "fee_preset": "",
+    }
+    if not isinstance(runtime, dict):
+        return empty
+    try:
+        slots = int(runtime.get("max_positions") or 0)
+    except (TypeError, ValueError):
+        slots = 0
+    try:
+        hold_h = float(runtime.get("min_hold_hours") or 0)
+    except (TypeError, ValueError):
+        hold_h = 0.0
+    preset = str(runtime.get("fee_preset") or "").strip().lower()
+    if slots < 1 or hold_h <= 0:
+        return empty
+    fee_label = _FEE_PRESET_SHORT.get(preset) or (
+        f"{preset or 'fees'}" if preset else "fees unset"
+    )
+    hold_txt = f"{hold_h:g}h" if hold_h != int(hold_h) else f"{int(hold_h)}h"
+    # Product floor is ≥4h; warn when Ops dips below anti-churn packaging.
+    if hold_h < 4.0:
+        tone = "warn"
+    elif preset == "binance_like":
+        tone = "optimistic"
+    else:
+        tone = "book"
+    line = f"{slots} slots · ≥{hold_txt} hold · {fee_label}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "max_positions": slots,
+        "min_hold_hours": hold_h,
+        "fee_preset": preset or "revolut_standard",
+    }
+
+
 def build_crypto_policy_glance(
     holdings: list[Any] | None,
     *,
@@ -1777,6 +1839,7 @@ def load_desk_snapshot(
         "promote_ab_glance": build_promote_ab_glance(runtime),
         "crypto_policy_glance": build_crypto_policy_glance(rows),
         "exit_policy_glance": build_exit_policy_glance(),
+        "book_limits_glance": build_book_limits_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),

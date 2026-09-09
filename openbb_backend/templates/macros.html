@@ -248,6 +248,31 @@
 {%- endmacro %}
 
 
+{# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
+{% macro book_limits_glance(
+  snap,
+  heading_id='book-limits-glance-h',
+  link_href='/desk/ops#ops-max-pos',
+  link_label='Ops book →',
+  sub='Max slots · min hold · fee preset — anti-churn packaging, not edge. Not a gate.'
+) -%}
+{% set glance = snap.book_limits_glance if snap.book_limits_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="book-limits-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Book limits</h2>
+  <p class="book-limits-glance-line">
+    <span class="book-limits-glance-tone {{ glance.tone }}">Book</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="book-limits-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="book-limits-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,
