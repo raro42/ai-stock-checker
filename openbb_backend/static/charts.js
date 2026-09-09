@@ -1695,6 +1695,51 @@
     root.appendChild(wrap);
   }
 
+  function renderRebuyCooldownGlance(payload) {
+    var glance = payload && payload.rebuy_cooldown_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "rebuy-cooldown-glance";
+    wrap.setAttribute("aria-labelledby", "charts-rebuy-h");
+    var h = document.createElement("h2");
+    h.id = "charts-rebuy-h";
+    h.className = "visually-hidden";
+    h.textContent = "Rebuy cooldown";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "rebuy-cooldown-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "rebuy-cooldown-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Rebuy";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "rebuy-cooldown-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "rebuy-cooldown-glance-link";
+    link.href = "/desk/ops#ops-min-hold";
+    link.textContent = "Ops hold →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Same-symbol rebuy lock beside charts — SCHW flip-flop / fee lesson. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeBurnGlance(payload) {
     var glance = payload && payload.fee_burn_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1888,6 +1933,7 @@
     renderCryptoPolicyGlance(payload);
     renderExitPolicyGlance(payload);
     renderBookLimitsGlance(payload);
+    renderRebuyCooldownGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);

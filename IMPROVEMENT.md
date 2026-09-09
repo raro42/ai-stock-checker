@@ -201,7 +201,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] portfolio AI + book-limits glance (2026-09-09 improve): Overview / Ops slots · min hold · fee preset (`build_book_limits_glance`) — anti-churn packaging ≠ edge; display only
 - [x] portfolio AI + book-limits parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] tradermonty + portfolio AI rebuy-cooldown glance (2026-09-09 improve): Overview / Ops same-symbol rebuy lock from `exit_times.json` (`build_rebuy_cooldown_glance`) — SCHW flip-flop honesty; display only; not a gate
-- [ ] tradermonty + portfolio AI rebuy-cooldown parity: same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
+- [x] tradermonty + portfolio AI rebuy-cooldown parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

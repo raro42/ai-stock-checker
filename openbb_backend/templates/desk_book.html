@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, fill_row, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import ticker, fill_row, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -103,6 +103,14 @@
   "/desk/ops#ops-max-pos",
   "Ops book →",
   "Slots · min hold · fee preset beside holdings — packaging ≠ edge. Not a gate."
+) }}
+
+{{ rebuy_cooldown_glance(
+  snap,
+  "book-rebuy-h",
+  "/desk/ops#ops-min-hold",
+  "Ops hold →",
+  "Same-symbol rebuy lock beside holdings — SCHW flip-flop / fee lesson. Not a gate."
 ) }}
 
 {{ fee_burn_glance(
