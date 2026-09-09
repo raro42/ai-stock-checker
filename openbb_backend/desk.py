@@ -577,6 +577,34 @@ def build_exit_policy_glance() -> dict[str, Any]:
     }
 
 
+def build_earnings_blackout_glance() -> dict[str, Any]:
+    """Stock earnings blackout window (portfolio AI / FinRobot calendar risk; display only).
+
+    New stock entries stay blocked DEFAULT_DAYS_BEFORE before and DEFAULT_DAYS_AFTER
+    after earnings. Crypto is exempt. Policy honesty only — no live calendar poll.
+    Not a new gate (gate already in earnings_guard).
+    """
+    from stock_checker.earnings_guard import (
+        DEFAULT_DAYS_AFTER,
+        DEFAULT_DAYS_BEFORE,
+    )
+
+    before = float(DEFAULT_DAYS_BEFORE)
+    after = float(DEFAULT_DAYS_AFTER)
+    line = (
+        f"stocks · blackout {before:g}d before / {after:g}d after · crypto exempt"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "stock",
+        "line": line,
+        "days_before": before,
+        "days_after": after,
+    }
+
+
 _FEE_PRESET_SHORT: dict[str, str] = {
     "revolut_standard": "Revolut Std 0.25%·€1",
     "revolut_plus": "Revolut Plus 0.25%·€1",
@@ -2190,6 +2218,7 @@ def load_desk_snapshot(
         "promote_ab_glance": build_promote_ab_glance(runtime),
         "crypto_policy_glance": build_crypto_policy_glance(rows),
         "exit_policy_glance": build_exit_policy_glance(),
+        "earnings_blackout_glance": build_earnings_blackout_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

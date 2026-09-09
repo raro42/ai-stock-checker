@@ -248,6 +248,31 @@
 {%- endmacro %}
 
 
+{# Stock earnings blackout honesty (display only). Crypto exempt. #}
+{% macro earnings_blackout_glance(
+  snap,
+  heading_id='earnings-blackout-glance-h',
+  link_href='/desk/screener',
+  link_label='Screener →',
+  sub='New stock entries blocked near earnings (2d before / 1d after). Crypto exempt. Display only.'
+) -%}
+{% set glance = snap.earnings_blackout_glance if snap.earnings_blackout_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="earnings-blackout-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Earnings blackout</h2>
+  <p class="earnings-blackout-glance-line">
+    <span class="earnings-blackout-glance-tone {{ glance.tone }}">Earnings</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="earnings-blackout-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="earnings-blackout-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,

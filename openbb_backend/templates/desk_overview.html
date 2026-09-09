@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -106,6 +106,14 @@
   "/desk/book",
   "Book →",
   "Stock exits vs crypto ±10% — asymmetric on purpose; not ATR. Display only."
+) }}
+
+{{ earnings_blackout_glance(
+  snap,
+  "overview-earnings-h",
+  "/desk/screener",
+  "Screener →",
+  "Stock entry blackout near earnings — 2d before / 1d after; crypto exempt. Display only."
 ) }}
 
 {{ book_limits_glance(

@@ -841,6 +841,7 @@ a:active {
 
 .crypto-policy-glance,
 .exit-policy-glance,
+.earnings-blackout-glance,
 .book-limits-glance,
 .rebuy-cooldown-glance,
 .daily-loss-glance,
@@ -853,6 +854,7 @@ a:active {
 
 .crypto-policy-glance-line,
 .exit-policy-glance-line,
+.earnings-blackout-glance-line,
 .book-limits-glance-line,
 .rebuy-cooldown-glance-line,
 .daily-loss-glance-line,
@@ -866,6 +868,7 @@ a:active {
 
 .crypto-policy-glance-tone,
 .exit-policy-glance-tone,
+.earnings-blackout-glance-tone,
 .book-limits-glance-tone,
 .rebuy-cooldown-glance-tone,
 .daily-loss-glance-tone,
@@ -885,6 +888,8 @@ a:active {
 .crypto-policy-glance-tone.flat,
 .exit-policy-glance-tone.stock,
 .exit-policy-glance-tone.flat,
+.earnings-blackout-glance-tone.stock,
+.earnings-blackout-glance-tone.flat,
 .book-limits-glance-tone.book,
 .book-limits-glance-tone.flat,
 .rebuy-cooldown-glance-tone.clear,
@@ -922,6 +927,7 @@ a:active {
 
 .crypto-policy-glance-body,
 .exit-policy-glance-body,
+.earnings-blackout-glance-body,
 .book-limits-glance-body,
 .rebuy-cooldown-glance-body,
 .daily-loss-glance-body,
@@ -937,6 +943,7 @@ a:active {
 
 .crypto-policy-glance-link,
 .exit-policy-glance-link,
+.earnings-blackout-glance-link,
 .book-limits-glance-link,
 .rebuy-cooldown-glance-link,
 .daily-loss-glance-link,
@@ -947,6 +954,7 @@ a:active {
 
 .crypto-policy-glance .sub,
 .exit-policy-glance .sub,
+.earnings-blackout-glance .sub,
 .book-limits-glance .sub,
 .rebuy-cooldown-glance .sub,
 .daily-loss-glance .sub,

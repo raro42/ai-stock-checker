@@ -6,6 +6,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Tuple
 
+# Live entry blackout window (stocks only; crypto exempt).
+DEFAULT_DAYS_BEFORE = 2.0
+DEFAULT_DAYS_AFTER = 1.0
+
 
 def days_to_next_earnings(symbol: str) -> Optional[float]:
     """
@@ -64,8 +68,8 @@ def days_to_next_earnings(symbol: str) -> Optional[float]:
 def is_in_earnings_blackout(
     symbol: str,
     *,
-    days_before: float = 2.0,
-    days_after: float = 1.0,
+    days_before: float = DEFAULT_DAYS_BEFORE,
+    days_after: float = DEFAULT_DAYS_AFTER,
 ) -> Tuple[bool, str]:
     """
     True if we should block NEW entries near earnings.
