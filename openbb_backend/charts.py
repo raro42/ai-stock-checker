@@ -961,6 +961,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         build_exit_policy_glance,
         build_pretrade_glance,
         build_scan_freshness,
+        build_session_glance,
         build_soft_allow_glance,
     )
     from stock_checker.gate_audit import recent_soft_allows
@@ -997,6 +998,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": _ai_mode_glance_from_config(data_dir),
+        "session_glance": build_session_glance(),
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),

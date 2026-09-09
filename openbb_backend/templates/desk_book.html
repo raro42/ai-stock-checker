@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, fill_row, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import ticker, fill_row, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block extra_head %}
   <script src="/desk/static/d3.min.js" defer></script>
   <script src="/desk/static/charts.js" defer></script>
@@ -111,6 +111,14 @@
   "/desk/ops#ops-ai-mode",
   "Ops AI →",
   "AI path beside holdings — off / validate / full + multi-role. Rules first. Not a gate."
+) }}
+
+{{ session_glance(
+  snap,
+  "book-session-h",
+  "/desk/screener",
+  "Screener →",
+  "UTC session beside holdings — weekend is crypto-only. Not a gate."
 ) }}
 
 {{ book_limits_glance(

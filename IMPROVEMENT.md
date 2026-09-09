@@ -213,7 +213,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] FinRobot + TradingAgents AI-mode glance (2026-09-09 improve): Overview / Ops `ai_mode` · model · multi-role (`build_ai_mode_glance`) — rules-first honesty before validate/full; display only; not a new gate
 - [x] FinRobot + TradingAgents AI-mode parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] xang1234 session glance (2026-09-09 improve): Overview / Ops UTC weekday vs weekend crypto-only (`build_session_glance`) — screener session honesty; display only; not a new gate
-- [ ] Optional later: xang1234 session glance parity (Screener / Ideas / Book / Charts / Breadth / scan-log)
+- [x] xang1234 session glance parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
