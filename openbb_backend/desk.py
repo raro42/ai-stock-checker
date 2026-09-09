@@ -717,6 +717,99 @@ def build_crypto_policy_glance(
     }
 
 
+def build_post_sl_cooldown_glance(
+    last_sl_symbol: str | None,
+    last_sl_epoch: float | None,
+    *,
+    cooldown_seconds: float | None = None,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Compact post-stop-loss buy cooldown (tradermonty anti-revenge; display only).
+
+    After an SL sell, new buys stay blocked ≥4h (trader floor). Desk derives the
+    window from trades.jsonl so pretrade WARN stays honest without in-memory state.
+    Not a new entry gate.
+    """
+    from stock_checker.risk_halts import DEFAULT_POST_SL_COOLDOWN_SEC
+
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "symbol": "",
+        "active": False,
+        "seconds_left": 0.0,
+        "cooldown_hours": 0.0,
+    }
+    try:
+        cd = float(
+            cooldown_seconds
+            if cooldown_seconds is not None
+            else DEFAULT_POST_SL_COOLDOWN_SEC
+        )
+    except (TypeError, ValueError):
+        cd = float(DEFAULT_POST_SL_COOLDOWN_SEC)
+    hold_h = cd / 3600.0 if cd > 0 else 0.0
+    hold_txt = f"{hold_h:g}h" if hold_h != int(hold_h) else f"{int(hold_h)}h"
+    if cd <= 0:
+        return {
+            "ready": True,
+            "tone": "off",
+            "line": "post-SL cooldown off",
+            "symbol": "",
+            "active": False,
+            "seconds_left": 0.0,
+            "cooldown_hours": 0.0,
+        }
+    ts_now = float(now if now is not None else time.time())
+    try:
+        epoch = float(last_sl_epoch) if last_sl_epoch is not None else None
+    except (TypeError, ValueError):
+        epoch = None
+    sym = str(last_sl_symbol or "").strip().upper()
+    if epoch is None:
+        return {
+            "ready": True,
+            "tone": "clear",
+            "line": f"no recent SL · ≥{hold_txt} buy block after stop",
+            "symbol": "",
+            "active": False,
+            "seconds_left": 0.0,
+            "cooldown_hours": hold_h,
+        }
+    left = cd - (ts_now - epoch)
+    if left <= 0:
+        age = ts_now - epoch
+        age_txt = _fmt_cooldown_left(age).lstrip("~")
+        bit = f"{sym} " if sym else ""
+        line = f"clear · last SL {bit}{age_txt} ago · ≥{hold_txt} block"
+        if len(line) > 96:
+            line = line[:95] + "…"
+        return {
+            "ready": True,
+            "tone": "clear",
+            "line": line,
+            "symbol": sym,
+            "active": False,
+            "seconds_left": 0.0,
+            "cooldown_hours": hold_h,
+        }
+    left_txt = _fmt_cooldown_left(left)
+    bit = f"{sym} " if sym else ""
+    line = f"ACTIVE · {bit}{left_txt} left · ≥{hold_txt} after SL — buys blocked"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "active",
+        "line": line,
+        "symbol": sym,
+        "active": True,
+        "seconds_left": left,
+        "cooldown_hours": hold_h,
+    }
+
+
 def build_daily_loss_glance(
     realized_pnl: float | None,
     initial: float | None,
@@ -1940,6 +2033,7 @@ def load_desk_snapshot(
     from stock_checker.gate_audit import recent_soft_allows
     from stock_checker.risk_halts import (
         book_risk_report,
+        latest_stop_loss_sell,
         pretrade_status,
         realized_pnl_for_utc_day,
         suggest_entry_notional,
@@ -1949,6 +2043,9 @@ def load_desk_snapshot(
 
     max_pos = int(cfg_fees.get("max_positions") or 5)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
+    last_sl = latest_stop_loss_sell(data_dir)
+    post_sl_sym = last_sl[0] if last_sl else None
+    post_sl_epoch = last_sl[1] if last_sl else None
     entry_size = suggest_entry_notional(
         cash=cash,
         equity=equity,
@@ -2019,6 +2116,10 @@ def load_desk_snapshot(
         "daily_loss_glance": build_daily_loss_glance(
             realized_pnl_for_utc_day(data_dir),
             initial,
+        ),
+        "post_sl_cooldown_glance": build_post_sl_cooldown_glance(
+            post_sl_sym,
+            post_sl_epoch,
         ),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),

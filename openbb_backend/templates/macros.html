@@ -323,6 +323,31 @@
 {%- endmacro %}
 
 
+{# Post-SL buy cooldown (display only). Derived from last stop-loss sell. #}
+{% macro post_sl_cooldown_glance(
+  snap,
+  heading_id='post-sl-glance-h',
+  link_href='/desk#pretrade-h',
+  link_label='Pre-trade →',
+  sub='After a stop-loss sell, new buys stay blocked ≥4h — anti revenge refill. Not a new gate.'
+) -%}
+{% set glance = snap.post_sl_cooldown_glance if snap.post_sl_cooldown_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="post-sl-cooldown-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Post stop-loss cooldown</h2>
+  <p class="post-sl-cooldown-glance-line">
+    <span class="post-sl-cooldown-glance-tone {{ glance.tone }}">Post-SL</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="post-sl-cooldown-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="post-sl-cooldown-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,

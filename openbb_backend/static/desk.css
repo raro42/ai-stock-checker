@@ -843,7 +843,8 @@ a:active {
 .exit-policy-glance,
 .book-limits-glance,
 .rebuy-cooldown-glance,
-.daily-loss-glance {
+.daily-loss-glance,
+.post-sl-cooldown-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
   border-bottom: 1px solid var(--line);
@@ -853,7 +854,8 @@ a:active {
 .exit-policy-glance-line,
 .book-limits-glance-line,
 .rebuy-cooldown-glance-line,
-.daily-loss-glance-line {
+.daily-loss-glance-line,
+.post-sl-cooldown-glance-line {
   margin: 0;
   font-size: 0.92rem;
   color: var(--ink);
@@ -864,7 +866,8 @@ a:active {
 .exit-policy-glance-tone,
 .book-limits-glance-tone,
 .rebuy-cooldown-glance-tone,
-.daily-loss-glance-tone {
+.daily-loss-glance-tone,
+.post-sl-cooldown-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -886,7 +889,10 @@ a:active {
 .rebuy-cooldown-glance-tone.flat,
 .daily-loss-glance-tone.clear,
 .daily-loss-glance-tone.off,
-.daily-loss-glance-tone.flat {
+.daily-loss-glance-tone.flat,
+.post-sl-cooldown-glance-tone.clear,
+.post-sl-cooldown-glance-tone.off,
+.post-sl-cooldown-glance-tone.flat {
   color: var(--muted);
 }
 
@@ -894,7 +900,8 @@ a:active {
 .book-limits-glance-tone.warn,
 .rebuy-cooldown-glance-tone.warn,
 .daily-loss-glance-tone.warn,
-.daily-loss-glance-tone.halt {
+.daily-loss-glance-tone.halt,
+.post-sl-cooldown-glance-tone.active {
   color: var(--down);
 }
 
@@ -910,7 +917,8 @@ a:active {
 .exit-policy-glance-body,
 .book-limits-glance-body,
 .rebuy-cooldown-glance-body,
-.daily-loss-glance-body {
+.daily-loss-glance-body,
+.post-sl-cooldown-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
 }
@@ -919,7 +927,8 @@ a:active {
 .exit-policy-glance-link,
 .book-limits-glance-link,
 .rebuy-cooldown-glance-link,
-.daily-loss-glance-link {
+.daily-loss-glance-link,
+.post-sl-cooldown-glance-link {
   font-size: 0.85rem;
 }
 
@@ -927,7 +936,8 @@ a:active {
 .exit-policy-glance .sub,
 .book-limits-glance .sub,
 .rebuy-cooldown-glance .sub,
-.daily-loss-glance .sub {
+.daily-loss-glance .sub,
+.post-sl-cooldown-glance .sub {
   margin: 0.35rem 0 0;
 }
 

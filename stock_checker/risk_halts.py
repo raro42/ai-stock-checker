@@ -15,6 +15,8 @@ from typing import Any, Iterable, Optional, Tuple
 DEFAULT_DAILY_LOSS_PCT = 2.0
 # Cap one new fill notional vs marked equity.
 DEFAULT_MAX_NAME_PCT = 30.0
+# After a stop-loss sell, block new buys (anti revenge refill). Floor matches trader.
+DEFAULT_POST_SL_COOLDOWN_SEC = 4 * 3600
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -24,8 +26,8 @@ def utc_day_key(when: Optional[datetime] = None) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%d")
 
 
-def _parse_trade_day(timestamp: str) -> Optional[str]:
-    """Best-effort UTC calendar day from trade timestamp strings."""
+def _parse_trade_dt(timestamp: str) -> Optional[datetime]:
+    """Best-effort aware UTC datetime from trade timestamp strings."""
     if not timestamp:
         return None
     raw = str(timestamp).strip()
@@ -37,11 +39,76 @@ def _parse_trade_day(timestamp: str) -> Optional[str]:
         if dt.tzinfo is None:
             # Paper desk writes naive local-ish stamps; treat as UTC for halt day.
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).strftime("%Y-%m-%d")
+        return dt.astimezone(timezone.utc)
     except ValueError:
-        if len(raw) >= 10 and raw[4] == "-" and raw[7] == "-":
-            return raw[:10]
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                piece = raw[:19] if len(raw) >= 19 else raw
+                return datetime.strptime(piece, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
     return None
+
+
+def _parse_trade_day(timestamp: str) -> Optional[str]:
+    """Best-effort UTC calendar day from trade timestamp strings."""
+    dt = _parse_trade_dt(timestamp)
+    if dt is not None:
+        return dt.strftime("%Y-%m-%d")
+    raw = str(timestamp or "").strip()
+    if len(raw) >= 10 and raw[4] == "-" and raw[7] == "-":
+        return raw[:10]
+    return None
+
+
+def _parse_trade_epoch(timestamp: str) -> Optional[float]:
+    """Unix epoch seconds from a trade timestamp, or None."""
+    dt = _parse_trade_dt(timestamp)
+    if dt is None:
+        return None
+    return dt.timestamp()
+
+
+def latest_stop_loss_sell(
+    data_dir: Path | str,
+) -> Optional[Tuple[str, float]]:
+    """Most recent SELL with exit_reason ``sl`` → (symbol, epoch)."""
+    best: Optional[Tuple[str, float]] = None
+    for row in iter_trades(data_dir):
+        if str(row.get("type") or "").upper() != "SELL":
+            continue
+        reason = str(row.get("exit_reason") or "").strip().lower()
+        if reason != "sl":
+            continue
+        epoch = _parse_trade_epoch(str(row.get("timestamp") or ""))
+        if epoch is None:
+            continue
+        sym = str(row.get("symbol") or "").strip().upper()
+        if best is None or epoch > best[1]:
+            best = (sym, epoch)
+    return best
+
+
+def post_sl_buy_block_until(
+    data_dir: Path | str,
+    *,
+    cooldown_seconds: float = DEFAULT_POST_SL_COOLDOWN_SEC,
+) -> float:
+    """Epoch until which desk/pretrade should treat post-SL cooldown as active.
+
+    Derived from the last stop-loss sell on disk (trader also keeps in-memory
+    ``_buy_block_until``). Fail-open → 0 when no SL or unreadable logs.
+    """
+    try:
+        cd = float(cooldown_seconds)
+    except (TypeError, ValueError):
+        cd = float(DEFAULT_POST_SL_COOLDOWN_SEC)
+    if cd <= 0:
+        return 0.0
+    hit = latest_stop_loss_sell(data_dir)
+    if hit is None:
+        return 0.0
+    return float(hit[1]) + cd
 
 
 def iter_trades(data_dir: Path | str) -> Iterable[dict[str, Any]]:
@@ -348,7 +415,9 @@ def pretrade_status(
         pass
 
     ts = float(now if now is not None else _time.time())
-    if ts < float(buy_block_until or 0.0):
+    derived = post_sl_buy_block_until(data_dir)
+    block_until = max(float(buy_block_until or 0.0), derived)
+    if ts < block_until:
         notes.append("post-SL buy cooldown active")
         level = "WARN"
 

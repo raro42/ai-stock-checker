@@ -1785,6 +1785,51 @@
     root.appendChild(wrap);
   }
 
+  function renderPostSlCooldownGlance(payload) {
+    var glance = payload && payload.post_sl_cooldown_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "post-sl-cooldown-glance";
+    wrap.setAttribute("aria-labelledby", "charts-post-sl-h");
+    var h = document.createElement("h2");
+    h.id = "charts-post-sl-h";
+    h.className = "visually-hidden";
+    h.textContent = "Post stop-loss cooldown";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "post-sl-cooldown-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "post-sl-cooldown-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Post-SL";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "post-sl-cooldown-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "post-sl-cooldown-glance-link";
+    link.href = "/desk#pretrade-h";
+    link.textContent = "Pre-trade →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "After SL, ≥4h buy block beside charts — anti revenge refill. Soft WARN only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeBurnGlance(payload) {
     var glance = payload && payload.fee_burn_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -1980,6 +2025,7 @@
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);
+    renderPostSlCooldownGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);

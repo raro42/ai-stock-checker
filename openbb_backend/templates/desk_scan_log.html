@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -96,6 +96,15 @@
   "Pre-trade →",
   "UTC-day realized vs −2% halt beside the day archive — headroom before FAIL. Soft buy block only."
 ) }}
+
+{{ post_sl_cooldown_glance(
+  snap,
+  "scan-log-post-sl-h",
+  "/desk#pretrade-h",
+  "Pre-trade →",
+  "After SL, ≥4h buy block on day drill-down — anti revenge refill."
+) }}
+
 
 {{ fee_burn_glance(
   snap,
