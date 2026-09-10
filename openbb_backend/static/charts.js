@@ -1966,6 +1966,51 @@
     root.appendChild(wrap);
   }
 
+  function renderAtrDisplayGlance(payload) {
+    var glance = payload && payload.atr_display_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "atr-display-glance";
+    wrap.setAttribute("aria-labelledby", "charts-atr-h");
+    var h = document.createElement("h2");
+    h.id = "charts-atr-h";
+    h.className = "visually-hidden";
+    h.textContent = "ATR display-only policy";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "atr-display-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "atr-display-glance-tone " + (glance.tone || "display");
+    tone.textContent = "ATR";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "atr-display-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "atr-display-glance-link";
+    link.href = "/desk/screener";
+    link.textContent = "Screener →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "ATR / R:R beside charts — Screener notes are display-only; live exits use TP/SL.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2391,6 +2436,7 @@
     renderLossRotationGlance(payload);
     renderJunkFilterGlance(payload);
     renderUniverseDiscoveryGlance(payload);
+    renderAtrDisplayGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);
