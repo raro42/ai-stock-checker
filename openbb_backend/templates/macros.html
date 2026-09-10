@@ -423,6 +423,32 @@
 {%- endmacro %}
 
 
+
+{# Book posture modes (display only). open / at_cap / overweight policy. #}
+{% macro book_posture_glance(
+  snap,
+  heading_id='book-posture-glance-h',
+  link_href='/desk/book',
+  link_label='Book →',
+  sub='Book size vs max: open allows adds; at_cap blocks buys but rotation OK; overweight is TP/SL + trim only (no scan chase). Display only — not a new gate.'
+) -%}
+{% set glance = snap.book_posture_glance if snap.book_posture_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="book-posture-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Book posture modes</h2>
+  <p class="book-posture-glance-line">
+    <span class="book-posture-glance-tone {{ glance.tone }}">Posture</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="book-posture-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="book-posture-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Junk / noise filter honesty (display only). Stables, leveraged, sub-$1 crypto. #}
 {% macro junk_filter_glance(
   snap,

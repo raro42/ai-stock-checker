@@ -746,6 +746,29 @@ def build_stale_rotation_glance() -> dict[str, Any]:
     }
 
 
+
+def build_book_posture_glance() -> dict[str, Any]:
+    """Book size posture modes (staskh + portfolio AI; display only).
+
+    Explains open / at_cap / overweight from ``book_action_mode`` so friends
+    know why buys stop when the book is full or overweight. Live slot count
+    stays on book-risk glance; this is policy honesty — not a new gate.
+    """
+    line = (
+        "open=adds · at_cap=no buys, rotate OK · overweight=TP/SL+trim only"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "posture",
+        "line": line,
+        "modes": ("open", "at_cap", "overweight"),
+        "overweight_scan_rotation": False,
+        "overweight_new_buys": False,
+    }
+
+
 def build_junk_filter_glance() -> dict[str, Any]:
     """Junk / noise filter honesty (screener + portfolio AI; display only).
 
@@ -2785,6 +2808,7 @@ def load_desk_snapshot(
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
         "stale_rotation_glance": build_stale_rotation_glance(),
+        "book_posture_glance": build_book_posture_glance(),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(),
         "atr_display_glance": build_atr_display_glance(),
