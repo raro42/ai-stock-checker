@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, breakout_guard_glance, loss_rotation_glance, junk_filter_glance, universe_discovery_glance, atr_display_glance, entry_slots_glance, promote_contract_glance, gate_roles_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_allowance_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import ticker, breadth_glance, scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, breakout_guard_glance, loss_rotation_glance, junk_filter_glance, universe_discovery_glance, atr_display_glance, entry_slots_glance, promote_contract_glance, gate_roles_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, loop_cadence_glance, fee_allowance_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 {% set n_rec = snap.recommendations|length %}
 {% set n_crypto = snap.crypto_leaders|length %}
@@ -226,6 +226,13 @@
   "After SL, ≥4h buy block before chasing scan names — anti revenge refill."
 ) }}
 
+{{ loop_cadence_glance(
+  snap,
+  "screener-loop-cadence-h",
+  "/desk/ops#ops-scan-trade",
+  "Ops cadence →",
+  "Scan vs trade sleep before chasing scan names — floors ≥15m / ≥5m. Packaging ≠ edge."
+) }}
 
 {{ fee_allowance_glance(
   snap,

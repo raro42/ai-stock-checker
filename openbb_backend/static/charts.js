@@ -2372,6 +2372,51 @@
     root.appendChild(wrap);
   }
 
+  function renderLoopCadenceGlance(payload) {
+    var glance = payload && payload.loop_cadence_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "loop-cadence-glance";
+    wrap.setAttribute("aria-labelledby", "charts-loop-cadence-h");
+    var h = document.createElement("h2");
+    h.id = "charts-loop-cadence-h";
+    h.className = "visually-hidden";
+    h.textContent = "Loop cadence";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "loop-cadence-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "loop-cadence-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Cadence";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "loop-cadence-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "loop-cadence-glance-link";
+    link.href = "/desk/ops#ops-scan-trade";
+    link.textContent = "Ops cadence →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Scan vs trade sleep beside charts — floors ≥15m / ≥5m. Packaging ≠ edge. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeAllowanceGlance(payload) {
     var glance = payload && payload.fee_allowance_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2625,6 +2670,7 @@
     renderDailyLossGlance(payload);
     renderConcentrationGlance(payload);
     renderPostSlCooldownGlance(payload);
+    renderLoopCadenceGlance(payload);
     renderFeeAllowanceGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);

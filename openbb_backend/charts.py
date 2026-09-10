@@ -852,6 +852,15 @@ def _book_limits_glance_from_config(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _loop_cadence_glance_from_config(_data_dir: Path) -> dict[str, Any]:
+    """Scan / trade loop floors — match desk compose display defaults."""
+    from openbb_backend.desk import build_loop_cadence_glance
+
+    return build_loop_cadence_glance(
+        {"scan_interval_min": 15, "trade_interval_min": 5}
+    )
+
+
 def _ai_mode_glance_from_config(data_dir: Path) -> dict[str, Any]:
     """AI mode · model · multi-role from Ops file (display only)."""
     from openbb_backend.desk import build_ai_mode_glance
@@ -1083,6 +1092,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
         "concentration_glance": _concentration_glance_from_portfolio(data_dir, portfolio),
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
+        "loop_cadence_glance": _loop_cadence_glance_from_config(data_dir),
         "fee_allowance_glance": _fee_allowance_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
