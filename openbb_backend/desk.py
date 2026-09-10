@@ -636,6 +636,43 @@ def build_session_glance(
     }
 
 
+def build_equity_hours_glance(
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """US RTH vs Xetra cash-hours honesty (xang1234 / portfolio AI; display only).
+
+    Session glance covers weekend crypto-only. This line shows live US vs
+    German .DE hours so friends do not treat all equities as one clock.
+    Crypto stays 24/7. Not a new entry gate — mirrors market_hours.py.
+    """
+    from stock_checker.market_hours import (
+        is_us_cash_session_closed,
+        is_xetra_session_closed,
+    )
+
+    us_closed = bool(is_us_cash_session_closed(now=now))
+    xetra_closed = bool(is_xetra_session_closed(now=now))
+    us_bit = "closed" if us_closed else "open"
+    xetra_bit = "closed" if xetra_closed else "open"
+    if not us_closed and not xetra_closed:
+        tone = "open"
+    elif us_closed and xetra_closed:
+        tone = "closed"
+    else:
+        tone = "split"
+    line = f"US RTH {us_bit} · Xetra {xetra_bit} · crypto 24/7"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "us_open": not us_closed,
+        "xetra_open": not xetra_closed,
+    }
+
+
 def build_breakout_guard_glance() -> dict[str, Any]:
     """Stock breakout entry honesty (portfolio AI / screener risk UX; display only).
 
@@ -2717,6 +2754,7 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),
+        "equity_hours_glance": build_equity_hours_glance(),
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
         "junk_filter_glance": build_junk_filter_glance(),

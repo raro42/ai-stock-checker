@@ -323,6 +323,31 @@
 {%- endmacro %}
 
 
+{# US RTH vs Xetra cash hours (display only). Complements weekend session. #}
+{% macro equity_hours_glance(
+  snap,
+  heading_id='equity-hours-glance-h',
+  link_href='/desk/screener',
+  link_label='Screener →',
+  sub='US 09:30–16:00 ET · Xetra 09:00–17:30 Berlin for .DE · crypto 24/7. Display only — not a gate.'
+) -%}
+{% set glance = snap.equity_hours_glance if snap.equity_hours_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="equity-hours-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Equity cash hours</h2>
+  <p class="equity-hours-glance-line">
+    <span class="equity-hours-glance-tone {{ glance.tone }}">Hours</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="equity-hours-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="equity-hours-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Stock breakout entry honesty (display only). EXPE/NTRA lesson. #}
 {% macro breakout_guard_glance(
   snap,
