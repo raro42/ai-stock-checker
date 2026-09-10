@@ -14,15 +14,15 @@ from typing import Dict, List
 import math
 
 
-# idea: Relaxing the strict structural trend stack requirement (Short > Medium > Long) for entry confirmation.
-# The entry now only requires Short > Medium, relying on the Momentum SMA and rising Medium SMA for structural confirmation.
+# idea: Conditional re-enabling of the full structural trend stack (Short > Medium > Long), but only when RSI confirms strong momentum (> 55).
+# This balances structural rigor with momentum confirmation, reducing the risk of false positive entries in choppy markets.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
 SHORT_MOMENTUM_SMA = 5 # NEW: Short-term filter to confirm immediate momentum
 MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
-# The entry now requires Short > Medium (Core signal).
+# The entry now requires Short > Medium (Core signal) + Conditional Structural Stack.
 REQUIRE_VOLUME_CONFIRM = True
 VOLUME_LOOKBACK = 20
 MIN_VOLUME_RATIO = 1.1 # MODIFIED: Increased from 1.0 to 1.1 for higher conviction volume filter
@@ -39,6 +39,7 @@ RS_LOOKBACK = 20 # CHANGED: Reduced lookback for faster reaction
 RSI_PERIOD = 14
 MIN_ENTRY_RSI = 35.0   # Minimum acceptable RSI (avoiding oversold entries)
 MAX_ENTRY_RSI = 65.0   # Maximum acceptable RSI (avoiding overbought entries)
+MIN_STRUCTURAL_RSI_FOR_STACK = 55.0 # NEW: RSI threshold required to activate the strict structural stack
 
 # New exit requirement: Price must drop below 95% of the Short Momentum SMA for confirmation.
 EXIT_PRICE_CONFIRMATION_MULTIPLIER = 0.95
@@ -212,9 +213,20 @@ def generate_signals(
 
         # --- ENTRY LOGIC (BUY) ---
         # Entry requires: 1. Short > Medium (Structural Stack), 2. Short > Momentum SMA, 3. Medium SMA is rising, 4. All filters pass.
+        
+        # Structural requirement check:
+        # If RSI is strong (> 55), we require the full stack (Short > Medium > Long).
+        # Otherwise, we use the relaxed stack (Short > Medium).
+        structural_ok = False
+        if rsi_val >= MIN_STRUCTURAL_RSI_FOR_STACK:
+            # Strict stack required
+            structural_ok = (sma_s > sma_m) and (sma_m > sma_l)
+        else:
+            # Relaxed stack (current working assumption)
+            structural_ok = sma_s > sma_m
+        
         if (
-            sma_s > sma_m # Core signal: Short crosses above Medium (RELAXED structural requirement)
-            # Removed structural check: and sma_m > sma_l
+            structural_ok # Conditional structural requirement
             and sma_s > sma_mon # Momentum confirmation: Short SMA must be above its 5-period SMA
             and sma_m >= sma_m_prev # Medium SMA must be non-decreasing (confirming accelerating trend)
             and vol_ok
