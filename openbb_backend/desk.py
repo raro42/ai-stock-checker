@@ -658,6 +658,30 @@ def build_breakout_guard_glance() -> dict[str, Any]:
     }
 
 
+def build_loss_rotation_glance() -> dict[str, Any]:
+    """No-loss-rotation honesty (portfolio AI / tradermonty risk UX; display only).
+
+    Scan rotation never sells losers to chase new names (ESP/BANK lesson).
+    Winners need rotate ≥ DEFAULT_ROTATE_MIN_PROFIT_PCT; overweight trims
+    prefer winners first. Pairs with exit_policy glance — not a new gate.
+    """
+    from stock_checker.exit_policy import DEFAULT_ROTATE_MIN_PROFIT_PCT
+
+    rot = float(DEFAULT_ROTATE_MIN_PROFIT_PCT)
+    line = (
+        f"no loss-rotation · rotate winners ≥+{rot:g}% · overweight trims winners first"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "protect",
+        "line": line,
+        "rotate_min_pct": rot,
+        "loss_rotation": False,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2325,6 +2349,7 @@ def load_desk_snapshot(
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),
         "breakout_guard_glance": build_breakout_guard_glance(),
+        "loss_rotation_glance": build_loss_rotation_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

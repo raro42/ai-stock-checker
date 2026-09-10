@@ -348,6 +348,31 @@
 {%- endmacro %}
 
 
+{# No loss-rotation honesty (display only). Never sell losers to chase scan names. #}
+{% macro loss_rotation_glance(
+  snap,
+  heading_id='loss-rotation-glance-h',
+  link_href='/desk/book',
+  link_label='Book →',
+  sub='Scan rotation never crystallizes losers. Winners need rotate hurdle; overweight trims winners first. Display only.'
+) -%}
+{% set glance = snap.loss_rotation_glance if snap.loss_rotation_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="loss-rotation-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Loss rotation policy</h2>
+  <p class="loss-rotation-glance-line">
+    <span class="loss-rotation-glance-tone {{ glance.tone }}">Rotate</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="loss-rotation-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="loss-rotation-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,
