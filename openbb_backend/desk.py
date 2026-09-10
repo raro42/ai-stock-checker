@@ -1342,6 +1342,81 @@ def build_daily_loss_glance(
     }
 
 
+def build_fee_allowance_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Revolut-like free legs left this month (portfolio AI; display only).
+
+    Ops already lists allowance facts. Overview shows remaining free fills
+    before churn burns the quota. Crypto fee schedules stay unmodeled
+    (fees.py). Not a new entry gate.
+    """
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "free_legs": 0,
+        "remaining": 0,
+        "used": 0,
+        "month": "",
+        "fee_preset": "",
+        "crypto_modeled": False,
+    }
+    if not isinstance(runtime, dict):
+        return empty
+    try:
+        free = max(0, int(runtime.get("free_legs_per_month") or 0))
+    except (TypeError, ValueError):
+        free = 0
+    try:
+        remaining = max(0, int(runtime.get("fee_allowance_remaining") or 0))
+    except (TypeError, ValueError):
+        remaining = 0
+    try:
+        used = max(0, int(runtime.get("fee_allowance_used") or 0))
+    except (TypeError, ValueError):
+        used = 0
+    if "fee_allowance_remaining" not in runtime and free > 0:
+        remaining = max(0, free - used)
+    elif free > 0:
+        remaining = min(remaining, free)
+    month = str(runtime.get("fee_allowance_month") or "").strip()
+    preset = str(runtime.get("fee_preset") or "").strip().lower()
+    fee_label = _FEE_PRESET_SHORT.get(preset) or (
+        preset if preset else "fees unset"
+    )
+    if free <= 0:
+        tone = "none"
+        line = f"no free legs · {fee_label} · crypto fees not modeled"
+    elif remaining <= 0:
+        tone = "spent"
+        month_bit = f"{month} · " if month else ""
+        line = (
+            f"0/{free} free left · {month_bit}then paid legs · "
+            f"crypto fees not modeled"
+        )
+    else:
+        tone = "open"
+        month_bit = f" · {month}" if month else ""
+        line = (
+            f"{remaining}/{free} free left{month_bit} · then {fee_label} · "
+            f"crypto not modeled"
+        )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "free_legs": free,
+        "remaining": remaining,
+        "used": used,
+        "month": month,
+        "fee_preset": preset or "revolut_standard",
+        "crypto_modeled": False,
+    }
+
+
 def build_fee_burn_glance(
     fees: float | None,
     initial: float | None,
@@ -2594,6 +2669,7 @@ def load_desk_snapshot(
             post_sl_sym,
             post_sl_epoch,
         ),
+        "fee_allowance_glance": build_fee_allowance_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),

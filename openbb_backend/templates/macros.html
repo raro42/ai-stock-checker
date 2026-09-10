@@ -648,6 +648,30 @@
 {%- endmacro %}
 
 
+{# Revolut-like free legs left this month (display only). Crypto fees not modeled. #}
+{% macro fee_allowance_glance(
+  snap,
+  heading_id='fee-allowance-glance-h',
+  link_href='/desk/ops#ops-fee-preset',
+  link_label='Ops fees →',
+  sub='Free monthly legs before paid fills — Revolut-like paper. Crypto fee schedules not modeled. Not a gate.'
+) -%}
+{% set glance = snap.fee_allowance_glance if snap.fee_allowance_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="fee-allowance-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Fee allowance</h2>
+  <p class="fee-allowance-glance-line">
+    <span class="fee-allowance-glance-tone {{ glance.tone }}">Free legs</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="fee-allowance-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="fee-allowance-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 {# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,
