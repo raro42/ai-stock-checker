@@ -1830,6 +1830,52 @@
     root.appendChild(wrap);
   }
 
+
+  function renderLossRotationGlance(payload) {
+    var glance = payload && payload.loss_rotation_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "loss-rotation-glance";
+    wrap.setAttribute("aria-labelledby", "charts-loss-rot-h");
+    var h = document.createElement("h2");
+    h.id = "charts-loss-rot-h";
+    h.className = "visually-hidden";
+    h.textContent = "Loss rotation policy";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "loss-rotation-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "loss-rotation-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Rotate";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "loss-rotation-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "loss-rotation-glance-link";
+    link.href = "/desk/book";
+    link.textContent = "Book →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "No loss-rotation beside charts — losers stay; rotate winners only. Display only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2252,6 +2298,7 @@
     renderAiModeGlance(payload);
     renderSessionGlance(payload);
     renderBreakoutGuardGlance(payload);
+    renderLossRotationGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);
