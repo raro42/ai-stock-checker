@@ -166,7 +166,13 @@ def pick_overweight_trim_candidate(
     return sym, f"trim overweight (worst mark {pnl:+.2f}%)"
 
 
-def crypto_entry_price_ok(price: float, *, min_usd: float = 1.0) -> bool:
+# Block sub-$1 meme pumps (ESP/BANK-style) from new crypto entries.
+DEFAULT_CRYPTO_ENTRY_MIN_USD = 1.0
+
+
+def crypto_entry_price_ok(
+    price: float, *, min_usd: float = DEFAULT_CRYPTO_ENTRY_MIN_USD
+) -> bool:
     """Block sub-$1 meme pumps (ESP/BANK-style) from new entries."""
     try:
         return float(price) >= float(min_usd)

@@ -373,6 +373,31 @@
 {%- endmacro %}
 
 
+{# Junk / noise filter honesty (display only). Stables, leveraged, sub-$1 crypto. #}
+{% macro junk_filter_glance(
+  snap,
+  heading_id='junk-filter-glance-h',
+  link_href='/desk/screener',
+  link_label='Screener →',
+  sub='Scan drops stables, leveraged tokens, and noise. Crypto buys need ≥ $1. Display only — not a new gate.'
+) -%}
+{% set glance = snap.junk_filter_glance if snap.junk_filter_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="junk-filter-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Junk and noise filters</h2>
+  <p class="junk-filter-glance-line">
+    <span class="junk-filter-glance-tone {{ glance.tone }}">Filter</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="junk-filter-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="junk-filter-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,

@@ -682,6 +682,29 @@ def build_loss_rotation_glance() -> dict[str, Any]:
     }
 
 
+def build_junk_filter_glance() -> dict[str, Any]:
+    """Junk / noise filter honesty (screener + portfolio AI; display only).
+
+    Scan and entries drop stables, leveraged tokens, and known noise bases.
+    Crypto new buys also need price ≥ DEFAULT_CRYPTO_ENTRY_MIN_USD (ESP/BANK).
+    Mirrors symbol_filters + exit_policy — not a new gate.
+    """
+    from stock_checker.exit_policy import DEFAULT_CRYPTO_ENTRY_MIN_USD
+
+    min_usd = float(DEFAULT_CRYPTO_ENTRY_MIN_USD)
+    line = f"no stables/leveraged/noise · crypto entries ≥ ${min_usd:g}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "filter",
+        "line": line,
+        "crypto_min_usd": min_usd,
+        "stables_blocked": True,
+        "leveraged_blocked": True,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2350,6 +2373,7 @@ def load_desk_snapshot(
         "session_glance": build_session_glance(weekend=weekend),
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
+        "junk_filter_glance": build_junk_filter_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,
