@@ -5,6 +5,11 @@ from __future__ import annotations
 from itertools import zip_longest
 from typing import Any, Dict, List
 
+# Stock breakouts map near-high % into this base so slots are not crypto-only.
+STOCK_BREAKOUT_SCORE_BASE = 40.0
+DEFAULT_MAX_CRYPTO_SLOTS = 2
+DEFAULT_MAX_STOCK_SLOTS = 3
+
 
 def _is_crypto(opp: Dict[str, Any]) -> bool:
     sym = str(opp.get("symbol") or "").upper()
@@ -15,8 +20,8 @@ def _is_crypto(opp: Dict[str, Any]) -> bool:
 def interleave_asset_slots(
     opportunities: List[Dict[str, Any]],
     *,
-    max_crypto: int = 2,
-    max_stock: int = 3,
+    max_crypto: int = DEFAULT_MAX_CRYPTO_SLOTS,
+    max_stock: int = DEFAULT_MAX_STOCK_SLOTS,
 ) -> List[Dict[str, Any]]:
     """
     Take top crypto and top stock by score, then interleave so execution

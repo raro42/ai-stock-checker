@@ -2011,6 +2011,51 @@
     root.appendChild(wrap);
   }
 
+  function renderEntrySlotsGlance(payload) {
+    var glance = payload && payload.entry_slots_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "entry-slots-glance";
+    wrap.setAttribute("aria-labelledby", "charts-entry-slots-h");
+    var h = document.createElement("h2");
+    h.id = "charts-entry-slots-h";
+    h.className = "visually-hidden";
+    h.textContent = "Entry slot ranking";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "entry-slots-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "entry-slots-glance-tone " + (glance.tone || "slots");
+    tone.textContent = "Slots";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "entry-slots-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "entry-slots-glance-link";
+    link.href = "/desk/screener";
+    link.textContent = "Screener →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Entry ranking beside charts — stock score band + crypto/stock interleave. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2437,6 +2482,7 @@
     renderJunkFilterGlance(payload);
     renderUniverseDiscoveryGlance(payload);
     renderAtrDisplayGlance(payload);
+    renderEntrySlotsGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);

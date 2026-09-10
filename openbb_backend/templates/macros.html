@@ -448,6 +448,31 @@
 {%- endmacro %}
 
 
+{# Entry score band + crypto/stock interleave honesty (A11; display only). #}
+{% macro entry_slots_glance(
+  snap,
+  heading_id='entry-slots-glance-h',
+  link_href='/desk/screener',
+  link_label='Screener →',
+  sub='Stock breakout scores use 40+pct_from_high; entries interleave crypto/stock slots — not a pure global sort. Display only.'
+) -%}
+{% set glance = snap.entry_slots_glance if snap.entry_slots_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="entry-slots-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Entry slot ranking</h2>
+  <p class="entry-slots-glance-line">
+    <span class="entry-slots-glance-tone {{ glance.tone }}">Slots</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="entry-slots-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="entry-slots-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,

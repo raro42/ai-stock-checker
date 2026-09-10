@@ -8,6 +8,7 @@ from pathlib import Path
 import pytz
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from .binance_fetcher import BinanceFetcher
+from .entry_slots import STOCK_BREAKOUT_SCORE_BASE
 from .fetcher import StockFetcher
 from .stock_universe_manager import StockUniverseManager
 from .symbol_filters import filter_ranked_opportunities, is_tradeable_symbol
@@ -820,7 +821,7 @@ class MarketScanner:
                 'asset_class': 'stock',
                 'strategy': 'breakout',
                 # Map [-5, 0] near-high into ~[35, 40] so sort slots aren't crypto-only.
-                'score': 40.0 + pct,
+                'score': STOCK_BREAKOUT_SCORE_BASE + pct,
                 'pct_from_high': pct,
                 'change_24h': stock.get('daily_change_pct'),
                 'reasoning': reasoning,

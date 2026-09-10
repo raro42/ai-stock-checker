@@ -762,6 +762,39 @@ def build_atr_display_glance() -> dict[str, Any]:
     }
 
 
+def build_entry_slots_glance() -> dict[str, Any]:
+    """Entry score band + interleave honesty (xang1234 ranking / A11; display only).
+
+    Stock breakouts use score = base + pct_from_high so near-highs can compete
+    with crypto momentum. Execution interleaves top crypto/stock slots instead
+    of a pure global sort. Not a new gate — ranking honesty only.
+    """
+    from stock_checker.entry_slots import (
+        DEFAULT_MAX_CRYPTO_SLOTS,
+        DEFAULT_MAX_STOCK_SLOTS,
+        STOCK_BREAKOUT_SCORE_BASE,
+    )
+
+    base = float(STOCK_BREAKOUT_SCORE_BASE)
+    max_c = int(DEFAULT_MAX_CRYPTO_SLOTS)
+    max_s = int(DEFAULT_MAX_STOCK_SLOTS)
+    line = (
+        f"stock score {base:g}+pct_from_high · "
+        f"interleave ≤{max_c} crypto / ≤{max_s} stock · not pure sort"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "slots",
+        "line": line,
+        "score_base": base,
+        "max_crypto_slots": max_c,
+        "max_stock_slots": max_s,
+        "pure_global_sort": False,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2438,6 +2471,7 @@ def load_desk_snapshot(
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(),
         "atr_display_glance": build_atr_display_glance(),
+        "entry_slots_glance": build_entry_slots_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,
