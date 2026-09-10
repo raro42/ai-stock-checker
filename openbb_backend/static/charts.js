@@ -1876,6 +1876,51 @@
     root.appendChild(wrap);
   }
 
+  function renderJunkFilterGlance(payload) {
+    var glance = payload && payload.junk_filter_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "junk-filter-glance";
+    wrap.setAttribute("aria-labelledby", "charts-junk-h");
+    var h = document.createElement("h2");
+    h.id = "charts-junk-h";
+    h.className = "visually-hidden";
+    h.textContent = "Junk and noise filters";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "junk-filter-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "junk-filter-glance-tone " + (glance.tone || "filter");
+    tone.textContent = "Filter";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "junk-filter-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "junk-filter-glance-link";
+    link.href = "/desk/screener";
+    link.textContent = "Screener →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Junk/noise filters beside charts — no stables/leveraged; crypto ≥ $1. Display only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2299,6 +2344,7 @@
     renderSessionGlance(payload);
     renderBreakoutGuardGlance(payload);
     renderLossRotationGlance(payload);
+    renderJunkFilterGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);

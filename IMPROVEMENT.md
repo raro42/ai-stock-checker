@@ -219,7 +219,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] portfolio AI + tradermonty loss-rotation glance (2026-09-10 improve): Overview / Ops no loss-rotation · rotate winners · overweight trim winners first (`build_loss_rotation_glance` + `exit_policy`) — ESP/BANK honesty; display only; not a new gate
 - [x] portfolio AI + tradermonty loss-rotation parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] MonsterDeveloper + portfolio AI junk-filter glance (2026-09-10 improve): Overview / Ops no stables/leveraged/noise · crypto ≥ $1 (`build_junk_filter_glance` + `symbol_filters` / `DEFAULT_CRYPTO_ENTRY_MIN_USD`) — ESP/BANK honesty; display only; not a new gate
-- [ ] Optional later: junk-filter glance parity (Screener / Ideas / Book / Charts / Breadth / scan-log)
+- [x] MonsterDeveloper + portfolio AI junk-filter parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
