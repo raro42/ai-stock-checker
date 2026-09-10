@@ -1785,6 +1785,51 @@
     root.appendChild(wrap);
   }
 
+  function renderEquityHoursGlance(payload) {
+    var glance = payload && payload.equity_hours_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "equity-hours-glance";
+    wrap.setAttribute("aria-labelledby", "charts-equity-hours-h");
+    var h = document.createElement("h2");
+    h.id = "charts-equity-hours-h";
+    h.className = "visually-hidden";
+    h.textContent = "Equity cash hours";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "equity-hours-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "equity-hours-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Hours";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "equity-hours-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "equity-hours-glance-link";
+    link.href = "/desk/screener";
+    link.textContent = "Screener →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Live US vs Xetra beside charts — .DE is not US hours; crypto 24/7. Display only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderBreakoutGuardGlance(payload) {
     var glance = payload && payload.breakout_guard_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2657,6 +2702,7 @@
     renderEarningsBlackoutGlance(payload);
     renderAiModeGlance(payload);
     renderSessionGlance(payload);
+    renderEquityHoursGlance(payload);
     renderBreakoutGuardGlance(payload);
     renderLossRotationGlance(payload);
     renderJunkFilterGlance(payload);
