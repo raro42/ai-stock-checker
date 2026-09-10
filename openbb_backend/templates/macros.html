@@ -398,6 +398,31 @@
 {%- endmacro %}
 
 
+{# Universe / Yahoo movers discovery honesty (display only). Not auto-buy. #}
+{% macro universe_discovery_glance(
+  snap,
+  heading_id='universe-discovery-glance-h',
+  link_href='/desk/screener',
+  link_label='Screener →',
+  sub='Yahoo movers grow the curated US+DE scan list only. Buys still need gates. Display only — not a new gate.'
+) -%}
+{% set glance = snap.universe_discovery_glance if snap.universe_discovery_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="universe-discovery-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Universe discovery</h2>
+  <p class="universe-discovery-glance-line">
+    <span class="universe-discovery-glance-tone {{ glance.tone }}">Universe</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="universe-discovery-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="universe-discovery-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,

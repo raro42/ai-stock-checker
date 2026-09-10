@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, breakout_guard_glance, loss_rotation_glance, junk_filter_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import breadth_glance, scan_freshness, soft_allow_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, breakout_guard_glance, loss_rotation_glance, junk_filter_glance, universe_discovery_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Ops</p>
@@ -127,6 +127,14 @@
   "/desk/screener",
   "Screener →",
   "Junk filters before you trust scan lists — stables/leveraged/noise out; crypto ≥ $1."
+) }}
+
+{{ universe_discovery_glance(
+  snap,
+  "ops-universe-h",
+  "/desk/screener",
+  "Screener →",
+  "Yahoo movers only grow the scan list — not a buy firehose; gates still apply."
 ) }}
 
 {{ book_limits_glance(

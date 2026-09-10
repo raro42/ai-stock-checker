@@ -705,6 +705,31 @@ def build_junk_filter_glance() -> dict[str, Any]:
     }
 
 
+def build_universe_discovery_glance() -> dict[str, Any]:
+    """Universe / movers discovery honesty (xang1234 + portfolio AI; display only).
+
+    Equity scan list is curated US + German Xetra (.DE). Yahoo day
+    gainers/losers/actives only grow that list — not an auto-buy firehose.
+    Buys still need regime/RS/breadth/fees. Not a new gate.
+    """
+    from stock_checker.yahoo_universe_discovery import DEFAULT_MOVER_COUNT
+
+    per = int(DEFAULT_MOVER_COUNT)
+    line = (
+        f"curated US+DE · Yahoo movers ≤{per}/screen · discovery-only · not auto-buy"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "discover",
+        "line": line,
+        "mover_count": per,
+        "discovery_only": True,
+        "auto_buy": False,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2224,6 +2249,11 @@ def load_desk_snapshot(
             "note": "Discovery into the scan list; buys still need regime/RS/breadth/fees.",
         },
         {
+            "title": "Universe discovery glance",
+            "from": "xang1234/stock-screener + portfolio AI (discovery ≠ firehose)",
+            "note": "Overview / Ops one-line curated US+DE · Yahoo movers discovery-only — not auto-buy; display only.",
+        },
+        {
             "title": "Closed-round postmortem",
             "from": "tradermonty/claude-trading-skills (trader memory)",
             "note": "Book pairs BUY→SELL: thesis → exit → hold → mark P&L. No inventing MAE/MFE.",
@@ -2374,6 +2404,7 @@ def load_desk_snapshot(
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
         "junk_filter_glance": build_junk_filter_glance(),
+        "universe_discovery_glance": build_universe_discovery_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,
