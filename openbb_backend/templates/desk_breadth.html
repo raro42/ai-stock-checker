@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, breakout_guard_glance, loss_rotation_glance, junk_filter_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, session_glance, breakout_guard_glance, loss_rotation_glance, junk_filter_glance, universe_discovery_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -112,6 +112,14 @@
   "/desk/screener",
   "Screener →",
   "Junk/noise filters beside breadth — stables/leveraged dropped; crypto ≥ $1. Display only."
+) }}
+
+{{ universe_discovery_glance(
+  snap,
+  "breadth-universe-h",
+  "/desk/screener",
+  "Screener →",
+  "Universe discovery beside breadth — Yahoo movers grow US+DE scan only; not auto-buy."
 ) }}
 
 {{ book_limits_glance(

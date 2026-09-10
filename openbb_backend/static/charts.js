@@ -1921,6 +1921,51 @@
     root.appendChild(wrap);
   }
 
+  function renderUniverseDiscoveryGlance(payload) {
+    var glance = payload && payload.universe_discovery_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "universe-discovery-glance";
+    wrap.setAttribute("aria-labelledby", "charts-universe-h");
+    var h = document.createElement("h2");
+    h.id = "charts-universe-h";
+    h.className = "visually-hidden";
+    h.textContent = "Universe discovery";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "universe-discovery-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "universe-discovery-glance-tone " + (glance.tone || "discover");
+    tone.textContent = "Universe";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "universe-discovery-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "universe-discovery-glance-link";
+    link.href = "/desk/screener";
+    link.textContent = "Screener →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Universe discovery beside charts — Yahoo movers grow US+DE scan only; not auto-buy.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2345,6 +2390,7 @@
     renderBreakoutGuardGlance(payload);
     renderLossRotationGlance(payload);
     renderJunkFilterGlance(payload);
+    renderUniverseDiscoveryGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);
