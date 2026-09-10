@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import build_stale_rotation_glance, load_desk_snapshot
 from stock_checker.exit_policy import DEFAULT_ROTATE_MIN_PROFIT_PCT
 
@@ -32,3 +33,17 @@ def test_stale_rotation_glance_in_snapshot(tmp_path) -> None:
     assert g["tone"] == "stale"
     assert "off full scan list" in g["line"]
     assert "replacement" in g["line"]
+
+
+def test_stale_rotation_glance_in_chart_payload(tmp_path) -> None:
+    (tmp_path / "portfolio.json").write_text(
+        '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '
+        '"total_fees_paid": 0}',
+        encoding="utf-8",
+    )
+    (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
+    g = load_chart_payload(tmp_path)["stale_rotation_glance"]
+    assert g["ready"] is True
+    assert g["tone"] == "stale"
+    assert "off full scan list" in g["line"]
+    assert "top-N replacement" in g["line"]

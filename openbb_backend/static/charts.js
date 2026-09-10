@@ -1921,6 +1921,52 @@
     root.appendChild(wrap);
   }
 
+
+  function renderStaleRotationGlance(payload) {
+    var glance = payload && payload.stale_rotation_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "stale-rotation-glance";
+    wrap.setAttribute("aria-labelledby", "charts-stale-rot-h");
+    var h = document.createElement("h2");
+    h.id = "charts-stale-rot-h";
+    h.className = "visually-hidden";
+    h.textContent = "Stale rotation policy";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "stale-rotation-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "stale-rotation-glance-tone " + (glance.tone || "stale");
+    tone.textContent = "Stale";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "stale-rotation-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "stale-rotation-glance-link";
+    link.href = "/desk/book";
+    link.textContent = "Book →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Stale rotation beside charts — off full scan list + top-N replacement. Display only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderJunkFilterGlance(payload) {
     var glance = payload && payload.junk_filter_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2705,6 +2751,7 @@
     renderEquityHoursGlance(payload);
     renderBreakoutGuardGlance(payload);
     renderLossRotationGlance(payload);
+    renderStaleRotationGlance(payload);
     renderJunkFilterGlance(payload);
     renderUniverseDiscoveryGlance(payload);
     renderAtrDisplayGlance(payload);

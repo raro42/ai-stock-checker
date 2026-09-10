@@ -237,7 +237,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 + portfolio AI equity-hours glance (2026-09-10 improve): Overview / Ops live US RTH vs Xetra `.DE` (`build_equity_hours_glance` + `market_hours`) — complements weekend session; crypto 24/7; display only; not a new gate
 - [x] xang1234 + portfolio AI equity-hours parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] tradermonty + portfolio AI stale-rotation glance (2026-09-10 improve): Overview / Ops SCHW honesty — off full scan list · need top-N replacement · winners only (`build_stale_rotation_glance`) — pairs with loss-rotation + rebuy; display only; not a new gate
-- [ ] tradermonty + portfolio AI stale-rotation parity (next tick): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
+- [x] tradermonty + portfolio AI stale-rotation parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09/10 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
