@@ -229,7 +229,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Phase A + portfolio AI promote-contract glance (2026-09-10 improve): Overview / Ops entry veto only · SELL ≠ buy · exits stay `exit_policy` (`build_promote_contract_glance` + A18) — before flipping promote; display only; not a new gate
 - [x] Phase A + portfolio AI promote-contract parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] RyanJHamby + A14 gate-roles glance (2026-09-10 improve): Overview / Ops regime=abs · RS=rel · breadth=scan A/D · starve→RS off first (`build_gate_roles_glance` + `gate_roles.py`) — display only; not a new gate
-- [ ] RyanJHamby + A14 gate-roles parity: same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
+- [x] RyanJHamby + A14 gate-roles parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09/10 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

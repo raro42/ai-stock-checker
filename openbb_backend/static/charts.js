@@ -2101,6 +2101,51 @@
     root.appendChild(wrap);
   }
 
+  function renderGateRolesGlance(payload) {
+    var glance = payload && payload.gate_roles_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "gate-roles-glance";
+    wrap.setAttribute("aria-labelledby", "charts-gate-roles-h");
+    var h = document.createElement("h2");
+    h.id = "charts-gate-roles-h";
+    h.className = "visually-hidden";
+    h.textContent = "Entry gate roles";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "gate-roles-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "gate-roles-glance-tone " + (glance.tone || "roles");
+    tone.textContent = "Roles";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "gate-roles-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "gate-roles-glance-link";
+    link.href = "/desk/ops#ops-regime";
+    link.textContent = "Ops gates →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Gate roles beside charts — regime abs · RS rel · breadth scan A/D; starve→RS off first.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2529,6 +2574,7 @@
     renderAtrDisplayGlance(payload);
     renderEntrySlotsGlance(payload);
     renderPromoteContractGlance(payload);
+    renderGateRolesGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);
