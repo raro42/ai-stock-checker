@@ -839,6 +839,68 @@ def build_promote_contract_glance(
     }
 
 
+def build_gate_roles_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Regime vs RS vs breadth role map (A14 / RyanJHamby; display only).
+
+    Regime = absolute benchmark trend; RS = name vs benchmark; breadth =
+    scan-list A/D (not full universe). Prefer RS off first if the book
+    starves. Not a new gate — role honesty beside entry-gates toggles.
+    """
+    from stock_checker.gate_roles import BREADTH_ROLE, REGIME_ROLE, RS_ROLE
+
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "regime": False,
+        "rs": False,
+        "breadth": False,
+        "overlap": False,
+        "prefer_rs_off_if_starved": True,
+        "regime_role": "",
+        "rs_role": "",
+        "breadth_role": "",
+    }
+    if not isinstance(runtime, dict):
+        return empty
+
+    regime = bool(runtime.get("regime_gate"))
+    rs = bool(runtime.get("rs_gate"))
+    breadth = bool(runtime.get("breadth_gate"))
+    overlap = bool(regime and rs)
+    if overlap:
+        tone = "overlap"
+        line = (
+            "regime+RS both on · abs vs rel · breadth scan A/D · "
+            "starve→RS off first"
+        )
+    else:
+        tone = "roles"
+        line = (
+            f"regime {'on' if regime else 'off'} (abs) · "
+            f"RS {'on' if rs else 'off'} (rel) · "
+            f"breadth {'on' if breadth else 'off'} (scan) · "
+            "starve→RS off first"
+        )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "regime": regime,
+        "rs": rs,
+        "breadth": breadth,
+        "overlap": overlap,
+        "prefer_rs_off_if_starved": True,
+        "regime_role": REGIME_ROLE,
+        "rs_role": RS_ROLE,
+        "breadth_role": BREADTH_ROLE,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2517,6 +2579,7 @@ def load_desk_snapshot(
         "atr_display_glance": build_atr_display_glance(),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": build_promote_contract_glance(runtime),
+        "gate_roles_glance": build_gate_roles_glance(runtime),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

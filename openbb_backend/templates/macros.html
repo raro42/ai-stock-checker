@@ -498,6 +498,31 @@
 {%- endmacro %}
 
 
+{# Regime vs RS vs breadth roles (A14; display only). #}
+{% macro gate_roles_glance(
+  snap,
+  heading_id='gate-roles-glance-h',
+  link_href='/desk/ops#ops-regime',
+  link_label='Ops gates →',
+  sub='Regime = absolute benchmark trend; RS = name vs benchmark; breadth = scan-list A/D. If starved, turn RS off first. Display only.'
+) -%}
+{% set glance = snap.gate_roles_glance if snap.gate_roles_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="gate-roles-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Entry gate roles</h2>
+  <p class="gate-roles-glance-line">
+    <span class="gate-roles-glance-tone {{ glance.tone }}">Roles</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="gate-roles-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="gate-roles-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,
