@@ -730,6 +730,38 @@ def build_universe_discovery_glance() -> dict[str, Any]:
     }
 
 
+def build_atr_display_glance() -> dict[str, Any]:
+    """Screener ATR / R:R honesty (RyanJHamby stop framing + portfolio AI; display only).
+
+    Screener may show ~2×ATR stop notes. Live stock exits stay TP/SL via
+    exit_policy — not ATR stops. Guardrail mirror — not a new gate.
+    """
+    from stock_checker.atr_risk import DEFAULT_ATR_MULT
+    from stock_checker.exit_policy import (
+        DEFAULT_STOP_LOSS_PCT,
+        DEFAULT_TAKE_PROFIT_PCT,
+    )
+
+    mult = float(DEFAULT_ATR_MULT)
+    tp = float(DEFAULT_TAKE_PROFIT_PCT)
+    sl = float(DEFAULT_STOP_LOSS_PCT)
+    line = (
+        f"Screener ATR ~{mult:g}× notes · display only · "
+        f"live TP +{tp:g}% / SL −{sl:g}% (not ATR)"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "display",
+        "line": line,
+        "atr_mult": mult,
+        "take_profit_pct": tp,
+        "stop_loss_pct": sl,
+        "live_atr_stops": False,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2405,6 +2437,7 @@ def load_desk_snapshot(
         "loss_rotation_glance": build_loss_rotation_glance(),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(),
+        "atr_display_glance": build_atr_display_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

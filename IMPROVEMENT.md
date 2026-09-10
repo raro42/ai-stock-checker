@@ -222,6 +222,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] MonsterDeveloper + portfolio AI junk-filter parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] xang1234 + portfolio AI universe-discovery glance (2026-09-10 improve): Overview / Ops curated US+DE · Yahoo movers discovery-only (`build_universe_discovery_glance` + `DEFAULT_MOVER_COUNT`) — not auto-buy firehose; display only; not a new gate
 - [x] xang1234 + portfolio AI universe-discovery parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
+- [x] RyanJHamby + portfolio AI ATR display glance (2026-09-10 improve): Overview / Ops Screener ATR ~2× notes · display only · live TP/SL not ATR (`build_atr_display_glance` + `atr_risk.DEFAULT_ATR_MULT`) — stop-calc contrast; not a new gate
+- [ ] RyanJHamby + portfolio AI ATR display parity (defer): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
 - [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09/10 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

@@ -9,6 +9,11 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional, Sequence
 
+# Soft Screener framing only — live stock exits use exit_policy TP/SL, not ATR.
+DEFAULT_ATR_MULT = 2.0
+DEFAULT_ATR_TARGET_PCT = 0.20
+DEFAULT_ATR_MIN_RR = 2.0
+
 
 def _finite(x: float) -> bool:
     return x == x and x not in (float("inf"), float("-inf"))
@@ -49,9 +54,9 @@ def risk_reward_note(
     entry: float,
     atr: Optional[float],
     swing_low: Optional[float] = None,
-    atr_mult: float = 2.0,
-    target_pct: float = 0.20,
-    min_rr: float = 2.0,
+    atr_mult: float = DEFAULT_ATR_MULT,
+    target_pct: float = DEFAULT_ATR_TARGET_PCT,
+    min_rr: float = DEFAULT_ATR_MIN_RR,
 ) -> dict[str, Any]:
     """
     Build a soft risk note for UI.
