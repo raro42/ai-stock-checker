@@ -1342,6 +1342,71 @@ def build_daily_loss_glance(
     }
 
 
+# Product anti-churn floors (AGENTS / compose): scan ≥15m, trade check ≥5m.
+LOOP_CADENCE_SCAN_FLOOR_MIN = 15
+LOOP_CADENCE_TRADE_FLOOR_MIN = 5
+
+
+def build_loop_cadence_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Scan / trade loop cadence honesty (portfolio AI + screener; display only).
+
+    Book-limits covers slots/hold/fees. This line shows scan vs trade sleep
+    against product floors (≥15m / ≥5m). RyanJHamby / MonsterDeveloper
+    screeners advertise schedule — we surface ours so friends do not assume
+    a hot tick. Not a new entry gate.
+    """
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "scan_min": 0,
+        "trade_min": 0,
+        "scan_floor_min": LOOP_CADENCE_SCAN_FLOOR_MIN,
+        "trade_floor_min": LOOP_CADENCE_TRADE_FLOOR_MIN,
+        "below_floor": False,
+    }
+    if not isinstance(runtime, dict):
+        return empty
+    try:
+        scan_m = int(runtime.get("scan_interval_min") or 0)
+    except (TypeError, ValueError):
+        scan_m = 0
+    try:
+        trade_m = int(runtime.get("trade_interval_min") or 0)
+    except (TypeError, ValueError):
+        trade_m = 0
+    if scan_m < 1 or trade_m < 1:
+        return empty
+    below = (
+        scan_m < LOOP_CADENCE_SCAN_FLOOR_MIN
+        or trade_m < LOOP_CADENCE_TRADE_FLOOR_MIN
+    )
+    floor_bit = (
+        f"floors ≥{LOOP_CADENCE_SCAN_FLOOR_MIN}m/"
+        f"≥{LOOP_CADENCE_TRADE_FLOOR_MIN}m"
+    )
+    if below:
+        tone = "warn"
+        line = f"scan {scan_m}m · trade {trade_m}m · below {floor_bit}"
+    else:
+        tone = "ok"
+        line = f"scan {scan_m}m · trade {trade_m}m · {floor_bit}"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "scan_min": scan_m,
+        "trade_min": trade_m,
+        "scan_floor_min": LOOP_CADENCE_SCAN_FLOOR_MIN,
+        "trade_floor_min": LOOP_CADENCE_TRADE_FLOOR_MIN,
+        "below_floor": below,
+    }
+
+
 def build_fee_allowance_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2550,6 +2615,11 @@ def load_desk_snapshot(
             "note": "Overview / Screener / Breadth / Ops / Book / Ideas / Charts show scan age as fresh / aging / stale — display only, not a gate.",
         },
         {
+            "title": "Loop cadence honesty",
+            "from": "RyanJHamby / MonsterDeveloper screeners + portfolio AI (schedule UX)",
+            "note": "Overview / Ops show scan · trade minutes vs floors ≥15m/≥5m — packaging ≠ edge; display only.",
+        },
+        {
             "title": "Soft-allow glance on Overview / Book",
             "from": "tradermonty/claude-trading-skills (trader memory)",
             "note": "One-line fail-open soft-allow count beside pretrade / risk — Ops keeps the full list; display only.",
@@ -2669,6 +2739,7 @@ def load_desk_snapshot(
             post_sl_sym,
             post_sl_epoch,
         ),
+        "loop_cadence_glance": build_loop_cadence_glance(runtime),
         "fee_allowance_glance": build_fee_allowance_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(fees, initial),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),

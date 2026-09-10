@@ -648,6 +648,31 @@
 {%- endmacro %}
 
 
+{# Scan / trade loop cadence vs anti-churn floors (display only). #}
+{% macro loop_cadence_glance(
+  snap,
+  heading_id='loop-cadence-glance-h',
+  link_href='/desk/ops#ops-scan-trade',
+  link_label='Ops cadence →',
+  sub='Scan vs trade sleep — product floors ≥15m / ≥5m. Packaging ≠ edge. Not a gate.'
+) -%}
+{% set glance = snap.loop_cadence_glance if snap.loop_cadence_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="loop-cadence-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Loop cadence</h2>
+  <p class="loop-cadence-glance-line">
+    <span class="loop-cadence-glance-tone {{ glance.tone }}">Cadence</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="loop-cadence-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="loop-cadence-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Revolut-like free legs left this month (display only). Crypto fees not modeled. #}
 {% macro fee_allowance_glance(
   snap,

@@ -1049,14 +1049,16 @@ a:active {
 }
 
 .fee-allowance-glance,
-.fee-burn-glance {
+.fee-burn-glance,
+.loop-cadence-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
   border-bottom: 1px solid var(--line);
 }
 
 .fee-allowance-glance-line,
-.fee-burn-glance-line {
+.fee-burn-glance-line,
+.loop-cadence-glance-line {
   margin: 0;
   font-size: 0.92rem;
   color: var(--ink);
@@ -1064,7 +1066,8 @@ a:active {
 }
 
 .fee-allowance-glance-tone,
-.fee-burn-glance-tone {
+.fee-burn-glance-tone,
+.loop-cadence-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -1072,14 +1075,17 @@ a:active {
 }
 
 .fee-allowance-glance-tone.spent,
-.fee-burn-glance-tone.warn {
+.fee-burn-glance-tone.warn,
+.loop-cadence-glance-tone.warn {
   color: var(--down);
 }
 
 .fee-allowance-glance-tone.open,
 .fee-allowance-glance-tone.none,
 .fee-allowance-glance-tone.flat,
-.fee-burn-glance-tone.quiet {
+.fee-burn-glance-tone.quiet,
+.loop-cadence-glance-tone.ok,
+.loop-cadence-glance-tone.flat {
   color: var(--muted);
 }
 
@@ -1088,18 +1094,21 @@ a:active {
 }
 
 .fee-allowance-glance-body,
-.fee-burn-glance-body {
+.fee-burn-glance-body,
+.loop-cadence-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
 }
 
 .fee-allowance-glance-link,
-.fee-burn-glance-link {
+.fee-burn-glance-link,
+.loop-cadence-glance-link {
   font-size: 0.85rem;
 }
 
 .fee-allowance-glance .sub,
-.fee-burn-glance .sub {
+.fee-burn-glance .sub,
+.loop-cadence-glance .sub {
   margin: 0.35rem 0 0;
 }
 
