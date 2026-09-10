@@ -2372,6 +2372,51 @@
     root.appendChild(wrap);
   }
 
+  function renderFeeAllowanceGlance(payload) {
+    var glance = payload && payload.fee_allowance_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "fee-allowance-glance";
+    wrap.setAttribute("aria-labelledby", "charts-fee-allowance-h");
+    var h = document.createElement("h2");
+    h.id = "charts-fee-allowance-h";
+    h.className = "visually-hidden";
+    h.textContent = "Fee allowance";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "fee-allowance-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "fee-allowance-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Free legs";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "fee-allowance-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "fee-allowance-glance-link";
+    link.href = "/desk/ops#ops-fee-preset";
+    link.textContent = "Ops fees →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Free monthly legs beside charts — Revolut-like quota before paid fills. Crypto fees not modeled. Not a gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderFeeBurnGlance(payload) {
     var glance = payload && payload.fee_burn_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2580,6 +2625,7 @@
     renderDailyLossGlance(payload);
     renderConcentrationGlance(payload);
     renderPostSlCooldownGlance(payload);
+    renderFeeAllowanceGlance(payload);
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);

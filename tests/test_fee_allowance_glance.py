@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import build_fee_allowance_glance, load_desk_snapshot
 
 
@@ -77,6 +78,20 @@ def test_fee_allowance_glance_in_snapshot(tmp_path) -> None:
     (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
     snap = load_desk_snapshot(tmp_path, live_marks=False)
     g = snap["fee_allowance_glance"]
+    assert g["ready"] is True
+    assert g["crypto_modeled"] is False
+    assert "free" in g["line"].lower() or "no free" in g["line"].lower()
+
+
+def test_fee_allowance_glance_in_chart_payload(tmp_path) -> None:
+    (tmp_path / "portfolio.json").write_text(
+        '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '
+        '"total_fees_paid": 0, "free_legs_per_month": 1, '
+        '"fee_allowance_used": 0, "fee_allowance_month": "2026-09"}',
+        encoding="utf-8",
+    )
+    (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
+    g = load_chart_payload(tmp_path)["fee_allowance_glance"]
     assert g["ready"] is True
     assert g["crypto_modeled"] is False
     assert "free" in g["line"].lower() or "no free" in g["line"].lower()

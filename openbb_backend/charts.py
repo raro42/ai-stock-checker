@@ -914,6 +914,42 @@ def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]
     return build_fee_burn_glance(fees, initial)
 
 
+def _fee_allowance_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """Free monthly legs left from portfolio + Ops fee preset (display only)."""
+    from openbb_backend.desk import build_fee_allowance_glance
+    from stock_checker.trader_config import load_trader_config
+
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    if not isinstance(portfolio, dict):
+        portfolio = {}
+    cfg = load_trader_config(data_dir)
+    try:
+        free_legs = int(
+            portfolio.get("free_legs_per_month")
+            or cfg.get("free_legs_per_month")
+            or 0
+        )
+    except (TypeError, ValueError):
+        free_legs = 0
+    try:
+        allowance_used = int(portfolio.get("fee_allowance_used") or 0)
+    except (TypeError, ValueError):
+        allowance_used = 0
+    allowance_month = str(portfolio.get("fee_allowance_month") or "")
+    current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+    if allowance_month != current_month:
+        allowance_used = 0
+    return build_fee_allowance_glance(
+        {
+            "fee_preset": cfg.get("fee_preset") or "revolut_standard",
+            "free_legs_per_month": max(0, free_legs),
+            "fee_allowance_used": max(0, allowance_used),
+            "fee_allowance_remaining": max(0, free_legs - allowance_used),
+            "fee_allowance_month": current_month,
+        }
+    )
+
+
 def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     """A15 min-hold underwater glance from portfolio + scan marks (display only)."""
     import time
@@ -1047,6 +1083,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
         "concentration_glance": _concentration_glance_from_portfolio(data_dir, portfolio),
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
+        "fee_allowance_glance": _fee_allowance_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
