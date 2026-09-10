@@ -2056,6 +2056,51 @@
     root.appendChild(wrap);
   }
 
+  function renderPromoteContractGlance(payload) {
+    var glance = payload && payload.promote_contract_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "promote-contract-glance";
+    wrap.setAttribute("aria-labelledby", "charts-promote-contract-h");
+    var h = document.createElement("h2");
+    h.id = "charts-promote-contract-h";
+    h.className = "visually-hidden";
+    h.textContent = "Promote entry contract";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "promote-contract-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "promote-contract-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Promote";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "promote-contract-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "promote-contract-glance-link";
+    link.href = "/desk/ops#ops-promote";
+    link.textContent = "Ops promote →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Promote beside charts — entry veto only; exits stay exit_policy. Not a new gate.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
     function renderBookLimitsGlance(payload) {
     var glance = payload && payload.book_limits_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2483,6 +2528,7 @@
     renderUniverseDiscoveryGlance(payload);
     renderAtrDisplayGlance(payload);
     renderEntrySlotsGlance(payload);
+    renderPromoteContractGlance(payload);
     renderBookLimitsGlance(payload);
     renderRebuyCooldownGlance(payload);
     renderDailyLossGlance(payload);

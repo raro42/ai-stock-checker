@@ -473,6 +473,31 @@
 {%- endmacro %}
 
 
+{# Promote = entry veto only (A18; display only). #}
+{% macro promote_contract_glance(
+  snap,
+  heading_id='promote-contract-glance-h',
+  link_href='/desk/ops#ops-promote',
+  link_label='Ops promote →',
+  sub='Champion filters new buys only when promote is on. Exits stay in exit_policy; SELL never becomes a buy. Display only.'
+) -%}
+{% set glance = snap.promote_contract_glance if snap.promote_contract_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="promote-contract-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Promote entry contract</h2>
+  <p class="promote-contract-glance-line">
+    <span class="promote-contract-glance-tone {{ glance.tone }}">Promote</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="promote-contract-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="promote-contract-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,

@@ -795,6 +795,50 @@ def build_entry_slots_glance() -> dict[str, Any]:
     }
 
 
+def build_promote_contract_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Promote = entry veto only (A18 / portfolio AI; display only).
+
+    Overnight champion filters new buys when promote is on. Exits stay in
+    exit_policy; champion SELL never becomes a live buy. Not a new gate —
+    contract honesty before flipping Ops promote.
+    """
+    from stock_checker.promoted_strategy import PROMOTED_SOURCE
+
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "promote_on": False,
+        "entry_veto_only": True,
+        "exits_via_champion": False,
+        "source": "",
+    }
+    if not isinstance(runtime, dict):
+        return empty
+
+    on = bool(runtime.get("promote_experiment_strategy"))
+    src = str(PROMOTED_SOURCE).rsplit(".", 1)[-1]
+    if on:
+        tone = "on"
+        line = f"on · entry veto only · SELL ≠ buy · exits exit_policy · {src}"
+    else:
+        tone = "off"
+        line = f"off · when on: entry veto only · exits stay exit_policy"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "promote_on": on,
+        "entry_veto_only": True,
+        "exits_via_champion": False,
+        "source": src,
+    }
+
+
 def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -2472,6 +2516,7 @@ def load_desk_snapshot(
         "universe_discovery_glance": build_universe_discovery_glance(),
         "atr_display_glance": build_atr_display_glance(),
         "entry_slots_glance": build_entry_slots_glance(),
+        "promote_contract_glance": build_promote_contract_glance(runtime),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

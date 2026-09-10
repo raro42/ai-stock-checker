@@ -791,6 +791,21 @@ def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _promote_contract_glance_from_config(data_dir: Path) -> dict[str, Any]:
+    """Promote entry-veto contract from Ops file (display only)."""
+    from openbb_backend.desk import build_promote_contract_glance
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(data_dir)
+    return build_promote_contract_glance(
+        {
+            "promote_experiment_strategy": bool(
+                cfg.get("promote_experiment_strategy", False)
+            ),
+        }
+    )
+
+
 
 def _crypto_policy_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]:
     """Live crypto slot line from portfolio holdings (display only)."""
@@ -1011,6 +1026,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "universe_discovery_glance": build_universe_discovery_glance(),
         "atr_display_glance": build_atr_display_glance(),
         "entry_slots_glance": build_entry_slots_glance(),
+        "promote_contract_glance": _promote_contract_glance_from_config(data_dir),
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
