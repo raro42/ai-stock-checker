@@ -398,6 +398,31 @@
 {%- endmacro %}
 
 
+{# Stale-name rotation honesty (display only). SCHW flip-flop lesson. #}
+{% macro stale_rotation_glance(
+  snap,
+  heading_id='stale-rotation-glance-h',
+  link_href='/desk/book',
+  link_label='Book →',
+  sub='Stale only when off the full scan list, and only with a top-N replacement. Winners only. Display only — not a new gate.'
+) -%}
+{% set glance = snap.stale_rotation_glance if snap.stale_rotation_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="stale-rotation-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Stale rotation policy</h2>
+  <p class="stale-rotation-glance-line">
+    <span class="stale-rotation-glance-tone {{ glance.tone }}">Stale</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="stale-rotation-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="stale-rotation-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Junk / noise filter honesty (display only). Stables, leveraged, sub-$1 crypto. #}
 {% macro junk_filter_glance(
   snap,

@@ -719,6 +719,33 @@ def build_loss_rotation_glance() -> dict[str, Any]:
     }
 
 
+def build_stale_rotation_glance() -> dict[str, Any]:
+    """Stale-name rotation honesty (tradermonty / portfolio AI; display only).
+
+    SCHW lesson: a name is stale only when it drops off the *entire* scan
+    list — not when rank noise bumps it out of top-N. Even then, sell only
+    when a stronger top-N replacement exists, and only winners at the rotate
+    hurdle. Pairs with loss-rotation + rebuy-cooldown — not a new gate.
+    """
+    from stock_checker.exit_policy import DEFAULT_ROTATE_MIN_PROFIT_PCT
+
+    rot = float(DEFAULT_ROTATE_MIN_PROFIT_PCT)
+    line = (
+        f"stale · off full scan list · need top-N replacement · winners ≥+{rot:g}%"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "stale",
+        "line": line,
+        "require_off_scan_list": True,
+        "require_replacement": True,
+        "winners_only": True,
+        "rotate_min_pct": rot,
+    }
+
+
 def build_junk_filter_glance() -> dict[str, Any]:
     """Junk / noise filter honesty (screener + portfolio AI; display only).
 
@@ -2757,6 +2784,7 @@ def load_desk_snapshot(
         "equity_hours_glance": build_equity_hours_glance(),
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
+        "stale_rotation_glance": build_stale_rotation_glance(),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(),
         "atr_display_glance": build_atr_display_glance(),
