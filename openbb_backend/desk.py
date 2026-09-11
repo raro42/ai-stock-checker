@@ -578,10 +578,11 @@ def build_exit_policy_glance() -> dict[str, Any]:
 
 
 def build_earnings_blackout_glance() -> dict[str, Any]:
-    """Stock earnings blackout window (portfolio AI / FinRobot calendar risk; display only).
+    """Stock earnings blackout + Yahoo calendar fail-open (tradermonty; display only).
 
     New stock entries stay blocked DEFAULT_DAYS_BEFORE before and DEFAULT_DAYS_AFTER
-    after earnings. Crypto is exempt. Policy honesty only — no live calendar poll.
+    after earnings. Crypto is exempt. Missing Yahoo calendar date → allow (fail-open),
+    not a silent waiver. Policy honesty only — no live calendar poll.
     Not a new gate (gate already in earnings_guard).
     """
     from stock_checker.earnings_guard import (
@@ -592,7 +593,8 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     before = float(DEFAULT_DAYS_BEFORE)
     after = float(DEFAULT_DAYS_AFTER)
     line = (
-        f"stocks · blackout {before:g}d before / {after:g}d after · crypto exempt"
+        f"stocks · {before:g}d before / {after:g}d after · "
+        "no Yahoo date → allow · crypto exempt"
     )
     if len(line) > 96:
         line = line[:95] + "…"
@@ -602,6 +604,8 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
         "line": line,
         "days_before": before,
         "days_after": after,
+        "fail_open": True,
+        "missing_calendar": "allow",
     }
 
 

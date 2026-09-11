@@ -1698,7 +1698,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Stock entry blackout beside charts — 2d before / 1d after; crypto exempt. Display only.";
+      "Stock blackout beside charts — 2d/1d; no Yahoo date → allow (fail-open); crypto exempt.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

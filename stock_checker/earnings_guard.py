@@ -76,6 +76,9 @@ def is_in_earnings_blackout(
 
     Window: [-days_after, +days_before] around the event in day units
     where positive days_to means earnings in the future.
+
+    Missing Yahoo calendar (days_to_next_earnings → None) fail-opens: allow entry.
+    That is intentional coverage honesty, not a silent waiver.
     """
     days = days_to_next_earnings(symbol)
     if days is None:

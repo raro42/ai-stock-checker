@@ -28,3 +28,11 @@ def test_blackout_after_earnings(_mock):
 def test_no_blackout_far_away(_mock):
     blocked, _ = is_in_earnings_blackout("NVDA")
     assert blocked is False
+
+
+@patch("stock_checker.earnings_guard.days_to_next_earnings", return_value=None)
+def test_missing_calendar_fail_open_allows(_mock):
+    """No Yahoo earnings date → allow (fail-open), not a silent block."""
+    blocked, why = is_in_earnings_blackout("UNKNOWN")
+    assert blocked is False
+    assert why == ""

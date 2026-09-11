@@ -210,6 +210,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] staskh + portfolio AI concentration parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] portfolio AI + FinRobot earnings-blackout glance (2026-09-09 improve): Overview / Ops stock entry calendar window (`build_earnings_blackout_glance` + `DEFAULT_DAYS_*`) — 2d before / 1d after; crypto exempt; policy honesty only; not a new gate
 - [x] portfolio AI + FinRobot earnings-blackout parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
+- [x] tradermonty earnings-calendar coverage honesty (2026-09-11 improve): earnings glance + guard docs — missing Yahoo date → allow (fail-open), not a silent waiver (`build_earnings_blackout_glance` / `earnings_guard`) — display only; not a new gate
 - [x] FinRobot + TradingAgents AI-mode glance (2026-09-09 improve): Overview / Ops `ai_mode` · model · multi-role (`build_ai_mode_glance`) — rules-first honesty before validate/full; display only; not a new gate
 - [x] FinRobot + TradingAgents AI-mode parity (2026-09-09 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] xang1234 session glance (2026-09-09 improve): Overview / Ops UTC weekday vs weekend crypto-only (`build_session_glance`) — screener session honesty; display only; not a new gate
@@ -253,7 +254,6 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] FinRobot AI validate debate memory on Ideas (2026-09-11 improve): persist bull/bear/risk validate rows (`ai_validate_memory.py` + trader wire) · Ideas “Last AI debates” — display only; not a research score; not a new gate
 - [x] FinRobot richer debate transcript UI (2026-09-11 improve): Ideas expandable `<details class="ai-debate">` + reasons + `tojson` transcript — display only; not a new gate
 - [x] tradermonty + xang1234 scan estimate coverage (2026-09-11 improve): breadth glance shows priced `of N` + `estimate · not full-universe` (`build_breadth_glance`) — verified scan-list snapshot honesty; display only; not a new gate
-- [ ] Deferred: tradermonty earnings-calendar coverage honesty — desk line that missing Yahoo calendar → allow (fail-open), not a silent waiver (pairs with `earnings_guard`; display only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

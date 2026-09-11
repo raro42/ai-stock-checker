@@ -254,7 +254,7 @@
   heading_id='earnings-blackout-glance-h',
   link_href='/desk/screener',
   link_label='Screener →',
-  sub='New stock entries blocked near earnings (2d before / 1d after). Crypto exempt. Display only.'
+  sub='Stock blackout 2d before / 1d after. Missing Yahoo date → allow (fail-open). Crypto exempt. Display only.'
 ) -%}
 {% set glance = snap.earnings_blackout_glance if snap.earnings_blackout_glance is mapping else {} %}
 {% if glance.ready %}
