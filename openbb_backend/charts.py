@@ -923,13 +923,24 @@ def _post_sl_cooldown_glance_from_data(data_dir: Path) -> dict[str, Any]:
     return build_post_sl_cooldown_glance(hit[0], hit[1])
 
 
-def _fee_burn_glance_from_portfolio(portfolio: dict[str, Any]) -> dict[str, Any]:
-    """Fee-drag % of start from portfolio.json (display only)."""
+def _fee_burn_glance_from_portfolio(
+    data_dir: Path, portfolio: dict[str, Any]
+) -> dict[str, Any]:
+    """Fee-drag % of start + vs realized sell P&L (display only)."""
     from openbb_backend.desk import build_fee_burn_glance
 
     fees = float(portfolio.get("total_fees_paid") or 0)
     initial = float(portfolio.get("initial_cash") or 0)
-    return build_fee_burn_glance(fees, initial)
+    trades = _load_jsonl(data_dir / "trades.jsonl")
+    sells = [
+        t
+        for t in trades
+        if isinstance(t, dict) and str(t.get("type") or "").upper() == "SELL"
+    ]
+    realized: float | None = None
+    if sells:
+        realized = sum(float(t.get("profit_loss") or 0) for t in sells)
+    return build_fee_burn_glance(fees, initial, realized_pnl=realized)
 
 
 def _fee_allowance_glance_from_data(data_dir: Path) -> dict[str, Any]:
@@ -1116,7 +1127,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
         "loop_cadence_glance": _loop_cadence_glance_from_config(data_dir),
         "fee_allowance_glance": _fee_allowance_glance_from_data(data_dir),
-        "fee_burn_glance": _fee_burn_glance_from_portfolio(portfolio),
+        "fee_burn_glance": _fee_burn_glance_from_portfolio(data_dir, portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),

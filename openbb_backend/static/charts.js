@@ -2827,7 +2827,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Fee drag vs start beside charts — high (≥2%) before chasing adds. Not a gate.";
+      "Fee drag vs start and realized P&L beside charts — high (≥2% or fees>P&L) before chasing adds. Not a gate.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

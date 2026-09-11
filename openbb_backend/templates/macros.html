@@ -873,13 +873,13 @@
 {% endif %}
 {%- endmacro %}
 
-{# Fee drag vs start capital (display only). Overview strip keeps raw € fees. #}
+{# Fee drag vs start + realized P&L (display only). Overview strip keeps raw € fees. #}
 {% macro fee_burn_glance(
   snap,
   heading_id='fee-burn-glance-h',
   link_href='/desk/ops#ops-fee-preset',
   link_label='Ops fees →',
-  sub='Fees vs start capital — high (≥2%) suggests reset or longer holds. Not a gate.'
+  sub='Fees vs start and realized P&L — high (≥2% start or fees > P&L) suggests reset or longer holds. Not a gate.'
 ) -%}
 {% set glance = snap.fee_burn_glance if snap.fee_burn_glance is mapping else {} %}
 {% if glance.ready %}

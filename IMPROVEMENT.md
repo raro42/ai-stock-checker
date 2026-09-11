@@ -255,6 +255,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] FinRobot AI validate debate memory on Ideas (2026-09-11 improve): persist bull/bear/risk validate rows (`ai_validate_memory.py` + trader wire) · Ideas “Last AI debates” — display only; not a research score; not a new gate
 - [x] FinRobot richer debate transcript UI (2026-09-11 improve): Ideas expandable `<details class="ai-debate">` + reasons + `tojson` transcript — display only; not a new gate
 - [x] tradermonty + xang1234 scan estimate coverage (2026-09-11 improve): breadth glance shows priced `of N` + `estimate · not full-universe` (`build_breadth_glance`) — verified scan-list snapshot honesty; display only; not a new gate
+- [x] portfolio AI + summarize_trades fee vs realized (2026-09-11 improve): fee-burn glance adds `vs €P&L` + warn when fees > realized (`build_fee_burn_glance` realized_pnl) — churn eats edge; display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

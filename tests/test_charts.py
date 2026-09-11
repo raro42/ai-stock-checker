@@ -84,7 +84,9 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert "fee_burn_glance" in payload
     assert payload["fee_burn_glance"]["ready"] is True
     assert payload["fee_burn_glance"]["tone"] == "quiet"
+    assert payload["fee_burn_glance"]["realized"] is None
     assert "€1.00 fees" in payload["fee_burn_glance"]["line"]
+    assert "P&L" not in payload["fee_burn_glance"]["line"]
     assert "postmortem_glance" in payload
     assert payload["postmortem_glance"]["ready"] is False
     assert any(a["symbol"] == "CASH" for a in payload["allocation"])

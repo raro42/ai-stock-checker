@@ -1814,11 +1814,13 @@ def build_fee_burn_glance(
     initial: float | None,
     *,
     threshold: float = 0.02,
+    realized_pnl: float | None = None,
 ) -> dict[str, Any]:
-    """Compact fee-drag line (portfolio AI / churn honesty; display only).
+    """Compact fee-drag line (portfolio AI / summarize_trades honesty; display only).
 
-    Overview strip shows raw fees; this line adds % of start capital so friends
-    see burn before the 2% pretrade WARN. Not an entry gate.
+    Overview strip shows raw fees; this line adds % of start capital and, when
+    known, fees vs realized sell P&L so friends see churn eat edge before the
+    2% pretrade WARN. Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -1828,6 +1830,8 @@ def build_fee_burn_glance(
         "initial": 0.0,
         "ratio": 0.0,
         "high": False,
+        "realized": None,
+        "fees_gt_realized": False,
     }
     try:
         fee_v = float(fees) if fees is not None else 0.0
@@ -1836,14 +1840,31 @@ def build_fee_burn_glance(
         return empty
     if fee_v <= 0 or init_v <= 0:
         return empty
+    realized_v: float | None
+    try:
+        realized_v = float(realized_pnl) if realized_pnl is not None else None
+    except (TypeError, ValueError):
+        realized_v = None
     ratio = fee_v / init_v
     thr = float(threshold) if threshold > 0 else 0.02
-    high = ratio >= thr
+    fees_gt = bool(realized_v is not None and fee_v > realized_v)
+    high = ratio >= thr or fees_gt
     tone = "warn" if high else "quiet"
-    status = "high" if high else "quiet"
-    line = (
-        f"€{fee_v:,.2f} fees · {ratio * 100:.1f}% of €{init_v:,.0f} start · {status}"
-    )
+    if fees_gt and ratio < thr:
+        status = "fees>P&L"
+    elif high:
+        status = "high"
+    else:
+        status = "quiet"
+    if realized_v is None:
+        line = (
+            f"€{fee_v:,.2f} fees · {ratio * 100:.1f}% of €{init_v:,.0f} start · {status}"
+        )
+    else:
+        line = (
+            f"€{fee_v:,.2f} fees · {ratio * 100:.1f}% start · "
+            f"vs €{realized_v:,.2f} P&L · {status}"
+        )
     if len(line) > 96:
         line = line[:95] + "…"
     return {
@@ -1854,6 +1875,8 @@ def build_fee_burn_glance(
         "initial": init_v,
         "ratio": ratio,
         "high": high,
+        "realized": realized_v,
+        "fees_gt_realized": fees_gt,
     }
 
 
@@ -3114,7 +3137,11 @@ def load_desk_snapshot(
         ),
         "loop_cadence_glance": build_loop_cadence_glance(runtime),
         "fee_allowance_glance": build_fee_allowance_glance(runtime),
-        "fee_burn_glance": build_fee_burn_glance(fees, initial),
+        "fee_burn_glance": build_fee_burn_glance(
+            fees,
+            initial,
+            realized_pnl=realized if sells else None,
+        ),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
         "postmortem_glance": build_postmortem_glance(postmortems),
         "realized": realized,
