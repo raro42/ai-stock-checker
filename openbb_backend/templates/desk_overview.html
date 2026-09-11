@@ -92,6 +92,27 @@
   "Fee-adjusted A/B window vs calm unlock — do not flip promote mid-window. Not edge."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "overview-book-posture-h",
+  "/desk/book",
+  "Book →",
+  "Before chasing adds — open allows entries; at_cap blocks buys; overweight is exits+trim only."
+) }}
+
+{{ book_risk_glance(
+  snap,
+  "overview-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture before top holdings — overweight means exits-only. Full strip on Book."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "overview-crypto-h",
@@ -178,15 +199,6 @@
   "/desk/book",
   "Book →",
   "SCHW lesson — stale only off the full scan list, and only when a top-N replacement exists."
-) }}
-
-
-{{ book_posture_glance(
-  snap,
-  "overview-book-posture-h",
-  "/desk/book",
-  "Book →",
-  "Before chasing adds — open allows entries; at_cap blocks buys; overweight is exits+trim only."
 ) }}
 
 {{ junk_filter_glance(
@@ -285,7 +297,6 @@
   "After SL, ≥4h buy block — anti revenge refill. Soft WARN only."
 ) }}
 
-
 {{ loop_cadence_glance(
   snap,
   "overview-loop-cadence-h",
@@ -326,13 +337,7 @@
   "Newest closed round before top holdings — full thesis list on Book. Not a gate."
 ) }}
 
-{{ book_risk_glance(
-  snap,
-  "overview-book-risk-h",
-  "/desk/book",
-  "Full book →",
-  "Slots and posture before top holdings — overweight means exits-only. Full strip on Book."
-) }}
+</details>
 
 <section class="block" aria-labelledby="hold-h">
   <h2 id="hold-h">Top holdings</h2>

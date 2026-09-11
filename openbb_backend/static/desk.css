@@ -1814,6 +1814,41 @@ a:active {
   margin-bottom: 0.5rem;
 }
 
+/* Overview: collapse long policy-honesty glance wall (MonsterDeveloper simplicity). */
+.policy-honesty {
+  margin: 1rem 0 1.25rem;
+  padding: 0.65rem 0 0.15rem;
+  border-top: 1px solid var(--line);
+}
+
+.policy-honesty > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-family: var(--font-display, Georgia, "Times New Roman", serif);
+  font-size: 1.05rem;
+  list-style: none;
+}
+
+.policy-honesty > summary::-webkit-details-marker {
+  display: none;
+}
+
+.policy-honesty > summary .meta {
+  margin-left: 0.35rem;
+  color: var(--muted);
+  font-family: var(--font-body, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.policy-honesty[open] > summary {
+  margin-bottom: 0.35rem;
+}
+
+.policy-honesty > .sub {
+  margin: 0 0 0.65rem;
+}
+
 .empty,
 .note {
   color: var(--muted);
