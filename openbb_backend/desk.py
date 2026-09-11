@@ -2761,6 +2761,11 @@ def load_desk_snapshot(
 
     adopted_ideas = [
         {
+            "title": "AI validate debate memory on Ideas",
+            "from": "FinRobot / TradingAgents multi-role",
+            "note": "Persists last bull/bear/risk validate rows — display only; not a research score.",
+        },
+        {
             "title": "Scan pulse on Breadth",
             "from": "xang1234/stock-screener (StockBee-style A/D)",
             "note": "Crypto leaders advance/decline + ±4% movers from our scan lists.",
@@ -2902,6 +2907,7 @@ def load_desk_snapshot(
         },
     ]
 
+    from stock_checker.ai_validate_memory import recent_ai_debates
     from stock_checker.gate_audit import recent_soft_allows
     from stock_checker.risk_halts import (
         book_risk_report,
@@ -2912,6 +2918,7 @@ def load_desk_snapshot(
     )
 
     soft_allows = recent_soft_allows(data_dir, limit=12)
+    ai_debates = recent_ai_debates(data_dir, limit=8)
 
     max_pos = int(cfg_fees.get("max_positions") or 5)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
@@ -2974,6 +2981,7 @@ def load_desk_snapshot(
         "book_risk_glance": build_book_risk_glance(book_risk),
         "concentration_glance": build_concentration_glance(book_risk),
         "soft_allows": soft_allows,
+        "ai_debates": ai_debates,
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),

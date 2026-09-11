@@ -19,6 +19,9 @@ def test_risk_veto_forces_hold():
     assert out["action"] == "HOLD"
     assert out["multi_role_gated"] is True
     assert out["risk_ok"] is False
+    assert out["bull_note"] == "up"
+    assert "earnings" in out["risk_note"]
+    assert out["reasoning"].startswith("Risk veto")
 
 
 def test_bull_bear_disagreement_hold():

@@ -523,6 +523,7 @@ class IntelligentTrader:
         """
         from .fetcher import StockFetcher
         from .binance_fetcher import BinanceFetcher
+        from stock_checker.ai_validate_memory import record_ai_validate
         import sys
 
         try:
@@ -650,6 +651,12 @@ class IntelligentTrader:
                         print(f"   ❌ {symbol}: AI recommends SELL - filtering out")
                         print(f"      Reasoning: {ai_result['reasons'][0]}")
                         sys.stdout.flush()
+                        record_ai_validate(
+                            self.persistence.data_dir,
+                            ai_result,
+                            symbol=symbol,
+                            kept=False,
+                        )
                         continue
                     elif ai_result['action'] == 'HOLD':
                         conf = str(ai_result.get('confidence') or '').upper()
@@ -659,6 +666,12 @@ class IntelligentTrader:
                             )
                             print(f"      Reasoning: {ai_result['reasons'][0]}")
                             sys.stdout.flush()
+                            record_ai_validate(
+                                self.persistence.data_dir,
+                                ai_result,
+                                symbol=symbol,
+                                kept=False,
+                            )
                             continue
                         print(
                             f"   ⚠️  {symbol}: AI suggests HOLD (neutral) "
@@ -680,12 +693,24 @@ class IntelligentTrader:
                     opp['ai_confidence'] = ai_result['confidence']
                     opp['ai_score'] = ai_result['score']
                     opp['ai_reasoning'] = ai_result['reasons'][0]
+                    record_ai_validate(
+                        self.persistence.data_dir,
+                        ai_result,
+                        symbol=symbol,
+                        kept=True,
+                    )
 
                 elif self.ai_mode == "full":
                     # In full mode: Use AI score heavily
                     if ai_result['score'] < -20:
                         print(f"   ❌ {symbol}: AI score {ai_result['score']} too negative - filtering out")
                         sys.stdout.flush()
+                        record_ai_validate(
+                            self.persistence.data_dir,
+                            ai_result,
+                            symbol=symbol,
+                            kept=False,
+                        )
                         continue
                     elif ai_result['score'] < 20:
                         print(f"   ⚠️  {symbol}: AI score {ai_result['score']} low - keeping with caution")
@@ -701,6 +726,12 @@ class IntelligentTrader:
                     opp['ai_confidence'] = ai_result['confidence']
                     opp['ai_score'] = ai_result['score']
                     opp['ai_reasoning'] = ai_result['reasons'][0]
+                    record_ai_validate(
+                        self.persistence.data_dir,
+                        ai_result,
+                        symbol=symbol,
+                        kept=True,
+                    )
 
                 validated_opportunities.append(opp)
 

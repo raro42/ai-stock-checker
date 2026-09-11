@@ -1753,6 +1753,31 @@ a:active {
   border-bottom: 1px solid var(--line);
 }
 
+.ai-debates {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.ai-debates li {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-debates .meta {
+  display: block;
+  font-family: var(--font-data, ui-monospace, monospace);
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.ai-debates .why {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
 .post-main {
   display: grid;
   grid-template-columns: minmax(7.5rem, 11rem) 1fr auto;

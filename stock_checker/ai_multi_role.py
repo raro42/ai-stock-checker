@@ -122,10 +122,13 @@ def consensus_from_multi_role(payload: dict, symbol: str) -> dict[str, Any]:
         action, confidence, score, gated = "HOLD", "MEDIUM", 0, True
         reasoning = "Bull/bear disagreement → HOLD"
 
+    bull_note = str(bull.get("note") or bull_bias)[:160]
+    bear_note = str(bear.get("note") or bear_bias)[:160]
+    risk_note = str(risk.get("note") or ("ok" if risk_ok else "blocked"))[:160]
     notes = [
-        f"Bull: {bull.get('note', bull_bias)}",
-        f"Bear: {bear.get('note', bear_bias)}",
-        f"Risk: {risk.get('note', risk_ok)}",
+        f"Bull: {bull_note}",
+        f"Bear: {bear_note}",
+        f"Risk: {risk_note}",
         reasoning,
     ]
     return {
@@ -140,6 +143,10 @@ def consensus_from_multi_role(payload: dict, symbol: str) -> dict[str, Any]:
         "bull_bias": bull_bias,
         "bear_bias": bear_bias,
         "risk_ok": risk_ok,
+        "bull_note": bull_note,
+        "bear_note": bear_note,
+        "risk_note": risk_note,
+        "reasoning": reasoning,
     }
 
 

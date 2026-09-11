@@ -324,6 +324,40 @@
   {% endif %}
 </section>
 
+<section class="block" aria-labelledby="debate-h">
+  <h2 id="debate-h">Last AI debates</h2>
+  <p class="sub">Recent multi-role validate rows (bull / bear / risk). Display only — not a research score or entry gate.</p>
+  {% if snap.ai_debates %}
+  <ul class="ai-debates">
+    {% for d in snap.ai_debates %}
+    <li>
+      <span class="meta">
+        {{ d.at[:16] if d.at else "—" }}
+        · {{ d.symbol }}
+        · {{ d.action }}{% if d.confidence %} · {{ d.confidence }}{% endif %}
+        {% if d.kept is sameas false %} · filtered{% elif d.kept is sameas true %} · kept{% endif %}
+        {% if d.multi_role_gated %} · gated{% endif %}
+      </span>
+      {% if d.bull_bias or d.bull_note %}
+      <span class="why">Bull {{ d.bull_bias or "—" }}{% if d.bull_note %} — {{ d.bull_note }}{% endif %}</span>
+      {% endif %}
+      {% if d.bear_bias or d.bear_note %}
+      <span class="why">Bear {{ d.bear_bias or "—" }}{% if d.bear_note %} — {{ d.bear_note }}{% endif %}</span>
+      {% endif %}
+      {% if d.risk_note or d.risk_ok is not none %}
+      <span class="why">Risk {% if d.risk_ok is sameas false %}veto{% elif d.risk_ok is sameas true %}ok{% else %}—{% endif %}{% if d.risk_note %} — {{ d.risk_note }}{% endif %}</span>
+      {% endif %}
+      {% if d.consensus %}
+      <span class="why">{{ d.consensus }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No AI validate memory yet — appears after the next validate/full pass with Ollama.</p>
+  {% endif %}
+</section>
+
 <section class="block" aria-labelledby="adopted-h">
   <h2 id="adopted-h">Adopted here</h2>
   <p class="sub">Open-source patterns we adapted into this desk (IMPROVEMENT Phase C) — our implementation, their inspiration.</p>
