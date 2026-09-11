@@ -300,8 +300,17 @@ class StockUniverseManager:
             print(f"🌱 Universe seed merge: +{added} (now {after} names)")
         return added
 
-    def yahoo_discovery_due(self, *, max_age_hours: int = 24) -> bool:
+    def yahoo_discovery_due(self, *, max_age_hours: int | None = None) -> bool:
         """True when Yahoo movers have never run or last run is older than max_age."""
+        from stock_checker.yahoo_universe_discovery import (
+            DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+        )
+
+        age_limit = (
+            DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
+            if max_age_hours is None
+            else int(max_age_hours)
+        )
         meta = self.universe.get("meta")
         if not isinstance(meta, dict):
             return True
@@ -313,7 +322,7 @@ class StockUniverseManager:
             if then.tzinfo is not None:
                 then = then.replace(tzinfo=None)
             age_h = (datetime.now() - then).total_seconds() / 3600.0
-            return age_h >= float(max_age_hours)
+            return age_h >= float(age_limit)
         except (TypeError, ValueError):
             return True
 
@@ -458,15 +467,22 @@ class StockUniverseManager:
         }
 
     def discover_and_add_stocks(
-        self, *, force_yahoo: bool = False, yahoo_max_age_hours: int = 24
+        self, *, force_yahoo: bool = False, yahoo_max_age_hours: int | None = None
     ) -> int:
         """Merge curated seed + Yahoo movers into the universe (discovery only)."""
-        added = self.ensure_curated_seed()
-        run_yahoo = force_yahoo or self.yahoo_discovery_due(
-            max_age_hours=yahoo_max_age_hours
+        from stock_checker.yahoo_universe_discovery import (
+            DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         )
+
+        age_h = (
+            DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
+            if yahoo_max_age_hours is None
+            else int(yahoo_max_age_hours)
+        )
+        added = self.ensure_curated_seed()
+        run_yahoo = force_yahoo or self.yahoo_discovery_due(max_age_hours=age_h)
         if not run_yahoo:
-            print("   📡 Yahoo movers skipped (discovery fresh <24h)")
+            print(f"   📡 Yahoo movers skipped (discovery fresh <{age_h}h)")
             return added
         try:
             added += self.discover_yahoo_movers()

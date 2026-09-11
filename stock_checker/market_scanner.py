@@ -394,8 +394,8 @@ class MarketScanner:
         # Get stocks to scan (limit depends on weekend mode)
         stocks_to_scan, cycle_just_reset = self.universe_manager.get_stocks_to_scan(limit=scan_limit, max_age_hours=max_age_hours)
         
-        # Curated seed + Yahoo movers: on cycle reset, weekends, or when discovery is stale (≥24h).
-        discovery_due = self.universe_manager.yahoo_discovery_due(max_age_hours=24)
+        # Curated seed + Yahoo movers: on cycle reset, weekends, or when discovery is stale.
+        discovery_due = self.universe_manager.yahoo_discovery_due()
         if cycle_just_reset or is_weekend or discovery_due:
             print(f"\n🔍 Universe refresh (seed merge + Yahoo movers discovery)...")
             self._add_stocks_from_coinmarketcap(

@@ -792,28 +792,83 @@ def build_junk_filter_glance() -> dict[str, Any]:
     }
 
 
-def build_universe_discovery_glance() -> dict[str, Any]:
-    """Universe / movers discovery honesty (xang1234 + portfolio AI; display only).
+def build_universe_discovery_glance(
+    data_dir: Path | None = None,
+    *,
+    now: Optional[datetime] = None,
+    max_age_hours: int | None = None,
+) -> dict[str, Any]:
+    """Universe / movers discovery honesty (xang1234 + RyanJHamby cache; display only).
 
     Equity scan list is curated US + German Xetra (.DE). Yahoo day
     gainers/losers/actives only grow that list — not an auto-buy firehose.
+    Shows last Yahoo discovery age vs the 24h throttle (fresh / aging / stale).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
-    from stock_checker.yahoo_universe_discovery import DEFAULT_MOVER_COUNT
+    from stock_checker.yahoo_universe_discovery import (
+        DEFAULT_MOVER_COUNT,
+        DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+    )
 
     per = int(DEFAULT_MOVER_COUNT)
-    line = (
-        f"curated US+DE · Yahoo movers ≤{per}/screen · discovery-only · not auto-buy"
+    age_limit_h = (
+        DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
+        if max_age_hours is None
+        else max(1, int(max_age_hours))
     )
+    age_limit_sec = float(age_limit_h) * 3600.0
+
+    last_raw = ""
+    last_added: int | None = None
+    if data_dir is not None:
+        uni = _load_json(Path(data_dir) / "stock_universe.json", {})
+        meta = uni.get("meta") if isinstance(uni, dict) else None
+        if isinstance(meta, dict):
+            last_raw = str(meta.get("last_yahoo_discovery") or "").strip()
+            try:
+                last_added = int(meta.get("last_yahoo_added"))
+            except (TypeError, ValueError):
+                last_added = None
+
+    tone = "unknown"
+    age_sec: int | None = None
+    age_label = ""
+    if not last_raw:
+        tone = "stale"
+        age_label = "never"
+    else:
+        when = _parse_book_ts(last_raw)
+        if when is None:
+            tone = "unknown"
+            age_label = "unknown"
+        else:
+            clock = now or datetime.now(timezone.utc)
+            if clock.tzinfo is None:
+                clock = clock.replace(tzinfo=timezone.utc)
+            age_sec = max(0, int((clock - when).total_seconds()))
+            age_label = _format_age_short(float(age_sec))
+            if age_sec < age_limit_sec:
+                tone = "fresh"
+            elif age_sec < 2 * age_limit_sec:
+                tone = "aging"
+            else:
+                tone = "stale"
+
+    line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
         "ready": True,
-        "tone": "discover",
+        "tone": tone,
         "line": line,
         "mover_count": per,
         "discovery_only": True,
         "auto_buy": False,
+        "max_age_hours": age_limit_h,
+        "age_sec": age_sec,
+        "age_label": age_label,
+        "last_yahoo_discovery": last_raw,
+        "last_yahoo_added": last_added,
     }
 
 
@@ -2821,6 +2876,11 @@ def load_desk_snapshot(
             "note": "Overview / Screener / Breadth / Ops / Book / Ideas / Charts show scan age as fresh / aging / stale — display only, not a gate.",
         },
         {
+            "title": "Yahoo movers cache age",
+            "from": "RyanJHamby/stock-screener (fundamental cache + daily scan)",
+            "note": "Universe glance shows last Yahoo movers discovery age vs 24h throttle (fresh/aging/stale) — discovery-only, not a gate.",
+        },
+        {
             "title": "Loop cadence honesty",
             "from": "RyanJHamby / MonsterDeveloper screeners + portfolio AI (schedule UX)",
             "note": "Overview / Ops show scan · trade minutes vs floors ≥15m/≥5m — packaging ≠ edge; display only.",
@@ -2931,7 +2991,7 @@ def load_desk_snapshot(
         "stale_rotation_glance": build_stale_rotation_glance(),
         "book_posture_glance": build_book_posture_glance(),
         "junk_filter_glance": build_junk_filter_glance(),
-        "universe_discovery_glance": build_universe_discovery_glance(),
+        "universe_discovery_glance": build_universe_discovery_glance(data_dir),
         "atr_display_glance": build_atr_display_glance(),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": build_promote_contract_glance(runtime),

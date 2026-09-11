@@ -1101,7 +1101,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "stale_rotation_glance": build_stale_rotation_glance(),
         "book_posture_glance": build_book_posture_glance(),
         "junk_filter_glance": build_junk_filter_glance(),
-        "universe_discovery_glance": build_universe_discovery_glance(),
+        "universe_discovery_glance": build_universe_discovery_glance(data_dir),
         "atr_display_glance": build_atr_display_glance(),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": _promote_contract_glance_from_config(data_dir),

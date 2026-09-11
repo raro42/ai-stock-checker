@@ -2188,7 +2188,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Universe discovery beside charts — Yahoo movers grow US+DE scan only; not auto-buy.";
+      "Universe discovery beside charts — Yahoo movers cache age vs 24h; grows US+DE only; not auto-buy.";
     wrap.appendChild(sub);
     root.appendChild(wrap);
   }

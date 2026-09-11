@@ -14,6 +14,8 @@ from stock_checker.symbol_filters import is_tradeable_symbol
 
 # Keep discovery calm — we are not RyanJHamby's 3800-name firehose.
 DEFAULT_MOVER_COUNT = 25
+# Re-pull Yahoo movers when last discovery is older than this (desk shows age).
+DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS = 24
 DEFAULT_SCREENS: tuple[str, ...] = ("day_gainers", "day_losers", "most_actives")
 
 

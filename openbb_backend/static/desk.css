@@ -1013,6 +1013,19 @@ a:active {
   color: var(--up);
 }
 
+.universe-discovery-glance-tone.fresh {
+  color: var(--up);
+}
+
+.universe-discovery-glance-tone.aging {
+  color: var(--accent);
+}
+
+.universe-discovery-glance-tone.stale,
+.universe-discovery-glance-tone.unknown {
+  color: var(--down);
+}
+
 .book-limits-glance-tone.optimistic {
   color: var(--brass, var(--muted));
 }

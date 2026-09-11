@@ -524,13 +524,13 @@
 {%- endmacro %}
 
 
-{# Universe / Yahoo movers discovery honesty (display only). Not auto-buy. #}
+{# Universe / Yahoo movers discovery honesty (display only). Cache age vs 24h. #}
 {% macro universe_discovery_glance(
   snap,
   heading_id='universe-discovery-glance-h',
   link_href='/desk/screener',
   link_label='Screener →',
-  sub='Yahoo movers grow the curated US+DE scan list only. Buys still need gates. Display only — not a new gate.'
+  sub='Yahoo movers grow the curated US+DE scan list only. Cache age vs 24h throttle. Buys still need gates. Display only — not a new gate.'
 ) -%}
 {% set glance = snap.universe_discovery_glance if snap.universe_discovery_glance is mapping else {} %}
 {% if glance.ready %}

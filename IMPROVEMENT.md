@@ -246,6 +246,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] FinRobot AI validate-scope parity (2026-09-11 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] RyanJHamby + xang1234 gate-params glance (2026-09-11 improve): Overview / Ops SMA · RS lookback · scan A/D mins (`build_gate_params_glance`) — complements gate-roles; fail-open; display only; not a new gate
 - [x] RyanJHamby + xang1234 gate-params parity (2026-09-11 improve): Screener / Ideas / Book / Charts / Breadth / scan-log — watch cache/daily-scan honesty; display only; not a new gate
+- [x] RyanJHamby Yahoo movers cache age (2026-09-11 improve): Universe glance shows last discovery vs 24h throttle (`build_universe_discovery_glance` + `DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS`) — fresh/aging/stale; discovery-only; display only; not a new gate
 - [ ] Optional later: FinRobot live role debate transcript on Ideas (defer — needs stored validate payload; 2026-09-11 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
