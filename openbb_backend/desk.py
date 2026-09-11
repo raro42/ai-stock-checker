@@ -1069,6 +1069,58 @@ def build_ai_roles_glance() -> dict[str, Any]:
     }
 
 
+def build_ai_validate_scope_glance(
+    runtime: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """FinRobot / TradingAgents AI top-N scope (display only).
+
+    Validate checks top 5; full checks top 10; remainder keeps scanner score
+    without LLM. Validate drops SELL and HOLD·LOW. Not a new gate — mirrors
+    ``intelligent_trader._ai_validate_opportunities`` honesty.
+    """
+    from stock_checker.intelligent_trader import AI_FULL_TOP_N, AI_VALIDATE_TOP_N
+
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "ai_mode": "",
+        "top_n": 0,
+        "rest_unscored": True,
+    }
+    if not isinstance(runtime, dict):
+        return empty
+
+    mode = str(runtime.get("ai_mode") or "off").strip().lower() or "off"
+    if mode == "off":
+        tone = "off"
+        top_n = 0
+        line = "off · no LLM check · scanner score only"
+    elif mode == "validate":
+        tone = "validate"
+        top_n = int(AI_VALIDATE_TOP_N)
+        line = f"validate · AI top {top_n} · SELL/LOW-HOLD drop · rest pass"
+    elif mode == "full":
+        tone = "full"
+        top_n = int(AI_FULL_TOP_N)
+        line = f"full · AI top {top_n} · score<-20 drop · rest pass"
+    else:
+        tone = "flat"
+        top_n = int(AI_VALIDATE_TOP_N)
+        line = f"{mode} · AI top {top_n} · rest may pass unscored"
+
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "ai_mode": mode,
+        "top_n": top_n,
+        "rest_unscored": True,
+    }
+
+
 
 def _fmt_cooldown_left(seconds: float) -> str:
     """Short remaining-time label for rebuy cooldown glance."""
@@ -2827,6 +2879,7 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
+        "ai_validate_scope_glance": build_ai_validate_scope_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),
         "equity_hours_glance": build_equity_hours_glance(),
         "breakout_guard_glance": build_breakout_guard_glance(),

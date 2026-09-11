@@ -323,6 +323,31 @@
 {%- endmacro %}
 
 
+{# FinRobot / TradingAgents AI top-N validate scope (display only). #}
+{% macro ai_validate_scope_glance(
+  snap,
+  heading_id='ai-validate-scope-glance-h',
+  link_href='/desk/ops#ops-ai-mode',
+  link_label='Ops AI →',
+  sub='AI checks top N only; rest keep scanner score. Validate drops SELL and HOLD·LOW. Display only.'
+) -%}
+{% set glance = snap.ai_validate_scope_glance if snap.ai_validate_scope_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="ai-validate-scope-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">AI validate scope</h2>
+  <p class="ai-validate-scope-glance-line">
+    <span class="ai-validate-scope-glance-tone {{ glance.tone }}">Scope</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="ai-validate-scope-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="ai-validate-scope-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# UTC session / weekend honesty (display only). xang1234 screener session UX. #}
 {% macro session_glance(
   snap,

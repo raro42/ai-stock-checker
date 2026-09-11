@@ -72,6 +72,9 @@ from .trader_config import DEFAULTS as TRADER_DEFAULTS
 from .trade_context import buy_note_from_opportunity, sell_note_from_exit
 from . import __version__
 
+# AI validate scope — top-N only; rest keep scanner score (desk honesty glance).
+AI_VALIDATE_TOP_N = 5
+AI_FULL_TOP_N = 10
 
 _DEFAULT_MAX_POSITIONS = int(TRADER_DEFAULTS["max_positions"])
 _DEFAULT_MIN_HOLD_SECONDS = int(float(TRADER_DEFAULTS["min_hold_hours"]) * 3600)
@@ -535,7 +538,9 @@ class IntelligentTrader:
         validated_opportunities = []
 
         # Limit validation to top N opportunities to save AI calls
-        max_to_validate = 5 if self.ai_mode == "validate" else 10
+        max_to_validate = (
+            AI_VALIDATE_TOP_N if self.ai_mode == "validate" else AI_FULL_TOP_N
+        )
         opportunities_to_check = opportunities[:max_to_validate]
 
         print(f"   Validating top {len(opportunities_to_check)} opportunities with AI...")

@@ -876,6 +876,15 @@ def _ai_mode_glance_from_config(data_dir: Path) -> dict[str, Any]:
     )
 
 
+def _ai_validate_scope_glance_from_config(data_dir: Path) -> dict[str, Any]:
+    """AI top-N validate scope from Ops file (display only)."""
+    from openbb_backend.desk import build_ai_validate_scope_glance
+    from stock_checker.trader_config import load_trader_config
+
+    cfg = load_trader_config(data_dir)
+    return build_ai_validate_scope_glance({"ai_mode": cfg.get("ai_mode")})
+
+
 def _rebuy_cooldown_glance_from_data(data_dir: Path) -> dict[str, Any]:
     """Anti flip-flop rebuy cooldown from exit_times.json (display only)."""
     from openbb_backend.desk import build_rebuy_cooldown_glance
@@ -1083,6 +1092,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": _ai_mode_glance_from_config(data_dir),
         "ai_roles_glance": build_ai_roles_glance(),
+        "ai_validate_scope_glance": _ai_validate_scope_glance_from_config(data_dir),
         "session_glance": build_session_glance(),
         "equity_hours_glance": build_equity_hours_glance(),
         "breakout_guard_glance": build_breakout_guard_glance(),
