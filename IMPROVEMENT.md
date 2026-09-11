@@ -248,8 +248,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] RyanJHamby + xang1234 gate-params parity (2026-09-11 improve): Screener / Ideas / Book / Charts / Breadth / scan-log — watch cache/daily-scan honesty; display only; not a new gate
 - [x] RyanJHamby Yahoo movers cache age (2026-09-11 improve): Universe glance shows last discovery vs 24h throttle (`build_universe_discovery_glance` + `DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS`) — fresh/aging/stale; discovery-only; display only; not a new gate
 - [x] MonsterDeveloper + xang1234 Overview declutter (2026-09-11 improve): collapse long policy-honesty glance wall into `<details class="policy-honesty">` — keep pretrade / gates / calm / promote A/B / posture / book-risk above the fold; display only; not a new gate
+- [x] MonsterDeveloper + xang1234 Policy honesty parity (2026-09-11 improve): same `<details class="policy-honesty">` on Screener / Ideas / Book / Breadth / Ops / scan-log — gates/calm/promote/posture/risk above fold; watch quiet, UX declutter only; not a new gate
 - [ ] Optional later: FinRobot live role debate transcript on Ideas (defer — needs stored validate payload; 2026-09-11 watch quiet)
-- [ ] Optional later: same Policy honesty `<details>` on Screener / Ideas / Book / Breadth / Ops / scan-log (defer — Overview first; watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

@@ -82,6 +82,27 @@
   "Fee-adjusted A/B window before chasing scan names — do not flip promote mid-window."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "screener-book-posture-h",
+  "/desk/book",
+  "Book →",
+  "Before chasing a scan add — open allows entries; at_cap blocks buys; overweight is exits+trim only."
+) }}
+
+{{ book_risk_glance(
+  snap,
+  "screener-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture before chasing scan names — overweight means exits-only."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "screener-crypto-h",
@@ -168,14 +189,6 @@
   "/desk/book",
   "Book →",
   "Before calling a name stale — only off the full scan list, and only with a top-N replacement."
-) }}
-
-{{ book_posture_glance(
-  snap,
-  "screener-book-posture-h",
-  "/desk/book",
-  "Book →",
-  "Before chasing a scan add — open allows entries; at_cap blocks buys; overweight is exits+trim only."
 ) }}
 
 {{ junk_filter_glance(
@@ -314,13 +327,7 @@
   "Newest closed round before chasing scan names — memory before FOMO. Not a gate."
 ) }}
 
-{{ book_risk_glance(
-  snap,
-  "screener-book-risk-h",
-  "/desk/book",
-  "Full book →",
-  "Slots and posture before chasing scan names — overweight means exits-only."
-) }}
+</details>
 
 <section class="block" aria-labelledby="rec-h">
   <h2 id="rec-h">Recommendations</h2>

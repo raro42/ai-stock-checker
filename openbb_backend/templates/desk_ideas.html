@@ -57,6 +57,27 @@
   "Fee-adjusted A/B window beside candidates — protocol honesty, not a research score."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "ideas-book-posture-h",
+  "/desk/book",
+  "Book →",
+  "Before chasing a candidate — open allows entries; at_cap blocks buys; overweight is exits+trim only."
+) }}
+
+{{ book_risk_glance(
+  snap,
+  "ideas-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture beside paper candidates — overweight means exits-only."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "ideas-crypto-h",
@@ -143,14 +164,6 @@
   "/desk/book",
   "Book →",
   "Before treating a hold as stale for a candidate — off full scan list + top-N replacement."
-) }}
-
-{{ book_posture_glance(
-  snap,
-  "ideas-book-posture-h",
-  "/desk/book",
-  "Book →",
-  "Before chasing a candidate — open allows entries; at_cap blocks buys; overweight is exits+trim only."
 ) }}
 
 {{ junk_filter_glance(
@@ -289,13 +302,7 @@
   "Newest closed round beside candidates — trader memory before research chase. Not a gate."
 ) }}
 
-{{ book_risk_glance(
-  snap,
-  "ideas-book-risk-h",
-  "/desk/book",
-  "Full book →",
-  "Slots and posture beside paper candidates — overweight means exits-only."
-) }}
+</details>
 
 <section class="block" aria-labelledby="paper-h">
   <h2 id="paper-h">Paper candidates</h2>

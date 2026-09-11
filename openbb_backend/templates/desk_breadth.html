@@ -50,6 +50,27 @@
   "Fee-adjusted A/B window beside breadth — do not flip promote mid-window. Not edge."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "breadth-book-posture-h",
+  "/desk/book",
+  "Book →",
+  "Book posture beside breadth — open/at_cap/overweight modes; overweight is exits+trim only."
+) }}
+
+{{ book_risk_glance(
+  snap,
+  "breadth-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture beside breadth — overweight means exits-only."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "breadth-crypto-h",
@@ -136,14 +157,6 @@
   "/desk/book",
   "Book →",
   "Stale rotation beside breadth — off full scan list + top-N replacement. Display only."
-) }}
-
-{{ book_posture_glance(
-  snap,
-  "breadth-book-posture-h",
-  "/desk/book",
-  "Book →",
-  "Book posture beside breadth — open/at_cap/overweight modes; overweight is exits+trim only."
 ) }}
 
 {{ junk_filter_glance(
@@ -282,13 +295,7 @@
   "Newest closed round beside breadth — full thesis list on Book. Not a gate."
 ) }}
 
-{{ book_risk_glance(
-  snap,
-  "breadth-book-risk-h",
-  "/desk/book",
-  "Full book →",
-  "Slots and posture beside breadth — overweight means exits-only."
-) }}
+</details>
 
 <section class="strip" aria-label="Exposure meters">
   <div>

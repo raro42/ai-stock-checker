@@ -57,6 +57,27 @@
   "Fee-adjusted A/B window beside the day archive — do not flip promote mid-window."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "scan-log-book-posture-h",
+  "/desk/book",
+  "Book →",
+  "Book posture beside the day archive — open/at_cap/overweight; overweight is exits+trim only."
+) }}
+
+{{ book_risk_glance(
+  snap,
+  "scan-log-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture beside the day archive — overweight means exits-only."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "scan-log-crypto-h",
@@ -143,14 +164,6 @@
   "/desk/book",
   "Book →",
   "Stale rotation beside the day archive — off full scan list + top-N replacement."
-) }}
-
-{{ book_posture_glance(
-  snap,
-  "scan-log-book-posture-h",
-  "/desk/book",
-  "Book →",
-  "Book posture beside the day archive — open/at_cap/overweight; overweight is exits+trim only."
 ) }}
 
 {{ junk_filter_glance(
@@ -289,13 +302,7 @@
   "Newest closed round beside the day archive — full thesis list on Book. Not a gate."
 ) }}
 
-{{ book_risk_glance(
-  snap,
-  "scan-log-book-risk-h",
-  "/desk/book",
-  "Full book →",
-  "Slots and posture beside the day archive — overweight means exits-only."
-) }}
+</details>
 
 {{ breadth_glance(
   snap,

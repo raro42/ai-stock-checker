@@ -81,6 +81,19 @@
   "Fee-adjusted A/B window beside holdings — do not flip promote mid-window. Not edge."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "book-book-posture-h",
+  "#hold-h",
+  "Holdings ↓",
+  "Before expecting new adds — open allows entries; at_cap blocks buys; overweight is exits+trim only."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "book-crypto-h",
@@ -167,14 +180,6 @@
   "/desk/screener",
   "Screener →",
   "Before marking a hold stale — only off the full scan list, and only with a top-N replacement."
-) }}
-
-{{ book_posture_glance(
-  snap,
-  "book-book-posture-h",
-  "#hold-h",
-  "Holdings ↓",
-  "Before expecting new adds — open allows entries; at_cap blocks buys; overweight is exits+trim only."
 ) }}
 
 {{ junk_filter_glance(
@@ -312,6 +317,8 @@
   "Rounds below →",
   "Newest closed round above holdings — full thesis list further down. Not a gate."
 ) }}
+
+</details>
 
 {{ soft_allow_glance(snap) }}
 

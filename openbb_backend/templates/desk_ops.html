@@ -65,6 +65,27 @@
   "Window A/B trading-day progress before you flip promote — fee-adjusted verdict still required."
 ) }}
 
+{{ book_posture_glance(
+  snap,
+  "ops-book-posture-h",
+  "/desk/book",
+  "Book →",
+  "Posture modes before flipping max positions — overweight blocks buys and scan rotation."
+) }}
+
+{{ book_risk_glance(
+  snap,
+  "ops-book-risk-h",
+  "/desk/book",
+  "Full book →",
+  "Slots and posture before flipping book limits — overweight means exits-only."
+) }}
+
+{# MonsterDeveloper simplicity: keep first viewport short; policy lines stay available. #}
+<details class="policy-honesty" id="policy-honesty">
+  <summary>Policy honesty <span class="meta">crypto · exits · AI · gates · fees</span></summary>
+  <p class="sub">Display-only rules. Not new entry gates. Ops keeps the toggles.</p>
+
 {{ crypto_policy_glance(
   snap,
   "ops-crypto-h",
@@ -153,14 +174,6 @@
   "Stale rotation before you trust scan churn — off full list · need replacement · winners only."
 ) }}
 
-
-{{ book_posture_glance(
-  snap,
-  "ops-book-posture-h",
-  "/desk/book",
-  "Book →",
-  "Posture modes before flipping max positions — overweight blocks buys and scan rotation."
-) }}
 
 {{ junk_filter_glance(
   snap,
@@ -299,13 +312,7 @@
   "Newest closed round before flipping knobs — recent exit memory. Not a gate."
 ) }}
 
-{{ book_risk_glance(
-  snap,
-  "ops-book-risk-h",
-  "/desk/book",
-  "Full book →",
-  "Slots and posture before flipping book limits — overweight means exits-only."
-) }}
+</details>
 
 <section class="block system" aria-labelledby="cfg-h">
   <h2 id="cfg-h">Trader config</h2>
