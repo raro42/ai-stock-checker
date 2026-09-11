@@ -2763,7 +2763,7 @@ def load_desk_snapshot(
         {
             "title": "AI validate debate memory on Ideas",
             "from": "FinRobot / TradingAgents multi-role",
-            "note": "Persists last bull/bear/risk validate rows — display only; not a research score.",
+            "note": "Persists last bull/bear/risk validate rows; expandable transcript JSON on Ideas — display only; not a research score.",
         },
         {
             "title": "Scan pulse on Breadth",

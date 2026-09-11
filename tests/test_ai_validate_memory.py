@@ -46,8 +46,10 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert events[0]["bull_bias"] == "BUY"
     assert "momentum" in events[0]["bull_note"]
     assert events[0]["kept"] is True
+    assert isinstance(events[0].get("reasons"), list)
     assert events[1]["symbol"] == "XYZ"
     assert events[1]["kept"] is False
+    assert events[1]["reasons"] == ["weak tape"]
 
     recent = recent_ai_debates(tmp_path, limit=1)
     assert len(recent) == 1
@@ -96,3 +98,6 @@ def test_ideas_template_has_ai_debates_section() -> None:
     text = Path("openbb_backend/templates/desk_ideas.html").read_text()
     assert "ai_debates" in text
     assert 'id="debate-h"' in text
+    assert 'class="ai-debate"' in text
+    assert "debate-json" in text
+    assert "tojson" in text

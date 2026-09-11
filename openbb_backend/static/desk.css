@@ -1759,16 +1759,41 @@ a:active {
   padding: 0;
 }
 
-.ai-debates li {
+.ai-debates > li {
   padding: 0.85rem 0;
   border-bottom: 1px solid var(--line);
 }
 
+.ai-debate > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.ai-debate > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-debate > summary::before {
+  content: "▸ ";
+  color: var(--accent);
+  font-family: var(--font-data, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+
+.ai-debate[open] > summary::before {
+  content: "▾ ";
+}
+
 .ai-debates .meta {
-  display: block;
+  display: inline;
   font-family: var(--font-data, ui-monospace, monospace);
   font-size: 0.88rem;
   color: var(--muted);
+}
+
+.ai-debate-body {
+  margin-top: 0.55rem;
+  padding-left: 0.15rem;
 }
 
 .ai-debates .why {
@@ -1776,6 +1801,35 @@ a:active {
   margin-top: 0.25rem;
   font-size: 0.92rem;
   color: var(--ink);
+}
+
+.debate-reasons {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+}
+
+.debate-reasons li {
+  margin: 0.2rem 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.debate-json {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.75rem;
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg0);
+  color: var(--muted);
+  font-family: var(--font-data, ui-monospace, monospace);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .post-main {

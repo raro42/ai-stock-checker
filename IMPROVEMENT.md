@@ -251,7 +251,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] MonsterDeveloper + xang1234 Policy honesty parity (2026-09-11 improve): same `<details class="policy-honesty">` on Screener / Ideas / Book / Breadth / Ops / scan-log — gates/calm/promote/posture/risk above fold; watch quiet, UX declutter only; not a new gate
 - [x] MonsterDeveloper + xang1234 Charts policy honesty (2026-09-11 improve): `/desk/charts` collapses long JS glance wall into `#policy-honesty` details (`charts.js` `appendGlance`) — gates/calm/promote/posture/risk above fold; watch quiet; display only; not a new gate
 - [x] FinRobot AI validate debate memory on Ideas (2026-09-11 improve): persist bull/bear/risk validate rows (`ai_validate_memory.py` + trader wire) · Ideas “Last AI debates” — display only; not a research score; not a new gate
-- [ ] Optional later: FinRobot richer debate transcript UI (expandable raw JSON) — memory shipped; polish optional
+- [x] FinRobot richer debate transcript UI (2026-09-11 improve): Ideas expandable `<details class="ai-debate">` + reasons + `tojson` transcript — display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

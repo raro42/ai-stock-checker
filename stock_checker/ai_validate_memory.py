@@ -25,7 +25,7 @@ def validate_memory_path(data_dir: Path | str) -> Path:
     return Path(data_dir) / VALIDATE_MEMORY_FILE
 
 
-def _clip(text: Any, n: int = 160) -> str:
+def _clip(text: Any, n: int = 200) -> str:
     s = str(text or "").strip()
     if len(s) <= n:
         return s
@@ -37,6 +37,17 @@ def _score(raw: Any) -> int:
         return max(-100, min(100, int(float(raw or 0))))
     except (TypeError, ValueError):
         return 0
+
+
+def _clip_reasons(raw: Any, *, max_lines: int = 8, line_n: int = 200) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for line in raw[: max(0, int(max_lines))]:
+        clipped = _clip(line, line_n)
+        if clipped:
+            out.append(clipped)
+    return out
 
 
 def load_ai_validate_memory(data_dir: Path | str) -> list[dict[str, Any]]:
@@ -102,6 +113,7 @@ def record_ai_validate(
         "bear_note": _clip(ai_result.get("bear_note") or ""),
         "risk_note": _clip(ai_result.get("risk_note") or ""),
         "consensus": consensus,
+        "reasons": _clip_reasons(reasons),
         "kept": None if kept is None else bool(kept),
     }
     # Recover notes from reasons when multi-role fields missing (older payloads).
