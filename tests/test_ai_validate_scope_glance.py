@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import build_ai_validate_scope_glance, load_desk_snapshot
 from stock_checker.intelligent_trader import AI_FULL_TOP_N, AI_VALIDATE_TOP_N
@@ -71,3 +73,25 @@ def test_ai_validate_scope_glance_in_chart_payload(tmp_path) -> None:
     assert g["ready"] is True
     assert g["tone"] == "full"
     assert f"top {AI_FULL_TOP_N}" in g["line"]
+
+
+def test_ai_validate_scope_parity_templates() -> None:
+    """Screener / Ideas / Book / Breadth / scan-log must show the glance."""
+    root = Path(__file__).resolve().parents[1] / "openbb_backend" / "templates"
+    for name in (
+        "desk_screener.html",
+        "desk_ideas.html",
+        "desk_book.html",
+        "desk_breadth.html",
+        "desk_scan_log.html",
+    ):
+        text = (root / name).read_text(encoding="utf-8")
+        assert "ai_validate_scope_glance" in text, name
+    charts_js = (
+        Path(__file__).resolve().parents[1]
+        / "openbb_backend"
+        / "static"
+        / "charts.js"
+    ).read_text(encoding="utf-8")
+    assert "renderAiValidateScopeGlance" in charts_js
+    assert "ai_validate_scope_glance" in charts_js

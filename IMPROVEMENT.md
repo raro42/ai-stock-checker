@@ -243,7 +243,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] FinRobot multi-role research glance (2026-09-11 improve): Overview / Ops bull · bear · risk · disagree/risk veto → HOLD (`build_ai_roles_glance` + `ai_multi_role.py`) — display only; not a research score; not a new gate
 - [x] FinRobot multi-role research parity (2026-09-11 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] FinRobot + TradingAgents AI validate-scope glance (2026-09-11 improve): Overview / Ops top-N LLM check (`build_ai_validate_scope_glance` + `AI_VALIDATE_TOP_N`/`AI_FULL_TOP_N`) — validate top 5 · full top 10 · rest scanner-only; display only; not a new gate
-- [ ] FinRobot AI validate-scope parity (next tick): Screener / Ideas / Book / Charts / Breadth / scan-log
+- [x] FinRobot AI validate-scope parity (2026-09-11 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [ ] Optional later: FinRobot live role debate transcript on Ideas (defer — needs stored validate payload; 2026-09-11 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)

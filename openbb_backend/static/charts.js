@@ -1785,6 +1785,51 @@
     root.appendChild(wrap);
   }
 
+  function renderAiValidateScopeGlance(payload) {
+    var glance = payload && payload.ai_validate_scope_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "ai-validate-scope-glance";
+    wrap.setAttribute("aria-labelledby", "charts-ai-scope-h");
+    var h = document.createElement("h2");
+    h.id = "charts-ai-scope-h";
+    h.className = "visually-hidden";
+    h.textContent = "AI validate scope";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "ai-validate-scope-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "ai-validate-scope-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Scope";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "ai-validate-scope-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "ai-validate-scope-glance-link";
+    link.href = "/desk/ops#ops-ai-mode";
+    link.textContent = "Ops AI →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Top-N LLM scope beside charts — rest keep scanner score. Display only.";
+    wrap.appendChild(sub);
+    root.appendChild(wrap);
+  }
+
   function renderSessionGlance(payload) {
     var glance = payload && payload.session_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -2839,6 +2884,7 @@
     renderEarningsBlackoutGlance(payload);
     renderAiModeGlance(payload);
     renderAiRolesGlance(payload);
+    renderAiValidateScopeGlance(payload);
     renderSessionGlance(payload);
     renderEquityHoursGlance(payload);
     renderBreakoutGuardGlance(payload);

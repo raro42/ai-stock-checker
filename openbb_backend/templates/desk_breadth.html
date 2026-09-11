@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, ai_roles_glance, session_glance, equity_hours_glance, breakout_guard_glance, loss_rotation_glance, stale_rotation_glance, book_posture_glance, junk_filter_glance, universe_discovery_glance, atr_display_glance, entry_slots_glance, promote_contract_glance, gate_roles_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, loop_cadence_glance, fee_allowance_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
+{% from "macros.html" import scan_freshness, soft_allow_glance, pretrade_glance, next_buy_glance, book_risk_glance, entry_gates_glance, calm_streak_glance, promote_ab_glance, crypto_policy_glance, exit_policy_glance, earnings_blackout_glance, ai_mode_glance, ai_roles_glance, ai_validate_scope_glance, session_glance, equity_hours_glance, breakout_guard_glance, loss_rotation_glance, stale_rotation_glance, book_posture_glance, junk_filter_glance, universe_discovery_glance, atr_display_glance, entry_slots_glance, promote_contract_glance, gate_roles_glance, book_limits_glance, rebuy_cooldown_glance, daily_loss_glance, concentration_glance, post_sl_cooldown_glance, loop_cadence_glance, fee_allowance_glance, fee_burn_glance, stuck_capital_glance, postmortem_glance %}
 {% block content %}
 <header class="page-head">
   <p class="eyebrow">Breadth</p>
@@ -88,6 +88,14 @@
   "/desk/ideas",
   "Ideas →",
   "Multi-role beside breadth — bull/bear/risk; disagreement or risk veto → HOLD. Display only."
+) }}
+
+{{ ai_validate_scope_glance(
+  snap,
+  "breadth-ai-scope-h",
+  "/desk/ops#ops-ai-mode",
+  "Ops AI →",
+  "Top-N LLM scope beside breadth — rest keep scanner score. Display only."
 ) }}
 
 {{ session_glance(
