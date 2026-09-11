@@ -1037,6 +1037,51 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     return build_stuck_capital_glance(stuck)
 
 
+def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """Open lots still inside min-hold (display only; pairs with stuck-capital)."""
+    import time
+
+    from openbb_backend.desk import build_min_hold_lock_glance
+    from stock_checker.trader_config import load_trader_config
+
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    if not isinstance(portfolio, dict):
+        portfolio = {}
+    entry_times = _load_json(data_dir / "entry_times.json", {})
+    if not isinstance(entry_times, dict):
+        entry_times = {}
+    cfg = load_trader_config(data_dir)
+    try:
+        min_hold_h = float(cfg.get("min_hold_hours") or 24)
+    except (TypeError, ValueError):
+        min_hold_h = 24.0
+    holdings = portfolio.get("holdings") or {}
+    if not isinstance(holdings, dict):
+        return build_min_hold_lock_glance([], min_hold_hours=min_hold_h)
+    now = time.time()
+    rows: list[dict[str, Any]] = []
+    for sym, qty in holdings.items():
+        try:
+            q = float(qty)
+        except (TypeError, ValueError):
+            continue
+        if q <= 0:
+            continue
+        try:
+            entry_ts = float(entry_times.get(sym) or 0) or None
+        except (TypeError, ValueError):
+            entry_ts = None
+        if not entry_ts:
+            continue
+        rows.append(
+            {
+                "symbol": str(sym),
+                "held_seconds": max(0.0, now - entry_ts),
+            }
+        )
+    return build_min_hold_lock_glance(rows, min_hold_hours=min_hold_h)
+
+
 def _postmortem_glance_from_data(data_dir: Path) -> dict[str, Any]:
     """Newest closed-round glance from trades.jsonl (display only)."""
     from openbb_backend.desk import build_postmortem_glance
@@ -1129,6 +1174,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "fee_allowance_glance": _fee_allowance_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(data_dir, portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
+        "min_hold_lock_glance": _min_hold_lock_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
     }

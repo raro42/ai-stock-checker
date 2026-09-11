@@ -257,7 +257,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] tradermonty + xang1234 scan estimate coverage (2026-09-11 improve): breadth glance shows priced `of N` + `estimate · not full-universe` (`build_breadth_glance`) — verified scan-list snapshot honesty; display only; not a new gate
 - [x] portfolio AI + summarize_trades fee vs realized (2026-09-11 improve): fee-burn glance adds `vs €P&L` + warn when fees > realized (`build_fee_burn_glance` realized_pnl) — churn eats edge; display only; not a new gate
 - [x] portfolio AI + tradermonty min-hold lock (2026-09-11 improve): Overview / Ops / Book — lots still inside min-hold (`build_min_hold_lock_glance` + holding `min_hold_note`) — pairs with stuck-capital; cannot rotate/trim yet; display only; not a new gate
-- [ ] portfolio AI + tradermonty min-hold lock parity (defer): Screener / Ideas / Charts / Breadth / scan-log — same glance
+- [x] portfolio AI + tradermonty min-hold lock parity (2026-09-11 improve): Screener / Ideas / Charts / Breadth / scan-log — same glance
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

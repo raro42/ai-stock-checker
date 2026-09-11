@@ -230,6 +230,44 @@ def test_chart_payload_stuck_capital_glance(tmp_path: Path, monkeypatch):
     assert "past min-hold underwater" in glance["line"]
 
 
+def test_chart_payload_min_hold_lock_glance(tmp_path: Path, monkeypatch):
+    import time
+
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    now = 1_700_000_000.0
+    monkeypatch.setattr(time, "time", lambda: now)
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 10000,
+                "cash": 5000,
+                "holdings": {"AAPL": 5, "MSFT": 3},
+                "avg_buy_price": {"AAPL": 100, "MSFT": 200},
+                "total_fees_paid": 0,
+            }
+        )
+    )
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps(
+            {
+                "AAPL": now - 3600,
+                "MSFT": now - 100_000,
+            }
+        )
+    )
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"min_hold_hours": 24})
+    )
+    payload = load_chart_payload(tmp_path)
+    glance = payload["min_hold_lock_glance"]
+    assert glance["ready"] is True
+    assert glance["tone"] == "flat"
+    assert glance["locked"] == 1
+    assert glance["timed"] == 2
+    assert glance["earliest_symbol"] == "AAPL"
+    assert "1/2 in min-hold lock" in glance["line"]
 
 
 def test_chart_payload_next_buy_glance(tmp_path: Path, monkeypatch):
