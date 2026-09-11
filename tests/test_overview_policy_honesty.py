@@ -59,3 +59,37 @@ def test_policy_honesty_css() -> None:
     ).read_text(encoding="utf-8")
     assert ".policy-honesty" in css
     assert ".policy-honesty > summary" in css
+
+
+def test_charts_js_policy_honesty_parity() -> None:
+    """Charts (JS) must match HTML screens: collapse long policy wall."""
+    js = (
+        Path(__file__).resolve().parents[1]
+        / "openbb_backend"
+        / "static"
+        / "charts.js"
+    ).read_text(encoding="utf-8")
+    assert 'className = "policy-honesty"' in js
+    assert 'id = "policy-honesty"' in js
+    assert "function appendGlance" in js
+    page = js[js.index("function renderChartsPage") :]
+    # Above-fold: gates / calm / promote A/B / posture / risk before details.
+    for name in (
+        "renderEntryGatesGlance",
+        "renderCalmStreakGlance",
+        "renderPromoteAbGlance",
+        "renderBookPostureGlance",
+        "renderBookRiskGlance",
+    ):
+        assert name in page[: page.index("policy-honesty")], name
+    details_idx = page.index("policy-honesty")
+    after = page[details_idx:]
+    for name in (
+        "renderCryptoPolicyGlance",
+        "renderGateParamsGlance",
+        "renderFeeBurnGlance",
+        "renderPostmortemGlance",
+    ):
+        assert name in after, name
+    # Breadth stays after the disclosure (with the chart mounts).
+    assert after.index("glanceMount = null") < after.index("renderBreadthGlance")

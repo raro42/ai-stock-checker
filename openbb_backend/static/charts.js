@@ -24,6 +24,14 @@
     return (v && v.trim()) || fallback;
   }
 
+  /** Where glance strips append (Charts policy-honesty details). */
+  var glanceMount = null;
+
+  function appendGlance(node) {
+    (glanceMount || root).appendChild(node);
+  }
+
+
   function showError(msg) {
     if (!root) return;
     root.innerHTML = "";
@@ -1217,7 +1225,7 @@
       when.textContent = String(fresh.scan_time);
       p.appendChild(when);
     }
-    root.appendChild(p);
+    appendGlance(p);
   }
 
   function renderBreadthGlance(payload) {
@@ -1262,7 +1270,7 @@
     sub.textContent =
       "Scan-list A/D + near-high from the latest Breadth day — display only, not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderPretradeGlance(payload) {
@@ -1321,7 +1329,7 @@
     sub.textContent =
       "Checklist beside charts — FAIL blocks buys; WARN is fee burn / cooldown.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderSoftAllowGlance(payload) {
@@ -1366,7 +1374,7 @@
     sub.textContent =
       "Gate passed with missing data — not a hard block. Full list on Ops.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderBookRiskGlance(payload) {
@@ -1421,7 +1429,7 @@
     sub.textContent =
       "Slots and posture beside charts — overweight means exits-only. Full strip on Book.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderEntryGatesGlance(payload) {
@@ -1466,7 +1474,7 @@
     sub.textContent =
       "Soft entry filters beside charts — display only; flip toggles on Ops.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderCalmStreakGlance(payload) {
@@ -1511,7 +1519,7 @@
     sub.textContent =
       "Promote compose-default unlock beside charts — calm ≠ edge; detail on Ops.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderPromoteAbGlance(payload) {
@@ -1556,7 +1564,7 @@
     sub.textContent =
       "Fee-adjusted A/B window beside charts — do not flip promote mid-window. Not edge.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
 
@@ -1602,7 +1610,7 @@
     sub.textContent =
       "Live crypto beside charts — BTC/ETH only · one slot · ±10% exits. Leaders ≠ auto-buy.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderExitPolicyGlance(payload) {
@@ -1647,7 +1655,7 @@
     sub.textContent =
       "Stock exits beside charts — TP +8% / SL −5% / rotate ≥+5%. Not ATR.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderEarningsBlackoutGlance(payload) {
@@ -1692,7 +1700,7 @@
     sub.textContent =
       "Stock entry blackout beside charts — 2d before / 1d after; crypto exempt. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderAiModeGlance(payload) {
@@ -1737,7 +1745,7 @@
     sub.textContent =
       "AI path beside charts — off / validate / full + multi-role. Rules first.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderAiRolesGlance(payload) {
@@ -1782,7 +1790,7 @@
     sub.textContent =
       "Multi-role beside charts — bull/bear/risk; disagreement or risk veto → HOLD. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderAiValidateScopeGlance(payload) {
@@ -1827,7 +1835,7 @@
     sub.textContent =
       "Top-N LLM scope beside charts — rest keep scanner score. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderSessionGlance(payload) {
@@ -1872,7 +1880,7 @@
     sub.textContent =
       "UTC session beside charts — weekend is crypto-only. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderEquityHoursGlance(payload) {
@@ -1917,7 +1925,7 @@
     sub.textContent =
       "Live US vs Xetra beside charts — .DE is not US hours; crypto 24/7. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderBreakoutGuardGlance(payload) {
@@ -1962,7 +1970,7 @@
     sub.textContent =
       "Breakout entry guards beside charts — AI BUY · LOW blocked · pullback. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
 
@@ -2008,7 +2016,7 @@
     sub.textContent =
       "No loss-rotation beside charts — losers stay; rotate winners only. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
 
@@ -2054,7 +2062,7 @@
     sub.textContent =
       "Stale rotation beside charts — off full scan list + top-N replacement. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
 
@@ -2100,7 +2108,7 @@
     sub.textContent =
       "Book posture beside charts — open/at_cap/overweight; overweight is exits+trim only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderJunkFilterGlance(payload) {
@@ -2145,7 +2153,7 @@
     sub.textContent =
       "Junk/noise filters beside charts — no stables/leveraged; crypto ≥ $1. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderUniverseDiscoveryGlance(payload) {
@@ -2190,7 +2198,7 @@
     sub.textContent =
       "Universe discovery beside charts — Yahoo movers cache age vs 24h; grows US+DE only; not auto-buy.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderAtrDisplayGlance(payload) {
@@ -2235,7 +2243,7 @@
     sub.textContent =
       "ATR / R:R beside charts — Screener notes are display-only; live exits use TP/SL.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderEntrySlotsGlance(payload) {
@@ -2280,7 +2288,7 @@
     sub.textContent =
       "Entry ranking beside charts — stock score band + crypto/stock interleave. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderPromoteContractGlance(payload) {
@@ -2325,7 +2333,7 @@
     sub.textContent =
       "Promote beside charts — entry veto only; exits stay exit_policy. Not a new gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderGateRolesGlance(payload) {
@@ -2370,7 +2378,7 @@
     sub.textContent =
       "Gate roles beside charts — regime abs · RS rel · breadth scan A/D; starve→RS off first.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderGateParamsGlance(payload) {
@@ -2415,7 +2423,7 @@
     sub.textContent =
       "Gate params beside charts — SMA / RS lookback / scan A/D mins; fail-open. Display only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
     function renderBookLimitsGlance(payload) {
@@ -2460,7 +2468,7 @@
     sub.textContent =
       "Slots · min hold · fee preset beside charts — packaging ≠ edge. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderRebuyCooldownGlance(payload) {
@@ -2505,7 +2513,7 @@
     sub.textContent =
       "Same-symbol rebuy lock beside charts — SCHW flip-flop / fee lesson. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderDailyLossGlance(payload) {
@@ -2550,7 +2558,7 @@
     sub.textContent =
       "UTC-day realized vs −2% halt beside charts — headroom before FAIL. Soft buy block only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderConcentrationGlance(payload) {
@@ -2596,7 +2604,7 @@
     sub.textContent =
       "Largest name vs 30% entry cap beside charts — headroom before size blocks. Soft fill limit only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderPostSlCooldownGlance(payload) {
@@ -2641,7 +2649,7 @@
     sub.textContent =
       "After SL, ≥4h buy block beside charts — anti revenge refill. Soft WARN only.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderLoopCadenceGlance(payload) {
@@ -2686,7 +2694,7 @@
     sub.textContent =
       "Scan vs trade sleep beside charts — floors ≥15m / ≥5m. Packaging ≠ edge. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderFeeAllowanceGlance(payload) {
@@ -2731,7 +2739,7 @@
     sub.textContent =
       "Free monthly legs beside charts — Revolut-like quota before paid fills. Crypto fees not modeled. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderFeeBurnGlance(payload) {
@@ -2776,7 +2784,7 @@
     sub.textContent =
       "Fee drag vs start beside charts — high (≥2%) before chasing adds. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderStuckCapitalGlance(payload) {
@@ -2821,7 +2829,7 @@
     sub.textContent =
       "Past min-hold underwater beside charts — capital trapped until TP/SL/trim. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderPostmortemGlance(payload) {
@@ -2866,7 +2874,7 @@
     sub.textContent =
       "Newest FIFO exit beside charts — thesis on Book. No MAE/MFE. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
 
@@ -2912,11 +2920,12 @@
     sub.textContent =
       "Suggested next-buy € beside charts — Overview keeps the full size block. Not a gate.";
     wrap.appendChild(sub);
-    root.appendChild(wrap);
+    appendGlance(wrap);
   }
 
   function renderChartsPage(payload) {
     root.innerHTML = "";
+    glanceMount = null;
     renderScanFreshness(payload);
     renderPretradeGlance(payload);
     renderNextBuyGlance(payload);
@@ -2924,6 +2933,28 @@
     renderEntryGatesGlance(payload);
     renderCalmStreakGlance(payload);
     renderPromoteAbGlance(payload);
+    renderBookPostureGlance(payload);
+    renderBookRiskGlance(payload);
+
+    /* MonsterDeveloper + xang1234: collapse long policy wall (parity with HTML screens). */
+    var details = document.createElement("details");
+    details.className = "policy-honesty";
+    details.id = "policy-honesty";
+    var summary = document.createElement("summary");
+    summary.appendChild(document.createTextNode("Policy honesty "));
+    var meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = "crypto · exits · AI · gates · fees";
+    summary.appendChild(meta);
+    details.appendChild(summary);
+    var intro = document.createElement("p");
+    intro.className = "sub";
+    intro.textContent =
+      "Display-only rules. Not new entry gates. Ops keeps the toggles.";
+    details.appendChild(intro);
+    root.appendChild(details);
+    glanceMount = details;
+
     renderCryptoPolicyGlance(payload);
     renderExitPolicyGlance(payload);
     renderEarningsBlackoutGlance(payload);
@@ -2935,7 +2966,6 @@
     renderBreakoutGuardGlance(payload);
     renderLossRotationGlance(payload);
     renderStaleRotationGlance(payload);
-    renderBookPostureGlance(payload);
     renderJunkFilterGlance(payload);
     renderUniverseDiscoveryGlance(payload);
     renderAtrDisplayGlance(payload);
@@ -2953,7 +2983,8 @@
     renderFeeBurnGlance(payload);
     renderStuckCapitalGlance(payload);
     renderPostmortemGlance(payload);
-    renderBookRiskGlance(payload);
+
+    glanceMount = null;
     renderBreadthGlance(payload);
     drawEquity(
       section(
