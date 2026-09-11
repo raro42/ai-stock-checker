@@ -920,6 +920,30 @@
 {% endif %}
 {%- endmacro %}
 
+{# Open lots still inside min-hold (display only). Pairs with stuck-capital. #}
+{% macro min_hold_lock_glance(
+  snap,
+  heading_id='min-hold-lock-glance-h',
+  link_href='/desk/ops#ops-min-hold',
+  link_label='Ops hold →',
+  sub='Lots still inside min-hold cannot rotate/trim for scan-chase. Not a gate.'
+) -%}
+{% set glance = snap.min_hold_lock_glance if snap.min_hold_lock_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="min-hold-lock-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Min-hold lock</h2>
+  <p class="min-hold-lock-glance-line">
+    <span class="min-hold-lock-glance-tone {{ glance.tone }}">Hold lock</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="min-hold-lock-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="min-hold-lock-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
 
 {# Last closed-round memory (display only). Book keeps the full list. #}
 {% macro postmortem_glance(

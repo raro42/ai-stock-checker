@@ -1926,6 +1926,122 @@ def build_stuck_capital_glance(
     }
 
 
+def apply_min_hold_lock_fields(
+    row: dict[str, Any],
+    min_hold_seconds: float,
+) -> dict[str, Any]:
+    """Annotate one holding with min-hold lock state (display only).
+
+    Complements stuck-capital: locked lots cannot rotate/trim for scan-chase yet.
+    Missing entry time → empty note (A7: do not treat as already past min-hold).
+    """
+    hold_s = max(0.0, float(min_hold_seconds or 0.0))
+    held = row.get("held_seconds")
+    if held is None:
+        row["past_min_hold"] = False
+        row["min_hold_left_seconds"] = None
+        row["min_hold_left"] = ""
+        row["min_hold_note"] = ""
+        return row
+    try:
+        held_s = max(0.0, float(held))
+    except (TypeError, ValueError):
+        row["past_min_hold"] = False
+        row["min_hold_left_seconds"] = None
+        row["min_hold_left"] = ""
+        row["min_hold_note"] = ""
+        return row
+    left = max(0.0, hold_s - held_s)
+    past = left <= 0.0
+    row["past_min_hold"] = past
+    row["min_hold_left_seconds"] = left
+    row["min_hold_left"] = "" if past else _fmt_hold(left)
+    row["min_hold_note"] = "past min-hold" if past else f"unlock {_fmt_hold(left)}"
+    return row
+
+
+def build_min_hold_lock_glance(
+    holdings: list[dict[str, Any]] | None,
+    *,
+    min_hold_hours: float = 24.0,
+) -> dict[str, Any]:
+    """Open lots still inside min-hold (portfolio AI / tradermonty; display only).
+
+    Pairs with stuck-capital (underwater *after* unlock) and book-limits.
+    Anti-churn packaging honesty — not a new gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "locked": 0,
+        "timed": 0,
+        "min_hold_hours": float(min_hold_hours or 0),
+        "earliest_symbol": "",
+        "earliest_left": "",
+    }
+    if not isinstance(holdings, list) or not holdings:
+        return empty
+    try:
+        hold_h = float(min_hold_hours or 0)
+    except (TypeError, ValueError):
+        hold_h = 0.0
+    hold_s = max(4.0, hold_h) * 3600.0 if hold_h > 0 else 0.0
+    timed: list[dict[str, Any]] = []
+    for r in holdings:
+        if not isinstance(r, dict):
+            continue
+        sym = str(r.get("symbol") or "").strip()
+        if not sym:
+            continue
+        held = r.get("held_seconds")
+        if held is None:
+            continue
+        try:
+            held_s = max(0.0, float(held))
+        except (TypeError, ValueError):
+            continue
+        left = max(0.0, hold_s - held_s)
+        timed.append({"symbol": sym, "left": left, "past": left <= 0.0})
+    if not timed:
+        return empty
+    locked_rows = [t for t in timed if not t["past"]]
+    locked_n = len(locked_rows)
+    timed_n = len(timed)
+    hold_txt = f"{hold_h:g}h" if hold_h else "min-hold"
+    if locked_n <= 0:
+        line = f"all {timed_n} past min-hold ({hold_txt}) · rotate/trim OK"
+        return {
+            "ready": True,
+            "tone": "quiet",
+            "line": line[:96] if len(line) > 96 else line,
+            "locked": 0,
+            "timed": timed_n,
+            "min_hold_hours": hold_h,
+            "earliest_symbol": "",
+            "earliest_left": "",
+        }
+    locked_rows.sort(key=lambda t: t["left"])
+    earliest = locked_rows[0]
+    left_txt = _fmt_hold(float(earliest["left"]))
+    line = (
+        f"{locked_n}/{timed_n} in min-hold lock ({hold_txt}) · "
+        f"earliest {earliest['symbol']} {left_txt}"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "warn" if locked_n == timed_n else "flat",
+        "line": line,
+        "locked": locked_n,
+        "timed": timed_n,
+        "min_hold_hours": hold_h,
+        "earliest_symbol": str(earliest["symbol"]),
+        "earliest_left": left_txt,
+    }
+
+
 def build_next_buy_glance(
     entry_size: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2619,8 +2735,11 @@ def load_desk_snapshot(
     rows.sort(key=lambda r: r["market_value"], reverse=True)
 
     # Stuck capital (A15): past min-hold and underwater — visible, not silent.
+    # Min-hold lock: which lots still cannot rotate/trim (portfolio AI honesty).
     min_hold_h = float(cfg_fees.get("min_hold_hours") or 24)
     min_hold_s = max(4.0, min_hold_h) * 3600.0
+    for r in rows:
+        apply_min_hold_lock_fields(r, min_hold_s)
     stuck = [
         {
             "symbol": r["symbol"],
@@ -3143,6 +3262,9 @@ def load_desk_snapshot(
             realized_pnl=realized if sells else None,
         ),
         "stuck_capital_glance": build_stuck_capital_glance(stuck),
+        "min_hold_lock_glance": build_min_hold_lock_glance(
+            rows, min_hold_hours=min_hold_h
+        ),
         "postmortem_glance": build_postmortem_glance(postmortems),
         "realized": realized,
         "trade_count": len(trades),
