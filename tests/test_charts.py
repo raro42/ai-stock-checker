@@ -370,7 +370,10 @@ def test_chart_payload_breadth_glance_from_daily(tmp_path: Path, monkeypatch):
     assert glance["ready"] is True
     assert glance["tone"] == "up"
     assert "crypto 3/1" in glance["line"]
-    assert "stock batch 6/4" in glance["line"]
+    assert "stock 6/4" in glance["line"]
+    assert "estimate · not full-universe" in glance["line"]
+    assert glance["estimate"] is True
+    assert glance["full_universe"] is False
 
 
 def test_price_history_skips_nan(tmp_path: Path, monkeypatch):

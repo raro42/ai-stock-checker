@@ -28,7 +28,11 @@ def test_breadth_glance_infers_n_from_up_down():
     assert g["crypto_net"] == 1
     assert g["stock_net"] == 3
     assert g["tone"] == "up"
-    assert "crypto 2/1 (+1)" in g["line"]
+    assert "crypto 2/1 (+1) of 3" in g["line"]
+    assert "stock 4/1 (+3) of 5" in g["line"]
+    assert "estimate · not full-universe" in g["line"]
+    assert g["estimate"] is True
+    assert g["full_universe"] is False
 
 
 def test_scan_breadth_pulse_for_day(tmp_path: Path):
@@ -61,11 +65,16 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["stock_net"] == -3
     assert g["near_high"] == 2
     assert g["big_movers"] == 1
+    assert g["crypto_n"] == 4
+    assert g["stock_n"] == 10
     assert g["tone"] == "down"  # +2 + −3 = −1
-    assert "crypto 3/1 (+2)" in g["line"]
-    assert "stock batch 2/5 (-3)" in g["line"]
+    assert "crypto 3/1 (+2) of 4" in g["line"]
+    assert "stock 2/5 (-3) of 10" in g["line"]
     assert "2 near-high" in g["line"]
     assert "1 ±4% movers" in g["line"]
+    assert "estimate · not full-universe" in g["line"]
+    assert g["estimate"] is True
+    assert g["full_universe"] is False
 
 
 def test_breadth_glance_up_when_crypto_leads():
@@ -83,7 +92,10 @@ def test_breadth_glance_up_when_crypto_leads():
     assert g["tone"] == "up"
     assert g["stock_net"] == 0
     assert g["big_movers"] == 0
+    assert g["crypto_n"] == 3
+    assert "crypto 3/0 (+3) of 3" in g["line"]
     assert "±4% movers" not in g["line"]
+    assert "estimate · not full-universe" in g["line"]
 
 
 def test_breadth_ad_spark_needs_two_days():

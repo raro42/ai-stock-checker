@@ -464,7 +464,7 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "Bitcoin" in overview.text
     assert "breadth-glance" in overview.text
     assert "Full breadth" in overview.text
-    assert "Scan-list A/D only" in overview.text
+    assert "Scan-list estimate with priced counts" in overview.text
     breadth = client.get("/desk/breadth")
     assert "Scan pulse" in breadth.text
     assert "Crypto A/D" in breadth.text
@@ -553,7 +553,8 @@ def test_desk_html_screens(tmp_path: Path, monkeypatch):
     assert "breadth-glance" in log_page.text
     assert "scan-log-breadth-h" in log_page.text
     assert "crypto 1/0" in log_page.text
-    assert "stock batch 8/3" in log_page.text
+    assert "stock 8/3" in log_page.text
+    assert "estimate · not full-universe" in log_page.text
     assert "scan-fresh" in log_page.text
     assert "pretrade-glance" in log_page.text
     assert "scan-log-pretrade-h" in log_page.text

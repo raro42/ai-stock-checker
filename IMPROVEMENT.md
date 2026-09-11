@@ -252,6 +252,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] MonsterDeveloper + xang1234 Charts policy honesty (2026-09-11 improve): `/desk/charts` collapses long JS glance wall into `#policy-honesty` details (`charts.js` `appendGlance`) — gates/calm/promote/posture/risk above fold; watch quiet; display only; not a new gate
 - [x] FinRobot AI validate debate memory on Ideas (2026-09-11 improve): persist bull/bear/risk validate rows (`ai_validate_memory.py` + trader wire) · Ideas “Last AI debates” — display only; not a research score; not a new gate
 - [x] FinRobot richer debate transcript UI (2026-09-11 improve): Ideas expandable `<details class="ai-debate">` + reasons + `tojson` transcript — display only; not a new gate
+- [x] tradermonty + xang1234 scan estimate coverage (2026-09-11 improve): breadth glance shows priced `of N` + `estimate · not full-universe` (`build_breadth_glance`) — verified scan-list snapshot honesty; display only; not a new gate
+- [ ] Deferred: tradermonty earnings-calendar coverage honesty — desk line that missing Yahoo calendar → allow (fail-open), not a silent waiver (pairs with `earnings_guard`; display only)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

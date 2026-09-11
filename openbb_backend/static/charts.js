@@ -1268,7 +1268,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Scan-list A/D + near-high from the latest Breadth day — display only, not a gate.";
+      "Scan-list estimate A/D + near-high (priced counts) — not full-universe; display only, not a gate.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

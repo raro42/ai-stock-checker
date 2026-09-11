@@ -2145,7 +2145,11 @@ def scan_breadth_pulse_for_day(
 
 
 def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
-    """One-line scan-list glance for HTML screens + Charts API (display only; not a gate)."""
+    """One-line scan-list glance for HTML screens + Charts API (display only; not a gate).
+
+    tradermonty “verified estimate snapshots” + xang1234: show priced counts and
+    label the pulse as a scan-list **estimate**, never full-universe A/D.
+    """
     empty = {
         "ready": False,
         "tone": "flat",
@@ -2154,6 +2158,10 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "stock_net": 0,
         "near_high": 0,
         "big_movers": 0,
+        "crypto_n": 0,
+        "stock_n": 0,
+        "estimate": True,
+        "full_universe": False,
     }
     if not isinstance(pulse, dict):
         return empty
@@ -2175,10 +2183,14 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     parts: list[str] = []
     score = 0
     if crypto_n > 0:
-        parts.append(f"crypto {crypto_up}/{crypto_down} ({crypto_net:+d})")
+        parts.append(
+            f"crypto {crypto_up}/{crypto_down} ({crypto_net:+d}) of {crypto_n}"
+        )
         score += crypto_net
     if stock_n > 0:
-        parts.append(f"stock batch {stock_up}/{stock_down} ({stock_net:+d})")
+        parts.append(
+            f"stock {stock_up}/{stock_down} ({stock_net:+d}) of {stock_n}"
+        )
         score += stock_net
     if breakouts_n > 0 or near > 0:
         parts.append(f"{near} near-high")
@@ -2186,20 +2198,29 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         parts.append(f"{movers} ±4% movers")
     if not parts:
         return empty
+    # Coverage honesty: this is a verified *scan-list* estimate, not the market.
+    parts.append("estimate · not full-universe")
     if score > 0:
         tone = "up"
     elif score < 0:
         tone = "down"
     else:
         tone = "flat"
+    line = " · ".join(parts)
+    if len(line) > 110:
+        line = line[:109] + "…"
     return {
         "ready": True,
         "tone": tone,
-        "line": " · ".join(parts),
+        "line": line,
         "crypto_net": crypto_net,
         "stock_net": stock_net if stock_n > 0 else 0,
         "near_high": near,
         "big_movers": movers,
+        "crypto_n": crypto_n,
+        "stock_n": stock_n if stock_n > 0 else 0,
+        "estimate": True,
+        "full_universe": False,
     }
 
 
