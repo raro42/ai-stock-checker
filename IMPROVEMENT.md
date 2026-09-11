@@ -258,8 +258,10 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] portfolio AI + summarize_trades fee vs realized (2026-09-11 improve): fee-burn glance adds `vs €P&L` + warn when fees > realized (`build_fee_burn_glance` realized_pnl) — churn eats edge; display only; not a new gate
 - [x] portfolio AI + tradermonty min-hold lock (2026-09-11 improve): Overview / Ops / Book — lots still inside min-hold (`build_min_hold_lock_glance` + holding `min_hold_note`) — pairs with stuck-capital; cannot rotate/trim yet; display only; not a new gate
 - [x] portfolio AI + tradermonty min-hold lock parity (2026-09-11 improve): Screener / Ideas / Charts / Breadth / scan-log — same glance
+- [x] FinRobot + RyanJHamby + xang1234 AI debate freshness (2026-09-12 improve): debate glance shows newest validate age fresh/aging/stale vs scan cadence (`build_ai_debate_glance` + `latest_at`) — display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
+- [ ] Optional later: xang1234 StockBee multi-day ±4% ratios / theme discovery (needs fuller history + research UX; defer)
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

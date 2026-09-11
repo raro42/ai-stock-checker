@@ -1174,18 +1174,29 @@ def build_ai_roles_glance() -> dict[str, Any]:
 
 def build_ai_debate_glance(
     data_dir: Path | str | None = None,
+    *,
+    now: Optional[datetime] = None,
+    scan_interval_sec: int = 900,
 ) -> dict[str, Any]:
     """FinRobot validate debate memory strip (display only).
 
     One-line BUY/HOLD/SELL + multi-role gated counts from
     ``ai_validate_memory`` so Overview/Ops/Charts see research memory without
-    opening Ideas. Not a research score and not a new gate.
+    opening Ideas. Includes RyanJHamby/xang1234 ``as of`` age on the newest
+    debate (fresh/aging/stale vs scan cadence). Not a research score and not
+    a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
     root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
     stats = summarize_ai_debates(root)
     count = int(stats.get("count") or 0)
+    empty_fresh = {
+        "age_sec": None,
+        "age_label": "",
+        "freshness": "",
+        "latest_at": "",
+    }
     if count <= 0:
         return {
             "ready": True,
@@ -1198,6 +1209,7 @@ def build_ai_debate_glance(
             "gated": 0,
             "latest_symbol": "",
             "latest_action": "",
+            **empty_fresh,
         }
 
     buy = int(stats.get("buy") or 0)
@@ -1206,18 +1218,35 @@ def build_ai_debate_glance(
     gated = int(stats.get("gated") or 0)
     sym = str(stats.get("latest_symbol") or "").strip()
     action = str(stats.get("latest_action") or "HOLD").upper()
+    latest_at = str(stats.get("latest_at") or "").strip()
+    fresh = build_scan_freshness(
+        latest_at, now=now, scan_interval_sec=scan_interval_sec
+    )
+    age_label = str(fresh.get("age_label") or "")
+    freshness = str(fresh.get("tone") or "")
+    age_sec = fresh.get("age_sec")
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
     if gated:
         bits.append(f"{gated} gated")
     if sym:
         bits.append(f"last {sym} {action}")
+    if age_label and freshness and freshness != "unknown":
+        bits.append(f"{age_label} · {freshness}")
+    elif age_label:
+        bits.append(age_label)
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
-    if gated > 0 and gated >= max(1, count // 2):
+    if freshness == "stale":
+        tone = "stale"
+    elif gated > 0 and gated >= max(1, count // 2):
         tone = "gated"
     elif buy > hold and buy > sell:
         tone = "buy"
+    elif freshness == "aging":
+        tone = "aging"
+    elif freshness == "fresh":
+        tone = "fresh"
     else:
         tone = "flat"
     return {
@@ -1231,6 +1260,10 @@ def build_ai_debate_glance(
         "gated": gated,
         "latest_symbol": sym,
         "latest_action": action,
+        "age_sec": age_sec,
+        "age_label": age_label,
+        "freshness": freshness,
+        "latest_at": latest_at,
     }
 
 
@@ -3225,7 +3258,9 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
-        "ai_debate_glance": build_ai_debate_glance(data_dir),
+        "ai_debate_glance": build_ai_debate_glance(
+            data_dir, scan_interval_sec=scan_interval_sec
+        ),
         "ai_validate_scope_glance": build_ai_validate_scope_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),
         "equity_hours_glance": build_equity_hours_glance(),

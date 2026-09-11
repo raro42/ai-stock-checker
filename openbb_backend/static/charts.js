@@ -1833,7 +1833,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Validate memory beside charts — BUY/HOLD/SELL + gated; Ideas keeps transcripts. Display only.";
+      "Validate memory beside charts — BUY/HOLD/SELL + gated + age vs scan cadence. Ideas keeps transcripts. Display only.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

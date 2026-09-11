@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from openbb_backend.desk import build_ai_debate_glance, load_desk_snapshot
@@ -65,6 +67,7 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert stats["dropped"] == 1
     assert stats["latest_symbol"] == "XYZ"
     assert stats["latest_action"] == "SELL"
+    assert stats["latest_at"]
 
 
 def test_ai_validate_memory_cap(tmp_path: Path) -> None:
@@ -118,6 +121,45 @@ def test_build_ai_debate_glance_empty(tmp_path: Path) -> None:
     assert g["count"] == 0
     assert g["tone"] == "empty"
     assert "empty" in g["line"].lower() or "No validate" in g["line"]
+    assert g["freshness"] == ""
+
+
+def test_build_ai_debate_glance_freshness_stale(tmp_path: Path) -> None:
+    """Newest debate age uses scan-cadence fresh/aging/stale (display only)."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    assert events
+    events[-1]["at"] = "2026-09-01T00:00:00Z"
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(
+        json.dumps({"updated_at": events[-1]["at"], "events": events}) + "\n"
+    )
+    now = datetime(2026, 9, 12, 0, 0, tzinfo=timezone.utc)
+    g = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert g["ready"] is True
+    assert g["freshness"] == "stale"
+    assert g["tone"] == "stale"
+    assert "ago" in g["line"]
+    assert "stale" in g["line"]
+
+
+def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
+    record_ai_validate(
+        tmp_path,
+        {"action": "HOLD", "confidence": "LOW", "score": 0, "reasons": ["wait"]},
+        symbol="IBM",
+        kept=False,
+    )
+    now = datetime.now(timezone.utc)
+    g = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert g["freshness"] == "fresh"
+    assert g["tone"] in {"fresh", "flat", "buy", "gated"}
+    assert "ago" in g["line"] or "just now" in g["line"]
 
 
 def test_ideas_template_has_ai_debates_section() -> None:

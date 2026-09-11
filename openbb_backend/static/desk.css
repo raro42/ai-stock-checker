@@ -1019,8 +1019,17 @@ a:active {
   color: var(--up);
 }
 
-.ai-debate-glance-tone.buy {
+.ai-debate-glance-tone.buy,
+.ai-debate-glance-tone.fresh {
   color: var(--up);
+}
+
+.ai-debate-glance-tone.aging {
+  color: var(--accent);
+}
+
+.ai-debate-glance-tone.stale {
+  color: var(--down);
 }
 
 .universe-discovery-glance-tone.fresh {

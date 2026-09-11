@@ -90,6 +90,7 @@ def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
         "dropped": 0,
         "latest_symbol": "",
         "latest_action": "",
+        "latest_at": "",
     }
     if not events:
         return empty
@@ -123,6 +124,7 @@ def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
         "dropped": dropped,
         "latest_symbol": str(latest.get("symbol") or "").strip().upper(),
         "latest_action": str(latest.get("action") or "HOLD").upper(),
+        "latest_at": str(latest.get("at") or "").strip(),
     }
 
 
