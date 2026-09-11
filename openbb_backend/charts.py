@@ -1037,6 +1037,43 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     return build_stuck_capital_glance(stuck)
 
 
+
+def _book_posture_glance_from_data(data_dir: Path) -> dict[str, Any]:
+    """Live posture slots from portfolio (no cost-flat trim guess; display only)."""
+    from openbb_backend.desk import build_book_posture_glance
+    from stock_checker.trader_config import load_trader_config
+
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    if not isinstance(portfolio, dict):
+        portfolio = {}
+    cfg = load_trader_config(data_dir)
+    try:
+        max_pos = int(cfg.get("max_positions") or 5)
+    except (TypeError, ValueError):
+        max_pos = 5
+    try:
+        min_hold_h = float(cfg.get("min_hold_hours") or 24)
+    except (TypeError, ValueError):
+        min_hold_h = 24.0
+    holdings = portfolio.get("holdings") or {}
+    rows: list[dict[str, Any]] = []
+    if isinstance(holdings, dict):
+        for sym, qty in holdings.items():
+            try:
+                q = float(qty)
+            except (TypeError, ValueError):
+                continue
+            if q <= 0:
+                continue
+            rows.append({"symbol": str(sym), "held_seconds": 0.0})
+    return build_book_posture_glance(
+        rows,
+        max_positions=max_pos,
+        min_hold_hours=min_hold_h,
+        suggest_trim=False,
+    )
+
+
 def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
     """Open lots still inside min-hold (display only; pairs with stuck-capital)."""
     import time
@@ -1103,7 +1140,6 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         build_junk_filter_glance,
         build_loss_rotation_glance,
         build_stale_rotation_glance,
-        build_book_posture_glance,
         build_ai_roles_glance,
         build_ai_debate_glance,
         build_gate_params_glance,
@@ -1157,7 +1193,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
         "stale_rotation_glance": build_stale_rotation_glance(),
-        "book_posture_glance": build_book_posture_glance(),
+        "book_posture_glance": _book_posture_glance_from_data(data_dir),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(data_dir),
         "atr_display_glance": build_atr_display_glance(),

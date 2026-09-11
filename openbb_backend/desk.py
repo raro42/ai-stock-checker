@@ -751,22 +751,111 @@ def build_stale_rotation_glance() -> dict[str, Any]:
 
 
 
-def build_book_posture_glance() -> dict[str, Any]:
-    """Book size posture modes (staskh + portfolio AI; display only).
+def build_book_posture_glance(
+    holdings: list[dict[str, Any]] | None = None,
+    *,
+    max_positions: int = 5,
+    min_hold_hours: float = 24.0,
+    suggest_trim: bool = True,
+) -> dict[str, Any]:
+    """Live book posture + next overweight trim (staskh + portfolio AI).
 
-    Explains open / at_cap / overweight from ``book_action_mode`` so friends
-    know why buys stop when the book is full or overweight. Live slot count
-    stays on book-risk glance; this is policy honesty — not a new gate.
+    Shows open / at_cap / overweight from ``book_action_mode`` with slot count.
+    When overweight and ``suggest_trim``, names the next trim from
+    ``pick_overweight_trim_candidate`` (winners first). Charts may pass
+    ``suggest_trim=False`` when marks are cost-flat. Display only — not a new gate.
     """
-    line = (
-        "open=adds · at_cap=no buys, rotate OK · overweight=TP/SL+trim only"
+    from stock_checker.exit_policy import (
+        book_action_mode,
+        pick_overweight_trim_candidate,
     )
+
+    try:
+        max_n = max(1, int(max_positions))
+    except (TypeError, ValueError):
+        max_n = 5
+    try:
+        hold_h = float(min_hold_hours or 0)
+    except (TypeError, ValueError):
+        hold_h = 24.0
+    hold_s = max(4.0, hold_h) * 3600.0 if hold_h > 0 else 0.0
+
+    rows: list[dict[str, Any]] = []
+    if isinstance(holdings, list):
+        for r in holdings:
+            if not isinstance(r, dict):
+                continue
+            sym = str(r.get("symbol") or "").strip()
+            if not sym:
+                continue
+            held = r.get("held_seconds")
+            if held is None:
+                held = r.get("hold_seconds")
+            try:
+                held_s = max(0.0, float(held)) if held is not None else 0.0
+            except (TypeError, ValueError):
+                held_s = 0.0
+            pnl_raw = r.get("unrealized_pct")
+            if pnl_raw is None:
+                pnl_raw = r.get("profit_pct")
+            try:
+                pnl = float(pnl_raw) if pnl_raw is not None else 0.0
+            except (TypeError, ValueError):
+                pnl = 0.0
+            rows.append(
+                {
+                    "symbol": sym,
+                    "hold_seconds": held_s,
+                    "profit_pct": pnl,
+                }
+            )
+
+    open_n = len(rows)
+    posture = book_action_mode(open_n, max_n)
+    slots = f"{open_n}/{max_n}"
+    trim_sym = ""
+    trim_why = ""
+    if posture == "open":
+        tone = "open"
+        line = f"live {posture} {slots} · adds OK"
+    elif posture == "at_cap":
+        tone = "at_cap"
+        line = f"live {posture} {slots} · no buys · rotate OK"
+    else:
+        tone = "overweight"
+        if suggest_trim:
+            pick, why = pick_overweight_trim_candidate(
+                rows, min_hold_seconds=hold_s
+            )
+            if pick:
+                trim_sym = str(pick)
+                trim_why = str(why or "")
+                pnl = next(
+                    (float(r["profit_pct"]) for r in rows if r["symbol"] == pick),
+                    0.0,
+                )
+                kind = "winner" if "winner" in trim_why.lower() else "worst"
+                line = (
+                    f"live overweight {slots} · next trim {trim_sym} "
+                    f"({pnl:+.1f}% {kind})"
+                )
+            else:
+                trim_why = str(why or "no trim candidates past min hold")
+                line = f"live overweight {slots} · trim paused (min-hold)"
+        else:
+            line = f"live overweight {slots} · TP/SL+trim only"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
         "ready": True,
-        "tone": "posture",
+        "tone": tone,
         "line": line,
+        "posture": posture,
+        "slots": slots,
+        "open_positions": open_n,
+        "max_positions": max_n,
+        "trim_symbol": trim_sym,
+        "trim_why": trim_why,
         "modes": ("open", "at_cap", "overweight"),
         "overweight_scan_rotation": False,
         "overweight_new_buys": False,
@@ -3023,6 +3112,11 @@ def load_desk_snapshot(
 
     adopted_ideas = [
         {
+            "title": "Live book posture + next trim",
+            "from": "staskh / portfolio AI risk strip",
+            "note": "Book posture glance shows live open/at_cap/overweight slots; overweight names next trim (winners first) — display only.",
+        },
+        {
             "title": "AI debate memory glance",
             "from": "FinRobot / TradingAgents research memory",
             "note": "Desk one-liner: BUY/HOLD/SELL + multi-role gated counts from ai_validate_memory — display only; Ideas keeps transcripts.",
@@ -3267,7 +3361,11 @@ def load_desk_snapshot(
         "breakout_guard_glance": build_breakout_guard_glance(),
         "loss_rotation_glance": build_loss_rotation_glance(),
         "stale_rotation_glance": build_stale_rotation_glance(),
-        "book_posture_glance": build_book_posture_glance(),
+        "book_posture_glance": build_book_posture_glance(
+            rows,
+            max_positions=max_pos,
+            min_hold_hours=float(runtime.get("min_hold_hours") or 24),
+        ),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(data_dir),
         "atr_display_glance": build_atr_display_glance(),

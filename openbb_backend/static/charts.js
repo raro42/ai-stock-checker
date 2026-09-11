@@ -2120,7 +2120,7 @@
     var h = document.createElement("h2");
     h.id = "charts-book-posture-h";
     h.className = "visually-hidden";
-    h.textContent = "Book posture modes";
+    h.textContent = "Book posture";
     wrap.appendChild(h);
     var line = document.createElement("p");
     line.className = "book-posture-glance-line";
@@ -2151,7 +2151,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Book posture beside charts — open/at_cap/overweight; overweight is exits+trim only.";
+      "Live posture beside charts — open/at_cap/overweight vs max; Book shows next trim when overweight.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

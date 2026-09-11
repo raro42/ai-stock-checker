@@ -499,18 +499,18 @@
 
 
 
-{# Book posture modes (display only). open / at_cap / overweight policy. #}
+{# Live book posture + next overweight trim (display only). #}
 {% macro book_posture_glance(
   snap,
   heading_id='book-posture-glance-h',
   link_href='/desk/book',
   link_label='Book →',
-  sub='Book size vs max: open allows adds; at_cap blocks buys but rotation OK; overweight is TP/SL + trim only (no scan chase). Display only — not a new gate.'
+  sub='Live open / at_cap / overweight vs max. Overweight shows next trim (winners first). Display only — not a new gate.'
 ) -%}
 {% set glance = snap.book_posture_glance if snap.book_posture_glance is mapping else {} %}
 {% if glance.ready %}
 <section class="book-posture-glance" aria-labelledby="{{ heading_id }}">
-  <h2 id="{{ heading_id }}" class="visually-hidden">Book posture modes</h2>
+  <h2 id="{{ heading_id }}" class="visually-hidden">Book posture</h2>
   <p class="book-posture-glance-line">
     <span class="book-posture-glance-tone {{ glance.tone }}">Posture</span>
     <span class="pretrade-sep" aria-hidden="true">·</span>

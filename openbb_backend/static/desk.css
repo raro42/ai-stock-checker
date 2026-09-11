@@ -935,6 +935,10 @@ a:active {
   color: var(--up);
 }
 
+.book-posture-glance-tone.open {
+  color: var(--up);
+}
+
 .crypto-policy-glance-tone.full,
 .crypto-policy-glance-tone.flat,
 .exit-policy-glance-tone.stock,
@@ -963,6 +967,7 @@ a:active {
 .stale-rotation-glance-tone.flat,
 .book-posture-glance-tone.posture,
 .book-posture-glance-tone.flat,
+.book-posture-glance-tone.at_cap,
 .junk-filter-glance-tone.filter,
 .junk-filter-glance-tone.flat,
 .universe-discovery-glance-tone.discover,
@@ -1000,6 +1005,7 @@ a:active {
 .ai-debate-glance-tone.gated,
 .promote-contract-glance-tone.on,
 .gate-roles-glance-tone.overlap,
+.book-posture-glance-tone.overweight,
 .book-limits-glance-tone.warn,
 .rebuy-cooldown-glance-tone.warn,
 .daily-loss-glance-tone.warn,
