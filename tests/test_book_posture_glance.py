@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import build_book_posture_glance, load_desk_snapshot
 
 
@@ -28,4 +29,18 @@ def test_book_posture_glance_in_snapshot(tmp_path) -> None:
     g = snap["book_posture_glance"]
     assert g["ready"] is True
     assert "overweight" in g["line"]
+    assert "at_cap" in g["line"]
+
+
+def test_book_posture_glance_in_chart_payload(tmp_path) -> None:
+    (tmp_path / "portfolio.json").write_text(
+        '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '
+        '"total_fees_paid": 0}',
+        encoding="utf-8",
+    )
+    (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
+    g = load_chart_payload(tmp_path)["book_posture_glance"]
+    assert g["ready"] is True
+    assert g["tone"] == "posture"
+    assert "overweight=TP/SL+trim only" in g["line"]
     assert "at_cap" in g["line"]
