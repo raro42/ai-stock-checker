@@ -63,9 +63,25 @@ def test_gate_params_glance_in_chart_payload(tmp_path) -> None:
     assert "A/D≥" in g["line"]
 
 
-def test_gate_params_overview_ops_templates() -> None:
-    """Overview + Ops must show the glance (parity screens deferred)."""
+def test_gate_params_parity_templates() -> None:
+    """Overview / Ops / Screener / Ideas / Book / Breadth / scan-log + Charts."""
     root = Path(__file__).resolve().parents[1] / "openbb_backend" / "templates"
-    for name in ("desk_overview.html", "desk_ops.html"):
+    for name in (
+        "desk_overview.html",
+        "desk_ops.html",
+        "desk_screener.html",
+        "desk_ideas.html",
+        "desk_book.html",
+        "desk_breadth.html",
+        "desk_scan_log.html",
+    ):
         text = (root / name).read_text(encoding="utf-8")
         assert "gate_params_glance" in text, name
+    charts_js = (
+        Path(__file__).resolve().parents[1]
+        / "openbb_backend"
+        / "static"
+        / "charts.js"
+    ).read_text(encoding="utf-8")
+    assert "renderGateParamsGlance" in charts_js
+    assert "gate_params_glance" in charts_js
