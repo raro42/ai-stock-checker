@@ -926,6 +926,50 @@ def build_promote_contract_glance(
     }
 
 
+def build_gate_params_glance() -> dict[str, Any]:
+    """Soft-gate numeric thresholds (RyanJHamby / xang1234; display only).
+
+    Complements ``build_gate_roles_glance``: roles say *what* each gate is;
+    this line shows the live knobs (SMA periods, RS lookback, scan A/D mins).
+    Fail-open on short bars stays. Not a new gate.
+    """
+    from stock_checker.market_regime import (
+        CRYPTO_BENCHMARK,
+        CRYPTO_SMA_PERIOD,
+        STOCK_BENCHMARK,
+        STOCK_SMA_PERIOD,
+    )
+    from stock_checker.relative_strength import rs_lookback
+    from stock_checker.scan_breadth_gate import min_advance_ratio, min_stock_leaders
+
+    lookback = int(rs_lookback())
+    adv = float(min_advance_ratio())
+    leaders = int(min_stock_leaders())
+    crypto_label = str(CRYPTO_BENCHMARK).replace("USDT", "").replace("USD", "")
+    adv_pct = f"{adv * 100:.0f}%"
+    line = (
+        f"{STOCK_BENCHMARK}≥SMA{STOCK_SMA_PERIOD} · "
+        f"{crypto_label}≥SMA{CRYPTO_SMA_PERIOD} · "
+        f"RS≥bench {lookback}d · "
+        f"A/D≥{adv_pct} · ≥{leaders} leader · fail-open"
+    )
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "params",
+        "line": line,
+        "stock_benchmark": STOCK_BENCHMARK,
+        "stock_sma": int(STOCK_SMA_PERIOD),
+        "crypto_benchmark": CRYPTO_BENCHMARK,
+        "crypto_sma": int(CRYPTO_SMA_PERIOD),
+        "rs_lookback": lookback,
+        "min_advance_ratio": adv,
+        "min_stock_leaders": leaders,
+        "fail_open": True,
+    }
+
+
 def build_gate_roles_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2892,6 +2936,7 @@ def load_desk_snapshot(
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": build_promote_contract_glance(runtime),
         "gate_roles_glance": build_gate_roles_glance(runtime),
+        "gate_params_glance": build_gate_params_glance(),
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,

@@ -649,6 +649,31 @@
 {%- endmacro %}
 
 
+{# Soft-gate numeric thresholds (RyanJHamby / xang1234; display only). #}
+{% macro gate_params_glance(
+  snap,
+  heading_id='gate-params-glance-h',
+  link_href='/desk/ops#ops-regime',
+  link_label='Ops gates →',
+  sub='SMA / RS lookback / scan A/D mins beside gate toggles. Fail-open on short bars. Display only — not a new gate.'
+) -%}
+{% set glance = snap.gate_params_glance if snap.gate_params_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="gate-params-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Entry gate parameters</h2>
+  <p class="gate-params-glance-line">
+    <span class="gate-params-glance-tone {{ glance.tone }}">Params</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="gate-params-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="gate-params-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book caps + fee schedule honesty (display only). Packaging ≠ edge. #}
 {% macro book_limits_glance(
   snap,
