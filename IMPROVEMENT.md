@@ -240,7 +240,9 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] tradermonty + portfolio AI stale-rotation parity (2026-09-10 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
 - [x] staskh + portfolio AI book-posture glance (2026-09-11 improve): Overview / Ops open · at_cap · overweight modes (`build_book_posture_glance` + `book_action_mode`) — why buys stop when full/overweight; display only; not a new gate
 - [x] staskh + portfolio AI book-posture parity (2026-09-11 improve): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log — Charts via `/desk/api/charts`; display only
-- [ ] Optional later: FinRobot multi-agent research brief on Ideas (display-only role summary; defer — multi-role already in validate; 2026-09-08/09/10/11 watch quiet)
+- [x] FinRobot multi-role research glance (2026-09-11 improve): Overview / Ops bull · bear · risk · disagree/risk veto → HOLD (`build_ai_roles_glance` + `ai_multi_role.py`) — display only; not a research score; not a new gate
+- [ ] FinRobot multi-role research parity (next tick): same glance on Screener / Ideas / Book / Charts / Breadth / scan-log
+- [ ] Optional later: FinRobot live role debate transcript on Ideas (defer — needs stored validate payload; 2026-09-11 watch quiet)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 

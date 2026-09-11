@@ -1047,6 +1047,29 @@ _FEE_PRESET_SHORT: dict[str, str] = {
 }
 
 
+
+def build_ai_roles_glance() -> dict[str, Any]:
+    """FinRobot / TradingAgents role contract (display only).
+
+    Validate multi-role uses bull / bear / risk officers. Disagreement or
+    risk.ok=false forces HOLD. Not a research score and not a new gate —
+    mirrors ``ai_multi_role.py`` honesty beside Ideas candidates.
+    """
+    roles = ("bull", "bear", "risk")
+    line = "bull · bear · risk · disagree→HOLD · risk.ok=false→HOLD"
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "roles",
+        "line": line,
+        "roles": roles,
+        "disagree_forces_hold": True,
+        "risk_veto_forces_hold": True,
+    }
+
+
+
 def _fmt_cooldown_left(seconds: float) -> str:
     """Short remaining-time label for rebuy cooldown glance."""
     s = max(0.0, float(seconds))
@@ -2803,6 +2826,7 @@ def load_desk_snapshot(
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
+        "ai_roles_glance": build_ai_roles_glance(),
         "session_glance": build_session_glance(weekend=weekend),
         "equity_hours_glance": build_equity_hours_glance(),
         "breakout_guard_glance": build_breakout_guard_glance(),

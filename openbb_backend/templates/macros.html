@@ -298,6 +298,31 @@
 {%- endmacro %}
 
 
+{# FinRobot multi-role research contract (display only). #}
+{% macro ai_roles_glance(
+  snap,
+  heading_id='ai-roles-glance-h',
+  link_href='/desk/ideas',
+  link_label='Ideas →',
+  sub='Validate multi-role: bull / bear / risk. Disagreement or risk veto → HOLD. Display only — not a research score.'
+) -%}
+{% set glance = snap.ai_roles_glance if snap.ai_roles_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="ai-roles-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">AI multi-role research contract</h2>
+  <p class="ai-roles-glance-line">
+    <span class="ai-roles-glance-tone {{ glance.tone }}">Roles</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="ai-roles-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="ai-roles-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# UTC session / weekend honesty (display only). xang1234 screener session UX. #}
 {% macro session_glance(
   snap,
