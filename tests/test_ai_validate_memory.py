@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openbb_backend.desk import load_desk_snapshot
+from openbb_backend.desk import build_ai_debate_glance, load_desk_snapshot
 from stock_checker.ai_multi_role import consensus_from_multi_role
 from stock_checker.ai_validate_memory import (
     load_ai_validate_memory,
     recent_ai_debates,
     record_ai_validate,
+    summarize_ai_debates,
 )
 
 
@@ -55,6 +56,16 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert len(recent) == 1
     assert recent[0]["symbol"] == "XYZ"
 
+    stats = summarize_ai_debates(tmp_path)
+    assert stats["count"] == 2
+    assert stats["buy"] == 1
+    assert stats["sell"] == 1
+    assert stats["hold"] == 0
+    assert stats["kept"] == 1
+    assert stats["dropped"] == 1
+    assert stats["latest_symbol"] == "XYZ"
+    assert stats["latest_action"] == "SELL"
+
 
 def test_ai_validate_memory_cap(tmp_path: Path) -> None:
     for i in range(5):
@@ -92,6 +103,21 @@ def test_ai_debates_in_desk_snapshot(tmp_path: Path) -> None:
     assert row["symbol"] == "NVDA"
     assert row["action"] == "HOLD"  # disagreement gate
     assert row["multi_role_gated"] is True
+    glance = snap["ai_debate_glance"]
+    assert glance["ready"] is True
+    assert glance["count"] == 1
+    assert glance["hold"] == 1
+    assert glance["gated"] == 1
+    assert "NVDA" in glance["line"]
+    assert glance["tone"] == "gated"
+
+
+def test_build_ai_debate_glance_empty(tmp_path: Path) -> None:
+    g = build_ai_debate_glance(tmp_path)
+    assert g["ready"] is True
+    assert g["count"] == 0
+    assert g["tone"] == "empty"
+    assert "empty" in g["line"].lower() or "No validate" in g["line"]
 
 
 def test_ideas_template_has_ai_debates_section() -> None:
@@ -101,3 +127,21 @@ def test_ideas_template_has_ai_debates_section() -> None:
     assert 'class="ai-debate"' in text
     assert "debate-json" in text
     assert "tojson" in text
+    assert "ai_debate_glance" in text
+
+
+def test_desk_templates_include_ai_debate_glance() -> None:
+    roots = Path("openbb_backend/templates")
+    for name in (
+        "desk_overview.html",
+        "desk_ops.html",
+        "desk_ideas.html",
+        "desk_screener.html",
+        "desk_book.html",
+        "desk_breadth.html",
+        "desk_scan_log.html",
+    ):
+        text = (roots / name).read_text()
+        assert "ai_debate_glance" in text, name
+    assert "ai_debate_glance" in Path("openbb_backend/templates/macros.html").read_text()
+    assert "renderAiDebateGlance" in Path("openbb_backend/static/charts.js").read_text()

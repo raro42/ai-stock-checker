@@ -73,6 +73,59 @@ def recent_ai_debates(
     return list(reversed(events[-lim:])) if lim else []
 
 
+def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
+    """Compact counts from the validate ring buffer (display only).
+
+    FinRobot-style research memory: BUY/HOLD/SELL mix + multi-role gated
+    count + newest symbol. Not a research score and not an entry gate.
+    """
+    events = load_ai_validate_memory(data_dir)
+    empty: dict[str, Any] = {
+        "count": 0,
+        "buy": 0,
+        "hold": 0,
+        "sell": 0,
+        "gated": 0,
+        "kept": 0,
+        "dropped": 0,
+        "latest_symbol": "",
+        "latest_action": "",
+    }
+    if not events:
+        return empty
+
+    buy = hold = sell = gated = kept = dropped = 0
+    for e in events:
+        if not isinstance(e, dict):
+            continue
+        action = str(e.get("action") or "HOLD").upper()
+        if action == "BUY":
+            buy += 1
+        elif action == "SELL":
+            sell += 1
+        else:
+            hold += 1
+        if e.get("multi_role_gated"):
+            gated += 1
+        if e.get("kept") is True:
+            kept += 1
+        elif e.get("kept") is False:
+            dropped += 1
+
+    latest = events[-1] if isinstance(events[-1], dict) else {}
+    return {
+        "count": len(events),
+        "buy": buy,
+        "hold": hold,
+        "sell": sell,
+        "gated": gated,
+        "kept": kept,
+        "dropped": dropped,
+        "latest_symbol": str(latest.get("symbol") or "").strip().upper(),
+        "latest_action": str(latest.get("action") or "HOLD").upper(),
+    }
+
+
 def record_ai_validate(
     data_dir: Path | str,
     ai_result: dict[str, Any] | None,

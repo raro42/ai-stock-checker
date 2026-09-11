@@ -844,6 +844,7 @@ a:active {
 .earnings-blackout-glance,
 .ai-mode-glance,
 .ai-roles-glance,
+.ai-debate-glance,
 .ai-validate-scope-glance,
 .session-glance,
 .equity-hours-glance,
@@ -873,6 +874,7 @@ a:active {
 .earnings-blackout-glance-line,
 .ai-mode-glance-line,
 .ai-roles-glance-line,
+.ai-debate-glance-line,
 .ai-validate-scope-glance-line,
 .session-glance-line,
 .equity-hours-glance-line,
@@ -903,6 +905,7 @@ a:active {
 .earnings-blackout-glance-tone,
 .ai-mode-glance-tone,
 .ai-roles-glance-tone,
+.ai-debate-glance-tone,
 .ai-validate-scope-glance-tone,
 .session-glance-tone,
 .equity-hours-glance-tone,
@@ -943,6 +946,8 @@ a:active {
 .ai-mode-glance-tone.flat,
 .ai-roles-glance-tone.roles,
 .ai-roles-glance-tone.flat,
+.ai-debate-glance-tone.flat,
+.ai-debate-glance-tone.empty,
 .ai-validate-scope-glance-tone.off,
 .ai-validate-scope-glance-tone.validate,
 .ai-validate-scope-glance-tone.flat,
@@ -992,6 +997,7 @@ a:active {
 .crypto-policy-glance-tone.warn,
 .ai-mode-glance-tone.full,
 .ai-validate-scope-glance-tone.full,
+.ai-debate-glance-tone.gated,
 .promote-contract-glance-tone.on,
 .gate-roles-glance-tone.overlap,
 .book-limits-glance-tone.warn,
@@ -1010,6 +1016,10 @@ a:active {
 }
 
 .equity-hours-glance-tone.open {
+  color: var(--up);
+}
+
+.ai-debate-glance-tone.buy {
   color: var(--up);
 }
 
@@ -1035,6 +1045,7 @@ a:active {
 .earnings-blackout-glance-body,
 .ai-mode-glance-body,
 .ai-roles-glance-body,
+.ai-debate-glance-body,
 .ai-validate-scope-glance-body,
 .session-glance-body,
 .equity-hours-glance-body,
@@ -1067,6 +1078,7 @@ a:active {
 .earnings-blackout-glance-link,
 .ai-mode-glance-link,
 .ai-roles-glance-link,
+.ai-debate-glance-link,
 .ai-validate-scope-glance-link,
 .session-glance-link,
 .equity-hours-glance-link,
@@ -1094,6 +1106,7 @@ a:active {
 .earnings-blackout-glance .sub,
 .ai-mode-glance .sub,
 .ai-roles-glance .sub,
+.ai-debate-glance .sub,
 .ai-validate-scope-glance .sub,
 .session-glance .sub,
 .equity-hours-glance .sub,

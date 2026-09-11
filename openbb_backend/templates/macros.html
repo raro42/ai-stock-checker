@@ -323,6 +323,31 @@
 {%- endmacro %}
 
 
+{# FinRobot validate debate memory counts (display only). #}
+{% macro ai_debate_glance(
+  snap,
+  heading_id='ai-debate-glance-h',
+  link_href='/desk/ideas#debate-h',
+  link_label='Ideas debates →',
+  sub='Recent AI validate memory: BUY/HOLD/SELL + multi-role gated. Display only — not a research score.'
+) -%}
+{% set glance = snap.ai_debate_glance if snap.ai_debate_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="ai-debate-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">AI debate memory</h2>
+  <p class="ai-debate-glance-line">
+    <span class="ai-debate-glance-tone {{ glance.tone }}">Debates</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="ai-debate-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="ai-debate-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# FinRobot / TradingAgents AI top-N validate scope (display only). #}
 {% macro ai_validate_scope_glance(
   snap,

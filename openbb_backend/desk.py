@@ -1172,6 +1172,68 @@ def build_ai_roles_glance() -> dict[str, Any]:
     }
 
 
+def build_ai_debate_glance(
+    data_dir: Path | str | None = None,
+) -> dict[str, Any]:
+    """FinRobot validate debate memory strip (display only).
+
+    One-line BUY/HOLD/SELL + multi-role gated counts from
+    ``ai_validate_memory`` so Overview/Ops/Charts see research memory without
+    opening Ideas. Not a research score and not a new gate.
+    """
+    from stock_checker.ai_validate_memory import summarize_ai_debates
+
+    root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
+    stats = summarize_ai_debates(root)
+    count = int(stats.get("count") or 0)
+    if count <= 0:
+        return {
+            "ready": True,
+            "tone": "empty",
+            "line": "No validate debates yet · Ideas empty",
+            "count": 0,
+            "buy": 0,
+            "hold": 0,
+            "sell": 0,
+            "gated": 0,
+            "latest_symbol": "",
+            "latest_action": "",
+        }
+
+    buy = int(stats.get("buy") or 0)
+    hold = int(stats.get("hold") or 0)
+    sell = int(stats.get("sell") or 0)
+    gated = int(stats.get("gated") or 0)
+    sym = str(stats.get("latest_symbol") or "").strip()
+    action = str(stats.get("latest_action") or "HOLD").upper()
+    bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
+    if gated:
+        bits.append(f"{gated} gated")
+    if sym:
+        bits.append(f"last {sym} {action}")
+    line = " · ".join(bits)
+    if len(line) > 96:
+        line = line[:95] + "…"
+    if gated > 0 and gated >= max(1, count // 2):
+        tone = "gated"
+    elif buy > hold and buy > sell:
+        tone = "buy"
+    else:
+        tone = "flat"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "count": count,
+        "buy": buy,
+        "hold": hold,
+        "sell": sell,
+        "gated": gated,
+        "latest_symbol": sym,
+        "latest_action": action,
+    }
+
+
 def build_ai_validate_scope_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -2786,6 +2848,11 @@ def load_desk_snapshot(
 
     adopted_ideas = [
         {
+            "title": "AI debate memory glance",
+            "from": "FinRobot / TradingAgents research memory",
+            "note": "Desk one-liner: BUY/HOLD/SELL + multi-role gated counts from ai_validate_memory — display only; Ideas keeps transcripts.",
+        },
+        {
             "title": "AI validate debate memory on Ideas",
             "from": "FinRobot / TradingAgents multi-role",
             "note": "Persists last bull/bear/risk validate rows; expandable transcript JSON on Ideas — display only; not a research score.",
@@ -3016,6 +3083,7 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
+        "ai_debate_glance": build_ai_debate_glance(data_dir),
         "ai_validate_scope_glance": build_ai_validate_scope_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),
         "equity_hours_glance": build_equity_hours_glance(),
