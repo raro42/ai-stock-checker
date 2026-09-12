@@ -407,6 +407,9 @@
         {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
         · {{ tape_sum.days_since_tape_split }}d since split
         {% endif %}
+        {% if tape_sum.ready and tape_sum.days_since_mixed and tape_sum.days_since_mixed > 0 %}
+        · {{ tape_sum.days_since_mixed }}d since mixed
+        {% endif %}
       </span>
       {% elif pulse.tape_label == "split" %}
       <span class="v down">split</span>
@@ -420,6 +423,9 @@
         {% endif %}
         {% if tape_sum.ready and tape_sum.days_since_risk_off and tape_sum.days_since_risk_off > 0 %}
         · {{ tape_sum.days_since_risk_off }}d since risk-off
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.days_since_mixed and tape_sum.days_since_mixed > 0 %}
+        · {{ tape_sum.days_since_mixed }}d since mixed
         {% endif %}
       </span>
       {% elif pulse.tape_label == "risk-off" %}
@@ -435,11 +441,17 @@
         {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
         · {{ tape_sum.days_since_tape_split }}d since split
         {% endif %}
+        {% if tape_sum.ready and tape_sum.days_since_mixed and tape_sum.days_since_mixed > 0 %}
+        · {{ tape_sum.days_since_mixed }}d since mixed
+        {% endif %}
       </span>
       {% elif pulse.tape_label == "mixed" %}
       <span class="v">mixed</span>
       <span class="weight">
         both sleeves priced · mid-range · not risk-on/split/risk-off · not a gate
+        {% if tape_sum.ready and tape_sum.mixed_streak and tape_sum.mixed_streak >= 2 %}
+        · streak {{ tape_sum.mixed_streak }}
+        {% endif %}
         {% if tape_sum.ready and tape_sum.days_since_risk_on and tape_sum.days_since_risk_on > 0 %}
         · {{ tape_sum.days_since_risk_on }}d since risk-on
         {% endif %}

@@ -3,11 +3,13 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    breadth_days_since_mixed,
     breadth_days_since_risk_off,
     breadth_days_since_risk_on,
     breadth_days_since_tape_split,
     breadth_days_since_thrust,
     breadth_dual_advance_streak,
+    breadth_mixed_streak,
     breadth_prev_tape_label,
     breadth_risk_off_streak,
     breadth_tape_label,
@@ -244,6 +246,37 @@ def test_breadth_days_since_tape_split():
     assert breadth_days_since_tape_split([]) is None
 
 
+def test_breadth_days_since_mixed():
+    rows = [
+        {"day": "2026-09-01", "tape_label": "mixed"},
+        {"day": "2026-09-02", "tape_label": "risk-on"},
+        {"day": "2026-09-03", "tape_label": "risk-on"},
+        {"day": "2026-09-04", "tape_label": "risk-on"},
+    ]
+    assert breadth_days_since_mixed(rows) == 3
+    assert breadth_days_since_mixed(rows, through_day="2026-09-02") == 1
+    assert breadth_days_since_mixed(
+        [{"day": "2026-09-01", "tape_label": "mixed"}]
+    ) == 0
+    assert breadth_days_since_mixed(
+        [{"day": "2026-09-01", "tape_label": "risk-on"}]
+    ) is None
+    assert breadth_days_since_mixed([]) is None
+
+
+def test_breadth_mixed_streak():
+    rows = [
+        {"day": "2026-09-01", "tape_label": "risk-on"},
+        {"day": "2026-09-02", "tape_label": "mixed"},
+        {"day": "2026-09-03", "tape_label": "mixed"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+    ]
+    assert breadth_mixed_streak(rows) == 3
+    assert breadth_mixed_streak(rows, through_day="2026-09-01") == 0
+    assert breadth_mixed_streak(rows, through_day="2026-09-02") == 1
+    assert breadth_mixed_streak([]) == 0
+
+
 def test_breadth_thrust_summary_days_since():
     rows = [
         {"day": "2026-09-01", "is_thrust": True},
@@ -340,6 +373,41 @@ def test_breadth_tape_summary_days_since_tape_split():
     assert split_now["days_since_tape_split"] == 0
     assert "since split" not in split_now["line"]
     assert "split now" in split_now["line"]
+
+
+def test_breadth_tape_summary_days_since_mixed():
+    rows = [
+        {"day": "2026-09-01", "tape_label": "mixed"},
+        {
+            "day": "2026-09-02",
+            "is_dual_advance": True,
+            "tape_label": "risk-on",
+        },
+        {
+            "day": "2026-09-03",
+            "is_dual_advance": True,
+            "tape_label": "risk-on",
+        },
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["latest_dual"] is True
+    assert s["latest_mixed"] is False
+    assert s["days_since_mixed"] == 2
+    assert "2d since mixed" in s["line"]
+    assert "risk-on now" in s["line"]
+    # Active mixed day must not append "Nd since mixed"; streak ≥2 shown.
+    mixed_now = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "tape_label": "mixed"},
+            {"day": "2026-09-02", "tape_label": "mixed"},
+        ]
+    )
+    assert mixed_now["days_since_mixed"] == 0
+    assert mixed_now["mixed_streak"] == 2
+    assert "since mixed" not in mixed_now["line"]
+    assert "mixed now" in mixed_now["line"]
+    assert "streak 2" in mixed_now["line"]
 
 
 def test_breadth_glance_days_since_from_history():
@@ -444,6 +512,65 @@ def test_breadth_glance_days_since_tape_split_from_history():
     assert g["days_since_tape_split"] == 1
     assert "1d since split" in g["line"]
     assert "since risk-on" not in g["line"]
+
+
+def test_breadth_glance_days_since_mixed_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            # mixed: 50% stock · 40% crypto
+            "stock_scan_up": 5,
+            "stock_scan_down": 5,
+            "crypto_up": 2,
+            "crypto_down": 3,
+            "crypto_big_movers": 0,
+            "stock_breakouts_n": 4,
+            "stock_within_5pct_high": 0,
+        },
+        {
+            "day": "2026-09-02",
+            # risk-on: both ≥50%
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+            "crypto_up": 3,
+            "crypto_down": 2,
+            "crypto_big_movers": 0,
+            "stock_breakouts_n": 4,
+            "stock_within_5pct_high": 0,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["is_dual_advance"] is True
+    assert g["is_mixed"] is False
+    assert g["days_since_mixed"] == 1
+    assert "1d since mixed" in g["line"]
+    assert "since risk-on" not in g["line"]
+
+
+def test_breadth_glance_mixed_streak_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "stock_scan_up": 5,
+            "stock_scan_down": 5,
+            "crypto_up": 2,
+            "crypto_down": 3,
+        },
+        {
+            "day": "2026-09-02",
+            "stock_scan_up": 5,
+            "stock_scan_down": 5,
+            "crypto_up": 2,
+            "crypto_down": 3,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["is_mixed"] is True
+    assert g["mixed_streak"] == 2
+    assert "mixed · streak 2" in g["line"]
+    assert "since mixed" not in g["line"]
 
 
 def test_breadth_tape_summary_risk_on_streak():

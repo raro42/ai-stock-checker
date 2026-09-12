@@ -2737,6 +2737,34 @@ def breadth_days_since_tape_split(
     )
 
 
+def breadth_days_since_mixed(
+    rows: list[dict[str, Any]],
+    *,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+    through_day: str | None = None,
+) -> int | None:
+    """Days since last mixed tape (0 = now). Display only; scan-list history.
+
+    StockBee-lite: when the tape leaves chop, friends need mid-range
+    staleness — how long since both sleeves were priced but neither
+    risk-on, split, nor risk-off — completing days-since for all labels.
+    """
+    return _breadth_days_since(
+        rows,
+        lambda r: _row_is_mixed(
+            r,
+            dual_min_pct=dual_min_pct,
+            strong_pct=strong_pct,
+            weak_pct=weak_pct,
+            risk_off_max_pct=risk_off_max_pct,
+        ),
+        through_day=through_day,
+    )
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -2911,6 +2939,29 @@ def breadth_risk_off_streak(
     )
 
 
+def breadth_mixed_streak(
+    rows: list[dict[str, Any]],
+    *,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive mixed (mid-range) days ending at newest. Display only."""
+    return _breadth_ending_streak(
+        rows,
+        lambda r: _row_is_mixed(
+            r,
+            dual_min_pct=dual_min_pct,
+            strong_pct=strong_pct,
+            weak_pct=weak_pct,
+            risk_off_max_pct=risk_off_max_pct,
+        ),
+        through_day=through_day,
+    )
+
+
 def build_breadth_thrust_summary(
     rows: list[dict[str, Any]],
     *,
@@ -3040,9 +3091,11 @@ def build_breadth_tape_summary(
         "dual_streak": 0,
         "split_streak": 0,
         "risk_off_streak": 0,
+        "mixed_streak": 0,
         "days_since_risk_on": None,
         "days_since_risk_off": None,
         "days_since_tape_split": None,
+        "days_since_mixed": None,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3060,12 +3113,26 @@ def build_breadth_tape_summary(
         rows, strong_pct=strong_pct, weak_pct=weak_pct
     )
     risk_off_streak = breadth_risk_off_streak(rows, max_pct=risk_off_max_pct)
+    mixed_streak = breadth_mixed_streak(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
     days_since_risk_on = breadth_days_since_risk_on(rows, min_pct=dual_min_pct)
     days_since_risk_off = breadth_days_since_risk_off(
         rows, max_pct=risk_off_max_pct
     )
     days_since_tape_split = breadth_days_since_tape_split(
         rows, strong_pct=strong_pct, weak_pct=weak_pct
+    )
+    days_since_mixed = breadth_days_since_mixed(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
     )
     prev_label = breadth_prev_tape_label(
         rows,
@@ -3096,6 +3163,8 @@ def build_breadth_tape_summary(
             bits.append(f"streak {risk_off_streak}")
     elif latest_mixed:
         bits.append("mixed now")
+        if mixed_streak >= 2:
+            bits.append(f"streak {mixed_streak}")
     if (
         not latest_dual
         and days_since_risk_on is not None
@@ -3114,6 +3183,12 @@ def build_breadth_tape_summary(
         and days_since_tape_split > 0
     ):
         bits.append(f"{days_since_tape_split}d since split")
+    if (
+        not latest_mixed
+        and days_since_mixed is not None
+        and days_since_mixed > 0
+    ):
+        bits.append(f"{days_since_mixed}d since mixed")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
     bits.append(
@@ -3130,9 +3205,11 @@ def build_breadth_tape_summary(
         "dual_streak": dual_streak,
         "split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
+        "mixed_streak": mixed_streak,
         "days_since_risk_on": days_since_risk_on,
         "days_since_risk_off": days_since_risk_off,
         "days_since_tape_split": days_since_tape_split,
+        "days_since_mixed": days_since_mixed,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3249,9 +3326,11 @@ def build_breadth_glance(
         "dual_advance_streak": 0,
         "tape_split_streak": 0,
         "risk_off_streak": 0,
+        "mixed_streak": 0,
         "days_since_risk_on": None,
         "days_since_risk_off": None,
         "days_since_tape_split": None,
+        "days_since_mixed": None,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -3299,6 +3378,9 @@ def build_breadth_glance(
     risk_off_streak = (
         breadth_risk_off_streak(hist, through_day=day_cut) if hist else 0
     )
+    mixed_streak = (
+        breadth_mixed_streak(hist, through_day=day_cut) if hist else 0
+    )
     days_since_thrust = (
         breadth_days_since_thrust(hist, through_day=day_cut) if hist else None
     )
@@ -3310,6 +3392,9 @@ def build_breadth_glance(
     )
     days_since_tape_split = (
         breadth_days_since_tape_split(hist, through_day=day_cut) if hist else None
+    )
+    days_since_mixed = (
+        breadth_days_since_mixed(hist, through_day=day_cut) if hist else None
     )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
@@ -3361,6 +3446,8 @@ def build_breadth_glance(
         parts.append(f"split · streak {split_streak}")
     elif risk_off and risk_off_streak >= 2:
         parts.append(f"risk-off · streak {risk_off_streak}")
+    elif mixed and mixed_streak >= 2:
+        parts.append(f"mixed · streak {mixed_streak}")
     elif tape:
         parts.append(tape)
     if (
@@ -3381,6 +3468,12 @@ def build_breadth_glance(
         and days_since_tape_split > 0
     ):
         parts.append(f"{days_since_tape_split}d since split")
+    if (
+        not mixed
+        and days_since_mixed is not None
+        and days_since_mixed > 0
+    ):
+        parts.append(f"{days_since_mixed}d since mixed")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
     if not parts:
@@ -3428,9 +3521,11 @@ def build_breadth_glance(
         "dual_advance_streak": dual_streak,
         "tape_split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
+        "mixed_streak": mixed_streak,
         "days_since_risk_on": days_since_risk_on,
         "days_since_risk_off": days_since_risk_off,
         "days_since_tape_split": days_since_tape_split,
+        "days_since_mixed": days_since_mixed,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
