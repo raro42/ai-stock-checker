@@ -272,9 +272,11 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 StockBee mixed tape + flip (2026-09-12 improve): mid-range both-sleeved days are `mixed` (not blank); prior-day flip on Breadth + glance + tape summary (`is_tape_flip` / `breadth_prev_tape_label`) — scan-list only; display only; not a new gate
 - [x] xang1234 StockBee days-since risk-on / thrust (2026-09-12 improve): quiet-tape staleness on Breadth + glance (`breadth_days_since_*` / thrust+tape summaries) — complements streaks; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee days-since risk-off (2026-09-12 improve): washout staleness on Breadth + glance when tape recovers (`breadth_days_since_risk_off`) — pairs with days-since risk-on; scan-list only; display only; not a new gate
+- [x] xang1234 StockBee days-since tape-split (2026-09-12 improve): divergence staleness on Breadth + glance when sleeves re-align (`breadth_days_since_tape_split`) — completes days-since risk-on/off/thrust/split; scan-list only; display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off shipped above
+- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split shipped above
+- [ ] Optional later: FinRobot deeper multi-agent research UX (watch 2026-09-12 README-only; defer until promote unlock / research screen)
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

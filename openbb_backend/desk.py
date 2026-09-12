@@ -2715,6 +2715,28 @@ def breadth_days_since_risk_off(
     )
 
 
+def breadth_days_since_tape_split(
+    rows: list[dict[str, Any]],
+    *,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    through_day: str | None = None,
+) -> int | None:
+    """Days since last tape-split (0 = now). Display only; scan-list history.
+
+    StockBee-lite: when sleeves re-align, friends need divergence staleness —
+    how long since one sleeve ran hot while the other lagged — not only
+    ending split streaks.
+    """
+    return _breadth_days_since(
+        rows,
+        lambda r: _row_is_tape_split(
+            r, strong_pct=strong_pct, weak_pct=weak_pct
+        ),
+        through_day=through_day,
+    )
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -3020,6 +3042,7 @@ def build_breadth_tape_summary(
         "risk_off_streak": 0,
         "days_since_risk_on": None,
         "days_since_risk_off": None,
+        "days_since_tape_split": None,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3040,6 +3063,9 @@ def build_breadth_tape_summary(
     days_since_risk_on = breadth_days_since_risk_on(rows, min_pct=dual_min_pct)
     days_since_risk_off = breadth_days_since_risk_off(
         rows, max_pct=risk_off_max_pct
+    )
+    days_since_tape_split = breadth_days_since_tape_split(
+        rows, strong_pct=strong_pct, weak_pct=weak_pct
     )
     prev_label = breadth_prev_tape_label(
         rows,
@@ -3082,6 +3108,12 @@ def build_breadth_tape_summary(
         and days_since_risk_off > 0
     ):
         bits.append(f"{days_since_risk_off}d since risk-off")
+    if (
+        not latest_split
+        and days_since_tape_split is not None
+        and days_since_tape_split > 0
+    ):
+        bits.append(f"{days_since_tape_split}d since split")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
     bits.append(
@@ -3100,6 +3132,7 @@ def build_breadth_tape_summary(
         "risk_off_streak": risk_off_streak,
         "days_since_risk_on": days_since_risk_on,
         "days_since_risk_off": days_since_risk_off,
+        "days_since_tape_split": days_since_tape_split,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3190,8 +3223,8 @@ def build_breadth_glance(
 
     tradermonty “verified estimate snapshots” + xang1234: show priced counts and
     label the pulse as a scan-list **estimate**, never full-universe A/D.
-    Optional ``history`` adds StockBee thrust/risk-on/risk-off streak and days-since
-    when the ending day is quiet.
+    Optional ``history`` adds StockBee thrust/risk-on/risk-off/split streak and
+    days-since when the ending day is quiet.
     """
     empty = {
         "ready": False,
@@ -3218,6 +3251,7 @@ def build_breadth_glance(
         "risk_off_streak": 0,
         "days_since_risk_on": None,
         "days_since_risk_off": None,
+        "days_since_tape_split": None,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -3273,6 +3307,9 @@ def build_breadth_glance(
     )
     days_since_risk_off = (
         breadth_days_since_risk_off(hist, through_day=day_cut) if hist else None
+    )
+    days_since_tape_split = (
+        breadth_days_since_tape_split(hist, through_day=day_cut) if hist else None
     )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
@@ -3338,6 +3375,12 @@ def build_breadth_glance(
         and days_since_risk_off > 0
     ):
         parts.append(f"{days_since_risk_off}d since risk-off")
+    if (
+        not split
+        and days_since_tape_split is not None
+        and days_since_tape_split > 0
+    ):
+        parts.append(f"{days_since_tape_split}d since split")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
     if not parts:
@@ -3387,6 +3430,7 @@ def build_breadth_glance(
         "risk_off_streak": risk_off_streak,
         "days_since_risk_on": days_since_risk_on,
         "days_since_risk_off": days_since_risk_off,
+        "days_since_tape_split": days_since_tape_split,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,

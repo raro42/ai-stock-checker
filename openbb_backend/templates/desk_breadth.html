@@ -404,6 +404,9 @@
         {% if tape_sum.ready and tape_sum.days_since_risk_off and tape_sum.days_since_risk_off > 0 %}
         · {{ tape_sum.days_since_risk_off }}d since risk-off
         {% endif %}
+        {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
+        · {{ tape_sum.days_since_tape_split }}d since split
+        {% endif %}
       </span>
       {% elif pulse.tape_label == "split" %}
       <span class="v down">split</span>
@@ -429,6 +432,9 @@
         {% if tape_sum.ready and tape_sum.days_since_risk_on and tape_sum.days_since_risk_on > 0 %}
         · {{ tape_sum.days_since_risk_on }}d since risk-on
         {% endif %}
+        {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
+        · {{ tape_sum.days_since_tape_split }}d since split
+        {% endif %}
       </span>
       {% elif pulse.tape_label == "mixed" %}
       <span class="v">mixed</span>
@@ -439,6 +445,9 @@
         {% endif %}
         {% if tape_sum.ready and tape_sum.days_since_risk_off and tape_sum.days_since_risk_off > 0 %}
         · {{ tape_sum.days_since_risk_off }}d since risk-off
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
+        · {{ tape_sum.days_since_tape_split }}d since split
         {% endif %}
       </span>
       {% else %}
