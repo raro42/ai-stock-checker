@@ -2460,6 +2460,11 @@ def stock_advance_ratio_pct(up: int, priced_n: int) -> float | None:
     return scan_list_ratio_pct(up, priced_n)
 
 
+def crypto_advance_ratio_pct(up: int, leaders_n: int) -> float | None:
+    """Share of scan crypto leaders advancing (StockBee participation; display only)."""
+    return scan_list_ratio_pct(up, leaders_n)
+
+
 # StockBee-lite thrust: both ±4% and near-high ratios at/above this % (display only).
 DEFAULT_BREADTH_THRUST_MIN_PCT = 25.0
 
@@ -2608,6 +2613,8 @@ def _annotate_scan_history(
         stock_n = int(row.get("stock_scan_n") or 0) or (stock_up + stock_down)
         row["stock_scan_n_resolved"] = stock_n
         row["stock_advance_pct"] = stock_advance_ratio_pct(stock_up, stock_n)
+        crypto_up = int(row.get("crypto_up") or 0)
+        row["crypto_advance_pct"] = crypto_advance_ratio_pct(crypto_up, crypto_n)
         out.append(row)
     return out
 
@@ -2654,6 +2661,7 @@ def build_breadth_glance(
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
+        "crypto_advance_pct": None,
         "estimate": True,
         "full_universe": False,
     }
@@ -2672,6 +2680,7 @@ def build_breadth_glance(
     mover_pct = crypto_mover_ratio_pct(movers, crypto_n)
     near_pct = near_high_ratio_pct(near, breakouts_n)
     advance_pct = stock_advance_ratio_pct(stock_up, stock_n)
+    crypto_adv_pct = crypto_advance_ratio_pct(crypto_up, crypto_n)
     thrust = is_breadth_thrust_day(mover_pct, near_pct)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
@@ -2686,9 +2695,15 @@ def build_breadth_glance(
     parts: list[str] = []
     score = 0
     if crypto_n > 0:
-        parts.append(
-            f"crypto {crypto_up}/{crypto_down} ({crypto_net:+d}) of {crypto_n}"
-        )
+        if crypto_adv_pct is not None:
+            parts.append(
+                f"crypto {crypto_up}/{crypto_down} ({crypto_net:+d}) of {crypto_n}"
+                f" · adv {crypto_adv_pct:.0f}%"
+            )
+        else:
+            parts.append(
+                f"crypto {crypto_up}/{crypto_down} ({crypto_net:+d}) of {crypto_n}"
+            )
         score += crypto_net
     if stock_n > 0:
         if advance_pct is not None:
@@ -2743,6 +2758,7 @@ def build_breadth_glance(
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
+        "crypto_advance_pct": crypto_adv_pct if crypto_n > 0 else None,
         "estimate": True,
         "full_universe": False,
     }
@@ -2955,6 +2971,13 @@ def _resolve_stock_advance_pct(row: dict[str, Any]) -> float | None:
     return stock_advance_ratio_pct(stock_up, stock_n)
 
 
+def _resolve_crypto_advance_pct(row: dict[str, Any]) -> float | None:
+    crypto_up = int(row.get("crypto_up") or 0)
+    crypto_down = int(row.get("crypto_down") or 0)
+    crypto_n = int(row.get("crypto_n") or 0) or (crypto_up + crypto_down)
+    return crypto_advance_ratio_pct(crypto_up, crypto_n)
+
+
 def build_breadth_mover_spark(
     rows: list[dict[str, Any]],
     *,
@@ -3012,6 +3035,27 @@ def build_breadth_stock_advance_spark(
         resolve_pct=_resolve_stock_advance_pct,
         label="Stock advance %",
         aria_noun="Priced scan stock advance participation",
+        width=width,
+        height=height,
+        pad=pad,
+    )
+
+
+def build_breadth_crypto_advance_spark(
+    rows: list[dict[str, Any]],
+    *,
+    width: float = 320.0,
+    height: float = 52.0,
+    pad: float = 5.0,
+) -> dict[str, Any]:
+    """Inline SVG: multi-day crypto advance % (leaders up/n). Display only."""
+    return build_breadth_ratio_spark(
+        rows,
+        count_key="crypto_up",
+        pct_key="crypto_advance_pct",
+        resolve_pct=_resolve_crypto_advance_pct,
+        label="Crypto advance %",
+        aria_noun="Crypto leaders advance participation",
         width=width,
         height=height,
         pad=pad,
@@ -3280,6 +3324,7 @@ def load_desk_snapshot(
     )
     crypto_mover_pct = crypto_mover_ratio_pct(crypto_big, len(crypto_raw_all))
     near_high_pct = near_high_ratio_pct(stock_near, len(stock_raw_all))
+    crypto_advance_pct = crypto_advance_ratio_pct(crypto_up, len(crypto_raw_all))
     stock_pulse = opportunities.get("stock_scan_pulse") or {}
     if not isinstance(stock_pulse, dict):
         stock_pulse = {}
@@ -3300,6 +3345,10 @@ def load_desk_snapshot(
         )
     else:
         stock_ad_note = "Stock batch A/D awaits next equity scan"
+    if crypto_raw_all and crypto_advance_pct is not None:
+        crypto_adv_bit = f" · crypto advance {crypto_advance_pct:.0f}%"
+    else:
+        crypto_adv_bit = ""
     scan_breadth = {
         "crypto_n": len(crypto_raw_all),
         "crypto_up": crypto_up,
@@ -3308,6 +3357,7 @@ def load_desk_snapshot(
         "crypto_avg_chg": crypto_avg,
         "crypto_big_movers": crypto_big,
         "crypto_mover_pct": crypto_mover_pct,
+        "crypto_advance_pct": crypto_advance_pct,
         "stock_breakouts_n": len(stock_raw_all),
         "stock_within_5pct_high": stock_near,
         "near_high_pct": near_high_pct,
@@ -3321,6 +3371,7 @@ def load_desk_snapshot(
             "Scan-list pulse: crypto leaders + this-cycle stock batch A/D "
             "(not full-universe advance/decline). "
             + stock_ad_note
+            + crypto_adv_bit
             + "."
         ),
     }
@@ -3846,6 +3897,9 @@ def load_desk_snapshot(
         "breadth_mover_spark": build_breadth_mover_spark(scan_breadth_history),
         "breadth_near_high_spark": build_breadth_near_high_spark(scan_breadth_history),
         "breadth_stock_advance_spark": build_breadth_stock_advance_spark(
+            scan_breadth_history
+        ),
+        "breadth_crypto_advance_spark": build_breadth_crypto_advance_spark(
             scan_breadth_history
         ),
         "breadth_thrust_summary": build_breadth_thrust_summary(scan_breadth_history),

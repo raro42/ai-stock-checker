@@ -5,11 +5,13 @@ from pathlib import Path
 from openbb_backend.desk import (
     breadth_thrust_streak,
     build_breadth_ad_spark,
+    build_breadth_crypto_advance_spark,
     build_breadth_glance,
     build_breadth_mover_spark,
     build_breadth_near_high_spark,
     build_breadth_stock_advance_spark,
     build_breadth_thrust_summary,
+    crypto_advance_ratio_pct,
     crypto_mover_ratio_pct,
     is_breadth_thrust_day,
     near_high_ratio_pct,
@@ -34,6 +36,12 @@ def test_stock_advance_ratio_pct():
     assert stock_advance_ratio_pct(4, 5) == 80.0
     assert stock_advance_ratio_pct(0, 5) == 0.0
     assert stock_advance_ratio_pct(2, 0) is None
+
+
+def test_crypto_advance_ratio_pct():
+    assert crypto_advance_ratio_pct(3, 4) == 75.0
+    assert crypto_advance_ratio_pct(0, 5) == 0.0
+    assert crypto_advance_ratio_pct(2, 0) is None
 
 
 def test_is_breadth_thrust_day():
@@ -116,8 +124,9 @@ def test_breadth_glance_infers_n_from_up_down():
     assert g["crypto_net"] == 1
     assert g["stock_net"] == 3
     assert g["stock_advance_pct"] == 80.0
+    assert g["crypto_advance_pct"] == round(100.0 * 2 / 3, 1)
     assert g["tone"] == "up"
-    assert "crypto 2/1 (+1) of 3" in g["line"]
+    assert "crypto 2/1 (+1) of 3 · adv 67%" in g["line"]
     assert "stock 4/1 (+3) of 5 · adv 80%" in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
@@ -162,8 +171,9 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["crypto_n"] == 4
     assert g["stock_n"] == 10
     assert g["stock_advance_pct"] == 20.0
+    assert g["crypto_advance_pct"] == 75.0
     assert g["tone"] == "down"  # +2 + −3 = −1
-    assert "crypto 3/1 (+2) of 4" in g["line"]
+    assert "crypto 3/1 (+2) of 4 · adv 75%" in g["line"]
     assert "stock 2/5 (-3) of 10 · adv 20%" in g["line"]
     assert "2 near-high (25%)" in g["line"]
     assert "1 ±4% (25%)" in g["line"]
@@ -214,7 +224,8 @@ def test_breadth_glance_up_when_crypto_leads():
     assert g["near_high_pct"] is None
     assert g["is_thrust"] is False
     assert g["crypto_n"] == 3
-    assert "crypto 3/0 (+3) of 3" in g["line"]
+    assert g["crypto_advance_pct"] == 100.0
+    assert "crypto 3/0 (+3) of 3 · adv 100%" in g["line"]
     assert "±4%" not in g["line"]
     assert "thrust" not in g["line"]
     assert "estimate · not full-universe" in g["line"]
@@ -463,5 +474,42 @@ def test_breadth_stock_advance_spark_down_tone():
     assert spark["ready"] is True
     assert spark["latest_pct"] == 20.0
     assert spark["delta_pct"] == -60.0
+    assert spark["tone"] == "down"
+    assert "is-down" in spark["svg"]
+
+
+def test_breadth_crypto_advance_spark_needs_two_days():
+    one = [{"day": "2026-09-01", "crypto_n": 4, "crypto_up": 3}]
+    assert build_breadth_crypto_advance_spark(one)["ready"] is False
+    assert build_breadth_crypto_advance_spark([])["ready"] is False
+
+
+def test_breadth_crypto_advance_spark_ratio_and_delta():
+    rows = [
+        {"day": "2026-09-01", "crypto_n": 4, "crypto_up": 1, "crypto_down": 3},
+        {"day": "2026-09-02", "crypto_n": 4, "crypto_up": 2, "crypto_down": 2},
+        {"day": "2026-09-03", "crypto_n": 4, "crypto_up": 3, "crypto_down": 1},
+    ]
+    spark = build_breadth_crypto_advance_spark(rows)
+    assert spark["ready"] is True
+    assert spark["n"] == 3
+    assert spark["latest_pct"] == 75.0
+    assert spark["delta_pct"] == 25.0  # 75 − 50
+    assert spark["tone"] == "up"
+    assert spark["label"] == "Crypto advance %"
+    assert "polyline" in spark["svg"]
+    assert "is-up" in spark["svg"]
+    assert "Crypto leaders advance participation" in spark["aria"]
+
+
+def test_breadth_crypto_advance_spark_down_tone():
+    rows = [
+        {"day": "2026-09-01", "crypto_up": 3, "crypto_down": 1},
+        {"day": "2026-09-02", "crypto_up": 1, "crypto_down": 3},
+    ]
+    spark = build_breadth_crypto_advance_spark(rows)
+    assert spark["ready"] is True
+    assert spark["latest_pct"] == 25.0
+    assert spark["delta_pct"] == -50.0
     assert spark["tone"] == "down"
     assert "is-down" in spark["svg"]
