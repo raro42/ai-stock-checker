@@ -368,9 +368,15 @@
     </div>
     <div>
       <span class="k">Thrust</span>
+      {% set thrust_sum = snap.breadth_thrust_summary if snap.breadth_thrust_summary is mapping else {} %}
       {% if pulse.is_thrust %}
       <span class="v up">yes</span>
-      <span class="weight">±4% and near-high both ≥25% · StockBee-lite · not a gate</span>
+      <span class="weight">
+        ±4% and near-high both ≥25% · StockBee-lite · not a gate
+        {% if thrust_sum.ready and thrust_sum.streak and thrust_sum.streak >= 2 %}
+        · streak {{ thrust_sum.streak }}
+        {% endif %}
+      </span>
       {% else %}
       <span class="v">no</span>
       <span class="weight">needs both ratios ≥25% · scan-list only</span>

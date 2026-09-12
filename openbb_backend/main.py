@@ -355,7 +355,10 @@ def desk_scan_log(request: Request, day: str):
     snap = {
         **snap,
         "breadth_glance": build_breadth_glance(
-            scan_breadth_pulse_for_day(DATA_DIR, day)
+            scan_breadth_pulse_for_day(DATA_DIR, day),
+            history=snap.get("scan_breadth_history")
+            if isinstance(snap.get("scan_breadth_history"), list)
+            else None,
         ),
     }
     return templates.TemplateResponse(

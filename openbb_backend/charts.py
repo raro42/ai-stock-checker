@@ -652,12 +652,19 @@ def build_unrealized_curve(
 
 def _latest_scan_breadth_pulse(data_dir: Path) -> dict[str, Any] | None:
     """Latest UTC-day scan-list pulse from Breadth history (display only)."""
-    rows = _load_json(data_dir / "scan_breadth_daily.json", [])
-    if not isinstance(rows, list) or not rows:
+    rows = _scan_breadth_history_rows(data_dir)
+    if not rows:
         return None
     last = rows[-1]
     return last if isinstance(last, dict) else None
 
+
+def _scan_breadth_history_rows(data_dir: Path) -> list[dict[str, Any]]:
+    """Chronological scan-list daily pulse rows (display only)."""
+    rows = _load_json(data_dir / "scan_breadth_daily.json", [])
+    if not isinstance(rows, list):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
 
 def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) -> dict[str, Any]:
     """Slots/posture glance from cost marks (display only; Book has full strip)."""
@@ -1171,7 +1178,10 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "allocation": build_allocation(data_dir),
         "prices": build_price_panels(data_dir),
         "from_buy": build_from_buy_panels(data_dir),
-        "breadth_glance": build_breadth_glance(_latest_scan_breadth_pulse(data_dir)),
+        "breadth_glance": build_breadth_glance(
+            _latest_scan_breadth_pulse(data_dir),
+            history=_scan_breadth_history_rows(data_dir),
+        ),
         "scan_freshness": build_scan_freshness(scan_time),
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "next_buy_glance": _next_buy_glance_from_portfolio(data_dir, portfolio),

@@ -2472,26 +2472,66 @@ def is_breadth_thrust_day(
     return float(mover_pct) >= floor and float(near_high_pct) >= floor
 
 
+def _row_is_thrust(
+    row: dict[str, Any],
+    *,
+    min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+) -> bool:
+    """Resolve thrust flag from annotated or raw daily pulse row."""
+    if "is_thrust" in row:
+        return bool(row.get("is_thrust"))
+    return is_breadth_thrust_day(
+        _resolve_crypto_mover_pct(row),
+        _resolve_near_high_pct(row),
+        min_pct=min_pct,
+    )
+
+
+def breadth_thrust_streak(
+    rows: list[dict[str, Any]],
+    *,
+    min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive thrust days ending at newest (or through_day). Display only.
+
+    StockBee-lite: a multi-day thrust streak is more useful than a raw count.
+    Rows are chronological (oldest → newest). Optional ``through_day`` cuts the
+    series at that UTC day (scan-log drill-down).
+    """
+    usable: list[dict[str, Any]] = []
+    want = str(through_day or "").strip()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        usable.append(r)
+        if want and str(r.get("day") or "") == want:
+            break
+    else:
+        if want:
+            return 0
+    streak = 0
+    for r in reversed(usable):
+        if _row_is_thrust(r, min_pct=min_pct):
+            streak += 1
+        else:
+            break
+    return streak
+
+
 def build_breadth_thrust_summary(
     rows: list[dict[str, Any]],
     *,
     min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
 ) -> dict[str, Any]:
-    """Count recent scan-list thrust days (both ratios ≥ min_pct). Display only."""
+    """Count recent scan-list thrust days + ending streak. Display only."""
     days = 0
     thrust_n = 0
     latest = False
     for r in rows:
         if not isinstance(r, dict):
             continue
-        if "is_thrust" in r:
-            flag = bool(r.get("is_thrust"))
-        else:
-            flag = is_breadth_thrust_day(
-                _resolve_crypto_mover_pct(r),
-                _resolve_near_high_pct(r),
-                min_pct=min_pct,
-            )
+        flag = _row_is_thrust(r, min_pct=min_pct)
         days += 1
         if flag:
             thrust_n += 1
@@ -2502,6 +2542,7 @@ def build_breadth_thrust_summary(
         "ready": False,
         "days": 0,
         "thrust_n": 0,
+        "streak": 0,
         "latest": False,
         "min_pct": float(min_pct),
         "line": "",
@@ -2509,17 +2550,22 @@ def build_breadth_thrust_summary(
     }
     if days <= 0:
         return empty
+    streak = breadth_thrust_streak(rows, min_pct=min_pct)
     tone = "up" if latest else ("flat" if thrust_n else "down")
-    line = f"{thrust_n}/{days} thrust days (≥{min_pct:.0f}% ±4% + near-high)"
+    bits: list[str] = []
     if latest:
-        line = f"thrust now · {line}"
+        bits.append("thrust now")
+    if streak >= 2:
+        bits.append(f"streak {streak}")
+    bits.append(f"{thrust_n}/{days} thrust days (≥{min_pct:.0f}% ±4% + near-high)")
     return {
         "ready": True,
         "days": days,
         "thrust_n": thrust_n,
+        "streak": streak,
         "latest": latest,
         "min_pct": float(min_pct),
-        "line": line,
+        "line": " · ".join(bits),
         "tone": tone,
     }
 
@@ -2572,11 +2618,16 @@ def scan_breadth_pulse_for_day(
     return None
 
 
-def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
+def build_breadth_glance(
+    pulse: dict[str, Any] | None,
+    *,
+    history: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """One-line scan-list glance for HTML screens + Charts API (display only; not a gate).
 
     tradermonty “verified estimate snapshots” + xang1234: show priced counts and
     label the pulse as a scan-list **estimate**, never full-universe A/D.
+    Optional ``history`` adds StockBee thrust streak when the ending day is thrust.
     """
     empty = {
         "ready": False,
@@ -2589,6 +2640,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "big_movers": 0,
         "mover_pct": None,
         "is_thrust": False,
+        "thrust_streak": 0,
         "crypto_n": 0,
         "stock_n": 0,
         "estimate": True,
@@ -2614,6 +2666,11 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
 
     crypto_net = crypto_up - crypto_down
     stock_net = stock_up - stock_down
+    hist = [r for r in (history or []) if isinstance(r, dict)]
+    day = str(pulse.get("day") or "").strip()
+    streak = (
+        breadth_thrust_streak(hist, through_day=day or None) if hist else 0
+    )
     parts: list[str] = []
     score = 0
     if crypto_n > 0:
@@ -2636,7 +2693,9 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
             parts.append(f"{movers} ±4% ({mover_pct:.0f}%)")
         else:
             parts.append(f"{movers} ±4% movers")
-    if thrust:
+    if thrust and streak >= 2:
+        parts.append(f"thrust · streak {streak}")
+    elif thrust:
         parts.append("thrust")
     if not parts:
         return empty
@@ -2662,6 +2721,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "big_movers": movers,
         "mover_pct": mover_pct,
         "is_thrust": thrust,
+        "thrust_streak": streak,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "estimate": True,
@@ -3390,6 +3450,11 @@ def load_desk_snapshot(
 
     adopted_ideas = [
         {
+            "title": "StockBee thrust streak",
+            "from": "xang1234/stock-screener (StockBee-lite)",
+            "note": "Consecutive scan-list thrust days (ending streak) on Breadth summary + glance when streak ≥2; display only; not a gate.",
+        },
+        {
             "title": "StockBee thrust day (±4% + near-high)",
             "from": "xang1234/stock-screener (StockBee-lite)",
             "note": "Breadth flags a thrust day when both ±4% mover ratio and near-high ratio are ≥25%; glance + Recent days; scan-list only.",
@@ -3713,7 +3778,9 @@ def load_desk_snapshot(
         "stock_breakouts": stock_breakouts,
         "scan_breadth": scan_breadth,
         "scan_breadth_history": scan_breadth_history,
-        "breadth_glance": build_breadth_glance(scan_breadth),
+        "breadth_glance": build_breadth_glance(
+            scan_breadth, history=scan_breadth_history
+        ),
         "breadth_ad_spark": build_breadth_ad_spark(scan_breadth_history),
         "breadth_stock_ad_spark": build_breadth_ad_spark(
             scan_breadth_history,

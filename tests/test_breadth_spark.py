@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    breadth_thrust_streak,
     build_breadth_ad_spark,
     build_breadth_glance,
     build_breadth_mover_spark,
@@ -36,6 +37,20 @@ def test_is_breadth_thrust_day():
     assert is_breadth_thrust_day(50.0, None) is False
 
 
+def test_breadth_thrust_streak_from_newest():
+    rows = [
+        {"day": "2026-09-01", "is_thrust": True},
+        {"day": "2026-09-02", "is_thrust": False},
+        {"day": "2026-09-03", "is_thrust": True},
+        {"day": "2026-09-04", "is_thrust": True},
+    ]
+    assert breadth_thrust_streak(rows) == 2
+    assert breadth_thrust_streak(rows, through_day="2026-09-01") == 1
+    assert breadth_thrust_streak(rows, through_day="2026-09-02") == 0
+    assert breadth_thrust_streak(rows, through_day="1999-01-01") == 0
+    assert breadth_thrust_streak([]) == 0
+
+
 def test_breadth_thrust_summary_counts_and_latest():
     rows = [
         {"day": "2026-09-01", "crypto_n": 4, "crypto_big_movers": 1,
@@ -49,14 +64,29 @@ def test_breadth_thrust_summary_counts_and_latest():
     assert s["ready"] is True
     assert s["days"] == 3
     assert s["thrust_n"] == 2
+    assert s["streak"] == 1
     assert s["latest"] is True
     assert s["tone"] == "up"
     assert "thrust now" in s["line"]
     assert "2/3 thrust days" in s["line"]
+    assert "streak" not in s["line"]  # streak 1 stays quiet
+
+
+def test_breadth_thrust_summary_shows_streak_when_multi_day():
+    rows = [
+        {"day": "2026-09-01", "is_thrust": False},
+        {"day": "2026-09-02", "is_thrust": True},
+        {"day": "2026-09-03", "is_thrust": True},
+    ]
+    s = build_breadth_thrust_summary(rows)
+    assert s["streak"] == 2
+    assert "streak 2" in s["line"]
+    assert "thrust now" in s["line"]
 
 
 def test_breadth_thrust_summary_empty():
     assert build_breadth_thrust_summary([])["ready"] is False
+    assert build_breadth_thrust_summary([])["streak"] == 0
 
 
 def test_breadth_glance_empty_when_no_scan():
@@ -119,6 +149,7 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["big_movers"] == 1
     assert g["mover_pct"] == 25.0
     assert g["is_thrust"] is True
+    assert g["thrust_streak"] == 0
     assert g["crypto_n"] == 4
     assert g["stock_n"] == 10
     assert g["tone"] == "down"  # +2 + −3 = −1
@@ -127,9 +158,31 @@ def test_breadth_glance_sums_nets_and_tone():
     assert "2 near-high (25%)" in g["line"]
     assert "1 ±4% (25%)" in g["line"]
     assert "thrust" in g["line"]
+    assert "streak" not in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
     assert g["full_universe"] is False
+
+
+def test_breadth_glance_thrust_streak_from_history():
+    hist = [
+        {"day": "2026-09-01", "is_thrust": True},
+        {
+            "day": "2026-09-02",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "crypto_big_movers": 1,
+            "stock_breakouts_n": 8,
+            "stock_within_5pct_high": 2,
+            "is_thrust": True,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["is_thrust"] is True
+    assert g["thrust_streak"] == 2
+    assert "thrust · streak 2" in g["line"]
 
 
 def test_breadth_glance_up_when_crypto_leads():
