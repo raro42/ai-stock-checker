@@ -385,7 +385,11 @@
     <div>
       <span class="k">Stock batch A/D</span>
       <span class="v">{{ pulse.stock_scan_up|default(0) }} / {{ pulse.stock_scan_down|default(0) }}</span>
+      {% if pulse.stock_advance_pct is not none %}
+      <span class="weight">of {{ pulse.stock_scan_n|default(0) }} priced · advance {{ "%.0f"|format(pulse.stock_advance_pct) }}% · flat {{ pulse.stock_scan_flat|default(0) }} · StockBee-lite</span>
+      {% else %}
       <span class="weight">of {{ pulse.stock_scan_n|default(0) }} priced this cycle · flat {{ pulse.stock_scan_flat|default(0) }}</span>
+      {% endif %}
     </div>
   </section>
   {% if snap.scan_breadth_history %}
@@ -402,8 +406,9 @@
   {% set stock_spark = snap.breadth_stock_ad_spark if snap.breadth_stock_ad_spark is mapping else {} %}
   {% set mover_spark = snap.breadth_mover_spark if snap.breadth_mover_spark is mapping else {} %}
   {% set near_spark = snap.breadth_near_high_spark if snap.breadth_near_high_spark is mapping else {} %}
-  {% if spark.ready or stock_spark.ready or mover_spark.ready or near_spark.ready %}
-  <div class="breadth-ad-sparks" aria-label="Multi-day A/D, ±4%, and near-high ratio sparklines">
+  {% set adv_spark = snap.breadth_stock_advance_spark if snap.breadth_stock_advance_spark is mapping else {} %}
+  {% if spark.ready or stock_spark.ready or mover_spark.ready or near_spark.ready or adv_spark.ready %}
+  <div class="breadth-ad-sparks" aria-label="Multi-day A/D, ±4%, near-high, and stock advance ratio sparklines">
     {% if spark.ready %}
     <figure class="breadth-ad-spark" id="breadth-ad-spark">
       {{ spark.svg|safe }}
@@ -462,6 +467,22 @@
       </figcaption>
     </figure>
     {% endif %}
+    {% if adv_spark.ready %}
+    <figure class="breadth-ad-spark" id="breadth-stock-advance-spark">
+      {{ adv_spark.svg|safe }}
+      <figcaption>
+        Stock advance % (priced up / n) · {{ adv_spark.n }} days ·
+        latest
+        <span class="v {% if adv_spark.tone == 'up' %}up{% elif adv_spark.tone == 'down' %}down{% endif %}">
+          {{ "%.0f"|format(adv_spark.latest_pct) }}%
+        </span>
+        {% if adv_spark.delta_pct is not none %}
+        <span class="weight">({{ "%+.0f"|format(adv_spark.delta_pct) }} pp)</span>
+        {% endif %}
+        · {{ adv_spark.first_day }} → {{ adv_spark.last_day }}
+      </figcaption>
+    </figure>
+    {% endif %}
   </div>
   {% endif %}
   <div class="breadth-days-wrap">
@@ -474,7 +495,7 @@
           <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high, and % of breakouts">near-high</th>
           <th scope="col" title="Both ±4% and near-high ratios ≥25% (StockBee-lite thrust; display only)">thrust</th>
-          <th scope="col" title="Stock batch priced this cycle: up / down">stock A/D</th>
+          <th scope="col" title="Stock batch priced this cycle: up / down and advance %">stock A/D</th>
           <th scope="col">Log</th>
         </tr>
       </thead>
@@ -509,7 +530,9 @@
           </td>
           <td>
             {% if d.stock_scan_n is defined and d.stock_scan_n %}
-            {{ d.stock_scan_up|default(0) }}/{{ d.stock_scan_down|default(0) }}
+            {{ d.stock_scan_up|default(0) }}/{{ d.stock_scan_down|default(0) }}{% if d.stock_advance_pct is not none %}
+            <span class="weight">({{ "%.0f"|format(d.stock_advance_pct) }}%)</span>
+            {% endif %}
             {% else %}
             —
             {% endif %}
@@ -530,7 +553,7 @@
       <span class="k">avg</span> mean 24h % ·
       <span class="k">±4%</span> |move| ≥ 4% · share of crypto leaders ·
       <span class="k">near-high</span> stocks ≤5% from 52w high ·
-      <span class="k">stock A/D</span> priced batch this cycle
+      <span class="k">stock A/D</span> priced batch up/down · advance % of priced
     </p>
   </div>
   {% endif %}

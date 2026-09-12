@@ -8,11 +8,13 @@ from openbb_backend.desk import (
     build_breadth_glance,
     build_breadth_mover_spark,
     build_breadth_near_high_spark,
+    build_breadth_stock_advance_spark,
     build_breadth_thrust_summary,
     crypto_mover_ratio_pct,
     is_breadth_thrust_day,
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
+    stock_advance_ratio_pct,
 )
 
 
@@ -26,6 +28,12 @@ def test_near_high_ratio_pct():
     assert near_high_ratio_pct(2, 8) == 25.0
     assert near_high_ratio_pct(0, 5) == 0.0
     assert near_high_ratio_pct(3, 0) is None
+
+
+def test_stock_advance_ratio_pct():
+    assert stock_advance_ratio_pct(4, 5) == 80.0
+    assert stock_advance_ratio_pct(0, 5) == 0.0
+    assert stock_advance_ratio_pct(2, 0) is None
 
 
 def test_is_breadth_thrust_day():
@@ -107,9 +115,10 @@ def test_breadth_glance_infers_n_from_up_down():
     assert g["ready"] is True
     assert g["crypto_net"] == 1
     assert g["stock_net"] == 3
+    assert g["stock_advance_pct"] == 80.0
     assert g["tone"] == "up"
     assert "crypto 2/1 (+1) of 3" in g["line"]
-    assert "stock 4/1 (+3) of 5" in g["line"]
+    assert "stock 4/1 (+3) of 5 · adv 80%" in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
     assert g["full_universe"] is False
@@ -152,9 +161,10 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["thrust_streak"] == 0
     assert g["crypto_n"] == 4
     assert g["stock_n"] == 10
+    assert g["stock_advance_pct"] == 20.0
     assert g["tone"] == "down"  # +2 + −3 = −1
     assert "crypto 3/1 (+2) of 4" in g["line"]
-    assert "stock 2/5 (-3) of 10" in g["line"]
+    assert "stock 2/5 (-3) of 10 · adv 20%" in g["line"]
     assert "2 near-high (25%)" in g["line"]
     assert "1 ±4% (25%)" in g["line"]
     assert "thrust" in g["line"]
@@ -393,5 +403,65 @@ def test_breadth_near_high_spark_down_tone():
     assert spark["ready"] is True
     assert spark["latest_pct"] == 0.0
     assert spark["delta_pct"] == -50.0
+    assert spark["tone"] == "down"
+    assert "is-down" in spark["svg"]
+
+
+def test_breadth_stock_advance_spark_needs_two_days():
+    one = [{"day": "2026-09-01", "stock_scan_n": 5, "stock_scan_up": 4}]
+    assert build_breadth_stock_advance_spark(one)["ready"] is False
+    assert build_breadth_stock_advance_spark([])["ready"] is False
+
+
+def test_breadth_stock_advance_spark_ratio_and_delta():
+    rows = [
+        {
+            "day": "2026-09-01",
+            "stock_scan_n": 10,
+            "stock_scan_up": 2,
+            "stock_scan_down": 8,
+        },
+        {
+            "day": "2026-09-02",
+            "stock_scan_n": 10,
+            "stock_scan_up": 5,
+            "stock_scan_down": 5,
+        },
+        {
+            "day": "2026-09-03",
+            "stock_scan_n": 10,
+            "stock_scan_up": 8,
+            "stock_scan_down": 2,
+        },
+    ]
+    spark = build_breadth_stock_advance_spark(rows)
+    assert spark["ready"] is True
+    assert spark["n"] == 3
+    assert spark["latest_pct"] == 80.0
+    assert spark["delta_pct"] == 30.0  # 80 − 50
+    assert spark["tone"] == "up"
+    assert spark["label"] == "Stock advance %"
+    assert "polyline" in spark["svg"]
+    assert "is-up" in spark["svg"]
+    assert "stock advance participation" in spark["aria"]
+
+
+def test_breadth_stock_advance_spark_down_tone():
+    rows = [
+        {
+            "day": "2026-09-01",
+            "stock_scan_up": 4,
+            "stock_scan_down": 1,
+        },
+        {
+            "day": "2026-09-02",
+            "stock_scan_up": 1,
+            "stock_scan_down": 4,
+        },
+    ]
+    spark = build_breadth_stock_advance_spark(rows)
+    assert spark["ready"] is True
+    assert spark["latest_pct"] == 20.0
+    assert spark["delta_pct"] == -60.0
     assert spark["tone"] == "down"
     assert "is-down" in spark["svg"]
