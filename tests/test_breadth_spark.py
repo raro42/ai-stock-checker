@@ -3,7 +3,9 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    breadth_dual_advance_streak,
     breadth_tape_label,
+    breadth_tape_split_streak,
     breadth_thrust_streak,
     build_breadth_ad_spark,
     build_breadth_crypto_advance_spark,
@@ -11,6 +13,7 @@ from openbb_backend.desk import (
     build_breadth_mover_spark,
     build_breadth_near_high_spark,
     build_breadth_stock_advance_spark,
+    build_breadth_tape_summary,
     build_breadth_thrust_summary,
     crypto_advance_ratio_pct,
     crypto_mover_ratio_pct,
@@ -94,6 +97,67 @@ def test_breadth_thrust_streak_from_newest():
     assert breadth_thrust_streak(rows, through_day="2026-09-02") == 0
     assert breadth_thrust_streak(rows, through_day="1999-01-01") == 0
     assert breadth_thrust_streak([]) == 0
+
+
+def test_breadth_dual_advance_streak_from_newest():
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True},
+        {"day": "2026-09-02", "is_dual_advance": False},
+        {"day": "2026-09-03", "is_dual_advance": True},
+        {"day": "2026-09-04", "is_dual_advance": True},
+    ]
+    assert breadth_dual_advance_streak(rows) == 2
+    assert breadth_dual_advance_streak(rows, through_day="2026-09-01") == 1
+    assert breadth_dual_advance_streak(rows, through_day="2026-09-02") == 0
+    assert breadth_dual_advance_streak([]) == 0
+
+
+def test_breadth_tape_split_streak_from_newest():
+    rows = [
+        {"day": "2026-09-01", "is_tape_split": True},
+        {"day": "2026-09-02", "is_tape_split": True},
+        {"day": "2026-09-03", "is_tape_split": False},
+    ]
+    assert breadth_tape_split_streak(rows) == 0
+    assert breadth_tape_split_streak(rows, through_day="2026-09-02") == 2
+    assert breadth_tape_split_streak([]) == 0
+
+
+def test_breadth_tape_summary_risk_on_streak():
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": False, "is_tape_split": True},
+        {"day": "2026-09-02", "is_dual_advance": True, "is_tape_split": False},
+        {"day": "2026-09-03", "is_dual_advance": True, "is_tape_split": False},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["dual_n"] == 2
+    assert s["split_n"] == 1
+    assert s["dual_streak"] == 2
+    assert s["split_streak"] == 0
+    assert s["latest_dual"] is True
+    assert s["tone"] == "up"
+    assert "risk-on now" in s["line"]
+    assert "streak 2" in s["line"]
+    assert "2/3 risk-on" in s["line"]
+
+
+def test_breadth_tape_summary_split_now():
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "is_tape_split": False},
+        {"day": "2026-09-02", "is_dual_advance": False, "is_tape_split": True},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["latest_split"] is True
+    assert s["split_streak"] == 1
+    assert s["tone"] == "down"
+    assert "split now" in s["line"]
+    assert "streak" not in s["line"]  # streak 1 stays quiet
+
+
+def test_breadth_tape_summary_empty():
+    assert build_breadth_tape_summary([])["ready"] is False
+    assert build_breadth_tape_summary([])["dual_streak"] == 0
 
 
 def test_breadth_thrust_summary_counts_and_latest():
@@ -240,6 +304,33 @@ def test_breadth_glance_thrust_streak_from_history():
     assert g["is_thrust"] is True
     assert g["thrust_streak"] == 2
     assert "thrust · streak 2" in g["line"]
+
+
+def test_breadth_glance_risk_on_streak_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_dual_advance": True,
+            "stock_scan_up": 3,
+            "stock_scan_down": 1,
+            "crypto_up": 2,
+            "crypto_down": 1,
+        },
+        {
+            "day": "2026-09-02",
+            "stock_scan_up": 4,
+            "stock_scan_down": 1,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "is_dual_advance": True,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["is_dual_advance"] is True
+    assert g["dual_advance_streak"] == 2
+    assert "risk-on · streak 2" in g["line"]
+    assert g["tape_label"] == "risk-on"
 
 
 def test_breadth_glance_up_when_crypto_leads():

@@ -2541,6 +2541,33 @@ def is_breadth_thrust_day(
     return float(mover_pct) >= floor and float(near_high_pct) >= floor
 
 
+def _breadth_ending_streak(
+    rows: list[dict[str, Any]],
+    predicate: Callable[[dict[str, Any]], bool],
+    *,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive True days ending at newest (or through_day). Display only."""
+    usable: list[dict[str, Any]] = []
+    want = str(through_day or "").strip()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        usable.append(r)
+        if want and str(r.get("day") or "") == want:
+            break
+    else:
+        if want:
+            return 0
+    streak = 0
+    for r in reversed(usable):
+        if predicate(r):
+            streak += 1
+        else:
+            break
+    return streak
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -2556,6 +2583,38 @@ def _row_is_thrust(
     )
 
 
+def _row_is_dual_advance(
+    row: dict[str, Any],
+    *,
+    min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+) -> bool:
+    """Resolve dual-advance / risk-on from annotated or raw daily pulse row."""
+    if "is_dual_advance" in row:
+        return bool(row.get("is_dual_advance"))
+    return is_dual_advance_day(
+        _resolve_stock_advance_pct(row),
+        _resolve_crypto_advance_pct(row),
+        min_pct=min_pct,
+    )
+
+
+def _row_is_tape_split(
+    row: dict[str, Any],
+    *,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+) -> bool:
+    """Resolve tape-split from annotated or raw daily pulse row."""
+    if "is_tape_split" in row:
+        return bool(row.get("is_tape_split"))
+    return is_tape_split_day(
+        _resolve_stock_advance_pct(row),
+        _resolve_crypto_advance_pct(row),
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+    )
+
+
 def breadth_thrust_streak(
     rows: list[dict[str, Any]],
     *,
@@ -2568,24 +2627,40 @@ def breadth_thrust_streak(
     Rows are chronological (oldest → newest). Optional ``through_day`` cuts the
     series at that UTC day (scan-log drill-down).
     """
-    usable: list[dict[str, Any]] = []
-    want = str(through_day or "").strip()
-    for r in rows:
-        if not isinstance(r, dict):
-            continue
-        usable.append(r)
-        if want and str(r.get("day") or "") == want:
-            break
-    else:
-        if want:
-            return 0
-    streak = 0
-    for r in reversed(usable):
-        if _row_is_thrust(r, min_pct=min_pct):
-            streak += 1
-        else:
-            break
-    return streak
+    return _breadth_ending_streak(
+        rows,
+        lambda r: _row_is_thrust(r, min_pct=min_pct),
+        through_day=through_day,
+    )
+
+
+def breadth_dual_advance_streak(
+    rows: list[dict[str, Any]],
+    *,
+    min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive risk-on (dual-advance) days ending at newest. Display only."""
+    return _breadth_ending_streak(
+        rows,
+        lambda r: _row_is_dual_advance(r, min_pct=min_pct),
+        through_day=through_day,
+    )
+
+
+def breadth_tape_split_streak(
+    rows: list[dict[str, Any]],
+    *,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive tape-split days ending at newest. Display only."""
+    return _breadth_ending_streak(
+        rows,
+        lambda r: _row_is_tape_split(r, strong_pct=strong_pct, weak_pct=weak_pct),
+        through_day=through_day,
+    )
 
 
 def build_breadth_thrust_summary(
@@ -2634,6 +2709,86 @@ def build_breadth_thrust_summary(
         "streak": streak,
         "latest": latest,
         "min_pct": float(min_pct),
+        "line": " · ".join(bits),
+        "tone": tone,
+    }
+
+
+def build_breadth_tape_summary(
+    rows: list[dict[str, Any]],
+    *,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+) -> dict[str, Any]:
+    """Count risk-on / split days + ending streaks. StockBee-lite; display only."""
+    days = 0
+    dual_n = 0
+    split_n = 0
+    latest_dual = False
+    latest_split = False
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        days += 1
+        dual = _row_is_dual_advance(r, min_pct=dual_min_pct)
+        split = _row_is_tape_split(r, strong_pct=strong_pct, weak_pct=weak_pct)
+        if dual:
+            dual_n += 1
+            latest_dual = True
+            latest_split = False
+        elif split:
+            split_n += 1
+            latest_dual = False
+            latest_split = True
+        else:
+            latest_dual = False
+            latest_split = False
+    empty = {
+        "ready": False,
+        "days": 0,
+        "dual_n": 0,
+        "split_n": 0,
+        "dual_streak": 0,
+        "split_streak": 0,
+        "latest_dual": False,
+        "latest_split": False,
+        "line": "",
+        "tone": "flat",
+    }
+    if days <= 0:
+        return empty
+    dual_streak = breadth_dual_advance_streak(rows, min_pct=dual_min_pct)
+    split_streak = breadth_tape_split_streak(
+        rows, strong_pct=strong_pct, weak_pct=weak_pct
+    )
+    if latest_dual:
+        tone = "up"
+    elif latest_split:
+        tone = "down"
+    elif dual_n or split_n:
+        tone = "flat"
+    else:
+        tone = "flat"
+    bits: list[str] = []
+    if latest_dual:
+        bits.append("risk-on now")
+        if dual_streak >= 2:
+            bits.append(f"streak {dual_streak}")
+    elif latest_split:
+        bits.append("split now")
+        if split_streak >= 2:
+            bits.append(f"streak {split_streak}")
+    bits.append(f"{dual_n}/{days} risk-on · {split_n}/{days} split")
+    return {
+        "ready": True,
+        "days": days,
+        "dual_n": dual_n,
+        "split_n": split_n,
+        "dual_streak": dual_streak,
+        "split_streak": split_streak,
+        "latest_dual": latest_dual,
+        "latest_split": latest_split,
         "line": " · ".join(bits),
         "tone": tone,
     }
@@ -2725,6 +2880,8 @@ def build_breadth_glance(
         "is_dual_advance": False,
         "is_tape_split": False,
         "tape_label": "",
+        "dual_advance_streak": 0,
+        "tape_split_streak": 0,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -2759,8 +2916,13 @@ def build_breadth_glance(
     stock_net = stock_up - stock_down
     hist = [r for r in (history or []) if isinstance(r, dict)]
     day = str(pulse.get("day") or "").strip()
-    streak = (
-        breadth_thrust_streak(hist, through_day=day or None) if hist else 0
+    day_cut = day or None
+    streak = breadth_thrust_streak(hist, through_day=day_cut) if hist else 0
+    dual_streak = (
+        breadth_dual_advance_streak(hist, through_day=day_cut) if hist else 0
+    )
+    split_streak = (
+        breadth_tape_split_streak(hist, through_day=day_cut) if hist else 0
     )
     parts: list[str] = []
     score = 0
@@ -2800,7 +2962,11 @@ def build_breadth_glance(
         parts.append(f"thrust · streak {streak}")
     elif thrust:
         parts.append("thrust")
-    if tape:
+    if dual and dual_streak >= 2:
+        parts.append(f"risk-on · streak {dual_streak}")
+    elif split and split_streak >= 2:
+        parts.append(f"split · streak {split_streak}")
+    elif tape:
         parts.append(tape)
     if not parts:
         return empty
@@ -2830,6 +2996,8 @@ def build_breadth_glance(
         "is_dual_advance": dual,
         "is_tape_split": split,
         "tape_label": tape,
+        "dual_advance_streak": dual_streak,
+        "tape_split_streak": split_streak,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
@@ -3981,6 +4149,7 @@ def load_desk_snapshot(
             scan_breadth_history
         ),
         "breadth_thrust_summary": build_breadth_thrust_summary(scan_breadth_history),
+        "breadth_tape_summary": build_breadth_tape_summary(scan_breadth_history),
         "scan_time": scan_time_raw,
         "scan_freshness": build_scan_freshness(
             scan_time_raw,

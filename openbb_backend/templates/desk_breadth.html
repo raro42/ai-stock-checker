@@ -388,12 +388,23 @@
     </div>
     <div>
       <span class="k">Tape</span>
+      {% set tape_sum = snap.breadth_tape_summary if snap.breadth_tape_summary is mapping else {} %}
       {% if pulse.tape_label == "risk-on" %}
       <span class="v up">risk-on</span>
-      <span class="weight">stock + crypto advance both ≥50% · dual advance · not a gate</span>
+      <span class="weight">
+        stock + crypto advance both ≥50% · dual advance · not a gate
+        {% if tape_sum.ready and tape_sum.dual_streak and tape_sum.dual_streak >= 2 %}
+        · streak {{ tape_sum.dual_streak }}
+        {% endif %}
+      </span>
       {% elif pulse.tape_label == "split" %}
       <span class="v down">split</span>
-      <span class="weight">one ≥60% advance · other ≤40% · cross-asset · not a gate</span>
+      <span class="weight">
+        one ≥60% advance · other ≤40% · cross-asset · not a gate
+        {% if tape_sum.ready and tape_sum.split_streak and tape_sum.split_streak >= 2 %}
+        · streak {{ tape_sum.split_streak }}
+        {% endif %}
+      </span>
       {% else %}
       <span class="v">—</span>
       <span class="weight">needs both sleeves priced · dual ≥50% or 60/40 split</span>
@@ -412,11 +423,15 @@
   {% if snap.scan_breadth_history %}
   <h3 class="subhead">Recent days</h3>
   {% set thrust = snap.breadth_thrust_summary if snap.breadth_thrust_summary is mapping else {} %}
+  {% set tape = snap.breadth_tape_summary if snap.breadth_tape_summary is mapping else {} %}
   <p class="sub">
     One UTC snapshot per day from our scan lists (not the full market).
     Open a day scan log to see the names behind the counts.
     {% if thrust.ready %}
     <span class="weight"> · {{ thrust.line }}</span>
+    {% endif %}
+    {% if tape.ready %}
+    <span class="weight"> · {{ tape.line }}</span>
     {% endif %}
   </p>
   {% set spark = snap.breadth_ad_spark if snap.breadth_ad_spark is mapping else {} %}
