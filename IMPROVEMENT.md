@@ -261,9 +261,10 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] portfolio AI + tradermonty min-hold lock parity (2026-09-11 improve): Screener / Ideas / Charts / Breadth / scan-log — same glance
 - [x] FinRobot + RyanJHamby + xang1234 AI debate freshness (2026-09-12 improve): debate glance shows newest validate age fresh/aging/stale vs scan cadence (`build_ai_debate_glance` + `latest_at`) — display only; not a new gate
 - [x] xang1234 StockBee multi-day ±4% ratio (2026-09-12 improve): Breadth spark + Recent days % of crypto leaders + glance `N ±4% (P%)` (`build_breadth_mover_spark` / `crypto_mover_ratio_pct`) — scan-list only; display only; not a new gate
+- [x] xang1234 StockBee multi-day near-high ratio (2026-09-12 improve): Breadth spark + Recent days % of stock breakouts + glance `N near-high (P%)` (`build_breadth_near_high_spark` / `near_high_ratio_pct`) — scan-list only; display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% multi-day ratio first slice shipped above
+- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios shipped above
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

@@ -2436,19 +2436,29 @@ def find_day_scan_archive(data_dir: Path, day: str) -> Optional[Path]:
     return files[-1] if files else None
 
 
-def crypto_mover_ratio_pct(movers: int, leaders_n: int) -> float | None:
-    """Share of scan crypto leaders with |24h| ≥ 4% (StockBee-lite; display only)."""
-    n = int(leaders_n or 0)
+def scan_list_ratio_pct(part: int, whole: int) -> float | None:
+    """Share of a scan-list count vs its denominator (StockBee-lite; display only)."""
+    n = int(whole or 0)
     if n <= 0:
         return None
-    m = max(0, int(movers or 0))
+    m = max(0, int(part or 0))
     return round(100.0 * m / n, 1)
+
+
+def crypto_mover_ratio_pct(movers: int, leaders_n: int) -> float | None:
+    """Share of scan crypto leaders with |24h| ≥ 4% (StockBee-lite; display only)."""
+    return scan_list_ratio_pct(movers, leaders_n)
+
+
+def near_high_ratio_pct(near: int, breakouts_n: int) -> float | None:
+    """Share of stock breakouts within 5% of high (StockBee-lite; display only)."""
+    return scan_list_ratio_pct(near, breakouts_n)
 
 
 def _annotate_scan_history(
     data_dir: Path, rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Attach scan-log link flags + ±4% ratio for the Breadth Recent days list."""
+    """Attach scan-log link flags + ±4% / near-high ratios for Breadth Recent days."""
     out: list[dict[str, Any]] = []
     for r in rows:
         row = dict(r)
@@ -2468,6 +2478,9 @@ def _annotate_scan_history(
         pct = crypto_mover_ratio_pct(movers, crypto_n)
         row["crypto_n_resolved"] = crypto_n
         row["crypto_mover_pct"] = pct
+        breakouts_n = int(row.get("stock_breakouts_n") or 0)
+        near = int(row.get("stock_within_5pct_high") or 0)
+        row["near_high_pct"] = near_high_ratio_pct(near, breakouts_n)
         out.append(row)
     return out
 
@@ -2501,6 +2514,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "crypto_net": 0,
         "stock_net": 0,
         "near_high": 0,
+        "near_high_pct": None,
         "big_movers": 0,
         "mover_pct": None,
         "crypto_n": 0,
@@ -2521,6 +2535,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     breakouts_n = int(pulse.get("stock_breakouts_n") or 0)
     movers = int(pulse.get("crypto_big_movers") or 0)
     mover_pct = crypto_mover_ratio_pct(movers, crypto_n)
+    near_pct = near_high_ratio_pct(near, breakouts_n)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
 
@@ -2539,7 +2554,10 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         )
         score += stock_net
     if breakouts_n > 0 or near > 0:
-        parts.append(f"{near} near-high")
+        if near_pct is not None and breakouts_n > 0:
+            parts.append(f"{near} near-high ({near_pct:.0f}%)")
+        else:
+            parts.append(f"{near} near-high")
     if movers > 0:
         if mover_pct is not None and crypto_n > 0:
             parts.append(f"{movers} ±4% ({mover_pct:.0f}%)")
@@ -2565,6 +2583,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "crypto_net": crypto_net,
         "stock_net": stock_net if stock_n > 0 else 0,
         "near_high": near,
+        "near_high_pct": near_pct,
         "big_movers": movers,
         "mover_pct": mover_pct,
         "crypto_n": crypto_n,
@@ -2661,14 +2680,19 @@ def build_breadth_ad_spark(
     }
 
 
-def build_breadth_mover_spark(
+def build_breadth_ratio_spark(
     rows: list[dict[str, Any]],
     *,
+    count_key: str,
+    pct_key: str,
+    resolve_pct,
+    label: str,
+    aria_noun: str,
     width: float = 320.0,
     height: float = 52.0,
     pad: float = 5.0,
 ) -> dict[str, Any]:
-    """Inline SVG: multi-day ±4% mover ratio (% of crypto leaders). Display only."""
+    """Inline SVG: multi-day scan-list ratio (%). Display only; needs ≥2 days."""
     series: list[tuple[str, float]] = []
     for r in rows:
         if not isinstance(r, dict):
@@ -2676,16 +2700,11 @@ def build_breadth_mover_spark(
         day = str(r.get("day") or "").strip()
         if not day:
             continue
-        if "crypto_big_movers" not in r and "crypto_mover_pct" not in r:
+        if count_key not in r and pct_key not in r:
             continue
-        pct = r.get("crypto_mover_pct")
+        pct = r.get(pct_key)
         if pct is None:
-            crypto_n = int(r.get("crypto_n") or 0) or (
-                int(r.get("crypto_up") or 0) + int(r.get("crypto_down") or 0)
-            )
-            pct = crypto_mover_ratio_pct(
-                int(r.get("crypto_big_movers") or 0), crypto_n
-            )
+            pct = resolve_pct(r)
         if pct is None:
             continue
         series.append((day, float(pct)))
@@ -2698,7 +2717,7 @@ def build_breadth_mover_spark(
         "delta_pct": None,
         "first_day": "",
         "last_day": "",
-        "label": "±4% ratio",
+        "label": label,
     }
     if len(series) < 2:
         return empty
@@ -2732,9 +2751,8 @@ def build_breadth_mover_spark(
         tone = "flat"
     first_day, last_day = series[0][0], series[-1][0]
     aria = (
-        f"Crypto leaders ±4% mover ratio over {n} UTC days from {first_day} "
-        f"to {last_day}. Latest {last_pct:.0f}% of leaders "
-        f"({delta:+.0f} pp vs prior day). Scan-list only."
+        f"{aria_noun} over {n} UTC days from {first_day} to {last_day}. "
+        f"Latest {last_pct:.0f}% ({delta:+.0f} pp vs prior day). Scan-list only."
     )
     lx, ly = coords[-1]
     svg = (
@@ -2756,9 +2774,65 @@ def build_breadth_mover_spark(
         "delta_pct": delta,
         "first_day": first_day,
         "last_day": last_day,
-        "label": "±4% ratio",
+        "label": label,
         "tone": tone,
     }
+
+
+def _resolve_crypto_mover_pct(row: dict[str, Any]) -> float | None:
+    crypto_n = int(row.get("crypto_n") or 0) or (
+        int(row.get("crypto_up") or 0) + int(row.get("crypto_down") or 0)
+    )
+    return crypto_mover_ratio_pct(int(row.get("crypto_big_movers") or 0), crypto_n)
+
+
+def _resolve_near_high_pct(row: dict[str, Any]) -> float | None:
+    return near_high_ratio_pct(
+        int(row.get("stock_within_5pct_high") or 0),
+        int(row.get("stock_breakouts_n") or 0),
+    )
+
+
+def build_breadth_mover_spark(
+    rows: list[dict[str, Any]],
+    *,
+    width: float = 320.0,
+    height: float = 52.0,
+    pad: float = 5.0,
+) -> dict[str, Any]:
+    """Inline SVG: multi-day ±4% mover ratio (% of crypto leaders). Display only."""
+    return build_breadth_ratio_spark(
+        rows,
+        count_key="crypto_big_movers",
+        pct_key="crypto_mover_pct",
+        resolve_pct=_resolve_crypto_mover_pct,
+        label="±4% ratio",
+        aria_noun="Crypto leaders ±4% mover ratio",
+        width=width,
+        height=height,
+        pad=pad,
+    )
+
+
+def build_breadth_near_high_spark(
+    rows: list[dict[str, Any]],
+    *,
+    width: float = 320.0,
+    height: float = 52.0,
+    pad: float = 5.0,
+) -> dict[str, Any]:
+    """Inline SVG: multi-day near-high ratio (% of stock breakouts). Display only."""
+    return build_breadth_ratio_spark(
+        rows,
+        count_key="stock_within_5pct_high",
+        pct_key="near_high_pct",
+        resolve_pct=_resolve_near_high_pct,
+        label="Near-high ratio",
+        aria_noun="Stock breakouts within 5% of high ratio",
+        width=width,
+        height=height,
+        pad=pad,
+    )
 
 
 def _fmt_hold(seconds: float) -> str:
@@ -3045,6 +3119,7 @@ def load_desk_snapshot(
         "crypto_mover_pct": crypto_mover_ratio_pct(crypto_big, len(crypto_raw_all)),
         "stock_breakouts_n": len(stock_raw_all),
         "stock_within_5pct_high": stock_near,
+        "near_high_pct": near_high_ratio_pct(stock_near, len(stock_raw_all)),
         "stock_scan_n": stock_scan_n,
         "stock_scan_up": stock_scan_up,
         "stock_scan_down": stock_scan_down,
@@ -3564,6 +3639,7 @@ def load_desk_snapshot(
             aria_unit="priced scan names up minus down",
         ),
         "breadth_mover_spark": build_breadth_mover_spark(scan_breadth_history),
+        "breadth_near_high_spark": build_breadth_near_high_spark(scan_breadth_history),
         "scan_time": scan_time_raw,
         "scan_freshness": build_scan_freshness(
             scan_time_raw,
