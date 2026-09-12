@@ -2641,6 +2641,62 @@ def _breadth_ending_streak(
     return streak
 
 
+def _breadth_days_since(
+    rows: list[dict[str, Any]],
+    predicate: Callable[[dict[str, Any]], bool],
+    *,
+    through_day: str | None = None,
+) -> int | None:
+    """History rows since last True day (0 if newest matches). Display only.
+
+    StockBee-lite: when the tape is quiet, friends need staleness of the last
+    confirmation — not only ending streaks. ``None`` means never seen.
+    """
+    usable: list[dict[str, Any]] = []
+    want = str(through_day or "").strip()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        usable.append(r)
+        if want and str(r.get("day") or "") == want:
+            break
+    else:
+        if want:
+            return None
+    for i, r in enumerate(reversed(usable)):
+        if predicate(r):
+            return i
+    return None
+
+
+def breadth_days_since_thrust(
+    rows: list[dict[str, Any]],
+    *,
+    min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+    through_day: str | None = None,
+) -> int | None:
+    """Days since last thrust (0 = now). Display only; scan-list history."""
+    return _breadth_days_since(
+        rows,
+        lambda r: _row_is_thrust(r, min_pct=min_pct),
+        through_day=through_day,
+    )
+
+
+def breadth_days_since_risk_on(
+    rows: list[dict[str, Any]],
+    *,
+    min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    through_day: str | None = None,
+) -> int | None:
+    """Days since last risk-on / dual-advance (0 = now). Display only."""
+    return _breadth_days_since(
+        rows,
+        lambda r: _row_is_dual_advance(r, min_pct=min_pct),
+        through_day=through_day,
+    )
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -2839,6 +2895,7 @@ def build_breadth_thrust_summary(
         "days": 0,
         "thrust_n": 0,
         "streak": 0,
+        "days_since": None,
         "latest": False,
         "min_pct": float(min_pct),
         "line": "",
@@ -2847,10 +2904,13 @@ def build_breadth_thrust_summary(
     if days <= 0:
         return empty
     streak = breadth_thrust_streak(rows, min_pct=min_pct)
+    days_since = breadth_days_since_thrust(rows, min_pct=min_pct)
     tone = "up" if latest else ("flat" if thrust_n else "down")
     bits: list[str] = []
     if latest:
         bits.append("thrust now")
+    elif days_since is not None and days_since > 0:
+        bits.append(f"{days_since}d since thrust")
     if streak >= 2:
         bits.append(f"streak {streak}")
     bits.append(f"{thrust_n}/{days} thrust days (≥{min_pct:.0f}% ±4% + near-high)")
@@ -2859,6 +2919,7 @@ def build_breadth_thrust_summary(
         "days": days,
         "thrust_n": thrust_n,
         "streak": streak,
+        "days_since": days_since,
         "latest": latest,
         "min_pct": float(min_pct),
         "line": " · ".join(bits),
@@ -2939,6 +3000,7 @@ def build_breadth_tape_summary(
         "dual_streak": 0,
         "split_streak": 0,
         "risk_off_streak": 0,
+        "days_since_risk_on": None,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -2956,6 +3018,7 @@ def build_breadth_tape_summary(
         rows, strong_pct=strong_pct, weak_pct=weak_pct
     )
     risk_off_streak = breadth_risk_off_streak(rows, max_pct=risk_off_max_pct)
+    days_since_risk_on = breadth_days_since_risk_on(rows, min_pct=dual_min_pct)
     prev_label = breadth_prev_tape_label(
         rows,
         dual_min_pct=dual_min_pct,
@@ -2985,6 +3048,12 @@ def build_breadth_tape_summary(
             bits.append(f"streak {risk_off_streak}")
     elif latest_mixed:
         bits.append("mixed now")
+    if (
+        not latest_dual
+        and days_since_risk_on is not None
+        and days_since_risk_on > 0
+    ):
+        bits.append(f"{days_since_risk_on}d since risk-on")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
     bits.append(
@@ -3001,6 +3070,7 @@ def build_breadth_tape_summary(
         "dual_streak": dual_streak,
         "split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
+        "days_since_risk_on": days_since_risk_on,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3091,7 +3161,8 @@ def build_breadth_glance(
 
     tradermonty “verified estimate snapshots” + xang1234: show priced counts and
     label the pulse as a scan-list **estimate**, never full-universe A/D.
-    Optional ``history`` adds StockBee thrust streak when the ending day is thrust.
+    Optional ``history`` adds StockBee thrust/risk-on streak and days-since
+    when the ending day is quiet.
     """
     empty = {
         "ready": False,
@@ -3105,6 +3176,7 @@ def build_breadth_glance(
         "mover_pct": None,
         "is_thrust": False,
         "thrust_streak": 0,
+        "days_since_thrust": None,
         "is_dual_advance": False,
         "is_tape_split": False,
         "is_risk_off": False,
@@ -3115,6 +3187,7 @@ def build_breadth_glance(
         "dual_advance_streak": 0,
         "tape_split_streak": 0,
         "risk_off_streak": 0,
+        "days_since_risk_on": None,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -3162,6 +3235,12 @@ def build_breadth_glance(
     risk_off_streak = (
         breadth_risk_off_streak(hist, through_day=day_cut) if hist else 0
     )
+    days_since_thrust = (
+        breadth_days_since_thrust(hist, through_day=day_cut) if hist else None
+    )
+    days_since_risk_on = (
+        breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
+    )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
     )
@@ -3204,6 +3283,8 @@ def build_breadth_glance(
         parts.append(f"thrust · streak {streak}")
     elif thrust:
         parts.append("thrust")
+    elif days_since_thrust is not None and days_since_thrust > 0:
+        parts.append(f"{days_since_thrust}d since thrust")
     if dual and dual_streak >= 2:
         parts.append(f"risk-on · streak {dual_streak}")
     elif split and split_streak >= 2:
@@ -3212,6 +3293,12 @@ def build_breadth_glance(
         parts.append(f"risk-off · streak {risk_off_streak}")
     elif tape:
         parts.append(tape)
+    if (
+        not dual
+        and days_since_risk_on is not None
+        and days_since_risk_on > 0
+    ):
+        parts.append(f"{days_since_risk_on}d since risk-on")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
     if not parts:
@@ -3239,6 +3326,7 @@ def build_breadth_glance(
         "mover_pct": mover_pct,
         "is_thrust": thrust,
         "thrust_streak": streak,
+        "days_since_thrust": days_since_thrust,
         "is_dual_advance": dual,
         "is_tape_split": split,
         "is_risk_off": risk_off,
@@ -3249,6 +3337,7 @@ def build_breadth_glance(
         "dual_advance_streak": dual_streak,
         "tape_split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
+        "days_since_risk_on": days_since_risk_on,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
