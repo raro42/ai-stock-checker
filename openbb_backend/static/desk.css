@@ -1717,6 +1717,10 @@ a:active {
   color: var(--down, var(--accent));
 }
 
+.breadth-days-table tr.is-risk-off th.sym {
+  color: var(--down, var(--accent));
+}
+
 .breadth-days-table td {
   color: var(--ink);
 }

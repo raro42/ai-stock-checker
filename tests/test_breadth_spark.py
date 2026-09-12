@@ -4,6 +4,7 @@ from pathlib import Path
 
 from openbb_backend.desk import (
     breadth_dual_advance_streak,
+    breadth_risk_off_streak,
     breadth_tape_label,
     breadth_tape_split_streak,
     breadth_thrust_streak,
@@ -19,6 +20,7 @@ from openbb_backend.desk import (
     crypto_mover_ratio_pct,
     is_breadth_thrust_day,
     is_dual_advance_day,
+    is_risk_off_day,
     is_tape_split_day,
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
@@ -78,12 +80,23 @@ def test_is_tape_split_day():
     assert is_tape_split_day(None, 30.0) is False
 
 
+def test_is_risk_off_day():
+    assert is_risk_off_day(40.0, 40.0) is True
+    assert is_risk_off_day(20.0, 30.0) is True
+    assert is_risk_off_day(40.1, 40.0) is False
+    assert is_risk_off_day(40.0, 40.1) is False
+    assert is_risk_off_day(70.0, 30.0) is False  # split, not risk-off
+    assert is_risk_off_day(50.0, 50.0) is False  # dual
+    assert is_risk_off_day(None, 20.0) is False
+    assert is_risk_off_day(20.0, None) is False
+
+
 def test_breadth_tape_label():
     assert breadth_tape_label(55.0, 60.0) == "risk-on"
     assert breadth_tape_label(70.0, 25.0) == "split"
+    assert breadth_tape_label(30.0, 35.0) == "risk-off"
     assert breadth_tape_label(45.0, 55.0) == ""
     assert breadth_tape_label(None, 80.0) == ""
-
 
 def test_breadth_thrust_streak_from_newest():
     rows = [
@@ -123,6 +136,19 @@ def test_breadth_tape_split_streak_from_newest():
     assert breadth_tape_split_streak([]) == 0
 
 
+def test_breadth_risk_off_streak_from_newest():
+    rows = [
+        {"day": "2026-09-01", "is_risk_off": True},
+        {"day": "2026-09-02", "is_risk_off": False},
+        {"day": "2026-09-03", "is_risk_off": True},
+        {"day": "2026-09-04", "is_risk_off": True},
+    ]
+    assert breadth_risk_off_streak(rows) == 2
+    assert breadth_risk_off_streak(rows, through_day="2026-09-01") == 1
+    assert breadth_risk_off_streak(rows, through_day="2026-09-02") == 0
+    assert breadth_risk_off_streak([]) == 0
+
+
 def test_breadth_tape_summary_risk_on_streak():
     rows = [
         {"day": "2026-09-01", "is_dual_advance": False, "is_tape_split": True},
@@ -133,6 +159,7 @@ def test_breadth_tape_summary_risk_on_streak():
     assert s["ready"] is True
     assert s["dual_n"] == 2
     assert s["split_n"] == 1
+    assert s["risk_off_n"] == 0
     assert s["dual_streak"] == 2
     assert s["split_streak"] == 0
     assert s["latest_dual"] is True
@@ -140,6 +167,7 @@ def test_breadth_tape_summary_risk_on_streak():
     assert "risk-on now" in s["line"]
     assert "streak 2" in s["line"]
     assert "2/3 risk-on" in s["line"]
+    assert "0/3 risk-off" in s["line"]
 
 
 def test_breadth_tape_summary_split_now():
@@ -155,9 +183,36 @@ def test_breadth_tape_summary_split_now():
     assert "streak" not in s["line"]  # streak 1 stays quiet
 
 
+def test_breadth_tape_summary_risk_off_streak():
+    rows = [
+        {
+            "day": "2026-09-01",
+            "is_dual_advance": False,
+            "is_tape_split": False,
+            "is_risk_off": True,
+        },
+        {
+            "day": "2026-09-02",
+            "is_dual_advance": False,
+            "is_tape_split": False,
+            "is_risk_off": True,
+        },
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["risk_off_n"] == 2
+    assert s["risk_off_streak"] == 2
+    assert s["latest_risk_off"] is True
+    assert s["tone"] == "down"
+    assert "risk-off now" in s["line"]
+    assert "streak 2" in s["line"]
+    assert "2/2 risk-off" in s["line"]
+
+
 def test_breadth_tape_summary_empty():
     assert build_breadth_tape_summary([])["ready"] is False
     assert build_breadth_tape_summary([])["dual_streak"] == 0
+    assert build_breadth_tape_summary([])["risk_off_streak"] == 0
 
 
 def test_breadth_thrust_summary_counts_and_latest():
@@ -331,6 +386,54 @@ def test_breadth_glance_risk_on_streak_from_history():
     assert g["dual_advance_streak"] == 2
     assert "risk-on · streak 2" in g["line"]
     assert g["tape_label"] == "risk-on"
+
+
+def test_breadth_glance_risk_off_from_pulse():
+    g = build_breadth_glance(
+        {
+            "crypto_n": 5,
+            "crypto_up": 1,
+            "crypto_down": 4,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        }
+    )
+    assert g["ready"] is True
+    assert g["stock_advance_pct"] == 30.0
+    assert g["crypto_advance_pct"] == 20.0
+    assert g["is_risk_off"] is True
+    assert g["is_dual_advance"] is False
+    assert g["is_tape_split"] is False
+    assert g["tape_label"] == "risk-off"
+    assert "risk-off" in g["line"]
+
+
+def test_breadth_glance_risk_off_streak_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_risk_off": True,
+            "stock_scan_up": 2,
+            "stock_scan_down": 8,
+            "crypto_up": 1,
+            "crypto_down": 4,
+        },
+        {
+            "day": "2026-09-02",
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+            "crypto_up": 1,
+            "crypto_down": 4,
+            "is_risk_off": True,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["is_risk_off"] is True
+    assert g["risk_off_streak"] == 2
+    assert "risk-off · streak 2" in g["line"]
+    assert g["tape_label"] == "risk-off"
 
 
 def test_breadth_glance_up_when_crypto_leads():

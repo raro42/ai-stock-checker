@@ -405,9 +405,17 @@
         · streak {{ tape_sum.split_streak }}
         {% endif %}
       </span>
+      {% elif pulse.tape_label == "risk-off" %}
+      <span class="v down">risk-off</span>
+      <span class="weight">
+        stock + crypto advance both ≤40% · dual weakness · not a gate
+        {% if tape_sum.ready and tape_sum.risk_off_streak and tape_sum.risk_off_streak >= 2 %}
+        · streak {{ tape_sum.risk_off_streak }}
+        {% endif %}
+      </span>
       {% else %}
       <span class="v">—</span>
-      <span class="weight">needs both sleeves priced · dual ≥50% or 60/40 split</span>
+      <span class="weight">needs both sleeves priced · dual ≥50% · 60/40 split · or both ≤40%</span>
       {% endif %}
     </div>
     <div>
@@ -544,14 +552,14 @@
           <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high, and % of breakouts">near-high</th>
           <th scope="col" title="Both ±4% and near-high ratios ≥25% (StockBee-lite thrust; display only)">thrust</th>
-          <th scope="col" title="Stock + crypto advance: risk-on (≥50%/≥50%) or split (≥60%/≤40%); display only">tape</th>
+          <th scope="col" title="Stock + crypto advance: risk-on (≥50%/≥50%), split (≥60%/≤40%), or risk-off (both ≤40%); display only">tape</th>
           <th scope="col" title="Stock batch priced this cycle: up / down and advance %">stock A/D</th>
           <th scope="col">Log</th>
         </tr>
       </thead>
       <tbody>
         {% for d in snap.scan_breadth_history|reverse %}
-        <tr{% if d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% endif %}>
+        <tr{% if d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% elif d.is_risk_off %} class="is-risk-off"{% endif %}>
           <th scope="row" class="sym">
             {% if d.has_scan_log and d.scan_log_href %}
             <a href="{{ d.scan_log_href }}" title="Open scan log for {{ d.day }}">{{ d.day }}</a>
@@ -587,6 +595,8 @@
             <span class="v up">risk-on</span>
             {% elif d.tape_label == "split" %}
             <span class="v down">split</span>
+            {% elif d.tape_label == "risk-off" %}
+            <span class="v down">risk-off</span>
             {% else %}
             <span class="weight">—</span>
             {% endif %}
@@ -616,7 +626,7 @@
       <span class="k">avg</span> mean 24h % ·
       <span class="k">±4%</span> |move| ≥ 4% · share of crypto leaders ·
       <span class="k">near-high</span> stocks ≤5% from 52w high ·
-      <span class="k">tape</span> risk-on (both adv ≥50%) or split (60/40) ·
+      <span class="k">tape</span> risk-on (both adv ≥50%) · split (60/40) · risk-off (both ≤40%) ·
       <span class="k">stock A/D</span> priced batch up/down · advance % of priced
     </p>
   </div>

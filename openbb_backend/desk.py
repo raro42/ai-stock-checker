@@ -2472,6 +2472,8 @@ DEFAULT_DUAL_ADVANCE_MIN_PCT = 50.0
 # Tape split: one sleeve strong, the other weak (cross-asset divergence; display only).
 DEFAULT_TAPE_SPLIT_STRONG_PCT = 60.0
 DEFAULT_TAPE_SPLIT_WEAK_PCT = 40.0
+# Risk-off: both sleeves weak (mirror of dual-advance; display only).
+DEFAULT_RISK_OFF_MAX_PCT = DEFAULT_TAPE_SPLIT_WEAK_PCT
 
 
 def is_dual_advance_day(
@@ -2507,6 +2509,23 @@ def is_tape_split_day(
     return hi >= float(strong_pct) and lo <= float(weak_pct)
 
 
+def is_risk_off_day(
+    stock_adv_pct: float | None,
+    crypto_adv_pct: float | None,
+    *,
+    max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> bool:
+    """True when stock and crypto advance % are both ≤ max_pct (scan-list; display only).
+
+    Completes StockBee-lite tape: risk-on · split · risk-off. Exclusive of dual /
+    split at defaults (both ≤40% cannot be ≥50% or 60/40).
+    """
+    if stock_adv_pct is None or crypto_adv_pct is None:
+        return False
+    ceiling = float(max_pct)
+    return float(stock_adv_pct) <= ceiling and float(crypto_adv_pct) <= ceiling
+
+
 def breadth_tape_label(
     stock_adv_pct: float | None,
     crypto_adv_pct: float | None,
@@ -2514,8 +2533,9 @@ def breadth_tape_label(
     dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
     strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
     weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
 ) -> str:
-    """Short tape tag for pulse/glance: risk-on · split · empty. Display only."""
+    """Short tape tag: risk-on · split · risk-off · empty. Display only."""
     if is_dual_advance_day(stock_adv_pct, crypto_adv_pct, min_pct=dual_min_pct):
         return "risk-on"
     if is_tape_split_day(
@@ -2525,8 +2545,11 @@ def breadth_tape_label(
         weak_pct=weak_pct,
     ):
         return "split"
+    if is_risk_off_day(
+        stock_adv_pct, crypto_adv_pct, max_pct=risk_off_max_pct
+    ):
+        return "risk-off"
     return ""
-
 
 def is_breadth_thrust_day(
     mover_pct: float | None,
@@ -2615,6 +2638,21 @@ def _row_is_tape_split(
     )
 
 
+def _row_is_risk_off(
+    row: dict[str, Any],
+    *,
+    max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> bool:
+    """Resolve risk-off from annotated or raw daily pulse row."""
+    if "is_risk_off" in row:
+        return bool(row.get("is_risk_off"))
+    return is_risk_off_day(
+        _resolve_stock_advance_pct(row),
+        _resolve_crypto_advance_pct(row),
+        max_pct=max_pct,
+    )
+
+
 def breadth_thrust_streak(
     rows: list[dict[str, Any]],
     *,
@@ -2659,6 +2697,20 @@ def breadth_tape_split_streak(
     return _breadth_ending_streak(
         rows,
         lambda r: _row_is_tape_split(r, strong_pct=strong_pct, weak_pct=weak_pct),
+        through_day=through_day,
+    )
+
+
+def breadth_risk_off_streak(
+    rows: list[dict[str, Any]],
+    *,
+    max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive risk-off days ending at newest. Display only."""
+    return _breadth_ending_streak(
+        rows,
+        lambda r: _row_is_risk_off(r, max_pct=max_pct),
         through_day=through_day,
     )
 
@@ -2720,39 +2772,54 @@ def build_breadth_tape_summary(
     dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
     strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
     weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
 ) -> dict[str, Any]:
-    """Count risk-on / split days + ending streaks. StockBee-lite; display only."""
+    """Count risk-on / split / risk-off days + ending streaks. StockBee-lite; display only."""
     days = 0
     dual_n = 0
     split_n = 0
+    risk_off_n = 0
     latest_dual = False
     latest_split = False
+    latest_risk_off = False
     for r in rows:
         if not isinstance(r, dict):
             continue
         days += 1
         dual = _row_is_dual_advance(r, min_pct=dual_min_pct)
         split = _row_is_tape_split(r, strong_pct=strong_pct, weak_pct=weak_pct)
+        risk_off = _row_is_risk_off(r, max_pct=risk_off_max_pct)
         if dual:
             dual_n += 1
             latest_dual = True
             latest_split = False
+            latest_risk_off = False
         elif split:
             split_n += 1
             latest_dual = False
             latest_split = True
+            latest_risk_off = False
+        elif risk_off:
+            risk_off_n += 1
+            latest_dual = False
+            latest_split = False
+            latest_risk_off = True
         else:
             latest_dual = False
             latest_split = False
+            latest_risk_off = False
     empty = {
         "ready": False,
         "days": 0,
         "dual_n": 0,
         "split_n": 0,
+        "risk_off_n": 0,
         "dual_streak": 0,
         "split_streak": 0,
+        "risk_off_streak": 0,
         "latest_dual": False,
         "latest_split": False,
+        "latest_risk_off": False,
         "line": "",
         "tone": "flat",
     }
@@ -2762,12 +2829,11 @@ def build_breadth_tape_summary(
     split_streak = breadth_tape_split_streak(
         rows, strong_pct=strong_pct, weak_pct=weak_pct
     )
+    risk_off_streak = breadth_risk_off_streak(rows, max_pct=risk_off_max_pct)
     if latest_dual:
         tone = "up"
-    elif latest_split:
+    elif latest_split or latest_risk_off:
         tone = "down"
-    elif dual_n or split_n:
-        tone = "flat"
     else:
         tone = "flat"
     bits: list[str] = []
@@ -2779,16 +2845,25 @@ def build_breadth_tape_summary(
         bits.append("split now")
         if split_streak >= 2:
             bits.append(f"streak {split_streak}")
-    bits.append(f"{dual_n}/{days} risk-on · {split_n}/{days} split")
+    elif latest_risk_off:
+        bits.append("risk-off now")
+        if risk_off_streak >= 2:
+            bits.append(f"streak {risk_off_streak}")
+    bits.append(
+        f"{dual_n}/{days} risk-on · {split_n}/{days} split · {risk_off_n}/{days} risk-off"
+    )
     return {
         "ready": True,
         "days": days,
         "dual_n": dual_n,
         "split_n": split_n,
+        "risk_off_n": risk_off_n,
         "dual_streak": dual_streak,
         "split_streak": split_streak,
+        "risk_off_streak": risk_off_streak,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
+        "latest_risk_off": latest_risk_off,
         "line": " · ".join(bits),
         "tone": tone,
     }
@@ -2833,6 +2908,7 @@ def _annotate_scan_history(
         row["crypto_advance_pct"] = crypto_adv
         row["is_dual_advance"] = is_dual_advance_day(stock_adv, crypto_adv)
         row["is_tape_split"] = is_tape_split_day(stock_adv, crypto_adv)
+        row["is_risk_off"] = is_risk_off_day(stock_adv, crypto_adv)
         row["tape_label"] = breadth_tape_label(stock_adv, crypto_adv)
         out.append(row)
     return out
@@ -2879,9 +2955,11 @@ def build_breadth_glance(
         "thrust_streak": 0,
         "is_dual_advance": False,
         "is_tape_split": False,
+        "is_risk_off": False,
         "tape_label": "",
         "dual_advance_streak": 0,
         "tape_split_streak": 0,
+        "risk_off_streak": 0,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -2908,6 +2986,7 @@ def build_breadth_glance(
     thrust = is_breadth_thrust_day(mover_pct, near_pct)
     dual = is_dual_advance_day(advance_pct, crypto_adv_pct)
     split = is_tape_split_day(advance_pct, crypto_adv_pct)
+    risk_off = is_risk_off_day(advance_pct, crypto_adv_pct)
     tape = breadth_tape_label(advance_pct, crypto_adv_pct)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
@@ -2923,6 +3002,9 @@ def build_breadth_glance(
     )
     split_streak = (
         breadth_tape_split_streak(hist, through_day=day_cut) if hist else 0
+    )
+    risk_off_streak = (
+        breadth_risk_off_streak(hist, through_day=day_cut) if hist else 0
     )
     parts: list[str] = []
     score = 0
@@ -2966,6 +3048,8 @@ def build_breadth_glance(
         parts.append(f"risk-on · streak {dual_streak}")
     elif split and split_streak >= 2:
         parts.append(f"split · streak {split_streak}")
+    elif risk_off and risk_off_streak >= 2:
+        parts.append(f"risk-off · streak {risk_off_streak}")
     elif tape:
         parts.append(tape)
     if not parts:
@@ -2995,9 +3079,11 @@ def build_breadth_glance(
         "thrust_streak": streak,
         "is_dual_advance": dual,
         "is_tape_split": split,
+        "is_risk_off": risk_off,
         "tape_label": tape,
         "dual_advance_streak": dual_streak,
         "tape_split_streak": split_streak,
+        "risk_off_streak": risk_off_streak,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
@@ -3607,6 +3693,7 @@ def load_desk_snapshot(
         "is_thrust": is_breadth_thrust_day(crypto_mover_pct, near_high_pct),
         "is_dual_advance": is_dual_advance_day(stock_advance_pct, crypto_advance_pct),
         "is_tape_split": is_tape_split_day(stock_advance_pct, crypto_advance_pct),
+        "is_risk_off": is_risk_off_day(stock_advance_pct, crypto_advance_pct),
         "tape_label": breadth_tape_label(stock_advance_pct, crypto_advance_pct),
         "stock_scan_n": stock_scan_n,
         "stock_scan_up": stock_scan_up,
