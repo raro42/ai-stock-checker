@@ -386,6 +386,12 @@
         {% if thrust_sum.ready and thrust_sum.density_pct is not none %}
         · density {{ "%.0f"|format(thrust_sum.density_pct) }}% ({{ thrust_sum.thrust_n }}/{{ thrust_sum.days }} days)
         {% endif %}
+        {% if thrust_sum.ready and thrust_sum.confirmed_density_pct is not none %}
+        · confirmed dens {{ "%.0f"|format(thrust_sum.confirmed_density_pct) }}% ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.days }})
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.alone_density_pct is not none %}
+        · alone dens {{ "%.0f"|format(thrust_sum.alone_density_pct) }}% ({{ thrust_sum.alone_n }}/{{ thrust_sum.days }})
+        {% endif %}
       </span>
       {% elif pulse.is_thrust %}
       <span class="v">alone</span>
@@ -401,6 +407,12 @@
         {% endif %}
         {% if thrust_sum.ready and thrust_sum.density_pct is not none %}
         · density {{ "%.0f"|format(thrust_sum.density_pct) }}% ({{ thrust_sum.thrust_n }}/{{ thrust_sum.days }} days)
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.confirmed_density_pct is not none %}
+        · confirmed dens {{ "%.0f"|format(thrust_sum.confirmed_density_pct) }}% ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.days }})
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.alone_density_pct is not none %}
+        · alone dens {{ "%.0f"|format(thrust_sum.alone_density_pct) }}% ({{ thrust_sum.alone_n }}/{{ thrust_sum.days }})
         {% endif %}
       </span>
       {% else %}
@@ -419,6 +431,12 @@
         {% endif %}
         {% if thrust_sum.ready and thrust_sum.density_pct is not none %}
         · density {{ "%.0f"|format(thrust_sum.density_pct) }}% ({{ thrust_sum.thrust_n }}/{{ thrust_sum.days }} days)
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.confirmed_density_pct is not none %}
+        · confirmed dens {{ "%.0f"|format(thrust_sum.confirmed_density_pct) }}% ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.days }})
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.alone_density_pct is not none %}
+        · alone dens {{ "%.0f"|format(thrust_sum.alone_density_pct) }}% ({{ thrust_sum.alone_n }}/{{ thrust_sum.days }})
         {% endif %}
       </span>
       {% endif %}

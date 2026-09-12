@@ -2684,6 +2684,24 @@ def thrust_density_pct(thrust_n: int, days: int) -> float | None:
     return 100.0 * float(t) / float(d)
 
 
+def confirmed_density_pct(confirmed_n: int, days: int) -> float | None:
+    """Share of history days that were confirmed thrust. Display only.
+
+    StockBee: thrust density is any heat; confirmed density is clean heat
+    (movers+near-high + risk-on). Reuses the same n/days math.
+    """
+    return thrust_density_pct(confirmed_n, days)
+
+
+def alone_density_pct(alone_n: int, days: int) -> float | None:
+    """Share of history days that were thrust-alone. Display only.
+
+    StockBee false-thrust frequency: how often movers+near-high printed
+    without dual-advance. Complements confirm rate (quality of thrust days).
+    """
+    return thrust_density_pct(alone_n, days)
+
+
 def _breadth_ending_streak(
     rows: list[dict[str, Any]],
     predicate: Callable[[dict[str, Any]], bool],
@@ -3188,6 +3206,8 @@ def build_breadth_thrust_summary(
         "alone_n": 0,
         "confirm_rate_pct": None,
         "density_pct": None,
+        "confirmed_density_pct": None,
+        "alone_density_pct": None,
         "streak": 0,
         "confirmed_streak": 0,
         "alone_streak": 0,
@@ -3219,6 +3239,8 @@ def build_breadth_thrust_summary(
     )
     confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
     density = thrust_density_pct(thrust_n, days)
+    conf_density = confirmed_density_pct(confirmed_n, days)
+    alone_density = alone_density_pct(alone_n, days)
     if latest_confirmed:
         tone = "up"
     elif latest_alone or latest or thrust_n:
@@ -3253,6 +3275,12 @@ def build_breadth_thrust_summary(
         )
     if density is not None:
         bits.append(f"density {density:.0f}% ({thrust_n}/{days} days)")
+    if conf_density is not None:
+        bits.append(
+            f"confirmed dens {conf_density:.0f}% ({confirmed_n}/{days})"
+        )
+    if alone_density is not None:
+        bits.append(f"alone dens {alone_density:.0f}% ({alone_n}/{days})")
     bits.append(
         f"{confirmed_n}/{days} confirmed · {alone_n}/{days} alone · "
         f"{thrust_n}/{days} thrust days "
@@ -3266,6 +3294,8 @@ def build_breadth_thrust_summary(
         "alone_n": alone_n,
         "confirm_rate_pct": confirm_rate,
         "density_pct": density,
+        "confirmed_density_pct": conf_density,
+        "alone_density_pct": alone_density,
         "streak": streak,
         "confirmed_streak": confirmed_streak,
         "alone_streak": alone_streak,
@@ -3588,8 +3618,11 @@ def build_breadth_glance(
         "unconfirmed_thrust_streak": 0,
         "thrust_n": 0,
         "confirmed_n": 0,
+        "alone_n": 0,
         "confirm_rate_pct": None,
         "density_pct": None,
+        "confirmed_density_pct": None,
+        "alone_density_pct": None,
         "days_since_thrust": None,
         "days_since_confirmed_thrust": None,
         "days_since_unconfirmed_thrust": None,
@@ -3698,8 +3731,12 @@ def build_breadth_glance(
     )
     thrust_n = int(rate_sum.get("thrust_n") or 0) if rate_sum else 0
     confirmed_n = int(rate_sum.get("confirmed_n") or 0) if rate_sum else 0
+    alone_n = int(rate_sum.get("alone_n") or 0) if rate_sum else 0
+    hist_days = int(rate_sum.get("days") or 0) if rate_sum else 0
     confirm_rate = rate_sum.get("confirm_rate_pct") if rate_sum else None
     density = rate_sum.get("density_pct") if rate_sum else None
+    conf_density = rate_sum.get("confirmed_density_pct") if rate_sum else None
+    alone_density = rate_sum.get("alone_density_pct") if rate_sum else None
     if confirm_rate is not None:
         try:
             confirm_rate = float(confirm_rate)
@@ -3709,11 +3746,23 @@ def build_breadth_glance(
         try:
             density = float(density)
         except (TypeError, ValueError):
-            hist_days = int(rate_sum.get("days") or 0) if rate_sum else 0
             density = thrust_density_pct(thrust_n, hist_days)
     elif rate_sum:
-        hist_days = int(rate_sum.get("days") or 0)
         density = thrust_density_pct(thrust_n, hist_days)
+    if conf_density is not None:
+        try:
+            conf_density = float(conf_density)
+        except (TypeError, ValueError):
+            conf_density = confirmed_density_pct(confirmed_n, hist_days)
+    elif rate_sum:
+        conf_density = confirmed_density_pct(confirmed_n, hist_days)
+    if alone_density is not None:
+        try:
+            alone_density = float(alone_density)
+        except (TypeError, ValueError):
+            alone_density = alone_density_pct(alone_n, hist_days)
+    elif rate_sum:
+        alone_density = alone_density_pct(alone_n, hist_days)
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
     )
@@ -3814,13 +3863,15 @@ def build_breadth_glance(
         parts.append(f"{days_since_mixed}d since mixed")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
-    # StockBee confirm rate + density last (before coverage) so days-since stay visible.
+    # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
-    if density is not None and hist_for_rate:
-        dens_days = int(rate_sum.get("days") or 0) if rate_sum else 0
-        if dens_days > 0:
-            parts.append(f"density {density:.0f}% ({thrust_n}/{dens_days})")
+    if density is not None and hist_days > 0:
+        parts.append(f"density {density:.0f}% ({thrust_n}/{hist_days})")
+    if conf_density is not None and hist_days > 0:
+        parts.append(f"conf dens {conf_density:.0f}% ({confirmed_n}/{hist_days})")
+    if alone_density is not None and hist_days > 0:
+        parts.append(f"alone dens {alone_density:.0f}% ({alone_n}/{hist_days})")
     if not parts:
         return empty
     # Coverage honesty: verified *scan-list* estimate, never full-universe.
@@ -3861,8 +3912,11 @@ def build_breadth_glance(
         "unconfirmed_thrust_streak": alone_streak,
         "thrust_n": thrust_n,
         "confirmed_n": confirmed_n,
+        "alone_n": alone_n,
         "confirm_rate_pct": confirm_rate,
         "density_pct": density,
+        "confirmed_density_pct": conf_density,
+        "alone_density_pct": alone_density,
         "days_since_thrust": days_since_thrust,
         "days_since_confirmed_thrust": days_since_confirmed,
         "days_since_unconfirmed_thrust": days_since_alone,

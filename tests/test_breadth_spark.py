@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    alone_density_pct,
     breadth_confirmed_thrust_streak,
     breadth_days_since_confirmed_thrust,
     breadth_days_since_mixed,
@@ -27,6 +28,7 @@ from openbb_backend.desk import (
     build_breadth_stock_advance_spark,
     build_breadth_tape_summary,
     build_breadth_thrust_summary,
+    confirmed_density_pct,
     crypto_advance_ratio_pct,
     crypto_mover_ratio_pct,
     is_breadth_thrust_day,
@@ -114,6 +116,17 @@ def test_thrust_density_pct():
     assert thrust_density_pct(1, 4) == 25.0
     assert thrust_density_pct(2, 4) == 50.0
     assert thrust_density_pct(4, 4) == 100.0
+
+
+def test_confirmed_and_alone_density_pct():
+    assert confirmed_density_pct(0, 0) is None
+    assert alone_density_pct(1, 0) is None
+    assert confirmed_density_pct(1, 4) == 25.0
+    assert alone_density_pct(2, 4) == 50.0
+    assert confirmed_density_pct(0, 3) == 0.0
+    assert alone_density_pct(0, 3) == 0.0
+    assert confirmed_density_pct(2, 5) == thrust_density_pct(2, 5)
+    assert alone_density_pct(3, 5) == thrust_density_pct(3, 5)
 
 def test_is_dual_advance_day():
     assert is_dual_advance_day(50.0, 50.0) is True
@@ -881,6 +894,8 @@ def test_breadth_thrust_summary_counts_and_latest():
     assert s["alone_n"] == 2
     assert s["confirm_rate_pct"] == 0.0
     assert s["density_pct"] == thrust_density_pct(2, 3)
+    assert s["confirmed_density_pct"] == confirmed_density_pct(0, 3)
+    assert s["alone_density_pct"] == alone_density_pct(2, 3)
     assert s["streak"] == 1
     assert s["alone_streak"] == 1
     assert s["latest"] is True
@@ -890,6 +905,8 @@ def test_breadth_thrust_summary_counts_and_latest():
     assert "thrust alone (not risk-on)" in s["line"]
     assert "confirm 0% (0/2 thrust)" in s["line"]
     assert "density 67% (2/3 days)" in s["line"]
+    assert "confirmed dens 0% (0/3)" in s["line"]
+    assert "alone dens 67% (2/3)" in s["line"]
     assert "0/3 confirmed" in s["line"]
     assert "2/3 alone" in s["line"]
     assert "2/3 thrust days" in s["line"]
@@ -919,6 +936,10 @@ def test_breadth_thrust_summary_mixed_confirm_rate():
     assert s["confirm_rate_pct"] == 50.0
     assert "confirm 50% (1/2 thrust)" in s["line"]
     assert s["confirm_rate_pct"] is not None
+    assert s["confirmed_density_pct"] == confirmed_density_pct(1, 3)
+    assert s["alone_density_pct"] == alone_density_pct(1, 3)
+    assert "confirmed dens 33% (1/3)" in s["line"]
+    assert "alone dens 33% (1/3)" in s["line"]
 
 def test_breadth_thrust_summary_shows_streak_when_multi_day():
     rows = [
@@ -942,6 +963,8 @@ def test_breadth_thrust_summary_empty():
     assert build_breadth_thrust_summary([])["alone_streak"] == 0
     assert build_breadth_thrust_summary([])["confirm_rate_pct"] is None
     assert build_breadth_thrust_summary([])["density_pct"] is None
+    assert build_breadth_thrust_summary([])["confirmed_density_pct"] is None
+    assert build_breadth_thrust_summary([])["alone_density_pct"] is None
 
 
 def test_breadth_glance_confirmed_thrust_from_history():
@@ -1093,6 +1116,9 @@ def test_breadth_glance_thrust_streak_from_history():
     assert "confirm 0% (0/2)" in g["line"]
     assert g["density_pct"] == 100.0
     assert "density 100% (2/2)" in g["line"]
+    assert g["confirmed_density_pct"] == 0.0
+    assert g["alone_density_pct"] == 100.0
+    assert g["alone_n"] == 2
 
 
 def test_breadth_glance_confirm_rate_mixed_history():
@@ -1122,8 +1148,11 @@ def test_breadth_glance_confirm_rate_mixed_history():
     assert g["ready"] is True
     assert g["thrust_n"] == 2
     assert g["confirmed_n"] == 1
+    assert g["alone_n"] == 1
     assert g["confirm_rate_pct"] == 50.0
     assert g["density_pct"] == 100.0
+    assert g["confirmed_density_pct"] == 50.0
+    assert g["alone_density_pct"] == 50.0
     # Prefer structured fields; long glance lines may truncate confirm/density.
 
 
