@@ -7,7 +7,9 @@ from openbb_backend.desk import (
     build_breadth_glance,
     build_breadth_mover_spark,
     build_breadth_near_high_spark,
+    build_breadth_thrust_summary,
     crypto_mover_ratio_pct,
+    is_breadth_thrust_day,
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
 )
@@ -23,6 +25,38 @@ def test_near_high_ratio_pct():
     assert near_high_ratio_pct(2, 8) == 25.0
     assert near_high_ratio_pct(0, 5) == 0.0
     assert near_high_ratio_pct(3, 0) is None
+
+
+def test_is_breadth_thrust_day():
+    assert is_breadth_thrust_day(25.0, 25.0) is True
+    assert is_breadth_thrust_day(40.0, 30.0) is True
+    assert is_breadth_thrust_day(24.9, 50.0) is False
+    assert is_breadth_thrust_day(50.0, 24.9) is False
+    assert is_breadth_thrust_day(None, 50.0) is False
+    assert is_breadth_thrust_day(50.0, None) is False
+
+
+def test_breadth_thrust_summary_counts_and_latest():
+    rows = [
+        {"day": "2026-09-01", "crypto_n": 4, "crypto_big_movers": 1,
+         "stock_breakouts_n": 8, "stock_within_5pct_high": 2},  # 25/25 thrust
+        {"day": "2026-09-02", "crypto_n": 4, "crypto_big_movers": 0,
+         "stock_breakouts_n": 8, "stock_within_5pct_high": 2},  # 0/25 no
+        {"day": "2026-09-03", "crypto_n": 5, "crypto_big_movers": 2,
+         "stock_breakouts_n": 10, "stock_within_5pct_high": 3},  # 40/30 thrust
+    ]
+    s = build_breadth_thrust_summary(rows)
+    assert s["ready"] is True
+    assert s["days"] == 3
+    assert s["thrust_n"] == 2
+    assert s["latest"] is True
+    assert s["tone"] == "up"
+    assert "thrust now" in s["line"]
+    assert "2/3 thrust days" in s["line"]
+
+
+def test_breadth_thrust_summary_empty():
+    assert build_breadth_thrust_summary([])["ready"] is False
 
 
 def test_breadth_glance_empty_when_no_scan():
@@ -49,6 +83,7 @@ def test_breadth_glance_infers_n_from_up_down():
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
     assert g["full_universe"] is False
+    assert g["is_thrust"] is False
 
 
 def test_scan_breadth_pulse_for_day(tmp_path: Path):
@@ -83,6 +118,7 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["near_high_pct"] == 25.0
     assert g["big_movers"] == 1
     assert g["mover_pct"] == 25.0
+    assert g["is_thrust"] is True
     assert g["crypto_n"] == 4
     assert g["stock_n"] == 10
     assert g["tone"] == "down"  # +2 + −3 = −1
@@ -90,6 +126,7 @@ def test_breadth_glance_sums_nets_and_tone():
     assert "stock 2/5 (-3) of 10" in g["line"]
     assert "2 near-high (25%)" in g["line"]
     assert "1 ±4% (25%)" in g["line"]
+    assert "thrust" in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
     assert g["full_universe"] is False
@@ -112,9 +149,11 @@ def test_breadth_glance_up_when_crypto_leads():
     assert g["big_movers"] == 0
     assert g["mover_pct"] == 0.0
     assert g["near_high_pct"] is None
+    assert g["is_thrust"] is False
     assert g["crypto_n"] == 3
     assert "crypto 3/0 (+3) of 3" in g["line"]
     assert "±4%" not in g["line"]
+    assert "thrust" not in g["line"]
     assert "estimate · not full-universe" in g["line"]
 
 

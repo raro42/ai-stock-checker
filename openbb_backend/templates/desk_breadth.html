@@ -367,6 +367,16 @@
       {% endif %}
     </div>
     <div>
+      <span class="k">Thrust</span>
+      {% if pulse.is_thrust %}
+      <span class="v up">yes</span>
+      <span class="weight">±4% and near-high both ≥25% · StockBee-lite · not a gate</span>
+      {% else %}
+      <span class="v">no</span>
+      <span class="weight">needs both ratios ≥25% · scan-list only</span>
+      {% endif %}
+    </div>
+    <div>
       <span class="k">Stock batch A/D</span>
       <span class="v">{{ pulse.stock_scan_up|default(0) }} / {{ pulse.stock_scan_down|default(0) }}</span>
       <span class="weight">of {{ pulse.stock_scan_n|default(0) }} priced this cycle · flat {{ pulse.stock_scan_flat|default(0) }}</span>
@@ -374,9 +384,13 @@
   </section>
   {% if snap.scan_breadth_history %}
   <h3 class="subhead">Recent days</h3>
+  {% set thrust = snap.breadth_thrust_summary if snap.breadth_thrust_summary is mapping else {} %}
   <p class="sub">
     One UTC snapshot per day from our scan lists (not the full market).
     Open a day scan log to see the names behind the counts.
+    {% if thrust.ready %}
+    <span class="weight"> · {{ thrust.line }}</span>
+    {% endif %}
   </p>
   {% set spark = snap.breadth_ad_spark if snap.breadth_ad_spark is mapping else {} %}
   {% set stock_spark = snap.breadth_stock_ad_spark if snap.breadth_stock_ad_spark is mapping else {} %}
@@ -453,13 +467,14 @@
           <th scope="col" title="Mean 24h % change across those crypto leaders">avg</th>
           <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high, and % of breakouts">near-high</th>
+          <th scope="col" title="Both ±4% and near-high ratios ≥25% (StockBee-lite thrust; display only)">thrust</th>
           <th scope="col" title="Stock batch priced this cycle: up / down">stock A/D</th>
           <th scope="col">Log</th>
         </tr>
       </thead>
       <tbody>
         {% for d in snap.scan_breadth_history|reverse %}
-        <tr>
+        <tr{% if d.is_thrust %} class="is-thrust"{% endif %}>
           <th scope="row" class="sym">
             {% if d.has_scan_log and d.scan_log_href %}
             <a href="{{ d.scan_log_href }}" title="Open scan log for {{ d.day }}">{{ d.day }}</a>
@@ -477,6 +492,13 @@
           <td>
             {{ d.stock_within_5pct_high }}{% if d.near_high_pct is not none %}
             <span class="weight">({{ "%.0f"|format(d.near_high_pct) }}%)</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if d.is_thrust %}
+            <span class="v up">yes</span>
+            {% else %}
+            <span class="weight">—</span>
             {% endif %}
           </td>
           <td>

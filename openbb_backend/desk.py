@@ -2455,6 +2455,75 @@ def near_high_ratio_pct(near: int, breakouts_n: int) -> float | None:
     return scan_list_ratio_pct(near, breakouts_n)
 
 
+# StockBee-lite thrust: both ±4% and near-high ratios at/above this % (display only).
+DEFAULT_BREADTH_THRUST_MIN_PCT = 25.0
+
+
+def is_breadth_thrust_day(
+    mover_pct: float | None,
+    near_high_pct: float | None,
+    *,
+    min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+) -> bool:
+    """True when ±4% and near-high ratios both clear min_pct (scan-list; display only)."""
+    if mover_pct is None or near_high_pct is None:
+        return False
+    floor = float(min_pct)
+    return float(mover_pct) >= floor and float(near_high_pct) >= floor
+
+
+def build_breadth_thrust_summary(
+    rows: list[dict[str, Any]],
+    *,
+    min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+) -> dict[str, Any]:
+    """Count recent scan-list thrust days (both ratios ≥ min_pct). Display only."""
+    days = 0
+    thrust_n = 0
+    latest = False
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if "is_thrust" in r:
+            flag = bool(r.get("is_thrust"))
+        else:
+            flag = is_breadth_thrust_day(
+                _resolve_crypto_mover_pct(r),
+                _resolve_near_high_pct(r),
+                min_pct=min_pct,
+            )
+        days += 1
+        if flag:
+            thrust_n += 1
+            latest = True
+        else:
+            latest = False
+    empty = {
+        "ready": False,
+        "days": 0,
+        "thrust_n": 0,
+        "latest": False,
+        "min_pct": float(min_pct),
+        "line": "",
+        "tone": "flat",
+    }
+    if days <= 0:
+        return empty
+    tone = "up" if latest else ("flat" if thrust_n else "down")
+    line = f"{thrust_n}/{days} thrust days (≥{min_pct:.0f}% ±4% + near-high)"
+    if latest:
+        line = f"thrust now · {line}"
+    return {
+        "ready": True,
+        "days": days,
+        "thrust_n": thrust_n,
+        "latest": latest,
+        "min_pct": float(min_pct),
+        "line": line,
+        "tone": tone,
+    }
+
+
 def _annotate_scan_history(
     data_dir: Path, rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -2480,7 +2549,9 @@ def _annotate_scan_history(
         row["crypto_mover_pct"] = pct
         breakouts_n = int(row.get("stock_breakouts_n") or 0)
         near = int(row.get("stock_within_5pct_high") or 0)
-        row["near_high_pct"] = near_high_ratio_pct(near, breakouts_n)
+        near_pct = near_high_ratio_pct(near, breakouts_n)
+        row["near_high_pct"] = near_pct
+        row["is_thrust"] = is_breadth_thrust_day(pct, near_pct)
         out.append(row)
     return out
 
@@ -2517,6 +2588,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "near_high_pct": None,
         "big_movers": 0,
         "mover_pct": None,
+        "is_thrust": False,
         "crypto_n": 0,
         "stock_n": 0,
         "estimate": True,
@@ -2536,6 +2608,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     movers = int(pulse.get("crypto_big_movers") or 0)
     mover_pct = crypto_mover_ratio_pct(movers, crypto_n)
     near_pct = near_high_ratio_pct(near, breakouts_n)
+    thrust = is_breadth_thrust_day(mover_pct, near_pct)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
 
@@ -2563,6 +2636,8 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
             parts.append(f"{movers} ±4% ({mover_pct:.0f}%)")
         else:
             parts.append(f"{movers} ±4% movers")
+    if thrust:
+        parts.append("thrust")
     if not parts:
         return empty
     # Coverage honesty: this is a verified *scan-list* estimate, not the market.
@@ -2574,8 +2649,8 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     else:
         tone = "flat"
     line = " · ".join(parts)
-    if len(line) > 110:
-        line = line[:109] + "…"
+    if len(line) > 128:
+        line = line[:127] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -2586,6 +2661,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "near_high_pct": near_pct,
         "big_movers": movers,
         "mover_pct": mover_pct,
+        "is_thrust": thrust,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "estimate": True,
@@ -3095,6 +3171,8 @@ def load_desk_snapshot(
     stock_near = sum(
         1 for r in stock_raw_all if float(r.get("pct_from_high") or 99) <= 5.0
     )
+    crypto_mover_pct = crypto_mover_ratio_pct(crypto_big, len(crypto_raw_all))
+    near_high_pct = near_high_ratio_pct(stock_near, len(stock_raw_all))
     stock_pulse = opportunities.get("stock_scan_pulse") or {}
     if not isinstance(stock_pulse, dict):
         stock_pulse = {}
@@ -3116,10 +3194,11 @@ def load_desk_snapshot(
         "crypto_flat": max(0, len(crypto_raw_all) - crypto_up - crypto_down),
         "crypto_avg_chg": crypto_avg,
         "crypto_big_movers": crypto_big,
-        "crypto_mover_pct": crypto_mover_ratio_pct(crypto_big, len(crypto_raw_all)),
+        "crypto_mover_pct": crypto_mover_pct,
         "stock_breakouts_n": len(stock_raw_all),
         "stock_within_5pct_high": stock_near,
-        "near_high_pct": near_high_ratio_pct(stock_near, len(stock_raw_all)),
+        "near_high_pct": near_high_pct,
+        "is_thrust": is_breadth_thrust_day(crypto_mover_pct, near_high_pct),
         "stock_scan_n": stock_scan_n,
         "stock_scan_up": stock_scan_up,
         "stock_scan_down": stock_scan_down,
@@ -3310,6 +3389,11 @@ def load_desk_snapshot(
                 )
 
     adopted_ideas = [
+        {
+            "title": "StockBee thrust day (±4% + near-high)",
+            "from": "xang1234/stock-screener (StockBee-lite)",
+            "note": "Breadth flags a thrust day when both ±4% mover ratio and near-high ratio are ≥25%; glance + Recent days; scan-list only.",
+        },
         {
             "title": "Multi-day ±4% mover ratio",
             "from": "xang1234/stock-screener (StockBee-lite)",
@@ -3640,6 +3724,7 @@ def load_desk_snapshot(
         ),
         "breadth_mover_spark": build_breadth_mover_spark(scan_breadth_history),
         "breadth_near_high_spark": build_breadth_near_high_spark(scan_breadth_history),
+        "breadth_thrust_summary": build_breadth_thrust_summary(scan_breadth_history),
         "scan_time": scan_time_raw,
         "scan_freshness": build_scan_freshness(
             scan_time_raw,
