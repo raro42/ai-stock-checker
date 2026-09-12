@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    breadth_tape_label,
     breadth_thrust_streak,
     build_breadth_ad_spark,
     build_breadth_crypto_advance_spark,
@@ -14,6 +15,8 @@ from openbb_backend.desk import (
     crypto_advance_ratio_pct,
     crypto_mover_ratio_pct,
     is_breadth_thrust_day,
+    is_dual_advance_day,
+    is_tape_split_day,
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
     stock_advance_ratio_pct,
@@ -51,6 +54,32 @@ def test_is_breadth_thrust_day():
     assert is_breadth_thrust_day(50.0, 24.9) is False
     assert is_breadth_thrust_day(None, 50.0) is False
     assert is_breadth_thrust_day(50.0, None) is False
+
+
+def test_is_dual_advance_day():
+    assert is_dual_advance_day(50.0, 50.0) is True
+    assert is_dual_advance_day(80.0, 55.0) is True
+    assert is_dual_advance_day(49.9, 50.0) is False
+    assert is_dual_advance_day(50.0, 49.9) is False
+    assert is_dual_advance_day(None, 80.0) is False
+    assert is_dual_advance_day(80.0, None) is False
+
+
+def test_is_tape_split_day():
+    assert is_tape_split_day(70.0, 30.0) is True
+    assert is_tape_split_day(20.0, 65.0) is True
+    assert is_tape_split_day(60.0, 40.0) is True
+    assert is_tape_split_day(59.9, 40.0) is False
+    assert is_tape_split_day(60.0, 40.1) is False
+    assert is_tape_split_day(80.0, 70.0) is False  # dual, not split
+    assert is_tape_split_day(None, 30.0) is False
+
+
+def test_breadth_tape_label():
+    assert breadth_tape_label(55.0, 60.0) == "risk-on"
+    assert breadth_tape_label(70.0, 25.0) == "split"
+    assert breadth_tape_label(45.0, 55.0) == ""
+    assert breadth_tape_label(None, 80.0) == ""
 
 
 def test_breadth_thrust_streak_from_newest():
@@ -125,9 +154,13 @@ def test_breadth_glance_infers_n_from_up_down():
     assert g["stock_net"] == 3
     assert g["stock_advance_pct"] == 80.0
     assert g["crypto_advance_pct"] == round(100.0 * 2 / 3, 1)
+    assert g["is_dual_advance"] is True
+    assert g["is_tape_split"] is False
+    assert g["tape_label"] == "risk-on"
     assert g["tone"] == "up"
     assert "crypto 2/1 (+1) of 3 · adv 67%" in g["line"]
     assert "stock 4/1 (+3) of 5 · adv 80%" in g["line"]
+    assert "risk-on" in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
     assert g["full_universe"] is False
@@ -172,12 +205,16 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["stock_n"] == 10
     assert g["stock_advance_pct"] == 20.0
     assert g["crypto_advance_pct"] == 75.0
+    assert g["is_dual_advance"] is False
+    assert g["is_tape_split"] is True
+    assert g["tape_label"] == "split"
     assert g["tone"] == "down"  # +2 + −3 = −1
     assert "crypto 3/1 (+2) of 4 · adv 75%" in g["line"]
     assert "stock 2/5 (-3) of 10 · adv 20%" in g["line"]
     assert "2 near-high (25%)" in g["line"]
     assert "1 ±4% (25%)" in g["line"]
     assert "thrust" in g["line"]
+    assert "split" in g["line"]
     assert "streak" not in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True

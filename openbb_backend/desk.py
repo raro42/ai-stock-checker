@@ -2467,6 +2467,65 @@ def crypto_advance_ratio_pct(up: int, leaders_n: int) -> float | None:
 
 # StockBee-lite thrust: both ±4% and near-high ratios at/above this % (display only).
 DEFAULT_BREADTH_THRUST_MIN_PCT = 25.0
+# Dual advance: stock + crypto majority participation (risk-on tape; display only).
+DEFAULT_DUAL_ADVANCE_MIN_PCT = 50.0
+# Tape split: one sleeve strong, the other weak (cross-asset divergence; display only).
+DEFAULT_TAPE_SPLIT_STRONG_PCT = 60.0
+DEFAULT_TAPE_SPLIT_WEAK_PCT = 40.0
+
+
+def is_dual_advance_day(
+    stock_adv_pct: float | None,
+    crypto_adv_pct: float | None,
+    *,
+    min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+) -> bool:
+    """True when stock and crypto advance % both clear min_pct (scan-list; display only)."""
+    if stock_adv_pct is None or crypto_adv_pct is None:
+        return False
+    floor = float(min_pct)
+    return float(stock_adv_pct) >= floor and float(crypto_adv_pct) >= floor
+
+
+def is_tape_split_day(
+    stock_adv_pct: float | None,
+    crypto_adv_pct: float | None,
+    *,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+) -> bool:
+    """True when one advance % is strong and the other weak (scan-list; display only).
+
+    Mutually exclusive with dual-advance at the default floors (50/50 vs 60/40).
+    """
+    if stock_adv_pct is None or crypto_adv_pct is None:
+        return False
+    a = float(stock_adv_pct)
+    b = float(crypto_adv_pct)
+    hi = max(a, b)
+    lo = min(a, b)
+    return hi >= float(strong_pct) and lo <= float(weak_pct)
+
+
+def breadth_tape_label(
+    stock_adv_pct: float | None,
+    crypto_adv_pct: float | None,
+    *,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+) -> str:
+    """Short tape tag for pulse/glance: risk-on · split · empty. Display only."""
+    if is_dual_advance_day(stock_adv_pct, crypto_adv_pct, min_pct=dual_min_pct):
+        return "risk-on"
+    if is_tape_split_day(
+        stock_adv_pct,
+        crypto_adv_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+    ):
+        return "split"
+    return ""
 
 
 def is_breadth_thrust_day(
@@ -2612,9 +2671,14 @@ def _annotate_scan_history(
         stock_down = int(row.get("stock_scan_down") or 0)
         stock_n = int(row.get("stock_scan_n") or 0) or (stock_up + stock_down)
         row["stock_scan_n_resolved"] = stock_n
-        row["stock_advance_pct"] = stock_advance_ratio_pct(stock_up, stock_n)
+        stock_adv = stock_advance_ratio_pct(stock_up, stock_n)
         crypto_up = int(row.get("crypto_up") or 0)
-        row["crypto_advance_pct"] = crypto_advance_ratio_pct(crypto_up, crypto_n)
+        crypto_adv = crypto_advance_ratio_pct(crypto_up, crypto_n)
+        row["stock_advance_pct"] = stock_adv
+        row["crypto_advance_pct"] = crypto_adv
+        row["is_dual_advance"] = is_dual_advance_day(stock_adv, crypto_adv)
+        row["is_tape_split"] = is_tape_split_day(stock_adv, crypto_adv)
+        row["tape_label"] = breadth_tape_label(stock_adv, crypto_adv)
         out.append(row)
     return out
 
@@ -2658,6 +2722,9 @@ def build_breadth_glance(
         "mover_pct": None,
         "is_thrust": False,
         "thrust_streak": 0,
+        "is_dual_advance": False,
+        "is_tape_split": False,
+        "tape_label": "",
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -2682,6 +2749,9 @@ def build_breadth_glance(
     advance_pct = stock_advance_ratio_pct(stock_up, stock_n)
     crypto_adv_pct = crypto_advance_ratio_pct(crypto_up, crypto_n)
     thrust = is_breadth_thrust_day(mover_pct, near_pct)
+    dual = is_dual_advance_day(advance_pct, crypto_adv_pct)
+    split = is_tape_split_day(advance_pct, crypto_adv_pct)
+    tape = breadth_tape_label(advance_pct, crypto_adv_pct)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
 
@@ -2730,6 +2800,8 @@ def build_breadth_glance(
         parts.append(f"thrust · streak {streak}")
     elif thrust:
         parts.append("thrust")
+    if tape:
+        parts.append(tape)
     if not parts:
         return empty
     # Coverage honesty: this is a verified *scan-list* estimate, not the market.
@@ -2755,6 +2827,9 @@ def build_breadth_glance(
         "mover_pct": mover_pct,
         "is_thrust": thrust,
         "thrust_streak": streak,
+        "is_dual_advance": dual,
+        "is_tape_split": split,
+        "tape_label": tape,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
@@ -3362,6 +3437,9 @@ def load_desk_snapshot(
         "stock_within_5pct_high": stock_near,
         "near_high_pct": near_high_pct,
         "is_thrust": is_breadth_thrust_day(crypto_mover_pct, near_high_pct),
+        "is_dual_advance": is_dual_advance_day(stock_advance_pct, crypto_advance_pct),
+        "is_tape_split": is_tape_split_day(stock_advance_pct, crypto_advance_pct),
+        "tape_label": breadth_tape_label(stock_advance_pct, crypto_advance_pct),
         "stock_scan_n": stock_scan_n,
         "stock_scan_up": stock_scan_up,
         "stock_scan_down": stock_scan_down,

@@ -387,6 +387,19 @@
       {% endif %}
     </div>
     <div>
+      <span class="k">Tape</span>
+      {% if pulse.tape_label == "risk-on" %}
+      <span class="v up">risk-on</span>
+      <span class="weight">stock + crypto advance both ≥50% · dual advance · not a gate</span>
+      {% elif pulse.tape_label == "split" %}
+      <span class="v down">split</span>
+      <span class="weight">one ≥60% advance · other ≤40% · cross-asset · not a gate</span>
+      {% else %}
+      <span class="v">—</span>
+      <span class="weight">needs both sleeves priced · dual ≥50% or 60/40 split</span>
+      {% endif %}
+    </div>
+    <div>
       <span class="k">Stock batch A/D</span>
       <span class="v">{{ pulse.stock_scan_up|default(0) }} / {{ pulse.stock_scan_down|default(0) }}</span>
       {% if pulse.stock_advance_pct is not none %}
@@ -516,13 +529,14 @@
           <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high, and % of breakouts">near-high</th>
           <th scope="col" title="Both ±4% and near-high ratios ≥25% (StockBee-lite thrust; display only)">thrust</th>
+          <th scope="col" title="Stock + crypto advance: risk-on (≥50%/≥50%) or split (≥60%/≤40%); display only">tape</th>
           <th scope="col" title="Stock batch priced this cycle: up / down and advance %">stock A/D</th>
           <th scope="col">Log</th>
         </tr>
       </thead>
       <tbody>
         {% for d in snap.scan_breadth_history|reverse %}
-        <tr{% if d.is_thrust %} class="is-thrust"{% endif %}>
+        <tr{% if d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% endif %}>
           <th scope="row" class="sym">
             {% if d.has_scan_log and d.scan_log_href %}
             <a href="{{ d.scan_log_href }}" title="Open scan log for {{ d.day }}">{{ d.day }}</a>
@@ -554,6 +568,15 @@
             {% endif %}
           </td>
           <td>
+            {% if d.tape_label == "risk-on" %}
+            <span class="v up">risk-on</span>
+            {% elif d.tape_label == "split" %}
+            <span class="v down">split</span>
+            {% else %}
+            <span class="weight">—</span>
+            {% endif %}
+          </td>
+          <td>
             {% if d.stock_scan_n is defined and d.stock_scan_n %}
             {{ d.stock_scan_up|default(0) }}/{{ d.stock_scan_down|default(0) }}{% if d.stock_advance_pct is not none %}
             <span class="weight">({{ "%.0f"|format(d.stock_advance_pct) }}%)</span>
@@ -578,6 +601,7 @@
       <span class="k">avg</span> mean 24h % ·
       <span class="k">±4%</span> |move| ≥ 4% · share of crypto leaders ·
       <span class="k">near-high</span> stocks ≤5% from 52w high ·
+      <span class="k">tape</span> risk-on (both adv ≥50%) or split (60/40) ·
       <span class="k">stock A/D</span> priced batch up/down · advance % of priced
     </p>
   </div>
