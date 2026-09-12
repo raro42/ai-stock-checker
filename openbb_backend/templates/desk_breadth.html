@@ -351,7 +351,11 @@
     <div>
       <span class="k">±4% movers</span>
       <span class="v">{{ pulse.crypto_big_movers|default(0) }}</span>
+      {% if pulse.crypto_mover_pct is not none %}
+      <span class="weight">{{ "%.0f"|format(pulse.crypto_mover_pct) }}% of {{ pulse.crypto_n|default(0) }} leaders · StockBee-lite</span>
+      {% else %}
       <span class="weight">StockBee-style big moves in leaders</span>
+      {% endif %}
     </div>
     <div>
       <span class="k">Near highs</span>
@@ -372,8 +376,9 @@
   </p>
   {% set spark = snap.breadth_ad_spark if snap.breadth_ad_spark is mapping else {} %}
   {% set stock_spark = snap.breadth_stock_ad_spark if snap.breadth_stock_ad_spark is mapping else {} %}
-  {% if spark.ready or stock_spark.ready %}
-  <div class="breadth-ad-sparks" aria-label="Multi-day A/D sparklines">
+  {% set mover_spark = snap.breadth_mover_spark if snap.breadth_mover_spark is mapping else {} %}
+  {% if spark.ready or stock_spark.ready or mover_spark.ready %}
+  <div class="breadth-ad-sparks" aria-label="Multi-day A/D and ±4% ratio sparklines">
     {% if spark.ready %}
     <figure class="breadth-ad-spark" id="breadth-ad-spark">
       {{ spark.svg|safe }}
@@ -400,6 +405,22 @@
       </figcaption>
     </figure>
     {% endif %}
+    {% if mover_spark.ready %}
+    <figure class="breadth-ad-spark" id="breadth-mover-spark">
+      {{ mover_spark.svg|safe }}
+      <figcaption>
+        ±4% ratio (% of crypto leaders) · {{ mover_spark.n }} days ·
+        latest
+        <span class="v {% if mover_spark.tone == 'up' %}up{% elif mover_spark.tone == 'down' %}down{% endif %}">
+          {{ "%.0f"|format(mover_spark.latest_pct) }}%
+        </span>
+        {% if mover_spark.delta_pct is not none %}
+        <span class="weight">({{ "%+.0f"|format(mover_spark.delta_pct) }} pp)</span>
+        {% endif %}
+        · {{ mover_spark.first_day }} → {{ mover_spark.last_day }}
+      </figcaption>
+    </figure>
+    {% endif %}
   </div>
   {% endif %}
   <div class="breadth-days-wrap">
@@ -409,7 +430,7 @@
           <th scope="col">Day (UTC)</th>
           <th scope="col" title="Crypto leaders up / down on 24h change">A/D</th>
           <th scope="col" title="Mean 24h % change across those crypto leaders">avg</th>
-          <th scope="col" title="How many leaders moved at least 4% (up or down)">±4%</th>
+          <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high">near-high</th>
           <th scope="col" title="Stock batch priced this cycle: up / down">stock A/D</th>
           <th scope="col">Log</th>
@@ -427,7 +448,11 @@
           </th>
           <td>{{ d.crypto_up }}/{{ d.crypto_down }}</td>
           <td>{{ "%+.1f"|format(d.crypto_avg_chg) }}%</td>
-          <td>{{ d.crypto_big_movers }}</td>
+          <td>
+            {{ d.crypto_big_movers }}{% if d.crypto_mover_pct is not none %}
+            <span class="weight">({{ "%.0f"|format(d.crypto_mover_pct) }}%)</span>
+            {% endif %}
+          </td>
           <td>{{ d.stock_within_5pct_high }}</td>
           <td>
             {% if d.stock_scan_n is defined and d.stock_scan_n %}
@@ -450,7 +475,7 @@
     <p class="pulse-key-note" id="pulse-key">
       <span class="k">A/D</span> crypto leaders up/down ·
       <span class="k">avg</span> mean 24h % ·
-      <span class="k">±4%</span> |move| ≥ 4% ·
+      <span class="k">±4%</span> |move| ≥ 4% · share of crypto leaders ·
       <span class="k">near-high</span> stocks ≤5% from 52w high ·
       <span class="k">stock A/D</span> priced batch this cycle
     </p>

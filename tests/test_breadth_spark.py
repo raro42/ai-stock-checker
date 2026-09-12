@@ -5,8 +5,16 @@ from pathlib import Path
 from openbb_backend.desk import (
     build_breadth_ad_spark,
     build_breadth_glance,
+    build_breadth_mover_spark,
+    crypto_mover_ratio_pct,
     scan_breadth_pulse_for_day,
 )
+
+
+def test_crypto_mover_ratio_pct():
+    assert crypto_mover_ratio_pct(1, 4) == 25.0
+    assert crypto_mover_ratio_pct(0, 5) == 0.0
+    assert crypto_mover_ratio_pct(2, 0) is None
 
 
 def test_breadth_glance_empty_when_no_scan():
@@ -65,13 +73,14 @@ def test_breadth_glance_sums_nets_and_tone():
     assert g["stock_net"] == -3
     assert g["near_high"] == 2
     assert g["big_movers"] == 1
+    assert g["mover_pct"] == 25.0
     assert g["crypto_n"] == 4
     assert g["stock_n"] == 10
     assert g["tone"] == "down"  # +2 + −3 = −1
     assert "crypto 3/1 (+2) of 4" in g["line"]
     assert "stock 2/5 (-3) of 10" in g["line"]
     assert "2 near-high" in g["line"]
-    assert "1 ±4% movers" in g["line"]
+    assert "1 ±4% (25%)" in g["line"]
     assert "estimate · not full-universe" in g["line"]
     assert g["estimate"] is True
     assert g["full_universe"] is False
@@ -92,9 +101,10 @@ def test_breadth_glance_up_when_crypto_leads():
     assert g["tone"] == "up"
     assert g["stock_net"] == 0
     assert g["big_movers"] == 0
+    assert g["mover_pct"] == 0.0
     assert g["crypto_n"] == 3
     assert "crypto 3/0 (+3) of 3" in g["line"]
-    assert "±4% movers" not in g["line"]
+    assert "±4%" not in g["line"]
     assert "estimate · not full-universe" in g["line"]
 
 
@@ -182,3 +192,41 @@ def test_stock_batch_ad_spark_needs_two_recorded_days():
     )
     assert spark["ready"] is False
     assert spark["n"] == 1
+
+
+def test_breadth_mover_spark_needs_two_days():
+    one = [{"day": "2026-09-01", "crypto_n": 4, "crypto_big_movers": 1}]
+    assert build_breadth_mover_spark(one)["ready"] is False
+    assert build_breadth_mover_spark([])["ready"] is False
+
+
+def test_breadth_mover_spark_ratio_and_delta():
+    rows = [
+        {"day": "2026-09-01", "crypto_n": 4, "crypto_big_movers": 0},
+        {"day": "2026-09-02", "crypto_n": 4, "crypto_big_movers": 1},
+        {"day": "2026-09-03", "crypto_n": 5, "crypto_big_movers": 2},
+    ]
+    spark = build_breadth_mover_spark(rows)
+    assert spark["ready"] is True
+    assert spark["n"] == 3
+    assert spark["latest_pct"] == 40.0
+    assert spark["delta_pct"] == 15.0  # 40 − 25
+    assert spark["tone"] == "up"
+    assert spark["first_day"] == "2026-09-01"
+    assert spark["last_day"] == "2026-09-03"
+    assert "polyline" in spark["svg"]
+    assert "is-up" in spark["svg"]
+    assert "±4% mover ratio" in spark["aria"]
+
+
+def test_breadth_mover_spark_down_tone():
+    rows = [
+        {"day": "2026-09-01", "crypto_up": 2, "crypto_down": 2, "crypto_big_movers": 2},
+        {"day": "2026-09-02", "crypto_up": 3, "crypto_down": 1, "crypto_big_movers": 0},
+    ]
+    spark = build_breadth_mover_spark(rows)
+    assert spark["ready"] is True
+    assert spark["latest_pct"] == 0.0
+    assert spark["delta_pct"] == -50.0
+    assert spark["tone"] == "down"
+    assert "is-down" in spark["svg"]

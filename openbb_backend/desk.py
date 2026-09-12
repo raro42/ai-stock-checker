@@ -2436,10 +2436,19 @@ def find_day_scan_archive(data_dir: Path, day: str) -> Optional[Path]:
     return files[-1] if files else None
 
 
+def crypto_mover_ratio_pct(movers: int, leaders_n: int) -> float | None:
+    """Share of scan crypto leaders with |24h| ≥ 4% (StockBee-lite; display only)."""
+    n = int(leaders_n or 0)
+    if n <= 0:
+        return None
+    m = max(0, int(movers or 0))
+    return round(100.0 * m / n, 1)
+
+
 def _annotate_scan_history(
     data_dir: Path, rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Attach scan-log link flags for the Breadth Recent days list."""
+    """Attach scan-log link flags + ±4% ratio for the Breadth Recent days list."""
     out: list[dict[str, Any]] = []
     for r in rows:
         row = dict(r)
@@ -2451,6 +2460,14 @@ def _annotate_scan_history(
             row["scan_log_href"] = f"/desk/scan-log/{day}"
         else:
             row["scan_log_href"] = ""
+        crypto_n = int(row.get("crypto_n") or 0)
+        if crypto_n <= 0:
+            # Legacy daily rows often omit crypto_n — infer from A/D counts.
+            crypto_n = int(row.get("crypto_up") or 0) + int(row.get("crypto_down") or 0)
+        movers = int(row.get("crypto_big_movers") or 0)
+        pct = crypto_mover_ratio_pct(movers, crypto_n)
+        row["crypto_n_resolved"] = crypto_n
+        row["crypto_mover_pct"] = pct
         out.append(row)
     return out
 
@@ -2485,6 +2502,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "stock_net": 0,
         "near_high": 0,
         "big_movers": 0,
+        "mover_pct": None,
         "crypto_n": 0,
         "stock_n": 0,
         "estimate": True,
@@ -2502,6 +2520,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     near = int(pulse.get("stock_within_5pct_high") or 0)
     breakouts_n = int(pulse.get("stock_breakouts_n") or 0)
     movers = int(pulse.get("crypto_big_movers") or 0)
+    mover_pct = crypto_mover_ratio_pct(movers, crypto_n)
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
 
@@ -2522,7 +2541,10 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
     if breakouts_n > 0 or near > 0:
         parts.append(f"{near} near-high")
     if movers > 0:
-        parts.append(f"{movers} ±4% movers")
+        if mover_pct is not None and crypto_n > 0:
+            parts.append(f"{movers} ±4% ({mover_pct:.0f}%)")
+        else:
+            parts.append(f"{movers} ±4% movers")
     if not parts:
         return empty
     # Coverage honesty: this is a verified *scan-list* estimate, not the market.
@@ -2544,6 +2566,7 @@ def build_breadth_glance(pulse: dict[str, Any] | None) -> dict[str, Any]:
         "stock_net": stock_net if stock_n > 0 else 0,
         "near_high": near,
         "big_movers": movers,
+        "mover_pct": mover_pct,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "estimate": True,
@@ -2635,6 +2658,106 @@ def build_breadth_ad_spark(
         "first_day": first_day,
         "last_day": last_day,
         "label": label,
+    }
+
+
+def build_breadth_mover_spark(
+    rows: list[dict[str, Any]],
+    *,
+    width: float = 320.0,
+    height: float = 52.0,
+    pad: float = 5.0,
+) -> dict[str, Any]:
+    """Inline SVG: multi-day ±4% mover ratio (% of crypto leaders). Display only."""
+    series: list[tuple[str, float]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        day = str(r.get("day") or "").strip()
+        if not day:
+            continue
+        if "crypto_big_movers" not in r and "crypto_mover_pct" not in r:
+            continue
+        pct = r.get("crypto_mover_pct")
+        if pct is None:
+            crypto_n = int(r.get("crypto_n") or 0) or (
+                int(r.get("crypto_up") or 0) + int(r.get("crypto_down") or 0)
+            )
+            pct = crypto_mover_ratio_pct(
+                int(r.get("crypto_big_movers") or 0), crypto_n
+            )
+        if pct is None:
+            continue
+        series.append((day, float(pct)))
+    empty = {
+        "ready": False,
+        "n": len(series),
+        "svg": "",
+        "aria": "",
+        "latest_pct": 0.0,
+        "delta_pct": None,
+        "first_day": "",
+        "last_day": "",
+        "label": "±4% ratio",
+    }
+    if len(series) < 2:
+        return empty
+
+    vals = [v for _, v in series]
+    y_min = 0.0
+    y_max = max(max(vals), 1.0)
+    if y_max < 10.0:
+        y_max = 10.0
+    span = float(y_max - y_min)
+    inner_w = width - 2 * pad
+    inner_h = height - 2 * pad
+    n = len(series)
+
+    def _xy(i: int, val: float) -> tuple[float, float]:
+        x = pad + (inner_w * i / (n - 1))
+        y = pad + inner_h * (1.0 - ((val - y_min) / span))
+        return x, y
+
+    coords = [_xy(i, val) for i, (_, val) in enumerate(series)]
+    points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+    y0 = pad + inner_h  # 0% baseline at bottom
+    last_pct = vals[-1]
+    prior = vals[-2]
+    delta = round(last_pct - prior, 1)
+    if delta > 0:
+        tone = "up"
+    elif delta < 0:
+        tone = "down"
+    else:
+        tone = "flat"
+    first_day, last_day = series[0][0], series[-1][0]
+    aria = (
+        f"Crypto leaders ±4% mover ratio over {n} UTC days from {first_day} "
+        f"to {last_day}. Latest {last_pct:.0f}% of leaders "
+        f"({delta:+.0f} pp vs prior day). Scan-list only."
+    )
+    lx, ly = coords[-1]
+    svg = (
+        f'<svg class="breadth-ad-spark-svg" viewBox="0 0 {width:.0f} {height:.0f}" '
+        f'width="{width:.0f}" height="{height:.0f}" role="img" aria-label="{aria}">'
+        f'<line class="breadth-spark-zero" x1="{pad:.1f}" y1="{y0:.1f}" '
+        f'x2="{width - pad:.1f}" y2="{y0:.1f}" />'
+        f'<polyline class="breadth-spark-line is-{tone}" fill="none" '
+        f'points="{points}" />'
+        f'<circle class="breadth-spark-dot is-{tone}" cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" />'
+        f"</svg>"
+    )
+    return {
+        "ready": True,
+        "n": n,
+        "svg": svg,
+        "aria": aria,
+        "latest_pct": last_pct,
+        "delta_pct": delta,
+        "first_day": first_day,
+        "last_day": last_day,
+        "label": "±4% ratio",
+        "tone": tone,
     }
 
 
@@ -2919,6 +3042,7 @@ def load_desk_snapshot(
         "crypto_flat": max(0, len(crypto_raw_all) - crypto_up - crypto_down),
         "crypto_avg_chg": crypto_avg,
         "crypto_big_movers": crypto_big,
+        "crypto_mover_pct": crypto_mover_ratio_pct(crypto_big, len(crypto_raw_all)),
         "stock_breakouts_n": len(stock_raw_all),
         "stock_within_5pct_high": stock_near,
         "stock_scan_n": stock_scan_n,
@@ -3111,6 +3235,11 @@ def load_desk_snapshot(
                 )
 
     adopted_ideas = [
+        {
+            "title": "Multi-day ±4% mover ratio",
+            "from": "xang1234/stock-screener (StockBee-lite)",
+            "note": "Breadth spark + Recent days % of crypto leaders with |24h|≥4%; glance shows count and share — scan-list only.",
+        },
         {
             "title": "Live book posture + next trim",
             "from": "staskh / portfolio AI risk strip",
@@ -3434,6 +3563,7 @@ def load_desk_snapshot(
             label="Stock batch",
             aria_unit="priced scan names up minus down",
         ),
+        "breadth_mover_spark": build_breadth_mover_spark(scan_breadth_history),
         "scan_time": scan_time_raw,
         "scan_freshness": build_scan_freshness(
             scan_time_raw,

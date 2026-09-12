@@ -1640,11 +1640,21 @@ a:active {
   fill: var(--down);
 }
 
+.breadth-spark-line.is-flat,
+.breadth-spark-dot.is-flat {
+  stroke: var(--accent);
+  fill: var(--accent);
+}
+
 .breadth-spark-line.is-up {
   fill: none;
 }
 
 .breadth-spark-line.is-down {
+  fill: none;
+}
+
+.breadth-spark-line.is-flat {
   fill: none;
 }
 
