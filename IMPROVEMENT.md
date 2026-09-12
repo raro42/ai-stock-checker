@@ -277,9 +277,10 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 StockBee confirmed thrust (2026-09-12 improve): thrust + risk-on vs thrust alone on Breadth + glance + thrust summary (`is_confirmed_thrust_day` / streak / days-since) — movers+near-high need dual advance; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee unconfirmed thrust (2026-09-12 improve): alone streak + days-since + alone count on Breadth + glance (`is_unconfirmed_thrust_day` / `breadth_unconfirmed_thrust_streak`) — false-thrust warning when movers+near-high lack risk-on; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee thrust confirm rate (2026-09-12 improve): share of thrust days that were risk-on confirmed on Breadth + glance (`thrust_confirm_rate_pct` / `confirm_rate_pct`) — quality of heat vs alone; scan-list only; display only; not a new gate
+- [x] xang1234 StockBee thrust density (2026-09-12 improve): share of history days that were thrust on Breadth + glance (`thrust_density_pct` / `density_pct`) — heat frequency vs confirm quality; scan-list only; display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split/mixed + mixed streak + confirmed thrust + unconfirmed/alone thrust + confirm rate shipped above
+- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split/mixed + mixed streak + confirmed thrust + unconfirmed/alone thrust + confirm rate + density shipped above
 - [ ] Optional later: FinRobot deeper multi-agent research UX (watch 2026-09-12 README-only; defer until promote unlock / research screen)
 
 ### Phase D — Share

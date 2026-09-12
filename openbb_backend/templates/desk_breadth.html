@@ -383,6 +383,9 @@
         {% if thrust_sum.ready and thrust_sum.confirm_rate_pct is not none %}
         · confirm {{ "%.0f"|format(thrust_sum.confirm_rate_pct) }}% of thrust ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.thrust_n }})
         {% endif %}
+        {% if thrust_sum.ready and thrust_sum.density_pct is not none %}
+        · density {{ "%.0f"|format(thrust_sum.density_pct) }}% ({{ thrust_sum.thrust_n }}/{{ thrust_sum.days }} days)
+        {% endif %}
       </span>
       {% elif pulse.is_thrust %}
       <span class="v">alone</span>
@@ -395,6 +398,9 @@
         {% endif %}
         {% if thrust_sum.ready and thrust_sum.confirm_rate_pct is not none %}
         · confirm {{ "%.0f"|format(thrust_sum.confirm_rate_pct) }}% of thrust ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.thrust_n }})
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.density_pct is not none %}
+        · density {{ "%.0f"|format(thrust_sum.density_pct) }}% ({{ thrust_sum.thrust_n }}/{{ thrust_sum.days }} days)
         {% endif %}
       </span>
       {% else %}
@@ -410,6 +416,9 @@
         {% endif %}
         {% if thrust_sum.ready and thrust_sum.confirm_rate_pct is not none %}
         · confirm {{ "%.0f"|format(thrust_sum.confirm_rate_pct) }}% of thrust ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.thrust_n }})
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.density_pct is not none %}
+        · density {{ "%.0f"|format(thrust_sum.density_pct) }}% ({{ thrust_sum.thrust_n }}/{{ thrust_sum.days }} days)
         {% endif %}
       </span>
       {% endif %}

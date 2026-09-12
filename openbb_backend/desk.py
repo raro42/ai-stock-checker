@@ -2671,6 +2671,19 @@ def thrust_confirm_rate_pct(
     return 100.0 * float(c) / float(t)
 
 
+def thrust_density_pct(thrust_n: int, days: int) -> float | None:
+    """Share of history days that were thrust days. Display only.
+
+    StockBee heat frequency: confirm rate is quality of heat; density is how
+    often the scan-list tape heats (±4% + near-high). None when no days yet.
+    """
+    d = int(days or 0)
+    if d <= 0:
+        return None
+    t = max(0, int(thrust_n or 0))
+    return 100.0 * float(t) / float(d)
+
+
 def _breadth_ending_streak(
     rows: list[dict[str, Any]],
     predicate: Callable[[dict[str, Any]], bool],
@@ -3174,6 +3187,7 @@ def build_breadth_thrust_summary(
         "confirmed_n": 0,
         "alone_n": 0,
         "confirm_rate_pct": None,
+        "density_pct": None,
         "streak": 0,
         "confirmed_streak": 0,
         "alone_streak": 0,
@@ -3204,6 +3218,7 @@ def build_breadth_thrust_summary(
         rows, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
     )
     confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
+    density = thrust_density_pct(thrust_n, days)
     if latest_confirmed:
         tone = "up"
     elif latest_alone or latest or thrust_n:
@@ -3236,6 +3251,8 @@ def build_breadth_thrust_summary(
         bits.append(
             f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n} thrust)"
         )
+    if density is not None:
+        bits.append(f"density {density:.0f}% ({thrust_n}/{days} days)")
     bits.append(
         f"{confirmed_n}/{days} confirmed · {alone_n}/{days} alone · "
         f"{thrust_n}/{days} thrust days "
@@ -3248,6 +3265,7 @@ def build_breadth_thrust_summary(
         "confirmed_n": confirmed_n,
         "alone_n": alone_n,
         "confirm_rate_pct": confirm_rate,
+        "density_pct": density,
         "streak": streak,
         "confirmed_streak": confirmed_streak,
         "alone_streak": alone_streak,
@@ -3571,6 +3589,7 @@ def build_breadth_glance(
         "thrust_n": 0,
         "confirmed_n": 0,
         "confirm_rate_pct": None,
+        "density_pct": None,
         "days_since_thrust": None,
         "days_since_confirmed_thrust": None,
         "days_since_unconfirmed_thrust": None,
@@ -3680,11 +3699,21 @@ def build_breadth_glance(
     thrust_n = int(rate_sum.get("thrust_n") or 0) if rate_sum else 0
     confirmed_n = int(rate_sum.get("confirmed_n") or 0) if rate_sum else 0
     confirm_rate = rate_sum.get("confirm_rate_pct") if rate_sum else None
+    density = rate_sum.get("density_pct") if rate_sum else None
     if confirm_rate is not None:
         try:
             confirm_rate = float(confirm_rate)
         except (TypeError, ValueError):
             confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
+    if density is not None:
+        try:
+            density = float(density)
+        except (TypeError, ValueError):
+            hist_days = int(rate_sum.get("days") or 0) if rate_sum else 0
+            density = thrust_density_pct(thrust_n, hist_days)
+    elif rate_sum:
+        hist_days = int(rate_sum.get("days") or 0)
+        density = thrust_density_pct(thrust_n, hist_days)
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
     )
@@ -3785,9 +3814,13 @@ def build_breadth_glance(
         parts.append(f"{days_since_mixed}d since mixed")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
-    # StockBee confirm rate last (before coverage) so days-since bits stay visible.
+    # StockBee confirm rate + density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
+    if density is not None and hist_for_rate:
+        dens_days = int(rate_sum.get("days") or 0) if rate_sum else 0
+        if dens_days > 0:
+            parts.append(f"density {density:.0f}% ({thrust_n}/{dens_days})")
     if not parts:
         return empty
     # Coverage honesty: verified *scan-list* estimate, never full-universe.
@@ -3829,6 +3862,7 @@ def build_breadth_glance(
         "thrust_n": thrust_n,
         "confirmed_n": confirmed_n,
         "confirm_rate_pct": confirm_rate,
+        "density_pct": density,
         "days_since_thrust": days_since_thrust,
         "days_since_confirmed_thrust": days_since_confirmed,
         "days_since_unconfirmed_thrust": days_since_alone,
