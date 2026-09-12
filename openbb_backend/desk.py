@@ -2635,6 +2635,27 @@ def is_confirmed_thrust_day(
     )
 
 
+def is_unconfirmed_thrust_day(
+    mover_pct: float | None,
+    near_high_pct: float | None,
+    stock_adv_pct: float | None,
+    crypto_adv_pct: float | None,
+    *,
+    thrust_min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+) -> bool:
+    """True when thrust fires without risk-on (thrust alone). Display only.
+
+    StockBee-lite: repeated alone days are a false-thrust warning — movers
+    + near-highs without dual-advance confirmation on both sleeves.
+    """
+    return is_breadth_thrust_day(
+        mover_pct, near_high_pct, min_pct=thrust_min_pct
+    ) and not is_dual_advance_day(
+        stock_adv_pct, crypto_adv_pct, min_pct=dual_min_pct
+    )
+
+
 def _breadth_ending_streak(
     rows: list[dict[str, Any]],
     predicate: Callable[[dict[str, Any]], bool],
@@ -2715,6 +2736,27 @@ def breadth_days_since_confirmed_thrust(
     return _breadth_days_since(
         rows,
         lambda r: _row_is_confirmed_thrust(
+            r, thrust_min_pct=thrust_min_pct, dual_min_pct=dual_min_pct
+        ),
+        through_day=through_day,
+    )
+
+
+def breadth_days_since_unconfirmed_thrust(
+    rows: list[dict[str, Any]],
+    *,
+    thrust_min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    through_day: str | None = None,
+) -> int | None:
+    """Days since last thrust-alone day (0 = now). Display only; scan-list.
+
+    StockBee-lite: after the tape recovers, friends need false-thrust
+    staleness — how long since movers+near-high printed without risk-on.
+    """
+    return _breadth_days_since(
+        rows,
+        lambda r: _row_is_unconfirmed_thrust(
             r, thrust_min_pct=thrust_min_pct, dual_min_pct=dual_min_pct
         ),
         through_day=through_day,
@@ -2829,6 +2871,20 @@ def _row_is_confirmed_thrust(
         return bool(row.get("is_confirmed_thrust"))
     return _row_is_thrust(row, min_pct=thrust_min_pct) and _row_is_dual_advance(
         row, min_pct=dual_min_pct
+    )
+
+
+def _row_is_unconfirmed_thrust(
+    row: dict[str, Any],
+    *,
+    thrust_min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+) -> bool:
+    """Resolve thrust-alone (thrust without risk-on) from pulse row."""
+    if "is_unconfirmed_thrust" in row:
+        return bool(row.get("is_unconfirmed_thrust"))
+    return _row_is_thrust(row, min_pct=thrust_min_pct) and not _row_is_confirmed_thrust(
+        row, thrust_min_pct=thrust_min_pct, dual_min_pct=dual_min_pct
     )
 
 
@@ -2965,6 +3021,27 @@ def breadth_confirmed_thrust_streak(
     )
 
 
+def breadth_unconfirmed_thrust_streak(
+    rows: list[dict[str, Any]],
+    *,
+    thrust_min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    through_day: str | None = None,
+) -> int:
+    """Consecutive thrust-alone days ending at newest. Display only.
+
+    StockBee-lite: ending alone streak warns when raw thrust keeps printing
+    without dual-advance confirmation (not the same as any-thrust streak).
+    """
+    return _breadth_ending_streak(
+        rows,
+        lambda r: _row_is_unconfirmed_thrust(
+            r, thrust_min_pct=thrust_min_pct, dual_min_pct=dual_min_pct
+        ),
+        through_day=through_day,
+    )
+
+
 def breadth_dual_advance_streak(
     rows: list[dict[str, Any]],
     *,
@@ -3039,18 +3116,24 @@ def build_breadth_thrust_summary(
 ) -> dict[str, Any]:
     """Count recent scan-list thrust days + ending streak. Display only.
 
-    Separates raw thrust from StockBee **confirmed** thrust (thrust + risk-on).
+    Separates raw thrust from StockBee **confirmed** thrust (thrust + risk-on)
+    and **alone** thrust (thrust without risk-on — false-thrust warning).
     """
     days = 0
     thrust_n = 0
     confirmed_n = 0
+    alone_n = 0
     latest = False
     latest_confirmed = False
+    latest_alone = False
     for r in rows:
         if not isinstance(r, dict):
             continue
         flag = _row_is_thrust(r, min_pct=min_pct)
         confirmed = _row_is_confirmed_thrust(
+            r, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
+        )
+        alone = _row_is_unconfirmed_thrust(
             r, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
         )
         days += 1
@@ -3064,17 +3147,26 @@ def build_breadth_thrust_summary(
             latest_confirmed = True
         else:
             latest_confirmed = False
+        if alone:
+            alone_n += 1
+            latest_alone = True
+        else:
+            latest_alone = False
     empty = {
         "ready": False,
         "days": 0,
         "thrust_n": 0,
         "confirmed_n": 0,
+        "alone_n": 0,
         "streak": 0,
         "confirmed_streak": 0,
+        "alone_streak": 0,
         "days_since": None,
         "days_since_confirmed": None,
+        "days_since_alone": None,
         "latest": False,
         "latest_confirmed": False,
+        "latest_alone": False,
         "min_pct": float(min_pct),
         "line": "",
         "tone": "flat",
@@ -3085,13 +3177,19 @@ def build_breadth_thrust_summary(
     confirmed_streak = breadth_confirmed_thrust_streak(
         rows, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
     )
+    alone_streak = breadth_unconfirmed_thrust_streak(
+        rows, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
+    )
     days_since = breadth_days_since_thrust(rows, min_pct=min_pct)
     days_since_confirmed = breadth_days_since_confirmed_thrust(
         rows, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
     )
+    days_since_alone = breadth_days_since_unconfirmed_thrust(
+        rows, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
+    )
     if latest_confirmed:
         tone = "up"
-    elif latest or thrust_n:
+    elif latest_alone or latest or thrust_n:
         tone = "flat"
     else:
         tone = "down"
@@ -3100,19 +3198,26 @@ def build_breadth_thrust_summary(
         bits.append("confirmed thrust now")
         if confirmed_streak >= 2:
             bits.append(f"confirmed streak {confirmed_streak}")
-    elif latest:
+    elif latest_alone or latest:
         bits.append("thrust alone (not risk-on)")
-        if streak >= 2:
+        if alone_streak >= 2:
+            bits.append(f"alone streak {alone_streak}")
+        elif streak >= 2:
             bits.append(f"streak {streak}")
     else:
         if days_since_confirmed is not None and days_since_confirmed > 0:
             bits.append(f"{days_since_confirmed}d since confirmed")
+        elif days_since_alone is not None and days_since_alone > 0:
+            bits.append(f"{days_since_alone}d since alone")
         elif days_since is not None and days_since > 0:
             bits.append(f"{days_since}d since thrust")
-        if streak >= 2:
+        if alone_streak >= 2:
+            bits.append(f"alone streak {alone_streak}")
+        elif streak >= 2:
             bits.append(f"streak {streak}")
     bits.append(
-        f"{confirmed_n}/{days} confirmed · {thrust_n}/{days} thrust days "
+        f"{confirmed_n}/{days} confirmed · {alone_n}/{days} alone · "
+        f"{thrust_n}/{days} thrust days "
         f"(≥{min_pct:.0f}% ±4% + near-high)"
     )
     return {
@@ -3120,12 +3225,16 @@ def build_breadth_thrust_summary(
         "days": days,
         "thrust_n": thrust_n,
         "confirmed_n": confirmed_n,
+        "alone_n": alone_n,
         "streak": streak,
         "confirmed_streak": confirmed_streak,
+        "alone_streak": alone_streak,
         "days_since": days_since,
         "days_since_confirmed": days_since_confirmed,
+        "days_since_alone": days_since_alone,
         "latest": latest,
         "latest_confirmed": latest_confirmed,
+        "latest_alone": latest_alone,
         "min_pct": float(min_pct),
         "line": " · ".join(bits),
         "tone": tone,
@@ -3379,6 +3488,9 @@ def _annotate_scan_history(
         row["tape_label"] = breadth_tape_label(stock_adv, crypto_adv)
         row["is_mixed"] = row["tape_label"] == "mixed"
         row["is_confirmed_thrust"] = bool(row["is_thrust"] and row["is_dual_advance"])
+        row["is_unconfirmed_thrust"] = bool(
+            row["is_thrust"] and not row["is_dual_advance"]
+        )
         out.append(row)
     # Second pass: prior-day tape + flip (needs chronological neighbors).
     for i, row in enumerate(out):
@@ -3430,10 +3542,13 @@ def build_breadth_glance(
         "mover_pct": None,
         "is_thrust": False,
         "is_confirmed_thrust": False,
+        "is_unconfirmed_thrust": False,
         "thrust_streak": 0,
         "confirmed_thrust_streak": 0,
+        "unconfirmed_thrust_streak": 0,
         "days_since_thrust": None,
         "days_since_confirmed_thrust": None,
+        "days_since_unconfirmed_thrust": None,
         "is_dual_advance": False,
         "is_tape_split": False,
         "is_risk_off": False,
@@ -3477,6 +3592,9 @@ def build_breadth_glance(
     confirmed = is_confirmed_thrust_day(
         mover_pct, near_pct, advance_pct, crypto_adv_pct
     )
+    alone = is_unconfirmed_thrust_day(
+        mover_pct, near_pct, advance_pct, crypto_adv_pct
+    )
     split = is_tape_split_day(advance_pct, crypto_adv_pct)
     risk_off = is_risk_off_day(advance_pct, crypto_adv_pct)
     tape = breadth_tape_label(advance_pct, crypto_adv_pct)
@@ -3492,6 +3610,9 @@ def build_breadth_glance(
     streak = breadth_thrust_streak(hist, through_day=day_cut) if hist else 0
     confirmed_streak = (
         breadth_confirmed_thrust_streak(hist, through_day=day_cut) if hist else 0
+    )
+    alone_streak = (
+        breadth_unconfirmed_thrust_streak(hist, through_day=day_cut) if hist else 0
     )
     dual_streak = (
         breadth_dual_advance_streak(hist, through_day=day_cut) if hist else 0
@@ -3510,6 +3631,11 @@ def build_breadth_glance(
     )
     days_since_confirmed = (
         breadth_days_since_confirmed_thrust(hist, through_day=day_cut)
+        if hist
+        else None
+    )
+    days_since_alone = (
+        breadth_days_since_unconfirmed_thrust(hist, through_day=day_cut)
         if hist
         else None
     )
@@ -3567,12 +3693,14 @@ def build_breadth_glance(
         parts.append(f"confirmed thrust · streak {confirmed_streak}")
     elif confirmed:
         parts.append("confirmed thrust")
-    elif thrust and streak >= 2:
-        parts.append(f"thrust · streak {streak}")
-    elif thrust:
-        parts.append("thrust")
+    elif alone and alone_streak >= 2:
+        parts.append(f"thrust alone · streak {alone_streak}")
+    elif alone or thrust:
+        parts.append("thrust alone")
     elif days_since_confirmed is not None and days_since_confirmed > 0:
         parts.append(f"{days_since_confirmed}d since confirmed")
+    elif days_since_alone is not None and days_since_alone > 0:
+        parts.append(f"{days_since_alone}d since alone")
     elif days_since_thrust is not None and days_since_thrust > 0:
         parts.append(f"{days_since_thrust}d since thrust")
     if dual and dual_streak >= 2:
@@ -3645,10 +3773,13 @@ def build_breadth_glance(
         "mover_pct": mover_pct,
         "is_thrust": thrust,
         "is_confirmed_thrust": confirmed,
+        "is_unconfirmed_thrust": alone,
         "thrust_streak": streak,
         "confirmed_thrust_streak": confirmed_streak,
+        "unconfirmed_thrust_streak": alone_streak,
         "days_since_thrust": days_since_thrust,
         "days_since_confirmed_thrust": days_since_confirmed,
+        "days_since_unconfirmed_thrust": days_since_alone,
         "is_dual_advance": dual,
         "is_tape_split": split,
         "is_risk_off": risk_off,
@@ -4278,6 +4409,12 @@ def load_desk_snapshot(
         "tape_label": tape_label,
         "is_mixed": tape_label == "mixed",
         "is_confirmed_thrust": is_confirmed_thrust_day(
+            crypto_mover_pct,
+            near_high_pct,
+            stock_advance_pct,
+            crypto_advance_pct,
+        ),
+        "is_unconfirmed_thrust": is_unconfirmed_thrust_day(
             crypto_mover_pct,
             near_high_pct,
             stock_advance_pct,

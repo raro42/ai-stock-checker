@@ -385,7 +385,9 @@
       <span class="v">alone</span>
       <span class="weight">
         ±4% and near-high both ≥25% · not risk-on · StockBee-lite · not a gate
-        {% if thrust_sum.ready and thrust_sum.streak and thrust_sum.streak >= 2 %}
+        {% if thrust_sum.ready and thrust_sum.alone_streak and thrust_sum.alone_streak >= 2 %}
+        · alone streak {{ thrust_sum.alone_streak }}
+        {% elif thrust_sum.ready and thrust_sum.streak and thrust_sum.streak >= 2 %}
         · streak {{ thrust_sum.streak }}
         {% endif %}
       </span>
@@ -395,6 +397,8 @@
         needs both ratios ≥25% · scan-list only
         {% if thrust_sum.ready and thrust_sum.days_since_confirmed and thrust_sum.days_since_confirmed > 0 %}
         · {{ thrust_sum.days_since_confirmed }}d since confirmed
+        {% elif thrust_sum.ready and thrust_sum.days_since_alone and thrust_sum.days_since_alone > 0 %}
+        · {{ thrust_sum.days_since_alone }}d since alone
         {% elif thrust_sum.ready and thrust_sum.days_since and thrust_sum.days_since > 0 %}
         · {{ thrust_sum.days_since }}d since thrust
         {% endif %}
@@ -695,6 +699,7 @@
       <span class="k">avg</span> mean 24h % ·
       <span class="k">±4%</span> |move| ≥ 4% · share of crypto leaders ·
       <span class="k">near-high</span> stocks ≤5% from 52w high ·
+      <span class="k">thrust</span> confirmed = risk-on · alone = without dual advance ·
       <span class="k">tape</span> risk-on (both adv ≥50%) · split (60/40) · risk-off (both ≤40%) ·
       <span class="k">stock A/D</span> priced batch up/down · advance % of priced
     </p>
