@@ -3958,6 +3958,23 @@ def build_breadth_glance(
         parts.append(f"conf dens {conf_density:.0f}% ({confirmed_n}/{hist_days})")
     if alone_density is not None and hist_days > 0:
         parts.append(f"alone dens {alone_density:.0f}% ({alone_n}/{hist_days})")
+    if dens_days > 0:
+        if risk_on_density is not None:
+            parts.append(
+                f"risk-on dens {risk_on_density:.0f}% ({dual_n}/{dens_days})"
+            )
+        if split_density is not None:
+            parts.append(
+                f"split dens {split_density:.0f}% ({split_n}/{dens_days})"
+            )
+        if risk_off_density is not None:
+            parts.append(
+                f"risk-off dens {risk_off_density:.0f}% ({risk_off_n}/{dens_days})"
+            )
+        if mixed_density is not None:
+            parts.append(
+                f"mixed dens {mixed_density:.0f}% ({mixed_n}/{dens_days})"
+            )
     if not parts:
         return empty
     # Coverage honesty: verified *scan-list* estimate, never full-universe.
@@ -3966,7 +3983,7 @@ def build_breadth_glance(
     core = " · ".join(parts)
     line = f"{core} · {coverage}"
     # StockBee days-since / tape bits grow the line; keep coverage when trimming.
-    max_len = 210
+    max_len = 280
     if len(line) > max_len:
         keep = f"… · {coverage}"
         budget = max_len - len(keep)
