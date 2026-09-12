@@ -39,6 +39,7 @@ from openbb_backend.desk import (
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
     stock_advance_ratio_pct,
+    thrust_confirm_rate_pct,
 )
 
 
@@ -96,6 +97,13 @@ def test_is_unconfirmed_thrust_day():
     assert is_unconfirmed_thrust_day(10.0, 10.0, 30.0, 30.0) is False
     assert is_unconfirmed_thrust_day(None, 25.0, 40.0, 40.0) is False
 
+
+def test_thrust_confirm_rate_pct():
+    assert thrust_confirm_rate_pct(0, 0) is None
+    assert thrust_confirm_rate_pct(1, 0) is None
+    assert thrust_confirm_rate_pct(0, 2) == 0.0
+    assert thrust_confirm_rate_pct(1, 2) == 50.0
+    assert thrust_confirm_rate_pct(2, 2) == 100.0
 
 def test_is_dual_advance_day():
     assert is_dual_advance_day(50.0, 50.0) is True
@@ -398,6 +406,8 @@ def test_breadth_thrust_summary_days_since():
     assert s["alone_n"] == 1
     assert s["days_since_alone"] == 2
     assert s["confirmed_n"] == 0
+    assert s["confirm_rate_pct"] == 0.0
+    assert "confirm 0% (0/1 thrust)" in s["line"]
     assert "2d since alone" in s["line"]
     assert "0/3 confirmed" in s["line"]
     assert "1/3 alone" in s["line"]
@@ -462,9 +472,11 @@ def test_breadth_thrust_summary_confirmed_vs_alone():
     assert c["latest_alone"] is False
     assert c["confirmed_n"] == 2
     assert c["alone_n"] == 0
+    assert c["confirm_rate_pct"] == 100.0
     assert c["confirmed_streak"] == 2
     assert "confirmed thrust now" in c["line"]
     assert "confirmed streak 2" in c["line"]
+    assert "confirm 100% (2/2 thrust)" in c["line"]
     assert c["tone"] == "up"
 
 
@@ -857,6 +869,7 @@ def test_breadth_thrust_summary_counts_and_latest():
     assert s["thrust_n"] == 2
     assert s["confirmed_n"] == 0
     assert s["alone_n"] == 2
+    assert s["confirm_rate_pct"] == 0.0
     assert s["streak"] == 1
     assert s["alone_streak"] == 1
     assert s["latest"] is True
@@ -864,11 +877,36 @@ def test_breadth_thrust_summary_counts_and_latest():
     assert s["latest_confirmed"] is False
     assert s["tone"] == "flat"
     assert "thrust alone (not risk-on)" in s["line"]
+    assert "confirm 0% (0/2 thrust)" in s["line"]
     assert "0/3 confirmed" in s["line"]
     assert "2/3 alone" in s["line"]
     assert "2/3 thrust days" in s["line"]
     assert "streak" not in s["line"]  # streak 1 stays quiet
 
+
+def test_breadth_thrust_summary_mixed_confirm_rate():
+    rows = [
+        {
+            "day": "2026-09-01",
+            "is_thrust": True,
+            "is_confirmed_thrust": True,
+            "is_unconfirmed_thrust": False,
+        },
+        {
+            "day": "2026-09-02",
+            "is_thrust": True,
+            "is_confirmed_thrust": False,
+            "is_unconfirmed_thrust": True,
+        },
+        {"day": "2026-09-03", "is_thrust": False},
+    ]
+    s = build_breadth_thrust_summary(rows)
+    assert s["thrust_n"] == 2
+    assert s["confirmed_n"] == 1
+    assert s["alone_n"] == 1
+    assert s["confirm_rate_pct"] == 50.0
+    assert "confirm 50% (1/2 thrust)" in s["line"]
+    assert s["confirm_rate_pct"] is not None
 
 def test_breadth_thrust_summary_shows_streak_when_multi_day():
     rows = [
@@ -890,6 +928,7 @@ def test_breadth_thrust_summary_empty():
     assert build_breadth_thrust_summary([])["confirmed_n"] == 0
     assert build_breadth_thrust_summary([])["alone_n"] == 0
     assert build_breadth_thrust_summary([])["alone_streak"] == 0
+    assert build_breadth_thrust_summary([])["confirm_rate_pct"] is None
 
 
 def test_breadth_glance_confirmed_thrust_from_history():
@@ -1034,7 +1073,42 @@ def test_breadth_glance_thrust_streak_from_history():
     assert g["is_unconfirmed_thrust"] is True
     assert g["thrust_streak"] == 2
     assert g["unconfirmed_thrust_streak"] == 2
+    assert g["thrust_n"] == 2
+    assert g["confirmed_n"] == 0
+    assert g["confirm_rate_pct"] == 0.0
     assert "thrust alone · streak 2" in g["line"]
+    assert "confirm 0% (0/2)" in g["line"]
+
+
+def test_breadth_glance_confirm_rate_mixed_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_thrust": True,
+            "is_confirmed_thrust": True,
+            "is_dual_advance": True,
+        },
+        {
+            "day": "2026-09-02",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "crypto_big_movers": 1,
+            "stock_breakouts_n": 8,
+            "stock_within_5pct_high": 2,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+            "is_thrust": True,
+            "is_confirmed_thrust": False,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["thrust_n"] == 2
+    assert g["confirmed_n"] == 1
+    assert g["confirm_rate_pct"] == 50.0
+    # Prefer structured fields; long glance lines may truncate confirm.
 
 
 def test_breadth_glance_risk_on_streak_from_history():

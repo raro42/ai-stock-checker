@@ -2656,6 +2656,21 @@ def is_unconfirmed_thrust_day(
     )
 
 
+def thrust_confirm_rate_pct(
+    confirmed_n: int, thrust_n: int
+) -> float | None:
+    """Share of thrust days that were risk-on confirmed. Display only.
+
+    StockBee quality: alone thrust can look hot; confirm rate shows how often
+    movers+near-high also had dual-advance. None when no thrust days yet.
+    """
+    t = int(thrust_n or 0)
+    if t <= 0:
+        return None
+    c = max(0, int(confirmed_n or 0))
+    return 100.0 * float(c) / float(t)
+
+
 def _breadth_ending_streak(
     rows: list[dict[str, Any]],
     predicate: Callable[[dict[str, Any]], bool],
@@ -3158,6 +3173,7 @@ def build_breadth_thrust_summary(
         "thrust_n": 0,
         "confirmed_n": 0,
         "alone_n": 0,
+        "confirm_rate_pct": None,
         "streak": 0,
         "confirmed_streak": 0,
         "alone_streak": 0,
@@ -3187,6 +3203,7 @@ def build_breadth_thrust_summary(
     days_since_alone = breadth_days_since_unconfirmed_thrust(
         rows, thrust_min_pct=min_pct, dual_min_pct=dual_min_pct
     )
+    confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
     if latest_confirmed:
         tone = "up"
     elif latest_alone or latest or thrust_n:
@@ -3215,6 +3232,10 @@ def build_breadth_thrust_summary(
             bits.append(f"alone streak {alone_streak}")
         elif streak >= 2:
             bits.append(f"streak {streak}")
+    if confirm_rate is not None:
+        bits.append(
+            f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n} thrust)"
+        )
     bits.append(
         f"{confirmed_n}/{days} confirmed · {alone_n}/{days} alone · "
         f"{thrust_n}/{days} thrust days "
@@ -3226,6 +3247,7 @@ def build_breadth_thrust_summary(
         "thrust_n": thrust_n,
         "confirmed_n": confirmed_n,
         "alone_n": alone_n,
+        "confirm_rate_pct": confirm_rate,
         "streak": streak,
         "confirmed_streak": confirmed_streak,
         "alone_streak": alone_streak,
@@ -3546,6 +3568,9 @@ def build_breadth_glance(
         "thrust_streak": 0,
         "confirmed_thrust_streak": 0,
         "unconfirmed_thrust_streak": 0,
+        "thrust_n": 0,
+        "confirmed_n": 0,
+        "confirm_rate_pct": None,
         "days_since_thrust": None,
         "days_since_confirmed_thrust": None,
         "days_since_unconfirmed_thrust": None,
@@ -3639,6 +3664,27 @@ def build_breadth_glance(
         if hist
         else None
     )
+    hist_for_rate = hist
+    if hist and day_cut:
+        cut: list[dict[str, Any]] = []
+        for r in hist:
+            cut.append(r)
+            if str(r.get("day") or "") == day_cut:
+                break
+        else:
+            cut = hist
+        hist_for_rate = cut
+    rate_sum = (
+        build_breadth_thrust_summary(hist_for_rate) if hist_for_rate else {}
+    )
+    thrust_n = int(rate_sum.get("thrust_n") or 0) if rate_sum else 0
+    confirmed_n = int(rate_sum.get("confirmed_n") or 0) if rate_sum else 0
+    confirm_rate = rate_sum.get("confirm_rate_pct") if rate_sum else None
+    if confirm_rate is not None:
+        try:
+            confirm_rate = float(confirm_rate)
+        except (TypeError, ValueError):
+            confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
     )
@@ -3739,6 +3785,9 @@ def build_breadth_glance(
         parts.append(f"{days_since_mixed}d since mixed")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
+    # StockBee confirm rate last (before coverage) so days-since bits stay visible.
+    if confirm_rate is not None and thrust_n > 0:
+        parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
     if not parts:
         return empty
     # Coverage honesty: verified *scan-list* estimate, never full-universe.
@@ -3747,7 +3796,7 @@ def build_breadth_glance(
     core = " · ".join(parts)
     line = f"{core} · {coverage}"
     # StockBee days-since / tape bits grow the line; keep coverage when trimming.
-    max_len = 180
+    max_len = 210
     if len(line) > max_len:
         keep = f"… · {coverage}"
         budget = max_len - len(keep)
@@ -3777,6 +3826,9 @@ def build_breadth_glance(
         "thrust_streak": streak,
         "confirmed_thrust_streak": confirmed_streak,
         "unconfirmed_thrust_streak": alone_streak,
+        "thrust_n": thrust_n,
+        "confirmed_n": confirmed_n,
+        "confirm_rate_pct": confirm_rate,
         "days_since_thrust": days_since_thrust,
         "days_since_confirmed_thrust": days_since_confirmed,
         "days_since_unconfirmed_thrust": days_since_alone,

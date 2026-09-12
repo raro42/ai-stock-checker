@@ -380,6 +380,9 @@
         {% if thrust_sum.ready and thrust_sum.confirmed_streak and thrust_sum.confirmed_streak >= 2 %}
         · confirmed streak {{ thrust_sum.confirmed_streak }}
         {% endif %}
+        {% if thrust_sum.ready and thrust_sum.confirm_rate_pct is not none %}
+        · confirm {{ "%.0f"|format(thrust_sum.confirm_rate_pct) }}% of thrust ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.thrust_n }})
+        {% endif %}
       </span>
       {% elif pulse.is_thrust %}
       <span class="v">alone</span>
@@ -389,6 +392,9 @@
         · alone streak {{ thrust_sum.alone_streak }}
         {% elif thrust_sum.ready and thrust_sum.streak and thrust_sum.streak >= 2 %}
         · streak {{ thrust_sum.streak }}
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.confirm_rate_pct is not none %}
+        · confirm {{ "%.0f"|format(thrust_sum.confirm_rate_pct) }}% of thrust ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.thrust_n }})
         {% endif %}
       </span>
       {% else %}
@@ -401,6 +407,9 @@
         · {{ thrust_sum.days_since_alone }}d since alone
         {% elif thrust_sum.ready and thrust_sum.days_since and thrust_sum.days_since > 0 %}
         · {{ thrust_sum.days_since }}d since thrust
+        {% endif %}
+        {% if thrust_sum.ready and thrust_sum.confirm_rate_pct is not none %}
+        · confirm {{ "%.0f"|format(thrust_sum.confirm_rate_pct) }}% of thrust ({{ thrust_sum.confirmed_n }}/{{ thrust_sum.thrust_n }})
         {% endif %}
       </span>
       {% endif %}
