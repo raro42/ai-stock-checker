@@ -413,9 +413,15 @@
         · streak {{ tape_sum.risk_off_streak }}
         {% endif %}
       </span>
+      {% elif pulse.tape_label == "mixed" %}
+      <span class="v">mixed</span>
+      <span class="weight">both sleeves priced · mid-range · not risk-on/split/risk-off · not a gate</span>
       {% else %}
       <span class="v">—</span>
-      <span class="weight">needs both sleeves priced · dual ≥50% · 60/40 split · or both ≤40%</span>
+      <span class="weight">needs both sleeves priced · dual ≥50% · 60/40 split · both ≤40% · or mid mixed</span>
+      {% endif %}
+      {% if tape_sum.ready and tape_sum.tape_flip %}
+      <span class="weight"> · flipped {{ tape_sum.prev_label }}→{{ tape_sum.latest_label }}</span>
       {% endif %}
     </div>
     <div>
@@ -552,14 +558,14 @@
           <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high, and % of breakouts">near-high</th>
           <th scope="col" title="Both ±4% and near-high ratios ≥25% (StockBee-lite thrust; display only)">thrust</th>
-          <th scope="col" title="Stock + crypto advance: risk-on (≥50%/≥50%), split (≥60%/≤40%), or risk-off (both ≤40%); display only">tape</th>
+          <th scope="col" title="Stock + crypto advance: risk-on (≥50%/≥50%), split (≥60%/≤40%), risk-off (both ≤40%), or mixed mid-range; display only">tape</th>
           <th scope="col" title="Stock batch priced this cycle: up / down and advance %">stock A/D</th>
           <th scope="col">Log</th>
         </tr>
       </thead>
       <tbody>
         {% for d in snap.scan_breadth_history|reverse %}
-        <tr{% if d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% elif d.is_risk_off %} class="is-risk-off"{% endif %}>
+        <tr{% if d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% elif d.is_risk_off %} class="is-risk-off"{% elif d.is_mixed or d.tape_label == "mixed" %} class="is-mixed"{% endif %}>
           <th scope="row" class="sym">
             {% if d.has_scan_log and d.scan_log_href %}
             <a href="{{ d.scan_log_href }}" title="Open scan log for {{ d.day }}">{{ d.day }}</a>
@@ -597,8 +603,13 @@
             <span class="v down">split</span>
             {% elif d.tape_label == "risk-off" %}
             <span class="v down">risk-off</span>
+            {% elif d.tape_label == "mixed" %}
+            <span class="v">mixed</span>
             {% else %}
             <span class="weight">—</span>
+            {% endif %}
+            {% if d.tape_flip and d.prev_tape_label %}
+            <span class="weight" title="Tape flipped from prior UTC day"> · ←{{ d.prev_tape_label }}</span>
             {% endif %}
           </td>
           <td>

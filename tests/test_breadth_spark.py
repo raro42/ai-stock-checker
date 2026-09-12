@@ -4,6 +4,7 @@ from pathlib import Path
 
 from openbb_backend.desk import (
     breadth_dual_advance_streak,
+    breadth_prev_tape_label,
     breadth_risk_off_streak,
     breadth_tape_label,
     breadth_tape_split_streak,
@@ -21,6 +22,7 @@ from openbb_backend.desk import (
     is_breadth_thrust_day,
     is_dual_advance_day,
     is_risk_off_day,
+    is_tape_flip,
     is_tape_split_day,
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
@@ -95,8 +97,29 @@ def test_breadth_tape_label():
     assert breadth_tape_label(55.0, 60.0) == "risk-on"
     assert breadth_tape_label(70.0, 25.0) == "split"
     assert breadth_tape_label(30.0, 35.0) == "risk-off"
-    assert breadth_tape_label(45.0, 55.0) == ""
+    assert breadth_tape_label(45.0, 55.0) == "mixed"
     assert breadth_tape_label(None, 80.0) == ""
+    assert breadth_tape_label(50.0, None) == ""
+
+
+def test_is_tape_flip():
+    assert is_tape_flip("risk-on", "risk-off") is True
+    assert is_tape_flip("mixed", "mixed") is False
+    assert is_tape_flip("", "risk-on") is False
+    assert is_tape_flip("risk-on", "") is False
+    assert is_tape_flip(None, "split") is False
+
+
+def test_breadth_prev_tape_label():
+    rows = [
+        {"day": "2026-09-01", "tape_label": "risk-on"},
+        {"day": "2026-09-02", "tape_label": "mixed"},
+        {"day": "2026-09-03", "tape_label": "risk-off"},
+    ]
+    assert breadth_prev_tape_label(rows) == "mixed"
+    assert breadth_prev_tape_label(rows, through_day="2026-09-02") == "risk-on"
+    assert breadth_prev_tape_label(rows[:1]) == ""
+    assert breadth_prev_tape_label([], through_day="2026-09-01") == ""
 
 def test_breadth_thrust_streak_from_newest():
     rows = [
@@ -168,6 +191,12 @@ def test_breadth_tape_summary_risk_on_streak():
     assert "streak 2" in s["line"]
     assert "2/3 risk-on" in s["line"]
     assert "0/3 risk-off" in s["line"]
+    assert "0/3 mixed" in s["line"]
+    assert s["mixed_n"] == 0
+    # Ending day continues risk-on; flip was day 1→2, not day 2→3.
+    assert s["tape_flip"] is False
+    assert s["prev_label"] == "risk-on"
+    assert "flipped" not in s["line"]
 
 
 def test_breadth_tape_summary_split_now():
@@ -181,6 +210,24 @@ def test_breadth_tape_summary_split_now():
     assert s["tone"] == "down"
     assert "split now" in s["line"]
     assert "streak" not in s["line"]  # streak 1 stays quiet
+    assert s["tape_flip"] is True
+    assert "flipped risk-on→split" in s["line"]
+
+
+def test_breadth_tape_summary_mixed_and_no_false_flip():
+    rows = [
+        {"day": "2026-09-01", "tape_label": "mixed"},
+        {"day": "2026-09-02", "tape_label": "mixed"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["mixed_n"] == 2
+    assert s["latest_mixed"] is True
+    assert s["latest_label"] == "mixed"
+    assert s["tape_flip"] is False
+    assert "mixed now" in s["line"]
+    assert "2/2 mixed" in s["line"]
+    assert "flipped" not in s["line"]
 
 
 def test_breadth_tape_summary_risk_off_streak():
@@ -434,6 +481,37 @@ def test_breadth_glance_risk_off_streak_from_history():
     assert g["risk_off_streak"] == 2
     assert "risk-off · streak 2" in g["line"]
     assert g["tape_label"] == "risk-off"
+
+
+def test_breadth_glance_mixed_and_tape_flip():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "tape_label": "risk-on",
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+            "crypto_up": 3,
+            "crypto_down": 2,
+        },
+        {
+            "day": "2026-09-02",
+            # 50% stock · 40% crypto → mid mixed (not dual / split / risk-off)
+            "stock_scan_up": 5,
+            "stock_scan_down": 5,
+            "crypto_up": 2,
+            "crypto_down": 3,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["stock_advance_pct"] == 50.0
+    assert g["crypto_advance_pct"] == 40.0
+    assert g["tape_label"] == "mixed"
+    assert g["is_mixed"] is True
+    assert g["prev_tape_label"] == "risk-on"
+    assert g["tape_flip"] is True
+    assert "mixed" in g["line"]
+    assert "flipped risk-on→mixed" in g["line"]
 
 
 def test_breadth_glance_up_when_crypto_leads():

@@ -2535,7 +2535,13 @@ def breadth_tape_label(
     weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
     risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
 ) -> str:
-    """Short tape tag: risk-on · split · risk-off · empty. Display only."""
+    """Short tape tag: risk-on · split · risk-off · mixed · empty. Display only.
+
+    Empty means a sleeve is missing (not priced). Mid-range both-sleeved days
+    are ``mixed`` — do not conflate with missing data (StockBee honesty).
+    """
+    if stock_adv_pct is None or crypto_adv_pct is None:
+        return ""
     if is_dual_advance_day(stock_adv_pct, crypto_adv_pct, min_pct=dual_min_pct):
         return "risk-on"
     if is_tape_split_day(
@@ -2549,7 +2555,51 @@ def breadth_tape_label(
         stock_adv_pct, crypto_adv_pct, max_pct=risk_off_max_pct
     ):
         return "risk-off"
-    return ""
+    return "mixed"
+
+
+def is_tape_flip(
+    prev_label: str | None,
+    curr_label: str | None,
+) -> bool:
+    """True when both labels are known and differ (scan-list; display only)."""
+    prev = str(prev_label or "").strip()
+    curr = str(curr_label or "").strip()
+    if not prev or not curr:
+        return False
+    return prev != curr
+
+
+def breadth_prev_tape_label(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> str:
+    """Tape label of the day before newest (or before through_day). Display only."""
+    usable: list[dict[str, Any]] = []
+    want = str(through_day or "").strip()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        usable.append(r)
+        if want and str(r.get("day") or "") == want:
+            break
+    else:
+        if want:
+            return ""
+    if len(usable) < 2:
+        return ""
+    return _row_tape_label(
+        usable[-2],
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
 
 def is_breadth_thrust_day(
     mover_pct: float | None,
@@ -2650,6 +2700,56 @@ def _row_is_risk_off(
         _resolve_stock_advance_pct(row),
         _resolve_crypto_advance_pct(row),
         max_pct=max_pct,
+    )
+
+
+def _row_tape_label(
+    row: dict[str, Any],
+    *,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> str:
+    """Resolve tape tag from annotated or raw daily pulse row."""
+    if "tape_label" in row:
+        return str(row.get("tape_label") or "").strip()
+    if _row_is_dual_advance(row, min_pct=dual_min_pct):
+        return "risk-on"
+    if _row_is_tape_split(row, strong_pct=strong_pct, weak_pct=weak_pct):
+        return "split"
+    if _row_is_risk_off(row, max_pct=risk_off_max_pct):
+        return "risk-off"
+    if row.get("is_mixed"):
+        return "mixed"
+    return breadth_tape_label(
+        _resolve_stock_advance_pct(row),
+        _resolve_crypto_advance_pct(row),
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+
+
+def _row_is_mixed(
+    row: dict[str, Any],
+    *,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> bool:
+    """True when both sleeves priced and tape is mid-range mixed."""
+    return (
+        _row_tape_label(
+            row,
+            dual_min_pct=dual_min_pct,
+            strong_pct=strong_pct,
+            weak_pct=weak_pct,
+            risk_off_max_pct=risk_off_max_pct,
+        )
+        == "mixed"
     )
 
 
@@ -2774,14 +2874,17 @@ def build_breadth_tape_summary(
     weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
     risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
 ) -> dict[str, Any]:
-    """Count risk-on / split / risk-off days + ending streaks. StockBee-lite; display only."""
+    """Count risk-on / split / risk-off / mixed days + ending streaks. Display only."""
     days = 0
     dual_n = 0
     split_n = 0
     risk_off_n = 0
+    mixed_n = 0
     latest_dual = False
     latest_split = False
     latest_risk_off = False
+    latest_mixed = False
+    latest_label = ""
     for r in rows:
         if not isinstance(r, dict):
             continue
@@ -2789,37 +2892,60 @@ def build_breadth_tape_summary(
         dual = _row_is_dual_advance(r, min_pct=dual_min_pct)
         split = _row_is_tape_split(r, strong_pct=strong_pct, weak_pct=weak_pct)
         risk_off = _row_is_risk_off(r, max_pct=risk_off_max_pct)
+        label = _row_tape_label(
+            r,
+            dual_min_pct=dual_min_pct,
+            strong_pct=strong_pct,
+            weak_pct=weak_pct,
+            risk_off_max_pct=risk_off_max_pct,
+        )
+        latest_label = label
         if dual:
             dual_n += 1
             latest_dual = True
             latest_split = False
             latest_risk_off = False
+            latest_mixed = False
         elif split:
             split_n += 1
             latest_dual = False
             latest_split = True
             latest_risk_off = False
+            latest_mixed = False
         elif risk_off:
             risk_off_n += 1
             latest_dual = False
             latest_split = False
             latest_risk_off = True
+            latest_mixed = False
+        elif label == "mixed":
+            mixed_n += 1
+            latest_dual = False
+            latest_split = False
+            latest_risk_off = False
+            latest_mixed = True
         else:
             latest_dual = False
             latest_split = False
             latest_risk_off = False
+            latest_mixed = False
     empty = {
         "ready": False,
         "days": 0,
         "dual_n": 0,
         "split_n": 0,
         "risk_off_n": 0,
+        "mixed_n": 0,
         "dual_streak": 0,
         "split_streak": 0,
         "risk_off_streak": 0,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
+        "latest_mixed": False,
+        "latest_label": "",
+        "prev_label": "",
+        "tape_flip": False,
         "line": "",
         "tone": "flat",
     }
@@ -2830,6 +2956,14 @@ def build_breadth_tape_summary(
         rows, strong_pct=strong_pct, weak_pct=weak_pct
     )
     risk_off_streak = breadth_risk_off_streak(rows, max_pct=risk_off_max_pct)
+    prev_label = breadth_prev_tape_label(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    flip = is_tape_flip(prev_label, latest_label)
     if latest_dual:
         tone = "up"
     elif latest_split or latest_risk_off:
@@ -2849,8 +2983,13 @@ def build_breadth_tape_summary(
         bits.append("risk-off now")
         if risk_off_streak >= 2:
             bits.append(f"streak {risk_off_streak}")
+    elif latest_mixed:
+        bits.append("mixed now")
+    if flip:
+        bits.append(f"flipped {prev_label}→{latest_label}")
     bits.append(
-        f"{dual_n}/{days} risk-on · {split_n}/{days} split · {risk_off_n}/{days} risk-off"
+        f"{dual_n}/{days} risk-on · {split_n}/{days} split · "
+        f"{risk_off_n}/{days} risk-off · {mixed_n}/{days} mixed"
     )
     return {
         "ready": True,
@@ -2858,12 +2997,17 @@ def build_breadth_tape_summary(
         "dual_n": dual_n,
         "split_n": split_n,
         "risk_off_n": risk_off_n,
+        "mixed_n": mixed_n,
         "dual_streak": dual_streak,
         "split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
+        "latest_mixed": latest_mixed,
+        "latest_label": latest_label,
+        "prev_label": prev_label,
+        "tape_flip": flip,
         "line": " · ".join(bits),
         "tone": tone,
     }
@@ -2910,7 +3054,15 @@ def _annotate_scan_history(
         row["is_tape_split"] = is_tape_split_day(stock_adv, crypto_adv)
         row["is_risk_off"] = is_risk_off_day(stock_adv, crypto_adv)
         row["tape_label"] = breadth_tape_label(stock_adv, crypto_adv)
+        row["is_mixed"] = row["tape_label"] == "mixed"
         out.append(row)
+    # Second pass: prior-day tape + flip (needs chronological neighbors).
+    for i, row in enumerate(out):
+        prev = out[i - 1] if i > 0 else None
+        prev_label = str((prev or {}).get("tape_label") or "").strip()
+        curr_label = str(row.get("tape_label") or "").strip()
+        row["prev_tape_label"] = prev_label
+        row["tape_flip"] = is_tape_flip(prev_label, curr_label)
     return out
 
 
@@ -2956,7 +3108,10 @@ def build_breadth_glance(
         "is_dual_advance": False,
         "is_tape_split": False,
         "is_risk_off": False,
+        "is_mixed": False,
         "tape_label": "",
+        "prev_tape_label": "",
+        "tape_flip": False,
         "dual_advance_streak": 0,
         "tape_split_streak": 0,
         "risk_off_streak": 0,
@@ -2988,6 +3143,7 @@ def build_breadth_glance(
     split = is_tape_split_day(advance_pct, crypto_adv_pct)
     risk_off = is_risk_off_day(advance_pct, crypto_adv_pct)
     tape = breadth_tape_label(advance_pct, crypto_adv_pct)
+    mixed = tape == "mixed"
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
         return empty
 
@@ -3006,6 +3162,10 @@ def build_breadth_glance(
     risk_off_streak = (
         breadth_risk_off_streak(hist, through_day=day_cut) if hist else 0
     )
+    prev_tape = (
+        breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
+    )
+    flip = is_tape_flip(prev_tape, tape)
     parts: list[str] = []
     score = 0
     if crypto_n > 0:
@@ -3052,6 +3212,8 @@ def build_breadth_glance(
         parts.append(f"risk-off · streak {risk_off_streak}")
     elif tape:
         parts.append(tape)
+    if flip:
+        parts.append(f"flipped {prev_tape}→{tape}")
     if not parts:
         return empty
     # Coverage honesty: this is a verified *scan-list* estimate, not the market.
@@ -3080,7 +3242,10 @@ def build_breadth_glance(
         "is_dual_advance": dual,
         "is_tape_split": split,
         "is_risk_off": risk_off,
+        "is_mixed": mixed,
         "tape_label": tape,
+        "prev_tape_label": prev_tape,
+        "tape_flip": flip,
         "dual_advance_streak": dual_streak,
         "tape_split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
@@ -3678,6 +3843,7 @@ def load_desk_snapshot(
         crypto_adv_bit = f" · crypto advance {crypto_advance_pct:.0f}%"
     else:
         crypto_adv_bit = ""
+    tape_label = breadth_tape_label(stock_advance_pct, crypto_advance_pct)
     scan_breadth = {
         "crypto_n": len(crypto_raw_all),
         "crypto_up": crypto_up,
@@ -3694,7 +3860,8 @@ def load_desk_snapshot(
         "is_dual_advance": is_dual_advance_day(stock_advance_pct, crypto_advance_pct),
         "is_tape_split": is_tape_split_day(stock_advance_pct, crypto_advance_pct),
         "is_risk_off": is_risk_off_day(stock_advance_pct, crypto_advance_pct),
-        "tape_label": breadth_tape_label(stock_advance_pct, crypto_advance_pct),
+        "tape_label": tape_label,
+        "is_mixed": tape_label == "mixed",
         "stock_scan_n": stock_scan_n,
         "stock_scan_up": stock_scan_up,
         "stock_scan_down": stock_scan_down,
@@ -3887,6 +4054,11 @@ def load_desk_snapshot(
                 )
 
     adopted_ideas = [
+        {
+            "title": "StockBee mixed tape + flip",
+            "from": "xang1234/stock-screener (StockBee-lite)",
+            "note": "Mid-range both-sleeved days are mixed (not blank); Breadth + glance show prior-day flips; display only; not a gate.",
+        },
         {
             "title": "StockBee thrust streak",
             "from": "xang1234/stock-screener (StockBee-lite)",

@@ -1721,6 +1721,10 @@ a:active {
   color: var(--down, var(--accent));
 }
 
+.breadth-days-table tr.is-mixed th.sym {
+  color: var(--muted, var(--ink-muted, var(--ink)));
+}
+
 .breadth-days-table td {
   color: var(--ink);
 }

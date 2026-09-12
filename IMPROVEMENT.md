@@ -269,9 +269,10 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 StockBee dual-advance / tape-split (2026-09-12 improve): risk-on when stock+crypto advance both ≥50%; split when one ≥60% and other ≤40% (`is_dual_advance_day` / `is_tape_split_day` / `breadth_tape_label`) — pulse + glance + Recent days; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee risk-on / split streaks (2026-09-12 improve): consecutive dual-advance or tape-split days on Breadth summary + glance when streak ≥2 (`breadth_dual_advance_streak` / `breadth_tape_split_streak` / `build_breadth_tape_summary`) — scan-list only; display only; not a new gate
 - [x] xang1234 StockBee risk-off tape (2026-09-12 improve): both stock+crypto advance ≤40% → `risk-off` on pulse + glance + Recent days + streak (`is_risk_off_day` / `breadth_risk_off_streak`) — completes risk-on/split/risk-off; scan-list only; display only; not a new gate
+- [x] xang1234 StockBee mixed tape + flip (2026-09-12 improve): mid-range both-sleeved days are `mixed` (not blank); prior-day flip on Breadth + glance + tape summary (`is_tape_flip` / `breadth_prev_tape_label`) — scan-list only; display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off shipped above
+- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip shipped above
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally
