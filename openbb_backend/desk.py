@@ -2697,6 +2697,24 @@ def breadth_days_since_risk_on(
     )
 
 
+def breadth_days_since_risk_off(
+    rows: list[dict[str, Any]],
+    *,
+    max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+    through_day: str | None = None,
+) -> int | None:
+    """Days since last risk-off (0 = now). Display only; scan-list history.
+
+    StockBee-lite: when the tape recovers, friends need washout staleness —
+    how long since both sleeves were weak — not only ending risk-off streaks.
+    """
+    return _breadth_days_since(
+        rows,
+        lambda r: _row_is_risk_off(r, max_pct=max_pct),
+        through_day=through_day,
+    )
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -3001,6 +3019,7 @@ def build_breadth_tape_summary(
         "split_streak": 0,
         "risk_off_streak": 0,
         "days_since_risk_on": None,
+        "days_since_risk_off": None,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3019,6 +3038,9 @@ def build_breadth_tape_summary(
     )
     risk_off_streak = breadth_risk_off_streak(rows, max_pct=risk_off_max_pct)
     days_since_risk_on = breadth_days_since_risk_on(rows, min_pct=dual_min_pct)
+    days_since_risk_off = breadth_days_since_risk_off(
+        rows, max_pct=risk_off_max_pct
+    )
     prev_label = breadth_prev_tape_label(
         rows,
         dual_min_pct=dual_min_pct,
@@ -3054,6 +3076,12 @@ def build_breadth_tape_summary(
         and days_since_risk_on > 0
     ):
         bits.append(f"{days_since_risk_on}d since risk-on")
+    if (
+        not latest_risk_off
+        and days_since_risk_off is not None
+        and days_since_risk_off > 0
+    ):
+        bits.append(f"{days_since_risk_off}d since risk-off")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
     bits.append(
@@ -3071,6 +3099,7 @@ def build_breadth_tape_summary(
         "split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
         "days_since_risk_on": days_since_risk_on,
+        "days_since_risk_off": days_since_risk_off,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3161,7 +3190,7 @@ def build_breadth_glance(
 
     tradermonty “verified estimate snapshots” + xang1234: show priced counts and
     label the pulse as a scan-list **estimate**, never full-universe A/D.
-    Optional ``history`` adds StockBee thrust/risk-on streak and days-since
+    Optional ``history`` adds StockBee thrust/risk-on/risk-off streak and days-since
     when the ending day is quiet.
     """
     empty = {
@@ -3188,6 +3217,7 @@ def build_breadth_glance(
         "tape_split_streak": 0,
         "risk_off_streak": 0,
         "days_since_risk_on": None,
+        "days_since_risk_off": None,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -3240,6 +3270,9 @@ def build_breadth_glance(
     )
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
+    )
+    days_since_risk_off = (
+        breadth_days_since_risk_off(hist, through_day=day_cut) if hist else None
     )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
@@ -3299,21 +3332,36 @@ def build_breadth_glance(
         and days_since_risk_on > 0
     ):
         parts.append(f"{days_since_risk_on}d since risk-on")
+    if (
+        not risk_off
+        and days_since_risk_off is not None
+        and days_since_risk_off > 0
+    ):
+        parts.append(f"{days_since_risk_off}d since risk-off")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
     if not parts:
         return empty
-    # Coverage honesty: this is a verified *scan-list* estimate, not the market.
-    parts.append("estimate · not full-universe")
+    # Coverage honesty: verified *scan-list* estimate, never full-universe.
+    # Keep this suffix when truncating — days-since / streaks can push length.
+    coverage = "estimate · not full-universe"
+    core = " · ".join(parts)
+    line = f"{core} · {coverage}"
+    # StockBee days-since / tape bits grow the line; keep coverage when trimming.
+    max_len = 180
+    if len(line) > max_len:
+        keep = f"… · {coverage}"
+        budget = max_len - len(keep)
+        if budget < 12:
+            line = coverage if len(coverage) <= max_len else coverage[: max_len - 1] + "…"
+        else:
+            line = core[:budget].rstrip(" ·") + keep
     if score > 0:
         tone = "up"
     elif score < 0:
         tone = "down"
     else:
         tone = "flat"
-    line = " · ".join(parts)
-    if len(line) > 148:
-        line = line[:147] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -3338,6 +3386,7 @@ def build_breadth_glance(
         "tape_split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
         "days_since_risk_on": days_since_risk_on,
+        "days_since_risk_off": days_since_risk_off,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,

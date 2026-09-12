@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    breadth_days_since_risk_off,
     breadth_days_since_risk_on,
     breadth_days_since_thrust,
     breadth_dual_advance_streak,
@@ -206,6 +207,24 @@ def test_breadth_days_since_risk_on():
     assert breadth_days_since_risk_on([]) is None
 
 
+def test_breadth_days_since_risk_off():
+    rows = [
+        {"day": "2026-09-01", "is_risk_off": True},
+        {"day": "2026-09-02", "is_risk_off": False},
+        {"day": "2026-09-03", "is_risk_off": False},
+        {"day": "2026-09-04", "is_risk_off": False},
+    ]
+    assert breadth_days_since_risk_off(rows) == 3
+    assert breadth_days_since_risk_off(rows, through_day="2026-09-02") == 1
+    assert breadth_days_since_risk_off(
+        [{"day": "2026-09-01", "is_risk_off": True}]
+    ) == 0
+    assert breadth_days_since_risk_off(
+        [{"day": "2026-09-01", "is_risk_off": False}]
+    ) is None
+    assert breadth_days_since_risk_off([]) is None
+
+
 def test_breadth_thrust_summary_days_since():
     rows = [
         {"day": "2026-09-01", "is_thrust": True},
@@ -232,6 +251,41 @@ def test_breadth_tape_summary_days_since_risk_on():
     assert s["days_since_risk_on"] == 2
     assert "2d since risk-on" in s["line"]
     assert "mixed now" in s["line"]
+
+
+def test_breadth_tape_summary_days_since_risk_off():
+    rows = [
+        {"day": "2026-09-01", "is_risk_off": True, "tape_label": "risk-off"},
+        {
+            "day": "2026-09-02",
+            "is_dual_advance": True,
+            "is_risk_off": False,
+            "tape_label": "risk-on",
+        },
+        {
+            "day": "2026-09-03",
+            "is_dual_advance": True,
+            "is_risk_off": False,
+            "tape_label": "risk-on",
+        },
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["latest_dual"] is True
+    assert s["latest_risk_off"] is False
+    assert s["days_since_risk_off"] == 2
+    assert "2d since risk-off" in s["line"]
+    assert "risk-on now" in s["line"]
+    # Active risk-off day must not append "Nd since risk-off".
+    off_now = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_risk_off": True, "tape_label": "risk-off"},
+            {"day": "2026-09-02", "is_risk_off": True, "tape_label": "risk-off"},
+        ]
+    )
+    assert off_now["days_since_risk_off"] == 0
+    assert "since risk-off" not in off_now["line"]
+    assert "risk-off now" in off_now["line"]
 
 
 def test_breadth_glance_days_since_from_history():
@@ -268,6 +322,40 @@ def test_breadth_glance_days_since_from_history():
     assert g["days_since_risk_on"] == 1
     assert "1d since thrust" in g["line"]
     assert "1d since risk-on" in g["line"]
+
+
+def test_breadth_glance_days_since_risk_off_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            # risk-off: both sleeves ≤40%
+            "stock_scan_up": 2,
+            "stock_scan_down": 8,
+            "crypto_up": 1,
+            "crypto_down": 4,
+            "crypto_big_movers": 0,
+            "stock_breakouts_n": 4,
+            "stock_within_5pct_high": 0,
+        },
+        {
+            "day": "2026-09-02",
+            # risk-on: both ≥50%
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+            "crypto_up": 3,
+            "crypto_down": 2,
+            "crypto_big_movers": 0,
+            "stock_breakouts_n": 4,
+            "stock_within_5pct_high": 0,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["is_dual_advance"] is True
+    assert g["is_risk_off"] is False
+    assert g["days_since_risk_off"] == 1
+    assert "1d since risk-off" in g["line"]
+    assert "since risk-on" not in g["line"]
 
 
 def test_breadth_tape_summary_risk_on_streak():
