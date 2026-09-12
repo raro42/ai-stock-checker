@@ -41,6 +41,7 @@ from openbb_backend.desk import (
     near_high_ratio_pct,
     scan_breadth_pulse_for_day,
     stock_advance_ratio_pct,
+    tape_label_density_pct,
     thrust_confirm_rate_pct,
     thrust_density_pct,
 )
@@ -127,6 +128,16 @@ def test_confirmed_and_alone_density_pct():
     assert alone_density_pct(0, 3) == 0.0
     assert confirmed_density_pct(2, 5) == thrust_density_pct(2, 5)
     assert alone_density_pct(3, 5) == thrust_density_pct(3, 5)
+
+
+def test_tape_label_density_pct():
+    assert tape_label_density_pct(0, 0) is None
+    assert tape_label_density_pct(1, 0) is None
+    assert tape_label_density_pct(0, 4) == 0.0
+    assert tape_label_density_pct(1, 4) == 25.0
+    assert tape_label_density_pct(2, 4) == 50.0
+    assert tape_label_density_pct(4, 4) == 100.0
+    assert tape_label_density_pct(3, 5) == thrust_density_pct(3, 5)
 
 def test_is_dual_advance_day():
     assert is_dual_advance_day(50.0, 50.0) is True
@@ -875,6 +886,47 @@ def test_breadth_tape_summary_empty():
     assert build_breadth_tape_summary([])["ready"] is False
     assert build_breadth_tape_summary([])["dual_streak"] == 0
     assert build_breadth_tape_summary([])["risk_off_streak"] == 0
+    assert build_breadth_tape_summary([])["risk_on_density_pct"] is None
+    assert build_breadth_tape_summary([])["split_density_pct"] is None
+    assert build_breadth_tape_summary([])["risk_off_density_pct"] is None
+    assert build_breadth_tape_summary([])["mixed_density_pct"] is None
+
+
+def test_breadth_tape_summary_label_densities():
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["days"] == 4
+    assert s["dual_n"] == 1
+    assert s["split_n"] == 1
+    assert s["risk_off_n"] == 1
+    assert s["mixed_n"] == 1
+    assert s["risk_on_density_pct"] == tape_label_density_pct(1, 4)
+    assert s["split_density_pct"] == tape_label_density_pct(1, 4)
+    assert s["risk_off_density_pct"] == tape_label_density_pct(1, 4)
+    assert s["mixed_density_pct"] == tape_label_density_pct(1, 4)
+    assert "risk-on dens 25% (1/4)" in s["line"]
+    assert "split dens 25% (1/4)" in s["line"]
+    assert "risk-off dens 25% (1/4)" in s["line"]
+    assert "mixed dens 25% (1/4)" in s["line"]
+    on_heavy = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-03", "tape_label": "mixed"},
+        ]
+    )
+    assert on_heavy["risk_on_density_pct"] == tape_label_density_pct(2, 3)
+    assert on_heavy["mixed_density_pct"] == tape_label_density_pct(1, 3)
+    assert on_heavy["split_density_pct"] == 0.0
+    assert on_heavy["risk_off_density_pct"] == 0.0
+    assert "risk-on dens 67% (2/3)" in on_heavy["line"]
+    assert "mixed dens 33% (1/3)" in on_heavy["line"]
 
 
 def test_breadth_thrust_summary_counts_and_latest():
@@ -1119,6 +1171,50 @@ def test_breadth_glance_thrust_streak_from_history():
     assert g["confirmed_density_pct"] == 0.0
     assert g["alone_density_pct"] == 100.0
     assert g["alone_n"] == 2
+    assert g["dual_n"] == 0
+    assert g["risk_on_density_pct"] == 0.0
+    assert g["split_density_pct"] == 0.0
+    assert g["risk_off_density_pct"] == 0.0
+    assert g["mixed_density_pct"] == 0.0
+    assert "risk-on dens 0% (0/2)" in g["line"]
+    assert "mixed dens 0% (0/2)" in g["line"]
+
+
+def test_breadth_glance_tape_label_densities():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_dual_advance": True,
+            "tape_label": "risk-on",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "stock_scan_n": 10,
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+        },
+        {
+            "day": "2026-09-02",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["dual_n"] == 1
+    assert g["risk_off_n"] == 1
+    assert g["risk_on_density_pct"] == 50.0
+    assert g["risk_off_density_pct"] == 50.0
+    assert g["split_density_pct"] == 0.0
+    assert g["mixed_density_pct"] == 0.0
+    assert "risk-on dens 50% (1/2)" in g["line"]
+    assert "risk-off dens 50% (1/2)" in g["line"]
 
 
 def test_breadth_glance_confirm_rate_mixed_history():

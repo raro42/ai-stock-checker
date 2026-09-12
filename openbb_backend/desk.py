@@ -2702,6 +2702,15 @@ def alone_density_pct(alone_n: int, days: int) -> float | None:
     return thrust_density_pct(alone_n, days)
 
 
+def tape_label_density_pct(label_n: int, days: int) -> float | None:
+    """Share of history days with a given tape label. Display only.
+
+    StockBee tape frequency: risk-on / split / risk-off / mixed as % of
+    scan-list history days. Same n/days math as thrust density.
+    """
+    return thrust_density_pct(label_n, days)
+
+
 def _breadth_ending_streak(
     rows: list[dict[str, Any]],
     predicate: Callable[[dict[str, Any]], bool],
@@ -3381,6 +3390,10 @@ def build_breadth_tape_summary(
         "split_n": 0,
         "risk_off_n": 0,
         "mixed_n": 0,
+        "risk_on_density_pct": None,
+        "split_density_pct": None,
+        "risk_off_density_pct": None,
+        "mixed_density_pct": None,
         "dual_streak": 0,
         "split_streak": 0,
         "risk_off_streak": 0,
@@ -3484,6 +3497,18 @@ def build_breadth_tape_summary(
         bits.append(f"{days_since_mixed}d since mixed")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
+    risk_on_density = tape_label_density_pct(dual_n, days)
+    split_density = tape_label_density_pct(split_n, days)
+    risk_off_density = tape_label_density_pct(risk_off_n, days)
+    mixed_density = tape_label_density_pct(mixed_n, days)
+    if risk_on_density is not None:
+        bits.append(f"risk-on dens {risk_on_density:.0f}% ({dual_n}/{days})")
+    if split_density is not None:
+        bits.append(f"split dens {split_density:.0f}% ({split_n}/{days})")
+    if risk_off_density is not None:
+        bits.append(f"risk-off dens {risk_off_density:.0f}% ({risk_off_n}/{days})")
+    if mixed_density is not None:
+        bits.append(f"mixed dens {mixed_density:.0f}% ({mixed_n}/{days})")
     bits.append(
         f"{dual_n}/{days} risk-on · {split_n}/{days} split · "
         f"{risk_off_n}/{days} risk-off · {mixed_n}/{days} mixed"
@@ -3495,6 +3520,10 @@ def build_breadth_tape_summary(
         "split_n": split_n,
         "risk_off_n": risk_off_n,
         "mixed_n": mixed_n,
+        "risk_on_density_pct": risk_on_density,
+        "split_density_pct": split_density,
+        "risk_off_density_pct": risk_off_density,
+        "mixed_density_pct": mixed_density,
         "dual_streak": dual_streak,
         "split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
@@ -3641,6 +3670,14 @@ def build_breadth_glance(
         "days_since_risk_off": None,
         "days_since_tape_split": None,
         "days_since_mixed": None,
+        "dual_n": 0,
+        "split_n": 0,
+        "risk_off_n": 0,
+        "mixed_n": 0,
+        "risk_on_density_pct": None,
+        "split_density_pct": None,
+        "risk_off_density_pct": None,
+        "mixed_density_pct": None,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -3729,6 +3766,9 @@ def build_breadth_glance(
     rate_sum = (
         build_breadth_thrust_summary(hist_for_rate) if hist_for_rate else {}
     )
+    tape_rate_sum = (
+        build_breadth_tape_summary(hist_for_rate) if hist_for_rate else {}
+    )
     thrust_n = int(rate_sum.get("thrust_n") or 0) if rate_sum else 0
     confirmed_n = int(rate_sum.get("confirmed_n") or 0) if rate_sum else 0
     alone_n = int(rate_sum.get("alone_n") or 0) if rate_sum else 0
@@ -3737,6 +3777,23 @@ def build_breadth_glance(
     density = rate_sum.get("density_pct") if rate_sum else None
     conf_density = rate_sum.get("confirmed_density_pct") if rate_sum else None
     alone_density = rate_sum.get("alone_density_pct") if rate_sum else None
+    dual_n = int(tape_rate_sum.get("dual_n") or 0) if tape_rate_sum else 0
+    split_n = int(tape_rate_sum.get("split_n") or 0) if tape_rate_sum else 0
+    risk_off_n = int(tape_rate_sum.get("risk_off_n") or 0) if tape_rate_sum else 0
+    mixed_n = int(tape_rate_sum.get("mixed_n") or 0) if tape_rate_sum else 0
+    tape_days = int(tape_rate_sum.get("days") or 0) if tape_rate_sum else 0
+    risk_on_density = (
+        tape_rate_sum.get("risk_on_density_pct") if tape_rate_sum else None
+    )
+    split_density = (
+        tape_rate_sum.get("split_density_pct") if tape_rate_sum else None
+    )
+    risk_off_density = (
+        tape_rate_sum.get("risk_off_density_pct") if tape_rate_sum else None
+    )
+    mixed_density = (
+        tape_rate_sum.get("mixed_density_pct") if tape_rate_sum else None
+    )
     if confirm_rate is not None:
         try:
             confirm_rate = float(confirm_rate)
@@ -3763,6 +3820,35 @@ def build_breadth_glance(
             alone_density = alone_density_pct(alone_n, hist_days)
     elif rate_sum:
         alone_density = alone_density_pct(alone_n, hist_days)
+    dens_days = tape_days or hist_days
+    if risk_on_density is not None:
+        try:
+            risk_on_density = float(risk_on_density)
+        except (TypeError, ValueError):
+            risk_on_density = tape_label_density_pct(dual_n, dens_days)
+    elif tape_rate_sum:
+        risk_on_density = tape_label_density_pct(dual_n, dens_days)
+    if split_density is not None:
+        try:
+            split_density = float(split_density)
+        except (TypeError, ValueError):
+            split_density = tape_label_density_pct(split_n, dens_days)
+    elif tape_rate_sum:
+        split_density = tape_label_density_pct(split_n, dens_days)
+    if risk_off_density is not None:
+        try:
+            risk_off_density = float(risk_off_density)
+        except (TypeError, ValueError):
+            risk_off_density = tape_label_density_pct(risk_off_n, dens_days)
+    elif tape_rate_sum:
+        risk_off_density = tape_label_density_pct(risk_off_n, dens_days)
+    if mixed_density is not None:
+        try:
+            mixed_density = float(mixed_density)
+        except (TypeError, ValueError):
+            mixed_density = tape_label_density_pct(mixed_n, dens_days)
+    elif tape_rate_sum:
+        mixed_density = tape_label_density_pct(mixed_n, dens_days)
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
     )
@@ -3935,6 +4021,14 @@ def build_breadth_glance(
         "days_since_risk_off": days_since_risk_off,
         "days_since_tape_split": days_since_tape_split,
         "days_since_mixed": days_since_mixed,
+        "dual_n": dual_n,
+        "split_n": split_n,
+        "risk_off_n": risk_off_n,
+        "mixed_n": mixed_n,
+        "risk_on_density_pct": risk_on_density,
+        "split_density_pct": split_density,
+        "risk_off_density_pct": risk_off_density,
+        "mixed_density_pct": mixed_density,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,

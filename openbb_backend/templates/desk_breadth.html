@@ -457,8 +457,18 @@
         {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
         · {{ tape_sum.days_since_tape_split }}d since split
         {% endif %}
-        {% if tape_sum.ready and tape_sum.days_since_mixed and tape_sum.days_since_mixed > 0 %}
-        · {{ tape_sum.days_since_mixed }}d since mixed
+
+        {% if tape_sum.ready and tape_sum.risk_on_density_pct is not none %}
+        · risk-on dens {{ "%.0f"|format(tape_sum.risk_on_density_pct) }}% ({{ tape_sum.dual_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.split_density_pct is not none %}
+        · split dens {{ "%.0f"|format(tape_sum.split_density_pct) }}% ({{ tape_sum.split_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.risk_off_density_pct is not none %}
+        · risk-off dens {{ "%.0f"|format(tape_sum.risk_off_density_pct) }}% ({{ tape_sum.risk_off_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.mixed_density_pct is not none %}
+        · mixed dens {{ "%.0f"|format(tape_sum.mixed_density_pct) }}% ({{ tape_sum.mixed_n }}/{{ tape_sum.days }})
         {% endif %}
       </span>
       {% elif pulse.tape_label == "split" %}
@@ -474,8 +484,18 @@
         {% if tape_sum.ready and tape_sum.days_since_risk_off and tape_sum.days_since_risk_off > 0 %}
         · {{ tape_sum.days_since_risk_off }}d since risk-off
         {% endif %}
-        {% if tape_sum.ready and tape_sum.days_since_mixed and tape_sum.days_since_mixed > 0 %}
-        · {{ tape_sum.days_since_mixed }}d since mixed
+
+        {% if tape_sum.ready and tape_sum.risk_on_density_pct is not none %}
+        · risk-on dens {{ "%.0f"|format(tape_sum.risk_on_density_pct) }}% ({{ tape_sum.dual_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.split_density_pct is not none %}
+        · split dens {{ "%.0f"|format(tape_sum.split_density_pct) }}% ({{ tape_sum.split_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.risk_off_density_pct is not none %}
+        · risk-off dens {{ "%.0f"|format(tape_sum.risk_off_density_pct) }}% ({{ tape_sum.risk_off_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.mixed_density_pct is not none %}
+        · mixed dens {{ "%.0f"|format(tape_sum.mixed_density_pct) }}% ({{ tape_sum.mixed_n }}/{{ tape_sum.days }})
         {% endif %}
       </span>
       {% elif pulse.tape_label == "risk-off" %}
@@ -491,8 +511,18 @@
         {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
         · {{ tape_sum.days_since_tape_split }}d since split
         {% endif %}
-        {% if tape_sum.ready and tape_sum.days_since_mixed and tape_sum.days_since_mixed > 0 %}
-        · {{ tape_sum.days_since_mixed }}d since mixed
+
+        {% if tape_sum.ready and tape_sum.risk_on_density_pct is not none %}
+        · risk-on dens {{ "%.0f"|format(tape_sum.risk_on_density_pct) }}% ({{ tape_sum.dual_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.split_density_pct is not none %}
+        · split dens {{ "%.0f"|format(tape_sum.split_density_pct) }}% ({{ tape_sum.split_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.risk_off_density_pct is not none %}
+        · risk-off dens {{ "%.0f"|format(tape_sum.risk_off_density_pct) }}% ({{ tape_sum.risk_off_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.mixed_density_pct is not none %}
+        · mixed dens {{ "%.0f"|format(tape_sum.mixed_density_pct) }}% ({{ tape_sum.mixed_n }}/{{ tape_sum.days }})
         {% endif %}
       </span>
       {% elif pulse.tape_label == "mixed" %}
@@ -508,8 +538,18 @@
         {% if tape_sum.ready and tape_sum.days_since_risk_off and tape_sum.days_since_risk_off > 0 %}
         · {{ tape_sum.days_since_risk_off }}d since risk-off
         {% endif %}
-        {% if tape_sum.ready and tape_sum.days_since_tape_split and tape_sum.days_since_tape_split > 0 %}
-        · {{ tape_sum.days_since_tape_split }}d since split
+
+        {% if tape_sum.ready and tape_sum.risk_on_density_pct is not none %}
+        · risk-on dens {{ "%.0f"|format(tape_sum.risk_on_density_pct) }}% ({{ tape_sum.dual_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.split_density_pct is not none %}
+        · split dens {{ "%.0f"|format(tape_sum.split_density_pct) }}% ({{ tape_sum.split_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.risk_off_density_pct is not none %}
+        · risk-off dens {{ "%.0f"|format(tape_sum.risk_off_density_pct) }}% ({{ tape_sum.risk_off_n }}/{{ tape_sum.days }})
+        {% endif %}
+        {% if tape_sum.ready and tape_sum.mixed_density_pct is not none %}
+        · mixed dens {{ "%.0f"|format(tape_sum.mixed_density_pct) }}% ({{ tape_sum.mixed_n }}/{{ tape_sum.days }})
         {% endif %}
       </span>
       {% else %}
