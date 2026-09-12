@@ -373,10 +373,18 @@
     <div>
       <span class="k">Thrust</span>
       {% set thrust_sum = snap.breadth_thrust_summary if snap.breadth_thrust_summary is mapping else {} %}
-      {% if pulse.is_thrust %}
-      <span class="v up">yes</span>
+      {% if pulse.is_confirmed_thrust %}
+      <span class="v up">confirmed</span>
       <span class="weight">
-        ±4% and near-high both ≥25% · StockBee-lite · not a gate
+        ±4% + near-high ≥25% and risk-on · StockBee-lite · not a gate
+        {% if thrust_sum.ready and thrust_sum.confirmed_streak and thrust_sum.confirmed_streak >= 2 %}
+        · confirmed streak {{ thrust_sum.confirmed_streak }}
+        {% endif %}
+      </span>
+      {% elif pulse.is_thrust %}
+      <span class="v">alone</span>
+      <span class="weight">
+        ±4% and near-high both ≥25% · not risk-on · StockBee-lite · not a gate
         {% if thrust_sum.ready and thrust_sum.streak and thrust_sum.streak >= 2 %}
         · streak {{ thrust_sum.streak }}
         {% endif %}
@@ -385,7 +393,9 @@
       <span class="v">no</span>
       <span class="weight">
         needs both ratios ≥25% · scan-list only
-        {% if thrust_sum.ready and thrust_sum.days_since and thrust_sum.days_since > 0 %}
+        {% if thrust_sum.ready and thrust_sum.days_since_confirmed and thrust_sum.days_since_confirmed > 0 %}
+        · {{ thrust_sum.days_since_confirmed }}d since confirmed
+        {% elif thrust_sum.ready and thrust_sum.days_since and thrust_sum.days_since > 0 %}
         · {{ thrust_sum.days_since }}d since thrust
         {% endif %}
       </span>
@@ -603,7 +613,7 @@
           <th scope="col" title="Mean 24h % change across those crypto leaders">avg</th>
           <th scope="col" title="How many leaders moved at least 4% (up or down), and % of leaders">±4%</th>
           <th scope="col" title="Stock breakouts within 5% of their 52-week high, and % of breakouts">near-high</th>
-          <th scope="col" title="Both ±4% and near-high ratios ≥25% (StockBee-lite thrust; display only)">thrust</th>
+          <th scope="col" title="Both ±4% and near-high ratios ≥25%; confirmed = also risk-on (StockBee-lite; display only)">thrust</th>
           <th scope="col" title="Stock + crypto advance: risk-on (≥50%/≥50%), split (≥60%/≤40%), risk-off (both ≤40%), or mixed mid-range; display only">tape</th>
           <th scope="col" title="Stock batch priced this cycle: up / down and advance %">stock A/D</th>
           <th scope="col">Log</th>
@@ -611,7 +621,7 @@
       </thead>
       <tbody>
         {% for d in snap.scan_breadth_history|reverse %}
-        <tr{% if d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% elif d.is_risk_off %} class="is-risk-off"{% elif d.is_mixed or d.tape_label == "mixed" %} class="is-mixed"{% endif %}>
+        <tr{% if d.is_confirmed_thrust %} class="is-confirmed-thrust"{% elif d.is_thrust %} class="is-thrust"{% elif d.is_dual_advance %} class="is-dual-advance"{% elif d.is_tape_split %} class="is-tape-split"{% elif d.is_risk_off %} class="is-risk-off"{% elif d.is_mixed or d.tape_label == "mixed" %} class="is-mixed"{% endif %}>
           <th scope="row" class="sym">
             {% if d.has_scan_log and d.scan_log_href %}
             <a href="{{ d.scan_log_href }}" title="Open scan log for {{ d.day }}">{{ d.day }}</a>
@@ -636,8 +646,10 @@
             {% endif %}
           </td>
           <td>
-            {% if d.is_thrust %}
-            <span class="v up">yes</span>
+            {% if d.is_confirmed_thrust %}
+            <span class="v up">confirmed</span>
+            {% elif d.is_thrust %}
+            <span class="v">alone</span>
             {% else %}
             <span class="weight">—</span>
             {% endif %}

@@ -274,9 +274,10 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 StockBee days-since risk-off (2026-09-12 improve): washout staleness on Breadth + glance when tape recovers (`breadth_days_since_risk_off`) — pairs with days-since risk-on; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee days-since tape-split (2026-09-12 improve): divergence staleness on Breadth + glance when sleeves re-align (`breadth_days_since_tape_split`) — completes days-since risk-on/off/thrust/split; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee days-since mixed + mixed streak (2026-09-12 improve): chop staleness + ending mid-range streak on Breadth + glance (`breadth_days_since_mixed` / `breadth_mixed_streak`) — completes days-since for all tape labels; scan-list only; display only; not a new gate
+- [x] xang1234 StockBee confirmed thrust (2026-09-12 improve): thrust + risk-on vs thrust alone on Breadth + glance + thrust summary (`is_confirmed_thrust_day` / streak / days-since) — movers+near-high need dual advance; scan-list only; display only; not a new gate
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
-- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split/mixed + mixed streak shipped above
+- [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split/mixed + mixed streak + confirmed thrust shipped above
 - [ ] Optional later: FinRobot deeper multi-agent research UX (watch 2026-09-12 README-only; defer until promote unlock / research screen)
 
 ### Phase D — Share

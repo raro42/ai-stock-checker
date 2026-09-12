@@ -1705,6 +1705,7 @@ a:active {
   white-space: nowrap;
 }
 
+.breadth-days-table tr.is-confirmed-thrust th.sym,
 .breadth-days-table tr.is-thrust th.sym {
   color: var(--up, var(--accent));
 }
