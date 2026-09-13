@@ -3114,6 +3114,42 @@ def breadth_tape_flip_mean_streak(
     return sum(runs) / len(runs)
 
 
+def breadth_tape_flip_median_streak(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> float | None:
+    """Median length of consecutive flip runs in history. Display only.
+
+    StockBee robust typical chop: mean can be pulled by one long storm; median
+    resists that (pairs with avg / max / ending streak). ``None`` when no flip
+    runs (or fewer than two known labels).
+    """
+    labels = _breadth_tape_labels(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if labels is None:
+        return None
+    runs = _breadth_tape_flip_run_lengths(labels)
+    if not runs:
+        return None
+    ordered = sorted(runs)
+    n = len(ordered)
+    mid = n // 2
+    if n % 2:
+        return float(ordered[mid])
+    return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+
 def breadth_tape_flip_run_count(
     rows: list[dict[str, Any]],
     *,
@@ -3654,6 +3690,7 @@ def build_breadth_tape_summary(
         "flip_streak": 0,
         "flip_max_streak": 0,
         "flip_mean_streak": None,
+        "flip_median_streak": None,
         "flip_run_n": 0,
         "latest_dual": False,
         "latest_split": False,
@@ -3715,6 +3752,13 @@ def build_breadth_tape_summary(
         risk_off_max_pct=risk_off_max_pct,
     )
     flip_mean_streak = breadth_tape_flip_mean_streak(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    flip_median_streak = breadth_tape_flip_median_streak(
         rows,
         dual_min_pct=dual_min_pct,
         strong_pct=strong_pct,
@@ -3798,6 +3842,16 @@ def build_breadth_tape_summary(
     # Typical storm size when ≥2 distinct flip runs (else mean == max).
     if flip_mean_streak is not None and flip_run_n >= 2:
         bits.append(f"avg flip {flip_mean_streak:.1f} ({flip_run_n} runs)")
+    # Robust typical: ≥3 runs and median ≠ mean (mean pulled by one long storm).
+    if (
+        flip_median_streak is not None
+        and flip_run_n >= 3
+        and (
+            flip_mean_streak is None
+            or abs(flip_median_streak - flip_mean_streak) >= 0.05
+        )
+    ):
+        bits.append(f"med flip {flip_median_streak:.1f}")
     risk_on_density = tape_label_density_pct(dual_n, days)
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
@@ -3843,6 +3897,7 @@ def build_breadth_tape_summary(
         "flip_streak": flip_streak,
         "flip_max_streak": flip_max_streak,
         "flip_mean_streak": flip_mean_streak,
+        "flip_median_streak": flip_median_streak,
         "flip_run_n": flip_run_n,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
@@ -3986,6 +4041,7 @@ def build_breadth_glance(
         "flip_streak": 0,
         "flip_max_streak": 0,
         "flip_mean_streak": None,
+        "flip_median_streak": None,
         "flip_run_n": 0,
         "dual_n": 0,
         "split_n": 0,
@@ -4205,6 +4261,9 @@ def build_breadth_glance(
     flip_mean_streak = (
         breadth_tape_flip_mean_streak(hist, through_day=day_cut) if hist else None
     )
+    flip_median_streak = (
+        breadth_tape_flip_median_streak(hist, through_day=day_cut) if hist else None
+    )
     flip_run_n = (
         breadth_tape_flip_run_count(hist, through_day=day_cut) if hist else 0
     )
@@ -4307,6 +4366,15 @@ def build_breadth_glance(
         parts.append(f"max flip {flip_max_streak}")
     if flip_mean_streak is not None and flip_run_n >= 2:
         parts.append(f"avg flip {flip_mean_streak:.1f} ({flip_run_n} runs)")
+    if (
+        flip_median_streak is not None
+        and flip_run_n >= 3
+        and (
+            flip_mean_streak is None
+            or abs(flip_median_streak - flip_mean_streak) >= 0.05
+        )
+    ):
+        parts.append(f"med flip {flip_median_streak:.1f}")
     # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
@@ -4402,6 +4470,7 @@ def build_breadth_glance(
         "flip_streak": flip_streak,
         "flip_max_streak": flip_max_streak,
         "flip_mean_streak": flip_mean_streak,
+        "flip_median_streak": flip_median_streak,
         "flip_run_n": flip_run_n,
         "dual_n": dual_n,
         "split_n": split_n,
