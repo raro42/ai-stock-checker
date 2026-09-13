@@ -18,6 +18,7 @@ from openbb_backend.desk import (
     breadth_prev_tape_label,
     breadth_risk_off_streak,
     breadth_tape_flip_cv_streak,
+    format_flip_run_chop_bits,
     breadth_tape_flip_max_streak,
     breadth_tape_flip_mean_streak,
     breadth_tape_flip_median_streak,
@@ -1169,6 +1170,31 @@ def test_breadth_tape_flip_cv_streak():
     assert breadth_tape_flip_cv_streak(even) == 0.0
 
 
+
+
+def test_format_flip_run_chop_bits_thresholds():
+    """Chop details bits follow the same show/hide rules as prior glance wall."""
+    assert format_flip_run_chop_bits(flip_streak=3, flip_max_streak=3) == []
+    assert format_flip_run_chop_bits(flip_streak=0, flip_max_streak=3) == ["max flip 3"]
+    assert format_flip_run_chop_bits(
+        flip_streak=0,
+        flip_max_streak=3,
+        flip_min_streak=1,
+        flip_mean_streak=2.0,
+        flip_median_streak=1.0,
+        flip_stdev_streak=1.1547005383792517,
+        flip_cv_streak=0.5773502691896257,
+        flip_run_n=3,
+    ) == [
+        "max flip 3",
+        "avg flip 2.0 (3 runs)",
+        "med flip 1.0",
+        "min flip 1",
+        "σ flip 1.2",
+        "CV flip 0.6",
+    ]
+
+
 def test_breadth_tape_summary_flip_max_streak_replay():
     """Peak chop after settle: max flip > ending streak shows on summary."""
     rows = [
@@ -1184,7 +1210,9 @@ def test_breadth_tape_summary_flip_max_streak_replay():
     assert s["flip_max_streak"] == 3
     assert s["days_since_tape_flip"] == 1
     assert "1d since flip" in s["line"]
-    assert "max flip 3" in s["line"]
+    assert "max flip 3" not in s["line"]
+    assert s["chop_ready"] is True
+    assert "max flip 3" in s["chop_line"]
     assert "flip streak" not in s["line"]
     # at peak: ending == max → no separate max bit
     peak = build_breadth_tape_summary(rows[:4])
@@ -1192,6 +1220,7 @@ def test_breadth_tape_summary_flip_max_streak_replay():
     assert peak["flip_max_streak"] == 3
     assert "flip streak 3" in peak["line"]
     assert "max flip" not in peak["line"]
+    assert peak["chop_ready"] is False
     calm = build_breadth_tape_summary(
         [
             {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
@@ -1200,6 +1229,7 @@ def test_breadth_tape_summary_flip_max_streak_replay():
     )
     assert calm["flip_max_streak"] == 0
     assert "max flip" not in calm["line"]
+    assert calm["chop_ready"] is False
 
 
 def test_breadth_tape_summary_flip_mean_streak_replay():
@@ -1217,13 +1247,16 @@ def test_breadth_tape_summary_flip_mean_streak_replay():
     assert s["flip_max_streak"] == 3
     assert s["flip_mean_streak"] == 2.0
     assert s["flip_run_n"] == 2
-    assert "max flip 3" in s["line"]
-    assert "avg flip 2.0 (2 runs)" in s["line"]
+    assert "max flip 3" not in s["line"]
+    assert "avg flip 2.0 (2 runs)" not in s["line"]
+    assert "max flip 3" in s["chop_line"]
+    assert "avg flip 2.0 (2 runs)" in s["chop_line"]
     # single run → mean equals max; hide avg (redundant)
     peak = build_breadth_tape_summary(rows[:4])
     assert peak["flip_mean_streak"] == 3.0
     assert peak["flip_run_n"] == 1
     assert "avg flip" not in peak["line"]
+    assert "avg flip" not in peak.get("chop_line", "")
     calm = build_breadth_tape_summary(
         [
             {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
@@ -1233,6 +1266,7 @@ def test_breadth_tape_summary_flip_mean_streak_replay():
     assert calm["flip_mean_streak"] is None
     assert calm["flip_run_n"] == 0
     assert "avg flip" not in calm["line"]
+    assert calm["chop_ready"] is False
 
 
 def test_breadth_tape_summary_flip_median_streak_replay():
@@ -1253,14 +1287,18 @@ def test_breadth_tape_summary_flip_median_streak_replay():
     assert s["flip_run_n"] == 3
     assert s["flip_median_streak"] == 1.0
     assert abs(s["flip_mean_streak"] - (5.0 / 3.0)) < 1e-9
-    assert "avg flip 1.7 (3 runs)" in s["line"]
-    assert "med flip 1.0" in s["line"]
+    assert "avg flip 1.7 (3 runs)" not in s["line"]
+    assert "med flip 1.0" not in s["line"]
+    assert "avg flip 1.7 (3 runs)" in s["chop_line"]
+    assert "med flip 1.0" in s["chop_line"]
     # two runs only → median == mean; hide med (needs ≥3 + diverge)
     two = build_breadth_tape_summary(rows[:6])
     assert two["flip_run_n"] == 2
     assert two["flip_median_streak"] == 2.0
     assert "med flip" not in two["line"]
-    assert "avg flip 2.0 (2 runs)" in two["line"]
+    assert "avg flip 2.0 (2 runs)" not in two["line"]
+    assert "med flip" not in two["chop_line"]
+    assert "avg flip 2.0 (2 runs)" in two["chop_line"]
 
 
 def test_breadth_tape_summary_flip_min_streak_replay():
@@ -1278,8 +1316,10 @@ def test_breadth_tape_summary_flip_min_streak_replay():
     assert s["flip_run_n"] == 2
     assert s["flip_min_streak"] == 1
     assert s["flip_max_streak"] == 3
-    assert "min flip 1" in s["line"]
-    assert "max flip 3" in s["line"]
+    assert "min flip 1" not in s["line"]
+    assert "max flip 3" not in s["line"]
+    assert "min flip 1" in s["chop_line"]
+    assert "max flip 3" in s["chop_line"]
     # single run → min == max; hide min
     peak = build_breadth_tape_summary(rows[:4])
     assert peak["flip_min_streak"] == 3
@@ -1312,7 +1352,8 @@ def test_breadth_tape_summary_flip_stdev_streak_replay():
     assert s["ready"] is True
     assert s["flip_run_n"] == 3
     assert abs(s["flip_stdev_streak"] - (4.0 / 3.0) ** 0.5) < 1e-9
-    assert "σ flip 1.2" in s["line"]
+    assert "σ flip 1.2" not in s["line"]
+    assert "σ flip 1.2" in s["chop_line"]
     # two runs only → hide σ (needs ≥3)
     two = build_breadth_tape_summary(rows[:6])
     assert two["flip_run_n"] == 2
@@ -1360,8 +1401,10 @@ def test_breadth_tape_summary_flip_cv_streak_replay():
     mean = 5.0 / 3.0
     sigma = (4.0 / 3.0) ** 0.5
     assert abs(s["flip_cv_streak"] - (sigma / mean)) < 1e-9
-    assert "CV flip 0.7" in s["line"]
-    assert "σ flip 1.2" in s["line"]
+    assert "CV flip 0.7" not in s["line"]
+    assert "σ flip 1.2" not in s["line"]
+    assert "CV flip 0.7" in s["chop_line"]
+    assert "σ flip 1.2" in s["chop_line"]
     # two runs only → hide CV (needs ≥3)
     two = build_breadth_tape_summary(rows[:6])
     assert two["flip_run_n"] == 2
@@ -1420,8 +1463,18 @@ def test_breadth_glance_flip_max_streak_from_history():
     assert g["ready"] is True
     assert g["flip_streak"] == 0
     assert g["flip_max_streak"] == 2
-    assert "max flip 2" in g["line"]
+    assert "max flip 2" not in g["line"]
     assert "flip streak" not in g["line"]
+    assert format_flip_run_chop_bits(
+        flip_streak=g["flip_streak"],
+        flip_max_streak=g["flip_max_streak"],
+        flip_min_streak=g["flip_min_streak"],
+        flip_mean_streak=g["flip_mean_streak"],
+        flip_median_streak=g["flip_median_streak"],
+        flip_stdev_streak=g["flip_stdev_streak"],
+        flip_cv_streak=g["flip_cv_streak"],
+        flip_run_n=g["flip_run_n"],
+    ) == ["max flip 2"]
 
 
 def test_breadth_glance_flip_mean_streak_from_history():
@@ -1447,8 +1500,22 @@ def test_breadth_glance_flip_mean_streak_from_history():
     assert g["flip_mean_streak"] == 2.0
     assert g["flip_run_n"] == 2
     assert g["flip_max_streak"] == 3
-    assert "avg flip 2.0 (2 runs)" in g["line"]
-    assert "max flip 3" in g["line"]
+    assert "avg flip 2.0 (2 runs)" not in g["line"]
+    assert "max flip 3" not in g["line"]
+    chop = " · ".join(
+        format_flip_run_chop_bits(
+            flip_streak=g["flip_streak"],
+            flip_max_streak=g["flip_max_streak"],
+            flip_min_streak=g["flip_min_streak"],
+            flip_mean_streak=g["flip_mean_streak"],
+            flip_median_streak=g["flip_median_streak"],
+            flip_stdev_streak=g["flip_stdev_streak"],
+            flip_cv_streak=g["flip_cv_streak"],
+            flip_run_n=g["flip_run_n"],
+        )
+    )
+    assert "avg flip 2.0 (2 runs)" in chop
+    assert "max flip 3" in chop
 
 
 def test_breadth_glance_flip_median_streak_from_history():
@@ -1476,8 +1543,22 @@ def test_breadth_glance_flip_median_streak_from_history():
     assert g["ready"] is True
     assert g["flip_run_n"] == 3
     assert g["flip_median_streak"] == 1.0
-    assert "med flip 1.0" in g["line"]
-    assert "avg flip 1.7 (3 runs)" in g["line"]
+    assert "med flip 1.0" not in g["line"]
+    assert "avg flip 1.7 (3 runs)" not in g["line"]
+    chop = " · ".join(
+        format_flip_run_chop_bits(
+            flip_streak=g["flip_streak"],
+            flip_max_streak=g["flip_max_streak"],
+            flip_min_streak=g["flip_min_streak"],
+            flip_mean_streak=g["flip_mean_streak"],
+            flip_median_streak=g["flip_median_streak"],
+            flip_stdev_streak=g["flip_stdev_streak"],
+            flip_cv_streak=g["flip_cv_streak"],
+            flip_run_n=g["flip_run_n"],
+        )
+    )
+    assert "med flip 1.0" in chop
+    assert "avg flip 1.7 (3 runs)" in chop
 
 
 def test_breadth_glance_flip_min_streak_from_history():
@@ -1502,8 +1583,22 @@ def test_breadth_glance_flip_min_streak_from_history():
     assert g["ready"] is True
     assert g["flip_min_streak"] == 1
     assert g["flip_max_streak"] == 3
-    assert "min flip 1" in g["line"]
-    assert "max flip 3" in g["line"]
+    assert "min flip 1" not in g["line"]
+    assert "max flip 3" not in g["line"]
+    chop = " · ".join(
+        format_flip_run_chop_bits(
+            flip_streak=g["flip_streak"],
+            flip_max_streak=g["flip_max_streak"],
+            flip_min_streak=g["flip_min_streak"],
+            flip_mean_streak=g["flip_mean_streak"],
+            flip_median_streak=g["flip_median_streak"],
+            flip_stdev_streak=g["flip_stdev_streak"],
+            flip_cv_streak=g["flip_cv_streak"],
+            flip_run_n=g["flip_run_n"],
+        )
+    )
+    assert "min flip 1" in chop
+    assert "max flip 3" in chop
 
 
 def test_breadth_glance_flip_stdev_streak_from_history():
@@ -1531,7 +1626,20 @@ def test_breadth_glance_flip_stdev_streak_from_history():
     assert g["ready"] is True
     assert g["flip_run_n"] == 3
     assert abs(g["flip_stdev_streak"] - (4.0 / 3.0) ** 0.5) < 1e-9
-    assert "σ flip 1.2" in g["line"]
+    assert "σ flip 1.2" not in g["line"]
+    chop = " · ".join(
+        format_flip_run_chop_bits(
+            flip_streak=g["flip_streak"],
+            flip_max_streak=g["flip_max_streak"],
+            flip_min_streak=g["flip_min_streak"],
+            flip_mean_streak=g["flip_mean_streak"],
+            flip_median_streak=g["flip_median_streak"],
+            flip_stdev_streak=g["flip_stdev_streak"],
+            flip_cv_streak=g["flip_cv_streak"],
+            flip_run_n=g["flip_run_n"],
+        )
+    )
+    assert "σ flip 1.2" in chop
 
 
 def test_breadth_glance_flip_cv_streak_from_history():
@@ -1561,7 +1669,20 @@ def test_breadth_glance_flip_cv_streak_from_history():
     mean = 5.0 / 3.0
     sigma = (4.0 / 3.0) ** 0.5
     assert abs(g["flip_cv_streak"] - (sigma / mean)) < 1e-9
-    assert "CV flip 0.7" in g["line"]
+    assert "CV flip 0.7" not in g["line"]
+    chop = " · ".join(
+        format_flip_run_chop_bits(
+            flip_streak=g["flip_streak"],
+            flip_max_streak=g["flip_max_streak"],
+            flip_min_streak=g["flip_min_streak"],
+            flip_mean_streak=g["flip_mean_streak"],
+            flip_median_streak=g["flip_median_streak"],
+            flip_stdev_streak=g["flip_stdev_streak"],
+            flip_cv_streak=g["flip_cv_streak"],
+            flip_run_n=g["flip_run_n"],
+        )
+    )
+    assert "CV flip 0.7" in chop
 
 
 def test_breadth_tape_summary_flip_streak_replay():

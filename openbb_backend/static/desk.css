@@ -2000,6 +2000,41 @@ a:active {
   margin: 0 0 0.65rem;
 }
 
+/* Breadth: park flip-run distribution under details (MonsterDeveloper + StockBee). */
+.chop-honesty {
+  margin: 0.55rem 0 0.35rem;
+  padding: 0.35rem 0 0.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.chop-honesty > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-family: var(--font-display, Georgia, "Times New Roman", serif);
+  font-size: 0.98rem;
+  list-style: none;
+}
+
+.chop-honesty > summary::-webkit-details-marker {
+  display: none;
+}
+
+.chop-honesty > summary .meta {
+  margin-left: 0.35rem;
+  color: var(--muted);
+  font-family: var(--font-body, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.chop-honesty[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
+.chop-honesty > .sub {
+  margin: 0 0 0.4rem;
+}
+
 .empty,
 .note {
   color: var(--muted);

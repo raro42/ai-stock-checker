@@ -564,26 +564,15 @@
       {% elif tape_sum.ready and tape_sum.days_since_tape_flip and tape_sum.days_since_tape_flip > 0 %}
       <span class="weight"> · {{ tape_sum.days_since_tape_flip }}d since flip</span>
       {% endif %}
-      {% if tape_sum.ready and tape_sum.flip_max_streak and tape_sum.flip_max_streak >= 2 and tape_sum.flip_max_streak > (tape_sum.flip_streak|default(0)) %}
-      <span class="weight"> · max flip {{ tape_sum.flip_max_streak }}</span>
-      {% endif %}
-      {% if tape_sum.ready and tape_sum.flip_mean_streak is not none and tape_sum.flip_run_n and tape_sum.flip_run_n >= 2 %}
-      <span class="weight"> · avg flip {{ "%.1f"|format(tape_sum.flip_mean_streak) }} ({{ tape_sum.flip_run_n }} runs)</span>
-      {% endif %}
-      {% if tape_sum.ready and tape_sum.flip_median_streak is not none and tape_sum.flip_run_n and tape_sum.flip_run_n >= 3 and (tape_sum.flip_mean_streak is none or (tape_sum.flip_median_streak - tape_sum.flip_mean_streak)|abs >= 0.05) %}
-      <span class="weight"> · med flip {{ "%.1f"|format(tape_sum.flip_median_streak) }}</span>
-      {% endif %}
-      {% if tape_sum.ready and tape_sum.flip_run_n and tape_sum.flip_run_n >= 2 and tape_sum.flip_min_streak and tape_sum.flip_min_streak > 0 and tape_sum.flip_min_streak < (tape_sum.flip_max_streak|default(0)) %}
-      <span class="weight"> · min flip {{ tape_sum.flip_min_streak }}</span>
-      {% endif %}
-      {% if tape_sum.ready and tape_sum.flip_stdev_streak is not none and tape_sum.flip_run_n and tape_sum.flip_run_n >= 3 and tape_sum.flip_stdev_streak >= 0.05 %}
-      <span class="weight"> · σ flip {{ "%.1f"|format(tape_sum.flip_stdev_streak) }}</span>
-      {% endif %}
-      {% if tape_sum.ready and tape_sum.flip_cv_streak is not none and tape_sum.flip_run_n and tape_sum.flip_run_n >= 3 and tape_sum.flip_cv_streak >= 0.05 %}
-      <span class="weight"> · CV flip {{ "%.1f"|format(tape_sum.flip_cv_streak) }}</span>
-      {% endif %}
       {% if tape_sum.ready and tape_sum.flip_density_pct is not none %}
       <span class="weight"> · flip dens {{ "%.0f"|format(tape_sum.flip_density_pct) }}% ({{ tape_sum.flip_n }}/{{ tape_sum.pair_n }})</span>
+      {% endif %}
+      {% if tape_sum.chop_ready %}
+      <details class="chop-honesty" id="chop-honesty">
+        <summary>Flip-run chop <span class="meta">max · avg · med · min · σ · CV</span></summary>
+        <p class="sub">StockBee storm-size distribution — scan-list only; display only; not a gate.</p>
+        <p class="weight">{{ tape_sum.chop_line }}</p>
+      </details>
       {% endif %}
     </div>
     <div>

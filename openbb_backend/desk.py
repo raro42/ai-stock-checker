@@ -3278,6 +3278,58 @@ def breadth_tape_flip_run_count(
     return len(_breadth_tape_flip_run_lengths(labels))
 
 
+def format_flip_run_chop_bits(
+    *,
+    flip_streak: int = 0,
+    flip_max_streak: int = 0,
+    flip_min_streak: int = 0,
+    flip_mean_streak: float | None = None,
+    flip_median_streak: float | None = None,
+    flip_stdev_streak: float | None = None,
+    flip_cv_streak: float | None = None,
+    flip_run_n: int = 0,
+) -> list[str]:
+    """Flip-run distribution bits for Breadth chop details (display only).
+
+    MonsterDeveloper + xang1234: keep live flip / days-since / dens on the
+    primary glance; park max/avg/med/min/σ/CV under a details fold so the
+    desk stays short. Not a gate.
+    """
+    bits: list[str] = []
+    if flip_max_streak >= 2 and flip_max_streak > flip_streak:
+        bits.append(f"max flip {flip_max_streak}")
+    if flip_mean_streak is not None and flip_run_n >= 2:
+        bits.append(f"avg flip {flip_mean_streak:.1f} ({flip_run_n} runs)")
+    if (
+        flip_median_streak is not None
+        and flip_run_n >= 3
+        and (
+            flip_mean_streak is None
+            or abs(flip_median_streak - flip_mean_streak) >= 0.05
+        )
+    ):
+        bits.append(f"med flip {flip_median_streak:.1f}")
+    if (
+        flip_run_n >= 2
+        and flip_min_streak > 0
+        and flip_min_streak < flip_max_streak
+    ):
+        bits.append(f"min flip {flip_min_streak}")
+    if (
+        flip_stdev_streak is not None
+        and flip_run_n >= 3
+        and flip_stdev_streak >= 0.05
+    ):
+        bits.append(f"σ flip {flip_stdev_streak:.1f}")
+    if (
+        flip_cv_streak is not None
+        and flip_run_n >= 3
+        and flip_cv_streak >= 0.05
+    ):
+        bits.append(f"CV flip {flip_cv_streak:.1f}")
+    return bits
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -3800,6 +3852,8 @@ def build_breadth_tape_summary(
         "flip_stdev_streak": None,
         "flip_cv_streak": None,
         "flip_run_n": 0,
+        "chop_line": "",
+        "chop_ready": False,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3965,43 +4019,17 @@ def build_breadth_tape_summary(
         and days_since_tape_flip > 0
     ):
         bits.append(f"{days_since_tape_flip}d since flip")
-    # Peak chop vs ending storm: show max when it beats the ending streak.
-    if flip_max_streak >= 2 and flip_max_streak > flip_streak:
-        bits.append(f"max flip {flip_max_streak}")
-    # Typical storm size when ≥2 distinct flip runs (else mean == max).
-    if flip_mean_streak is not None and flip_run_n >= 2:
-        bits.append(f"avg flip {flip_mean_streak:.1f} ({flip_run_n} runs)")
-    # Robust typical: ≥3 runs and median ≠ mean (mean pulled by one long storm).
-    if (
-        flip_median_streak is not None
-        and flip_run_n >= 3
-        and (
-            flip_mean_streak is None
-            or abs(flip_median_streak - flip_mean_streak) >= 0.05
-        )
-    ):
-        bits.append(f"med flip {flip_median_streak:.1f}")
-    # Floor chop vs peak: show min when ≥2 runs and min < max.
-    if (
-        flip_run_n >= 2
-        and flip_min_streak > 0
-        and flip_min_streak < flip_max_streak
-    ):
-        bits.append(f"min flip {flip_min_streak}")
-    # Storm-size dispersion: ≥3 runs and σ ≥ 0.05 (uneven chop).
-    if (
-        flip_stdev_streak is not None
-        and flip_run_n >= 3
-        and flip_stdev_streak >= 0.05
-    ):
-        bits.append(f"σ flip {flip_stdev_streak:.1f}")
-    # Relative chop: ≥3 runs and CV ≥ 0.05 (σ scaled by mean storm size).
-    if (
-        flip_cv_streak is not None
-        and flip_run_n >= 3
-        and flip_cv_streak >= 0.05
-    ):
-        bits.append(f"CV flip {flip_cv_streak:.1f}")
+    # Distribution bits live on chop_line (Breadth details), not primary line.
+    chop_bits = format_flip_run_chop_bits(
+        flip_streak=flip_streak,
+        flip_max_streak=flip_max_streak,
+        flip_min_streak=flip_min_streak,
+        flip_mean_streak=flip_mean_streak,
+        flip_median_streak=flip_median_streak,
+        flip_stdev_streak=flip_stdev_streak,
+        flip_cv_streak=flip_cv_streak,
+        flip_run_n=flip_run_n,
+    )
     risk_on_density = tape_label_density_pct(dual_n, days)
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
@@ -4052,6 +4080,8 @@ def build_breadth_tape_summary(
         "flip_stdev_streak": flip_stdev_streak,
         "flip_cv_streak": flip_cv_streak,
         "flip_run_n": flip_run_n,
+        "chop_line": " · ".join(chop_bits),
+        "chop_ready": bool(chop_bits),
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -4527,37 +4557,7 @@ def build_breadth_glance(
         and days_since_tape_flip > 0
     ):
         parts.append(f"{days_since_tape_flip}d since flip")
-    if flip_max_streak >= 2 and flip_max_streak > flip_streak:
-        parts.append(f"max flip {flip_max_streak}")
-    if flip_mean_streak is not None and flip_run_n >= 2:
-        parts.append(f"avg flip {flip_mean_streak:.1f} ({flip_run_n} runs)")
-    if (
-        flip_median_streak is not None
-        and flip_run_n >= 3
-        and (
-            flip_mean_streak is None
-            or abs(flip_median_streak - flip_mean_streak) >= 0.05
-        )
-    ):
-        parts.append(f"med flip {flip_median_streak:.1f}")
-    if (
-        flip_run_n >= 2
-        and flip_min_streak > 0
-        and flip_min_streak < flip_max_streak
-    ):
-        parts.append(f"min flip {flip_min_streak}")
-    if (
-        flip_stdev_streak is not None
-        and flip_run_n >= 3
-        and flip_stdev_streak >= 0.05
-    ):
-        parts.append(f"σ flip {flip_stdev_streak:.1f}")
-    if (
-        flip_cv_streak is not None
-        and flip_run_n >= 3
-        and flip_cv_streak >= 0.05
-    ):
-        parts.append(f"CV flip {flip_cv_streak:.1f}")
+    # Flip-run distribution (max/avg/med/min/σ/CV) stays on Breadth chop details.
     # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
