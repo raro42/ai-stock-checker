@@ -39,13 +39,13 @@ Command: `python3 scripts/summarize_trades.py --since window-a` (also desk promo
 
 | Metric (fills ≥ 2026-08-12 15:22 UTC) | Value |
 |--------|-------|
-| Fills | **26** (16 buys / 10 sells) |
-| Fees in window | **€507.60** |
-| Realized P&L (sells) | **€2,458.18** |
-| Net after sell fees | **€2,248.77** |
-| Wins / losses (sells) | 8 / 2 |
-| Legs | stock 17 · crypto 9 (includes pre-majors-only alts e.g. PROM) |
-| First / last fill | 2026-08-13 06:24 → 2026-08-24 13:38 |
+| Fills | **30** (18 buys / 12 sells) |
+| Fees in window | **€575.16** |
+| Realized P&L (sells) | **€2,788.06** |
+| Net after sell fees | **€2,550.94** |
+| Wins / losses (sells) | 10 / 2 |
+| Legs | stock 21 · crypto 9 (includes pre-majors-only alts e.g. PROM) |
+| First / last fill | 2026-08-13 06:24 → 2026-08-25 14:45 |
 | Trading days (Mon–Fri through 2026-09-13) | **≥10** (target met) |
 
 **Live book at summarize (not a clean mark-to-market equity path):**
@@ -68,7 +68,7 @@ Desk: promote A/B glance now appends `€fees · ±P&L · N fills` from `trades.
 
 1. Ops knobs during each window? Window A ended with **max_positions=8** (drift from protocol 5); fees/gates/AI as above; promote off.
 2. Breadth: did stock entries flow after pulse fix? *(answer in final verdict)*
-3. Crypto vs stock PnL share? Window A legs: 9 crypto / 17 stock (not € P&L split yet).
+3. Crypto vs stock PnL share? Window A legs: 9 crypto / 21 stock (not € P&L split yet).
 4. Still stock TP+8%/SL−5% (not ATR)? yes
 
 ## Verdict
