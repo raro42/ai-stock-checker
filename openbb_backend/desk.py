@@ -2711,6 +2711,17 @@ def tape_label_density_pct(label_n: int, days: int) -> float | None:
     return thrust_density_pct(label_n, days)
 
 
+def tape_flip_density_pct(flip_n: int, pair_n: int) -> float | None:
+    """Share of consecutive known-label day pairs that flipped. Display only.
+
+    StockBee chop: label densities show how often each tape state appears;
+    flip density shows how often the label *changes* day-to-day. Denominator
+    is known→known pairs (both sleeves priced), not raw day count. None when
+    fewer than two known labels in a row.
+    """
+    return thrust_density_pct(flip_n, pair_n)
+
+
 def _breadth_ending_streak(
     rows: list[dict[str, Any]],
     predicate: Callable[[dict[str, Any]], bool],
@@ -3334,6 +3345,9 @@ def build_breadth_tape_summary(
     split_n = 0
     risk_off_n = 0
     mixed_n = 0
+    flip_n = 0
+    pair_n = 0
+    prev_label_for_flip = ""
     latest_dual = False
     latest_split = False
     latest_risk_off = False
@@ -3353,6 +3367,11 @@ def build_breadth_tape_summary(
             weak_pct=weak_pct,
             risk_off_max_pct=risk_off_max_pct,
         )
+        if str(prev_label_for_flip or "").strip() and str(label or "").strip():
+            pair_n += 1
+            if is_tape_flip(prev_label_for_flip, label):
+                flip_n += 1
+        prev_label_for_flip = label
         latest_label = label
         if dual:
             dual_n += 1
@@ -3394,6 +3413,9 @@ def build_breadth_tape_summary(
         "split_density_pct": None,
         "risk_off_density_pct": None,
         "mixed_density_pct": None,
+        "flip_n": 0,
+        "pair_n": 0,
+        "flip_density_pct": None,
         "dual_streak": 0,
         "split_streak": 0,
         "risk_off_streak": 0,
@@ -3501,6 +3523,7 @@ def build_breadth_tape_summary(
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
     mixed_density = tape_label_density_pct(mixed_n, days)
+    flip_density = tape_flip_density_pct(flip_n, pair_n)
     if risk_on_density is not None:
         bits.append(f"risk-on dens {risk_on_density:.0f}% ({dual_n}/{days})")
     if split_density is not None:
@@ -3509,6 +3532,8 @@ def build_breadth_tape_summary(
         bits.append(f"risk-off dens {risk_off_density:.0f}% ({risk_off_n}/{days})")
     if mixed_density is not None:
         bits.append(f"mixed dens {mixed_density:.0f}% ({mixed_n}/{days})")
+    if flip_density is not None:
+        bits.append(f"flip dens {flip_density:.0f}% ({flip_n}/{pair_n})")
     bits.append(
         f"{dual_n}/{days} risk-on · {split_n}/{days} split · "
         f"{risk_off_n}/{days} risk-off · {mixed_n}/{days} mixed"
@@ -3524,6 +3549,9 @@ def build_breadth_tape_summary(
         "split_density_pct": split_density,
         "risk_off_density_pct": risk_off_density,
         "mixed_density_pct": mixed_density,
+        "flip_n": flip_n,
+        "pair_n": pair_n,
+        "flip_density_pct": flip_density,
         "dual_streak": dual_streak,
         "split_streak": split_streak,
         "risk_off_streak": risk_off_streak,
@@ -3678,6 +3706,9 @@ def build_breadth_glance(
         "split_density_pct": None,
         "risk_off_density_pct": None,
         "mixed_density_pct": None,
+        "flip_n": 0,
+        "pair_n": 0,
+        "flip_density_pct": None,
         "crypto_n": 0,
         "stock_n": 0,
         "stock_advance_pct": None,
@@ -3794,6 +3825,11 @@ def build_breadth_glance(
     mixed_density = (
         tape_rate_sum.get("mixed_density_pct") if tape_rate_sum else None
     )
+    flip_n = int(tape_rate_sum.get("flip_n") or 0) if tape_rate_sum else 0
+    pair_n = int(tape_rate_sum.get("pair_n") or 0) if tape_rate_sum else 0
+    flip_density = (
+        tape_rate_sum.get("flip_density_pct") if tape_rate_sum else None
+    )
     if confirm_rate is not None:
         try:
             confirm_rate = float(confirm_rate)
@@ -3849,6 +3885,13 @@ def build_breadth_glance(
             mixed_density = tape_label_density_pct(mixed_n, dens_days)
     elif tape_rate_sum:
         mixed_density = tape_label_density_pct(mixed_n, dens_days)
+    if flip_density is not None:
+        try:
+            flip_density = float(flip_density)
+        except (TypeError, ValueError):
+            flip_density = tape_flip_density_pct(flip_n, pair_n)
+    elif tape_rate_sum:
+        flip_density = tape_flip_density_pct(flip_n, pair_n)
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
     )
@@ -3975,6 +4018,8 @@ def build_breadth_glance(
             parts.append(
                 f"mixed dens {mixed_density:.0f}% ({mixed_n}/{dens_days})"
             )
+        if flip_density is not None and pair_n > 0:
+            parts.append(f"flip dens {flip_density:.0f}% ({flip_n}/{pair_n})")
     if not parts:
         return empty
     # Coverage honesty: verified *scan-list* estimate, never full-universe.
@@ -4046,6 +4091,9 @@ def build_breadth_glance(
         "split_density_pct": split_density,
         "risk_off_density_pct": risk_off_density,
         "mixed_density_pct": mixed_density,
+        "flip_n": flip_n,
+        "pair_n": pair_n,
+        "flip_density_pct": flip_density,
         "crypto_n": crypto_n,
         "stock_n": stock_n if stock_n > 0 else 0,
         "stock_advance_pct": advance_pct if stock_n > 0 else None,
