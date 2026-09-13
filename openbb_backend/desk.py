@@ -487,14 +487,22 @@ def build_promote_ab_glance(
     runtime: dict[str, Any] | None,
     *,
     as_of: date | None = None,
+    data_dir: Path | str | None = None,
+    window_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compact promote A/B window line (Phase A / portfolio AI; display only).
 
     Shows Window A/B trading-day progress and whether live promote matches the
-    protocol (A = off, B = on). Calm ≠ edge; fee-adjusted verdict still required.
+    protocol (A = off, B = on). When fills exist, appends in-window fees /
+    realized P&L / fill count (fee-adjusted honesty before Window B). Calm ≠
+    edge; compose default-on still blocked until A/B verdict + calm gate.
     Not an entry gate.
     """
-    from stock_checker.promote_ab import promote_ab_snapshot
+    from stock_checker.promote_ab import (
+        format_window_stats_bit,
+        promote_ab_snapshot,
+        window_stats_from_data_dir,
+    )
 
     empty = {
         "ready": False,
@@ -506,6 +514,8 @@ def build_promote_ab_glance(
         "target_met": False,
         "protocol_ok": False,
         "promote_on": False,
+        "window_stats": None,
+        "window_stats_bit": "",
     }
     if not isinstance(runtime, dict):
         return empty
@@ -517,6 +527,10 @@ def build_promote_ab_glance(
     target_met = bool(snap.get("target_met"))
     protocol_ok = bool(snap.get("protocol_ok"))
     promote_label = "on" if promote_on else "off"
+    stats = window_stats
+    if stats is None and data_dir is not None:
+        stats = window_stats_from_data_dir(data_dir, promote_on=promote_on)
+    stats_bit = format_window_stats_bit(stats)
     if not protocol_ok:
         tone = "warn"
         if window == "A":
@@ -525,17 +539,24 @@ def build_promote_ab_glance(
             status = "promote should be ON for Window B"
     elif target_met:
         tone = "ready"
-        status = (
-            "target met · summarize before B"
-            if window == "A"
-            else "target met · write fee-adjusted verdict"
-        )
+        if window == "A":
+            status = "ready for B" if stats_bit else "target met · summarize before B"
+        else:
+            status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
         status = "running"
-    line = f"Window {window} · promote {promote_label} · {days}/{need} days · {status}"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    parts = [
+        f"Window {window}",
+        f"promote {promote_label}",
+        f"{days}/{need} days",
+    ]
+    if stats_bit and protocol_ok:
+        parts.append(stats_bit)
+    parts.append(status)
+    line = " · ".join(parts)
+    if len(line) > 110:
+        line = line[:109] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -546,6 +567,8 @@ def build_promote_ab_glance(
         "target_met": target_met,
         "protocol_ok": protocol_ok,
         "promote_on": promote_on,
+        "window_stats": stats,
+        "window_stats_bit": stats_bit,
     }
 
 
@@ -5741,7 +5764,7 @@ def load_desk_snapshot(
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
-        "promote_ab_glance": build_promote_ab_glance(runtime),
+        "promote_ab_glance": build_promote_ab_glance(runtime, data_dir=data_dir),
         "crypto_policy_glance": build_crypto_policy_glance(rows),
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),

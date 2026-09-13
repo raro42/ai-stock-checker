@@ -784,7 +784,7 @@ def _calm_streak_glance_from_data(data_dir: Path) -> dict[str, Any]:
 
 
 def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
-    """Promote A/B window line from trader_config (display only)."""
+    """Promote A/B window line from trader_config + trades (display only)."""
     from openbb_backend.desk import build_promote_ab_glance
     from stock_checker.trader_config import load_trader_config
 
@@ -794,7 +794,8 @@ def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
             "promote_experiment_strategy": bool(
                 cfg.get("promote_experiment_strategy", False)
             ),
-        }
+        },
+        data_dir=data_dir,
     )
 
 

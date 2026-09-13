@@ -4,10 +4,10 @@ Method: [docs/PROMOTE_AB.md](../PROMOTE_AB.md).
 
 ## Knobs (fixed for both windows)
 
-- Book limits: max_positions=5, min_hold=24h
+- Book limits: max_positions=5, min_hold=24h *(protocol; see Window A end note for live drift)*
 - Fees: revolut_standard (0.25%/side · €1 min)
 - Gates: regime on, RS on, breadth on
-- Exits: fixed ±5% via exit_policy (ATR display-only)
+- Exits: stock TP **+8%** / SL **−5%** / rotate ≥**+5%** via `exit_policy` (ATR display-only); crypto ±10% when majors policy applies
 - AI: validate / gemma4:latest
 
 ## Window A — promote **OFF** (control) — STARTED 2026-08-12 ~15:22 UTC
@@ -31,17 +31,46 @@ Do **not** flip promote back on until Window A completes, then start Window B wi
 - Weekday count since start (Mon–Fri inclusive through 2026-09-09): **≥10** → Window A **duration target met**.
 - Desk now shows promote A/B glance on Overview / Ops (`build_promote_ab_glance`) — display only.
 - **2026-09-09 improve:** same glance parity on Screener / Ideas / Book / Charts / Breadth / scan-log.
-- **Still pending:** fee-adjusted summarize (`scripts/summarize_trades.py` + equity/fees/trade counts) before starting Window B. No promote edge claim.
+- **Still pending then:** fee-adjusted summarize before starting Window B.
+
+### Checkpoint 2026-09-13 (fee-adjusted Window A summarize)
+
+Command: `python3 scripts/summarize_trades.py --since window-a` (also desk promote A/B glance bit).
+
+| Metric (fills ≥ 2026-08-12 15:22 UTC) | Value |
+|--------|-------|
+| Fills | **26** (16 buys / 10 sells) |
+| Fees in window | **€507.60** |
+| Realized P&L (sells) | **€2,458.18** |
+| Net after sell fees | **€2,248.77** |
+| Wins / losses (sells) | 8 / 2 |
+| Legs | stock 17 · crypto 9 (includes pre-majors-only alts e.g. PROM) |
+| First / last fill | 2026-08-13 06:24 → 2026-08-24 13:38 |
+| Trading days (Mon–Fri through 2026-09-13) | **≥10** (target met) |
+
+**Live book at summarize (not a clean mark-to-market equity path):**
+
+| Metric | Value |
+|--------|-------|
+| Cash | €51,777.16 |
+| Open names | JPM, DB1.DE, DBK.DE, CBK.DE, MMM, EOG, ETH-USD, HALO (**8**) |
+| Promote | **off** (protocol OK for Window A) |
+| Ops `max_positions` | **8** *(drift vs protocol 5 — overweight; calm streak paused)* |
+| Fee preset | revolut_standard |
+
+**Honesty:** Window A duration + fill summarize are done. This is **not** a promote edge claim. Do **not** flip compose promote default-on. Window B (promote on, same fee/book rules) still required for fee-adjusted A/B verdict. Prefer restoring max_positions=5 before B so knobs match the protocol table.
+
+Desk: promote A/B glance now appends `€fees · ±P&L · N fills` from `trades.jsonl` when available (`summarize_window_trades`) — portfolio AI fee vs realized pattern; display only.
 
 ## Window B — promote **ON** — not started
 
 ## Trust questions (C4) — fill when windows complete
 
-1. Ops knobs during each window? (same as above unless noted)
-2. Breadth: did stock entries flow after pulse fix?
-3. Crypto vs stock PnL share?
-4. Still ±5% exits? (yes)
+1. Ops knobs during each window? Window A ended with **max_positions=8** (drift from protocol 5); fees/gates/AI as above; promote off.
+2. Breadth: did stock entries flow after pulse fix? *(answer in final verdict)*
+3. Crypto vs stock PnL share? Window A legs: 9 crypto / 17 stock (not € P&L split yet).
+4. Still stock TP+8%/SL−5% (not ATR)? yes
 
 ## Verdict
 
-**Pending** — control window running; no promote edge claim.
+**Pending** — Window A control summarized; Window B not started; no promote edge claim.
