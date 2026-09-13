@@ -9,6 +9,7 @@ from openbb_backend.desk import (
     breadth_days_since_mixed,
     breadth_days_since_risk_off,
     breadth_days_since_risk_on,
+    breadth_days_since_tape_flip,
     breadth_days_since_tape_split,
     breadth_days_since_thrust,
     breadth_days_since_unconfirmed_thrust,
@@ -894,6 +895,7 @@ def test_breadth_tape_summary_empty():
     assert build_breadth_tape_summary([])["flip_density_pct"] is None
     assert build_breadth_tape_summary([])["flip_n"] == 0
     assert build_breadth_tape_summary([])["pair_n"] == 0
+    assert build_breadth_tape_summary([])["days_since_tape_flip"] is None
 
 
 def test_tape_flip_density_pct():
@@ -902,6 +904,29 @@ def test_tape_flip_density_pct():
     assert tape_flip_density_pct(0, 3) == 0.0
     assert tape_flip_density_pct(2, 4) == 50.0
     assert tape_flip_density_pct(3, 3) == 100.0
+
+
+def test_breadth_days_since_tape_flip():
+    # risk-on → split → mixed → mixed: last flip on day 3 → 1d since on day 4
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "tape_label": "mixed"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+    ]
+    assert breadth_days_since_tape_flip(rows) == 1
+    assert breadth_days_since_tape_flip(rows, through_day="2026-09-02") == 0
+    assert breadth_days_since_tape_flip(rows, through_day="2026-09-03") == 0
+    assert breadth_days_since_tape_flip(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+        ]
+    ) is None
+    assert breadth_days_since_tape_flip([]) is None
+    assert breadth_days_since_tape_flip(
+        [{"day": "2026-09-01", "tape_label": "mixed"}]
+    ) is None
 
 
 def test_breadth_tape_summary_flip_density_replay():
@@ -920,6 +945,8 @@ def test_breadth_tape_summary_flip_density_replay():
     assert s["flip_n"] == 3
     assert s["flip_density_pct"] == tape_flip_density_pct(3, 4)
     assert s["tape_flip"] is False  # ending day continues mixed
+    assert s["days_since_tape_flip"] == 1
+    assert "1d since flip" in s["line"]
     assert "flip dens 75% (3/4)" in s["line"]
     calm = build_breadth_tape_summary(
         [
@@ -931,7 +958,19 @@ def test_breadth_tape_summary_flip_density_replay():
     assert calm["pair_n"] == 2
     assert calm["flip_n"] == 0
     assert calm["flip_density_pct"] == 0.0
+    assert calm["days_since_tape_flip"] is None
     assert "flip dens 0% (0/2)" in calm["line"]
+    assert "since flip" not in calm["line"]
+    flip_now = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_risk_off": True, "tape_label": "risk-off"},
+        ]
+    )
+    assert flip_now["tape_flip"] is True
+    assert flip_now["days_since_tape_flip"] == 0
+    assert "flipped risk-on→risk-off" in flip_now["line"]
+    assert "since flip" not in flip_now["line"]
 
 
 def test_breadth_glance_flip_density_from_history():
@@ -965,10 +1004,54 @@ def test_breadth_glance_flip_density_from_history():
     assert g["flip_n"] == 1
     assert g["flip_density_pct"] == 100.0
     assert g["tape_flip"] is True
+    assert g["days_since_tape_flip"] == 0
     assert (
         "flip dens 100% (1/1)" in g["line"]
         or g["line"].endswith("estimate · not full-universe")
     )
+
+
+def test_breadth_glance_days_since_tape_flip_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_dual_advance": True,
+            "tape_label": "risk-on",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "stock_scan_n": 10,
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+        },
+        {
+            "day": "2026-09-02",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        },
+        {
+            "day": "2026-09-03",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["tape_flip"] is False
+    assert g["days_since_tape_flip"] == 1
+    assert "1d since flip" in g["line"]
 
 
 def test_breadth_tape_summary_label_densities():

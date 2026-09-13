@@ -2935,6 +2935,51 @@ def breadth_days_since_mixed(
     )
 
 
+def breadth_days_since_tape_flip(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> int | None:
+    """Days since last known→known tape flip (0 = newest day flipped). Display only.
+
+    StockBee + tradermonty: flip density shows chop frequency; days-since flip
+    shows how long the label has been stable after the last change. Pair-aware
+    (needs prior day). ``None`` when no flip in history (or fewer than two
+    known labels in a row).
+    """
+    usable: list[dict[str, Any]] = []
+    want = str(through_day or "").strip()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        usable.append(r)
+        if want and str(r.get("day") or "") == want:
+            break
+    else:
+        if want:
+            return None
+    if len(usable) < 2:
+        return None
+    labels = [
+        _row_tape_label(
+            r,
+            dual_min_pct=dual_min_pct,
+            strong_pct=strong_pct,
+            weak_pct=weak_pct,
+            risk_off_max_pct=risk_off_max_pct,
+        )
+        for r in usable
+    ]
+    for i in range(len(usable) - 1, 0, -1):
+        if is_tape_flip(labels[i - 1], labels[i]):
+            return len(usable) - 1 - i
+    return None
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -3448,6 +3493,7 @@ def build_breadth_tape_summary(
         "days_since_risk_off": None,
         "days_since_tape_split": None,
         "days_since_mixed": None,
+        "days_since_tape_flip": None,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3480,6 +3526,13 @@ def build_breadth_tape_summary(
         rows, strong_pct=strong_pct, weak_pct=weak_pct
     )
     days_since_mixed = breadth_days_since_mixed(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    days_since_tape_flip = breadth_days_since_tape_flip(
         rows,
         dual_min_pct=dual_min_pct,
         strong_pct=strong_pct,
@@ -3543,6 +3596,11 @@ def build_breadth_tape_summary(
         bits.append(f"{days_since_mixed}d since mixed")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
+    elif (
+        days_since_tape_flip is not None
+        and days_since_tape_flip > 0
+    ):
+        bits.append(f"{days_since_tape_flip}d since flip")
     risk_on_density = tape_label_density_pct(dual_n, days)
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
@@ -3584,6 +3642,7 @@ def build_breadth_tape_summary(
         "days_since_risk_off": days_since_risk_off,
         "days_since_tape_split": days_since_tape_split,
         "days_since_mixed": days_since_mixed,
+        "days_since_tape_flip": days_since_tape_flip,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3722,6 +3781,7 @@ def build_breadth_glance(
         "days_since_risk_off": None,
         "days_since_tape_split": None,
         "days_since_mixed": None,
+        "days_since_tape_flip": None,
         "dual_n": 0,
         "split_n": 0,
         "risk_off_n": 0,
@@ -3928,6 +3988,9 @@ def build_breadth_glance(
     days_since_mixed = (
         breadth_days_since_mixed(hist, through_day=day_cut) if hist else None
     )
+    days_since_tape_flip = (
+        breadth_days_since_tape_flip(hist, through_day=day_cut) if hist else None
+    )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
     )
@@ -4016,6 +4079,11 @@ def build_breadth_glance(
         parts.append(f"{days_since_mixed}d since mixed")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
+    elif (
+        days_since_tape_flip is not None
+        and days_since_tape_flip > 0
+    ):
+        parts.append(f"{days_since_tape_flip}d since flip")
     # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
@@ -4107,6 +4175,7 @@ def build_breadth_glance(
         "days_since_risk_off": days_since_risk_off,
         "days_since_tape_split": days_since_tape_split,
         "days_since_mixed": days_since_mixed,
+        "days_since_tape_flip": days_since_tape_flip,
         "dual_n": dual_n,
         "split_n": split_n,
         "risk_off_n": risk_off_n,
