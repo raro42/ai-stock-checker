@@ -2935,6 +2935,42 @@ def breadth_days_since_mixed(
     )
 
 
+def _breadth_tape_labels(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> list[str] | None:
+    """Chronological tape labels through newest (or through_day). Display only.
+
+    ``None`` when ``through_day`` is set but missing from rows.
+    """
+    usable: list[dict[str, Any]] = []
+    want = str(through_day or "").strip()
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        usable.append(r)
+        if want and str(r.get("day") or "") == want:
+            break
+    else:
+        if want:
+            return None
+    return [
+        _row_tape_label(
+            r,
+            dual_min_pct=dual_min_pct,
+            strong_pct=strong_pct,
+            weak_pct=weak_pct,
+            risk_off_max_pct=risk_off_max_pct,
+        )
+        for r in usable
+    ]
+
+
 def breadth_days_since_tape_flip(
     rows: list[dict[str, Any]],
     *,
@@ -2951,33 +2987,54 @@ def breadth_days_since_tape_flip(
     (needs prior day). ``None`` when no flip in history (or fewer than two
     known labels in a row).
     """
-    usable: list[dict[str, Any]] = []
-    want = str(through_day or "").strip()
-    for r in rows:
-        if not isinstance(r, dict):
-            continue
-        usable.append(r)
-        if want and str(r.get("day") or "") == want:
-            break
-    else:
-        if want:
-            return None
-    if len(usable) < 2:
+    labels = _breadth_tape_labels(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if labels is None or len(labels) < 2:
         return None
-    labels = [
-        _row_tape_label(
-            r,
-            dual_min_pct=dual_min_pct,
-            strong_pct=strong_pct,
-            weak_pct=weak_pct,
-            risk_off_max_pct=risk_off_max_pct,
-        )
-        for r in usable
-    ]
-    for i in range(len(usable) - 1, 0, -1):
+    for i in range(len(labels) - 1, 0, -1):
         if is_tape_flip(labels[i - 1], labels[i]):
-            return len(usable) - 1 - i
+            return len(labels) - 1 - i
     return None
+
+
+def breadth_tape_flip_streak(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> int:
+    """Consecutive known→known flips ending at newest. Display only.
+
+    StockBee chop storm: flip density = history rate; days-since flip = settle
+    length; ending flip streak = how many label changes in a row right now.
+    0 when newest day did not flip (or fewer than two known labels).
+    """
+    labels = _breadth_tape_labels(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if labels is None or len(labels) < 2:
+        return 0
+    streak = 0
+    for i in range(len(labels) - 1, 0, -1):
+        if is_tape_flip(labels[i - 1], labels[i]):
+            streak += 1
+        else:
+            break
+    return streak
 
 
 def _row_is_thrust(
@@ -3494,6 +3551,7 @@ def build_breadth_tape_summary(
         "days_since_tape_split": None,
         "days_since_mixed": None,
         "days_since_tape_flip": None,
+        "flip_streak": 0,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3533,6 +3591,13 @@ def build_breadth_tape_summary(
         risk_off_max_pct=risk_off_max_pct,
     )
     days_since_tape_flip = breadth_days_since_tape_flip(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    flip_streak = breadth_tape_flip_streak(
         rows,
         dual_min_pct=dual_min_pct,
         strong_pct=strong_pct,
@@ -3596,6 +3661,8 @@ def build_breadth_tape_summary(
         bits.append(f"{days_since_mixed}d since mixed")
     if flip:
         bits.append(f"flipped {prev_label}→{latest_label}")
+        if flip_streak >= 2:
+            bits.append(f"flip streak {flip_streak}")
     elif (
         days_since_tape_flip is not None
         and days_since_tape_flip > 0
@@ -3643,6 +3710,7 @@ def build_breadth_tape_summary(
         "days_since_tape_split": days_since_tape_split,
         "days_since_mixed": days_since_mixed,
         "days_since_tape_flip": days_since_tape_flip,
+        "flip_streak": flip_streak,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3782,6 +3850,7 @@ def build_breadth_glance(
         "days_since_tape_split": None,
         "days_since_mixed": None,
         "days_since_tape_flip": None,
+        "flip_streak": 0,
         "dual_n": 0,
         "split_n": 0,
         "risk_off_n": 0,
@@ -3991,6 +4060,9 @@ def build_breadth_glance(
     days_since_tape_flip = (
         breadth_days_since_tape_flip(hist, through_day=day_cut) if hist else None
     )
+    flip_streak = (
+        breadth_tape_flip_streak(hist, through_day=day_cut) if hist else 0
+    )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
     )
@@ -4079,6 +4151,8 @@ def build_breadth_glance(
         parts.append(f"{days_since_mixed}d since mixed")
     if flip:
         parts.append(f"flipped {prev_tape}→{tape}")
+        if flip_streak >= 2:
+            parts.append(f"flip streak {flip_streak}")
     elif (
         days_since_tape_flip is not None
         and days_since_tape_flip > 0
@@ -4176,6 +4250,7 @@ def build_breadth_glance(
         "days_since_tape_split": days_since_tape_split,
         "days_since_mixed": days_since_mixed,
         "days_since_tape_flip": days_since_tape_flip,
+        "flip_streak": flip_streak,
         "dual_n": dual_n,
         "split_n": split_n,
         "risk_off_n": risk_off_n,

@@ -17,6 +17,7 @@ from openbb_backend.desk import (
     breadth_mixed_streak,
     breadth_prev_tape_label,
     breadth_risk_off_streak,
+    breadth_tape_flip_streak,
     breadth_tape_label,
     breadth_tape_split_streak,
     breadth_thrust_streak,
@@ -929,6 +930,125 @@ def test_breadth_days_since_tape_flip():
     ) is None
 
 
+def test_breadth_tape_flip_streak():
+    # risk-on → split → risk-off → mixed: 3 consecutive flips ending now
+    storm = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+    ]
+    assert breadth_tape_flip_streak(storm) == 3
+    assert breadth_tape_flip_streak(storm, through_day="2026-09-02") == 1
+    assert breadth_tape_flip_streak(storm, through_day="2026-09-03") == 2
+    # settle after flip → streak 0
+    settle = storm + [{"day": "2026-09-05", "tape_label": "mixed"}]
+    assert breadth_tape_flip_streak(settle) == 0
+    assert breadth_tape_flip_streak([]) == 0
+    assert breadth_tape_flip_streak(
+        [{"day": "2026-09-01", "tape_label": "mixed"}]
+    ) == 0
+    assert breadth_tape_flip_streak(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+        ]
+    ) == 0
+
+
+def test_breadth_tape_summary_flip_streak_replay():
+    """Chop storm: consecutive flips ending now show flip streak ≥2."""
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["tape_flip"] is True
+    assert s["flip_streak"] == 2
+    assert s["days_since_tape_flip"] == 0
+    assert "flipped split→risk-off" in s["line"]
+    assert "flip streak 2" in s["line"]
+    calm = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+        ]
+    )
+    assert calm["flip_streak"] == 0
+    assert "flip streak" not in calm["line"]
+    single = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_risk_off": True, "tape_label": "risk-off"},
+        ]
+    )
+    assert single["flip_streak"] == 1
+    assert "flipped risk-on→risk-off" in single["line"]
+    assert "flip streak" not in single["line"]  # only ≥2
+
+
+def test_breadth_glance_flip_streak_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_dual_advance": True,
+            "tape_label": "risk-on",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "stock_scan_n": 10,
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+        },
+        {
+            "day": "2026-09-02",
+            "is_tape_split": True,
+            "tape_label": "split",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 7,
+            "stock_scan_down": 3,
+        },
+        {
+            "day": "2026-09-03",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        },
+    ]
+    pulse = hist[-1]
+    g = build_breadth_glance(pulse, history=hist)
+    assert g["ready"] is True
+    assert g["tape_flip"] is True
+    assert g["flip_streak"] == 2
+    assert "flip streak 2" in g["line"]
+    settled = hist + [
+        {
+            "day": "2026-09-04",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        }
+    ]
+    g2 = build_breadth_glance(settled[-1], history=settled)
+    assert g2["flip_streak"] == 0
+    assert "flip streak" not in g2["line"]
+
+
 def test_breadth_tape_summary_flip_density_replay():
     """tradermonty-style executable replay: fixed multi-day tape path → flip dens."""
     # risk-on → split → risk-off → mixed → mixed: 3 flips / 4 pairs = 75%
@@ -946,6 +1066,7 @@ def test_breadth_tape_summary_flip_density_replay():
     assert s["flip_density_pct"] == tape_flip_density_pct(3, 4)
     assert s["tape_flip"] is False  # ending day continues mixed
     assert s["days_since_tape_flip"] == 1
+    assert s["flip_streak"] == 0
     assert "1d since flip" in s["line"]
     assert "flip dens 75% (3/4)" in s["line"]
     calm = build_breadth_tape_summary(
@@ -959,6 +1080,7 @@ def test_breadth_tape_summary_flip_density_replay():
     assert calm["flip_n"] == 0
     assert calm["flip_density_pct"] == 0.0
     assert calm["days_since_tape_flip"] is None
+    assert calm["flip_streak"] == 0
     assert "flip dens 0% (0/2)" in calm["line"]
     assert "since flip" not in calm["line"]
     flip_now = build_breadth_tape_summary(
@@ -969,9 +1091,10 @@ def test_breadth_tape_summary_flip_density_replay():
     )
     assert flip_now["tape_flip"] is True
     assert flip_now["days_since_tape_flip"] == 0
+    assert flip_now["flip_streak"] == 1
     assert "flipped risk-on→risk-off" in flip_now["line"]
     assert "since flip" not in flip_now["line"]
-
+    assert "flip streak" not in flip_now["line"]
 
 def test_breadth_glance_flip_density_from_history():
     hist = [
