@@ -22,6 +22,7 @@ from openbb_backend.desk import (
     breadth_tape_flip_median_streak,
     breadth_tape_flip_min_streak,
     breadth_tape_flip_run_count,
+    breadth_tape_flip_stdev_streak,
     breadth_tape_flip_streak,
     breadth_tape_label,
     breadth_tape_split_streak,
@@ -1090,6 +1091,50 @@ def test_breadth_tape_flip_min_streak():
     assert breadth_tape_flip_max_streak(storm) == 3
 
 
+def test_breadth_tape_flip_stdev_streak():
+    # runs: 3, 1, 1 → sample σ = sqrt(4/3) ≈ 1.1547
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    assert abs(breadth_tape_flip_stdev_streak(rows) - (4.0 / 3.0) ** 0.5) < 1e-9
+    # through first run only → one run → None
+    assert breadth_tape_flip_stdev_streak(rows, through_day="2026-09-04") is None
+    assert breadth_tape_flip_stdev_streak([]) is None
+    assert breadth_tape_flip_stdev_streak(
+        [{"day": "2026-09-01", "tape_label": "mixed"}]
+    ) is None
+    # two runs 3 + 1 → sample σ = sqrt(2)
+    two = rows[:6]
+    assert breadth_tape_flip_run_count(two) == 2
+    assert abs(breadth_tape_flip_stdev_streak(two) - (2.0**0.5)) < 1e-9
+    calm = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    assert breadth_tape_flip_stdev_streak(calm) is None
+    # equal run lengths → σ = 0
+    even = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "tape_label": "mixed"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    # runs: 2, 2 → σ = 0
+    assert breadth_tape_flip_run_count(even) == 2
+    assert breadth_tape_flip_stdev_streak(even) == 0.0
+
+
 def test_breadth_tape_summary_flip_max_streak_replay():
     """Peak chop after settle: max flip > ending streak shows on summary."""
     rows = [
@@ -1214,6 +1259,50 @@ def test_breadth_tape_summary_flip_min_streak_replay():
     )
     assert calm["flip_min_streak"] == 0
     assert "min flip" not in calm["line"]
+
+
+def test_breadth_tape_summary_flip_stdev_streak_replay():
+    """Chop dispersion: ≥3 runs and σ ≥ 0.05 → σ flip on summary."""
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["flip_run_n"] == 3
+    assert abs(s["flip_stdev_streak"] - (4.0 / 3.0) ** 0.5) < 1e-9
+    assert "σ flip 1.2" in s["line"]
+    # two runs only → hide σ (needs ≥3)
+    two = build_breadth_tape_summary(rows[:6])
+    assert two["flip_run_n"] == 2
+    assert abs(two["flip_stdev_streak"] - (2.0**0.5)) < 1e-9
+    assert "σ flip" not in two["line"]
+    # equal lengths → σ = 0; hide
+    even = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+            {"day": "2026-09-03", "tape_label": "mixed"},
+            {"day": "2026-09-04", "tape_label": "mixed"},
+            {"day": "2026-09-05", "is_risk_off": True, "tape_label": "risk-off"},
+            {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-08", "is_tape_split": True, "tape_label": "split"},
+            {"day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+            {"day": "2026-09-10", "is_risk_off": True, "tape_label": "risk-off"},
+        ]
+    )
+    # runs 2, 2, 2 → σ = 0
+    assert even["flip_run_n"] == 3
+    assert even["flip_stdev_streak"] == 0.0
+    assert "σ flip" not in even["line"]
 
 
 def test_breadth_glance_flip_max_streak_from_history():
@@ -1351,6 +1440,34 @@ def test_breadth_glance_flip_min_streak_from_history():
     assert g["flip_max_streak"] == 3
     assert "min flip 1" in g["line"]
     assert "max flip 3" in g["line"]
+
+
+def test_breadth_glance_flip_stdev_streak_from_history():
+    """Glance shows σ flip when ≥3 uneven runs."""
+    base = {
+        "crypto_n": 4,
+        "crypto_up": 2,
+        "crypto_down": 2,
+        "stock_scan_n": 10,
+        "stock_scan_up": 5,
+        "stock_scan_down": 5,
+    }
+    hist = [
+        {**base, "day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {**base, "day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {**base, "day": "2026-09-04", "tape_label": "mixed"},
+        {**base, "day": "2026-09-05", "tape_label": "mixed"},
+        {**base, "day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {**base, "day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["flip_run_n"] == 3
+    assert abs(g["flip_stdev_streak"] - (4.0 / 3.0) ** 0.5) < 1e-9
+    assert "σ flip 1.2" in g["line"]
 
 
 def test_breadth_tape_summary_flip_streak_replay():
