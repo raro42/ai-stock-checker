@@ -3150,6 +3150,35 @@ def breadth_tape_flip_median_streak(
     return (ordered[mid - 1] + ordered[mid]) / 2.0
 
 
+def breadth_tape_flip_min_streak(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> int:
+    """Shortest consecutive known→known flip run in history. Display only.
+
+    StockBee floor chop: max = peak storm; min = mildest storm in the window
+    (pairs with avg / med when storms vary). 0 when no flips (or fewer than two
+    known labels).
+    """
+    labels = _breadth_tape_labels(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if labels is None:
+        return 0
+    runs = _breadth_tape_flip_run_lengths(labels)
+    return min(runs) if runs else 0
+
+
 def breadth_tape_flip_run_count(
     rows: list[dict[str, Any]],
     *,
@@ -3689,6 +3718,7 @@ def build_breadth_tape_summary(
         "days_since_tape_flip": None,
         "flip_streak": 0,
         "flip_max_streak": 0,
+        "flip_min_streak": 0,
         "flip_mean_streak": None,
         "flip_median_streak": None,
         "flip_run_n": 0,
@@ -3759,6 +3789,13 @@ def build_breadth_tape_summary(
         risk_off_max_pct=risk_off_max_pct,
     )
     flip_median_streak = breadth_tape_flip_median_streak(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    flip_min_streak = breadth_tape_flip_min_streak(
         rows,
         dual_min_pct=dual_min_pct,
         strong_pct=strong_pct,
@@ -3852,6 +3889,13 @@ def build_breadth_tape_summary(
         )
     ):
         bits.append(f"med flip {flip_median_streak:.1f}")
+    # Floor chop vs peak: show min when ≥2 runs and min < max.
+    if (
+        flip_run_n >= 2
+        and flip_min_streak > 0
+        and flip_min_streak < flip_max_streak
+    ):
+        bits.append(f"min flip {flip_min_streak}")
     risk_on_density = tape_label_density_pct(dual_n, days)
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
@@ -3896,6 +3940,7 @@ def build_breadth_tape_summary(
         "days_since_tape_flip": days_since_tape_flip,
         "flip_streak": flip_streak,
         "flip_max_streak": flip_max_streak,
+        "flip_min_streak": flip_min_streak,
         "flip_mean_streak": flip_mean_streak,
         "flip_median_streak": flip_median_streak,
         "flip_run_n": flip_run_n,
@@ -4040,6 +4085,7 @@ def build_breadth_glance(
         "days_since_tape_flip": None,
         "flip_streak": 0,
         "flip_max_streak": 0,
+        "flip_min_streak": 0,
         "flip_mean_streak": None,
         "flip_median_streak": None,
         "flip_run_n": 0,
@@ -4264,6 +4310,9 @@ def build_breadth_glance(
     flip_median_streak = (
         breadth_tape_flip_median_streak(hist, through_day=day_cut) if hist else None
     )
+    flip_min_streak = (
+        breadth_tape_flip_min_streak(hist, through_day=day_cut) if hist else 0
+    )
     flip_run_n = (
         breadth_tape_flip_run_count(hist, through_day=day_cut) if hist else 0
     )
@@ -4375,6 +4424,12 @@ def build_breadth_glance(
         )
     ):
         parts.append(f"med flip {flip_median_streak:.1f}")
+    if (
+        flip_run_n >= 2
+        and flip_min_streak > 0
+        and flip_min_streak < flip_max_streak
+    ):
+        parts.append(f"min flip {flip_min_streak}")
     # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
@@ -4469,6 +4524,7 @@ def build_breadth_glance(
         "days_since_tape_flip": days_since_tape_flip,
         "flip_streak": flip_streak,
         "flip_max_streak": flip_max_streak,
+        "flip_min_streak": flip_min_streak,
         "flip_mean_streak": flip_mean_streak,
         "flip_median_streak": flip_median_streak,
         "flip_run_n": flip_run_n,

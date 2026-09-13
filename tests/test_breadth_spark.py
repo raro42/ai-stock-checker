@@ -20,6 +20,7 @@ from openbb_backend.desk import (
     breadth_tape_flip_max_streak,
     breadth_tape_flip_mean_streak,
     breadth_tape_flip_median_streak,
+    breadth_tape_flip_min_streak,
     breadth_tape_flip_run_count,
     breadth_tape_flip_streak,
     breadth_tape_label,
@@ -1053,6 +1054,42 @@ def test_breadth_tape_flip_median_streak():
     assert breadth_tape_flip_median_streak(calm) is None
 
 
+def test_breadth_tape_flip_min_streak():
+    # runs: 3, 1, 1 → min 1, max 3
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    assert breadth_tape_flip_min_streak(rows) == 1
+    assert breadth_tape_flip_max_streak(rows) == 3
+    assert breadth_tape_flip_min_streak(rows, through_day="2026-09-04") == 3
+    assert breadth_tape_flip_min_streak([]) == 0
+    assert breadth_tape_flip_min_streak(
+        [{"day": "2026-09-01", "tape_label": "mixed"}]
+    ) == 0
+    # two runs 3 + 1 → min 1
+    two = rows[:6]
+    assert breadth_tape_flip_run_count(two) == 2
+    assert breadth_tape_flip_min_streak(two) == 1
+    assert breadth_tape_flip_max_streak(two) == 3
+    calm = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    assert breadth_tape_flip_min_streak(calm) == 0
+    # single run → min equals max
+    storm = rows[:4]
+    assert breadth_tape_flip_min_streak(storm) == 3
+    assert breadth_tape_flip_max_streak(storm) == 3
+
+
 def test_breadth_tape_summary_flip_max_streak_replay():
     """Peak chop after settle: max flip > ending streak shows on summary."""
     rows = [
@@ -1145,6 +1182,38 @@ def test_breadth_tape_summary_flip_median_streak_replay():
     assert two["flip_median_streak"] == 2.0
     assert "med flip" not in two["line"]
     assert "avg flip 2.0 (2 runs)" in two["line"]
+
+
+def test_breadth_tape_summary_flip_min_streak_replay():
+    """Floor chop: ≥2 runs and min < max → min flip on summary."""
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["flip_run_n"] == 2
+    assert s["flip_min_streak"] == 1
+    assert s["flip_max_streak"] == 3
+    assert "min flip 1" in s["line"]
+    assert "max flip 3" in s["line"]
+    # single run → min == max; hide min
+    peak = build_breadth_tape_summary(rows[:4])
+    assert peak["flip_min_streak"] == 3
+    assert peak["flip_max_streak"] == 3
+    assert "min flip" not in peak["line"]
+    calm = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+        ]
+    )
+    assert calm["flip_min_streak"] == 0
+    assert "min flip" not in calm["line"]
 
 
 def test_breadth_glance_flip_max_streak_from_history():
@@ -1256,6 +1325,32 @@ def test_breadth_glance_flip_median_streak_from_history():
     assert g["flip_median_streak"] == 1.0
     assert "med flip 1.0" in g["line"]
     assert "avg flip 1.7 (3 runs)" in g["line"]
+
+
+def test_breadth_glance_flip_min_streak_from_history():
+    """Glance shows min flip when ≥2 runs and min < max."""
+    base = {
+        "crypto_n": 4,
+        "crypto_up": 2,
+        "crypto_down": 2,
+        "stock_scan_n": 10,
+        "stock_scan_up": 5,
+        "stock_scan_down": 5,
+    }
+    hist = [
+        {**base, "day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {**base, "day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {**base, "day": "2026-09-04", "tape_label": "mixed"},
+        {**base, "day": "2026-09-05", "tape_label": "mixed"},
+        {**base, "day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["flip_min_streak"] == 1
+    assert g["flip_max_streak"] == 3
+    assert "min flip 1" in g["line"]
+    assert "max flip 3" in g["line"]
 
 
 def test_breadth_tape_summary_flip_streak_replay():
