@@ -12,6 +12,18 @@ echo "=== AI Stock Checker health $(date -u +%Y-%m-%dT%H:%MZ) ==="
 
 if docker compose ps --status running -q intelligent-trader 2>/dev/null | grep -q .; then
   ok "intelligent-trader running"
+  pin_line="$(
+    docker compose exec -T intelligent-trader python3 -c \
+      'from stock_checker.runtime_pin import format_health_line; print(format_health_line())' \
+      2>/dev/null || true
+  )"
+  if [[ "$pin_line" == OK* ]]; then
+    ok "${pin_line#OK  }"
+  elif [[ "$pin_line" == FAIL* ]]; then
+    bad "${pin_line#FAIL  }"
+  else
+    echo "WARN runtime pin check skipped (trader exec failed — rebuild image?)"
+  fi
 else
   bad "intelligent-trader not running — docker compose up -d intelligent-trader"
 fi

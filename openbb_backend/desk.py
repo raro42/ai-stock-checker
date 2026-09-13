@@ -2303,10 +2303,12 @@ def build_postmortem_glance(
 def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
+    from stock_checker.runtime_pin import runtime_pin_status
     from stock_checker.trader_config import load_trader_config
 
     data_dir = Path(os.getenv("DATA_DIR", "/data"))
     cfg = load_trader_config(data_dir)
+    py_pin = runtime_pin_status()
 
     ai_mode = str(cfg.get("ai_mode") or "off")
     ai_model = str(cfg.get("ai_model") or "gemma4:latest")
@@ -2361,6 +2363,10 @@ def _trader_runtime_view() -> dict[str, Any]:
 
     return {
         "trader_version": __version__,
+        "python_expected": py_pin["expected"],
+        "python_running": py_pin["running"],
+        "python_pin_ok": bool(py_pin["ok"]),
+        "python_pin_line": py_pin["line"],
         "ai_mode": ai_mode,
         "ai_model": ai_model,
         "llm_backend": llm_backend,

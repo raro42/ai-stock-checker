@@ -442,6 +442,10 @@
 
   <dl class="facts runtime-facts">
     <div>
+      <dt>Python pin</dt>
+      <dd>{% if snap.runtime.python_pin_ok %}{{ snap.runtime.python_running }} · Docker {{ snap.runtime.python_expected }}{% else %}{{ snap.runtime.python_running }} · expected {{ snap.runtime.python_expected }} · <strong>drift</strong>{% endif %}</dd>
+    </div>
+    <div>
       <dt>Trader version</dt>
       <dd>{{ snap.runtime.trader_version }}</dd>
     </div>

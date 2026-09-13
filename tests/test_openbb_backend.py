@@ -233,6 +233,9 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert snap["runtime"]["max_positions"] == 5
     assert snap["runtime"]["promote_experiment_strategy"] is False
     assert "trader_version" in snap["runtime"]
+    assert snap["runtime"]["python_expected"] == "3.11"
+    assert "python_running" in snap["runtime"]
+    assert "python_pin_ok" in snap["runtime"]
     assert "llm_key_set" in snap["runtime"]
     assert "regime_gate" in snap["runtime"]
     assert "rs_gate" in snap["runtime"]
