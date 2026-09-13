@@ -3212,6 +3212,43 @@ def breadth_tape_flip_stdev_streak(
     return var**0.5
 
 
+def breadth_tape_flip_cv_streak(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> float | None:
+    """Coefficient of variation of flip-run lengths (σ / mean). Display only.
+
+    StockBee relative chop: σ is absolute storm-size spread; CV scales by the
+    typical storm (pairs with σ / avg). ``None`` when σ missing or mean ≤ 0.
+    """
+    stdev = breadth_tape_flip_stdev_streak(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if stdev is None:
+        return None
+    mean = breadth_tape_flip_mean_streak(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if mean is None or mean <= 0:
+        return None
+    return stdev / mean
+
+
 def breadth_tape_flip_run_count(
     rows: list[dict[str, Any]],
     *,
@@ -3755,6 +3792,7 @@ def build_breadth_tape_summary(
         "flip_mean_streak": None,
         "flip_median_streak": None,
         "flip_stdev_streak": None,
+        "flip_cv_streak": None,
         "flip_run_n": 0,
         "latest_dual": False,
         "latest_split": False,
@@ -3837,6 +3875,13 @@ def build_breadth_tape_summary(
         risk_off_max_pct=risk_off_max_pct,
     )
     flip_stdev_streak = breadth_tape_flip_stdev_streak(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    flip_cv_streak = breadth_tape_flip_cv_streak(
         rows,
         dual_min_pct=dual_min_pct,
         strong_pct=strong_pct,
@@ -3944,6 +3989,13 @@ def build_breadth_tape_summary(
         and flip_stdev_streak >= 0.05
     ):
         bits.append(f"σ flip {flip_stdev_streak:.1f}")
+    # Relative chop: ≥3 runs and CV ≥ 0.05 (σ scaled by mean storm size).
+    if (
+        flip_cv_streak is not None
+        and flip_run_n >= 3
+        and flip_cv_streak >= 0.05
+    ):
+        bits.append(f"CV flip {flip_cv_streak:.1f}")
     risk_on_density = tape_label_density_pct(dual_n, days)
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
@@ -3992,6 +4044,7 @@ def build_breadth_tape_summary(
         "flip_mean_streak": flip_mean_streak,
         "flip_median_streak": flip_median_streak,
         "flip_stdev_streak": flip_stdev_streak,
+        "flip_cv_streak": flip_cv_streak,
         "flip_run_n": flip_run_n,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
@@ -4138,6 +4191,7 @@ def build_breadth_glance(
         "flip_mean_streak": None,
         "flip_median_streak": None,
         "flip_stdev_streak": None,
+        "flip_cv_streak": None,
         "flip_run_n": 0,
         "dual_n": 0,
         "split_n": 0,
@@ -4366,6 +4420,9 @@ def build_breadth_glance(
     flip_stdev_streak = (
         breadth_tape_flip_stdev_streak(hist, through_day=day_cut) if hist else None
     )
+    flip_cv_streak = (
+        breadth_tape_flip_cv_streak(hist, through_day=day_cut) if hist else None
+    )
     flip_run_n = (
         breadth_tape_flip_run_count(hist, through_day=day_cut) if hist else 0
     )
@@ -4489,6 +4546,12 @@ def build_breadth_glance(
         and flip_stdev_streak >= 0.05
     ):
         parts.append(f"σ flip {flip_stdev_streak:.1f}")
+    if (
+        flip_cv_streak is not None
+        and flip_run_n >= 3
+        and flip_cv_streak >= 0.05
+    ):
+        parts.append(f"CV flip {flip_cv_streak:.1f}")
     # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
@@ -4587,6 +4650,7 @@ def build_breadth_glance(
         "flip_mean_streak": flip_mean_streak,
         "flip_median_streak": flip_median_streak,
         "flip_stdev_streak": flip_stdev_streak,
+        "flip_cv_streak": flip_cv_streak,
         "flip_run_n": flip_run_n,
         "dual_n": dual_n,
         "split_n": split_n,

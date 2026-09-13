@@ -17,6 +17,7 @@ from openbb_backend.desk import (
     breadth_mixed_streak,
     breadth_prev_tape_label,
     breadth_risk_off_streak,
+    breadth_tape_flip_cv_streak,
     breadth_tape_flip_max_streak,
     breadth_tape_flip_mean_streak,
     breadth_tape_flip_median_streak,
@@ -1135,6 +1136,39 @@ def test_breadth_tape_flip_stdev_streak():
     assert breadth_tape_flip_stdev_streak(even) == 0.0
 
 
+def test_breadth_tape_flip_cv_streak():
+    # runs: 3, 1, 1 → mean 5/3 · σ = sqrt(4/3) · CV = σ/mean
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    mean = 5.0 / 3.0
+    sigma = (4.0 / 3.0) ** 0.5
+    expected = sigma / mean
+    assert abs(breadth_tape_flip_cv_streak(rows) - expected) < 1e-9
+    # through first run only → one run → None
+    assert breadth_tape_flip_cv_streak(rows, through_day="2026-09-04") is None
+    assert breadth_tape_flip_cv_streak([]) is None
+    # equal run lengths → σ = 0 → CV = 0
+    even = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "tape_label": "mixed"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    assert breadth_tape_flip_cv_streak(even) == 0.0
+
+
 def test_breadth_tape_summary_flip_max_streak_replay():
     """Peak chop after settle: max flip > ending streak shows on summary."""
     rows = [
@@ -1303,6 +1337,36 @@ def test_breadth_tape_summary_flip_stdev_streak_replay():
     assert even["flip_run_n"] == 3
     assert even["flip_stdev_streak"] == 0.0
     assert "σ flip" not in even["line"]
+    assert even["flip_cv_streak"] == 0.0
+    assert "CV flip" not in even["line"]
+
+
+def test_breadth_tape_summary_flip_cv_streak_replay():
+    """Relative chop: ≥3 runs and CV ≥ 0.05 → CV flip on summary."""
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["flip_run_n"] == 3
+    mean = 5.0 / 3.0
+    sigma = (4.0 / 3.0) ** 0.5
+    assert abs(s["flip_cv_streak"] - (sigma / mean)) < 1e-9
+    assert "CV flip 0.7" in s["line"]
+    assert "σ flip 1.2" in s["line"]
+    # two runs only → hide CV (needs ≥3)
+    two = build_breadth_tape_summary(rows[:6])
+    assert two["flip_run_n"] == 2
+    assert two["flip_cv_streak"] is not None
+    assert "CV flip" not in two["line"]
 
 
 def test_breadth_glance_flip_max_streak_from_history():
@@ -1468,6 +1532,36 @@ def test_breadth_glance_flip_stdev_streak_from_history():
     assert g["flip_run_n"] == 3
     assert abs(g["flip_stdev_streak"] - (4.0 / 3.0) ** 0.5) < 1e-9
     assert "σ flip 1.2" in g["line"]
+
+
+def test_breadth_glance_flip_cv_streak_from_history():
+    """Glance shows CV flip when ≥3 uneven runs."""
+    base = {
+        "crypto_n": 4,
+        "crypto_up": 2,
+        "crypto_down": 2,
+        "stock_scan_n": 10,
+        "stock_scan_up": 5,
+        "stock_scan_down": 5,
+    }
+    hist = [
+        {**base, "day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {**base, "day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {**base, "day": "2026-09-04", "tape_label": "mixed"},
+        {**base, "day": "2026-09-05", "tape_label": "mixed"},
+        {**base, "day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-07", "is_dual_advance": True, "tape_label": "risk-on"},
+        {**base, "day": "2026-09-08", "is_risk_off": True, "tape_label": "risk-off"},
+        {**base, "day": "2026-09-09", "is_risk_off": True, "tape_label": "risk-off"},
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["flip_run_n"] == 3
+    mean = 5.0 / 3.0
+    sigma = (4.0 / 3.0) ** 0.5
+    assert abs(g["flip_cv_streak"] - (sigma / mean)) < 1e-9
+    assert "CV flip 0.7" in g["line"]
 
 
 def test_breadth_tape_summary_flip_streak_replay():
