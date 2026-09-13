@@ -3037,6 +3037,43 @@ def breadth_tape_flip_streak(
     return streak
 
 
+def breadth_tape_flip_max_streak(
+    rows: list[dict[str, Any]],
+    *,
+    through_day: str | None = None,
+    dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
+    strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
+    weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
+    risk_off_max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
+) -> int:
+    """Longest consecutive known→known flip run in history. Display only.
+
+    StockBee peak chop: ending flip streak = storm now; max flip streak = worst
+    storm in the window (pairs with flip dens / days-since settle). 0 when no
+    flips (or fewer than two known labels).
+    """
+    labels = _breadth_tape_labels(
+        rows,
+        through_day=through_day,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    if labels is None or len(labels) < 2:
+        return 0
+    max_streak = 0
+    run = 0
+    for i in range(1, len(labels)):
+        if is_tape_flip(labels[i - 1], labels[i]):
+            run += 1
+            if run > max_streak:
+                max_streak = run
+        else:
+            run = 0
+    return max_streak
+
+
 def _row_is_thrust(
     row: dict[str, Any],
     *,
@@ -3552,6 +3589,7 @@ def build_breadth_tape_summary(
         "days_since_mixed": None,
         "days_since_tape_flip": None,
         "flip_streak": 0,
+        "flip_max_streak": 0,
         "latest_dual": False,
         "latest_split": False,
         "latest_risk_off": False,
@@ -3598,6 +3636,13 @@ def build_breadth_tape_summary(
         risk_off_max_pct=risk_off_max_pct,
     )
     flip_streak = breadth_tape_flip_streak(
+        rows,
+        dual_min_pct=dual_min_pct,
+        strong_pct=strong_pct,
+        weak_pct=weak_pct,
+        risk_off_max_pct=risk_off_max_pct,
+    )
+    flip_max_streak = breadth_tape_flip_max_streak(
         rows,
         dual_min_pct=dual_min_pct,
         strong_pct=strong_pct,
@@ -3668,6 +3713,9 @@ def build_breadth_tape_summary(
         and days_since_tape_flip > 0
     ):
         bits.append(f"{days_since_tape_flip}d since flip")
+    # Peak chop vs ending storm: show max when it beats the ending streak.
+    if flip_max_streak >= 2 and flip_max_streak > flip_streak:
+        bits.append(f"max flip {flip_max_streak}")
     risk_on_density = tape_label_density_pct(dual_n, days)
     split_density = tape_label_density_pct(split_n, days)
     risk_off_density = tape_label_density_pct(risk_off_n, days)
@@ -3711,6 +3759,7 @@ def build_breadth_tape_summary(
         "days_since_mixed": days_since_mixed,
         "days_since_tape_flip": days_since_tape_flip,
         "flip_streak": flip_streak,
+        "flip_max_streak": flip_max_streak,
         "latest_dual": latest_dual,
         "latest_split": latest_split,
         "latest_risk_off": latest_risk_off,
@@ -3851,6 +3900,7 @@ def build_breadth_glance(
         "days_since_mixed": None,
         "days_since_tape_flip": None,
         "flip_streak": 0,
+        "flip_max_streak": 0,
         "dual_n": 0,
         "split_n": 0,
         "risk_off_n": 0,
@@ -4063,6 +4113,9 @@ def build_breadth_glance(
     flip_streak = (
         breadth_tape_flip_streak(hist, through_day=day_cut) if hist else 0
     )
+    flip_max_streak = (
+        breadth_tape_flip_max_streak(hist, through_day=day_cut) if hist else 0
+    )
     prev_tape = (
         breadth_prev_tape_label(hist, through_day=day_cut) if hist else ""
     )
@@ -4158,6 +4211,8 @@ def build_breadth_glance(
         and days_since_tape_flip > 0
     ):
         parts.append(f"{days_since_tape_flip}d since flip")
+    if flip_max_streak >= 2 and flip_max_streak > flip_streak:
+        parts.append(f"max flip {flip_max_streak}")
     # StockBee confirm/density last (before coverage) so days-since stay visible.
     if confirm_rate is not None and thrust_n > 0:
         parts.append(f"confirm {confirm_rate:.0f}% ({confirmed_n}/{thrust_n})")
@@ -4251,6 +4306,7 @@ def build_breadth_glance(
         "days_since_mixed": days_since_mixed,
         "days_since_tape_flip": days_since_tape_flip,
         "flip_streak": flip_streak,
+        "flip_max_streak": flip_max_streak,
         "dual_n": dual_n,
         "split_n": split_n,
         "risk_off_n": risk_off_n,

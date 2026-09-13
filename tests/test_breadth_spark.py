@@ -17,6 +17,7 @@ from openbb_backend.desk import (
     breadth_mixed_streak,
     breadth_prev_tape_label,
     breadth_risk_off_streak,
+    breadth_tape_flip_max_streak,
     breadth_tape_flip_streak,
     breadth_tape_label,
     breadth_tape_split_streak,
@@ -954,6 +955,123 @@ def test_breadth_tape_flip_streak():
             {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
         ]
     ) == 0
+
+
+def test_breadth_tape_flip_max_streak():
+    # early storm of 3, then settle, then single flip → max stays 3
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+        {"day": "2026-09-06", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    assert breadth_tape_flip_max_streak(rows) == 3
+    assert breadth_tape_flip_streak(rows) == 1
+    assert breadth_tape_flip_max_streak(rows, through_day="2026-09-04") == 3
+    assert breadth_tape_flip_max_streak(rows, through_day="2026-09-02") == 1
+    assert breadth_tape_flip_max_streak([]) == 0
+    assert breadth_tape_flip_max_streak(
+        [{"day": "2026-09-01", "tape_label": "mixed"}]
+    ) == 0
+    calm = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+    ]
+    assert breadth_tape_flip_max_streak(calm) == 0
+    # ending storm equals max
+    storm = rows[:4]
+    assert breadth_tape_flip_max_streak(storm) == 3
+    assert breadth_tape_flip_streak(storm) == 3
+
+
+def test_breadth_tape_summary_flip_max_streak_replay():
+    """Peak chop after settle: max flip > ending streak shows on summary."""
+    rows = [
+        {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+        {"day": "2026-09-02", "is_tape_split": True, "tape_label": "split"},
+        {"day": "2026-09-03", "is_risk_off": True, "tape_label": "risk-off"},
+        {"day": "2026-09-04", "tape_label": "mixed"},
+        {"day": "2026-09-05", "tape_label": "mixed"},
+    ]
+    s = build_breadth_tape_summary(rows)
+    assert s["ready"] is True
+    assert s["flip_streak"] == 0
+    assert s["flip_max_streak"] == 3
+    assert s["days_since_tape_flip"] == 1
+    assert "1d since flip" in s["line"]
+    assert "max flip 3" in s["line"]
+    assert "flip streak" not in s["line"]
+    # at peak: ending == max → no separate max bit
+    peak = build_breadth_tape_summary(rows[:4])
+    assert peak["flip_streak"] == 3
+    assert peak["flip_max_streak"] == 3
+    assert "flip streak 3" in peak["line"]
+    assert "max flip" not in peak["line"]
+    calm = build_breadth_tape_summary(
+        [
+            {"day": "2026-09-01", "is_dual_advance": True, "tape_label": "risk-on"},
+            {"day": "2026-09-02", "is_dual_advance": True, "tape_label": "risk-on"},
+        ]
+    )
+    assert calm["flip_max_streak"] == 0
+    assert "max flip" not in calm["line"]
+
+
+def test_breadth_glance_flip_max_streak_from_history():
+    hist = [
+        {
+            "day": "2026-09-01",
+            "is_dual_advance": True,
+            "tape_label": "risk-on",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "stock_scan_n": 10,
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+        },
+        {
+            "day": "2026-09-02",
+            "is_tape_split": True,
+            "tape_label": "split",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 7,
+            "stock_scan_down": 3,
+        },
+        {
+            "day": "2026-09-03",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        },
+        {
+            "day": "2026-09-04",
+            "is_risk_off": True,
+            "tape_label": "risk-off",
+            "crypto_n": 4,
+            "crypto_up": 1,
+            "crypto_down": 3,
+            "stock_scan_n": 10,
+            "stock_scan_up": 3,
+            "stock_scan_down": 7,
+        },
+    ]
+    g = build_breadth_glance(hist[-1], history=hist)
+    assert g["ready"] is True
+    assert g["flip_streak"] == 0
+    assert g["flip_max_streak"] == 2
+    assert "max flip 2" in g["line"]
+    assert "flip streak" not in g["line"]
 
 
 def test_breadth_tape_summary_flip_streak_replay():
