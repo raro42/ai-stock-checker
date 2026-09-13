@@ -489,18 +489,23 @@ def build_promote_ab_glance(
     as_of: date | None = None,
     data_dir: Path | str | None = None,
     window_stats: dict[str, Any] | None = None,
+    open_positions: int | None = None,
 ) -> dict[str, Any]:
     """Compact promote A/B window line (Phase A / portfolio AI; display only).
 
     Shows Window A/B trading-day progress and whether live promote matches the
     protocol (A = off, B = on). When fills exist, appends in-window fees /
-    realized P&L / fill count (fee-adjusted honesty before Window B). Calm ≠
+    realized P&L / fill count (fee-adjusted honesty before Window B). When
+    Window A target is met but Ops book caps drift from protocol max 5 (or
+    open names > 5), status is ``B blocked · …`` instead of ready. Calm ≠
     edge; compose default-on still blocked until A/B verdict + calm gate.
     Not an entry gate.
     """
     from stock_checker.promote_ab import (
+        format_window_b_block_bit,
         format_window_stats_bit,
         promote_ab_snapshot,
+        window_b_readiness,
         window_stats_from_data_dir,
     )
 
@@ -516,6 +521,9 @@ def build_promote_ab_glance(
         "promote_on": False,
         "window_stats": None,
         "window_stats_bit": "",
+        "b_ready": False,
+        "b_blockers": [],
+        "b_block_bit": "",
     }
     if not isinstance(runtime, dict):
         return empty
@@ -531,6 +539,18 @@ def build_promote_ab_glance(
     if stats is None and data_dir is not None:
         stats = window_stats_from_data_dir(data_dir, promote_on=promote_on)
     stats_bit = format_window_stats_bit(stats)
+    max_pos_raw = runtime.get("max_positions")
+    max_pos = int(max_pos_raw) if max_pos_raw is not None else None
+    open_n = open_positions
+    if open_n is None and runtime.get("open_positions") is not None:
+        open_n = int(runtime.get("open_positions") or 0)
+    b_ready_info = window_b_readiness(
+        max_positions=max_pos,
+        open_positions=open_n,
+    )
+    b_blockers = list(b_ready_info.get("blockers") or [])
+    b_block_bit = format_window_b_block_bit(b_blockers)
+    b_ready = bool(b_ready_info.get("ready"))
     if not protocol_ok:
         tone = "warn"
         if window == "A":
@@ -538,11 +558,17 @@ def build_promote_ab_glance(
         else:
             status = "promote should be ON for Window B"
     elif target_met:
-        tone = "ready"
-        if window == "A":
-            status = "ready for B" if stats_bit else "target met · summarize before B"
+        if window == "A" and b_block_bit:
+            tone = "warn"
+            status = b_block_bit
         else:
-            status = "target met · write fee-adjusted verdict"
+            tone = "ready"
+            if window == "A":
+                status = (
+                    "ready for B" if stats_bit else "target met · summarize before B"
+                )
+            else:
+                status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
         status = "running"
@@ -569,6 +595,9 @@ def build_promote_ab_glance(
         "promote_on": promote_on,
         "window_stats": stats,
         "window_stats_bit": stats_bit,
+        "b_ready": b_ready if window == "A" else True,
+        "b_blockers": b_blockers if window == "A" else [],
+        "b_block_bit": b_block_bit if window == "A" else "",
     }
 
 
@@ -5764,7 +5793,11 @@ def load_desk_snapshot(
         "soft_allow_glance": build_soft_allow_glance(soft_allows),
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
-        "promote_ab_glance": build_promote_ab_glance(runtime, data_dir=data_dir),
+        "promote_ab_glance": build_promote_ab_glance(
+            {**runtime, "max_positions": max_pos, "open_positions": len(rows)},
+            data_dir=data_dir,
+            open_positions=len(rows),
+        ),
         "crypto_policy_glance": build_crypto_policy_glance(rows),
         "exit_policy_glance": build_exit_policy_glance(),
         "earnings_blackout_glance": build_earnings_blackout_glance(),

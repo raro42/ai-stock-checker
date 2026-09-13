@@ -135,9 +135,10 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
         + "\n"
     )
     g = build_promote_ab_glance(
-        {"promote_experiment_strategy": False},
+        {"promote_experiment_strategy": False, "max_positions": 5},
         as_of=date(2026, 9, 13),
         data_dir=tmp_path,
+        open_positions=2,
     )
     assert g["ready"] is True
     assert g["tone"] == "ready"
@@ -145,3 +146,45 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
     assert "€20 fees" in g["line"]
     assert "ready for B" in g["line"]
     assert "summarize before B" not in g["line"]
+    assert g["b_ready"] is True
+    assert g["b_blockers"] == []
+
+
+def test_window_b_readiness_protocol_drift() -> None:
+    from stock_checker.promote_ab import (
+        format_window_b_block_bit,
+        window_b_readiness,
+    )
+
+    ok = window_b_readiness(max_positions=5, open_positions=3)
+    assert ok["ready"] is True
+    assert ok["blockers"] == []
+    assert format_window_b_block_bit(ok["blockers"]) == ""
+
+    drift = window_b_readiness(max_positions=8, open_positions=8)
+    assert drift["ready"] is False
+    assert "max pos 8≠5" in drift["blockers"]
+    assert "8 open >5" in drift["blockers"]
+    bit = format_window_b_block_bit(drift["blockers"])
+    assert bit.startswith("B blocked ·")
+    assert "max pos 8≠5" in bit
+
+
+def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
+    g = build_promote_ab_glance(
+        {"promote_experiment_strategy": False, "max_positions": 8},
+        as_of=date(2026, 9, 13),
+        open_positions=8,
+        window_stats={
+            "trades": 30,
+            "fees": 575.0,
+            "realized_pnl": 2788.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["target_met"] is True
+    assert g["b_ready"] is False
+    assert "B blocked" in g["line"]
+    assert "max pos 8≠5" in g["line"]
+    assert "ready for B" not in g["line"]

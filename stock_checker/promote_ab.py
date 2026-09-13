@@ -18,6 +18,47 @@ WINDOW_A_TARGET_TRADING_DAYS = 10
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
+# Protocol table in docs/PROMOTE_AB.md — restore before starting B
+PROTOCOL_MAX_POSITIONS = 5
+
+
+def window_b_readiness(
+    *,
+    max_positions: int | None = None,
+    open_positions: int | None = None,
+    protocol_max: int = PROTOCOL_MAX_POSITIONS,
+) -> dict[str, Any]:
+    """Why Window B should wait (display / ops honesty; not a gate).
+
+    Protocol wants the same book caps for A and B (default max 5). Live Ops
+    drift (e.g. max_positions=8) pauses a fair A/B compare — surface it on the
+    desk instead of saying "ready for B". Portfolio AI readiness pattern.
+    """
+    cap = max(1, int(protocol_max))
+    blockers: list[str] = []
+    if max_positions is not None:
+        slots = int(max_positions)
+        if slots != cap:
+            blockers.append(f"max pos {slots}≠{cap}")
+    if open_positions is not None:
+        n = int(open_positions)
+        if n > cap:
+            blockers.append(f"{n} open >{cap}")
+    return {
+        "ready": not blockers,
+        "blockers": blockers,
+        "protocol_max_positions": cap,
+    }
+
+
+def format_window_b_block_bit(blockers: list[str] | None) -> str:
+    """Short Window B block bit for promote A/B glance."""
+    if not blockers:
+        return ""
+    clean = [str(b).strip() for b in blockers if str(b).strip()]
+    if not clean:
+        return ""
+    return "B blocked · " + " · ".join(clean)
 
 
 def weekday_trading_days(start: date, end: date) -> int:

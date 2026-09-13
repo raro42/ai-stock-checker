@@ -789,13 +789,23 @@ def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
     from stock_checker.trader_config import load_trader_config
 
     cfg = load_trader_config(data_dir)
+    portfolio = _load_json(data_dir / "portfolio.json", {})
+    holds = portfolio.get("holdings") if isinstance(portfolio, dict) else None
+    open_n: int | None = None
+    if isinstance(holds, dict):
+        open_n = len(holds)
+    elif isinstance(holds, list):
+        open_n = len(holds)
     return build_promote_ab_glance(
         {
             "promote_experiment_strategy": bool(
                 cfg.get("promote_experiment_strategy", False)
             ),
+            "max_positions": int(cfg.get("max_positions") or 5),
+            "open_positions": open_n,
         },
         data_dir=data_dir,
+        open_positions=open_n,
     )
 
 
