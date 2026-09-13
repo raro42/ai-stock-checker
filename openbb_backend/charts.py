@@ -802,6 +802,8 @@ def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
                 cfg.get("promote_experiment_strategy", False)
             ),
             "max_positions": int(cfg.get("max_positions") or 5),
+            "min_hold_hours": float(cfg.get("min_hold_hours") or 24),
+            "fee_preset": str(cfg.get("fee_preset") or "revolut_standard"),
             "open_positions": open_n,
         },
         data_dir=data_dir,

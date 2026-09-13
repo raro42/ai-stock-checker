@@ -66,6 +66,10 @@ Desk: promote A/B glance now appends `€fees · ±P&L · N fills` from `trades.
 
 Desk promote A/B glance no longer says “ready for B” when Ops book caps drift from the protocol table. It shows `B blocked · max pos N≠5` and/or `N open >5` via `window_b_readiness` / `format_window_b_block_bit` (display only). Restore `max_positions=5` (and trim open book toward 5) before starting Window B. Still not a compose promote unlock.
 
+### Checkpoint 2026-09-14 (Window B knob parity)
+
+Same readiness helper now also blocks on `min_hold_hours≠24` and `fee_preset≠revolut_standard` (`hold …h≠24h` / `fee …≠standard`). Protocol table is max 5 · 24h · revolut_standard — portfolio AI readiness pattern; display only.
+
 ## Window B — promote **ON** — not started
 
 ## Trust questions (C4) — fill when windows complete

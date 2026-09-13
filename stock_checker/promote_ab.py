@@ -20,21 +20,30 @@ WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
 PROTOCOL_MAX_POSITIONS = 5
+PROTOCOL_MIN_HOLD_HOURS = 24.0
+PROTOCOL_FEE_PRESET = "revolut_standard"
 
 
 def window_b_readiness(
     *,
     max_positions: int | None = None,
     open_positions: int | None = None,
+    min_hold_hours: float | None = None,
+    fee_preset: str | None = None,
     protocol_max: int = PROTOCOL_MAX_POSITIONS,
+    protocol_min_hold_hours: float = PROTOCOL_MIN_HOLD_HOURS,
+    protocol_fee_preset: str = PROTOCOL_FEE_PRESET,
 ) -> dict[str, Any]:
     """Why Window B should wait (display / ops honesty; not a gate).
 
-    Protocol wants the same book caps for A and B (default max 5). Live Ops
-    drift (e.g. max_positions=8) pauses a fair A/B compare — surface it on the
-    desk instead of saying "ready for B". Portfolio AI readiness pattern.
+    Protocol wants the same book caps, min hold, and fee preset for A and B
+    (default max 5 / 24h / revolut_standard). Live Ops drift pauses a fair
+    A/B compare — surface it on the desk instead of saying "ready for B".
+    Portfolio AI readiness pattern (tradermonty / portfolio AI).
     """
     cap = max(1, int(protocol_max))
+    hold_need = float(protocol_min_hold_hours)
+    fee_need = str(protocol_fee_preset or PROTOCOL_FEE_PRESET).strip().lower()
     blockers: list[str] = []
     if max_positions is not None:
         slots = int(max_positions)
@@ -44,10 +53,21 @@ def window_b_readiness(
         n = int(open_positions)
         if n > cap:
             blockers.append(f"{n} open >{cap}")
+    if min_hold_hours is not None:
+        hold_h = float(min_hold_hours)
+        if abs(hold_h - hold_need) > 0.05:
+            blockers.append(f"hold {hold_h:g}h≠{hold_need:g}h")
+    if fee_preset is not None:
+        preset = str(fee_preset).strip().lower()
+        if preset and preset != fee_need:
+            short = fee_need.replace("revolut_", "")
+            blockers.append(f"fee {preset}≠{short}")
     return {
         "ready": not blockers,
         "blockers": blockers,
         "protocol_max_positions": cap,
+        "protocol_min_hold_hours": hold_need,
+        "protocol_fee_preset": fee_need,
     }
 
 

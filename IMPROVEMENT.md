@@ -11,7 +11,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 ### A — Trading logic (strategy behavior)
 
 - [x] **A1** One config truth: compose + CLI + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ `tests/test_book_limit_defaults.py`)
-- [x] **A2** Promote A/B: method + baseline + **Window A (promote off) started** 2026-08-12 — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — **2026-09-13:** Window A fee-adjusted fill summarize done; **2026-09-14:** Window B readiness blockers on desk glance; Window B + fee-adjusted verdict still pending
+- [x] **A2** Promote A/B: method + baseline + **Window A (promote off) started** 2026-08-12 — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — **2026-09-13:** Window A fee-adjusted fill summarize done; **2026-09-14:** Window B readiness blockers (max pos / open / hold / fee) on desk glance; Window B + fee-adjusted verdict still pending
 - [ ] **A3** Do not flip compose promote default-on until A2 is positive (or human explicitly waives) **and** calm gate passes
 - [x] **Crypto live policy (2026-08-14/15):** BTC/ETH **scan + buys** only · max 1 crypto slot · crypto TP/SL ±10% — `crypto_policy.py` / `scan_live_crypto_majors`
 - [x] **Local TZ night window (2026-08-15):** autoresearch + morning briefing use system/`ASC_LOCAL_TZ` (not hard-coded Berlin)
@@ -294,6 +294,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] MonsterDeveloper + xang1234 Breadth chop declutter (2026-09-13 improve): park flip-run max/avg/med/min/σ/CV under Breadth `<details class="chop-honesty">` (`format_flip_run_chop_bits` / `chop_line`) — live flip · dens stay on glance; display only; not a new gate
 - [x] Phase A + portfolio AI Window A fee summarize (2026-09-13 improve): `summarize_window_trades` + `summarize_trades.py --since window-a` + promote A/B glance fees/P&L/fills bit — control window honesty before B; display only; not a new gate; compose promote still blocked (A3)
 - [x] Phase A + portfolio AI Window B readiness (2026-09-14 improve): promote A/B glance warns `B blocked · max pos N≠5` / `N open >5` via `window_b_readiness` when Ops drifts from protocol caps — watch quiet; display only; not a new gate; do not start B / flip compose (A3)
+- [x] Phase A + portfolio AI Window B knob parity (2026-09-14 improve): same readiness also blocks on hold ≠24h / fee ≠revolut_standard — protocol table honesty; Charts via trader_config; display only; not a new gate; do not start B / flip compose (A3)
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 - [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split/mixed/flip + mixed streak + confirmed thrust + unconfirmed/alone thrust + confirm rate + density + confirmed/alone density + tape label densities + flip density + flip streak + max flip streak + mean flip streak + median flip streak + min flip streak + flip-run σ + flip-run CV shipped above; chop details fold shipped
@@ -302,7 +303,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [ ] Optional later: tradermonty full OS/platform matrix UI (watch 2026-09-13 #333/#392) — Python pin slice shipped above; defer multi-OS matrix until friends ask
 - [ ] Optional later: staskh refuse-without-vol as live entry block (watch 2026-09-12 ema_vix) — desk soft-n/a coverage shipped above; defer hard refuse until promote unlock / gate thinning allows
 - [ ] Optional later: xang1234 further flip-run moments (IQR / skew) — declutter shipped; defer more distribution bits unless Breadth friends ask
-- [ ] Optional later: start Window B (promote on) after restoring protocol book caps (max 5) — Window A summarize + B-readiness glance shipped 2026-09-13/14; do not flip compose default-on (A3)
+- [ ] Optional later: start Window B (promote on) after restoring protocol knobs (max 5 / 24h / revolut_standard) — Window A summarize + B-readiness + hold/fee knob parity shipped 2026-09-13/14; do not flip compose default-on (A3)
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally
