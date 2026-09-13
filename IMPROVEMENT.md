@@ -281,11 +281,13 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] xang1234 StockBee confirmed + alone density (2026-09-13 improve): share of history days that were confirmed vs thrust-alone on Breadth + glance (`confirmed_density_pct` / `alone_density_pct`) — clean heat vs false-thrust frequency; scan-list only; display only; not a new gate
 - [x] xang1234 StockBee tape label densities (2026-09-13 improve): share of history days that were risk-on / split / risk-off / mixed on Breadth + glance (`tape_label_density_pct` / `risk_on_density_pct` …) — tape frequency vs thrust density; scan-list only; display only; not a new gate
 - [x] xang1234 + tradermonty StockBee tape flip density (2026-09-13 improve): share of known→known day pairs that flipped on Breadth + glance (`tape_flip_density_pct` / `flip_n`/`pair_n`) — chop vs label frequency; executable multi-day replay test; scan-list only; display only; not a new gate
+- [x] staskh + portfolio AI ATR vol coverage (2026-09-13 improve): ATR glance shows Screener `with vol` vs soft n/a when range/vol missing (`atr_vol_coverage` / `risk_note_has_vol`) — refuse-without-vol honesty adapted as display soft-n/a (not a gate); live TP/SL not ATR
 - [ ] Optional later: FinRL / OpenTrade ideas (only after promote compose unlock)
 - [ ] Optional later: MAE/MFE on closed rounds (needs since-buy OHLC path; defer)
 - [ ] Optional later: xang1234 theme discovery (needs research UX; defer) — ±4% + near-high multi-day ratios + thrust day/streak + stock/crypto advance % + dual-advance/tape-split + risk-on/split streaks + risk-off + mixed/flip + days-since risk-on/thrust/risk-off/split/mixed + mixed streak + confirmed thrust + unconfirmed/alone thrust + confirm rate + density + confirmed/alone density + tape label densities + flip density shipped above
 - [ ] Optional later: FinRobot deeper multi-agent research UX (watch 2026-09-12 README-only; defer until promote unlock / research screen)
 - [ ] Optional later: tradermonty swing-opportunity-daily full replay harness (watch 2026-09-12 #381) — adapted flip-density multi-day replay above; defer broader opportunity replay until promote unlock
+- [ ] Optional later: staskh refuse-without-vol as live entry block (watch 2026-09-12 ema_vix) — desk soft-n/a coverage shipped above; defer hard refuse until promote unlock / gate thinning allows
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

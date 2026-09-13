@@ -1206,7 +1206,11 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "book_posture_glance": _book_posture_glance_from_data(data_dir),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(data_dir),
-        "atr_display_glance": build_atr_display_glance(),
+        "atr_display_glance": build_atr_display_glance(
+            list(opp.get("crypto_leaders") or [])
+            + list(opp.get("stock_breakouts") or [])
+            + list(opp.get("recommendations") or [])
+        ),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": _promote_contract_glance_from_config(data_dir),
         "gate_roles_glance": _gate_roles_glance_from_config(data_dir),

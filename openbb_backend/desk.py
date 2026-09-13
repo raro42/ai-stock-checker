@@ -13,7 +13,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 from openbb_backend.symbol_names import display_name, resolve_symbol_names
 from stock_checker.trade_postmortem import DEFAULT_LIMIT as POSTMORTEM_LIMIT
@@ -965,13 +965,16 @@ def build_universe_discovery_glance(
     }
 
 
-def build_atr_display_glance() -> dict[str, Any]:
-    """Screener ATR / R:R honesty (RyanJHamby stop framing + portfolio AI; display only).
+def build_atr_display_glance(
+    rows: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Screener ATR / R:R honesty (RyanJHamby + staskh vol coverage; display only).
 
-    Screener may show ~2×ATR stop notes. Live stock exits stay TP/SL via
-    exit_policy — not ATR stops. Guardrail mirror — not a new gate.
+    Screener may show ~2×ATR stop notes. Missing vol → soft n/a on the note
+    (not refuse). Live stock exits stay TP/SL via exit_policy — not ATR stops.
+    Guardrail mirror — not a new gate.
     """
-    from stock_checker.atr_risk import DEFAULT_ATR_MULT
+    from stock_checker.atr_risk import DEFAULT_ATR_MULT, atr_vol_coverage
     from stock_checker.exit_policy import (
         DEFAULT_STOP_LOSS_PCT,
         DEFAULT_TAKE_PROFIT_PCT,
@@ -980,20 +983,41 @@ def build_atr_display_glance() -> dict[str, Any]:
     mult = float(DEFAULT_ATR_MULT)
     tp = float(DEFAULT_TAKE_PROFIT_PCT)
     sl = float(DEFAULT_STOP_LOSS_PCT)
-    line = (
-        f"Screener ATR ~{mult:g}× notes · display only · "
-        f"live TP +{tp:g}% / SL −{sl:g}% (not ATR)"
-    )
+    cov = atr_vol_coverage(rows)
+    total = int(cov.get("total") or 0)
+    with_vol = int(cov.get("with_vol") or 0)
+    missing = int(cov.get("missing") or 0)
+    if total > 0:
+        mid = (
+            f"{with_vol}/{total} with vol"
+            if missing == 0
+            else f"{with_vol}/{total} with vol · {missing} soft n/a"
+        )
+        line = (
+            f"ATR ~{mult:g}× · {mid} · "
+            f"live TP +{tp:g}% / SL −{sl:g}% (not ATR)"
+        )
+        tone = "warn" if missing > 0 else "display"
+    else:
+        line = (
+            f"Screener ATR ~{mult:g}× notes · display only · "
+            f"live TP +{tp:g}% / SL −{sl:g}% (not ATR)"
+        )
+        tone = "display"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
         "ready": True,
-        "tone": "display",
+        "tone": tone,
         "line": line,
         "atr_mult": mult,
         "take_profit_pct": tp,
         "stop_loss_pct": sl,
         "live_atr_stops": False,
+        "vol_total": total,
+        "vol_with": with_vol,
+        "vol_missing": missing,
+        "vol_coverage_pct": cov.get("coverage_pct"),
     }
 
 
@@ -5188,7 +5212,9 @@ def load_desk_snapshot(
         ),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(data_dir),
-        "atr_display_glance": build_atr_display_glance(),
+        "atr_display_glance": build_atr_display_glance(
+            list(crypto_leaders) + list(stock_breakouts) + list(recs)
+        ),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": build_promote_contract_glance(runtime),
         "gate_roles_glance": build_gate_roles_glance(runtime),

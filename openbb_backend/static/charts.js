@@ -2286,7 +2286,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "ATR / R:R beside charts — Screener notes are display-only; live exits use TP/SL.";
+      "Missing vol → soft n/a (display), not refuse. Live exits use TP/SL — not ATR.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

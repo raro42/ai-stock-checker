@@ -129,6 +129,46 @@ def risk_reward_note(
     return out
 
 
+def risk_note_has_vol(summary: str | None) -> bool:
+    """True when a Screener risk note has a stop (vol proxy), not soft n/a.
+
+    staskh-style honesty: missing vol must be visible. Desk soft-n/a (display);
+    does not refuse entries — live exits stay exit_policy TP/SL.
+    """
+    s = (summary or "").strip().lower()
+    if not s or s.startswith("risk n/a"):
+        return False
+    return s.startswith("stop ")
+
+
+def atr_vol_coverage(
+    rows: Sequence[Mapping[str, Any]] | None,
+) -> dict[str, Any]:
+    """Count Screener rows with usable ATR/vol notes vs soft n/a (display only)."""
+    total = 0
+    with_vol = 0
+    for row in rows or ():
+        if not isinstance(row, Mapping):
+            continue
+        note = row.get("risk_note")
+        if note is None and row.get("summary") is not None:
+            note = row.get("summary")
+        # Count only rows that carry a risk_note field (incl. empty / n/a).
+        if "risk_note" not in row and "summary" not in row:
+            continue
+        total += 1
+        if risk_note_has_vol(str(note) if note is not None else ""):
+            with_vol += 1
+    missing = max(0, total - with_vol)
+    pct = round(100.0 * with_vol / total, 1) if total else None
+    return {
+        "total": total,
+        "with_vol": with_vol,
+        "missing": missing,
+        "coverage_pct": pct,
+    }
+
+
 def note_from_day_range(
     *,
     entry: float,
