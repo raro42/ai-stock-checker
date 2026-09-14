@@ -17,6 +17,9 @@ DEFAULT_DAILY_LOSS_PCT = 2.0
 DEFAULT_MAX_NAME_PCT = 30.0
 # After a stop-loss sell, block new buys (anti revenge refill). Floor matches trader.
 DEFAULT_POST_SL_COOLDOWN_SEC = 4 * 3600
+# Hold-tenure buckets for Group Matrix–lite marks (not calendar market 1w/1m).
+TENURE_WEEK_SEC = 7 * 86400
+TENURE_MONTH_SEC = 30 * 86400
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -214,6 +217,34 @@ def _format_mark_pct(pct: float | None, *, has_lots: bool, any_marked: bool) -> 
     return f"{sign}{abs(pct):.1f}%"
 
 
+def _holding_cost_basis(h: dict[str, Any]) -> float:
+    try:
+        basis = float(h.get("cost_basis") or 0.0)
+    except (TypeError, ValueError):
+        basis = 0.0
+    if basis > 0:
+        return basis
+    try:
+        return float(h.get("market_value") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _holding_marked_pct(h: dict[str, Any]) -> float | None:
+    """Since-buy unrealized % when the row is marked; else None."""
+    marked = h.get("marked")
+    if marked is None:
+        # Explicit unrealized_pct without marked flag still counts
+        # only when the key is present (cost-flat chart rows omit it).
+        marked = "unrealized_pct" in h
+    if not marked:
+        return None
+    try:
+        return float(h.get("unrealized_pct"))
+    except (TypeError, ValueError):
+        return None
+
+
 def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost-weighted mark % by equity/crypto sleeve (display only).
 
@@ -232,29 +263,13 @@ def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         if not kind:
             kind = "crypto" if "-USD" in sym else "stock"
         sleeve = "crypto" if kind == "crypto" else "equity"
-        try:
-            basis = float(h.get("cost_basis") or 0.0)
-        except (TypeError, ValueError):
-            basis = 0.0
-        if basis <= 0:
-            try:
-                basis = float(h.get("market_value") or 0.0)
-            except (TypeError, ValueError):
-                basis = 0.0
+        basis = _holding_cost_basis(h)
         if basis <= 0:
             continue
         bucket = sleeves[sleeve]
         bucket["lots"] += 1
-        marked = h.get("marked")
-        if marked is None:
-            # Explicit unrealized_pct without marked flag still counts
-            # only when the key is present (cost-flat chart rows omit it).
-            marked = "unrealized_pct" in h
-        if not marked:
-            continue
-        try:
-            pct = float(h.get("unrealized_pct"))
-        except (TypeError, ValueError):
+        pct = _holding_marked_pct(h)
+        if pct is None:
             continue
         bucket["marked"] += 1
         bucket["cost"] += basis
@@ -287,6 +302,89 @@ def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _tenure_bucket(held_seconds: float | None) -> str | None:
+    """Map hold age to week/month tenure key; None when age unknown."""
+    if held_seconds is None:
+        return None
+    try:
+        held = float(held_seconds)
+    except (TypeError, ValueError):
+        return None
+    if held < 0:
+        return None
+    if held < TENURE_WEEK_SEC:
+        return "lt_7d"
+    if held < TENURE_MONTH_SEC:
+        return "7_30d"
+    return "ge_30d"
+
+
+def tenure_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by hold tenure (display only).
+
+    xang1234 weekly/monthly Group Matrix adapted as hold-age buckets
+    (<7d / 7–30d / ≥30d). Not calendar market 1w/1m. Missing age or mark → —.
+    """
+    buckets: dict[str, dict[str, Any]] = {
+        "lt_7d": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "7_30d": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "ge_30d": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        held_raw = h.get("held_seconds")
+        key = _tenure_bucket(held_raw if held_raw is not None else None)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = buckets[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "tenure_lt_7d_pct": None,
+        "tenure_7_30d_pct": None,
+        "tenure_ge_30d_pct": None,
+        "tenure_lt_7d_label": "",
+        "tenure_7_30d_label": "",
+        "tenure_ge_30d_label": "",
+        "tenure_marks_ready": False,
+        "tenure_marks_bit": "",
+        "tenure_unknown_lots": unknown_lots,
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("lt_7d", "<7d", "tenure_lt_7d"),
+        ("7_30d", "7–30d", "tenure_7_30d"),
+        ("ge_30d", "≥30d", "tenure_ge_30d"),
+    ):
+        bucket = buckets[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=any_marked)
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["tenure_marks_ready"] = True
+        out["tenure_marks_bit"] = "tenure " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -299,7 +397,8 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve mark returns (Group Matrix–lite). Does not change entries or exits.
+    sleeve + hold-tenure mark returns (Group Matrix–lite).
+    Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -310,6 +409,15 @@ def book_risk_report(
         "crypto_mark_label": "",
         "sleeve_marks_ready": False,
         "sleeve_marks_bit": "",
+        "tenure_lt_7d_pct": None,
+        "tenure_7_30d_pct": None,
+        "tenure_ge_30d_pct": None,
+        "tenure_lt_7d_label": "",
+        "tenure_7_30d_label": "",
+        "tenure_ge_30d_label": "",
+        "tenure_marks_ready": False,
+        "tenure_marks_bit": "",
+        "tenure_unknown_lots": 0,
     }
     try:
         cash_f = float(cash)
@@ -370,6 +478,7 @@ def book_risk_report(
         cr_share = 0.0
 
     marks = sleeve_mark_returns(rows)
+    tenure = tenure_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -395,6 +504,7 @@ def book_risk_report(
         "concentration_warn": concentration_warn,
         "note": " · ".join(bits),
         **marks,
+        **tenure,
     }
 
 

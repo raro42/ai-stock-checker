@@ -189,6 +189,75 @@ def test_book_risk_report_sleeve_marks_weighted() -> None:
     )
     assert out["equity_mark_pct"] == -5.0
     assert "marks eq −5.0% / cr —" in out["note"]
+    # No hold ages → tenure strip empty (not in glance note)
+    assert out["tenure_marks_ready"] is False
+    assert out["tenure_marks_bit"] == ""
+    assert out["tenure_unknown_lots"] == 3
+
+
+def test_tenure_mark_returns_week_month_buckets() -> None:
+    from stock_checker.risk_halts import (
+        TENURE_MONTH_SEC,
+        TENURE_WEEK_SEC,
+        book_risk_report,
+        tenure_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "NEW",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+            "held_seconds": TENURE_WEEK_SEC - 1,
+        },
+        {
+            "symbol": "MID",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+            "held_seconds": TENURE_WEEK_SEC + 100,
+        },
+        {
+            "symbol": "OLD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "unrealized_pct": 8.0,
+            "marked": True,
+            "held_seconds": TENURE_MONTH_SEC + 1,
+        },
+        {
+            "symbol": "NOAGE",
+            "kind": "stock",
+            "cost_basis": 1_000,
+            "unrealized_pct": 50.0,
+            "marked": True,
+            # missing held_seconds
+        },
+        {
+            "symbol": "FLAT",
+            "kind": "stock",
+            "cost_basis": 2_000,
+            "held_seconds": TENURE_WEEK_SEC - 10,
+            "marked": False,
+        },
+    ]
+    tenure = tenure_mark_returns(holds)
+    assert tenure["tenure_lt_7d_pct"] == 4.0
+    assert tenure["tenure_lt_7d_label"] == "+4.0%"
+    assert tenure["tenure_7_30d_pct"] == -2.0
+    assert tenure["tenure_ge_30d_pct"] == 8.0
+    assert tenure["tenure_unknown_lots"] == 1
+    # FLAT has age but unmarked — does not dilute NEW's marked %
+    assert "tenure <7d +4.0% · 7–30d −2.0% · ≥30d +8.0%" in tenure["tenure_marks_bit"]
+
+    out = book_risk_report(cash=5_000, equity=43_000, holdings=holds, max_positions=5)
+    assert out["tenure_marks_ready"] is True
+    assert out["tenure_lt_7d_pct"] == 4.0
+    # Tenure stays off the glance note (Book strip only)
+    assert "tenure" not in out["note"]
 
 
 def test_book_risk_report_empty_book() -> None:
@@ -202,6 +271,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["cash_pct"] == 100.0
     assert out["sleeve_marks_ready"] is False
     assert out["sleeve_marks_bit"] == ""
+    assert out["tenure_marks_ready"] is False
+    assert out["tenure_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:

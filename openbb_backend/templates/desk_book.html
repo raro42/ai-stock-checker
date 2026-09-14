@@ -48,6 +48,18 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Tenure</span>
+      <span class="v" title="Cost-weighted since-buy mark % by hold age (&lt;7d / 7–30d / ≥30d) — Group Matrix week/month adapted; not calendar market returns; missing age or mark ≠ 0">
+        {% if snap.book_risk.tenure_marks_ready %}
+        {% if snap.book_risk.tenure_lt_7d_label %}&lt;7d {{ snap.book_risk.tenure_lt_7d_label }}{% endif %}
+        {% if snap.book_risk.tenure_lt_7d_label and (snap.book_risk.tenure_7_30d_label or snap.book_risk.tenure_ge_30d_label) %} · {% endif %}
+        {% if snap.book_risk.tenure_7_30d_label %}7–30d {{ snap.book_risk.tenure_7_30d_label }}{% endif %}
+        {% if snap.book_risk.tenure_7_30d_label and snap.book_risk.tenure_ge_30d_label %} · {% endif %}
+        {% if snap.book_risk.tenure_ge_30d_label %}≥30d {{ snap.book_risk.tenure_ge_30d_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 
