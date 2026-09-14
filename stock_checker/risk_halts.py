@@ -385,6 +385,74 @@ def tenure_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def polarity_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % for winners vs losers (display only).
+
+    xang1234 Group Matrix green→red cluster edge adapted as book polarity:
+    marked lots with unrealized >0 vs <0. Flat 0% and unmarked do not dilute.
+    Not calendar market returns; not a gate.
+    """
+    sides: dict[str, dict[str, Any]] = {
+        "win": {"cost": 0.0, "w_pct": 0.0, "lots": 0},
+        "lose": {"cost": 0.0, "w_pct": 0.0, "lots": 0},
+    }
+    flat_lots = 0
+    unmarked_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            unmarked_lots += 1
+            continue
+        if pct > 0:
+            key = "win"
+        elif pct < 0:
+            key = "lose"
+        else:
+            flat_lots += 1
+            continue
+        bucket = sides[key]
+        bucket["lots"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "polarity_win_pct": None,
+        "polarity_lose_pct": None,
+        "polarity_win_label": "",
+        "polarity_lose_label": "",
+        "polarity_win_lots": int(sides["win"]["lots"]),
+        "polarity_lose_lots": int(sides["lose"]["lots"]),
+        "polarity_flat_lots": flat_lots,
+        "polarity_unmarked_lots": unmarked_lots,
+        "polarity_marks_ready": False,
+        "polarity_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("win", "win", "polarity_win"),
+        ("lose", "lose", "polarity_lose"),
+    ):
+        bucket = sides[key]
+        has_lots = int(bucket["lots"]) > 0
+        pct: float | None = None
+        if has_lots and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=has_lots)
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["polarity_marks_ready"] = True
+        out["polarity_marks_bit"] = "polarity " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -397,7 +465,7 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + hold-tenure mark returns (Group Matrix–lite).
+    sleeve + hold-tenure + win/lose polarity mark returns (Group Matrix–lite).
     Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
@@ -418,6 +486,16 @@ def book_risk_report(
         "tenure_marks_ready": False,
         "tenure_marks_bit": "",
         "tenure_unknown_lots": 0,
+        "polarity_win_pct": None,
+        "polarity_lose_pct": None,
+        "polarity_win_label": "",
+        "polarity_lose_label": "",
+        "polarity_win_lots": 0,
+        "polarity_lose_lots": 0,
+        "polarity_flat_lots": 0,
+        "polarity_unmarked_lots": 0,
+        "polarity_marks_ready": False,
+        "polarity_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -479,6 +557,7 @@ def book_risk_report(
 
     marks = sleeve_mark_returns(rows)
     tenure = tenure_mark_returns(rows)
+    polarity = polarity_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -505,6 +584,7 @@ def book_risk_report(
         "note": " · ".join(bits),
         **marks,
         **tenure,
+        **polarity,
     }
 
 

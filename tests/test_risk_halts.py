@@ -260,6 +260,65 @@ def test_tenure_mark_returns_week_month_buckets() -> None:
     assert "tenure" not in out["note"]
 
 
+def test_polarity_mark_returns_win_lose() -> None:
+    from stock_checker.risk_halts import book_risk_report, polarity_mark_returns
+
+    holds = [
+        {
+            "symbol": "WIN1",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "WIN2",
+            "kind": "stock",
+            "cost_basis": 30_000,
+            "unrealized_pct": 5.0,
+            "marked": True,
+        },
+        {
+            "symbol": "LOSE",
+            "kind": "crypto",
+            "cost_basis": 20_000,
+            "unrealized_pct": -8.0,
+            "marked": True,
+        },
+        {
+            "symbol": "FLAT",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 0.0,
+            "marked": True,
+        },
+        {
+            "symbol": "DARK",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    pol = polarity_mark_returns(holds)
+    # win: (10k*10 + 30k*5) / 40k = 6.25
+    assert pol["polarity_win_pct"] == 6.25
+    assert pol["polarity_win_label"] == "+6.2%"
+    assert pol["polarity_lose_pct"] == -8.0
+    assert pol["polarity_lose_label"] == "−8.0%"
+    assert pol["polarity_win_lots"] == 2
+    assert pol["polarity_lose_lots"] == 1
+    assert pol["polarity_flat_lots"] == 1
+    assert pol["polarity_unmarked_lots"] == 1
+    assert "polarity win +6.2% · lose −8.0%" in pol["polarity_marks_bit"]
+
+    out = book_risk_report(cash=10_000, equity=70_000, holdings=holds, max_positions=5)
+    assert out["polarity_marks_ready"] is True
+    assert out["polarity_win_pct"] == 6.25
+    # Polarity stays off the glance note (Book strip only)
+    assert "polarity" not in out["note"]
+    assert "win +" not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -273,6 +332,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["sleeve_marks_bit"] == ""
     assert out["tenure_marks_ready"] is False
     assert out["tenure_marks_bit"] == ""
+    assert out["polarity_marks_ready"] is False
+    assert out["polarity_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:

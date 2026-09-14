@@ -60,6 +60,16 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Win/Lose</span>
+      <span class="v" title="Cost-weighted since-buy mark % for winners vs losers — Group Matrix green→red edge adapted; flat 0% and unmarked ≠ dilution; not a gate">
+        {% if snap.book_risk.polarity_marks_ready %}
+        {% if snap.book_risk.polarity_win_label %}win {{ snap.book_risk.polarity_win_label }}{% endif %}
+        {% if snap.book_risk.polarity_win_label and snap.book_risk.polarity_lose_label %} · {% endif %}
+        {% if snap.book_risk.polarity_lose_label %}lose {{ snap.book_risk.polarity_lose_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 
