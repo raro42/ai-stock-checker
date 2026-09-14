@@ -80,6 +80,18 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Leader</span>
+      <span class="v" title="Cost-weighted since-buy mark % for the largest cost lot vs the rest — Group Matrix + portfolio AI concentration cluster; missing mark ≠ 0; not a gate">
+        {% if snap.book_risk.leader_marks_ready %}
+        {% if snap.book_risk.leader_mark_label %}
+        {% if snap.book_risk.leader_symbol %}{{ snap.book_risk.leader_symbol }} {% endif %}{{ snap.book_risk.leader_mark_label }}
+        {% endif %}
+        {% if snap.book_risk.leader_mark_label and snap.book_risk.leader_rest_label %} · {% endif %}
+        {% if snap.book_risk.leader_rest_label %}rest {{ snap.book_risk.leader_rest_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 

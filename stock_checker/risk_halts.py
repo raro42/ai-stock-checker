@@ -525,6 +525,85 @@ def size_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def leader_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % for top lot vs rest (display only).
+
+    xang1234 Group Matrix + portfolio AI concentration cluster: the single
+    largest cost basis name vs the remaining book. Needs ≥2 costed lots.
+    Missing mark → — not 0. Not a gate; not calendar market returns.
+    """
+    empty: dict[str, Any] = {
+        "leader_symbol": "",
+        "leader_mark_pct": None,
+        "leader_rest_pct": None,
+        "leader_mark_label": "",
+        "leader_rest_label": "",
+        "leader_lots": 0,
+        "leader_rest_lots": 0,
+        "leader_marks_ready": False,
+        "leader_marks_bit": "",
+    }
+    lots: list[tuple[float, dict[str, Any]]] = []
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        lots.append((basis, h))
+    if len(lots) < 2:
+        return empty
+
+    lots.sort(key=lambda row: row[0], reverse=True)
+    top_basis, top_h = lots[0]
+    rest = lots[1:]
+    top_sym = str(top_h.get("symbol") or "").strip().upper()
+    top_pct = _holding_marked_pct(top_h)
+    rest_cost = 0.0
+    rest_w = 0.0
+    rest_marked = 0
+    for basis, h in rest:
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        rest_marked += 1
+        rest_cost += basis
+        rest_w += basis * pct
+    rest_pct: float | None = None
+    if rest_marked > 0 and rest_cost > 0:
+        rest_pct = rest_w / rest_cost
+
+    top_label = _format_mark_pct(
+        top_pct, has_lots=True, any_marked=top_pct is not None
+    )
+    rest_label = _format_mark_pct(
+        rest_pct, has_lots=len(rest) > 0, any_marked=rest_marked > 0
+    )
+    bits: list[str] = []
+    if top_label:
+        head = f"{top_sym} {top_label}" if top_sym else top_label
+        bits.append(f"top {head}")
+    if rest_label:
+        bits.append(f"rest {rest_label}")
+    total_cost = sum(b for b, _ in lots)
+    cost_share = (top_basis / total_cost * 100.0) if total_cost > 0 else 0.0
+    out: dict[str, Any] = {
+        **empty,
+        "leader_symbol": top_sym,
+        "leader_mark_pct": round(top_pct, 2) if top_pct is not None else None,
+        "leader_rest_pct": round(rest_pct, 2) if rest_pct is not None else None,
+        "leader_mark_label": top_label,
+        "leader_rest_label": rest_label,
+        "leader_lots": 1,
+        "leader_rest_lots": len(rest),
+        "leader_cost_share": round(cost_share, 1),
+    }
+    if bits:
+        out["leader_marks_ready"] = True
+        out["leader_marks_bit"] = "leader " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -537,7 +616,7 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + hold-tenure + win/lose polarity + size mark returns
+    sleeve + hold-tenure + win/lose polarity + size + leader mark returns
     (Group Matrix–lite). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
@@ -576,6 +655,16 @@ def book_risk_report(
         "size_small_lots": 0,
         "size_marks_ready": False,
         "size_marks_bit": "",
+        "leader_symbol": "",
+        "leader_mark_pct": None,
+        "leader_rest_pct": None,
+        "leader_mark_label": "",
+        "leader_rest_label": "",
+        "leader_lots": 0,
+        "leader_rest_lots": 0,
+        "leader_marks_ready": False,
+        "leader_marks_bit": "",
+        "leader_cost_share": 0.0,
     }
     try:
         cash_f = float(cash)
@@ -639,6 +728,7 @@ def book_risk_report(
     tenure = tenure_mark_returns(rows)
     polarity = polarity_mark_returns(rows)
     size = size_mark_returns(rows)
+    leader = leader_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -667,6 +757,7 @@ def book_risk_report(
         **tenure,
         **polarity,
         **size,
+        **leader,
     }
 
 

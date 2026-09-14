@@ -383,6 +383,71 @@ def test_size_mark_returns_median_split() -> None:
     assert "size " not in out["note"]
 
 
+def test_leader_mark_returns_top_vs_rest() -> None:
+    from stock_checker.risk_halts import book_risk_report, leader_mark_returns
+
+    holds = [
+        {
+            "symbol": "big",
+            "kind": "stock",
+            "cost_basis": 40_000,
+            "unrealized_pct": -5.0,
+            "marked": True,
+        },
+        {
+            "symbol": "A",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "B",
+            "kind": "crypto",
+            "cost_basis": 20_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "DARK",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "marked": False,
+        },
+    ]
+    leader = leader_mark_returns(holds)
+    assert leader["leader_symbol"] == "BIG"
+    assert leader["leader_mark_pct"] == -5.0
+    assert leader["leader_mark_label"] == "−5.0%"
+    # rest: (10k*10 + 20k*4) / 30k = 6.0 — DARK unmarked does not dilute
+    assert leader["leader_rest_pct"] == 6.0
+    assert leader["leader_rest_label"] == "+6.0%"
+    assert leader["leader_lots"] == 1
+    assert leader["leader_rest_lots"] == 3
+    assert leader["leader_cost_share"] == round(40_000 / 75_000 * 100.0, 1)
+    assert "leader top BIG −5.0% · rest +6.0%" in leader["leader_marks_bit"]
+
+    alone = leader_mark_returns(
+        [
+            {
+                "symbol": "ONLY",
+                "cost_basis": 10_000,
+                "unrealized_pct": 5.0,
+                "marked": True,
+            }
+        ]
+    )
+    assert alone["leader_marks_ready"] is False
+    assert alone["leader_marks_bit"] == ""
+
+    out = book_risk_report(cash=5_000, equity=80_000, holdings=holds, max_positions=5)
+    assert out["leader_marks_ready"] is True
+    assert out["leader_symbol"] == "BIG"
+    assert out["leader_mark_pct"] == -5.0
+    # Leader stays off the glance note (Book strip only)
+    assert "leader " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -400,6 +465,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["polarity_marks_bit"] == ""
     assert out["size_marks_ready"] is False
     assert out["size_marks_bit"] == ""
+    assert out["leader_marks_ready"] is False
+    assert out["leader_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:
