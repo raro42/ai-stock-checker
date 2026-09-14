@@ -14,9 +14,9 @@ def test_earnings_blackout_glance_window() -> None:
     assert g["days_after"] == 1.0
     assert g["fail_open"] is True
     assert g["missing_calendar"] == "allow"
-    assert "2d before" in g["line"]
-    assert "1d after" in g["line"]
-    assert "no Yahoo date → allow" in g["line"]
+    assert g["empty_window"] == "allow_suspect"
+    assert "2d/1d" in g["line"]
+    assert "empty Yahoo → allow (suspect)" in g["line"]
     assert "crypto exempt" in g["line"]
 
 
@@ -30,8 +30,9 @@ def test_earnings_blackout_glance_in_snapshot(tmp_path) -> None:
     snap = load_desk_snapshot(tmp_path, live_marks=False)
     g = snap["earnings_blackout_glance"]
     assert g["ready"] is True
-    assert "no Yahoo date → allow" in g["line"]
+    assert "empty Yahoo → allow (suspect)" in g["line"]
     assert g["fail_open"] is True
+    assert g["empty_window"] == "allow_suspect"
 
 
 def test_earnings_blackout_glance_in_chart_payload(tmp_path) -> None:
@@ -43,6 +44,6 @@ def test_earnings_blackout_glance_in_chart_payload(tmp_path) -> None:
     (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
     g = load_chart_payload(tmp_path)["earnings_blackout_glance"]
     assert g["ready"] is True
-    assert "2d before" in g["line"]
-    assert "no Yahoo date → allow" in g["line"]
+    assert "2d/1d" in g["line"]
+    assert "empty Yahoo → allow (suspect)" in g["line"]
     assert "crypto exempt" in g["line"]

@@ -1698,7 +1698,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Stock blackout beside charts — 2d/1d; no Yahoo date → allow (fail-open); crypto exempt.";
+      "Stock blackout beside charts — 2d/1d; empty Yahoo → allow (suspect); crypto exempt.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

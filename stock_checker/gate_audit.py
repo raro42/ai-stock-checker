@@ -13,7 +13,14 @@ from typing import Any
 
 SOFT_ALLOW_FILE = "gate_soft_allows.json"
 SOFT_ALLOW_CAP = 40
-_SOFT_MARKERS = ("unknown", "no bars", "skip_no_bars", "insufficient")
+_SOFT_MARKERS = (
+    "unknown",
+    "no bars",
+    "skip_no_bars",
+    "insufficient",
+    "empty yahoo",
+    "empty earnings",
+)
 
 
 def _default_data_dir() -> Path:

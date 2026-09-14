@@ -19,6 +19,7 @@ from .portfolio import Portfolio
 from .persistence import DataPersistence
 from .symbol_filters import is_tradeable_symbol
 from .earnings_guard import is_in_earnings_blackout
+from .gate_audit import log_soft_allow
 from .fetcher import is_transient_network_error
 from .market_regime import (
     CRYPTO_BENCHMARK,
@@ -1053,6 +1054,8 @@ class IntelligentTrader:
             if blocked:
                 print(f"   ⏸️  Skipping {symbol}: earnings blackout ({why})")
                 continue
+            if why:
+                log_soft_allow("earnings", f"{symbol}: {why}")
 
             try:
                 # Get current price
@@ -1365,6 +1368,8 @@ class IntelligentTrader:
                         if blocked:
                             print(f"   ⏸️  Skipping {symbol}: earnings blackout ({why})")
                             continue
+                        if why:
+                            log_soft_allow("earnings", f"{symbol}: {why}")
 
                     gates_ok, gates_why = self._soft_gates_ok(
                         str(symbol), is_crypto, fetcher=fetcher, binance=binance
