@@ -453,6 +453,78 @@ def polarity_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def size_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by position size (display only).
+
+    xang1234 Group Matrix size cluster adapted: split lots at median cost
+    into large vs small. Needs ≥2 costed lots. Missing mark → — not 0.
+    Not a gate; not calendar market returns.
+    """
+    empty: dict[str, Any] = {
+        "size_large_pct": None,
+        "size_small_pct": None,
+        "size_large_label": "",
+        "size_small_label": "",
+        "size_large_lots": 0,
+        "size_small_lots": 0,
+        "size_marks_ready": False,
+        "size_marks_bit": "",
+    }
+    lots: list[tuple[float, dict[str, Any]]] = []
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        lots.append((basis, h))
+    if len(lots) < 2:
+        return empty
+
+    lots.sort(key=lambda row: row[0])
+    mid = len(lots) // 2
+    sides: dict[str, dict[str, Any]] = {
+        "small": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "large": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    for i, (basis, h) in enumerate(lots):
+        key = "small" if i < mid else "large"
+        bucket = sides[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        **empty,
+        "size_large_lots": int(sides["large"]["lots"]),
+        "size_small_lots": int(sides["small"]["lots"]),
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("large", "lg", "size_large"),
+        ("small", "sm", "size_small"),
+    ):
+        bucket = sides[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=any_marked)
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["size_marks_ready"] = True
+        out["size_marks_bit"] = "size " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -465,8 +537,8 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + hold-tenure + win/lose polarity mark returns (Group Matrix–lite).
-    Does not change entries or exits.
+    sleeve + hold-tenure + win/lose polarity + size mark returns
+    (Group Matrix–lite). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -496,6 +568,14 @@ def book_risk_report(
         "polarity_unmarked_lots": 0,
         "polarity_marks_ready": False,
         "polarity_marks_bit": "",
+        "size_large_pct": None,
+        "size_small_pct": None,
+        "size_large_label": "",
+        "size_small_label": "",
+        "size_large_lots": 0,
+        "size_small_lots": 0,
+        "size_marks_ready": False,
+        "size_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -558,6 +638,7 @@ def book_risk_report(
     marks = sleeve_mark_returns(rows)
     tenure = tenure_mark_returns(rows)
     polarity = polarity_mark_returns(rows)
+    size = size_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -585,6 +666,7 @@ def book_risk_report(
         **marks,
         **tenure,
         **polarity,
+        **size,
     }
 
 

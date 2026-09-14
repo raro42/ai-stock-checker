@@ -319,6 +319,70 @@ def test_polarity_mark_returns_win_lose() -> None:
     assert "win +" not in out["note"]
 
 
+def test_size_mark_returns_median_split() -> None:
+    from stock_checker.risk_halts import book_risk_report, size_mark_returns
+
+    holds = [
+        {
+            "symbol": "SM",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "LG1",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "LG2",
+            "kind": "crypto",
+            "cost_basis": 30_000,
+            "unrealized_pct": 2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "DARK",
+            "kind": "stock",
+            "cost_basis": 1_000,
+            "marked": False,
+        },
+    ]
+    size = size_mark_returns(holds)
+    # Sorted costs: 1k DARK, 5k SM | 20k LG1, 30k LG2 (mid=2)
+    # small: DARK unmarked + SM marked → only SM in weight → +10%
+    assert size["size_small_pct"] == 10.0
+    assert size["size_small_label"] == "+10.0%"
+    assert size["size_small_lots"] == 2
+    # large: (20k*-4 + 30k*2) / 50k = -0.4
+    assert size["size_large_pct"] == -0.4
+    assert size["size_large_label"] == "−0.4%"
+    assert size["size_large_lots"] == 2
+    assert "size lg −0.4% · sm +10.0%" in size["size_marks_bit"]
+
+    alone = size_mark_returns(
+        [
+            {
+                "symbol": "ONLY",
+                "cost_basis": 10_000,
+                "unrealized_pct": 5.0,
+                "marked": True,
+            }
+        ]
+    )
+    assert alone["size_marks_ready"] is False
+    assert alone["size_marks_bit"] == ""
+
+    out = book_risk_report(cash=10_000, equity=66_000, holdings=holds, max_positions=5)
+    assert out["size_marks_ready"] is True
+    assert out["size_large_pct"] == -0.4
+    # Size stays off the glance note (Book strip only)
+    assert "size " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -334,6 +398,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["tenure_marks_bit"] == ""
     assert out["polarity_marks_ready"] is False
     assert out["polarity_marks_bit"] == ""
+    assert out["size_marks_ready"] is False
+    assert out["size_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:

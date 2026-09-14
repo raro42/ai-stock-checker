@@ -70,6 +70,16 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Size</span>
+      <span class="v" title="Cost-weighted since-buy mark % for large vs small lots (median cost split) — Group Matrix size cluster adapted; missing mark ≠ 0; not a gate">
+        {% if snap.book_risk.size_marks_ready %}
+        {% if snap.book_risk.size_large_label %}lg {{ snap.book_risk.size_large_label }}{% endif %}
+        {% if snap.book_risk.size_large_label and snap.book_risk.size_small_label %} · {% endif %}
+        {% if snap.book_risk.size_small_label %}sm {{ snap.book_risk.size_small_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 
