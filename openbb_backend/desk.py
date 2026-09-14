@@ -1513,6 +1513,11 @@ def build_ai_validate_scope_glance(
 
 
 
+# Warn when a buy-block / lock clears within one scan floor (tradermonty #398
+# "warn before exception expiry" → desk cooldown honesty; display only).
+DEFAULT_COOLDOWN_EXPIRY_WARN_SEC = 15 * 60
+
+
 def _fmt_cooldown_left(seconds: float) -> str:
     """Short remaining-time label for rebuy cooldown glance."""
     s = max(0.0, float(seconds))
@@ -1527,16 +1532,32 @@ def _fmt_cooldown_left(seconds: float) -> str:
     return f"~{int(s)}s"
 
 
+def _cooldown_expiring_soon(
+    seconds_left: float,
+    *,
+    warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
+) -> bool:
+    """True when a lock still active but clears within the warn window."""
+    try:
+        left = float(seconds_left)
+        warn = float(warn_seconds)
+    except (TypeError, ValueError):
+        return False
+    return warn > 0 and 0 < left <= warn
+
+
 def build_rebuy_cooldown_glance(
     exit_times: dict[str, Any] | None,
     *,
     cooldown_seconds: float,
     now: float | None = None,
+    expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
 ) -> dict[str, Any]:
     """Compact anti flip-flop rebuy cooldown (tradermonty / SCHW; display only).
 
     After an exit, the same symbol stays blocked for min-hold seconds.
     Desk shows how many names are still cooling — not a new entry gate.
+    Warns when the soonest lock clears within one scan interval.
     """
     empty = {
         "ready": False,
@@ -1545,6 +1566,7 @@ def build_rebuy_cooldown_glance(
         "cooling": 0,
         "cooldown_hours": 0.0,
         "symbols": [],
+        "expiring_soon": False,
     }
     try:
         cd = float(cooldown_seconds)
@@ -1558,6 +1580,7 @@ def build_rebuy_cooldown_glance(
             "cooling": 0,
             "cooldown_hours": 0.0,
             "symbols": [],
+            "expiring_soon": False,
         }
     ts_now = float(now if now is not None else time.time())
     cooling: list[tuple[str, float]] = []
@@ -1578,11 +1601,18 @@ def build_rebuy_cooldown_glance(
     hold_h = cd / 3600.0
     hold_txt = f"{hold_h:g}h" if hold_h != int(hold_h) else f"{int(hold_h)}h"
     shown = [f"{sym} {_fmt_cooldown_left(left)}" for sym, left in cooling[:3]]
+    soonest = cooling[0][1] if cooling else 0.0
+    expiring = bool(cooling) and _cooldown_expiring_soon(
+        soonest, warn_seconds=expiry_warn_seconds
+    )
     if n == 0:
         tone = "clear"
         status = "clear"
     elif n >= 3:
         tone = "warn"
+        status = f"{n} cooling"
+    elif expiring:
+        tone = "expiring"
         status = f"{n} cooling"
     else:
         tone = "cooling"
@@ -1592,6 +1622,8 @@ def build_rebuy_cooldown_glance(
         line = f"{status} · {', '.join(shown)} · ≥{hold_txt} lock"
     if n >= 3:
         line = f"{line} · flip-flop pressure"
+    if expiring:
+        line = f"{line} · unlocks soon"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
@@ -1601,6 +1633,7 @@ def build_rebuy_cooldown_glance(
         "cooling": n,
         "cooldown_hours": hold_h,
         "symbols": [sym for sym, _ in cooling[:5]],
+        "expiring_soon": expiring,
     }
 
 
@@ -1732,11 +1765,13 @@ def build_post_sl_cooldown_glance(
     *,
     cooldown_seconds: float | None = None,
     now: float | None = None,
+    expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
 ) -> dict[str, Any]:
     """Compact post-stop-loss buy cooldown (tradermonty anti-revenge; display only).
 
     After an SL sell, new buys stay blocked ≥4h (trader floor). Desk derives the
     window from trades.jsonl so pretrade WARN stays honest without in-memory state.
+    Warns when the block clears within one scan interval (exception-expiry pattern).
     Not a new entry gate.
     """
     from stock_checker.risk_halts import DEFAULT_POST_SL_COOLDOWN_SEC
@@ -1749,6 +1784,7 @@ def build_post_sl_cooldown_glance(
         "active": False,
         "seconds_left": 0.0,
         "cooldown_hours": 0.0,
+        "expiring_soon": False,
     }
     try:
         cd = float(
@@ -1769,6 +1805,7 @@ def build_post_sl_cooldown_glance(
             "active": False,
             "seconds_left": 0.0,
             "cooldown_hours": 0.0,
+            "expiring_soon": False,
         }
     ts_now = float(now if now is not None else time.time())
     try:
@@ -1785,6 +1822,7 @@ def build_post_sl_cooldown_glance(
             "active": False,
             "seconds_left": 0.0,
             "cooldown_hours": hold_h,
+            "expiring_soon": False,
         }
     left = cd - (ts_now - epoch)
     if left <= 0:
@@ -1802,20 +1840,31 @@ def build_post_sl_cooldown_glance(
             "active": False,
             "seconds_left": 0.0,
             "cooldown_hours": hold_h,
+            "expiring_soon": False,
         }
     left_txt = _fmt_cooldown_left(left)
     bit = f"{sym} " if sym else ""
-    line = f"ACTIVE · {bit}{left_txt} left · ≥{hold_txt} after SL — buys blocked"
+    expiring = _cooldown_expiring_soon(left, warn_seconds=expiry_warn_seconds)
+    if expiring:
+        tone = "expiring"
+        line = (
+            f"EXPIRING · {bit}{left_txt} left · buys unlock soon · "
+            f"≥{hold_txt} after SL"
+        )
+    else:
+        tone = "active"
+        line = f"ACTIVE · {bit}{left_txt} left · ≥{hold_txt} after SL — buys blocked"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
         "ready": True,
-        "tone": "active",
+        "tone": tone,
         "line": line,
         "symbol": sym,
         "active": True,
         "seconds_left": left,
         "cooldown_hours": hold_h,
+        "expiring_soon": expiring,
     }
 
 
@@ -2190,10 +2239,12 @@ def build_min_hold_lock_glance(
     holdings: list[dict[str, Any]] | None,
     *,
     min_hold_hours: float = 24.0,
+    expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
 ) -> dict[str, Any]:
     """Open lots still inside min-hold (portfolio AI / tradermonty; display only).
 
     Pairs with stuck-capital (underwater *after* unlock) and book-limits.
+    Warns when the earliest lot unlocks within one scan interval.
     Anti-churn packaging honesty — not a new gate.
     """
     empty = {
@@ -2205,6 +2256,7 @@ def build_min_hold_lock_glance(
         "min_hold_hours": float(min_hold_hours or 0),
         "earliest_symbol": "",
         "earliest_left": "",
+        "expiring_soon": False,
     }
     if not isinstance(holdings, list) or not holdings:
         return empty
@@ -2246,25 +2298,37 @@ def build_min_hold_lock_glance(
             "min_hold_hours": hold_h,
             "earliest_symbol": "",
             "earliest_left": "",
+            "expiring_soon": False,
         }
     locked_rows.sort(key=lambda t: t["left"])
     earliest = locked_rows[0]
     left_txt = _fmt_hold(float(earliest["left"]))
+    expiring = _cooldown_expiring_soon(
+        float(earliest["left"]), warn_seconds=expiry_warn_seconds
+    )
     line = (
         f"{locked_n}/{timed_n} in min-hold lock ({hold_txt}) · "
         f"earliest {earliest['symbol']} {left_txt}"
     )
+    if expiring:
+        tone = "expiring"
+        line = f"{line} · unlocks soon"
+    elif locked_n == timed_n:
+        tone = "warn"
+    else:
+        tone = "flat"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
         "ready": True,
-        "tone": "warn" if locked_n == timed_n else "flat",
+        "tone": tone,
         "line": line,
         "locked": locked_n,
         "timed": timed_n,
         "min_hold_hours": hold_h,
         "earliest_symbol": str(earliest["symbol"]),
         "earliest_left": left_txt,
+        "expiring_soon": expiring,
     }
 
 

@@ -57,8 +57,27 @@ def test_post_sl_glance_expired() -> None:
     assert g["ready"] is True
     assert g["tone"] == "clear"
     assert g["active"] is False
+    assert g["expiring_soon"] is False
     assert "clear" in g["line"]
     assert "NTRA" in g["line"]
+
+
+def test_post_sl_glance_expiring_soon() -> None:
+    """tradermonty #398 — warn before post-SL buy block clears."""
+    now = 1_000_000.0
+    # 4h cooldown; SL ~3h 50m ago → ~10m left
+    g = build_post_sl_cooldown_glance(
+        "EXPE",
+        now - (14_400.0 - 600.0),
+        cooldown_seconds=14_400.0,
+        now=now,
+    )
+    assert g["ready"] is True
+    assert g["active"] is True
+    assert g["expiring_soon"] is True
+    assert g["tone"] == "expiring"
+    assert "EXPIRING" in g["line"]
+    assert "unlock soon" in g["line"]
 
 
 def test_latest_stop_loss_sell_and_pretrade(tmp_path) -> None:

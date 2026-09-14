@@ -1018,7 +1018,10 @@ a:active {
 
 .session-glance-tone.weekend,
 .equity-hours-glance-tone.split,
-.rebuy-cooldown-glance-tone.cooling {
+.rebuy-cooldown-glance-tone.cooling,
+.rebuy-cooldown-glance-tone.expiring,
+.post-sl-cooldown-glance-tone.expiring,
+.min-hold-lock-glance-tone.expiring {
   color: var(--brass, var(--muted));
 }
 

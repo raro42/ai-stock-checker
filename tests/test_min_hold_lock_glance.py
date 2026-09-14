@@ -57,6 +57,21 @@ def test_min_hold_lock_glance_all_locked() -> None:
     assert g["tone"] == "warn"
     assert g["locked"] == 1
     assert g["earliest_symbol"] == "AAPL"
+    assert g["expiring_soon"] is False
+
+
+def test_min_hold_lock_glance_expiring_soon() -> None:
+    """tradermonty #398 — warn before earliest lot unlocks."""
+    # 24h hold; held 23h 50m → ~10m left
+    g = build_min_hold_lock_glance(
+        [{"symbol": "AAPL", "held_seconds": 24 * 3600 - 600}],
+        min_hold_hours=24,
+    )
+    assert g["ready"] is True
+    assert g["locked"] == 1
+    assert g["expiring_soon"] is True
+    assert g["tone"] == "expiring"
+    assert "unlocks soon" in g["line"]
 
 
 def test_apply_min_hold_lock_fields_locked() -> None:

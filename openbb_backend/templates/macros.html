@@ -730,7 +730,7 @@
   heading_id='rebuy-cooldown-glance-h',
   link_href='/desk/ops#ops-min-hold',
   link_label='Ops hold →',
-  sub='Same-symbol rebuy lock after exit (min hold) — SCHW flip-flop lesson. Not a gate.'
+  sub='Same-symbol rebuy lock after exit (min hold) — warns within ~15m of unlock. Not a gate.'
 ) -%}
 {% set glance = snap.rebuy_cooldown_glance if snap.rebuy_cooldown_glance is mapping else {} %}
 {% if glance.ready %}
@@ -805,7 +805,7 @@
   heading_id='post-sl-glance-h',
   link_href='/desk#pretrade-h',
   link_label='Pre-trade →',
-  sub='After a stop-loss sell, new buys stay blocked ≥4h — anti revenge refill. Not a new gate.'
+  sub='After a stop-loss sell, new buys stay blocked ≥4h — warns within ~15m of unlock. Not a new gate.'
 ) -%}
 {% set glance = snap.post_sl_cooldown_glance if snap.post_sl_cooldown_glance is mapping else {} %}
 {% if glance.ready %}
@@ -926,7 +926,7 @@
   heading_id='min-hold-lock-glance-h',
   link_href='/desk/ops#ops-min-hold',
   link_label='Ops hold →',
-  sub='Lots still inside min-hold cannot rotate/trim for scan-chase. Not a gate.'
+  sub='Lots still inside min-hold cannot rotate/trim — warns within ~15m of unlock. Not a gate.'
 ) -%}
 {% set glance = snap.min_hold_lock_glance if snap.min_hold_lock_glance is mapping else {} %}
 {% if glance.ready %}

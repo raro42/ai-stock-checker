@@ -61,6 +61,23 @@ def test_rebuy_cooldown_glance_ignores_expired() -> None:
     )
     assert g["cooling"] == 1
     assert g["symbols"] == ["NEW"]
+    assert g["expiring_soon"] is False
+
+
+def test_rebuy_cooldown_glance_expiring_soon() -> None:
+    """tradermonty #398 — warn before lock clears (within one scan)."""
+    now = 1_000_000.0
+    # 24h cooldown; exited ~23h 50m ago → ~10m left
+    g = build_rebuy_cooldown_glance(
+        {"SCHW": now - (86400.0 - 600.0)},
+        cooldown_seconds=86400.0,
+        now=now,
+    )
+    assert g["ready"] is True
+    assert g["cooling"] == 1
+    assert g["expiring_soon"] is True
+    assert g["tone"] == "expiring"
+    assert "unlocks soon" in g["line"]
 
 
 def test_rebuy_cooldown_glance_in_chart_payload(tmp_path) -> None:
