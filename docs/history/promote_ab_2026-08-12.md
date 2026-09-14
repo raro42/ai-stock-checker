@@ -74,6 +74,10 @@ Same readiness helper now also blocks on `min_hold_hours≠24` and `fee_preset�
 
 Same readiness helper also blocks when soft entry gates drift off (`regime off≠on` / `RS off≠on` / `breadth off≠on`). Protocol keeps regime·RS·breadth **on** for A and B; only promote flips. RyanJHamby / portfolio AI readiness; display only. Still not a compose promote unlock.
 
+### Checkpoint 2026-09-14 (Window B AI-mode parity)
+
+Same readiness helper also blocks when Ops `ai_mode` is not **validate** (`AI off≠validate` / `AI full≠validate`). Protocol knobs table is validate / gemma4:latest — mode drift changes churn; instruct model tag is not a blocker. FinRobot / TradingAgents / portfolio AI; display only. Still not a compose promote unlock.
+
 ## Window B — promote **ON** — not started
 
 ## Trust questions (C4) — fill when windows complete

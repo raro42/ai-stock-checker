@@ -26,6 +26,9 @@ PROTOCOL_FEE_PRESET = "revolut_standard"
 PROTOCOL_REGIME_GATE = True
 PROTOCOL_RS_GATE = True
 PROTOCOL_BREADTH_GATE = True
+# Window A/B knobs table: AI validate (not off/full). Model may still be
+# gemma4 or another instruct — mode drift changes churn more than the tag.
+PROTOCOL_AI_MODE = "validate"
 
 
 def window_b_readiness(
@@ -37,24 +40,30 @@ def window_b_readiness(
     regime_gate: bool | None = None,
     rs_gate: bool | None = None,
     breadth_gate: bool | None = None,
+    ai_mode: str | None = None,
     protocol_max: int = PROTOCOL_MAX_POSITIONS,
     protocol_min_hold_hours: float = PROTOCOL_MIN_HOLD_HOURS,
     protocol_fee_preset: str = PROTOCOL_FEE_PRESET,
     protocol_regime_gate: bool = PROTOCOL_REGIME_GATE,
     protocol_rs_gate: bool = PROTOCOL_RS_GATE,
     protocol_breadth_gate: bool = PROTOCOL_BREADTH_GATE,
+    protocol_ai_mode: str = PROTOCOL_AI_MODE,
 ) -> dict[str, Any]:
     """Why Window B should wait (display / ops honesty; not a gate).
 
-    Protocol wants the same book caps, min hold, fee preset, and soft entry
-    gates for A and B (default max 5 / 24h / revolut_standard / regime·RS·
-    breadth on). Only promote should flip between windows. Live Ops drift
-    pauses a fair A/B compare — surface it on the desk instead of saying
-    "ready for B". Portfolio AI readiness pattern (tradermonty / portfolio AI).
+    Protocol wants the same book caps, min hold, fee preset, soft entry
+    gates, and AI mode for A and B (default max 5 / 24h / revolut_standard /
+    regime·RS·breadth on / AI validate). Only promote should flip between
+    windows. Live Ops drift pauses a fair A/B compare — surface it on the
+    desk instead of saying "ready for B". FinRobot / TradingAgents AI-mode
+    honesty + portfolio AI readiness (tradermonty).
     """
     cap = max(1, int(protocol_max))
     hold_need = float(protocol_min_hold_hours)
     fee_need = str(protocol_fee_preset or PROTOCOL_FEE_PRESET).strip().lower()
+    ai_need = (
+        str(protocol_ai_mode or PROTOCOL_AI_MODE).strip().lower() or PROTOCOL_AI_MODE
+    )
     blockers: list[str] = []
     if max_positions is not None:
         slots = int(max_positions)
@@ -82,6 +91,10 @@ def window_b_readiness(
     if breadth_gate is not None and bool(breadth_gate) != bool(protocol_breadth_gate):
         want = "on" if protocol_breadth_gate else "off"
         blockers.append(f"breadth {'on' if breadth_gate else 'off'}≠{want}")
+    if ai_mode is not None:
+        mode = str(ai_mode).strip().lower()
+        if mode and mode != ai_need:
+            blockers.append(f"AI {mode}≠{ai_need}")
     return {
         "ready": not blockers,
         "blockers": blockers,
@@ -91,6 +104,7 @@ def window_b_readiness(
         "protocol_regime_gate": bool(protocol_regime_gate),
         "protocol_rs_gate": bool(protocol_rs_gate),
         "protocol_breadth_gate": bool(protocol_breadth_gate),
+        "protocol_ai_mode": ai_need,
     }
 
 

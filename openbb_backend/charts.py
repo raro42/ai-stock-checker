@@ -807,6 +807,7 @@ def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
             "regime_gate": bool(cfg.get("regime_gate", True)),
             "rs_gate": bool(cfg.get("rs_gate", True)),
             "breadth_gate": bool(cfg.get("breadth_gate", True)),
+            "ai_mode": str(cfg.get("ai_mode") or "off"),
             "open_positions": open_n,
         },
         data_dir=data_dir,
