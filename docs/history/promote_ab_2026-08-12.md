@@ -78,6 +78,10 @@ Same readiness helper also blocks when soft entry gates drift off (`regime off�
 
 Same readiness helper also blocks when Ops `ai_mode` is not **validate** (`AI off≠validate` / `AI full≠validate`). Protocol knobs table is validate / gemma4:latest — mode drift changes churn; instruct model tag is not a blocker. FinRobot / TradingAgents / portfolio AI; display only. Still not a compose promote unlock.
 
+### Checkpoint 2026-09-14 (Window B multi-role parity)
+
+Same readiness helper also blocks when Ops `ai_multi_role` is off (`multi-role off≠on`). Protocol keeps bull·bear·risk multi-role **on** for A and B. FinRobot / TradingAgents / portfolio AI; display only. Still not a compose promote unlock.
+
 ## Window B — promote **ON** — not started
 
 ## Trust questions (C4) — fill when windows complete

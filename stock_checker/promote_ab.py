@@ -29,6 +29,8 @@ PROTOCOL_BREADTH_GATE = True
 # Window A/B knobs table: AI validate (not off/full). Model may still be
 # gemma4 or another instruct — mode drift changes churn more than the tag.
 PROTOCOL_AI_MODE = "validate"
+# FinRobot / TradingAgents multi-role stays ON for A and B (bull·bear·risk).
+PROTOCOL_AI_MULTI_ROLE = True
 
 
 def window_b_readiness(
@@ -41,6 +43,7 @@ def window_b_readiness(
     rs_gate: bool | None = None,
     breadth_gate: bool | None = None,
     ai_mode: str | None = None,
+    ai_multi_role: bool | None = None,
     protocol_max: int = PROTOCOL_MAX_POSITIONS,
     protocol_min_hold_hours: float = PROTOCOL_MIN_HOLD_HOURS,
     protocol_fee_preset: str = PROTOCOL_FEE_PRESET,
@@ -48,15 +51,16 @@ def window_b_readiness(
     protocol_rs_gate: bool = PROTOCOL_RS_GATE,
     protocol_breadth_gate: bool = PROTOCOL_BREADTH_GATE,
     protocol_ai_mode: str = PROTOCOL_AI_MODE,
+    protocol_ai_multi_role: bool = PROTOCOL_AI_MULTI_ROLE,
 ) -> dict[str, Any]:
     """Why Window B should wait (display / ops honesty; not a gate).
 
     Protocol wants the same book caps, min hold, fee preset, soft entry
-    gates, and AI mode for A and B (default max 5 / 24h / revolut_standard /
-    regime·RS·breadth on / AI validate). Only promote should flip between
-    windows. Live Ops drift pauses a fair A/B compare — surface it on the
-    desk instead of saying "ready for B". FinRobot / TradingAgents AI-mode
-    honesty + portfolio AI readiness (tradermonty).
+    gates, AI mode, and multi-role for A and B (default max 5 / 24h /
+    revolut_standard / regime·RS·breadth on / AI validate / multi-role on).
+    Only promote should flip between windows. Live Ops drift pauses a fair
+    A/B compare — surface it on the desk instead of saying "ready for B".
+    FinRobot / TradingAgents AI honesty + portfolio AI readiness.
     """
     cap = max(1, int(protocol_max))
     hold_need = float(protocol_min_hold_hours)
@@ -95,6 +99,11 @@ def window_b_readiness(
         mode = str(ai_mode).strip().lower()
         if mode and mode != ai_need:
             blockers.append(f"AI {mode}≠{ai_need}")
+    if ai_multi_role is not None and bool(ai_multi_role) != bool(
+        protocol_ai_multi_role
+    ):
+        want = "on" if protocol_ai_multi_role else "off"
+        blockers.append(f"multi-role {'on' if ai_multi_role else 'off'}≠{want}")
     return {
         "ready": not blockers,
         "blockers": blockers,
@@ -105,6 +114,7 @@ def window_b_readiness(
         "protocol_rs_gate": bool(protocol_rs_gate),
         "protocol_breadth_gate": bool(protocol_breadth_gate),
         "protocol_ai_mode": ai_need,
+        "protocol_ai_multi_role": bool(protocol_ai_multi_role),
     }
 
 

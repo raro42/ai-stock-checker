@@ -224,9 +224,29 @@ def test_window_b_readiness_protocol_drift() -> None:
         min_hold_hours=24,
         fee_preset="revolut_standard",
         ai_mode="validate",
+        ai_multi_role=True,
     )
     assert ai_ok["ready"] is True
     assert ai_ok["protocol_ai_mode"] == "validate"
+    assert ai_ok["protocol_ai_multi_role"] is True
+
+    multi = window_b_readiness(
+        max_positions=5,
+        open_positions=3,
+        min_hold_hours=24,
+        fee_preset="revolut_standard",
+        regime_gate=True,
+        rs_gate=True,
+        breadth_gate=True,
+        ai_mode="validate",
+        ai_multi_role=False,
+    )
+    assert multi["ready"] is False
+    assert "multi-role off≠on" in multi["blockers"]
+    assert (
+        format_window_b_block_bit(multi["blockers"])
+        == "B blocked · multi-role off≠on"
+    )
 
 
 def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
@@ -328,4 +348,34 @@ def test_promote_ab_glance_b_blocked_on_ai_mode_drift() -> None:
     assert "B blocked" in g["line"]
     assert "AI off≠validate" in g["b_blockers"]
     assert "AI off≠validate" in g["line"]
+    assert "ready for B" not in g["line"]
+
+
+def test_promote_ab_glance_b_blocked_on_multi_role_drift() -> None:
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": False,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 30,
+            "fees": 575.0,
+            "realized_pnl": 2788.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["b_ready"] is False
+    assert "B blocked" in g["line"]
+    assert "multi-role off≠on" in g["b_blockers"]
+    assert "multi-role off≠on" in g["line"]
     assert "ready for B" not in g["line"]

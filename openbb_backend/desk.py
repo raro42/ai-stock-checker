@@ -497,9 +497,10 @@ def build_promote_ab_glance(
     protocol (A = off, B = on). When fills exist, appends in-window fees /
     realized P&L / fill count (fee-adjusted honesty before Window B). When
     Window A target is met but Ops knobs drift from protocol (max 5 / 24h /
-    revolut_standard / regime·RS·breadth on / AI validate, or open names > 5),
-    status is ``B blocked · …`` instead of ready. Calm ≠ edge; compose
-    default-on still blocked until A/B verdict + calm gate. Not an entry gate.
+    revolut_standard / regime·RS·breadth on / AI validate / multi-role on,
+    or open names > 5), status is ``B blocked · …`` instead of ready. Calm ≠
+    edge; compose default-on still blocked until A/B verdict + calm gate. Not
+    an entry gate.
     """
     from stock_checker.promote_ab import (
         format_window_b_block_bit,
@@ -565,6 +566,7 @@ def build_promote_ab_glance(
         rs_gate=_opt_bool("rs_gate"),
         breadth_gate=_opt_bool("breadth_gate"),
         ai_mode=ai_mode,
+        ai_multi_role=_opt_bool("ai_multi_role"),
     )
     b_blockers = list(b_ready_info.get("blockers") or [])
     b_block_bit = format_window_b_block_bit(b_blockers)
