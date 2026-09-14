@@ -184,6 +184,20 @@ def test_window_b_readiness_protocol_drift() -> None:
     assert "hold 4h≠24h" in knobs["blockers"]
     assert "fee revolut_ultra≠standard" in knobs["blockers"]
 
+    gates = window_b_readiness(
+        max_positions=5,
+        open_positions=3,
+        min_hold_hours=24,
+        fee_preset="revolut_standard",
+        regime_gate=False,
+        rs_gate=True,
+        breadth_gate=False,
+    )
+    assert gates["ready"] is False
+    assert "regime off≠on" in gates["blockers"]
+    assert "breadth off≠on" in gates["blockers"]
+    assert "RS off≠on" not in gates["blockers"]
+
 
 def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
     g = build_promote_ab_glance(
@@ -228,4 +242,31 @@ def test_promote_ab_glance_b_blocked_on_hold_or_fee_drift() -> None:
     assert "hold 12h≠24h" in g["b_blockers"]
     assert "fee spot_like≠standard" in g["b_blockers"]
     assert "hold 12h≠24h" in g["line"]
+    assert "ready for B" not in g["line"]
+
+
+def test_promote_ab_glance_b_blocked_on_gate_drift() -> None:
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": False,
+            "breadth_gate": True,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 30,
+            "fees": 575.0,
+            "realized_pnl": 2788.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["b_ready"] is False
+    assert "B blocked" in g["line"]
+    assert "RS off≠on" in g["b_blockers"]
     assert "ready for B" not in g["line"]

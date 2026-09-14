@@ -22,6 +22,10 @@ WINDOW_B_START_UTC: datetime | None = None
 PROTOCOL_MAX_POSITIONS = 5
 PROTOCOL_MIN_HOLD_HOURS = 24.0
 PROTOCOL_FEE_PRESET = "revolut_standard"
+# Soft entry gates stay ON for A and B (only promote flips). Not new gates.
+PROTOCOL_REGIME_GATE = True
+PROTOCOL_RS_GATE = True
+PROTOCOL_BREADTH_GATE = True
 
 
 def window_b_readiness(
@@ -30,16 +34,23 @@ def window_b_readiness(
     open_positions: int | None = None,
     min_hold_hours: float | None = None,
     fee_preset: str | None = None,
+    regime_gate: bool | None = None,
+    rs_gate: bool | None = None,
+    breadth_gate: bool | None = None,
     protocol_max: int = PROTOCOL_MAX_POSITIONS,
     protocol_min_hold_hours: float = PROTOCOL_MIN_HOLD_HOURS,
     protocol_fee_preset: str = PROTOCOL_FEE_PRESET,
+    protocol_regime_gate: bool = PROTOCOL_REGIME_GATE,
+    protocol_rs_gate: bool = PROTOCOL_RS_GATE,
+    protocol_breadth_gate: bool = PROTOCOL_BREADTH_GATE,
 ) -> dict[str, Any]:
     """Why Window B should wait (display / ops honesty; not a gate).
 
-    Protocol wants the same book caps, min hold, and fee preset for A and B
-    (default max 5 / 24h / revolut_standard). Live Ops drift pauses a fair
-    A/B compare — surface it on the desk instead of saying "ready for B".
-    Portfolio AI readiness pattern (tradermonty / portfolio AI).
+    Protocol wants the same book caps, min hold, fee preset, and soft entry
+    gates for A and B (default max 5 / 24h / revolut_standard / regime·RS·
+    breadth on). Only promote should flip between windows. Live Ops drift
+    pauses a fair A/B compare — surface it on the desk instead of saying
+    "ready for B". Portfolio AI readiness pattern (tradermonty / portfolio AI).
     """
     cap = max(1, int(protocol_max))
     hold_need = float(protocol_min_hold_hours)
@@ -62,12 +73,24 @@ def window_b_readiness(
         if preset and preset != fee_need:
             short = fee_need.replace("revolut_", "")
             blockers.append(f"fee {preset}≠{short}")
+    if regime_gate is not None and bool(regime_gate) != bool(protocol_regime_gate):
+        want = "on" if protocol_regime_gate else "off"
+        blockers.append(f"regime {'on' if regime_gate else 'off'}≠{want}")
+    if rs_gate is not None and bool(rs_gate) != bool(protocol_rs_gate):
+        want = "on" if protocol_rs_gate else "off"
+        blockers.append(f"RS {'on' if rs_gate else 'off'}≠{want}")
+    if breadth_gate is not None and bool(breadth_gate) != bool(protocol_breadth_gate):
+        want = "on" if protocol_breadth_gate else "off"
+        blockers.append(f"breadth {'on' if breadth_gate else 'off'}≠{want}")
     return {
         "ready": not blockers,
         "blockers": blockers,
         "protocol_max_positions": cap,
         "protocol_min_hold_hours": hold_need,
         "protocol_fee_preset": fee_need,
+        "protocol_regime_gate": bool(protocol_regime_gate),
+        "protocol_rs_gate": bool(protocol_rs_gate),
+        "protocol_breadth_gate": bool(protocol_breadth_gate),
     }
 
 

@@ -70,6 +70,10 @@ Desk promote A/B glance no longer says “ready for B” when Ops book caps drif
 
 Same readiness helper now also blocks on `min_hold_hours≠24` and `fee_preset≠revolut_standard` (`hold …h≠24h` / `fee …≠standard`). Protocol table is max 5 · 24h · revolut_standard — portfolio AI readiness pattern; display only.
 
+### Checkpoint 2026-09-14 (Window B soft-gate parity)
+
+Same readiness helper also blocks when soft entry gates drift off (`regime off≠on` / `RS off≠on` / `breadth off≠on`). Protocol keeps regime·RS·breadth **on** for A and B; only promote flips. RyanJHamby / portfolio AI readiness; display only. Still not a compose promote unlock.
+
 ## Window B — promote **ON** — not started
 
 ## Trust questions (C4) — fill when windows complete
