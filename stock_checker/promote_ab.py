@@ -31,6 +31,9 @@ PROTOCOL_BREADTH_GATE = True
 PROTOCOL_AI_MODE = "validate"
 # FinRobot / TradingAgents multi-role stays ON for A and B (bull·bear·risk).
 PROTOCOL_AI_MULTI_ROLE = True
+# Anti-churn floors (AUTOPILOT / loop-cadence glance). Faster loops skew A/B.
+PROTOCOL_SCAN_INTERVAL_MIN = 15
+PROTOCOL_TRADE_INTERVAL_MIN = 5
 
 
 def window_b_readiness(
@@ -44,6 +47,8 @@ def window_b_readiness(
     breadth_gate: bool | None = None,
     ai_mode: str | None = None,
     ai_multi_role: bool | None = None,
+    scan_interval_min: int | None = None,
+    trade_interval_min: int | None = None,
     protocol_max: int = PROTOCOL_MAX_POSITIONS,
     protocol_min_hold_hours: float = PROTOCOL_MIN_HOLD_HOURS,
     protocol_fee_preset: str = PROTOCOL_FEE_PRESET,
@@ -52,15 +57,19 @@ def window_b_readiness(
     protocol_breadth_gate: bool = PROTOCOL_BREADTH_GATE,
     protocol_ai_mode: str = PROTOCOL_AI_MODE,
     protocol_ai_multi_role: bool = PROTOCOL_AI_MULTI_ROLE,
+    protocol_scan_interval_min: int = PROTOCOL_SCAN_INTERVAL_MIN,
+    protocol_trade_interval_min: int = PROTOCOL_TRADE_INTERVAL_MIN,
 ) -> dict[str, Any]:
     """Why Window B should wait (display / ops honesty; not a gate).
 
     Protocol wants the same book caps, min hold, fee preset, soft entry
-    gates, AI mode, and multi-role for A and B (default max 5 / 24h /
-    revolut_standard / regime·RS·breadth on / AI validate / multi-role on).
+    gates, AI mode, multi-role, and loop cadence floors for A and B
+    (default max 5 / 24h / revolut_standard / regime·RS·breadth on /
+    AI validate / multi-role on / scan ≥15m / trade ≥5m).
     Only promote should flip between windows. Live Ops drift pauses a fair
     A/B compare — surface it on the desk instead of saying "ready for B".
-    FinRobot / TradingAgents AI honesty + portfolio AI readiness.
+    FinRobot / TradingAgents AI honesty + RyanJHamby schedule floors +
+    portfolio AI readiness.
     """
     cap = max(1, int(protocol_max))
     hold_need = float(protocol_min_hold_hours)
@@ -68,6 +77,8 @@ def window_b_readiness(
     ai_need = (
         str(protocol_ai_mode or PROTOCOL_AI_MODE).strip().lower() or PROTOCOL_AI_MODE
     )
+    scan_need = max(1, int(protocol_scan_interval_min))
+    trade_need = max(1, int(protocol_trade_interval_min))
     blockers: list[str] = []
     if max_positions is not None:
         slots = int(max_positions)
@@ -104,6 +115,14 @@ def window_b_readiness(
     ):
         want = "on" if protocol_ai_multi_role else "off"
         blockers.append(f"multi-role {'on' if ai_multi_role else 'off'}≠{want}")
+    if scan_interval_min is not None:
+        scan_m = int(scan_interval_min)
+        if scan_m < scan_need:
+            blockers.append(f"scan {scan_m}m<{scan_need}m")
+    if trade_interval_min is not None:
+        trade_m = int(trade_interval_min)
+        if trade_m < trade_need:
+            blockers.append(f"trade {trade_m}m<{trade_need}m")
     return {
         "ready": not blockers,
         "blockers": blockers,
@@ -115,6 +134,8 @@ def window_b_readiness(
         "protocol_breadth_gate": bool(protocol_breadth_gate),
         "protocol_ai_mode": ai_need,
         "protocol_ai_multi_role": bool(protocol_ai_multi_role),
+        "protocol_scan_interval_min": scan_need,
+        "protocol_trade_interval_min": trade_need,
     }
 
 

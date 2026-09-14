@@ -11,7 +11,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 ### A — Trading logic (strategy behavior)
 
 - [x] **A1** One config truth: compose + CLI + `IntelligentTrader` defaults = Ops `max_positions=5` / `min_hold_hours=24` (+ `tests/test_book_limit_defaults.py`)
-- [x] **A2** Promote A/B: method + baseline + **Window A (promote off) started** 2026-08-12 — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — **2026-09-13:** Window A fee-adjusted fill summarize done; **2026-09-14:** Window B readiness blockers (max pos / open / hold / fee / soft gates / AI mode / multi-role) on desk glance; Window B + fee-adjusted verdict still pending
+- [x] **A2** Promote A/B: method + baseline + **Window A (promote off) started** 2026-08-12 — [docs/PROMOTE_AB.md](docs/PROMOTE_AB.md) / [docs/history/promote_ab_2026-08-12.md](docs/history/promote_ab_2026-08-12.md) — **2026-09-13:** Window A fee-adjusted fill summarize done; **2026-09-14:** Window B readiness blockers (max pos / open / hold / fee / soft gates / AI mode / multi-role / scan·trade floors) on desk glance; Window B + fee-adjusted verdict still pending
 - [ ] **A3** Do not flip compose promote default-on until A2 is positive (or human explicitly waives) **and** calm gate passes
 - [x] **Crypto live policy (2026-08-14/15):** BTC/ETH **scan + buys** only · max 1 crypto slot · crypto TP/SL ±10% — `crypto_policy.py` / `scan_live_crypto_majors`
 - [x] **Local TZ night window (2026-08-15):** autoresearch + morning briefing use system/`ASC_LOCAL_TZ` (not hard-coded Berlin)
@@ -299,6 +299,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [x] Phase A + RyanJHamby Window B soft-gate parity (2026-09-14 improve): same readiness also blocks when regime/RS/breadth are off (`regime off≠on` · `RS off≠on` · `breadth off≠on`) — protocol keeps soft gates on; only promote flips; Charts via trader_config; display only; not a new gate; do not start B / flip compose (A3)
 - [x] Phase A + FinRobot + TradingAgents Window B AI-mode parity (2026-09-14 improve): same readiness also blocks when `ai_mode` ≠ validate (`AI off≠validate` · `AI full≠validate`) — protocol knobs table; Charts via trader_config; display only; not a new gate; do not start B / flip compose (A3)
 - [x] Phase A + FinRobot + TradingAgents Window B multi-role parity (2026-09-14 improve): same readiness also blocks when `ai_multi_role` is off (`multi-role off≠on`) — protocol keeps bull·bear·risk on; Charts via trader_config; display only; not a new gate; do not start B / flip compose (A3)
+- [x] Phase A + RyanJHamby + MonsterDeveloper Window B cadence floors (2026-09-14 improve): same readiness also blocks when scan &lt;15m or trade &lt;5m (`scan Nm&lt;15m` · `trade Nm&lt;5m`) — anti-churn packaging for fair A/B; Charts via runtime intervals; display only; not a new gate; do not start B / flip compose (A3)
 - [x] tradermonty suspicious empty earnings window (2026-09-14 improve): see Phase C bullet — probe + soft-allow + desk glance; not a new gate
 - [x] xang1234 Group Matrix sleeve marks (2026-09-14 improve): Book risk strip + note — cost-weighted equity/crypto since-buy mark % · missing → — not 0 (`sleeve_mark_returns` / `book_risk_report`) — watch #365 weekly/monthly Matrix adapted as sleeve groups; display only; not calendar 1w/1m; not a new gate
 - [x] xang1234 Group Matrix tenure marks (2026-09-14 improve): Book risk strip Tenure — cost-weighted since-buy mark % by hold age `<7d` / `7–30d` / `≥30d` (`tenure_mark_returns`) — watch #365 week/month Matrix adapted as hold tenure; missing age/mark → —; strip only (not glance note); display only; not calendar market 1w/1m; not a new gate
@@ -310,7 +311,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 - [ ] Optional later: tradermonty full OS/platform matrix UI (watch 2026-09-13 #333/#392) — Python pin slice shipped above; defer multi-OS matrix until friends ask
 - [ ] Optional later: staskh refuse-without-vol as live entry block (watch 2026-09-12 ema_vix) — desk soft-n/a coverage shipped above; defer hard refuse until promote unlock / gate thinning allows
 - [ ] Optional later: xang1234 further flip-run moments (IQR / skew) — declutter shipped; defer more distribution bits unless Breadth friends ask
-- [ ] Optional later: start Window B (promote on) after restoring protocol knobs (max 5 / 24h / revolut_standard / regime·RS·breadth on / AI validate / multi-role on) — Window A summarize + B-readiness + hold/fee/gate/AI/multi-role knob parity shipped 2026-09-13/14; do not flip compose default-on (A3)
+- [ ] Optional later: start Window B (promote on) after restoring protocol knobs (max 5 / 24h / revolut_standard / regime·RS·breadth on / AI validate / multi-role on / scan ≥15m / trade ≥5m) — Window A summarize + B-readiness + hold/fee/gate/AI/multi-role/cadence knob parity shipped 2026-09-13/14; do not flip compose default-on (A3)
 
 ### Phase D — Share
 - [x] Workspace MCP companion example (`.cursor/mcp.json.example`) — human pastes OpenBB token locally

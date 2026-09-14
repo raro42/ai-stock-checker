@@ -248,6 +248,35 @@ def test_window_b_readiness_protocol_drift() -> None:
         == "B blocked · multi-role off≠on"
     )
 
+    cadence = window_b_readiness(
+        max_positions=5,
+        open_positions=3,
+        min_hold_hours=24,
+        fee_preset="revolut_standard",
+        regime_gate=True,
+        rs_gate=True,
+        breadth_gate=True,
+        ai_mode="validate",
+        ai_multi_role=True,
+        scan_interval_min=5,
+        trade_interval_min=1,
+    )
+    assert cadence["ready"] is False
+    assert "scan 5m<15m" in cadence["blockers"]
+    assert "trade 1m<5m" in cadence["blockers"]
+    assert cadence["protocol_scan_interval_min"] == 15
+    assert cadence["protocol_trade_interval_min"] == 5
+
+    cadence_ok = window_b_readiness(
+        max_positions=5,
+        open_positions=3,
+        scan_interval_min=15,
+        trade_interval_min=5,
+    )
+    assert cadence_ok["ready"] is True
+    assert not any(b.startswith("scan ") for b in cadence_ok["blockers"])
+    assert not any(b.startswith("trade ") for b in cadence_ok["blockers"])
+
 
 def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
     g = build_promote_ab_glance(
@@ -378,4 +407,37 @@ def test_promote_ab_glance_b_blocked_on_multi_role_drift() -> None:
     assert "B blocked" in g["line"]
     assert "multi-role off≠on" in g["b_blockers"]
     assert "multi-role off≠on" in g["line"]
+    assert "ready for B" not in g["line"]
+
+
+def test_promote_ab_glance_b_blocked_on_cadence_drift() -> None:
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 5,
+            "trade_interval_min": 1,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 30,
+            "fees": 575.0,
+            "realized_pnl": 2788.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["b_ready"] is False
+    assert "B blocked" in g["line"]
+    assert "scan 5m<15m" in g["b_blockers"]
+    assert "trade 1m<5m" in g["b_blockers"]
+    assert "scan 5m<15m" in g["line"]
     assert "ready for B" not in g["line"]

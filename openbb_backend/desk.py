@@ -497,10 +497,10 @@ def build_promote_ab_glance(
     protocol (A = off, B = on). When fills exist, appends in-window fees /
     realized P&L / fill count (fee-adjusted honesty before Window B). When
     Window A target is met but Ops knobs drift from protocol (max 5 / 24h /
-    revolut_standard / regime·RS·breadth on / AI validate / multi-role on,
-    or open names > 5), status is ``B blocked · …`` instead of ready. Calm ≠
-    edge; compose default-on still blocked until A/B verdict + calm gate. Not
-    an entry gate.
+    revolut_standard / regime·RS·breadth on / AI validate / multi-role on /
+    scan ≥15m / trade ≥5m, or open names > 5), status is ``B blocked · …``
+    instead of ready. Calm ≠ edge; compose default-on still blocked until A/B
+    verdict + calm gate. Not an entry gate.
     """
     from stock_checker.promote_ab import (
         format_window_b_block_bit,
@@ -557,6 +557,10 @@ def build_promote_ab_glance(
 
     ai_raw = runtime.get("ai_mode")
     ai_mode = str(ai_raw).strip().lower() if ai_raw is not None else None
+    scan_raw = runtime.get("scan_interval_min")
+    scan_m = int(scan_raw) if scan_raw is not None else None
+    trade_raw = runtime.get("trade_interval_min")
+    trade_m = int(trade_raw) if trade_raw is not None else None
     b_ready_info = window_b_readiness(
         max_positions=max_pos,
         open_positions=open_n,
@@ -567,6 +571,8 @@ def build_promote_ab_glance(
         breadth_gate=_opt_bool("breadth_gate"),
         ai_mode=ai_mode,
         ai_multi_role=_opt_bool("ai_multi_role"),
+        scan_interval_min=scan_m,
+        trade_interval_min=trade_m,
     )
     b_blockers = list(b_ready_info.get("blockers") or [])
     b_block_bit = format_window_b_block_bit(b_blockers)
