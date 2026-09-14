@@ -204,6 +204,89 @@ def concentration_allows(
     return True, f"concentration {pct:.1f}% ok"
 
 
+def _format_mark_pct(pct: float | None, *, has_lots: bool, any_marked: bool) -> str:
+    """Sleeve mark label — missing marks are — not 0 (Group Matrix honesty)."""
+    if not has_lots:
+        return ""
+    if not any_marked or pct is None:
+        return "—"
+    sign = "+" if pct >= 0 else "−"
+    return f"{sign}{abs(pct):.1f}%"
+
+
+def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted mark % by equity/crypto sleeve (display only).
+
+    xang1234 Group Matrix adapted: sleeve groups + missing ≠ zero.
+    Uses since-buy unrealized when ``marked``; not calendar 1w/1m.
+    """
+    sleeves: dict[str, dict[str, Any]] = {
+        "equity": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "crypto": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        sym = str(h.get("symbol") or "")
+        kind = str(h.get("kind") or "")
+        if not kind:
+            kind = "crypto" if "-USD" in sym else "stock"
+        sleeve = "crypto" if kind == "crypto" else "equity"
+        try:
+            basis = float(h.get("cost_basis") or 0.0)
+        except (TypeError, ValueError):
+            basis = 0.0
+        if basis <= 0:
+            try:
+                basis = float(h.get("market_value") or 0.0)
+            except (TypeError, ValueError):
+                basis = 0.0
+        if basis <= 0:
+            continue
+        bucket = sleeves[sleeve]
+        bucket["lots"] += 1
+        marked = h.get("marked")
+        if marked is None:
+            # Explicit unrealized_pct without marked flag still counts
+            # only when the key is present (cost-flat chart rows omit it).
+            marked = "unrealized_pct" in h
+        if not marked:
+            continue
+        try:
+            pct = float(h.get("unrealized_pct"))
+        except (TypeError, ValueError):
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "equity_mark_pct": None,
+        "crypto_mark_pct": None,
+        "equity_mark_label": "",
+        "crypto_mark_label": "",
+        "sleeve_marks_ready": False,
+        "sleeve_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short in (("equity", "eq"), ("crypto", "cr")):
+        bucket = sleeves[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=any_marked)
+        out[f"{key}_mark_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{key}_mark_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["sleeve_marks_ready"] = True
+        out["sleeve_marks_bit"] = "marks " + " / ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -215,11 +298,19 @@ def book_risk_report(
     """
     Display-only book risk strip (staskh / portfolio-AI style).
 
-    Cash %, slots, posture, largest name, equity vs crypto mix.
-    Does not change entries or exits.
+    Cash %, slots, posture, largest name, equity vs crypto mix,
+    sleeve mark returns (Group Matrix–lite). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
+    empty_marks = {
+        "equity_mark_pct": None,
+        "crypto_mark_pct": None,
+        "equity_mark_label": "",
+        "crypto_mark_label": "",
+        "sleeve_marks_ready": False,
+        "sleeve_marks_bit": "",
+    }
     try:
         cash_f = float(cash)
         equity_f = float(equity)
@@ -238,6 +329,7 @@ def book_risk_report(
             "crypto_pct": 0.0,
             "concentration_warn": False,
             "note": "unreadable book inputs",
+            **empty_marks,
         }
 
     if max_n < 1:
@@ -277,6 +369,7 @@ def book_risk_report(
         eq_share = 0.0
         cr_share = 0.0
 
+    marks = sleeve_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -284,6 +377,8 @@ def book_risk_report(
     bits.append(f"cash {cash_pct:.0f}%")
     if invested > 0:
         bits.append(f"mix equity {eq_share:.0f}% / crypto {cr_share:.0f}%")
+    if marks.get("sleeve_marks_bit"):
+        bits.append(str(marks["sleeve_marks_bit"]))
     if concentration_warn:
         bits.append(f"≥{cap_pct:g}% name weight")
 
@@ -299,6 +394,7 @@ def book_risk_report(
         "crypto_pct": round(cr_share, 1),
         "concentration_warn": concentration_warn,
         "note": " · ".join(bits),
+        **marks,
     }
 
 

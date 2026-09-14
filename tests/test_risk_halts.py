@@ -140,6 +140,55 @@ def test_book_risk_report_mix_and_warn() -> None:
     assert out["concentration_warn"] is True
     assert out["equity_pct"] == 68.8  # 55k / 80k
     assert out["crypto_pct"] == 31.2
+    # Cost-only rows: missing marks are — not 0 (Group Matrix honesty)
+    assert out["sleeve_marks_ready"] is True
+    assert out["equity_mark_label"] == "—"
+    assert out["crypto_mark_label"] == "—"
+    assert "marks eq — / cr —" in out["note"]
+
+
+def test_book_risk_report_sleeve_marks_weighted() -> None:
+    from stock_checker.risk_halts import book_risk_report, sleeve_mark_returns
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "market_value": 11_000,
+            "unrealized_pct": 10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 30_000,
+            "market_value": 27_000,
+            "unrealized_pct": -10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "market_value": 5_000,
+            "unrealized_pct": 0.0,
+            "marked": False,  # cost flat — not a real mark
+        },
+    ]
+    marks = sleeve_mark_returns(holds)
+    # (10k*10 + 30k*-10) / 40k = -5.0
+    assert marks["equity_mark_pct"] == -5.0
+    assert marks["equity_mark_label"] == "−5.0%"
+    assert marks["crypto_mark_label"] == "—"
+    assert marks["crypto_mark_pct"] is None
+    assert "marks eq −5.0% / cr —" in marks["sleeve_marks_bit"]
+
+    out = book_risk_report(
+        cash=10_000, equity=53_000, holdings=holds, max_positions=5
+    )
+    assert out["equity_mark_pct"] == -5.0
+    assert "marks eq −5.0% / cr —" in out["note"]
 
 
 def test_book_risk_report_empty_book() -> None:
@@ -151,6 +200,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["largest_symbol"] == ""
     assert out["concentration_warn"] is False
     assert out["cash_pct"] == 100.0
+    assert out["sleeve_marks_ready"] is False
+    assert out["sleeve_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:

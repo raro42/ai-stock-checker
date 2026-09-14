@@ -38,6 +38,16 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Marks</span>
+      <span class="v" title="Cost-weighted sleeve mark % since buy — missing ≠ 0; not calendar 1w/1m">
+        {% if snap.book_risk.sleeve_marks_ready %}
+        {% if snap.book_risk.equity_mark_label %}eq {{ snap.book_risk.equity_mark_label }}{% endif %}
+        {% if snap.book_risk.equity_mark_label and snap.book_risk.crypto_mark_label %} / {% endif %}
+        {% if snap.book_risk.crypto_mark_label %}cr {{ snap.book_risk.crypto_mark_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 
