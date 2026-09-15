@@ -495,7 +495,8 @@ def build_promote_ab_glance(
 
     Shows Window A/B trading-day progress and whether live promote matches the
     protocol (A = off, B = on). When fills exist, appends in-window fees /
-    realized P&L / fill count (fee-adjusted honesty before Window B). When
+    fee-adjusted net (realized − all fees) / fill count — portfolio AI
+    honesty before Window B (gross sell P&L alone is not edge). When
     Window A target is met but Ops knobs drift from protocol (max 5 / 24h /
     revolut_standard / regime·RS·breadth on / AI validate / multi-role on /
     scan ≥15m / trade ≥5m, or open names > 5), status is ``B blocked · …``

@@ -13,7 +13,7 @@
 ## Protocol (minimum)
 
 1. **Fix knobs** — one config: max 5 / 24h hold / fee preset known (Ops + compose aligned).
-2. **Window A (promote off):** ≥10 trading days (or ≥N fills — record both). Log daily equity, fees, trade count, crypto vs stock contribution (`scripts/summarize_trades.py --since window-a` + portfolio snapshots). Desk promote A/B glance shows in-window fees / realized / fills when `trades.jsonl` is present.
+2. **Window A (promote off):** ≥10 trading days (or ≥N fills — record both). Log daily equity, fees, trade count, crypto vs stock contribution (`scripts/summarize_trades.py --since window-a` + portfolio snapshots). Desk promote A/B glance shows in-window fees / **fee-adjusted net** (realized − all buy+sell fees) / fills when `trades.jsonl` is present — not gross sell P&L alone.
 3. **Window B (promote on):** same length, same capital baseline (reset or note starting equity), same fees/gates/AI except promote. Desk promote A/B glance warns `B blocked · …` when live knobs drift from protocol max 5 / 24h hold / `revolut_standard` / regime·RS·breadth on / AI `validate` / multi-role on / scan ≥15m / trade ≥5m (or open count > 5) via `window_b_readiness` — restore knobs before starting B.
 4. **Compare fee-adjusted:** Δ equity − Δ fees, trade count, max DD if available. Promote “wins” only if B beats A on fee-adjusted return **and** does not explode trade count.
 5. **Artifact:** write `docs/history/promote_ab_YYYY-MM-DD.md` with knobs, dates, numbers, verdict. Link from IMPROVEMENT A2.

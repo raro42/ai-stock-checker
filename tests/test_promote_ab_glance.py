@@ -115,12 +115,38 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["fees"] == 18.0
     assert s["realized_pnl"] == 100.0
     assert s["net_after_sell_fees"] == 95.0
+    assert s["net_after_all_fees"] == 82.0
     assert s["crypto_legs"] == 1
     assert s["stock_legs"] == 2
     assert s["wins"] == 1
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
+    assert "+€82 net" in bit
     assert "3 fills" in bit
+
+
+def test_format_window_stats_bit_prefers_net_after_all_fees() -> None:
+    bit = format_window_stats_bit(
+        {
+            "trades": 4,
+            "fees": 50.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 150.0,
+        }
+    )
+    assert "€50 fees" in bit
+    assert "+€150 net" in bit
+    assert "4 fills" in bit
+    assert "+€200" not in bit
+
+
+def test_format_window_stats_bit_fallback_without_net_field() -> None:
+    bit = format_window_stats_bit(
+        {"trades": 2, "fees": 20.0, "realized_pnl": 250.0}
+    )
+    assert "€20 fees" in bit
+    assert "+€230 net" in bit
+    assert "2 fills" in bit
 
 
 def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
@@ -148,6 +174,7 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
     assert g["tone"] == "ready"
     assert g["window_stats"]["trades"] == 2
     assert "€20 fees" in g["line"]
+    assert "+€230 net" in g["line"]  # 250 realized − 20 all fees
     assert "ready for B" in g["line"]
     assert "summarize before B" not in g["line"]
     assert g["b_ready"] is True

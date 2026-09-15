@@ -286,6 +286,9 @@ def summarize_window_trades(
     losses = sum(1 for t in sells if float(t.get("profit_loss") or 0) < 0)
     first_ts = window[0].get("timestamp") if window else None
     last_ts = window[-1].get("timestamp") if window else None
+    # Fee-adjusted edge for A/B: realized sell P&L minus *all* in-window fees
+    # (buy+sell). net_after_sell_fees keeps sell-leg-only for summarize_trades.
+    net_all = realized - fees
     return {
         "trades": len(window),
         "buys": len(buys),
@@ -293,6 +296,7 @@ def summarize_window_trades(
         "fees": fees,
         "realized_pnl": realized,
         "net_after_sell_fees": realized - sell_fees,
+        "net_after_all_fees": net_all,
         "wins": wins,
         "losses": losses,
         "crypto_legs": crypto_legs,
@@ -341,21 +345,30 @@ def window_stats_from_data_dir(
 
 
 def format_window_stats_bit(stats: dict[str, Any] | None) -> str:
-    """Short fee / P&L / fill bit for promote A/B glance."""
+    """Short fee / fee-adjusted net / fill bit for promote A/B glance.
+
+    Prefers ``net_after_all_fees`` (realized − all buy+sell fees) so the desk
+    does not read gross sell P&L as edge. Falls back to realized − fees when
+    older stats dicts omit the field. Portfolio AI fee honesty; display only.
+    """
     if not isinstance(stats, dict):
         return ""
     try:
         n = int(stats.get("trades") or 0)
         fees = float(stats.get("fees") or 0)
         realized = float(stats.get("realized_pnl") or 0)
+        if stats.get("net_after_all_fees") is not None:
+            net = float(stats.get("net_after_all_fees") or 0)
+        else:
+            net = realized - fees
     except (TypeError, ValueError):
         return ""
-    if n <= 0 and fees <= 0 and realized == 0:
+    if n <= 0 and fees <= 0 and realized == 0 and net == 0:
         return "0 fills"
-    sign = "+" if realized >= 0 else "−"
-    abs_r = abs(realized)
-    if abs_r >= 1000:
-        pnl = f"{sign}€{abs_r / 1000:.1f}k"
+    sign = "+" if net >= 0 else "−"
+    abs_n = abs(net)
+    if abs_n >= 1000:
+        pnl = f"{sign}€{abs_n / 1000:.1f}k"
     else:
-        pnl = f"{sign}€{abs_r:,.0f}"
-    return f"€{fees:,.0f} fees · {pnl} · {n} fills"
+        pnl = f"{sign}€{abs_n:,.0f}"
+    return f"€{fees:,.0f} fees · {pnl} net · {n} fills"

@@ -85,6 +85,7 @@ def main() -> None:
     print(f"  Fees paid: €{s['fees']:,.2f}")
     print(f"  Realized P&L (sells): €{s['realized_pnl']:,.2f}")
     print(f"  Net after sell fees: €{s['net_after_sell_fees']:,.2f}")
+    print(f"  Net after all fees: €{s['net_after_all_fees']:,.2f}")
     print(f"  Wins/Losses: {s['wins']}/{s['losses']}")
     print(f"  Legs: stock={s['stock_legs']} crypto={s['crypto_legs']}")
 
