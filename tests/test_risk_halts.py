@@ -897,6 +897,95 @@ def test_scan_score_mark_returns_hi_mid_lo_off() -> None:
     assert "score " not in out["note"]
 
 
+def test_scan_near_high_mark_returns_near_mid_deep_off() -> None:
+    from stock_checker.risk_halts import (
+        SCAN_NEAR_HIGH_MID,
+        SCAN_NEAR_HIGH_PCT,
+        book_risk_report,
+        scan_near_high_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    highs = {
+        "NVDA": -2.0,  # near (≥ −5)
+        "AAPL": -12.0,  # mid
+        "MSFT": -25.0,  # deep
+        # BTC absent → off; ETH unmarked off
+    }
+    nh = scan_near_high_mark_returns(holds, highs)
+    assert nh["scan_near_high_floor"] == SCAN_NEAR_HIGH_PCT
+    assert nh["scan_near_high_mid_floor"] == SCAN_NEAR_HIGH_MID
+    assert nh["scan_near_high_near_pct"] == 4.0
+    assert nh["scan_near_high_near_label"] == "+4.0%×1"
+    assert nh["scan_near_high_mid_pct"] == 1.0
+    assert nh["scan_near_high_mid_label"] == "+1.0%×1"
+    assert nh["scan_near_high_deep_pct"] == -2.0
+    assert nh["scan_near_high_deep_label"] == "−2.0%×1"
+    assert nh["scan_near_high_off_pct"] == 6.0
+    assert nh["scan_near_high_off_label"] == "+6.0%×1"
+    assert nh["scan_near_high_off_lots"] == 2
+    assert nh["scan_near_high_marks_ready"] is True
+    assert (
+        "high near +4.0%×1 · mid +1.0%×1 · deep −2.0%×1 · off +6.0%×1"
+        in nh["scan_near_high_marks_bit"]
+    )
+
+    skipped = scan_near_high_mark_returns(holds, None)
+    assert skipped["scan_near_high_marks_ready"] is False
+    assert skipped["scan_near_high_marks_bit"] == ""
+
+    empty_map = scan_near_high_mark_returns(holds, {})
+    assert empty_map["scan_near_high_off_lots"] == 5
+    assert empty_map["scan_near_high_marks_ready"] is True
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        scan_pct_from_high=highs,
+    )
+    assert out["scan_near_high_marks_ready"] is True
+    assert out["scan_near_high_near_label"] == "+4.0%×1"
+    assert out["scan_near_high_mid_label"] == "+1.0%×1"
+    assert "high " not in out["note"]
+
+
 def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
     from stock_checker.risk_halts import ai_debate_mark_returns, book_risk_report
 

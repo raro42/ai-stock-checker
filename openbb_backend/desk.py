@@ -5841,6 +5841,7 @@ def load_desk_snapshot(
         position_size=0.10,
     )
     scan_scores: dict[str, float] = {}
+    scan_pct_from_high: dict[str, float] = {}
     for key in ("recommendations", "crypto_leaders", "stock_breakouts"):
         for item in opportunities.get(key) or []:
             if not isinstance(item, dict):
@@ -5851,10 +5852,19 @@ def load_desk_snapshot(
             try:
                 sc = float(item.get("score"))
             except (TypeError, ValueError):
+                sc = None
+            if sc is not None:
+                prev = scan_scores.get(sym)
+                if prev is None or sc > prev:
+                    scan_scores[sym] = sc
+            try:
+                pfh = float(item.get("pct_from_high"))
+            except (TypeError, ValueError):
                 continue
-            prev = scan_scores.get(sym)
-            if prev is None or sc > prev:
-                scan_scores[sym] = sc
+            prev_h = scan_pct_from_high.get(sym)
+            # Prefer closest-to-high when symbol appears on multiple lists.
+            if prev_h is None or pfh > prev_h:
+                scan_pct_from_high[sym] = pfh
     book_risk = book_risk_report(
         cash=cash,
         equity=equity,
@@ -5883,6 +5893,7 @@ def load_desk_snapshot(
             if isinstance(item, dict) and item.get("symbol")
         ),
         scan_scores=scan_scores,
+        scan_pct_from_high=scan_pct_from_high,
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
         ai_gated=ai_gated,

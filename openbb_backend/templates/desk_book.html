@@ -149,6 +149,12 @@
       </span>
     </li>
     <li>
+      <span class="k">Near</span>
+      <span class="v" title="Cost-weighted since-buy mark % by scan pct_from_high — near (≥−5%, breakout band) / mid (≥−20%) / deep (&lt;−20%) / off; ×N names; xang1234 StockBee near-high cluster; closest-to-high across lists; not a gate">
+        {% if snap.book_risk.scan_near_high_marks_ready %}{{ snap.book_risk.scan_near_high_marks_bit[5:] }}{% else %}—{% endif %}
+      </span>
+    </li>
+    <li>
       <span class="k">AI</span>
       <span class="v" title="Cost-weighted since-buy mark % by newest AI validate action — buy / hold / sell / none; ×N names; FinRobot debate memory + Group Matrix; not a research score; not a gate">
         {% if snap.book_risk.ai_debate_marks_ready %}{{ snap.book_risk.ai_debate_marks_bit[3:] }}{% else %}—{% endif %}
