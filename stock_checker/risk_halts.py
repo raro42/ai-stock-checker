@@ -30,6 +30,8 @@ SCAN_SCORE_MID = 25.0
 # pct_from_high bands (match scanner breakout ≥ −5%; mid floor −20%).
 SCAN_NEAR_HIGH_PCT = -5.0
 SCAN_NEAR_HIGH_MID = -20.0
+# StockBee-lite ±4% day movers (match Breadth crypto_big / mover ratio).
+SCAN_MOVER_PCT = 4.0
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -1332,6 +1334,110 @@ def scan_near_high_mark_returns(
     return out
 
 
+def scan_mover_mark_returns(
+    holdings: list[dict[str, Any]],
+    change_by_symbol: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by scan day change (display only).
+
+    xang1234 StockBee + portfolio AI Group Matrix: hot (≥ +4%) / cold
+    (≤ −4%) / quiet (on map, |chg| < 4%) / off (not on map). Threshold
+    matches Breadth ±4% movers. ``change_by_symbol`` None → skip. Empty
+    map → all off. Cluster n on labels. Strip only; not a gate.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "hot": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "cold": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "quiet": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "off": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "scan_mover_hot_pct": None,
+        "scan_mover_cold_pct": None,
+        "scan_mover_quiet_pct": None,
+        "scan_mover_off_pct": None,
+        "scan_mover_hot_label": "",
+        "scan_mover_cold_label": "",
+        "scan_mover_quiet_label": "",
+        "scan_mover_off_label": "",
+        "scan_mover_hot_lots": 0,
+        "scan_mover_cold_lots": 0,
+        "scan_mover_quiet_lots": 0,
+        "scan_mover_off_lots": 0,
+        "scan_mover_marks_ready": False,
+        "scan_mover_marks_bit": "",
+        "scan_mover_floor": float(SCAN_MOVER_PCT),
+    }
+    if change_by_symbol is None:
+        return out
+
+    changes: dict[str, float] = {}
+    for raw_sym, raw_chg in change_by_symbol.items():
+        sym = str(raw_sym or "").strip().upper()
+        if not sym:
+            continue
+        try:
+            changes[sym] = float(raw_chg)
+        except (TypeError, ValueError):
+            continue
+
+    floor = float(SCAN_MOVER_PCT)
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        if sym not in changes:
+            key = "off"
+        else:
+            chg = changes[sym]
+            if chg >= floor:
+                key = "hot"
+            elif chg <= -floor:
+                key = "cold"
+            else:
+                key = "quiet"
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("hot", "hot", "scan_mover_hot"),
+        ("cold", "cold", "scan_mover_cold"),
+        ("quiet", "quiet", "scan_mover_quiet"),
+        ("off", "off", "scan_mover_off"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["scan_mover_marks_ready"] = True
+        out["scan_mover_marks_bit"] = "move " + " · ".join(bits)
+    return out
+
+
 def ai_debate_mark_returns(
     holdings: list[dict[str, Any]],
     action_by_symbol: dict[str, str] | None = None,
@@ -1626,6 +1732,7 @@ def book_risk_report(
     scan_recommendations: Iterable[str] | None = None,
     scan_scores: dict[str, float] | None = None,
     scan_pct_from_high: dict[str, float] | None = None,
+    scan_change_24h: dict[str, float] | None = None,
     ai_actions: dict[str, str] | None = None,
     ai_confidences: dict[str, str] | None = None,
     ai_gated: dict[str, bool] | None = None,
@@ -1636,10 +1743,11 @@ def book_risk_report(
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + scan membership +
     screener list role (lead/brk/rec/off) + scan score bands
-    (hi/mid/lo/off) + pct_from_high near/mid/deep/off + AI debate
-    action + AI confidence + multi-role gated + hold-tenure +
-    win/lose polarity + size + leader mark returns (Group Matrix–lite,
-    cluster n on labels). Does not change entries or exits.
+    (hi/mid/lo/off) + pct_from_high near/mid/deep/off + day-change
+    hot/cold/quiet/off (±4% StockBee) + AI debate action + AI
+    confidence + multi-role gated + hold-tenure + win/lose polarity +
+    size + leader mark returns (Group Matrix–lite, cluster n on
+    labels). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1781,6 +1889,21 @@ def book_risk_report(
         "scan_near_high_marks_bit": "",
         "scan_near_high_floor": float(SCAN_NEAR_HIGH_PCT),
         "scan_near_high_mid_floor": float(SCAN_NEAR_HIGH_MID),
+        "scan_mover_hot_pct": None,
+        "scan_mover_cold_pct": None,
+        "scan_mover_quiet_pct": None,
+        "scan_mover_off_pct": None,
+        "scan_mover_hot_label": "",
+        "scan_mover_cold_label": "",
+        "scan_mover_quiet_label": "",
+        "scan_mover_off_label": "",
+        "scan_mover_hot_lots": 0,
+        "scan_mover_cold_lots": 0,
+        "scan_mover_quiet_lots": 0,
+        "scan_mover_off_lots": 0,
+        "scan_mover_marks_ready": False,
+        "scan_mover_marks_bit": "",
+        "scan_mover_floor": float(SCAN_MOVER_PCT),
         "ai_debate_buy_pct": None,
         "ai_debate_hold_pct": None,
         "ai_debate_sell_pct": None,
@@ -1902,6 +2025,7 @@ def book_risk_report(
     )
     scan_score = scan_score_mark_returns(rows, scan_scores)
     scan_near = scan_near_high_mark_returns(rows, scan_pct_from_high)
+    scan_mover = scan_mover_mark_returns(rows, scan_change_24h)
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
     ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
     ai_roles = ai_gated_mark_returns(rows, ai_gated)
@@ -1941,6 +2065,7 @@ def book_risk_report(
         **scan_list,
         **scan_score,
         **scan_near,
+        **scan_mover,
         **ai_debate,
         **ai_conf,
         **ai_roles,

@@ -5842,6 +5842,7 @@ def load_desk_snapshot(
     )
     scan_scores: dict[str, float] = {}
     scan_pct_from_high: dict[str, float] = {}
+    scan_change_24h: dict[str, float] = {}
     for key in ("recommendations", "crypto_leaders", "stock_breakouts"):
         for item in opportunities.get(key) or []:
             if not isinstance(item, dict):
@@ -5860,11 +5861,26 @@ def load_desk_snapshot(
             try:
                 pfh = float(item.get("pct_from_high"))
             except (TypeError, ValueError):
-                continue
-            prev_h = scan_pct_from_high.get(sym)
-            # Prefer closest-to-high when symbol appears on multiple lists.
-            if prev_h is None or pfh > prev_h:
-                scan_pct_from_high[sym] = pfh
+                pfh = None
+            if pfh is not None:
+                prev_h = scan_pct_from_high.get(sym)
+                # Prefer closest-to-high when symbol appears on multiple lists.
+                if prev_h is None or pfh > prev_h:
+                    scan_pct_from_high[sym] = pfh
+            chg: float | None = None
+            for chg_key in ("change_24h", "daily_change_pct", "change_pct", "change"):
+                if chg_key not in item or item.get(chg_key) is None:
+                    continue
+                try:
+                    chg = float(item[chg_key])
+                except (TypeError, ValueError):
+                    continue
+                break
+            if chg is not None:
+                prev_c = scan_change_24h.get(sym)
+                # Prefer largest |day move| across lists (StockBee heat).
+                if prev_c is None or abs(chg) > abs(prev_c):
+                    scan_change_24h[sym] = chg
     book_risk = book_risk_report(
         cash=cash,
         equity=equity,
@@ -5894,6 +5910,7 @@ def load_desk_snapshot(
         ),
         scan_scores=scan_scores,
         scan_pct_from_high=scan_pct_from_high,
+        scan_change_24h=scan_change_24h,
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
         ai_gated=ai_gated,

@@ -986,6 +986,93 @@ def test_scan_near_high_mark_returns_near_mid_deep_off() -> None:
     assert "high " not in out["note"]
 
 
+def test_scan_mover_mark_returns_hot_cold_quiet_off() -> None:
+    from stock_checker.risk_halts import (
+        SCAN_MOVER_PCT,
+        book_risk_report,
+        scan_mover_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    changes = {
+        "NVDA": 5.5,  # hot (≥ +4)
+        "AAPL": -6.0,  # cold
+        "MSFT": 1.2,  # quiet
+        # BTC absent → off; ETH unmarked off
+    }
+    mv = scan_mover_mark_returns(holds, changes)
+    assert mv["scan_mover_floor"] == SCAN_MOVER_PCT
+    assert mv["scan_mover_hot_pct"] == 4.0
+    assert mv["scan_mover_hot_label"] == "+4.0%×1"
+    assert mv["scan_mover_cold_pct"] == 1.0
+    assert mv["scan_mover_cold_label"] == "+1.0%×1"
+    assert mv["scan_mover_quiet_pct"] == -2.0
+    assert mv["scan_mover_quiet_label"] == "−2.0%×1"
+    assert mv["scan_mover_off_pct"] == 6.0
+    assert mv["scan_mover_off_label"] == "+6.0%×1"
+    assert mv["scan_mover_off_lots"] == 2
+    assert mv["scan_mover_marks_ready"] is True
+    assert (
+        "move hot +4.0%×1 · cold +1.0%×1 · quiet −2.0%×1 · off +6.0%×1"
+        in mv["scan_mover_marks_bit"]
+    )
+
+    skipped = scan_mover_mark_returns(holds, None)
+    assert skipped["scan_mover_marks_ready"] is False
+    assert skipped["scan_mover_marks_bit"] == ""
+
+    empty_map = scan_mover_mark_returns(holds, {})
+    assert empty_map["scan_mover_off_lots"] == 5
+    assert empty_map["scan_mover_marks_ready"] is True
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        scan_change_24h=changes,
+    )
+    assert out["scan_mover_marks_ready"] is True
+    assert out["scan_mover_hot_label"] == "+4.0%×1"
+    assert out["scan_mover_cold_label"] == "+1.0%×1"
+    assert "move " not in out["note"]
+
+
 def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
     from stock_checker.risk_halts import ai_debate_mark_returns, book_risk_report
 
