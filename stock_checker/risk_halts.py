@@ -207,14 +207,25 @@ def concentration_allows(
     return True, f"concentration {pct:.1f}% ok"
 
 
-def _format_mark_pct(pct: float | None, *, has_lots: bool, any_marked: bool) -> str:
-    """Sleeve mark label — missing marks are — not 0 (Group Matrix honesty)."""
+def _format_mark_pct(
+    pct: float | None,
+    *,
+    has_lots: bool,
+    any_marked: bool,
+    cluster_n: int = 0,
+) -> str:
+    """Sleeve mark label — missing marks are — not 0 (Group Matrix honesty).
+
+    ``cluster_n`` is names that feed the shown figure: marked count when a %
+    is shown, else lots in the bucket for —. xang1234 cluster size adapted.
+    """
     if not has_lots:
         return ""
+    n_bit = f"×{cluster_n}" if cluster_n > 0 else ""
     if not any_marked or pct is None:
-        return "—"
+        return f"—{n_bit}" if n_bit else "—"
     sign = "+" if pct >= 0 else "−"
-    return f"{sign}{abs(pct):.1f}%"
+    return f"{sign}{abs(pct):.1f}%{n_bit}"
 
 
 def _holding_cost_basis(h: dict[str, Any]) -> float:
@@ -248,8 +259,8 @@ def _holding_marked_pct(h: dict[str, Any]) -> float | None:
 def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost-weighted mark % by equity/crypto sleeve (display only).
 
-    xang1234 Group Matrix adapted: sleeve groups + missing ≠ zero.
-    Uses since-buy unrealized when ``marked``; not calendar 1w/1m.
+    xang1234 Group Matrix adapted: sleeve groups + missing ≠ zero +
+    cluster n (×N marked names in the %). Not calendar 1w/1m.
     """
     sleeves: dict[str, dict[str, Any]] = {
         "equity": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
@@ -282,6 +293,10 @@ def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         "crypto_mark_label": "",
         "sleeve_marks_ready": False,
         "sleeve_marks_bit": "",
+        "equity_lots": 0,
+        "crypto_lots": 0,
+        "equity_marked": 0,
+        "crypto_marked": 0,
     }
     bits: list[str] = []
     for key, short in (("equity", "eq"), ("crypto", "cr")):
@@ -291,7 +306,12 @@ def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         pct: float | None = None
         if any_marked and float(bucket["cost"]) > 0:
             pct = float(bucket["w_pct"]) / float(bucket["cost"])
-        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=any_marked)
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{key}_lots"] = int(bucket["lots"])
+        out[f"{key}_marked"] = int(bucket["marked"])
         out[f"{key}_mark_pct"] = round(pct, 2) if pct is not None else None
         out[f"{key}_mark_label"] = label
         if label:
@@ -323,7 +343,7 @@ def tenure_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost-weighted since-buy mark % by hold tenure (display only).
 
     xang1234 weekly/monthly Group Matrix adapted as hold-age buckets
-    (<7d / 7–30d / ≥30d). Not calendar market 1w/1m. Missing age or mark → —.
+    (<7d / 7–30d / ≥30d) + cluster n. Not calendar 1w/1m. Missing age or mark → —.
     """
     buckets: dict[str, dict[str, Any]] = {
         "lt_7d": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
@@ -361,6 +381,9 @@ def tenure_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         "tenure_marks_ready": False,
         "tenure_marks_bit": "",
         "tenure_unknown_lots": unknown_lots,
+        "tenure_lt_7d_lots": 0,
+        "tenure_7_30d_lots": 0,
+        "tenure_ge_30d_lots": 0,
     }
     bits: list[str] = []
     for key, short, field in (
@@ -374,7 +397,11 @@ def tenure_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         pct: float | None = None
         if any_marked and float(bucket["cost"]) > 0:
             pct = float(bucket["w_pct"]) / float(bucket["cost"])
-        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=any_marked)
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
         out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
         out[f"{field}_label"] = label
         if label:
@@ -390,7 +417,7 @@ def polarity_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
 
     xang1234 Group Matrix green→red cluster edge adapted as book polarity:
     marked lots with unrealized >0 vs <0. Flat 0% and unmarked do not dilute.
-    Not calendar market returns; not a gate.
+    Cluster n is marked names in each side. Not calendar returns; not a gate.
     """
     sides: dict[str, dict[str, Any]] = {
         "win": {"cost": 0.0, "w_pct": 0.0, "lots": 0},
@@ -442,7 +469,10 @@ def polarity_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         pct: float | None = None
         if has_lots and float(bucket["cost"]) > 0:
             pct = float(bucket["w_pct"]) / float(bucket["cost"])
-        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=has_lots)
+        n_lots = int(bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=has_lots, cluster_n=n_lots
+        )
         out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
         out[f"{field}_label"] = label
         if label:
@@ -457,7 +487,7 @@ def size_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost-weighted since-buy mark % by position size (display only).
 
     xang1234 Group Matrix size cluster adapted: split lots at median cost
-    into large vs small. Needs ≥2 costed lots. Missing mark → — not 0.
+    into large vs small + cluster n. Needs ≥2 costed lots. Missing mark → —.
     Not a gate; not calendar market returns.
     """
     empty: dict[str, Any] = {
@@ -514,7 +544,10 @@ def size_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         pct: float | None = None
         if any_marked and float(bucket["cost"]) > 0:
             pct = float(bucket["w_pct"]) / float(bucket["cost"])
-        label = _format_mark_pct(pct, has_lots=has_lots, any_marked=any_marked)
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
         out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
         out[f"{field}_label"] = label
         if label:
@@ -529,8 +562,8 @@ def leader_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost-weighted since-buy mark % for top lot vs rest (display only).
 
     xang1234 Group Matrix + portfolio AI concentration cluster: the single
-    largest cost basis name vs the remaining book. Needs ≥2 costed lots.
-    Missing mark → — not 0. Not a gate; not calendar market returns.
+    largest cost basis name vs the remaining book + rest cluster n.
+    Needs ≥2 costed lots. Missing mark → —. Not a gate; not calendar returns.
     """
     empty: dict[str, Any] = {
         "leader_symbol": "",
@@ -574,10 +607,17 @@ def leader_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         rest_pct = rest_w / rest_cost
 
     top_label = _format_mark_pct(
-        top_pct, has_lots=True, any_marked=top_pct is not None
+        top_pct,
+        has_lots=True,
+        any_marked=top_pct is not None,
+        cluster_n=1,
     )
+    rest_n = rest_marked if rest_marked > 0 else len(rest)
     rest_label = _format_mark_pct(
-        rest_pct, has_lots=len(rest) > 0, any_marked=rest_marked > 0
+        rest_pct,
+        has_lots=len(rest) > 0,
+        any_marked=rest_marked > 0,
+        cluster_n=rest_n,
     )
     bits: list[str] = []
     if top_label:
@@ -617,7 +657,7 @@ def book_risk_report(
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + hold-tenure + win/lose polarity + size + leader mark returns
-    (Group Matrix–lite). Does not change entries or exits.
+    (Group Matrix–lite, cluster n on labels). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -628,6 +668,10 @@ def book_risk_report(
         "crypto_mark_label": "",
         "sleeve_marks_ready": False,
         "sleeve_marks_bit": "",
+        "equity_lots": 0,
+        "crypto_lots": 0,
+        "equity_marked": 0,
+        "crypto_marked": 0,
         "tenure_lt_7d_pct": None,
         "tenure_7_30d_pct": None,
         "tenure_ge_30d_pct": None,
@@ -637,6 +681,9 @@ def book_risk_report(
         "tenure_marks_ready": False,
         "tenure_marks_bit": "",
         "tenure_unknown_lots": 0,
+        "tenure_lt_7d_lots": 0,
+        "tenure_7_30d_lots": 0,
+        "tenure_ge_30d_lots": 0,
         "polarity_win_pct": None,
         "polarity_lose_pct": None,
         "polarity_win_label": "",

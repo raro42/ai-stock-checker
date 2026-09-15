@@ -11,6 +11,8 @@ Versioning follows [SemVer](https://semver.org/) — see [RELEASES.md](RELEASES.
 
 ### Changed
 
+- Book risk Group Matrix labels show cluster size (`×N` names that feed each since-buy mark %).
+
 ### Fixed
 
 ## [v0.2.2] - 2026-08-29

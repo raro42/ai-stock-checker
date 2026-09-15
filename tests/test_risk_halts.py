@@ -142,9 +142,9 @@ def test_book_risk_report_mix_and_warn() -> None:
     assert out["crypto_pct"] == 31.2
     # Cost-only rows: missing marks are — not 0 (Group Matrix honesty)
     assert out["sleeve_marks_ready"] is True
-    assert out["equity_mark_label"] == "—"
-    assert out["crypto_mark_label"] == "—"
-    assert "marks eq — / cr —" in out["note"]
+    assert out["equity_mark_label"] == "—×2"
+    assert out["crypto_mark_label"] == "—×1"
+    assert "marks eq —×2 / cr —×1" in out["note"]
 
 
 def test_book_risk_report_sleeve_marks_weighted() -> None:
@@ -179,16 +179,17 @@ def test_book_risk_report_sleeve_marks_weighted() -> None:
     marks = sleeve_mark_returns(holds)
     # (10k*10 + 30k*-10) / 40k = -5.0
     assert marks["equity_mark_pct"] == -5.0
-    assert marks["equity_mark_label"] == "−5.0%"
-    assert marks["crypto_mark_label"] == "—"
+    assert marks["equity_mark_label"] == "−5.0%×2"
+    assert marks["crypto_mark_label"] == "—×1"
     assert marks["crypto_mark_pct"] is None
-    assert "marks eq −5.0% / cr —" in marks["sleeve_marks_bit"]
+    assert marks["equity_marked"] == 2
+    assert "marks eq −5.0%×2 / cr —×1" in marks["sleeve_marks_bit"]
 
     out = book_risk_report(
         cash=10_000, equity=53_000, holdings=holds, max_positions=5
     )
     assert out["equity_mark_pct"] == -5.0
-    assert "marks eq −5.0% / cr —" in out["note"]
+    assert "marks eq −5.0%×2 / cr —×1" in out["note"]
     # No hold ages → tenure strip empty (not in glance note)
     assert out["tenure_marks_ready"] is False
     assert out["tenure_marks_bit"] == ""
@@ -246,12 +247,12 @@ def test_tenure_mark_returns_week_month_buckets() -> None:
     ]
     tenure = tenure_mark_returns(holds)
     assert tenure["tenure_lt_7d_pct"] == 4.0
-    assert tenure["tenure_lt_7d_label"] == "+4.0%"
+    assert tenure["tenure_lt_7d_label"] == "+4.0%×1"
     assert tenure["tenure_7_30d_pct"] == -2.0
     assert tenure["tenure_ge_30d_pct"] == 8.0
     assert tenure["tenure_unknown_lots"] == 1
     # FLAT has age but unmarked — does not dilute NEW's marked %
-    assert "tenure <7d +4.0% · 7–30d −2.0% · ≥30d +8.0%" in tenure["tenure_marks_bit"]
+    assert "tenure <7d +4.0%×1 · 7–30d −2.0%×1 · ≥30d +8.0%×1" in tenure["tenure_marks_bit"]
 
     out = book_risk_report(cash=5_000, equity=43_000, holdings=holds, max_positions=5)
     assert out["tenure_marks_ready"] is True
@@ -302,14 +303,14 @@ def test_polarity_mark_returns_win_lose() -> None:
     pol = polarity_mark_returns(holds)
     # win: (10k*10 + 30k*5) / 40k = 6.25
     assert pol["polarity_win_pct"] == 6.25
-    assert pol["polarity_win_label"] == "+6.2%"
+    assert pol["polarity_win_label"] == "+6.2%×2"
     assert pol["polarity_lose_pct"] == -8.0
-    assert pol["polarity_lose_label"] == "−8.0%"
+    assert pol["polarity_lose_label"] == "−8.0%×1"
     assert pol["polarity_win_lots"] == 2
     assert pol["polarity_lose_lots"] == 1
     assert pol["polarity_flat_lots"] == 1
     assert pol["polarity_unmarked_lots"] == 1
-    assert "polarity win +6.2% · lose −8.0%" in pol["polarity_marks_bit"]
+    assert "polarity win +6.2%×2 · lose −8.0%×1" in pol["polarity_marks_bit"]
 
     out = book_risk_report(cash=10_000, equity=70_000, holdings=holds, max_positions=5)
     assert out["polarity_marks_ready"] is True
@@ -355,13 +356,13 @@ def test_size_mark_returns_median_split() -> None:
     # Sorted costs: 1k DARK, 5k SM | 20k LG1, 30k LG2 (mid=2)
     # small: DARK unmarked + SM marked → only SM in weight → +10%
     assert size["size_small_pct"] == 10.0
-    assert size["size_small_label"] == "+10.0%"
+    assert size["size_small_label"] == "+10.0%×1"
     assert size["size_small_lots"] == 2
     # large: (20k*-4 + 30k*2) / 50k = -0.4
     assert size["size_large_pct"] == -0.4
-    assert size["size_large_label"] == "−0.4%"
+    assert size["size_large_label"] == "−0.4%×2"
     assert size["size_large_lots"] == 2
-    assert "size lg −0.4% · sm +10.0%" in size["size_marks_bit"]
+    assert "size lg −0.4%×2 · sm +10.0%×1" in size["size_marks_bit"]
 
     alone = size_mark_returns(
         [
@@ -418,14 +419,14 @@ def test_leader_mark_returns_top_vs_rest() -> None:
     leader = leader_mark_returns(holds)
     assert leader["leader_symbol"] == "BIG"
     assert leader["leader_mark_pct"] == -5.0
-    assert leader["leader_mark_label"] == "−5.0%"
+    assert leader["leader_mark_label"] == "−5.0%×1"
     # rest: (10k*10 + 20k*4) / 30k = 6.0 — DARK unmarked does not dilute
     assert leader["leader_rest_pct"] == 6.0
-    assert leader["leader_rest_label"] == "+6.0%"
+    assert leader["leader_rest_label"] == "+6.0%×2"
     assert leader["leader_lots"] == 1
     assert leader["leader_rest_lots"] == 3
     assert leader["leader_cost_share"] == round(40_000 / 75_000 * 100.0, 1)
-    assert "leader top BIG −5.0% · rest +6.0%" in leader["leader_marks_bit"]
+    assert "leader top BIG −5.0%×1 · rest +6.0%×2" in leader["leader_marks_bit"]
 
     alone = leader_mark_returns(
         [

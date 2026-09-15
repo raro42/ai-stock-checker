@@ -40,7 +40,7 @@
     </li>
     <li>
       <span class="k">Marks</span>
-      <span class="v" title="Cost-weighted sleeve mark % since buy — missing ≠ 0; not calendar 1w/1m">
+      <span class="v" title="Cost-weighted sleeve mark % since buy — ×N marked names in the %; missing ≠ 0; not calendar 1w/1m">
         {% if snap.book_risk.sleeve_marks_ready %}
         {% if snap.book_risk.equity_mark_label %}eq {{ snap.book_risk.equity_mark_label }}{% endif %}
         {% if snap.book_risk.equity_mark_label and snap.book_risk.crypto_mark_label %} / {% endif %}
@@ -50,7 +50,7 @@
     </li>
     <li>
       <span class="k">Tenure</span>
-      <span class="v" title="Cost-weighted since-buy mark % by hold age (&lt;7d / 7–30d / ≥30d) — Group Matrix week/month adapted; not calendar market returns; missing age or mark ≠ 0">
+      <span class="v" title="Cost-weighted since-buy mark % by hold age (&lt;7d / 7–30d / ≥30d) — ×N marked names; Group Matrix week/month adapted; not calendar market returns; missing age or mark ≠ 0">
         {% if snap.book_risk.tenure_marks_ready %}
         {% if snap.book_risk.tenure_lt_7d_label %}&lt;7d {{ snap.book_risk.tenure_lt_7d_label }}{% endif %}
         {% if snap.book_risk.tenure_lt_7d_label and (snap.book_risk.tenure_7_30d_label or snap.book_risk.tenure_ge_30d_label) %} · {% endif %}
@@ -62,7 +62,7 @@
     </li>
     <li>
       <span class="k">Win/Lose</span>
-      <span class="v" title="Cost-weighted since-buy mark % for winners vs losers — Group Matrix green→red edge adapted; flat 0% and unmarked ≠ dilution; not a gate">
+      <span class="v" title="Cost-weighted since-buy mark % for winners vs losers — ×N names; Group Matrix green→red edge adapted; flat 0% and unmarked ≠ dilution; not a gate">
         {% if snap.book_risk.polarity_marks_ready %}
         {% if snap.book_risk.polarity_win_label %}win {{ snap.book_risk.polarity_win_label }}{% endif %}
         {% if snap.book_risk.polarity_win_label and snap.book_risk.polarity_lose_label %} · {% endif %}
@@ -72,7 +72,7 @@
     </li>
     <li>
       <span class="k">Size</span>
-      <span class="v" title="Cost-weighted since-buy mark % for large vs small lots (median cost split) — Group Matrix size cluster adapted; missing mark ≠ 0; not a gate">
+      <span class="v" title="Cost-weighted since-buy mark % for large vs small lots (median cost split) — ×N marked names; Group Matrix size cluster adapted; missing mark ≠ 0; not a gate">
         {% if snap.book_risk.size_marks_ready %}
         {% if snap.book_risk.size_large_label %}lg {{ snap.book_risk.size_large_label }}{% endif %}
         {% if snap.book_risk.size_large_label and snap.book_risk.size_small_label %} · {% endif %}
@@ -82,7 +82,7 @@
     </li>
     <li>
       <span class="k">Leader</span>
-      <span class="v" title="Cost-weighted since-buy mark % for the largest cost lot vs the rest — Group Matrix + portfolio AI concentration cluster; missing mark ≠ 0; not a gate">
+      <span class="v" title="Cost-weighted since-buy mark % for the largest cost lot vs the rest — ×N marked names in rest; Group Matrix + portfolio AI concentration cluster; missing mark ≠ 0; not a gate">
         {% if snap.book_risk.leader_marks_ready %}
         {% if snap.book_risk.leader_mark_label %}
         {% if snap.book_risk.leader_symbol %}{{ snap.book_risk.leader_symbol }} {% endif %}{{ snap.book_risk.leader_mark_label }}
