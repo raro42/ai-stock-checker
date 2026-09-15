@@ -126,6 +126,16 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Scan</span>
+      <span class="v" title="Cost-weighted since-buy mark % by full opportunity-list membership — still on scan vs off-list; ×N names; xang1234 screener + stale-rotation cluster; empty scan → —; not a gate">
+        {% if snap.book_risk.scan_marks_ready %}
+        {% if snap.book_risk.scan_on_label %}on {{ snap.book_risk.scan_on_label }}{% endif %}
+        {% if snap.book_risk.scan_on_label and snap.book_risk.scan_off_label %} · {% endif %}
+        {% if snap.book_risk.scan_off_label %}off {{ snap.book_risk.scan_off_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 

@@ -935,6 +935,84 @@ def min_hold_mark_returns(
     return out
 
 
+def scan_mark_returns(
+    holdings: list[dict[str, Any]],
+    scan_symbols: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by scan-list membership (display only).
+
+    xang1234 screener + tradermonty stale-rotation cluster: lots still on
+    the full opportunity list vs off-list. Empty/missing scan set → no
+    marks (not a silent all-off). Cluster n on labels. Strip only; not a
+    gate; not calendar 1w/1m.
+    """
+    scan: set[str] = set()
+    for sym in scan_symbols or []:
+        s = str(sym or "").strip()
+        if s:
+            scan.add(s)
+    bands: dict[str, dict[str, Any]] = {
+        "on": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "off": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "scan_on_pct": None,
+        "scan_off_pct": None,
+        "scan_on_label": "",
+        "scan_off_label": "",
+        "scan_on_lots": 0,
+        "scan_off_lots": 0,
+        "scan_marks_ready": False,
+        "scan_marks_bit": "",
+    }
+    if not scan:
+        return out
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip()
+        if not sym:
+            continue
+        key = "on" if sym in scan else "off"
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("on", "on", "scan_on"),
+        ("off", "off", "scan_off"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["scan_marks_ready"] = True
+        out["scan_marks_bit"] = "scan " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -943,14 +1021,16 @@ def book_risk_report(
     max_positions: int = 5,
     max_name_pct: float = DEFAULT_MAX_NAME_PCT,
     min_hold_seconds: float | None = None,
+    scan_symbols: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + venue + exit-band + min-hold lock + hold-tenure + win/lose
-    polarity + size + leader mark returns (Group Matrix–lite, cluster n
-    on labels). Does not change entries or exits.
+    sleeve + venue + exit-band + min-hold lock + scan membership +
+    hold-tenure + win/lose polarity + size + leader mark returns
+    (Group Matrix–lite, cluster n on labels). Does not change entries
+    or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1038,6 +1118,14 @@ def book_risk_report(
         "min_hold_unknown_lots": 0,
         "min_hold_marks_ready": False,
         "min_hold_marks_bit": "",
+        "scan_on_pct": None,
+        "scan_off_pct": None,
+        "scan_on_label": "",
+        "scan_off_label": "",
+        "scan_on_lots": 0,
+        "scan_off_lots": 0,
+        "scan_marks_ready": False,
+        "scan_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -1111,6 +1199,7 @@ def book_risk_report(
     venue = venue_mark_returns(rows)
     exit_band = exit_band_mark_returns(rows)
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
+    scan = scan_mark_returns(rows, scan_symbols)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -1143,6 +1232,7 @@ def book_risk_report(
         **venue,
         **exit_band,
         **min_hold,
+        **scan,
     }
 
 

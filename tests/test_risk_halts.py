@@ -655,6 +655,77 @@ def test_min_hold_mark_returns_lock_vs_free() -> None:
     assert "hold " not in out["note"]
 
 
+def test_scan_mark_returns_on_vs_off() -> None:
+    from stock_checker.risk_halts import book_risk_report, scan_mark_returns
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    scan = {"AAPL", "BTC-USD", "NVDA"}
+    sm = scan_mark_returns(holds, scan)
+    # on: AAPL 10k@4 + BTC 8k@6 → (40k+48k)/18k = 4.888… → 4.89
+    assert sm["scan_on_pct"] == 4.89
+    assert sm["scan_on_label"] == "+4.9%×2"
+    assert sm["scan_on_lots"] == 2
+    # off: MSFT 20k@−2 + SAP 5k@1 → (−40k+5k)/25k = −1.4; ETH unmarked lot
+    assert sm["scan_off_pct"] == -1.4
+    assert sm["scan_off_label"] == "−1.4%×2"
+    assert sm["scan_off_lots"] == 3
+    assert sm["scan_marks_ready"] is True
+    assert "scan on +4.9%×2 · off −1.4%×2" in sm["scan_marks_bit"]
+
+    empty = scan_mark_returns(holds, None)
+    assert empty["scan_marks_ready"] is False
+    assert empty["scan_marks_bit"] == ""
+    assert empty["scan_on_lots"] == 0
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        scan_symbols=scan,
+    )
+    assert out["scan_marks_ready"] is True
+    assert out["scan_on_label"] == "+4.9%×2"
+    assert out["scan_off_label"] == "−1.4%×2"
+    # Scan marks stay off the glance note (Book strip only)
+    assert "scan " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -680,7 +751,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["exit_band_marks_bit"] == ""
     assert out["min_hold_marks_ready"] is False
     assert out["min_hold_marks_bit"] == ""
-
+    assert out["scan_marks_ready"] is False
+    assert out["scan_marks_bit"] == ""
 
 def test_book_risk_report_overweight() -> None:
     from stock_checker.risk_halts import book_risk_report

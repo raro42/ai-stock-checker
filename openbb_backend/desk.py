@@ -5838,6 +5838,12 @@ def load_desk_snapshot(
         holdings=rows,
         max_positions=max_pos,
         min_hold_seconds=min_hold_s,
+        scan_symbols=(
+            str(item.get("symbol"))
+            for key in ("recommendations", "crypto_leaders", "stock_breakouts")
+            for item in (opportunities.get(key) or [])
+            if isinstance(item, dict) and item.get("symbol")
+        ),
     )
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
