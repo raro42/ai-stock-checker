@@ -2038,6 +2038,45 @@ a:active {
   margin: 0 0 0.4rem;
 }
 
+/* Book: park screener/AI Group Matrix under details (MonsterDeveloper + xang1234). */
+.matrix-honesty {
+  margin: 0.75rem 0 0.15rem;
+  padding: 0.45rem 0 0.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.matrix-honesty > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-family: var(--font-display, Georgia, "Times New Roman", serif);
+  font-size: 0.98rem;
+  list-style: none;
+}
+
+.matrix-honesty > summary::-webkit-details-marker {
+  display: none;
+}
+
+.matrix-honesty > summary .meta {
+  margin-left: 0.35rem;
+  color: var(--muted);
+  font-family: var(--font-body, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.matrix-honesty[open] > summary {
+  margin-bottom: 0.35rem;
+}
+
+.matrix-honesty > .sub {
+  margin: 0 0 0.55rem;
+}
+
+.matrix-honesty > .risk-strip {
+  margin-bottom: 0.15rem;
+}
+
 .empty,
 .note {
   color: var(--muted);
