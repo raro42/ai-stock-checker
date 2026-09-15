@@ -22,6 +22,8 @@ DEFAULT_POST_SL_COOLDOWN_SEC = 4 * 3600
 # Hold-tenure buckets for Group Matrix–lite marks (not calendar market 1w/1m).
 TENURE_WEEK_SEC = 7 * 86400
 TENURE_MONTH_SEC = 30 * 86400
+# Exit-band zone: fraction of asset TP/SL before counting as near-exit (display).
+EXIT_BAND_ZONE_FRAC = 0.75
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -726,6 +728,115 @@ def venue_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _exit_band_thresholds(h: dict[str, Any]) -> tuple[float, float]:
+    """TP / SL % for this lot — stock asymmetric vs crypto ±10%."""
+    from stock_checker.crypto_policy import (
+        CRYPTO_STOP_LOSS_PCT,
+        CRYPTO_TAKE_PROFIT_PCT,
+    )
+    from stock_checker.exit_policy import (
+        DEFAULT_STOP_LOSS_PCT,
+        DEFAULT_TAKE_PROFIT_PCT,
+    )
+
+    sym = str(h.get("symbol") or "")
+    kind = str(h.get("kind") or "")
+    if not kind:
+        kind = "crypto" if is_crypto_symbol(sym) else "stock"
+    if kind == "crypto" or is_crypto_symbol(sym):
+        return CRYPTO_TAKE_PROFIT_PCT, CRYPTO_STOP_LOSS_PCT
+    return DEFAULT_TAKE_PROFIT_PCT, DEFAULT_STOP_LOSS_PCT
+
+
+def _exit_band_bucket(h: dict[str, Any]) -> str | None:
+    """near-tp / mid / near-sl from since-buy mark vs live exit thresholds."""
+    pct = _holding_marked_pct(h)
+    if pct is None:
+        return None
+    tp, sl = _exit_band_thresholds(h)
+    frac = float(EXIT_BAND_ZONE_FRAC)
+    if frac <= 0:
+        frac = 0.75
+    if pct >= tp * frac:
+        return "tp"
+    if pct <= -(sl * frac):
+        return "sl"
+    return "mid"
+
+
+def exit_band_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by exit proximity (display only).
+
+    xang1234 Group Matrix performance-band cluster adapted as near-TP /
+    mid / near-SL using live stock TP+8%/SL−5% and crypto ±10% zones
+    (75% of threshold). Unmarked do not dilute. Cluster n on labels.
+    Strip only; not a gate; not calendar 1w/1m.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "tp": {"cost": 0.0, "w_pct": 0.0, "lots": 0},
+        "mid": {"cost": 0.0, "w_pct": 0.0, "lots": 0},
+        "sl": {"cost": 0.0, "w_pct": 0.0, "lots": 0},
+    }
+    unmarked_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _exit_band_bucket(h)
+        if key is None:
+            unmarked_lots += 1
+            continue
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            unmarked_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "exit_band_tp_pct": None,
+        "exit_band_mid_pct": None,
+        "exit_band_sl_pct": None,
+        "exit_band_tp_label": "",
+        "exit_band_mid_label": "",
+        "exit_band_sl_label": "",
+        "exit_band_tp_lots": int(bands["tp"]["lots"]),
+        "exit_band_mid_lots": int(bands["mid"]["lots"]),
+        "exit_band_sl_lots": int(bands["sl"]["lots"]),
+        "exit_band_unmarked_lots": unmarked_lots,
+        "exit_band_marks_ready": False,
+        "exit_band_marks_bit": "",
+        "exit_band_zone_frac": float(EXIT_BAND_ZONE_FRAC),
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("tp", "tp", "exit_band_tp"),
+        ("mid", "mid", "exit_band_mid"),
+        ("sl", "sl", "exit_band_sl"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        pct: float | None = None
+        if has_lots and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        n_lots = int(bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=has_lots, cluster_n=n_lots
+        )
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["exit_band_marks_ready"] = True
+        out["exit_band_marks_bit"] = "exit " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -738,9 +849,9 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + venue + hold-tenure + win/lose polarity + size + leader mark
-    returns (Group Matrix–lite, cluster n on labels). Does not change
-    entries or exits.
+    sleeve + venue + exit-band + hold-tenure + win/lose polarity + size +
+    leader mark returns (Group Matrix–lite, cluster n on labels). Does not
+    change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -806,6 +917,19 @@ def book_risk_report(
         "venue_crypto_lots": 0,
         "venue_marks_ready": False,
         "venue_marks_bit": "",
+        "exit_band_tp_pct": None,
+        "exit_band_mid_pct": None,
+        "exit_band_sl_pct": None,
+        "exit_band_tp_label": "",
+        "exit_band_mid_label": "",
+        "exit_band_sl_label": "",
+        "exit_band_tp_lots": 0,
+        "exit_band_mid_lots": 0,
+        "exit_band_sl_lots": 0,
+        "exit_band_unmarked_lots": 0,
+        "exit_band_marks_ready": False,
+        "exit_band_marks_bit": "",
+        "exit_band_zone_frac": float(EXIT_BAND_ZONE_FRAC),
     }
     try:
         cash_f = float(cash)
@@ -871,6 +995,7 @@ def book_risk_report(
     size = size_mark_returns(rows)
     leader = leader_mark_returns(rows)
     venue = venue_mark_returns(rows)
+    exit_band = exit_band_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -901,6 +1026,7 @@ def book_risk_report(
         **size,
         **leader,
         **venue,
+        **exit_band,
     }
 
 

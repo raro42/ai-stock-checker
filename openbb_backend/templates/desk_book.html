@@ -104,6 +104,18 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Exit</span>
+      <span class="v" title="Cost-weighted since-buy mark % by exit proximity — near TP (≥75% of stock +8% / crypto +10%), mid, near SL (≥75% of stock −5% / crypto −10%); ×N names; Group Matrix performance-band adapted; unmarked ≠ dilution; not a gate">
+        {% if snap.book_risk.exit_band_marks_ready %}
+        {% if snap.book_risk.exit_band_tp_label %}tp {{ snap.book_risk.exit_band_tp_label }}{% endif %}
+        {% if snap.book_risk.exit_band_tp_label and (snap.book_risk.exit_band_mid_label or snap.book_risk.exit_band_sl_label) %} · {% endif %}
+        {% if snap.book_risk.exit_band_mid_label %}mid {{ snap.book_risk.exit_band_mid_label }}{% endif %}
+        {% if snap.book_risk.exit_band_mid_label and snap.book_risk.exit_band_sl_label %} · {% endif %}
+        {% if snap.book_risk.exit_band_sl_label %}sl {{ snap.book_risk.exit_band_sl_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 

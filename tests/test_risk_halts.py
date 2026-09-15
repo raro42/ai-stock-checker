@@ -499,6 +499,65 @@ def test_venue_mark_returns_us_xetra_crypto() -> None:
     assert "venue " not in out["note"]
 
 
+def test_exit_band_mark_returns_tp_mid_sl() -> None:
+    from stock_checker.risk_halts import book_risk_report, exit_band_mark_returns
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 7.0,  # ≥75% of +8% → near TP
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": 2.0,  # mid
+            "marked": True,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": -4.0,  # ≤−75% of −5% → near SL
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 8.0,  # ≥75% of +10% → near TP
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    band = exit_band_mark_returns(holds)
+    # TP: AAPL 10k@7 + BTC 8k@8 → (70k+64k)/18k = 7.444… → 7.44
+    assert band["exit_band_tp_pct"] == 7.44
+    assert band["exit_band_tp_label"] == "+7.4%×2"
+    assert band["exit_band_tp_lots"] == 2
+    assert band["exit_band_mid_pct"] == 2.0
+    assert band["exit_band_mid_label"] == "+2.0%×1"
+    assert band["exit_band_sl_pct"] == -4.0
+    assert band["exit_band_sl_label"] == "−4.0%×1"
+    assert band["exit_band_unmarked_lots"] == 1
+    assert band["exit_band_marks_ready"] is True
+    assert "exit tp +7.4%×2 · mid +2.0%×1 · sl −4.0%×1" in band["exit_band_marks_bit"]
+
+    out = book_risk_report(cash=5_000, equity=80_000, holdings=holds, max_positions=5)
+    assert out["exit_band_marks_ready"] is True
+    assert out["exit_band_tp_label"] == "+7.4%×2"
+    # Exit band stays off the glance note (Book strip only)
+    assert "exit " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -520,6 +579,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["leader_marks_bit"] == ""
     assert out["venue_marks_ready"] is False
     assert out["venue_marks_bit"] == ""
+    assert out["exit_band_marks_ready"] is False
+    assert out["exit_band_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:
