@@ -726,6 +726,87 @@ def test_scan_mark_returns_on_vs_off() -> None:
     assert "scan " not in out["note"]
 
 
+def test_scan_list_mark_returns_lead_brk_rec_off() -> None:
+    from stock_checker.risk_halts import book_risk_report, scan_list_mark_returns
+
+    holds = [
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 10_000,
+            "unrealized_pct": 5.0,
+            "marked": True,
+        },
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": 2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": -1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 12_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    # NVDA in both breakouts + recs → brk wins; BTC also in recs → lead wins
+    lm = scan_list_mark_returns(
+        holds,
+        leaders=["BTC-USD"],
+        breakouts=["NVDA"],
+        recommendations=["NVDA", "AAPL", "BTC-USD"],
+    )
+    assert lm["scan_list_lead_pct"] == 5.0
+    assert lm["scan_list_lead_label"] == "+5.0%×1"
+    assert lm["scan_list_brk_pct"] == 2.0
+    assert lm["scan_list_brk_label"] == "+2.0%×1"
+    assert lm["scan_list_rec_pct"] == -1.0
+    assert lm["scan_list_rec_label"] == "−1.0%×1"
+    assert lm["scan_list_off_pct"] == 3.0
+    assert lm["scan_list_off_label"] == "+3.0%×1"
+    assert lm["scan_list_off_lots"] == 2  # MSFT marked + ETH unmarked
+    assert lm["scan_list_marks_ready"] is True
+    assert (
+        "list lead +5.0%×1 · brk +2.0%×1 · rec −1.0%×1 · off +3.0%×1"
+        in lm["scan_list_marks_bit"]
+    )
+
+    skipped = scan_list_mark_returns(holds)
+    assert skipped["scan_list_marks_ready"] is False
+    assert skipped["scan_list_marks_bit"] == ""
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        scan_leaders=["BTC-USD"],
+        scan_breakouts=["NVDA"],
+        scan_recommendations=["NVDA", "AAPL", "BTC-USD"],
+    )
+    assert out["scan_list_marks_ready"] is True
+    assert out["scan_list_lead_label"] == "+5.0%×1"
+    assert out["scan_list_brk_label"] == "+2.0%×1"
+    # List marks stay off the glance note (Book strip only)
+    assert "list " not in out["note"]
+
+
 def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
     from stock_checker.risk_halts import ai_debate_mark_returns, book_risk_report
 
@@ -989,6 +1070,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["min_hold_marks_bit"] == ""
     assert out["scan_marks_ready"] is False
     assert out["scan_marks_bit"] == ""
+    assert out["scan_list_marks_ready"] is False
+    assert out["scan_list_marks_bit"] == ""
     assert out["ai_debate_marks_ready"] is False
     assert out["ai_conf_marks_ready"] is False
     assert out["ai_roles_marks_ready"] is False

@@ -1013,6 +1013,111 @@ def scan_mark_returns(
     return out
 
 
+def scan_list_mark_returns(
+    holdings: list[dict[str, Any]],
+    *,
+    leaders: Iterable[str] | None = None,
+    breakouts: Iterable[str] | None = None,
+    recommendations: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by screener list role (display only).
+
+    xang1234 screener + Group Matrix: crypto leaders vs stock breakouts vs
+    plain recommendations vs off-list. Priority lead > brk > rec > off.
+    Empty lists → no marks (not a silent all-off). Cluster n on labels.
+    Strip only; not a gate; not calendar 1w/1m.
+    """
+
+    def _norm(syms: Iterable[str] | None) -> set[str]:
+        out: set[str] = set()
+        for raw in syms or []:
+            s = str(raw or "").strip().upper()
+            if s:
+                out.add(s)
+        return out
+
+    lead = _norm(leaders)
+    brk = _norm(breakouts)
+    rec = _norm(recommendations)
+    bands: dict[str, dict[str, Any]] = {
+        "lead": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "brk": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "rec": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "off": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "scan_list_lead_pct": None,
+        "scan_list_brk_pct": None,
+        "scan_list_rec_pct": None,
+        "scan_list_off_pct": None,
+        "scan_list_lead_label": "",
+        "scan_list_brk_label": "",
+        "scan_list_rec_label": "",
+        "scan_list_off_label": "",
+        "scan_list_lead_lots": 0,
+        "scan_list_brk_lots": 0,
+        "scan_list_rec_lots": 0,
+        "scan_list_off_lots": 0,
+        "scan_list_marks_ready": False,
+        "scan_list_marks_bit": "",
+    }
+    if not lead and not brk and not rec:
+        return out
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        if sym in lead:
+            key = "lead"
+        elif sym in brk:
+            key = "brk"
+        elif sym in rec:
+            key = "rec"
+        else:
+            key = "off"
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("lead", "lead", "scan_list_lead"),
+        ("brk", "brk", "scan_list_brk"),
+        ("rec", "rec", "scan_list_rec"),
+        ("off", "off", "scan_list_off"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["scan_list_marks_ready"] = True
+        out["scan_list_marks_bit"] = "list " + " · ".join(bits)
+    return out
+
+
 def ai_debate_mark_returns(
     holdings: list[dict[str, Any]],
     action_by_symbol: dict[str, str] | None = None,
@@ -1302,6 +1407,9 @@ def book_risk_report(
     max_name_pct: float = DEFAULT_MAX_NAME_PCT,
     min_hold_seconds: float | None = None,
     scan_symbols: Iterable[str] | None = None,
+    scan_leaders: Iterable[str] | None = None,
+    scan_breakouts: Iterable[str] | None = None,
+    scan_recommendations: Iterable[str] | None = None,
     ai_actions: dict[str, str] | None = None,
     ai_confidences: dict[str, str] | None = None,
     ai_gated: dict[str, bool] | None = None,
@@ -1311,9 +1419,10 @@ def book_risk_report(
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + scan membership +
-    AI debate action + AI confidence + multi-role gated + hold-tenure +
-    win/lose polarity + size + leader mark returns (Group Matrix–lite,
-    cluster n on labels). Does not change entries or exits.
+    screener list role (lead/brk/rec/off) + AI debate action + AI
+    confidence + multi-role gated + hold-tenure + win/lose polarity +
+    size + leader mark returns (Group Matrix–lite, cluster n on
+    labels). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1409,6 +1518,20 @@ def book_risk_report(
         "scan_off_lots": 0,
         "scan_marks_ready": False,
         "scan_marks_bit": "",
+        "scan_list_lead_pct": None,
+        "scan_list_brk_pct": None,
+        "scan_list_rec_pct": None,
+        "scan_list_off_pct": None,
+        "scan_list_lead_label": "",
+        "scan_list_brk_label": "",
+        "scan_list_rec_label": "",
+        "scan_list_off_label": "",
+        "scan_list_lead_lots": 0,
+        "scan_list_brk_lots": 0,
+        "scan_list_rec_lots": 0,
+        "scan_list_off_lots": 0,
+        "scan_list_marks_ready": False,
+        "scan_list_marks_bit": "",
         "ai_debate_buy_pct": None,
         "ai_debate_hold_pct": None,
         "ai_debate_sell_pct": None,
@@ -1522,6 +1645,12 @@ def book_risk_report(
     exit_band = exit_band_mark_returns(rows)
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     scan = scan_mark_returns(rows, scan_symbols)
+    scan_list = scan_list_mark_returns(
+        rows,
+        leaders=scan_leaders,
+        breakouts=scan_breakouts,
+        recommendations=scan_recommendations,
+    )
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
     ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
     ai_roles = ai_gated_mark_returns(rows, ai_gated)
@@ -1558,6 +1687,7 @@ def book_risk_report(
         **exit_band,
         **min_hold,
         **scan,
+        **scan_list,
         **ai_debate,
         **ai_conf,
         **ai_roles,

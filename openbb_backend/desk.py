@@ -5852,6 +5852,21 @@ def load_desk_snapshot(
             for item in (opportunities.get(key) or [])
             if isinstance(item, dict) and item.get("symbol")
         ),
+        scan_leaders=(
+            str(item.get("symbol"))
+            for item in (opportunities.get("crypto_leaders") or [])
+            if isinstance(item, dict) and item.get("symbol")
+        ),
+        scan_breakouts=(
+            str(item.get("symbol"))
+            for item in (opportunities.get("stock_breakouts") or [])
+            if isinstance(item, dict) and item.get("symbol")
+        ),
+        scan_recommendations=(
+            str(item.get("symbol"))
+            for item in (opportunities.get("recommendations") or [])
+            if isinstance(item, dict) and item.get("symbol")
+        ),
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
         ai_gated=ai_gated,
