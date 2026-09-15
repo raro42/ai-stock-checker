@@ -142,6 +142,12 @@
         {% if snap.book_risk.ai_debate_marks_ready %}{{ snap.book_risk.ai_debate_marks_bit[3:] }}{% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Conf</span>
+      <span class="v" title="Cost-weighted since-buy mark % by newest AI validate confidence — hi / med / lo / none; ×N names; FinRobot + portfolio AI confidence cluster; not a research score; not a gate">
+        {% if snap.book_risk.ai_conf_marks_ready %}{{ snap.book_risk.ai_conf_marks_bit[5:] }}{% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 

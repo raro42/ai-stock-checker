@@ -805,6 +805,84 @@ def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
     assert "ai " not in out["note"]
 
 
+def test_ai_confidence_mark_returns_hi_med_lo_none() -> None:
+    from stock_checker.risk_halts import ai_confidence_mark_returns, book_risk_report
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    confs = {"AAPL": "HIGH", "MSFT": "MEDIUM", "BTC-USD": "LOW"}
+    cm = ai_confidence_mark_returns(holds, confs)
+    assert cm["ai_conf_high_pct"] == 4.0
+    assert cm["ai_conf_high_label"] == "+4.0%×1"
+    assert cm["ai_conf_med_pct"] == -2.0
+    assert cm["ai_conf_med_label"] == "−2.0%×1"
+    assert cm["ai_conf_low_pct"] == 6.0
+    assert cm["ai_conf_low_label"] == "+6.0%×1"
+    assert cm["ai_conf_none_pct"] == 1.0
+    assert cm["ai_conf_none_label"] == "+1.0%×1"
+    assert cm["ai_conf_none_lots"] == 2
+    assert cm["ai_conf_marks_ready"] is True
+    assert "conf hi +4.0%×1 · med −2.0%×1 · lo +6.0%×1 · none +1.0%×1" in cm[
+        "ai_conf_marks_bit"
+    ]
+
+    skipped = ai_confidence_mark_returns(holds, None)
+    assert skipped["ai_conf_marks_ready"] is False
+    assert skipped["ai_conf_marks_bit"] == ""
+
+    empty_map = ai_confidence_mark_returns(holds, {})
+    assert empty_map["ai_conf_marks_ready"] is True
+    assert empty_map["ai_conf_none_lots"] == 5
+    assert empty_map["ai_conf_high_lots"] == 0
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        ai_confidences=confs,
+    )
+    assert out["ai_conf_marks_ready"] is True
+    assert out["ai_conf_high_label"] == "+4.0%×1"
+    assert out["ai_conf_low_label"] == "+6.0%×1"
+    # Confidence marks stay off the glance note (Book strip only)
+    assert "conf " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 

@@ -1107,6 +1107,103 @@ def ai_debate_mark_returns(
     return out
 
 
+def ai_confidence_mark_returns(
+    holdings: list[dict[str, Any]],
+    confidence_by_symbol: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by last AI validate confidence (display only).
+
+    FinRobot + xang1234 Group Matrix + portfolio AI: lots whose newest
+    debate was HIGH / MEDIUM / LOW vs no memory (none).
+    ``confidence_by_symbol`` None → skip (caller did not wire). Empty map
+    → all none. Cluster n on labels. Strip only; not a gate; not a
+    research score.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "high": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "med": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "low": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "none": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "ai_conf_high_pct": None,
+        "ai_conf_med_pct": None,
+        "ai_conf_low_pct": None,
+        "ai_conf_none_pct": None,
+        "ai_conf_high_label": "",
+        "ai_conf_med_label": "",
+        "ai_conf_low_label": "",
+        "ai_conf_none_label": "",
+        "ai_conf_high_lots": 0,
+        "ai_conf_med_lots": 0,
+        "ai_conf_low_lots": 0,
+        "ai_conf_none_lots": 0,
+        "ai_conf_marks_ready": False,
+        "ai_conf_marks_bit": "",
+    }
+    if confidence_by_symbol is None:
+        return out
+
+    confs: dict[str, str] = {}
+    for raw_sym, raw_conf in confidence_by_symbol.items():
+        sym = str(raw_sym or "").strip().upper()
+        if not sym:
+            continue
+        conf = str(raw_conf or "").upper()
+        if conf == "MEDIUM":
+            conf = "MED"
+        if conf not in {"HIGH", "MED", "LOW"}:
+            continue
+        confs[sym] = conf
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        conf = confs.get(sym)
+        key = "none" if conf is None else conf.lower()
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("high", "hi", "ai_conf_high"),
+        ("med", "med", "ai_conf_med"),
+        ("low", "lo", "ai_conf_low"),
+        ("none", "none", "ai_conf_none"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["ai_conf_marks_ready"] = True
+        out["ai_conf_marks_bit"] = "conf " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -1117,15 +1214,16 @@ def book_risk_report(
     min_hold_seconds: float | None = None,
     scan_symbols: Iterable[str] | None = None,
     ai_actions: dict[str, str] | None = None,
+    ai_confidences: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + scan membership +
-    AI debate action + hold-tenure + win/lose polarity + size + leader
-    mark returns (Group Matrix–lite, cluster n on labels). Does not
-    change entries or exits.
+    AI debate action + AI confidence + hold-tenure + win/lose polarity +
+    size + leader mark returns (Group Matrix–lite, cluster n on labels).
+    Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1235,6 +1333,20 @@ def book_risk_report(
         "ai_debate_none_lots": 0,
         "ai_debate_marks_ready": False,
         "ai_debate_marks_bit": "",
+        "ai_conf_high_pct": None,
+        "ai_conf_med_pct": None,
+        "ai_conf_low_pct": None,
+        "ai_conf_none_pct": None,
+        "ai_conf_high_label": "",
+        "ai_conf_med_label": "",
+        "ai_conf_low_label": "",
+        "ai_conf_none_label": "",
+        "ai_conf_high_lots": 0,
+        "ai_conf_med_lots": 0,
+        "ai_conf_low_lots": 0,
+        "ai_conf_none_lots": 0,
+        "ai_conf_marks_ready": False,
+        "ai_conf_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -1310,6 +1422,7 @@ def book_risk_report(
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     scan = scan_mark_returns(rows, scan_symbols)
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
+    ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -1344,6 +1457,7 @@ def book_risk_report(
         **min_hold,
         **scan,
         **ai_debate,
+        **ai_conf,
     }
 
 

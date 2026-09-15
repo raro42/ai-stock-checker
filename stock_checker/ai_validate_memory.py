@@ -94,6 +94,29 @@ def latest_ai_actions(data_dir: Path | str) -> dict[str, str]:
     return out
 
 
+def latest_ai_confidences(data_dir: Path | str) -> dict[str, str]:
+    """Newest validate confidence per symbol (display only).
+
+    Walks oldest→newest so the last event wins. Values are HIGH / MEDIUM /
+    LOW. Symbols with blank/unknown confidence are omitted (Book treats
+    them as none). FinRobot + portfolio AI confidence cluster for Group
+    Matrix — not a research score and not a gate.
+    """
+    out: dict[str, str] = {}
+    for e in load_ai_validate_memory(data_dir):
+        if not isinstance(e, dict):
+            continue
+        sym = str(e.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        conf = str(e.get("confidence") or "").upper()
+        if conf not in {"HIGH", "MEDIUM", "LOW"}:
+            out.pop(sym, None)
+            continue
+        out[sym] = conf
+    return out
+
+
 def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
     """Compact counts from the validate ring buffer (display only).
 
