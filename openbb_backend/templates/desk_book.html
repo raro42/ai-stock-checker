@@ -148,6 +148,12 @@
         {% if snap.book_risk.ai_conf_marks_ready %}{{ snap.book_risk.ai_conf_marks_bit[5:] }}{% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Roles</span>
+      <span class="v" title="Cost-weighted since-buy mark % by newest multi-role veto — gated (veto→HOLD) / free / none; ×N names; FinRobot roles + Group Matrix; not a research score; not a gate">
+        {% if snap.book_risk.ai_roles_marks_ready %}{{ snap.book_risk.ai_roles_marks_bit[6:] }}{% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 

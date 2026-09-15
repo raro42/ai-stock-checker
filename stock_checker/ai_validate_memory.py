@@ -117,6 +117,25 @@ def latest_ai_confidences(data_dir: Path | str) -> dict[str, str]:
     return out
 
 
+def latest_ai_gated(data_dir: Path | str) -> dict[str, bool]:
+    """Newest multi-role gated flag per symbol (display only).
+
+    Walks oldest→newest so the last event wins. True = bull/bear/risk veto
+    forced HOLD; False = debate kept without role veto. Symbols with no
+    memory are omitted (Book treats them as none). FinRobot roles cluster
+    for Group Matrix — not a research score and not a gate.
+    """
+    out: dict[str, bool] = {}
+    for e in load_ai_validate_memory(data_dir):
+        if not isinstance(e, dict):
+            continue
+        sym = str(e.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        out[sym] = bool(e.get("multi_role_gated"))
+    return out
+
+
 def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
     """Compact counts from the validate ring buffer (display only).
 

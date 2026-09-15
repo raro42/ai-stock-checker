@@ -11,6 +11,7 @@ from stock_checker.ai_multi_role import consensus_from_multi_role
 from stock_checker.ai_validate_memory import (
     latest_ai_actions,
     latest_ai_confidences,
+    latest_ai_gated,
     load_ai_validate_memory,
     recent_ai_debates,
     record_ai_validate,
@@ -52,6 +53,7 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert "momentum" in events[0]["bull_note"]
     assert latest_ai_actions(tmp_path) == {"AAPL": "BUY", "XYZ": "SELL"}
     assert latest_ai_confidences(tmp_path) == {"AAPL": "MEDIUM", "XYZ": "HIGH"}
+    assert latest_ai_gated(tmp_path) == {"AAPL": False, "XYZ": False}
     assert events[0]["kept"] is True
     assert isinstance(events[0].get("reasons"), list)
     assert events[1]["symbol"] == "XYZ"
@@ -89,8 +91,38 @@ def test_latest_ai_actions_last_write_wins(tmp_path: Path) -> None:
     )
     assert latest_ai_actions(tmp_path) == {"AAPL": "HOLD"}
     assert latest_ai_confidences(tmp_path) == {"AAPL": "LOW"}
+    assert latest_ai_gated(tmp_path) == {"AAPL": False}
     assert latest_ai_actions(tmp_path / "missing") == {}
     assert latest_ai_confidences(tmp_path / "missing") == {}
+    assert latest_ai_gated(tmp_path / "missing") == {}
+
+
+def test_latest_ai_gated_last_write_wins(tmp_path: Path) -> None:
+    record_ai_validate(
+        tmp_path,
+        {
+            "action": "BUY",
+            "confidence": "HIGH",
+            "score": 10,
+            "reasons": ["up"],
+            "multi_role_gated": False,
+        },
+        symbol="AAPL",
+        kept=True,
+    )
+    record_ai_validate(
+        tmp_path,
+        {
+            "action": "HOLD",
+            "confidence": "LOW",
+            "score": 0,
+            "reasons": ["veto"],
+            "multi_role_gated": True,
+        },
+        symbol="AAPL",
+        kept=False,
+    )
+    assert latest_ai_gated(tmp_path) == {"AAPL": True}
 
 
 def test_latest_ai_confidences_drops_blank(tmp_path: Path) -> None:

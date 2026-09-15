@@ -5810,6 +5810,7 @@ def load_desk_snapshot(
     from stock_checker.ai_validate_memory import (
         latest_ai_actions,
         latest_ai_confidences,
+        latest_ai_gated,
         recent_ai_debates,
     )
     from stock_checker.gate_audit import recent_soft_allows
@@ -5825,6 +5826,7 @@ def load_desk_snapshot(
     ai_debates = recent_ai_debates(data_dir, limit=8)
     ai_actions = latest_ai_actions(data_dir)
     ai_confidences = latest_ai_confidences(data_dir)
+    ai_gated = latest_ai_gated(data_dir)
 
     max_pos = int(cfg_fees.get("max_positions") or 5)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
@@ -5852,6 +5854,7 @@ def load_desk_snapshot(
         ),
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
+        ai_gated=ai_gated,
     )
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)

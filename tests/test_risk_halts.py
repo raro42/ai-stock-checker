@@ -883,6 +883,85 @@ def test_ai_confidence_mark_returns_hi_med_lo_none() -> None:
     assert "conf " not in out["note"]
 
 
+def test_ai_gated_mark_returns_gated_free_none() -> None:
+    from stock_checker.risk_halts import ai_gated_mark_returns, book_risk_report
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    gated = {"AAPL": True, "MSFT": False, "BTC-USD": False}
+    gm = ai_gated_mark_returns(holds, gated)
+    assert gm["ai_roles_gated_pct"] == 4.0
+    assert gm["ai_roles_gated_label"] == "+4.0%×1"
+    # free: MSFT 20k@−2 + BTC 8k@6 → (−40k+48k)/28k = 0.2857…
+    assert gm["ai_roles_free_pct"] == 0.29
+    assert gm["ai_roles_free_label"] == "+0.3%×2"
+    assert gm["ai_roles_free_lots"] == 2
+    # none: SAP 5k@1 marked + ETH unmarked lot
+    assert gm["ai_roles_none_pct"] == 1.0
+    assert gm["ai_roles_none_label"] == "+1.0%×1"
+    assert gm["ai_roles_none_lots"] == 2
+    assert gm["ai_roles_marks_ready"] is True
+    assert "roles gated +4.0%×1 · free +0.3%×2 · none +1.0%×1" in gm[
+        "ai_roles_marks_bit"
+    ]
+
+    skipped = ai_gated_mark_returns(holds, None)
+    assert skipped["ai_roles_marks_ready"] is False
+    assert skipped["ai_roles_marks_bit"] == ""
+
+    empty_map = ai_gated_mark_returns(holds, {})
+    assert empty_map["ai_roles_marks_ready"] is True
+    assert empty_map["ai_roles_none_lots"] == 5
+    assert empty_map["ai_roles_gated_lots"] == 0
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        ai_gated=gated,
+    )
+    assert out["ai_roles_marks_ready"] is True
+    assert out["ai_roles_gated_label"] == "+4.0%×1"
+    assert out["ai_roles_free_label"] == "+0.3%×2"
+    # Roles marks stay off the glance note (Book strip only)
+    assert "roles " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -910,6 +989,11 @@ def test_book_risk_report_empty_book() -> None:
     assert out["min_hold_marks_bit"] == ""
     assert out["scan_marks_ready"] is False
     assert out["scan_marks_bit"] == ""
+    assert out["ai_debate_marks_ready"] is False
+    assert out["ai_conf_marks_ready"] is False
+    assert out["ai_roles_marks_ready"] is False
+    assert out["ai_roles_marks_bit"] == ""
+
 
 def test_book_risk_report_overweight() -> None:
     from stock_checker.risk_halts import book_risk_report

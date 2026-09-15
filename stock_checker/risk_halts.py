@@ -1204,6 +1204,95 @@ def ai_confidence_mark_returns(
     return out
 
 
+def ai_gated_mark_returns(
+    holdings: list[dict[str, Any]],
+    gated_by_symbol: dict[str, bool] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by last multi-role veto (display only).
+
+    FinRobot + xang1234 Group Matrix + portfolio AI: lots whose newest
+    debate was role-gated (veto→HOLD) vs free vs no memory (none).
+    ``gated_by_symbol`` None → skip (caller did not wire). Empty map →
+    all none. Cluster n on labels. Strip only; not a gate; not a
+    research score.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "gated": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "free": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "none": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "ai_roles_gated_pct": None,
+        "ai_roles_free_pct": None,
+        "ai_roles_none_pct": None,
+        "ai_roles_gated_label": "",
+        "ai_roles_free_label": "",
+        "ai_roles_none_label": "",
+        "ai_roles_gated_lots": 0,
+        "ai_roles_free_lots": 0,
+        "ai_roles_none_lots": 0,
+        "ai_roles_marks_ready": False,
+        "ai_roles_marks_bit": "",
+    }
+    if gated_by_symbol is None:
+        return out
+
+    flags: dict[str, bool] = {}
+    for raw_sym, raw_flag in gated_by_symbol.items():
+        sym = str(raw_sym or "").strip().upper()
+        if not sym:
+            continue
+        flags[sym] = bool(raw_flag)
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        if sym not in flags:
+            key = "none"
+        else:
+            key = "gated" if flags[sym] else "free"
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("gated", "gated", "ai_roles_gated"),
+        ("free", "free", "ai_roles_free"),
+        ("none", "none", "ai_roles_none"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["ai_roles_marks_ready"] = True
+        out["ai_roles_marks_bit"] = "roles " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -1215,15 +1304,16 @@ def book_risk_report(
     scan_symbols: Iterable[str] | None = None,
     ai_actions: dict[str, str] | None = None,
     ai_confidences: dict[str, str] | None = None,
+    ai_gated: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
     """
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + scan membership +
-    AI debate action + AI confidence + hold-tenure + win/lose polarity +
-    size + leader mark returns (Group Matrix–lite, cluster n on labels).
-    Does not change entries or exits.
+    AI debate action + AI confidence + multi-role gated + hold-tenure +
+    win/lose polarity + size + leader mark returns (Group Matrix–lite,
+    cluster n on labels). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1347,6 +1437,17 @@ def book_risk_report(
         "ai_conf_none_lots": 0,
         "ai_conf_marks_ready": False,
         "ai_conf_marks_bit": "",
+        "ai_roles_gated_pct": None,
+        "ai_roles_free_pct": None,
+        "ai_roles_none_pct": None,
+        "ai_roles_gated_label": "",
+        "ai_roles_free_label": "",
+        "ai_roles_none_label": "",
+        "ai_roles_gated_lots": 0,
+        "ai_roles_free_lots": 0,
+        "ai_roles_none_lots": 0,
+        "ai_roles_marks_ready": False,
+        "ai_roles_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -1423,6 +1524,7 @@ def book_risk_report(
     scan = scan_mark_returns(rows, scan_symbols)
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
     ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
+    ai_roles = ai_gated_mark_returns(rows, ai_gated)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -1458,6 +1560,7 @@ def book_risk_report(
         **scan,
         **ai_debate,
         **ai_conf,
+        **ai_roles,
     }
 
 
