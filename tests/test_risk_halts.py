@@ -449,6 +449,56 @@ def test_leader_mark_returns_top_vs_rest() -> None:
     assert "leader " not in out["note"]
 
 
+def test_venue_mark_returns_us_xetra_crypto() -> None:
+    from stock_checker.risk_halts import book_risk_report, venue_mark_returns
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -5.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "unrealized_pct": 8.0,
+            "marked": True,
+        },
+        {
+            "symbol": "SIE.DE",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "marked": False,
+        },
+    ]
+    venue = venue_mark_returns(holds)
+    assert venue["venue_us_pct"] == 10.0
+    assert venue["venue_us_label"] == "+10.0%×1"
+    assert venue["venue_xetra_pct"] == -5.0
+    assert venue["venue_xetra_label"] == "−5.0%×1"
+    assert venue["venue_xetra_lots"] == 2
+    assert venue["venue_crypto_pct"] == 8.0
+    assert venue["venue_crypto_label"] == "+8.0%×1"
+    assert venue["venue_marks_ready"] is True
+    assert "venue us +10.0%×1 · de −5.0%×1 · cr +8.0%×1" in venue["venue_marks_bit"]
+
+    out = book_risk_report(cash=5_000, equity=80_000, holdings=holds, max_positions=5)
+    assert out["venue_marks_ready"] is True
+    assert out["venue_xetra_label"] == "−5.0%×1"
+    # Venue stays off the glance note (Book strip only)
+    assert "venue " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -468,6 +518,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["size_marks_bit"] == ""
     assert out["leader_marks_ready"] is False
     assert out["leader_marks_bit"] == ""
+    assert out["venue_marks_ready"] is False
+    assert out["venue_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:

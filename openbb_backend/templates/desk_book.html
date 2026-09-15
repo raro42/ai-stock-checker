@@ -92,6 +92,18 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Venue</span>
+      <span class="v" title="Cost-weighted since-buy mark % by listing venue — US cash vs Xetra .DE vs crypto; ×N marked names; Group Matrix country/exchange adapted; missing mark ≠ 0; not calendar 1w/1m; not a gate">
+        {% if snap.book_risk.venue_marks_ready %}
+        {% if snap.book_risk.venue_us_label %}us {{ snap.book_risk.venue_us_label }}{% endif %}
+        {% if snap.book_risk.venue_us_label and (snap.book_risk.venue_xetra_label or snap.book_risk.venue_crypto_label) %} · {% endif %}
+        {% if snap.book_risk.venue_xetra_label %}de {{ snap.book_risk.venue_xetra_label }}{% endif %}
+        {% if snap.book_risk.venue_xetra_label and snap.book_risk.venue_crypto_label %} · {% endif %}
+        {% if snap.book_risk.venue_crypto_label %}cr {{ snap.book_risk.venue_crypto_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 

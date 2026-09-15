@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional, Tuple
 
+from stock_checker.market_hours import is_crypto_symbol, is_german_equity
+
 # Realized loss vs initial capital (UTC day) → block new buys.
 DEFAULT_DAILY_LOSS_PCT = 2.0
 # Cap one new fill notional vs marked equity.
@@ -644,6 +646,86 @@ def leader_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _venue_bucket(h: dict[str, Any]) -> str:
+    """US cash vs Xetra `.DE` vs crypto — Group Matrix country/exchange lite."""
+    sym = str(h.get("symbol") or "")
+    kind = str(h.get("kind") or "")
+    if not kind:
+        kind = "crypto" if is_crypto_symbol(sym) else "stock"
+    if kind == "crypto" or is_crypto_symbol(sym):
+        return "crypto"
+    if is_german_equity(sym):
+        return "xetra"
+    return "us"
+
+
+def venue_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by listing venue (display only).
+
+    xang1234 Group Matrix country/exchange cluster adapted as US RTH vs
+    Xetra `.DE` vs crypto + cluster n. Complements equity/crypto sleeve.
+    Missing mark → —. Not calendar 1w/1m; not a gate.
+    """
+    venues: dict[str, dict[str, Any]] = {
+        "us": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "xetra": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "crypto": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        bucket = venues[_venue_bucket(h)]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "venue_us_pct": None,
+        "venue_xetra_pct": None,
+        "venue_crypto_pct": None,
+        "venue_us_label": "",
+        "venue_xetra_label": "",
+        "venue_crypto_label": "",
+        "venue_us_lots": 0,
+        "venue_xetra_lots": 0,
+        "venue_crypto_lots": 0,
+        "venue_marks_ready": False,
+        "venue_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("us", "us", "venue_us"),
+        ("xetra", "de", "venue_xetra"),
+        ("crypto", "cr", "venue_crypto"),
+    ):
+        bucket = venues[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["venue_marks_ready"] = True
+        out["venue_marks_bit"] = "venue " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -656,8 +738,9 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + hold-tenure + win/lose polarity + size + leader mark returns
-    (Group Matrix–lite, cluster n on labels). Does not change entries or exits.
+    sleeve + venue + hold-tenure + win/lose polarity + size + leader mark
+    returns (Group Matrix–lite, cluster n on labels). Does not change
+    entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -712,6 +795,17 @@ def book_risk_report(
         "leader_marks_ready": False,
         "leader_marks_bit": "",
         "leader_cost_share": 0.0,
+        "venue_us_pct": None,
+        "venue_xetra_pct": None,
+        "venue_crypto_pct": None,
+        "venue_us_label": "",
+        "venue_xetra_label": "",
+        "venue_crypto_label": "",
+        "venue_us_lots": 0,
+        "venue_xetra_lots": 0,
+        "venue_crypto_lots": 0,
+        "venue_marks_ready": False,
+        "venue_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -776,6 +870,7 @@ def book_risk_report(
     polarity = polarity_mark_returns(rows)
     size = size_mark_returns(rows)
     leader = leader_mark_returns(rows)
+    venue = venue_mark_returns(rows)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -805,6 +900,7 @@ def book_risk_report(
         **polarity,
         **size,
         **leader,
+        **venue,
     }
 
 
