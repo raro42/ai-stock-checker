@@ -1013,6 +1013,100 @@ def scan_mark_returns(
     return out
 
 
+def ai_debate_mark_returns(
+    holdings: list[dict[str, Any]],
+    action_by_symbol: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by last AI validate action (display only).
+
+    FinRobot + xang1234 Group Matrix + portfolio AI: lots whose newest
+    debate was BUY / HOLD / SELL vs no memory (none). ``action_by_symbol``
+    None → skip (caller did not wire). Empty map → all none. Cluster n on
+    labels. Strip only; not a gate; not a research score.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "buy": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "hold": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "sell": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "none": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "ai_debate_buy_pct": None,
+        "ai_debate_hold_pct": None,
+        "ai_debate_sell_pct": None,
+        "ai_debate_none_pct": None,
+        "ai_debate_buy_label": "",
+        "ai_debate_hold_label": "",
+        "ai_debate_sell_label": "",
+        "ai_debate_none_label": "",
+        "ai_debate_buy_lots": 0,
+        "ai_debate_hold_lots": 0,
+        "ai_debate_sell_lots": 0,
+        "ai_debate_none_lots": 0,
+        "ai_debate_marks_ready": False,
+        "ai_debate_marks_bit": "",
+    }
+    if action_by_symbol is None:
+        return out
+
+    actions: dict[str, str] = {}
+    for raw_sym, raw_act in action_by_symbol.items():
+        sym = str(raw_sym or "").strip().upper()
+        if not sym:
+            continue
+        act = str(raw_act or "HOLD").upper()
+        if act not in {"BUY", "SELL", "HOLD"}:
+            act = "HOLD"
+        actions[sym] = act
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        act = actions.get(sym)
+        key = "none" if act is None else act.lower()
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("buy", "buy", "ai_debate_buy"),
+        ("hold", "hold", "ai_debate_hold"),
+        ("sell", "sell", "ai_debate_sell"),
+        ("none", "none", "ai_debate_none"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["ai_debate_marks_ready"] = True
+        out["ai_debate_marks_bit"] = "ai " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -1022,15 +1116,16 @@ def book_risk_report(
     max_name_pct: float = DEFAULT_MAX_NAME_PCT,
     min_hold_seconds: float | None = None,
     scan_symbols: Iterable[str] | None = None,
+    ai_actions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + scan membership +
-    hold-tenure + win/lose polarity + size + leader mark returns
-    (Group Matrix–lite, cluster n on labels). Does not change entries
-    or exits.
+    AI debate action + hold-tenure + win/lose polarity + size + leader
+    mark returns (Group Matrix–lite, cluster n on labels). Does not
+    change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1126,6 +1221,20 @@ def book_risk_report(
         "scan_off_lots": 0,
         "scan_marks_ready": False,
         "scan_marks_bit": "",
+        "ai_debate_buy_pct": None,
+        "ai_debate_hold_pct": None,
+        "ai_debate_sell_pct": None,
+        "ai_debate_none_pct": None,
+        "ai_debate_buy_label": "",
+        "ai_debate_hold_label": "",
+        "ai_debate_sell_label": "",
+        "ai_debate_none_label": "",
+        "ai_debate_buy_lots": 0,
+        "ai_debate_hold_lots": 0,
+        "ai_debate_sell_lots": 0,
+        "ai_debate_none_lots": 0,
+        "ai_debate_marks_ready": False,
+        "ai_debate_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -1200,6 +1309,7 @@ def book_risk_report(
     exit_band = exit_band_mark_returns(rows)
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     scan = scan_mark_returns(rows, scan_symbols)
+    ai_debate = ai_debate_mark_returns(rows, ai_actions)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -1233,6 +1343,7 @@ def book_risk_report(
         **exit_band,
         **min_hold,
         **scan,
+        **ai_debate,
     }
 
 

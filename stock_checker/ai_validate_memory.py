@@ -73,6 +73,27 @@ def recent_ai_debates(
     return list(reversed(events[-lim:])) if lim else []
 
 
+def latest_ai_actions(data_dir: Path | str) -> dict[str, str]:
+    """Newest validate action per symbol (display only).
+
+    Walks the ring buffer oldest→newest so the last event wins. Values are
+    BUY / HOLD / SELL. Empty when no memory — Book Group Matrix uses this
+    for AI debate mark clusters (FinRobot / portfolio AI).
+    """
+    out: dict[str, str] = {}
+    for e in load_ai_validate_memory(data_dir):
+        if not isinstance(e, dict):
+            continue
+        sym = str(e.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        action = str(e.get("action") or "HOLD").upper()
+        if action not in {"BUY", "SELL", "HOLD"}:
+            action = "HOLD"
+        out[sym] = action
+    return out
+
+
 def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
     """Compact counts from the validate ring buffer (display only).
 

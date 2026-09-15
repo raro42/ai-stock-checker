@@ -9,6 +9,7 @@ from pathlib import Path
 from openbb_backend.desk import build_ai_debate_glance, load_desk_snapshot
 from stock_checker.ai_multi_role import consensus_from_multi_role
 from stock_checker.ai_validate_memory import (
+    latest_ai_actions,
     load_ai_validate_memory,
     recent_ai_debates,
     record_ai_validate,
@@ -48,6 +49,7 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert events[0]["symbol"] == "AAPL"
     assert events[0]["bull_bias"] == "BUY"
     assert "momentum" in events[0]["bull_note"]
+    assert latest_ai_actions(tmp_path) == {"AAPL": "BUY", "XYZ": "SELL"}
     assert events[0]["kept"] is True
     assert isinstance(events[0].get("reasons"), list)
     assert events[1]["symbol"] == "XYZ"
@@ -68,6 +70,23 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert stats["latest_symbol"] == "XYZ"
     assert stats["latest_action"] == "SELL"
     assert stats["latest_at"]
+
+
+def test_latest_ai_actions_last_write_wins(tmp_path: Path) -> None:
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 10, "reasons": ["up"]},
+        symbol="AAPL",
+        kept=True,
+    )
+    record_ai_validate(
+        tmp_path,
+        {"action": "HOLD", "confidence": "LOW", "score": 0, "reasons": ["fade"]},
+        symbol="AAPL",
+        kept=False,
+    )
+    assert latest_ai_actions(tmp_path) == {"AAPL": "HOLD"}
+    assert latest_ai_actions(tmp_path / "missing") == {}
 
 
 def test_ai_validate_memory_cap(tmp_path: Path) -> None:

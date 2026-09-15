@@ -726,6 +726,85 @@ def test_scan_mark_returns_on_vs_off() -> None:
     assert "scan " not in out["note"]
 
 
+def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
+    from stock_checker.risk_halts import ai_debate_mark_returns, book_risk_report
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    actions = {"AAPL": "BUY", "MSFT": "HOLD", "BTC-USD": "SELL"}
+    am = ai_debate_mark_returns(holds, actions)
+    assert am["ai_debate_buy_pct"] == 4.0
+    assert am["ai_debate_buy_label"] == "+4.0%×1"
+    assert am["ai_debate_hold_pct"] == -2.0
+    assert am["ai_debate_hold_label"] == "−2.0%×1"
+    assert am["ai_debate_sell_pct"] == 6.0
+    assert am["ai_debate_sell_label"] == "+6.0%×1"
+    # none: SAP 5k@1 marked + ETH unmarked lot
+    assert am["ai_debate_none_pct"] == 1.0
+    assert am["ai_debate_none_label"] == "+1.0%×1"
+    assert am["ai_debate_none_lots"] == 2
+    assert am["ai_debate_marks_ready"] is True
+    assert "ai buy +4.0%×1 · hold −2.0%×1 · sell +6.0%×1 · none +1.0%×1" in am[
+        "ai_debate_marks_bit"
+    ]
+
+    skipped = ai_debate_mark_returns(holds, None)
+    assert skipped["ai_debate_marks_ready"] is False
+    assert skipped["ai_debate_marks_bit"] == ""
+
+    empty_map = ai_debate_mark_returns(holds, {})
+    assert empty_map["ai_debate_marks_ready"] is True
+    assert empty_map["ai_debate_none_lots"] == 5
+    assert empty_map["ai_debate_buy_lots"] == 0
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        ai_actions=actions,
+    )
+    assert out["ai_debate_marks_ready"] is True
+    assert out["ai_debate_buy_label"] == "+4.0%×1"
+    assert out["ai_debate_sell_label"] == "+6.0%×1"
+    # AI debate marks stay off the glance note (Book strip only)
+    assert "ai " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
