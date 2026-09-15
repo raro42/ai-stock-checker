@@ -24,6 +24,9 @@ TENURE_WEEK_SEC = 7 * 86400
 TENURE_MONTH_SEC = 30 * 86400
 # Exit-band zone: fraction of asset TP/SL before counting as near-exit (display).
 EXIT_BAND_ZONE_FRAC = 0.75
+# Screener score bands for Group Matrix (match recommender BUY thresholds).
+SCAN_SCORE_HI = 50.0
+SCAN_SCORE_MID = 25.0
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -1118,6 +1121,110 @@ def scan_list_mark_returns(
     return out
 
 
+def scan_score_mark_returns(
+    holdings: list[dict[str, Any]],
+    score_by_symbol: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by current screener score (display only).
+
+    xang1234 + portfolio AI Group Matrix: hi (≥50) / mid (≥25) / lo (scored
+    but <25) / off (not on score map). Thresholds match recommender BUY
+    confidence bands. ``score_by_symbol`` None → skip. Empty map → all off.
+    Cluster n on labels. Strip only; not a gate; not a research score.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "hi": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "mid": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "lo": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "off": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "scan_score_hi_pct": None,
+        "scan_score_mid_pct": None,
+        "scan_score_lo_pct": None,
+        "scan_score_off_pct": None,
+        "scan_score_hi_label": "",
+        "scan_score_mid_label": "",
+        "scan_score_lo_label": "",
+        "scan_score_off_label": "",
+        "scan_score_hi_lots": 0,
+        "scan_score_mid_lots": 0,
+        "scan_score_lo_lots": 0,
+        "scan_score_off_lots": 0,
+        "scan_score_marks_ready": False,
+        "scan_score_marks_bit": "",
+        "scan_score_hi_floor": float(SCAN_SCORE_HI),
+        "scan_score_mid_floor": float(SCAN_SCORE_MID),
+    }
+    if score_by_symbol is None:
+        return out
+
+    scores: dict[str, float] = {}
+    for raw_sym, raw_score in score_by_symbol.items():
+        sym = str(raw_sym or "").strip().upper()
+        if not sym:
+            continue
+        try:
+            scores[sym] = float(raw_score)
+        except (TypeError, ValueError):
+            continue
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        if sym not in scores:
+            key = "off"
+        else:
+            sc = scores[sym]
+            if sc >= SCAN_SCORE_HI:
+                key = "hi"
+            elif sc >= SCAN_SCORE_MID:
+                key = "mid"
+            else:
+                key = "lo"
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("hi", "hi", "scan_score_hi"),
+        ("mid", "mid", "scan_score_mid"),
+        ("lo", "lo", "scan_score_lo"),
+        ("off", "off", "scan_score_off"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["scan_score_marks_ready"] = True
+        out["scan_score_marks_bit"] = "score " + " · ".join(bits)
+    return out
+
+
 def ai_debate_mark_returns(
     holdings: list[dict[str, Any]],
     action_by_symbol: dict[str, str] | None = None,
@@ -1410,6 +1517,7 @@ def book_risk_report(
     scan_leaders: Iterable[str] | None = None,
     scan_breakouts: Iterable[str] | None = None,
     scan_recommendations: Iterable[str] | None = None,
+    scan_scores: dict[str, float] | None = None,
     ai_actions: dict[str, str] | None = None,
     ai_confidences: dict[str, str] | None = None,
     ai_gated: dict[str, bool] | None = None,
@@ -1419,10 +1527,11 @@ def book_risk_report(
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + scan membership +
-    screener list role (lead/brk/rec/off) + AI debate action + AI
-    confidence + multi-role gated + hold-tenure + win/lose polarity +
-    size + leader mark returns (Group Matrix–lite, cluster n on
-    labels). Does not change entries or exits.
+    screener list role (lead/brk/rec/off) + scan score bands
+    (hi/mid/lo/off) + AI debate action + AI confidence + multi-role
+    gated + hold-tenure + win/lose polarity + size + leader mark
+    returns (Group Matrix–lite, cluster n on labels). Does not change
+    entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1532,6 +1641,22 @@ def book_risk_report(
         "scan_list_off_lots": 0,
         "scan_list_marks_ready": False,
         "scan_list_marks_bit": "",
+        "scan_score_hi_pct": None,
+        "scan_score_mid_pct": None,
+        "scan_score_lo_pct": None,
+        "scan_score_off_pct": None,
+        "scan_score_hi_label": "",
+        "scan_score_mid_label": "",
+        "scan_score_lo_label": "",
+        "scan_score_off_label": "",
+        "scan_score_hi_lots": 0,
+        "scan_score_mid_lots": 0,
+        "scan_score_lo_lots": 0,
+        "scan_score_off_lots": 0,
+        "scan_score_marks_ready": False,
+        "scan_score_marks_bit": "",
+        "scan_score_hi_floor": float(SCAN_SCORE_HI),
+        "scan_score_mid_floor": float(SCAN_SCORE_MID),
         "ai_debate_buy_pct": None,
         "ai_debate_hold_pct": None,
         "ai_debate_sell_pct": None,
@@ -1651,6 +1776,7 @@ def book_risk_report(
         breakouts=scan_breakouts,
         recommendations=scan_recommendations,
     )
+    scan_score = scan_score_mark_returns(rows, scan_scores)
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
     ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
     ai_roles = ai_gated_mark_returns(rows, ai_gated)
@@ -1688,6 +1814,7 @@ def book_risk_report(
         **min_hold,
         **scan,
         **scan_list,
+        **scan_score,
         **ai_debate,
         **ai_conf,
         **ai_roles,

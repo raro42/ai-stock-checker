@@ -5840,6 +5840,21 @@ def load_desk_snapshot(
         max_positions=max_pos,
         position_size=0.10,
     )
+    scan_scores: dict[str, float] = {}
+    for key in ("recommendations", "crypto_leaders", "stock_breakouts"):
+        for item in opportunities.get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            sym = str(item.get("symbol") or "").strip().upper()
+            if not sym:
+                continue
+            try:
+                sc = float(item.get("score"))
+            except (TypeError, ValueError):
+                continue
+            prev = scan_scores.get(sym)
+            if prev is None or sc > prev:
+                scan_scores[sym] = sc
     book_risk = book_risk_report(
         cash=cash,
         equity=equity,
@@ -5867,6 +5882,7 @@ def load_desk_snapshot(
             for item in (opportunities.get("recommendations") or [])
             if isinstance(item, dict) and item.get("symbol")
         ),
+        scan_scores=scan_scores,
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
         ai_gated=ai_gated,

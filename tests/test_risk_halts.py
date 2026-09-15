@@ -807,6 +807,96 @@ def test_scan_list_mark_returns_lead_brk_rec_off() -> None:
     assert "list " not in out["note"]
 
 
+def test_scan_score_mark_returns_hi_mid_lo_off() -> None:
+    from stock_checker.risk_halts import (
+        SCAN_SCORE_HI,
+        SCAN_SCORE_MID,
+        book_risk_report,
+        scan_score_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    scores = {
+        "NVDA": 55.0,
+        "AAPL": 30.0,
+        "MSFT": 10.0,
+        # BTC absent → off; ETH unmarked off
+    }
+    sm = scan_score_mark_returns(holds, scores)
+    assert sm["scan_score_hi_floor"] == SCAN_SCORE_HI
+    assert sm["scan_score_mid_floor"] == SCAN_SCORE_MID
+    assert sm["scan_score_hi_pct"] == 4.0
+    assert sm["scan_score_hi_label"] == "+4.0%×1"
+    assert sm["scan_score_mid_pct"] == 1.0
+    assert sm["scan_score_mid_label"] == "+1.0%×1"
+    assert sm["scan_score_lo_pct"] == -2.0
+    assert sm["scan_score_lo_label"] == "−2.0%×1"
+    assert sm["scan_score_off_pct"] == 6.0
+    assert sm["scan_score_off_label"] == "+6.0%×1"
+    assert sm["scan_score_off_lots"] == 2  # BTC marked + ETH unmarked
+    assert sm["scan_score_marks_ready"] is True
+    assert (
+        "score hi +4.0%×1 · mid +1.0%×1 · lo −2.0%×1 · off +6.0%×1"
+        in sm["scan_score_marks_bit"]
+    )
+
+    skipped = scan_score_mark_returns(holds, None)
+    assert skipped["scan_score_marks_ready"] is False
+    assert skipped["scan_score_marks_bit"] == ""
+
+    empty_map = scan_score_mark_returns(holds, {})
+    assert empty_map["scan_score_off_lots"] == 5
+    assert empty_map["scan_score_marks_ready"] is True
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        scan_scores=scores,
+    )
+    assert out["scan_score_marks_ready"] is True
+    assert out["scan_score_hi_label"] == "+4.0%×1"
+    assert out["scan_score_mid_label"] == "+1.0%×1"
+    # Score marks stay off the glance note (Book strip only)
+    assert "score " not in out["note"]
+
+
 def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
     from stock_checker.risk_halts import ai_debate_mark_returns, book_risk_report
 
