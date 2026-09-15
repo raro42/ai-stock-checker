@@ -558,6 +558,78 @@ def test_exit_band_mark_returns_tp_mid_sl() -> None:
     assert "exit " not in out["note"]
 
 
+def test_entry_session_mark_returns_weekday_vs_weekend() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_session_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+            "bought_at": "2026-09-15T14:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": -1.0,
+            "marked": True,
+            "bought_at": "2026-09-16T10:00:00Z",
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 5.0,
+            "marked": True,
+            "bought_at": "2026-09-13T18:00:00Z",
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 2_000,
+            "marked": False,
+            "bought_at": "2026-09-12T12:00:00Z",
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 2.0,
+            "marked": True,
+        },
+    ]
+    sm = entry_session_mark_returns(holds)
+    assert sm["entry_session_wd_pct"] == 1.67
+    assert sm["entry_session_wd_label"] == "+1.7%×2"
+    assert sm["entry_session_wd_lots"] == 2
+    assert sm["entry_session_we_pct"] == 5.0
+    assert sm["entry_session_we_label"] == "+5.0%×1"
+    assert sm["entry_session_we_lots"] == 2
+    assert sm["entry_session_unknown_lots"] == 1
+    assert sm["entry_session_marks_ready"] is True
+    assert "wd +1.7%×2" in sm["entry_session_marks_bit"]
+    assert "we +5.0%×1" in sm["entry_session_marks_bit"]
+
+    empty = entry_session_mark_returns([])
+    assert empty["entry_session_marks_ready"] is False
+    assert empty["entry_session_marks_bit"] == ""
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=30_000,
+        holdings=holds,
+        max_positions=5,
+    )
+    assert out["entry_session_marks_ready"] is True
+    assert out["entry_session_wd_pct"] == 1.67
+
+
 def test_min_hold_mark_returns_lock_vs_free() -> None:
     from stock_checker.risk_halts import book_risk_report, min_hold_mark_returns
 

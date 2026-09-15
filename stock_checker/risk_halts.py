@@ -943,6 +943,88 @@ def min_hold_mark_returns(
     return out
 
 
+def _entry_session_bucket(h: dict[str, Any]) -> str | None:
+    """wd = Mon–Fri UTC buy; we = Sat–Sun UTC; None if entry time missing."""
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    dt = _parse_trade_dt(raw)
+    if dt is None:
+        return None
+    return "we" if dt.weekday() >= 5 else "wd"
+
+
+def entry_session_mark_returns(
+    holdings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by entry weekday session (display only).
+
+    xang1234 session + portfolio AI Group Matrix: lots bought Mon–Fri UTC
+    (wd) vs Sat–Sun UTC (we). Weekend entries are normally crypto-only
+    (stocks pause). Missing ``bought_at`` → unknown (not weekday). Cluster
+    n on labels. Strip only; not a gate; not calendar 1w/1m.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "wd": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "we": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_session_bucket(h)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_session_wd_pct": None,
+        "entry_session_we_pct": None,
+        "entry_session_wd_label": "",
+        "entry_session_we_label": "",
+        "entry_session_wd_lots": 0,
+        "entry_session_we_lots": 0,
+        "entry_session_unknown_lots": unknown_lots,
+        "entry_session_marks_ready": False,
+        "entry_session_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("wd", "wd", "entry_session_wd"),
+        ("we", "we", "entry_session_we"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_session_marks_ready"] = True
+        out["entry_session_marks_bit"] = "session " + " · ".join(bits)
+    return out
+
+
 def scan_mark_returns(
     holdings: list[dict[str, Any]],
     scan_symbols: Iterable[str] | None = None,
@@ -1834,14 +1916,14 @@ def book_risk_report(
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + venue + exit-band + min-hold lock + scan membership +
-    screener list role (lead/brk/rec/off) + scan score bands
-    (hi/mid/lo/off) + pct_from_high near/mid/deep/off + day-change
-    hot/cold/quiet/off (±4% StockBee) + ATR vol with/soft/off +
-    AI debate action + AI confidence + multi-role gated +
-    hold-tenure + win/lose polarity + size + leader mark returns
-    (Group Matrix–lite, cluster n on labels). Does not change
-    entries or exits.
+    sleeve + venue + exit-band + min-hold lock + entry session
+    (wd Mon–Fri UTC / we Sat–Sun) + scan membership + screener
+    list role (lead/brk/rec/off) + scan score bands (hi/mid/lo/off)
+    + pct_from_high near/mid/deep/off + day-change hot/cold/quiet/off
+    (±4% StockBee) + ATR vol with/soft/off + AI debate action +
+    AI confidence + multi-role gated + hold-tenure + win/lose
+    polarity + size + leader mark returns (Group Matrix–lite,
+    cluster n on labels). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1929,6 +2011,15 @@ def book_risk_report(
         "min_hold_unknown_lots": 0,
         "min_hold_marks_ready": False,
         "min_hold_marks_bit": "",
+        "entry_session_wd_pct": None,
+        "entry_session_we_pct": None,
+        "entry_session_wd_label": "",
+        "entry_session_we_label": "",
+        "entry_session_wd_lots": 0,
+        "entry_session_we_lots": 0,
+        "entry_session_unknown_lots": 0,
+        "entry_session_marks_ready": False,
+        "entry_session_marks_bit": "",
         "scan_on_pct": None,
         "scan_off_pct": None,
         "scan_on_label": "",
@@ -2121,6 +2212,7 @@ def book_risk_report(
     venue = venue_mark_returns(rows)
     exit_band = exit_band_mark_returns(rows)
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
+    entry_session = entry_session_mark_returns(rows)
     scan = scan_mark_returns(rows, scan_symbols)
     scan_list = scan_list_mark_returns(
         rows,
@@ -2167,6 +2259,7 @@ def book_risk_report(
         **venue,
         **exit_band,
         **min_hold,
+        **entry_session,
         **scan,
         **scan_list,
         **scan_score,
