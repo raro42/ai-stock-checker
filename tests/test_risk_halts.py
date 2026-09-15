@@ -558,6 +558,103 @@ def test_exit_band_mark_returns_tp_mid_sl() -> None:
     assert "exit " not in out["note"]
 
 
+def test_min_hold_mark_returns_lock_vs_free() -> None:
+    from stock_checker.risk_halts import book_risk_report, min_hold_mark_returns
+
+    day = 24 * 3600
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+            "held_seconds": day * 2,
+            "past_min_hold": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": -1.0,
+            "marked": True,
+            "held_seconds": day * 0.5,
+            "past_min_hold": False,
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+            "held_seconds": day * 0.25,
+            "past_min_hold": False,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+            # Missing age → unknown (A7), not lock
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "held_seconds": day * 3,
+            "past_min_hold": True,
+            "marked": False,
+        },
+    ]
+    mh = min_hold_mark_returns(holds, min_hold_seconds=day)
+    # lock: MSFT 20k@−1 + SAP 5k@1 → (−20k+5k)/25k = −0.6
+    assert mh["min_hold_lock_pct"] == -0.6
+    assert mh["min_hold_lock_label"] == "−0.6%×2"
+    assert mh["min_hold_lock_lots"] == 2
+    assert mh["min_hold_free_pct"] == 3.0
+    assert mh["min_hold_free_label"] == "+3.0%×1"
+    assert mh["min_hold_free_lots"] == 2  # AAPL marked + ETH unmarked lot
+    assert mh["min_hold_unknown_lots"] == 1
+    assert mh["min_hold_marks_ready"] is True
+    assert "hold lock −0.6%×2 · free +3.0%×1" in mh["min_hold_marks_bit"]
+
+    # Without past_min_hold flags, fall back to min_hold_seconds vs held
+    computed = min_hold_mark_returns(
+        [
+            {
+                "symbol": "AAPL",
+                "cost_basis": 10_000,
+                "unrealized_pct": 2.0,
+                "marked": True,
+                "held_seconds": day * 2,
+            },
+            {
+                "symbol": "MSFT",
+                "cost_basis": 10_000,
+                "unrealized_pct": -2.0,
+                "marked": True,
+                "held_seconds": day * 0.5,
+            },
+        ],
+        min_hold_seconds=day,
+    )
+    assert computed["min_hold_free_pct"] == 2.0
+    assert computed["min_hold_lock_pct"] == -2.0
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        min_hold_seconds=day,
+    )
+    assert out["min_hold_marks_ready"] is True
+    assert out["min_hold_lock_label"] == "−0.6%×2"
+    # Min-hold marks stay off the glance note (Book strip only)
+    assert "hold " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -581,6 +678,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["venue_marks_bit"] == ""
     assert out["exit_band_marks_ready"] is False
     assert out["exit_band_marks_bit"] == ""
+    assert out["min_hold_marks_ready"] is False
+    assert out["min_hold_marks_bit"] == ""
 
 
 def test_book_risk_report_overweight() -> None:

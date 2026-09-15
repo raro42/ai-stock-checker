@@ -5837,6 +5837,7 @@ def load_desk_snapshot(
         equity=equity,
         holdings=rows,
         max_positions=max_pos,
+        min_hold_seconds=min_hold_s,
     )
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)

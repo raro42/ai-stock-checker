@@ -837,6 +837,104 @@ def exit_band_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _min_hold_lock_bucket(
+    h: dict[str, Any],
+    *,
+    min_hold_seconds: float | None = None,
+) -> str | None:
+    """lock / free when hold age is known; None when age missing (A7)."""
+    held_raw = h.get("held_seconds")
+    if held_raw is None:
+        return None
+    try:
+        held = float(held_raw)
+    except (TypeError, ValueError):
+        return None
+    if held < 0:
+        return None
+    if "past_min_hold" in h:
+        return "free" if bool(h.get("past_min_hold")) else "lock"
+    if min_hold_seconds is None:
+        return None
+    try:
+        need = max(0.0, float(min_hold_seconds))
+    except (TypeError, ValueError):
+        return None
+    return "free" if held >= need else "lock"
+
+
+def min_hold_mark_returns(
+    holdings: list[dict[str, Any]],
+    *,
+    min_hold_seconds: float | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by min-hold lock (display only).
+
+    xang1234 Group Matrix + tradermonty lock cluster: lots still inside
+    min-hold vs past unlock. Missing entry age → unknown (not lock).
+    Cluster n on labels. Strip only; not a gate; not calendar 1w/1m.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "lock": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "free": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _min_hold_lock_bucket(h, min_hold_seconds=min_hold_seconds)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "min_hold_lock_pct": None,
+        "min_hold_free_pct": None,
+        "min_hold_lock_label": "",
+        "min_hold_free_label": "",
+        "min_hold_lock_lots": 0,
+        "min_hold_free_lots": 0,
+        "min_hold_unknown_lots": unknown_lots,
+        "min_hold_marks_ready": False,
+        "min_hold_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("lock", "lock", "min_hold_lock"),
+        ("free", "free", "min_hold_free"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["min_hold_marks_ready"] = True
+        out["min_hold_marks_bit"] = "hold " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -844,14 +942,15 @@ def book_risk_report(
     holdings: list[dict[str, Any]],
     max_positions: int = 5,
     max_name_pct: float = DEFAULT_MAX_NAME_PCT,
+    min_hold_seconds: float | None = None,
 ) -> dict[str, Any]:
     """
     Display-only book risk strip (staskh / portfolio-AI style).
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
-    sleeve + venue + exit-band + hold-tenure + win/lose polarity + size +
-    leader mark returns (Group Matrix–lite, cluster n on labels). Does not
-    change entries or exits.
+    sleeve + venue + exit-band + min-hold lock + hold-tenure + win/lose
+    polarity + size + leader mark returns (Group Matrix–lite, cluster n
+    on labels). Does not change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -930,6 +1029,15 @@ def book_risk_report(
         "exit_band_marks_ready": False,
         "exit_band_marks_bit": "",
         "exit_band_zone_frac": float(EXIT_BAND_ZONE_FRAC),
+        "min_hold_lock_pct": None,
+        "min_hold_free_pct": None,
+        "min_hold_lock_label": "",
+        "min_hold_free_label": "",
+        "min_hold_lock_lots": 0,
+        "min_hold_free_lots": 0,
+        "min_hold_unknown_lots": 0,
+        "min_hold_marks_ready": False,
+        "min_hold_marks_bit": "",
     }
     try:
         cash_f = float(cash)
@@ -954,6 +1062,12 @@ def book_risk_report(
 
     if max_n < 1:
         max_n = 1
+    hold_s: float | None = None
+    if min_hold_seconds is not None:
+        try:
+            hold_s = max(0.0, float(min_hold_seconds))
+        except (TypeError, ValueError):
+            hold_s = None
     rows = [h for h in holdings if isinstance(h, dict)]
     open_n = len(rows)
     posture = book_action_mode(open_n, max_n)
@@ -996,6 +1110,7 @@ def book_risk_report(
     leader = leader_mark_returns(rows)
     venue = venue_mark_returns(rows)
     exit_band = exit_band_mark_returns(rows)
+    min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
     bits = [f"{open_n}/{max_n} slots · {posture}"]
     if largest_symbol:
@@ -1027,6 +1142,7 @@ def book_risk_report(
         **leader,
         **venue,
         **exit_band,
+        **min_hold,
     }
 
 

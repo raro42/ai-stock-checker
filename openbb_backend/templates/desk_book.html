@@ -116,6 +116,16 @@
         {% else %}—{% endif %}
       </span>
     </li>
+    <li>
+      <span class="k">Hold</span>
+      <span class="v" title="Cost-weighted since-buy mark % by min-hold lock — still locked vs past unlock; ×N names; Group Matrix + tradermonty lock cluster; missing entry age ≠ lock; not a gate">
+        {% if snap.book_risk.min_hold_marks_ready %}
+        {% if snap.book_risk.min_hold_lock_label %}lock {{ snap.book_risk.min_hold_lock_label }}{% endif %}
+        {% if snap.book_risk.min_hold_lock_label and snap.book_risk.min_hold_free_label %} · {% endif %}
+        {% if snap.book_risk.min_hold_free_label %}free {{ snap.book_risk.min_hold_free_label }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </li>
   </ul>
 </section>
 
