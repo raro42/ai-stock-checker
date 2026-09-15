@@ -1309,6 +1309,103 @@ def test_ai_gated_mark_returns_gated_free_none() -> None:
     assert "roles " not in out["note"]
 
 
+def test_scan_vol_mark_returns_with_soft_off() -> None:
+    from stock_checker.risk_halts import book_risk_report, scan_vol_mark_returns
+
+    holds = [
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 20_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 5_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+        },
+        {
+            "symbol": "ETH-USD",
+            "kind": "crypto",
+            "cost_basis": 4_000,
+            "marked": False,
+        },
+    ]
+    has_vol = {
+        "NVDA": True,  # with
+        "AAPL": False,  # soft n/a
+        "MSFT": True,  # with
+        # BTC absent → off; ETH unmarked off
+    }
+    vol = scan_vol_mark_returns(holds, has_vol)
+    # with: NVDA 20k@4 + MSFT 8k@−2 → (80k − 16k)/28k = 2.2857…
+    assert vol["scan_vol_with_pct"] == 2.29
+    assert vol["scan_vol_with_label"] == "+2.3%×2"
+    assert vol["scan_vol_with_lots"] == 2
+    assert vol["scan_vol_soft_pct"] == 1.0
+    assert vol["scan_vol_soft_label"] == "+1.0%×1"
+    assert vol["scan_vol_off_pct"] == 6.0
+    assert vol["scan_vol_off_label"] == "+6.0%×1"
+    assert vol["scan_vol_off_lots"] == 2
+    assert vol["scan_vol_marks_ready"] is True
+    assert (
+        "vol with +2.3%×2 · soft +1.0%×1 · off +6.0%×1"
+        in vol["scan_vol_marks_bit"]
+    )
+
+    skipped = scan_vol_mark_returns(holds, None)
+    assert skipped["scan_vol_marks_ready"] is False
+    assert skipped["scan_vol_marks_bit"] == ""
+
+    empty_map = scan_vol_mark_returns(holds, {})
+    assert empty_map["scan_vol_off_lots"] == 5
+    assert empty_map["scan_vol_marks_ready"] is True
+
+    prefer2 = scan_vol_mark_returns(
+        [
+            {
+                "symbol": "AAPL",
+                "kind": "stock",
+                "cost_basis": 10_000,
+                "unrealized_pct": 3.0,
+                "marked": True,
+            }
+        ],
+        {"aapl": False, "AAPL": True},
+    )
+    assert prefer2["scan_vol_with_lots"] == 1
+    assert prefer2["scan_vol_soft_lots"] == 0
+
+    out = book_risk_report(
+        cash=5_000,
+        equity=80_000,
+        holdings=holds,
+        max_positions=5,
+        scan_has_vol=has_vol,
+    )
+    assert out["scan_vol_marks_ready"] is True
+    assert out["scan_vol_with_label"] == "+2.3%×2"
+    assert out["scan_vol_soft_label"] == "+1.0%×1"
+    assert "vol " not in out["note"]
+
+
 def test_book_risk_report_empty_book() -> None:
     from stock_checker.risk_halts import book_risk_report
 
@@ -1338,6 +1435,8 @@ def test_book_risk_report_empty_book() -> None:
     assert out["scan_marks_bit"] == ""
     assert out["scan_list_marks_ready"] is False
     assert out["scan_list_marks_bit"] == ""
+    assert out["scan_vol_marks_ready"] is False
+    assert out["scan_vol_marks_bit"] == ""
     assert out["ai_debate_marks_ready"] is False
     assert out["ai_conf_marks_ready"] is False
     assert out["ai_roles_marks_ready"] is False

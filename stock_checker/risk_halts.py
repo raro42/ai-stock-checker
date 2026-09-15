@@ -1718,6 +1718,98 @@ def ai_gated_mark_returns(
     return out
 
 
+def scan_vol_mark_returns(
+    holdings: list[dict[str, Any]],
+    has_vol_by_symbol: dict[str, bool] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by Screener ATR/vol note (display only).
+
+    staskh + RyanJHamby + xang1234 Group Matrix: lots with a usable stop
+    note (with) vs soft n/a on the scan map (soft) vs off-list. Prefer
+    ``True`` when a symbol appears on multiple lists. ``has_vol_by_symbol``
+    None → skip. Empty map → all off. Cluster n on labels. Strip only;
+    not a gate; live TP/SL stay exit_policy.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "with": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "soft": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "off": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    out: dict[str, Any] = {
+        "scan_vol_with_pct": None,
+        "scan_vol_soft_pct": None,
+        "scan_vol_off_pct": None,
+        "scan_vol_with_label": "",
+        "scan_vol_soft_label": "",
+        "scan_vol_off_label": "",
+        "scan_vol_with_lots": 0,
+        "scan_vol_soft_lots": 0,
+        "scan_vol_off_lots": 0,
+        "scan_vol_marks_ready": False,
+        "scan_vol_marks_bit": "",
+    }
+    if has_vol_by_symbol is None:
+        return out
+
+    flags: dict[str, bool] = {}
+    for raw_sym, raw_flag in has_vol_by_symbol.items():
+        sym = str(raw_sym or "").strip().upper()
+        if not sym:
+            continue
+        flag = bool(raw_flag)
+        # Prefer has-vol when the name appears on multiple lists.
+        if sym not in flags or flag:
+            flags[sym] = flag
+
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        sym = str(h.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        if sym not in flags:
+            key = "off"
+        else:
+            key = "with" if flags[sym] else "soft"
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    bits: list[str] = []
+    for key, short, field in (
+        ("with", "with", "scan_vol_with"),
+        ("soft", "soft", "scan_vol_soft"),
+        ("off", "off", "scan_vol_off"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["scan_vol_marks_ready"] = True
+        out["scan_vol_marks_bit"] = "vol " + " · ".join(bits)
+    return out
+
+
 def book_risk_report(
     *,
     cash: float,
@@ -1733,6 +1825,7 @@ def book_risk_report(
     scan_scores: dict[str, float] | None = None,
     scan_pct_from_high: dict[str, float] | None = None,
     scan_change_24h: dict[str, float] | None = None,
+    scan_has_vol: dict[str, bool] | None = None,
     ai_actions: dict[str, str] | None = None,
     ai_confidences: dict[str, str] | None = None,
     ai_gated: dict[str, bool] | None = None,
@@ -1744,10 +1837,11 @@ def book_risk_report(
     sleeve + venue + exit-band + min-hold lock + scan membership +
     screener list role (lead/brk/rec/off) + scan score bands
     (hi/mid/lo/off) + pct_from_high near/mid/deep/off + day-change
-    hot/cold/quiet/off (±4% StockBee) + AI debate action + AI
-    confidence + multi-role gated + hold-tenure + win/lose polarity +
-    size + leader mark returns (Group Matrix–lite, cluster n on
-    labels). Does not change entries or exits.
+    hot/cold/quiet/off (±4% StockBee) + ATR vol with/soft/off +
+    AI debate action + AI confidence + multi-role gated +
+    hold-tenure + win/lose polarity + size + leader mark returns
+    (Group Matrix–lite, cluster n on labels). Does not change
+    entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -1904,6 +1998,17 @@ def book_risk_report(
         "scan_mover_marks_ready": False,
         "scan_mover_marks_bit": "",
         "scan_mover_floor": float(SCAN_MOVER_PCT),
+        "scan_vol_with_pct": None,
+        "scan_vol_soft_pct": None,
+        "scan_vol_off_pct": None,
+        "scan_vol_with_label": "",
+        "scan_vol_soft_label": "",
+        "scan_vol_off_label": "",
+        "scan_vol_with_lots": 0,
+        "scan_vol_soft_lots": 0,
+        "scan_vol_off_lots": 0,
+        "scan_vol_marks_ready": False,
+        "scan_vol_marks_bit": "",
         "ai_debate_buy_pct": None,
         "ai_debate_hold_pct": None,
         "ai_debate_sell_pct": None,
@@ -2026,6 +2131,7 @@ def book_risk_report(
     scan_score = scan_score_mark_returns(rows, scan_scores)
     scan_near = scan_near_high_mark_returns(rows, scan_pct_from_high)
     scan_mover = scan_mover_mark_returns(rows, scan_change_24h)
+    scan_vol = scan_vol_mark_returns(rows, scan_has_vol)
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
     ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
     ai_roles = ai_gated_mark_returns(rows, ai_gated)
@@ -2066,6 +2172,7 @@ def book_risk_report(
         **scan_score,
         **scan_near,
         **scan_mover,
+        **scan_vol,
         **ai_debate,
         **ai_conf,
         **ai_roles,

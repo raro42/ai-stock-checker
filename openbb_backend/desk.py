@@ -5843,6 +5843,9 @@ def load_desk_snapshot(
     scan_scores: dict[str, float] = {}
     scan_pct_from_high: dict[str, float] = {}
     scan_change_24h: dict[str, float] = {}
+    scan_has_vol: dict[str, bool] = {}
+    from stock_checker.atr_risk import risk_note_has_vol
+
     for key in ("recommendations", "crypto_leaders", "stock_breakouts"):
         for item in opportunities.get(key) or []:
             if not isinstance(item, dict):
@@ -5881,6 +5884,17 @@ def load_desk_snapshot(
                 # Prefer largest |day move| across lists (StockBee heat).
                 if prev_c is None or abs(chg) > abs(prev_c):
                     scan_change_24h[sym] = chg
+            note = item.get("risk_note")
+            if note is None and item.get("summary") is not None:
+                note = item.get("summary")
+            # Only map symbols that carry a risk_note/summary field.
+            if "risk_note" in item or "summary" in item:
+                has_vol = risk_note_has_vol(
+                    str(note) if note is not None else ""
+                )
+                # Prefer has-vol when the name appears on multiple lists.
+                if sym not in scan_has_vol or has_vol:
+                    scan_has_vol[sym] = has_vol
     book_risk = book_risk_report(
         cash=cash,
         equity=equity,
@@ -5911,6 +5925,7 @@ def load_desk_snapshot(
         scan_scores=scan_scores,
         scan_pct_from_high=scan_pct_from_high,
         scan_change_24h=scan_change_24h,
+        scan_has_vol=scan_has_vol,
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
         ai_gated=ai_gated,
