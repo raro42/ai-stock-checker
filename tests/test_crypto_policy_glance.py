@@ -21,6 +21,8 @@ def test_crypto_policy_glance_slot_open() -> None:
     assert "slot open 0/1" in g["line"]
     assert "BTC/ETH only" in g["line"]
     assert "±10%" in g["line"]
+    assert g["designed_rr"] == 1.0
+    assert "RR 1" in g["line"]
 
 
 def test_crypto_policy_glance_slot_full() -> None:

@@ -631,8 +631,10 @@ def build_promote_ab_glance(
 def build_exit_policy_glance() -> dict[str, Any]:
     """Compact stock exit asymmetry line (portfolio AI / exit_policy; display only).
 
-    Live stock exits are TP +8% / SL −5% / rotate ≥+5%. Crypto uses wider bands
-    (see crypto_policy glance). Not ATR stops; not a new entry gate.
+    Live stock exits are TP +8% / SL −5% / rotate ≥+5%. Designed reward:risk is
+    TP/SL (8:5 → 1.6) — staskh RV-ratio docs adapted: state what the ratio is.
+    Crypto uses wider bands (see crypto_policy glance). Not ATR stops; not a new
+    entry gate.
     """
     from stock_checker.exit_policy import (
         DEFAULT_ROTATE_MIN_PROFIT_PCT,
@@ -643,7 +645,14 @@ def build_exit_policy_glance() -> dict[str, Any]:
     tp = float(DEFAULT_TAKE_PROFIT_PCT)
     sl = float(DEFAULT_STOP_LOSS_PCT)
     rot = float(DEFAULT_ROTATE_MIN_PROFIT_PCT)
-    line = f"stocks TP +{tp:g}% · SL −{sl:g}% · rotate ≥+{rot:g}%"
+    designed_rr = round(tp / sl, 2) if sl > 0 else None
+    if designed_rr is not None:
+        line = (
+            f"stocks TP +{tp:g}% · SL −{sl:g}% · "
+            f"designed RR {designed_rr:g} · rotate ≥+{rot:g}%"
+        )
+    else:
+        line = f"stocks TP +{tp:g}% · SL −{sl:g}% · rotate ≥+{rot:g}%"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
@@ -653,6 +662,7 @@ def build_exit_policy_glance() -> dict[str, Any]:
         "take_profit_pct": tp,
         "stop_loss_pct": sl,
         "rotate_min_pct": rot,
+        "designed_rr": designed_rr,
     }
 
 
@@ -1699,7 +1709,8 @@ def build_crypto_policy_glance(
     """Compact live crypto policy line (portfolio AI / crypto_policy; display only).
 
     Screener may list crypto leaders for research. Live buys stay BTC/ETH only,
-    max one crypto slot, wider ±10% exits. Not a new entry gate.
+    max one crypto slot, wider ±10% exits (designed RR 1.0 — staskh ratio docs).
+    Not a new entry gate.
     """
     from stock_checker.crypto_policy import (
         CRYPTO_STOP_LOSS_PCT,
@@ -1744,7 +1755,9 @@ def build_crypto_policy_glance(
         tone = "full"
         status = f"slot full {n}/{cap}"
     exits = f"exits ±{tp:g}%" if tp == sl else f"exits +{tp:g}%/−{sl:g}%"
-    line = f"{status} · BTC/ETH only · {exits}"
+    designed_rr = round(tp / sl, 2) if sl > 0 else None
+    rr_bit = f" · RR {designed_rr:g}" if designed_rr is not None else ""
+    line = f"{status} · BTC/ETH only · {exits}{rr_bit}"
     if held:
         line = f"{line} · {', '.join(held)}"
     if len(line) > 96:
@@ -1757,6 +1770,7 @@ def build_crypto_policy_glance(
         "cap": cap,
         "slot_open": slot_open,
         "symbols": held,
+        "designed_rr": designed_rr,
     }
 
 

@@ -1653,7 +1653,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Stock exits beside charts — TP +8% / SL −5% / rotate ≥+5%. Not ATR.";
+      "Stock exits beside charts — TP +8% / SL −5% → RR 1.6 · rotate ≥+5%. Not ATR.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

@@ -1737,13 +1737,14 @@ def test_live_rr_mark_returns_ok_thin_hit() -> None:
     assert rr["live_rr_hit_pct"] == round(hit_w / hit_cost, 2)
     assert rr["live_rr_unknown_lots"] == 1
     assert rr["live_rr_marks_ready"] is True
+    assert rr["live_rr_marks_bit"].startswith("rr 1.6/1")
     assert "ok +0.0%×1" in rr["live_rr_marks_bit"]
     assert "thin +4.0%×1" in rr["live_rr_marks_bit"]
     assert "hit " in rr["live_rr_marks_bit"]
 
     empty = live_rr_mark_returns([])
-    assert empty["live_rr_marks_ready"] is False
-    assert empty["live_rr_marks_bit"] == ""
+    assert empty["live_rr_marks_ready"] is True
+    assert empty["live_rr_marks_bit"] == "rr designed 1.6/1"
     assert empty["live_rr_stock_designed"] == 1.6
 
     out = book_risk_report(
@@ -1756,6 +1757,10 @@ def test_live_rr_mark_returns_ok_thin_hit() -> None:
     assert out["live_rr_ok_pct"] == 0.0
     assert out["live_rr_thin_pct"] == 4.0
     assert "rr " not in out["note"]
+
+    empty_book = book_risk_report(cash=1_000, equity=1_000, holdings=[], max_positions=5)
+    assert empty_book["live_rr_marks_ready"] is True
+    assert empty_book["live_rr_marks_bit"] == "rr designed 1.6/1"
 
 
 def test_entry_concentration_mark_returns_at_vs_under() -> None:

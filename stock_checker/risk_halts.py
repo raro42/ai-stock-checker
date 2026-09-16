@@ -894,12 +894,12 @@ def live_rr_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Cost-weighted since-buy mark % by live remaining R:R (display only).
 
     staskh trading_skills rr_gate / RV-ratio docs adapted as Book Group
-    Matrix: lots whose remaining reward-to-TP vs risk-to-SL (from latest
-    marked %) is ``ok`` (≥ designed entry ratio), ``thin`` (still inside
-    bands but below designed), or ``hit`` (at/past live TP or SL). Designed
-    ratios: stock +8%/−5% → 1.6 · crypto ±10% → 1.0. Unmarked → unknown.
-    Cluster n on labels. Strip only; live exits stay ``exit_policy``; not a
-    new gate — hard refuse-without-vol / rr entry block still deferred.
+    Matrix: always state designed entry ratios (stock +8%/−5% → 1.6 · crypto
+    ±10% → 1.0). When lots exist, cluster by remaining reward-to-TP vs
+    risk-to-SL from latest marked % — ``ok`` (≥ designed), ``thin`` (inside
+    bands but below designed), or ``hit`` (at/past live TP or SL). Unmarked →
+    unknown. Cluster n on labels. Strip only; live exits stay ``exit_policy``;
+    not a new gate — hard refuse-without-vol / rr entry block still deferred.
     """
     from stock_checker.crypto_policy import (
         CRYPTO_STOP_LOSS_PCT,
@@ -937,6 +937,18 @@ def live_rr_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         bucket["cost"] += basis
         bucket["w_pct"] += basis * pct
 
+    stock_d = round(stock_rr, 2) if stock_rr is not None else None
+    crypto_d = round(crypto_rr, 2) if crypto_rr is not None else None
+    # staskh RV-ratio docs: always state what designed RR means (stock 8:5 → 1.6 ·
+    # crypto 1:1 → 1.0), even when the book has no marked lots yet.
+    if stock_d is not None and crypto_d is not None:
+        designed_txt = f"{stock_d:g}/{crypto_d:g}"
+    elif stock_d is not None:
+        designed_txt = f"{stock_d:g}"
+    elif crypto_d is not None:
+        designed_txt = f"{crypto_d:g}"
+    else:
+        designed_txt = ""
     out: dict[str, Any] = {
         "live_rr_ok_pct": None,
         "live_rr_thin_pct": None,
@@ -948,12 +960,8 @@ def live_rr_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         "live_rr_thin_lots": 0,
         "live_rr_hit_lots": 0,
         "live_rr_unknown_lots": unknown_lots,
-        "live_rr_stock_designed": (
-            round(stock_rr, 2) if stock_rr is not None else None
-        ),
-        "live_rr_crypto_designed": (
-            round(crypto_rr, 2) if crypto_rr is not None else None
-        ),
+        "live_rr_stock_designed": stock_d,
+        "live_rr_crypto_designed": crypto_d,
         "live_rr_marks_ready": False,
         "live_rr_marks_bit": "",
     }
@@ -978,9 +986,15 @@ def live_rr_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
         out[f"{field}_label"] = label
         if label:
             bits.append(f"{short} {label}")
-    if bits:
+    if bits and designed_txt:
+        out["live_rr_marks_ready"] = True
+        out["live_rr_marks_bit"] = f"rr {designed_txt} · " + " · ".join(bits)
+    elif bits:
         out["live_rr_marks_ready"] = True
         out["live_rr_marks_bit"] = "rr " + " · ".join(bits)
+    elif designed_txt:
+        out["live_rr_marks_ready"] = True
+        out["live_rr_marks_bit"] = f"rr designed {designed_txt}"
     return out
 
 
