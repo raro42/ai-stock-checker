@@ -499,8 +499,10 @@ def build_promote_ab_glance(
     exist, appends in-window fees / fee-adjusted net (realized − all fees) —
     honesty before Window B (gross sell P&L alone is not edge). While A is
     still running with a thin ledger, status is ``building sample`` instead of
-    bare ``running``. When Window A day target is met but fills stay under the
-    protocol floor (``WINDOW_A_TARGET_FILLS``), status is
+    bare ``running``. When fills already meet the floor but days are still
+    short, status is ``fills ready · keep Window A`` (days still needed —
+    portfolio AI dual-meter honesty). When Window A day target is met but
+    fills stay under the protocol floor (``WINDOW_A_TARGET_FILLS``), status is
     ``A thin · N fills <M`` instead of ready. When day+fill targets are met but
     Ops knobs drift from protocol (max 5 / 24h / revolut_standard /
     regime·RS·breadth on / AI validate / multi-role on / scan ≥15m /
@@ -629,9 +631,11 @@ def build_promote_ab_glance(
                 status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
-        # Days still running: surface thin ledger early (portfolio AI sample honesty).
+        # Days still running: dual sample honesty (fills vs days).
         if window == "A" and sample_known and a_thin_bit:
             status = "building sample"
+        elif window == "A" and sample_known and sample_ready:
+            status = "fills ready · keep Window A"
         else:
             status = "running"
     parts = [

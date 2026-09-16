@@ -72,11 +72,39 @@ def test_promote_ab_glance_building_sample_while_running() -> None:
     assert "3/10 fills" in g["line"]
     assert "building sample" in g["line"]
     assert "running" not in g["line"]
+    assert "fills ready" not in g["line"]
     assert "€15 fees" in g["line"]
     assert "+€25 net" in g["line"]
     # Dual progress owns the fill count — fees bit omits trailing "N fills".
     assert " · 3 fills" not in g["line"]
     assert "A thin" not in g["line"]  # thin bit only after day target
+
+
+def test_promote_ab_glance_fills_ready_while_days_short() -> None:
+    """Fills already ≥10 but days short → fills ready · keep Window A (not bare running)."""
+    g = build_promote_ab_glance(
+        {"promote_experiment_strategy": False},
+        as_of=date(2026, 8, 18),
+        window_stats={
+            "trades": 12,
+            "fees": 40.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 160.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "progress"
+    assert g["target_met"] is False
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is True
+    assert g["a_fill_progress_bit"] == "12/10 fills"
+    assert "12/10 fills" in g["line"]
+    assert "fills ready · keep Window A" in g["line"]
+    assert "building sample" not in g["line"]
+    assert "running" not in g["line"]
+    assert "ready for B" not in g["line"]
+    assert "€40 fees" in g["line"]
+    assert "+€160 net" in g["line"]
 
 
 def test_format_window_a_fill_progress_bit() -> None:
