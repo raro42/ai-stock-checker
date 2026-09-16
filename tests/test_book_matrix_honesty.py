@@ -31,6 +31,7 @@ INSIDE_DETAILS = (
     ">Post-SL</span>",
     ">Post-TP</span>",
     ">Post-rot</span>",
+    ">Post-trim</span>",
     ">Cap</span>",
     ">List</span>",
     ">Score</span>",

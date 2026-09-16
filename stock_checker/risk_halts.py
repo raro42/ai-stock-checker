@@ -1591,6 +1591,113 @@ def entry_post_rotation_mark_returns(
     return out
 
 
+def _entry_post_trim_bucket(
+    h: dict[str, Any],
+    sell_events: dict[str, list[tuple[float, str]]],
+) -> str | None:
+    """trim / oth / fresh from most recent prior SELL; None if no entry time."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    prior: tuple[float, str] | None = None
+    for epoch, reason in sell_events.get(sym) or []:
+        if epoch < buy_epoch:
+            prior = (epoch, reason)
+            continue
+        break
+    if prior is None:
+        return "fresh"
+    if prior[1] == "trim":
+        return "trim"
+    return "oth"
+
+
+def entry_post_trim_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by post-trim refill vs other (display only).
+
+    tradermonty + staskh overweight-trim + portfolio AI Group Matrix twin of
+    post-SL/post-TP/post-rot: lots whose most recent prior SELL of the same
+    symbol had ``exit_reason=trim`` (trim) vs any other prior exit (oth) vs
+    no prior SELL (fresh). Missing ``bought_at`` → unknown. Empty ledger →
+    all dated lots count as fresh. Cluster n on labels. Strip only; not a
+    gate; A16 trim-to-cap refill honesty.
+    """
+    sells = _sell_events_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "trim": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "oth": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "fresh": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_post_trim_bucket(h, sells)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_post_trim_trim_pct": None,
+        "entry_post_trim_oth_pct": None,
+        "entry_post_trim_fresh_pct": None,
+        "entry_post_trim_trim_label": "",
+        "entry_post_trim_oth_label": "",
+        "entry_post_trim_fresh_label": "",
+        "entry_post_trim_trim_lots": 0,
+        "entry_post_trim_oth_lots": 0,
+        "entry_post_trim_fresh_lots": 0,
+        "entry_post_trim_unknown_lots": unknown_lots,
+        "entry_post_trim_marks_ready": False,
+        "entry_post_trim_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("trim", "trim", "entry_post_trim_trim"),
+        ("oth", "oth", "entry_post_trim_oth"),
+        ("fresh", "fresh", "entry_post_trim_fresh"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_post_trim_marks_ready"] = True
+        out["entry_post_trim_marks_bit"] = "post-trim " + " · ".join(bits)
+    return out
+
+
 def _entry_concentration_bucket(
     h: dict[str, Any],
     *,
@@ -2754,6 +2861,18 @@ def book_risk_report(
         "entry_post_rot_unknown_lots": 0,
         "entry_post_rot_marks_ready": False,
         "entry_post_rot_marks_bit": "",
+        "entry_post_trim_trim_pct": None,
+        "entry_post_trim_oth_pct": None,
+        "entry_post_trim_fresh_pct": None,
+        "entry_post_trim_trim_label": "",
+        "entry_post_trim_oth_label": "",
+        "entry_post_trim_fresh_label": "",
+        "entry_post_trim_trim_lots": 0,
+        "entry_post_trim_oth_lots": 0,
+        "entry_post_trim_fresh_lots": 0,
+        "entry_post_trim_unknown_lots": 0,
+        "entry_post_trim_marks_ready": False,
+        "entry_post_trim_marks_bit": "",
         "entry_conc_at_pct": None,
         "entry_conc_under_pct": None,
         "entry_conc_at_label": "",
@@ -2962,6 +3081,7 @@ def book_risk_report(
     entry_post_sl = entry_post_sl_mark_returns(rows, trades)
     entry_post_tp = entry_post_tp_mark_returns(rows, trades)
     entry_post_rot = entry_post_rotation_mark_returns(rows, trades)
+    entry_post_trim = entry_post_trim_mark_returns(rows, trades)
     entry_conc = entry_concentration_mark_returns(
         rows, equity=equity_f, max_name_pct=cap_pct
     )
@@ -3017,6 +3137,7 @@ def book_risk_report(
         **entry_post_sl,
         **entry_post_tp,
         **entry_post_rot,
+        **entry_post_trim,
         **entry_conc,
         **scan,
         **scan_list,
