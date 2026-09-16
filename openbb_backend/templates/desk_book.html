@@ -145,6 +145,7 @@
     or br.entry_post_sl_marks_ready or br.entry_post_tp_marks_ready or br.entry_post_rot_marks_ready
     or br.entry_post_trim_marks_ready or br.entry_buy_fee_marks_ready
     or br.entry_buy_conf_marks_ready
+    or br.entry_buy_score_marks_ready
     or br.entry_buy_src_marks_ready
     or br.entry_conc_marks_ready
     or br.live_rr_marks_ready
@@ -155,10 +156,10 @@
   <details class="matrix-honesty" id="matrix-honesty">
     <summary>
       Screener &amp; AI marks
-      <span class="meta">Session · Hours · Rebuy · Gap · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Buy-c · Src · Cap · RR · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
+      <span class="meta">Session · Hours · Rebuy · Gap · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Buy-c · Buy-s · Src · Cap · RR · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
     </summary>
     <p class="sub">
-      Group Matrix research clusters — entry session/hours/rebuy/gap/post-SL/post-TP/post-rot/post-trim/fee/buy-c/src/cap + live RR + scan-list + debate memory; display only; not a gate.
+      Group Matrix research clusters — entry session/hours/rebuy/gap/post-SL/post-TP/post-rot/post-trim/fee/buy-c/buy-s/src/cap + live RR + scan-list + debate memory; display only; not a gate.
       {% if not matrix_ready %}No cluster data yet.{% endif %}
     </p>
     <ul class="risk-strip" aria-label="Screener and AI mark clusters">
@@ -220,6 +221,12 @@
         <span class="k">Buy-c</span>
         <span class="v" title="Cost-weighted since-buy mark % by BUY-ledger AI confidence — hi / med / lo / none (blank = scanner-only or AI off); ×N names; FinRobot + portfolio AI entry-time honesty vs live Conf debate memory; missing bought_at or BUY row → unknown; not a research score; not a gate">
           {% if br.entry_buy_conf_marks_ready %}{{ br.entry_buy_conf_marks_bit[6:] }}{% else %}—{% endif %}
+        </span>
+      </li>
+      <li>
+        <span class="k">Buy-s</span>
+        <span class="v" title="Cost-weighted since-buy mark % by BUY-ledger screener score — hi (≥50) / mid (≥25) / lo / none (blank); ×N names; xang1234 + portfolio AI entry-time rank vs live Score; same bands as Score; missing bought_at or BUY row → unknown; not a research score; not a gate">
+          {% if br.entry_buy_score_marks_ready %}{{ br.entry_buy_score_marks_bit[6:] }}{% else %}—{% endif %}
         </span>
       </li>
       <li>
