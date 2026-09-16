@@ -34,6 +34,7 @@ INSIDE_DETAILS = (
     ">Post-rot</span>",
     ">Post-trim</span>",
     ">Fee</span>",
+    ">Buy-c</span>",
     ">Cap</span>",
     ">List</span>",
     ">Score</span>",
