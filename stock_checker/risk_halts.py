@@ -1246,6 +1246,138 @@ def entry_rebuy_mark_returns(
     return out
 
 
+
+def _sell_events_by_symbol(
+    trades: Iterable[Mapping[str, Any]] | None,
+) -> dict[str, list[tuple[float, str]]]:
+    """Symbol → sorted (epoch, exit_reason) SELL events (display only)."""
+    out: dict[str, list[tuple[float, str]]] = {}
+    if not trades:
+        return out
+    for raw in trades:
+        if not isinstance(raw, Mapping):
+            continue
+        if str(raw.get("type") or "").upper() != "SELL":
+            continue
+        sym = str(raw.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        epoch = _parse_trade_epoch(str(raw.get("timestamp") or ""))
+        if epoch is None:
+            continue
+        reason = str(raw.get("exit_reason") or "").strip().lower()
+        out.setdefault(sym, []).append((float(epoch), reason))
+    for sym, events in out.items():
+        events.sort(key=lambda item: item[0])
+    return out
+
+
+def _entry_post_sl_bucket(
+    h: dict[str, Any],
+    sell_events: dict[str, list[tuple[float, str]]],
+) -> str | None:
+    """sl / oth / fresh from most recent prior SELL; None if no entry time."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    prior: tuple[float, str] | None = None
+    for epoch, reason in sell_events.get(sym) or []:
+        if epoch < buy_epoch:
+            prior = (epoch, reason)
+            continue
+        break
+    if prior is None:
+        return "fresh"
+    if prior[1] == "sl":
+        return "sl"
+    return "oth"
+
+
+def entry_post_sl_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by post-SL refill vs other (display only).
+
+    tradermonty anti revenge-refill + portfolio AI Group Matrix: lots whose
+    most recent prior SELL of the same symbol had ``exit_reason=sl`` (sl) vs
+    any other prior exit (oth) vs no prior SELL (fresh). Missing
+    ``bought_at`` → unknown. Empty ledger → all dated lots count as fresh.
+    Cluster n on labels. Strip only; not a gate; pairs with rebuy cluster.
+    """
+    sells = _sell_events_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "sl": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "oth": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "fresh": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_post_sl_bucket(h, sells)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_post_sl_sl_pct": None,
+        "entry_post_sl_oth_pct": None,
+        "entry_post_sl_fresh_pct": None,
+        "entry_post_sl_sl_label": "",
+        "entry_post_sl_oth_label": "",
+        "entry_post_sl_fresh_label": "",
+        "entry_post_sl_sl_lots": 0,
+        "entry_post_sl_oth_lots": 0,
+        "entry_post_sl_fresh_lots": 0,
+        "entry_post_sl_unknown_lots": unknown_lots,
+        "entry_post_sl_marks_ready": False,
+        "entry_post_sl_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("sl", "sl", "entry_post_sl_sl"),
+        ("oth", "oth", "entry_post_sl_oth"),
+        ("fresh", "fresh", "entry_post_sl_fresh"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_post_sl_marks_ready"] = True
+        out["entry_post_sl_marks_bit"] = "post-sl " + " · ".join(bits)
+    return out
+
+
 def scan_mark_returns(
     holdings: list[dict[str, Any]],
     scan_symbols: Iterable[str] | None = None,
@@ -2141,6 +2273,7 @@ def book_risk_report(
     sleeve + venue + exit-band + min-hold lock + entry session
     (wd Mon–Fri UTC / we Sat–Sun) + entry hours (cash open / AH /
     crypto 24/7) + entry rebuy vs fresh (prior SELL in trades) +
+    entry post-SL vs other exit vs fresh (revenge-refill honesty) +
     scan membership + screener list role (lead/brk/rec/off) + scan
     score bands (hi/mid/lo/off) + pct_from_high near/mid/deep/off +
     day-change hot/cold/quiet/off (±4% StockBee) + ATR vol
@@ -2265,6 +2398,18 @@ def book_risk_report(
         "entry_rebuy_unknown_lots": 0,
         "entry_rebuy_marks_ready": False,
         "entry_rebuy_marks_bit": "",
+        "entry_post_sl_sl_pct": None,
+        "entry_post_sl_oth_pct": None,
+        "entry_post_sl_fresh_pct": None,
+        "entry_post_sl_sl_label": "",
+        "entry_post_sl_oth_label": "",
+        "entry_post_sl_fresh_label": "",
+        "entry_post_sl_sl_lots": 0,
+        "entry_post_sl_oth_lots": 0,
+        "entry_post_sl_fresh_lots": 0,
+        "entry_post_sl_unknown_lots": 0,
+        "entry_post_sl_marks_ready": False,
+        "entry_post_sl_marks_bit": "",
         "scan_on_pct": None,
         "scan_off_pct": None,
         "scan_on_label": "",
@@ -2460,6 +2605,7 @@ def book_risk_report(
     entry_session = entry_session_mark_returns(rows)
     entry_hours = entry_hours_mark_returns(rows)
     entry_rebuy = entry_rebuy_mark_returns(rows, trades)
+    entry_post_sl = entry_post_sl_mark_returns(rows, trades)
     scan = scan_mark_returns(rows, scan_symbols)
     scan_list = scan_list_mark_returns(
         rows,
@@ -2509,6 +2655,7 @@ def book_risk_report(
         **entry_session,
         **entry_hours,
         **entry_rebuy,
+        **entry_post_sl,
         **scan,
         **scan_list,
         **scan_score,

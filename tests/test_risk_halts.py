@@ -819,6 +819,126 @@ def test_entry_rebuy_mark_returns_prior_sell_vs_fresh() -> None:
     assert "rebuy " not in out["note"]
 
 
+def test_entry_post_sl_mark_returns_sl_vs_oth_vs_fresh() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_post_sl_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "ESP",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+            "bought_at": "2026-09-15T18:00:00Z",
+        },
+        {
+            "symbol": "SCHW",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": 1.5,
+            "marked": True,
+            "bought_at": "2026-09-15T16:00:00Z",
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+            "bought_at": "2026-09-14T14:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+    ]
+    trades = [
+        {
+            "type": "SELL",
+            "symbol": "ESP",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "exit_reason": "sl",
+            "quantity": 10,
+            "price": 50,
+        },
+        {
+            "type": "SELL",
+            "symbol": "ESP",
+            "timestamp": "2026-09-14T12:00:00Z",
+            "exit_reason": "tp",
+            "quantity": 5,
+            "price": 55,
+        },
+        {
+            "type": "SELL",
+            "symbol": "SCHW",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "exit_reason": "rotation",
+            "quantity": 10,
+            "price": 70,
+        },
+        {
+            "type": "BUY",
+            "symbol": "ESP",
+            "timestamp": "2026-09-15T18:00:00Z",
+            "quantity": 10,
+            "price": 48,
+        },
+    ]
+    pm = entry_post_sl_mark_returns(holds, trades)
+    assert pm["entry_post_sl_sl_pct"] == -2.0
+    assert pm["entry_post_sl_sl_label"] == "−2.0%×1"
+    assert pm["entry_post_sl_sl_lots"] == 1
+    assert pm["entry_post_sl_oth_pct"] == 1.5
+    assert pm["entry_post_sl_oth_label"] == "+1.5%×1"
+    assert pm["entry_post_sl_oth_lots"] == 1
+    assert pm["entry_post_sl_fresh_pct"] == 3.0
+    assert pm["entry_post_sl_fresh_label"] == "+3.0%×1"
+    assert pm["entry_post_sl_fresh_lots"] == 1
+    assert pm["entry_post_sl_unknown_lots"] == 1
+    assert pm["entry_post_sl_marks_ready"] is True
+    assert "sl −2.0%×1" in pm["entry_post_sl_marks_bit"]
+    assert "oth +1.5%×1" in pm["entry_post_sl_marks_bit"]
+    assert "fresh +3.0%×1" in pm["entry_post_sl_marks_bit"]
+
+    empty = entry_post_sl_mark_returns([], [])
+    assert empty["entry_post_sl_marks_ready"] is False
+    assert empty["entry_post_sl_marks_bit"] == ""
+
+    no_ledger = entry_post_sl_mark_returns(
+        [
+            {
+                "symbol": "NVDA",
+                "kind": "stock",
+                "cost_basis": 2_000,
+                "unrealized_pct": 4.0,
+                "marked": True,
+                "bought_at": "2026-09-10T12:00:00Z",
+            }
+        ],
+        None,
+    )
+    assert no_ledger["entry_post_sl_fresh_pct"] == 4.0
+    assert no_ledger["entry_post_sl_sl_lots"] == 0
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=28_000,
+        holdings=holds,
+        max_positions=5,
+        trades=trades,
+    )
+    assert out["entry_post_sl_marks_ready"] is True
+    assert out["entry_post_sl_sl_pct"] == -2.0
+    assert "post-sl " not in out["note"]
+
+
 def test_min_hold_mark_returns_lock_vs_free() -> None:
     from stock_checker.risk_halts import book_risk_report, min_hold_mark_returns
 
