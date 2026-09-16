@@ -27,6 +27,7 @@ ABOVE_FOLD = (
 INSIDE_DETAILS = (
     ">Session</span>",
     ">Hours</span>",
+    ">Rebuy</span>",
     ">List</span>",
     ">Score</span>",
     ">Near</span>",

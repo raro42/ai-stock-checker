@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional, Tuple
+from typing import Any, Iterable, Mapping, Optional, Tuple
 
 from stock_checker.market_hours import (
     is_crypto_symbol,
@@ -1126,6 +1126,126 @@ def entry_hours_mark_returns(
     return out
 
 
+def _sell_epochs_by_symbol(
+    trades: Iterable[Mapping[str, Any]] | None,
+) -> dict[str, list[float]]:
+    """Symbol → sorted sell epochs from trades.jsonl rows (display only)."""
+    out: dict[str, list[float]] = {}
+    if not trades:
+        return out
+    for raw in trades:
+        if not isinstance(raw, Mapping):
+            continue
+        if str(raw.get("type") or "").upper() != "SELL":
+            continue
+        sym = str(raw.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        epoch = _parse_trade_epoch(str(raw.get("timestamp") or ""))
+        if epoch is None:
+            continue
+        out.setdefault(sym, []).append(float(epoch))
+    for sym, epochs in out.items():
+        epochs.sort()
+    return out
+
+
+def _entry_rebuy_bucket(
+    h: dict[str, Any],
+    sell_epochs: dict[str, list[float]],
+) -> str | None:
+    """rebuy = prior SELL before buy; fresh = no prior SELL; None if no entry time."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    for sell_epoch in sell_epochs.get(sym) or []:
+        if sell_epoch < buy_epoch:
+            return "rebuy"
+        # sells sorted ascending — later timestamps cannot be prior
+        break
+    return "fresh"
+
+
+def entry_rebuy_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by rebuy vs fresh entry (display only).
+
+    tradermonty flip-flop / SCHW honesty + portfolio AI Group Matrix: lots
+    whose symbol had a SELL in ``trades`` before ``bought_at`` (rebuy) vs no
+    prior exit (fresh). Missing ``bought_at`` → unknown. Empty ledger → all
+    dated lots count as fresh (no evidence of prior exit). Cluster n on
+    labels. Strip only; not a gate; not calendar 1w/1m.
+    """
+    sells = _sell_epochs_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "rebuy": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "fresh": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_rebuy_bucket(h, sells)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_rebuy_rebuy_pct": None,
+        "entry_rebuy_fresh_pct": None,
+        "entry_rebuy_rebuy_label": "",
+        "entry_rebuy_fresh_label": "",
+        "entry_rebuy_rebuy_lots": 0,
+        "entry_rebuy_fresh_lots": 0,
+        "entry_rebuy_unknown_lots": unknown_lots,
+        "entry_rebuy_marks_ready": False,
+        "entry_rebuy_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("rebuy", "rebuy", "entry_rebuy_rebuy"),
+        ("fresh", "fresh", "entry_rebuy_fresh"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_rebuy_marks_ready"] = True
+        out["entry_rebuy_marks_bit"] = "rebuy " + " · ".join(bits)
+    return out
+
+
 def scan_mark_returns(
     holdings: list[dict[str, Any]],
     scan_symbols: Iterable[str] | None = None,
@@ -2012,6 +2132,7 @@ def book_risk_report(
     ai_actions: dict[str, str] | None = None,
     ai_confidences: dict[str, str] | None = None,
     ai_gated: dict[str, bool] | None = None,
+    trades: Iterable[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Display-only book risk strip (staskh / portfolio-AI style).
@@ -2019,13 +2140,14 @@ def book_risk_report(
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + entry session
     (wd Mon–Fri UTC / we Sat–Sun) + entry hours (cash open / AH /
-    crypto 24/7) + scan membership + screener list role
-    (lead/brk/rec/off) + scan score bands (hi/mid/lo/off) +
-    pct_from_high near/mid/deep/off + day-change hot/cold/quiet/off
-    (±4% StockBee) + ATR vol with/soft/off + AI debate action +
-    AI confidence + multi-role gated + hold-tenure + win/lose
-    polarity + size + leader mark returns (Group Matrix–lite,
-    cluster n on labels). Does not change entries or exits.
+    crypto 24/7) + entry rebuy vs fresh (prior SELL in trades) +
+    scan membership + screener list role (lead/brk/rec/off) + scan
+    score bands (hi/mid/lo/off) + pct_from_high near/mid/deep/off +
+    day-change hot/cold/quiet/off (±4% StockBee) + ATR vol
+    with/soft/off + AI debate action + AI confidence + multi-role
+    gated + hold-tenure + win/lose polarity + size + leader mark
+    returns (Group Matrix–lite, cluster n on labels). Does not
+    change entries or exits.
     """
     from stock_checker.exit_policy import book_action_mode
 
@@ -2122,6 +2244,27 @@ def book_risk_report(
         "entry_session_unknown_lots": 0,
         "entry_session_marks_ready": False,
         "entry_session_marks_bit": "",
+        "entry_hours_open_pct": None,
+        "entry_hours_closed_pct": None,
+        "entry_hours_cr_pct": None,
+        "entry_hours_open_label": "",
+        "entry_hours_closed_label": "",
+        "entry_hours_cr_label": "",
+        "entry_hours_open_lots": 0,
+        "entry_hours_closed_lots": 0,
+        "entry_hours_cr_lots": 0,
+        "entry_hours_unknown_lots": 0,
+        "entry_hours_marks_ready": False,
+        "entry_hours_marks_bit": "",
+        "entry_rebuy_rebuy_pct": None,
+        "entry_rebuy_fresh_pct": None,
+        "entry_rebuy_rebuy_label": "",
+        "entry_rebuy_fresh_label": "",
+        "entry_rebuy_rebuy_lots": 0,
+        "entry_rebuy_fresh_lots": 0,
+        "entry_rebuy_unknown_lots": 0,
+        "entry_rebuy_marks_ready": False,
+        "entry_rebuy_marks_bit": "",
         "scan_on_pct": None,
         "scan_off_pct": None,
         "scan_on_label": "",
@@ -2316,6 +2459,7 @@ def book_risk_report(
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     entry_session = entry_session_mark_returns(rows)
     entry_hours = entry_hours_mark_returns(rows)
+    entry_rebuy = entry_rebuy_mark_returns(rows, trades)
     scan = scan_mark_returns(rows, scan_symbols)
     scan_list = scan_list_mark_returns(
         rows,
@@ -2364,6 +2508,7 @@ def book_risk_report(
         **min_hold,
         **entry_session,
         **entry_hours,
+        **entry_rebuy,
         **scan,
         **scan_list,
         **scan_score,

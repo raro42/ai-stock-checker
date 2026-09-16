@@ -5930,6 +5930,7 @@ def load_desk_snapshot(
         ai_actions=ai_actions,
         ai_confidences=ai_confidences,
         ai_gated=ai_gated,
+        trades=trades,
     )
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
