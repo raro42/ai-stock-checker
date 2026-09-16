@@ -1299,6 +1299,123 @@ def test_entry_post_trim_mark_returns_trim_vs_oth_vs_fresh() -> None:
     assert "post-trim " not in out["note"]
 
 
+def test_entry_buy_fee_mark_returns_free_vs_paid() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_buy_fee_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "WMT",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": -0.5,
+            "marked": True,
+            "bought_at": "2026-09-15T18:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": 2.5,
+            "marked": True,
+            "bought_at": "2026-09-14T14:00:00Z",
+        },
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 3_000,
+            "unrealized_pct": 0.5,
+            "marked": True,
+            "bought_at": "2026-09-13T12:00:00Z",
+        },
+    ]
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "WMT",
+            "timestamp": "2026-09-15T18:00:00Z",
+            "quantity": 10,
+            "price": 68,
+            "commission": 0.0,
+        },
+        {
+            "type": "BUY",
+            "symbol": "MSFT",
+            "timestamp": "2026-09-14T14:00:00Z",
+            "quantity": 5,
+            "price": 400,
+            "commission": 12.5,
+        },
+        {
+            "type": "BUY",
+            "symbol": "GOOG",
+            "timestamp": "2026-09-10T12:00:00Z",
+            "quantity": 2,
+            "price": 100,
+            "commission": 1.0,
+        },
+        # AAPL buy missing commission → unknown for that lot
+        {
+            "type": "BUY",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-13T12:00:00Z",
+            "quantity": 3,
+            "price": 180,
+        },
+    ]
+    pm = entry_buy_fee_mark_returns(holds, trades)
+    assert pm["entry_buy_fee_free_pct"] == -0.5
+    assert pm["entry_buy_fee_free_label"] == "−0.5%×1"
+    assert pm["entry_buy_fee_free_lots"] == 1
+    assert pm["entry_buy_fee_paid_pct"] == 2.5
+    assert pm["entry_buy_fee_paid_label"] == "+2.5%×1"
+    assert pm["entry_buy_fee_paid_lots"] == 1
+    assert pm["entry_buy_fee_unknown_lots"] == 2
+    assert pm["entry_buy_fee_marks_ready"] is True
+    assert "free −0.5%×1" in pm["entry_buy_fee_marks_bit"]
+    assert "paid +2.5%×1" in pm["entry_buy_fee_marks_bit"]
+
+    empty = entry_buy_fee_mark_returns([], [])
+    assert empty["entry_buy_fee_marks_ready"] is False
+    assert empty["entry_buy_fee_marks_bit"] == ""
+
+    no_ledger = entry_buy_fee_mark_returns(
+        [
+            {
+                "symbol": "GOOG",
+                "kind": "stock",
+                "cost_basis": 2_000,
+                "unrealized_pct": 4.0,
+                "marked": True,
+                "bought_at": "2026-09-10T12:00:00Z",
+            }
+        ],
+        None,
+    )
+    assert no_ledger["entry_buy_fee_marks_ready"] is False
+    assert no_ledger["entry_buy_fee_unknown_lots"] == 1
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=26_000,
+        holdings=holds,
+        max_positions=5,
+        trades=trades,
+    )
+    assert out["entry_buy_fee_marks_ready"] is True
+    assert out["entry_buy_fee_free_pct"] == -0.5
+    assert "fee " not in out["note"]
+
+
 def test_entry_concentration_mark_returns_at_vs_under() -> None:
     from stock_checker.risk_halts import (
         book_risk_report,

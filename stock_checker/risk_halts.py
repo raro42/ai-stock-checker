@@ -1698,6 +1698,131 @@ def entry_post_trim_mark_returns(
     return out
 
 
+def _buy_fee_events_by_symbol(
+    trades: Iterable[Mapping[str, Any]] | None,
+) -> dict[str, list[tuple[float, float]]]:
+    """Symbol → sorted (epoch, commission) BUY events (display only)."""
+    out: dict[str, list[tuple[float, float]]] = {}
+    if not trades:
+        return out
+    for raw in trades:
+        if not isinstance(raw, Mapping):
+            continue
+        if str(raw.get("type") or "").upper() != "BUY":
+            continue
+        sym = str(raw.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        epoch = _parse_trade_epoch(str(raw.get("timestamp") or ""))
+        if epoch is None:
+            continue
+        if "commission" not in raw:
+            continue
+        try:
+            fee = float(raw.get("commission") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        out.setdefault(sym, []).append((float(epoch), fee))
+    for sym, events in out.items():
+        events.sort(key=lambda item: item[0])
+    return out
+
+
+def _entry_buy_fee_bucket(
+    h: dict[str, Any],
+    buy_events: dict[str, list[tuple[float, float]]],
+) -> str | None:
+    """free / paid from matching BUY commission; None if no entry or fee row."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    # Exact timestamp match (portfolio bought_at == BUY timestamp).
+    for epoch, fee in buy_events.get(sym) or []:
+        if abs(epoch - buy_epoch) < 0.5:
+            return "free" if fee <= 0.0 else "paid"
+    return None
+
+
+def entry_buy_fee_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by buy-leg fee (display only).
+
+    portfolio AI + Revolut allowance honesty + Group Matrix: lots whose
+    matching BUY ``commission`` was €0 (free monthly leg) vs paid (>0).
+    Missing ``bought_at`` / no matching BUY fee row → unknown. Cluster n on
+    labels. Strip only; not a gate; crypto fees still not modeled on live
+    policy — this mirrors ledger commissions only.
+    """
+    buys = _buy_fee_events_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "free": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "paid": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_buy_fee_bucket(h, buys)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_buy_fee_free_pct": None,
+        "entry_buy_fee_paid_pct": None,
+        "entry_buy_fee_free_label": "",
+        "entry_buy_fee_paid_label": "",
+        "entry_buy_fee_free_lots": 0,
+        "entry_buy_fee_paid_lots": 0,
+        "entry_buy_fee_unknown_lots": unknown_lots,
+        "entry_buy_fee_marks_ready": False,
+        "entry_buy_fee_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("free", "free", "entry_buy_fee_free"),
+        ("paid", "paid", "entry_buy_fee_paid"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_buy_fee_marks_ready"] = True
+        out["entry_buy_fee_marks_bit"] = "fee " + " · ".join(bits)
+    return out
+
+
 def _entry_concentration_bucket(
     h: dict[str, Any],
     *,
@@ -2873,6 +2998,15 @@ def book_risk_report(
         "entry_post_trim_unknown_lots": 0,
         "entry_post_trim_marks_ready": False,
         "entry_post_trim_marks_bit": "",
+        "entry_buy_fee_free_pct": None,
+        "entry_buy_fee_paid_pct": None,
+        "entry_buy_fee_free_label": "",
+        "entry_buy_fee_paid_label": "",
+        "entry_buy_fee_free_lots": 0,
+        "entry_buy_fee_paid_lots": 0,
+        "entry_buy_fee_unknown_lots": 0,
+        "entry_buy_fee_marks_ready": False,
+        "entry_buy_fee_marks_bit": "",
         "entry_conc_at_pct": None,
         "entry_conc_under_pct": None,
         "entry_conc_at_label": "",
@@ -3082,6 +3216,7 @@ def book_risk_report(
     entry_post_tp = entry_post_tp_mark_returns(rows, trades)
     entry_post_rot = entry_post_rotation_mark_returns(rows, trades)
     entry_post_trim = entry_post_trim_mark_returns(rows, trades)
+    entry_buy_fee = entry_buy_fee_mark_returns(rows, trades)
     entry_conc = entry_concentration_mark_returns(
         rows, equity=equity_f, max_name_pct=cap_pct
     )
@@ -3138,6 +3273,7 @@ def book_risk_report(
         **entry_post_tp,
         **entry_post_rot,
         **entry_post_trim,
+        **entry_buy_fee,
         **entry_conc,
         **scan,
         **scan_list,

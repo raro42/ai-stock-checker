@@ -142,7 +142,7 @@
   {% set matrix_ready = (
     br.entry_session_marks_ready or br.entry_hours_marks_ready or br.entry_rebuy_marks_ready
     or br.entry_post_sl_marks_ready or br.entry_post_tp_marks_ready or br.entry_post_rot_marks_ready
-    or br.entry_post_trim_marks_ready
+    or br.entry_post_trim_marks_ready or br.entry_buy_fee_marks_ready
     or br.entry_conc_marks_ready
     or br.scan_list_marks_ready or br.scan_score_marks_ready
     or br.scan_near_high_marks_ready or br.scan_mover_marks_ready or br.scan_vol_marks_ready
@@ -151,10 +151,10 @@
   <details class="matrix-honesty" id="matrix-honesty">
     <summary>
       Screener &amp; AI marks
-      <span class="meta">Session · Hours · Rebuy · Post-SL · Post-TP · Post-rot · Post-trim · Cap · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
+      <span class="meta">Session · Hours · Rebuy · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Cap · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
     </summary>
     <p class="sub">
-      Group Matrix research clusters — entry session/hours/rebuy/post-SL/post-TP/post-rot/post-trim/cap + scan-list + debate memory; display only; not a gate.
+      Group Matrix research clusters — entry session/hours/rebuy/post-SL/post-TP/post-rot/post-trim/fee/cap + scan-list + debate memory; display only; not a gate.
       {% if not matrix_ready %}No cluster data yet.{% endif %}
     </p>
     <ul class="risk-strip" aria-label="Screener and AI mark clusters">
@@ -198,6 +198,12 @@
         <span class="k">Post-trim</span>
         <span class="v" title="Cost-weighted since-buy mark % by most recent prior exit — trim (exit_reason=trim) / oth (tp·sl·rotation·other) / fresh (no prior SELL); ×N names; tradermonty + staskh overweight trim-to-cap refill honesty (A16); pairs with Post-rot + Cap; missing bought_at → unknown; not a gate">
           {% if br.entry_post_trim_marks_ready %}{{ br.entry_post_trim_marks_bit[10:] }}{% else %}—{% endif %}
+        </span>
+      </li>
+      <li>
+        <span class="k">Fee</span>
+        <span class="v" title="Cost-weighted since-buy mark % by buy-leg commission — free (€0 allowance) / paid (&gt;0); ×N names; portfolio AI + Revolut free-leg honesty from trades.jsonl; missing bought_at or BUY fee row → unknown; crypto fees not modeled beyond ledger; not a gate">
+          {% if br.entry_buy_fee_marks_ready %}{{ br.entry_buy_fee_marks_bit[4:] }}{% else %}—{% endif %}
         </span>
       </li>
       <li>
