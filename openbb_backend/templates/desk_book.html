@@ -140,17 +140,18 @@
   {# Screener/AI Group Matrix clusters — folded (MonsterDeveloper + xang1234 declutter). #}
   {% set br = snap.book_risk if snap.book_risk is mapping else {} %}
   {% set matrix_ready = (
-    br.entry_session_marks_ready or br.scan_list_marks_ready or br.scan_score_marks_ready
+    br.entry_session_marks_ready or br.entry_hours_marks_ready
+    or br.scan_list_marks_ready or br.scan_score_marks_ready
     or br.scan_near_high_marks_ready or br.scan_mover_marks_ready or br.scan_vol_marks_ready
     or br.ai_debate_marks_ready or br.ai_conf_marks_ready or br.ai_roles_marks_ready
   ) %}
   <details class="matrix-honesty" id="matrix-honesty">
     <summary>
       Screener &amp; AI marks
-      <span class="meta">Session · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
+      <span class="meta">Session · Hours · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
     </summary>
     <p class="sub">
-      Group Matrix research clusters — entry session + scan-list + debate memory; display only; not a gate.
+      Group Matrix research clusters — entry session/hours + scan-list + debate memory; display only; not a gate.
       {% if not matrix_ready %}No cluster data yet.{% endif %}
     </p>
     <ul class="risk-strip" aria-label="Screener and AI mark clusters">
@@ -158,6 +159,12 @@
         <span class="k">Session</span>
         <span class="v" title="Cost-weighted since-buy mark % by UTC entry weekday — wd (Mon–Fri) / we (Sat–Sun); ×N names; xang1234 session + weekend crypto-only cluster; missing bought_at → unknown; not a gate">
           {% if br.entry_session_marks_ready %}{{ br.entry_session_marks_bit[8:] }}{% else %}—{% endif %}
+        </span>
+      </li>
+      <li>
+        <span class="k">Hours</span>
+        <span class="v" title="Cost-weighted since-buy mark % by entry cash-session hours — open (US RTH / Xetra) / closed (AH·premarket·weekend equity) / cr (crypto 24/7); ×N names; xang1234 equity-hours + RyanJHamby daily-scan honesty; missing equity bought_at → unknown; not a gate">
+          {% if br.entry_hours_marks_ready %}{{ br.entry_hours_marks_bit[6:] }}{% else %}—{% endif %}
         </span>
       </li>
       <li>

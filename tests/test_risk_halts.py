@@ -630,6 +630,87 @@ def test_entry_session_mark_returns_weekday_vs_weekend() -> None:
     assert out["entry_session_wd_pct"] == 1.67
 
 
+def test_entry_hours_mark_returns_open_closed_crypto() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_hours_mark_returns,
+    )
+
+    # Tue 2026-09-15 14:00Z = 10:00 ET → US RTH open
+    # Tue 2026-09-15 22:00Z = 18:00 ET → US closed (AH)
+    # Sat 2026-09-12 → weekend equity closed
+    # Crypto always cr (24/7)
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+            "bought_at": "2026-09-15T14:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+            "bought_at": "2026-09-15T22:00:00Z",
+        },
+        {
+            "symbol": "SAP.DE",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+            "bought_at": "2026-09-12T12:00:00Z",
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 8_000,
+            "unrealized_pct": 6.0,
+            "marked": True,
+            "bought_at": "2026-09-13T03:00:00Z",
+        },
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 3_000,
+            "unrealized_pct": 2.0,
+            "marked": True,
+        },
+    ]
+    hm = entry_hours_mark_returns(holds)
+    assert hm["entry_hours_open_pct"] == 4.0
+    assert hm["entry_hours_open_label"] == "+4.0%×1"
+    assert hm["entry_hours_open_lots"] == 1
+    assert hm["entry_hours_closed_pct"] == -0.5
+    assert hm["entry_hours_closed_label"] == "−0.5%×2"
+    assert hm["entry_hours_closed_lots"] == 2
+    assert hm["entry_hours_cr_pct"] == 6.0
+    assert hm["entry_hours_cr_label"] == "+6.0%×1"
+    assert hm["entry_hours_cr_lots"] == 1
+    assert hm["entry_hours_unknown_lots"] == 1
+    assert hm["entry_hours_marks_ready"] is True
+    assert "open +4.0%×1" in hm["entry_hours_marks_bit"]
+    assert "closed −0.5%×2" in hm["entry_hours_marks_bit"]
+    assert "cr +6.0%×1" in hm["entry_hours_marks_bit"]
+
+    empty = entry_hours_mark_returns([])
+    assert empty["entry_hours_marks_ready"] is False
+    assert empty["entry_hours_marks_bit"] == ""
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=32_000,
+        holdings=holds,
+        max_positions=5,
+    )
+    assert out["entry_hours_marks_ready"] is True
+    assert out["entry_hours_open_pct"] == 4.0
+
+
 def test_min_hold_mark_returns_lock_vs_free() -> None:
     from stock_checker.risk_halts import book_risk_report, min_hold_mark_returns
 

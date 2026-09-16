@@ -11,7 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional, Tuple
 
-from stock_checker.market_hours import is_crypto_symbol, is_german_equity
+from stock_checker.market_hours import (
+    is_crypto_symbol,
+    is_equity_session_closed,
+    is_german_equity,
+)
 
 # Realized loss vs initial capital (UTC day) → block new buys.
 DEFAULT_DAILY_LOSS_PCT = 2.0
@@ -1025,6 +1029,103 @@ def entry_session_mark_returns(
     return out
 
 
+
+def _entry_hours_bucket(h: dict[str, Any]) -> str | None:
+    """open = equity cash session; closed = AH/weekend equity; cr = crypto.
+
+    None if equity entry time missing/unparseable.
+    """
+    sym = str(h.get("symbol") or "").strip()
+    if not sym:
+        return None
+    if is_crypto_symbol(sym) or str(h.get("kind") or "").lower() == "crypto":
+        return "cr"
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    dt = _parse_trade_dt(raw)
+    if dt is None:
+        return None
+    return "closed" if is_equity_session_closed(sym, now=dt) else "open"
+
+
+def entry_hours_mark_returns(
+    holdings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by entry cash-session hours (display only).
+
+    xang1234 equity-hours + RyanJHamby daily-scan honesty + portfolio AI
+    Group Matrix: lots bought in US RTH / Xetra open vs outside cash hours
+    (AH/premarket/weekend equity) vs crypto 24/7. Missing ``bought_at`` on
+    equities → unknown (not open). Cluster n on labels. Strip only; not a
+    gate; not calendar 1w/1m.
+    """
+    bands: dict[str, dict[str, Any]] = {
+        "open": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "closed": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "cr": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_hours_bucket(h)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_hours_open_pct": None,
+        "entry_hours_closed_pct": None,
+        "entry_hours_cr_pct": None,
+        "entry_hours_open_label": "",
+        "entry_hours_closed_label": "",
+        "entry_hours_cr_label": "",
+        "entry_hours_open_lots": 0,
+        "entry_hours_closed_lots": 0,
+        "entry_hours_cr_lots": 0,
+        "entry_hours_unknown_lots": unknown_lots,
+        "entry_hours_marks_ready": False,
+        "entry_hours_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("open", "open", "entry_hours_open"),
+        ("closed", "closed", "entry_hours_closed"),
+        ("cr", "cr", "entry_hours_cr"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_hours_marks_ready"] = True
+        out["entry_hours_marks_bit"] = "hours " + " · ".join(bits)
+    return out
+
+
 def scan_mark_returns(
     holdings: list[dict[str, Any]],
     scan_symbols: Iterable[str] | None = None,
@@ -1917,9 +2018,10 @@ def book_risk_report(
 
     Cash %, slots, posture, largest name, equity vs crypto mix,
     sleeve + venue + exit-band + min-hold lock + entry session
-    (wd Mon–Fri UTC / we Sat–Sun) + scan membership + screener
-    list role (lead/brk/rec/off) + scan score bands (hi/mid/lo/off)
-    + pct_from_high near/mid/deep/off + day-change hot/cold/quiet/off
+    (wd Mon–Fri UTC / we Sat–Sun) + entry hours (cash open / AH /
+    crypto 24/7) + scan membership + screener list role
+    (lead/brk/rec/off) + scan score bands (hi/mid/lo/off) +
+    pct_from_high near/mid/deep/off + day-change hot/cold/quiet/off
     (±4% StockBee) + ATR vol with/soft/off + AI debate action +
     AI confidence + multi-role gated + hold-tenure + win/lose
     polarity + size + leader mark returns (Group Matrix–lite,
@@ -2213,6 +2315,7 @@ def book_risk_report(
     exit_band = exit_band_mark_returns(rows)
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     entry_session = entry_session_mark_returns(rows)
+    entry_hours = entry_hours_mark_returns(rows)
     scan = scan_mark_returns(rows, scan_symbols)
     scan_list = scan_list_mark_returns(
         rows,
@@ -2260,6 +2363,7 @@ def book_risk_report(
         **exit_band,
         **min_hold,
         **entry_session,
+        **entry_hours,
         **scan,
         **scan_list,
         **scan_score,
