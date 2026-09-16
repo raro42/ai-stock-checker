@@ -1,15 +1,22 @@
-# GitHub idea watch — 2026-09-16T04:14:35Z
+# GitHub idea watch — 2026-09-16T10:59:35Z
 
 Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.
 
 - Repos watched: **15**
-- Checked this run: **3** · skipped (not due): **12**
+- Checked this run: **1** · skipped (not due): **14**
 - Repos with new activity: **1**
-- Next loop sleep: **3432s** (cadence-aware)
+- Next loop sleep: **6279s** (cadence-aware)
 
 ## Highlights
 
-- tradermonty/claude-trading-skills: commit c894e74 — fix(workflow-replay): complete multi-asset replay hardening (#412) (#413)
+- staskh/trading_skills: commit 9a1bf57 — Merge pull request #141 from staskh/bug/rr-gate-recent-bars
+- staskh/trading_skills: commit be2ab06 — chore: bump version to 0.18.6
+- staskh/trading_skills: commit f9a7f99 — fix(ema_vix): confirm rr_gate against the latest closed bars
+- staskh/trading_skills: commit f864c6b — Merge pull request #142 from staskh/docs/rv-ratio-rationale
+- staskh/trading_skills: commit 1bf6da2 — chore: bump version to 0.18.5
+- staskh/trading_skills: commit b6420b1 — docs(ib_0dte): state what the 0.85 realized/implied ratio is
+- staskh/trading_skills: commit 3796968 — Merge pull request #140 from staskh/feat/oi-in-quote-pass
+- staskh/trading_skills: commit 9f02a1a — chore: bump version to 0.18.4
 
 ## Per repo
 
@@ -17,31 +24,38 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 - Watch reason: Claude trading skills with real workflows — position sizer, pre-trade gate, trader memory, postmortem (borrow ideas only; no FMP/Alpaca install)
 - Claude Code skills for equity investors and traders — market analysis, technical charting, economic calendars, screeners, and trading strategy development.
 - Stars: 2835 · pushed: 2026-09-16T04:00:09Z · branch: `main`
-- Cadence: ~4.41 commits/day (avg gap 5.5h) · recheck every 3h · next 2026-09-16T07:14:32Z
-- Status: **updates since last run**
-- Commits:
-  - [`c894e74`](https://github.com/tradermonty/claude-trading-skills/commit/c894e74e0d054d9ba882ef05362f3da91fc66552) 2026-09-16 — fix(workflow-replay): complete multi-asset replay hardening (#412) (#413)
+- Cadence: ~4.41 commits/day (avg gap 5.5h) · recheck every 3h · next 2026-09-16T13:44:32Z
+- Status: **skipped** (not due yet)
 
 ### [staskh/trading_skills](https://github.com/staskh/trading_skills)
 - Watch reason: Trading skills + risk/portfolio report patterns (IBKR-heavy — ideas only, no live broker wiring)
 - Claude powered advisor system for option traders
-- Stars: 364 · pushed: 2026-09-12T19:57:36Z · branch: `main`
-- Cadence: ~0.15 commits/day (avg gap 162.3h) · recheck every 81h · next 2026-09-16T10:50:54Z
-- Status: **skipped** (not due yet)
+- Stars: 366 · pushed: 2026-09-13T15:35:37Z · branch: `main`
+- Cadence: ~3.00 commits/day (avg gap 8.0h) · recheck every 3h · next 2026-09-16T14:59:32Z
+- Status: **updates since last run**
+- Commits:
+  - [`9a1bf57`](https://github.com/staskh/trading_skills/commit/9a1bf5735f94562b4ae3e40a930efdae22aa822d) 2026-09-13 — Merge pull request #141 from staskh/bug/rr-gate-recent-bars
+  - [`be2ab06`](https://github.com/staskh/trading_skills/commit/be2ab064f3be5a9424160891c8d642a9e00a821c) 2026-09-13 — chore: bump version to 0.18.6
+  - [`f9a7f99`](https://github.com/staskh/trading_skills/commit/f9a7f99626d020027a4c9cc3da9bc60656952f7c) 2026-09-12 — fix(ema_vix): confirm rr_gate against the latest closed bars
+  - [`f864c6b`](https://github.com/staskh/trading_skills/commit/f864c6b6e38bf28b07f37611059f9b044f8c110c) 2026-09-13 — Merge pull request #142 from staskh/docs/rv-ratio-rationale
+  - [`1bf6da2`](https://github.com/staskh/trading_skills/commit/1bf6da261c73ff36d1ec0c7fb6da3e9ae1f0a68c) 2026-09-13 — chore: bump version to 0.18.5
+  - [`b6420b1`](https://github.com/staskh/trading_skills/commit/b6420b1f2a348a933e6af7ce80bf7950438c27e5) 2026-09-12 — docs(ib_0dte): state what the 0.85 realized/implied ratio is
+  - [`3796968`](https://github.com/staskh/trading_skills/commit/3796968761fab8c2c48a6a502d7676d87edb7301) 2026-09-13 — Merge pull request #140 from staskh/feat/oi-in-quote-pass
+  - [`9f02a1a`](https://github.com/staskh/trading_skills/commit/9f02a1ad1164e2cdd1ac66097d8f96b0a0faa852) 2026-09-13 — chore: bump version to 0.18.4
 
 ### [mphinance/alpha-skills](https://github.com/mphinance/alpha-skills)
 - Watch reason: Quant/alpha skill pack — backtest and strategy workflow ideas
 - AI-powered trading skills for Claude/Gemini agents. Backtesting, edge research, market analysis, strategy design, and more.
-- Stars: 23 · pushed: 2026-08-28T19:59:57Z · branch: `main`
-- Cadence: ~0.19 commits/day (avg gap 127.2h) · recheck every 63h · next 2026-09-16T05:11:45Z
+- Stars: 24 · pushed: 2026-09-13T22:32:19Z · branch: `main`
+- Cadence: ~0.15 commits/day (avg gap 160.8h) · recheck every 80h · next 2026-09-19T13:35:59Z
 - Status: **skipped** (not due yet)
 
 ### [xang1234/stock-screener](https://github.com/xang1234/stock-screener)
 - Watch reason: Stock screener patterns and signals UX
 - Stock scanner with multiple fundamental and technical criteria. Features 80+ filters, AI chatbot (Groq/DeepSeek/Gemini),   theme discovery, and StockBee-style breadth indicators.
 - Stars: 311 · pushed: 2026-09-15T14:49:33Z · branch: `main`
-- Cadence: ~6.35 commits/day (avg gap 3.8h) · recheck every 3h · next 2026-09-16T07:14:32Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Cadence: ~6.35 commits/day (avg gap 3.8h) · recheck every 3h · next 2026-09-16T13:44:32Z
+- Status: **skipped** (not due yet)
 
 ### [MonsterDeveloper/simple-stock-screener](https://github.com/MonsterDeveloper/simple-stock-screener)
 - Watch reason: Minimal screener — learn from simplicity
@@ -67,35 +81,35 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 ### [nicdun/value-investing-ai-agent](https://github.com/nicdun/value-investing-ai-agent)
 - Watch reason: Value-investing agent prompts / workflow
 - AI-powered stock analysis tool that provides comprehensive fundamental research using Alpha Vantage API and advanced language models.
-- Stars: 19 · pushed: 2025-09-06T16:52:32Z · branch: `main`
-- Cadence: ~0.12 commits/day (avg gap 194.7h) · recheck every 97h · next 2026-09-16T07:15:35Z
+- Stars: 20 · pushed: 2025-09-06T16:52:32Z · branch: `main`
+- Cadence: ~0.12 commits/day (avg gap 194.7h) · recheck every 97h · next 2026-09-20T08:50:41Z
 - Status: **skipped** (not due yet)
 
 ### [shubham5027/Stock-Portfolio-AI](https://github.com/shubham5027/Stock-Portfolio-AI)
 - Watch reason: Portfolio AI assistant features
 - The platform provides comprehensive insights for making informed investment decisions through various data sources and machine learning models.
 - Stars: 1 · pushed: 2025-06-11T19:57:48Z · branch: `main`
-- Cadence: ~1.38 commits/day (avg gap 17.4h) · recheck every 8h · next 2026-09-16T07:32:19Z
+- Cadence: ~1.38 commits/day (avg gap 17.4h) · recheck every 8h · next 2026-09-16T16:26:37Z
 - Status: **skipped** (not due yet)
 
 ### [d1l1x/stock-screener](https://github.com/d1l1x/stock-screener)
 - Watch reason: Screener implementation variants
 - A tool that helps scanning, filtering and ranking a list of stocks 
 - Stars: 0 · pushed: 2023-08-13T19:18:50Z · branch: `main`
-- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-09-16T07:14:32Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-09-16T13:44:32Z
+- Status: **skipped** (not due yet)
 
 ### [ba1int/stock_screener](https://github.com/ba1int/stock_screener)
 - Watch reason: Screener implementation variants
 - Stars: 37 · pushed: 2025-04-08T10:45:11Z · branch: `main`
-- Cadence: ~3.29 commits/day (avg gap 7.3h) · recheck every 3h · next 2026-09-16T05:16:53Z
+- Cadence: ~3.29 commits/day (avg gap 7.3h) · recheck every 3h · next 2026-09-16T12:44:13Z
 - Status: **skipped** (not due yet)
 
 ### [simonchalder/Stock-Screener](https://github.com/simonchalder/Stock-Screener)
 - Watch reason: Screener implementation variants
 - Stock Screener compares company data against logical requirements to determine if a particular stock may be of interest to an investor.
 - Stars: 4 · pushed: 2021-03-21T12:59:47Z · branch: `main`
-- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-09-16T06:05:03Z
+- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-09-16T13:19:49Z
 - Status: **skipped** (not due yet)
 
 ### [m-turnergane/stock-screener](https://github.com/m-turnergane/stock-screener)
@@ -115,7 +129,7 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 ### [vals-ai/finance-agent-v2](https://github.com/vals-ai/finance-agent-v2)
 - Watch reason: Finance agent v2 architecture / tools
 - Stars: 53 · pushed: 2026-08-18T04:25:49Z · branch: `main`
-- Cadence: ~0.81 commits/day (avg gap 29.6h) · recheck every 14h · next 2026-09-16T05:45:21Z
+- Cadence: ~0.81 commits/day (avg gap 29.6h) · recheck every 14h · next 2026-09-16T20:33:37Z
 - Status: **skipped** (not due yet)
 
 ## How to use

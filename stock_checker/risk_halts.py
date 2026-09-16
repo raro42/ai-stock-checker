@@ -851,6 +851,139 @@ def exit_band_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def _designed_rr(tp_pct: float, sl_pct: float) -> float | None:
+    """Designed reward:risk at entry (TP magnitude / SL magnitude)."""
+    try:
+        tp = float(tp_pct)
+        sl = float(sl_pct)
+    except (TypeError, ValueError):
+        return None
+    if tp <= 0 or sl <= 0:
+        return None
+    return tp / sl
+
+
+def _live_rr_bucket(h: dict[str, Any]) -> str | None:
+    """ok / thin / hit from remaining reward:risk vs designed (latest mark).
+
+    staskh rr_gate + RV-ratio rationale adapted: confirm against the current
+    since-buy mark (not a forecast), and compare live remaining TP/SL distance
+    to the designed entry ratio (stock 8:5 · crypto 1:1). ``hit`` when mark
+    is already at/past a live band. Display only — not a gate.
+    """
+    pct = _holding_marked_pct(h)
+    if pct is None:
+        return None
+    tp, sl = _exit_band_thresholds(h)
+    designed = _designed_rr(tp, sl)
+    if designed is None:
+        return None
+    if pct >= tp or pct <= -sl:
+        return "hit"
+    reward_left = tp - pct
+    risk_left = pct + sl
+    if reward_left <= 0 or risk_left <= 0:
+        return "hit"
+    live_rr = reward_left / risk_left
+    if live_rr + 1e-12 >= designed:
+        return "ok"
+    return "thin"
+
+
+def live_rr_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by live remaining R:R (display only).
+
+    staskh trading_skills rr_gate / RV-ratio docs adapted as Book Group
+    Matrix: lots whose remaining reward-to-TP vs risk-to-SL (from latest
+    marked %) is ``ok`` (≥ designed entry ratio), ``thin`` (still inside
+    bands but below designed), or ``hit`` (at/past live TP or SL). Designed
+    ratios: stock +8%/−5% → 1.6 · crypto ±10% → 1.0. Unmarked → unknown.
+    Cluster n on labels. Strip only; live exits stay ``exit_policy``; not a
+    new gate — hard refuse-without-vol / rr entry block still deferred.
+    """
+    from stock_checker.crypto_policy import (
+        CRYPTO_STOP_LOSS_PCT,
+        CRYPTO_TAKE_PROFIT_PCT,
+    )
+    from stock_checker.exit_policy import (
+        DEFAULT_STOP_LOSS_PCT,
+        DEFAULT_TAKE_PROFIT_PCT,
+    )
+
+    stock_rr = _designed_rr(DEFAULT_TAKE_PROFIT_PCT, DEFAULT_STOP_LOSS_PCT)
+    crypto_rr = _designed_rr(CRYPTO_TAKE_PROFIT_PCT, CRYPTO_STOP_LOSS_PCT)
+    bands: dict[str, dict[str, Any]] = {
+        "ok": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "thin": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "hit": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _live_rr_bucket(h)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "live_rr_ok_pct": None,
+        "live_rr_thin_pct": None,
+        "live_rr_hit_pct": None,
+        "live_rr_ok_label": "",
+        "live_rr_thin_label": "",
+        "live_rr_hit_label": "",
+        "live_rr_ok_lots": 0,
+        "live_rr_thin_lots": 0,
+        "live_rr_hit_lots": 0,
+        "live_rr_unknown_lots": unknown_lots,
+        "live_rr_stock_designed": (
+            round(stock_rr, 2) if stock_rr is not None else None
+        ),
+        "live_rr_crypto_designed": (
+            round(crypto_rr, 2) if crypto_rr is not None else None
+        ),
+        "live_rr_marks_ready": False,
+        "live_rr_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("ok", "ok", "live_rr_ok"),
+        ("thin", "thin", "live_rr_thin"),
+        ("hit", "hit", "live_rr_hit"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["live_rr_marks_ready"] = True
+        out["live_rr_marks_bit"] = "rr " + " · ".join(bits)
+    return out
+
+
 def _min_hold_lock_bucket(
     h: dict[str, Any],
     *,
@@ -3191,6 +3324,20 @@ def book_risk_report(
         "exit_band_marks_ready": False,
         "exit_band_marks_bit": "",
         "exit_band_zone_frac": float(EXIT_BAND_ZONE_FRAC),
+        "live_rr_ok_pct": None,
+        "live_rr_thin_pct": None,
+        "live_rr_hit_pct": None,
+        "live_rr_ok_label": "",
+        "live_rr_thin_label": "",
+        "live_rr_hit_label": "",
+        "live_rr_ok_lots": 0,
+        "live_rr_thin_lots": 0,
+        "live_rr_hit_lots": 0,
+        "live_rr_unknown_lots": 0,
+        "live_rr_stock_designed": None,
+        "live_rr_crypto_designed": None,
+        "live_rr_marks_ready": False,
+        "live_rr_marks_bit": "",
         "min_hold_lock_pct": None,
         "min_hold_free_pct": None,
         "min_hold_lock_label": "",
@@ -3516,6 +3663,7 @@ def book_risk_report(
     leader = leader_mark_returns(rows)
     venue = venue_mark_returns(rows)
     exit_band = exit_band_mark_returns(rows)
+    live_rr = live_rr_mark_returns(rows)
     min_hold = min_hold_mark_returns(rows, min_hold_seconds=hold_s)
     entry_session = entry_session_mark_returns(rows)
     entry_hours = entry_hours_mark_returns(rows)
@@ -3581,6 +3729,7 @@ def book_risk_report(
         **leader,
         **venue,
         **exit_band,
+        **live_rr,
         **min_hold,
         **entry_session,
         **entry_hours,

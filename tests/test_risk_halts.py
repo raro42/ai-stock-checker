@@ -1679,6 +1679,85 @@ def test_entry_buy_confidence_mark_returns_hi_med_lo_none() -> None:
     assert "buy-c " not in out["note"]
 
 
+def test_live_rr_mark_returns_ok_thin_hit() -> None:
+    from stock_checker.risk_halts import book_risk_report, live_rr_mark_returns
+
+    holds = [
+        {
+            "symbol": "WMT",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": 0.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": 4.0,
+            "marked": True,
+        },
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 8.0,
+            "marked": True,
+        },
+        {
+            "symbol": "BTC-USD",
+            "kind": "crypto",
+            "cost_basis": 3_000,
+            "unrealized_pct": -10.0,
+            "marked": True,
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 2_000,
+            "unrealized_pct": 1.0,
+            "marked": False,
+        },
+    ]
+    rr = live_rr_mark_returns(holds)
+    assert rr["live_rr_stock_designed"] == 1.6
+    assert rr["live_rr_crypto_designed"] == 1.0
+    # entry flat stock: remaining 8/5 = 1.6 ≥ designed → ok
+    assert rr["live_rr_ok_pct"] == 0.0
+    assert rr["live_rr_ok_label"] == "+0.0%×1"
+    assert rr["live_rr_ok_lots"] == 1
+    # +4% stock: remaining 4/9 ≈ 0.44 < 1.6 → thin
+    assert rr["live_rr_thin_pct"] == 4.0
+    assert rr["live_rr_thin_label"] == "+4.0%×1"
+    assert rr["live_rr_thin_lots"] == 1
+    # at TP + at crypto SL → hit (cost-weighted)
+    assert rr["live_rr_hit_lots"] == 2
+    hit_cost = 4_000 + 3_000
+    hit_w = 4_000 * 8.0 + 3_000 * (-10.0)
+    assert rr["live_rr_hit_pct"] == round(hit_w / hit_cost, 2)
+    assert rr["live_rr_unknown_lots"] == 1
+    assert rr["live_rr_marks_ready"] is True
+    assert "ok +0.0%×1" in rr["live_rr_marks_bit"]
+    assert "thin +4.0%×1" in rr["live_rr_marks_bit"]
+    assert "hit " in rr["live_rr_marks_bit"]
+
+    empty = live_rr_mark_returns([])
+    assert empty["live_rr_marks_ready"] is False
+    assert empty["live_rr_marks_bit"] == ""
+    assert empty["live_rr_stock_designed"] == 1.6
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=28_000,
+        holdings=holds,
+        max_positions=5,
+    )
+    assert out["live_rr_marks_ready"] is True
+    assert out["live_rr_ok_pct"] == 0.0
+    assert out["live_rr_thin_pct"] == 4.0
+    assert "rr " not in out["note"]
+
+
 def test_entry_concentration_mark_returns_at_vs_under() -> None:
     from stock_checker.risk_halts import (
         book_risk_report,

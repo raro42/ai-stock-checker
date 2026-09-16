@@ -146,6 +146,7 @@
     or br.entry_post_trim_marks_ready or br.entry_buy_fee_marks_ready
     or br.entry_buy_conf_marks_ready
     or br.entry_conc_marks_ready
+    or br.live_rr_marks_ready
     or br.scan_list_marks_ready or br.scan_score_marks_ready
     or br.scan_near_high_marks_ready or br.scan_mover_marks_ready or br.scan_vol_marks_ready
     or br.ai_debate_marks_ready or br.ai_conf_marks_ready or br.ai_roles_marks_ready
@@ -153,10 +154,10 @@
   <details class="matrix-honesty" id="matrix-honesty">
     <summary>
       Screener &amp; AI marks
-      <span class="meta">Session · Hours · Rebuy · Gap · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Buy-c · Cap · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
+      <span class="meta">Session · Hours · Rebuy · Gap · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Buy-c · Cap · RR · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
     </summary>
     <p class="sub">
-      Group Matrix research clusters — entry session/hours/rebuy/gap/post-SL/post-TP/post-rot/post-trim/fee/buy-c/cap + scan-list + debate memory; display only; not a gate.
+      Group Matrix research clusters — entry session/hours/rebuy/gap/post-SL/post-TP/post-rot/post-trim/fee/buy-c/cap + live RR + scan-list + debate memory; display only; not a gate.
       {% if not matrix_ready %}No cluster data yet.{% endif %}
     </p>
     <ul class="risk-strip" aria-label="Screener and AI mark clusters">
@@ -224,6 +225,12 @@
         <span class="k">Cap</span>
         <span class="v" title="Cost-weighted since-buy mark % by soft single-name concentration — at (≥30% equity market weight) / under; ×N names; tradermonty multi-asset max_position_pct breach honesty; pairs with Largest + concentration glance; not a new gate">
           {% if br.entry_conc_marks_ready %}{{ br.entry_conc_marks_bit[4:] }}{% else %}—{% endif %}
+        </span>
+      </li>
+      <li>
+        <span class="k">RR</span>
+        <span class="v" title="Cost-weighted since-buy mark % by live remaining reward:risk vs designed entry ratio — ok (≥ designed) / thin (inside bands but below) / hit (at/past live TP or SL); designed stock +8%/−5% → 1.6 · crypto ±10% → 1.0; ×N names; staskh rr_gate + RV-ratio rationale adapted against latest mark; pairs with Exit band; live TP/SL not ATR; not a new gate">
+          {% if br.live_rr_marks_ready %}{{ br.live_rr_marks_bit[3:] }}{% else %}—{% endif %}
         </span>
       </li>
       <li>
