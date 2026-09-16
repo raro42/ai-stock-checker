@@ -503,8 +503,10 @@ def build_promote_ab_glance(
     bare ``running``. When fills already meet the floor but days are still
     short, status is ``fills ready · keep Window A`` (days still needed —
     portfolio AI dual-meter honesty). An all-buy ledger (``A open-only · 0
-    sells``) is not ready — fee-adjusted edge needs closed rounds. When Window A
-    day target is met but fills stay under the protocol floor
+    sells``) is not ready — fee-adjusted edge needs closed rounds. When the newest in-window SELL is
+    older than ``WINDOW_A_MAX_SELL_STALE_DAYS`` weekday days, status is
+    ``A stale closes · last sell Nd`` (staskh confirm-against-latest-closed).
+    When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
     (max 5 / 24h / revolut_standard / regime·RS·breadth on / AI validate /
@@ -515,6 +517,7 @@ def build_promote_ab_glance(
     from stock_checker.promote_ab import (
         format_window_a_fill_progress_bit,
         format_window_a_open_only_bit,
+        format_window_a_stale_closes_bit,
         format_window_a_thin_bit,
         format_window_b_block_bit,
         format_window_stats_bit,
@@ -543,9 +546,11 @@ def build_promote_ab_glance(
         "sample_buys": 0,
         "sample_sells": 0,
         "sample_open_only": False,
+        "sample_stale_closes": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
+        "a_stale_closes_bit": "",
         "b_ready": False,
         "b_blockers": [],
         "b_block_bit": "",
@@ -553,7 +558,8 @@ def build_promote_ab_glance(
     if not isinstance(runtime, dict):
         return empty
     promote_on = bool(runtime.get("promote_experiment_strategy"))
-    snap = promote_ab_snapshot(promote_on, as_of=as_of or date.today())
+    as_of_day = as_of or date.today()
+    snap = promote_ab_snapshot(promote_on, as_of=as_of_day)
     window = str(snap.get("window") or "A")
     days = int(snap.get("trading_days") or 0)
     need = int(snap.get("target_days") or 10)
@@ -600,7 +606,9 @@ def build_promote_ab_glance(
     b_blockers = list(b_ready_info.get("blockers") or [])
     b_block_bit = format_window_b_block_bit(b_blockers)
     b_knobs_ready = bool(b_ready_info.get("ready"))
-    sample = window_a_sample_readiness(stats if window == "A" else None)
+    sample = window_a_sample_readiness(
+        stats if window == "A" else None, as_of=as_of_day
+    )
     sample_ready = bool(sample.get("ready"))
     sample_known = bool(sample.get("known"))
     sample_fills = int(sample.get("fills") or 0)
@@ -608,12 +616,16 @@ def build_promote_ab_glance(
     sample_buys = int(sample.get("buys") or 0)
     sample_sells = int(sample.get("sells") or 0)
     sample_open_only = bool(sample.get("open_only"))
+    sample_stale_closes = bool(sample.get("stale_closes"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
     a_thin_bit = format_window_a_thin_bit(sample) if window == "A" else ""
     a_open_only_bit = (
         format_window_a_open_only_bit(sample) if window == "A" else ""
+    )
+    a_stale_closes_bit = (
+        format_window_a_stale_closes_bit(sample) if window == "A" else ""
     )
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
     stats_bit = format_window_stats_bit(
@@ -634,6 +646,9 @@ def build_promote_ab_glance(
         elif window == "A" and a_open_only_bit and sample_known:
             tone = "warn"
             status = f"{a_open_only_bit} · keep Window A"
+        elif window == "A" and a_stale_closes_bit and sample_known:
+            tone = "warn"
+            status = f"{a_stale_closes_bit} · keep Window A"
         elif window == "A" and b_block_bit:
             tone = "warn"
             status = b_block_bit
@@ -652,6 +667,8 @@ def build_promote_ab_glance(
             status = "building sample"
         elif window == "A" and sample_known and a_open_only_bit:
             status = f"{a_open_only_bit} · keep Window A"
+        elif window == "A" and sample_known and a_stale_closes_bit:
+            status = f"{a_stale_closes_bit} · keep Window A"
         elif window == "A" and sample_known and sample_ready:
             status = "fills ready · keep Window A"
         else:
@@ -689,9 +706,11 @@ def build_promote_ab_glance(
         "sample_buys": sample_buys if window == "A" else 0,
         "sample_sells": sample_sells if window == "A" else 0,
         "sample_open_only": sample_open_only if window == "A" else False,
+        "sample_stale_closes": sample_stale_closes if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
+        "a_stale_closes_bit": a_stale_closes_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
         "b_block_bit": b_block_bit if window == "A" else "",

@@ -19,6 +19,8 @@ WINDOW_A_TARGET_TRADING_DAYS = 10
 WINDOW_A_TARGET_FILLS = 10
 # Fee-adjusted edge needs closed rounds. All-buy ledgers are open-only (not ready).
 WINDOW_A_TARGET_SELLS = 1
+# staskh confirm-against-latest-closed → Window A closes must be fresh.
+WINDOW_A_MAX_SELL_STALE_DAYS = 5
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
@@ -153,11 +155,20 @@ def format_window_b_block_bit(blockers: list[str] | None) -> str:
     return "B blocked · " + " · ".join(clean)
 
 
+def _weekday_days_since(earlier: date, later: date) -> int:
+    """Weekday trading days strictly after ``earlier`` through ``later``."""
+    if later <= earlier:
+        return 0
+    return weekday_trading_days(earlier + timedelta(days=1), later)
+
+
 def window_a_sample_readiness(
     stats: dict[str, Any] | None,
     *,
     target_fills: int = WINDOW_A_TARGET_FILLS,
     target_sells: int = WINDOW_A_TARGET_SELLS,
+    max_sell_stale_days: int = WINDOW_A_MAX_SELL_STALE_DAYS,
+    as_of: date | None = None,
 ) -> dict[str, Any]:
     """Whether Window A has enough fills to start B (display / ops honesty).
 
@@ -165,27 +176,36 @@ def window_a_sample_readiness(
     thin ledger is not a fair control sample — portfolio AI sample-size
     honesty before ``ready for B``. When ``buys``/``sells`` are present, an
     all-buy ledger is ``open-only`` (no closed rounds → fee-adjusted edge is
-    just −fees). Missing stats → unknown (keep summarize). Missing side keys
-    → fail-open on closed-round check (older fixtures). Not a gate; does not
+    just −fees). When a last SELL timestamp is present, closes older than
+    ``max_sell_stale_days`` weekday days are ``stale`` (staskh confirm-against-
+    latest-closed adapted). Missing stats → unknown (keep summarize). Missing
+    side keys / last_sell → fail-open on those checks. Not a gate; does not
     flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
+    stale_need = max(1, int(max_sell_stale_days))
+    empty = {
+        "ready": False,
+        "known": False,
+        "fills": 0,
+        "target_fills": need,
+        "buys": 0,
+        "sells": 0,
+        "sides_known": False,
+        "target_sells": sell_need,
+        "thin": False,
+        "thin_bit": "",
+        "open_only": False,
+        "open_only_bit": "",
+        "stale_closes": False,
+        "stale_closes_bit": "",
+        "sell_stale_days": None,
+        "max_sell_stale_days": stale_need,
+        "last_sell": None,
+    }
     if not isinstance(stats, dict):
-        return {
-            "ready": False,
-            "known": False,
-            "fills": 0,
-            "target_fills": need,
-            "buys": 0,
-            "sells": 0,
-            "sides_known": False,
-            "target_sells": sell_need,
-            "thin": False,
-            "thin_bit": "",
-            "open_only": False,
-            "open_only_bit": "",
-        }
+        return empty
     try:
         fills = int(stats.get("trades") or 0)
     except (TypeError, ValueError):
@@ -202,7 +222,6 @@ def window_a_sample_readiness(
             sells = int(stats.get("sells") or 0)
         except (TypeError, ValueError):
             sells = 0
-        # Prefer explicit sides; if only one key, derive the other from fills.
         if "buys" not in stats and "sells" in stats:
             buys = max(0, fills - sells)
         elif "sells" not in stats and "buys" in stats:
@@ -215,7 +234,22 @@ def window_a_sample_readiness(
     open_only_bit = ""
     if open_only:
         open_only_bit = f"A open-only · {sells} sells <{sell_need}"
-    ready = (not thin) and (not open_only)
+
+    last_sell_raw = stats.get("last_sell")
+    last_sell_dt = parse_trade_timestamp(last_sell_raw)
+    sell_stale_days: int | None = None
+    stale_closes = False
+    stale_closes_bit = ""
+    if last_sell_dt is not None and not open_only and sells >= sell_need:
+        today = as_of or date.today()
+        sell_stale_days = _weekday_days_since(last_sell_dt.date(), today)
+        if sell_stale_days > stale_need:
+            stale_closes = True
+            stale_closes_bit = (
+                f"A stale closes · last sell {sell_stale_days}d >{stale_need}d"
+            )
+
+    ready = (not thin) and (not open_only) and (not stale_closes)
     return {
         "ready": ready,
         "known": True,
@@ -229,6 +263,11 @@ def window_a_sample_readiness(
         "thin_bit": thin_bit,
         "open_only": open_only,
         "open_only_bit": open_only_bit,
+        "stale_closes": stale_closes,
+        "stale_closes_bit": stale_closes_bit,
+        "sell_stale_days": sell_stale_days,
+        "max_sell_stale_days": stale_need,
+        "last_sell": last_sell_dt.isoformat() if last_sell_dt else None,
     }
 
 
@@ -245,6 +284,14 @@ def format_window_a_open_only_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("open_only_bit") or "").strip()
+    return bit
+
+
+def format_window_a_stale_closes_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A stale-closes bit (last sell too old) for promote A/B glance."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("stale_closes_bit") or "").strip()
     return bit
 
 
@@ -424,6 +471,15 @@ def summarize_window_trades(
     losses = sum(1 for t in sells if float(t.get("profit_loss") or 0) < 0)
     first_ts = window[0].get("timestamp") if window else None
     last_ts = window[-1].get("timestamp") if window else None
+    last_sell_ts = None
+    last_sell_dt: datetime | None = None
+    for sell in sells:
+        ts = parse_trade_timestamp(sell.get("timestamp"))
+        if ts is None:
+            continue
+        if last_sell_dt is None or ts > last_sell_dt:
+            last_sell_dt = ts
+            last_sell_ts = sell.get("timestamp")
     # Fee-adjusted edge for A/B: realized sell P&L minus *all* in-window fees
     # (buy+sell). net_after_sell_fees keeps sell-leg-only for summarize_trades.
     net_all = realized - fees
@@ -441,6 +497,7 @@ def summarize_window_trades(
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,
         "last": last_ts,
+        "last_sell": last_sell_ts,
         "start_utc": start_dt.isoformat(),
         "end_utc": end.isoformat() if end is not None else None,
     }

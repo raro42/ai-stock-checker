@@ -322,8 +322,129 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     )
     assert closed_ok["ready"] is True
     assert closed_ok["open_only"] is False
+    assert closed_ok["stale_closes"] is False
     assert format_window_a_side_bit(closed_ok) == "8b/4s"
     assert format_window_a_fill_progress_bit(closed_ok) == "12/10 fills · 8b/4s"
+
+    fresh = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 100.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert fresh["ready"] is True
+    assert fresh["stale_closes"] is False
+    assert fresh["sell_stale_days"] == 1
+
+    from stock_checker.promote_ab import (
+        WINDOW_A_MAX_SELL_STALE_DAYS,
+        format_window_a_stale_closes_bit,
+    )
+
+    stale = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 100.0,
+            "last_sell": "2026-08-20T12:00:00+00:00",
+        },
+        as_of=date(2026, 9, 13),
+    )
+    assert stale["ready"] is False
+    assert stale["thin"] is False
+    assert stale["open_only"] is False
+    assert stale["stale_closes"] is True
+    assert stale["sell_stale_days"] is not None
+    assert stale["sell_stale_days"] > WINDOW_A_MAX_SELL_STALE_DAYS
+    assert "A stale closes" in stale["stale_closes_bit"]
+    assert format_window_a_stale_closes_bit(stale) == stale["stale_closes_bit"]
+
+
+def test_promote_ab_glance_stale_closes_keeps_window_a() -> None:
+    """Fills + sells ok but last sell old → stale closes · keep Window A."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 13),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 160.0,
+            "last_sell": "2026-08-20T12:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["target_met"] is True
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is False
+    assert g["sample_stale_closes"] is True
+    assert g["sample_open_only"] is False
+    assert "A stale closes" in g["line"]
+    assert "keep Window A" in g["line"]
+    assert "ready for B" not in g["line"]
+    assert g["b_ready"] is False
+
+
+def test_summarize_window_trades_tracks_last_sell() -> None:
+    from stock_checker.promote_ab import WINDOW_A_START_UTC, summarize_window_trades
+
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "AAPL",
+            "timestamp": "2026-08-13T10:00:00+00:00",
+            "commission": 1.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-08-15T10:00:00+00:00",
+            "commission": 1.0,
+            "profit_loss": 10.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "MSFT",
+            "timestamp": "2026-08-18T10:00:00+00:00",
+            "commission": 1.0,
+            "profit_loss": -5.0,
+        },
+        {
+            "type": "BUY",
+            "symbol": "MSFT",
+            "timestamp": "2026-08-20T10:00:00+00:00",
+            "commission": 1.0,
+        },
+    ]
+    s = summarize_window_trades(trades, start=WINDOW_A_START_UTC)
+    assert s["sells"] == 2
+    assert s["last_sell"] == "2026-08-18T10:00:00+00:00"
+    shuffled = [trades[0], trades[2], trades[1], trades[3]]
+    s2 = summarize_window_trades(shuffled, start=WINDOW_A_START_UTC)
+    assert s2["last_sell"] == "2026-08-18T10:00:00+00:00"
 
 
 def test_promote_ab_glance_open_only_keeps_window_a() -> None:
