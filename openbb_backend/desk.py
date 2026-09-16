@@ -497,16 +497,21 @@ def build_promote_ab_glance(
     protocol (A = off, B = on). When fills exist, appends in-window fees /
     fee-adjusted net (realized − all fees) / fill count — portfolio AI
     honesty before Window B (gross sell P&L alone is not edge). When
-    Window A target is met but Ops knobs drift from protocol (max 5 / 24h /
-    revolut_standard / regime·RS·breadth on / AI validate / multi-role on /
-    scan ≥15m / trade ≥5m, or open names > 5), status is ``B blocked · …``
-    instead of ready. Calm ≠ edge; compose default-on still blocked until A/B
-    verdict + calm gate. Not an entry gate.
+    Window A day target is met but fills stay under the protocol floor
+    (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
+    ready — days alone are a thin control sample. When day+fill targets are
+    met but Ops knobs drift from protocol (max 5 / 24h / revolut_standard /
+    regime·RS·breadth on / AI validate / multi-role on / scan ≥15m /
+    trade ≥5m, or open names > 5), status is ``B blocked · …`` instead of
+    ready. Calm ≠ edge; compose default-on still blocked until A/B verdict +
+    calm gate. Not an entry gate.
     """
     from stock_checker.promote_ab import (
+        format_window_a_thin_bit,
         format_window_b_block_bit,
         format_window_stats_bit,
         promote_ab_snapshot,
+        window_a_sample_readiness,
         window_b_readiness,
         window_stats_from_data_dir,
     )
@@ -523,6 +528,11 @@ def build_promote_ab_glance(
         "promote_on": False,
         "window_stats": None,
         "window_stats_bit": "",
+        "sample_ready": False,
+        "sample_known": False,
+        "sample_fills": 0,
+        "target_fills": 0,
+        "a_thin_bit": "",
         "b_ready": False,
         "b_blockers": [],
         "b_block_bit": "",
@@ -577,7 +587,15 @@ def build_promote_ab_glance(
     )
     b_blockers = list(b_ready_info.get("blockers") or [])
     b_block_bit = format_window_b_block_bit(b_blockers)
-    b_ready = bool(b_ready_info.get("ready"))
+    b_knobs_ready = bool(b_ready_info.get("ready"))
+    sample = window_a_sample_readiness(stats if window == "A" else None)
+    sample_ready = bool(sample.get("ready"))
+    sample_known = bool(sample.get("known"))
+    sample_fills = int(sample.get("fills") or 0)
+    target_fills = int(sample.get("target_fills") or 0)
+    a_thin_bit = format_window_a_thin_bit(sample) if window == "A" else ""
+    # Window B start needs knobs + (for A) a non-thin fill sample.
+    b_ready = b_knobs_ready and (sample_ready if window == "A" and sample_known else True)
     if not protocol_ok:
         tone = "warn"
         if window == "A":
@@ -585,7 +603,10 @@ def build_promote_ab_glance(
         else:
             status = "promote should be ON for Window B"
     elif target_met:
-        if window == "A" and b_block_bit:
+        if window == "A" and a_thin_bit and sample_known:
+            tone = "warn"
+            status = f"{a_thin_bit} · keep Window A"
+        elif window == "A" and b_block_bit:
             tone = "warn"
             status = b_block_bit
         else:
@@ -622,6 +643,11 @@ def build_promote_ab_glance(
         "promote_on": promote_on,
         "window_stats": stats,
         "window_stats_bit": stats_bit,
+        "sample_ready": sample_ready if window == "A" else True,
+        "sample_known": sample_known if window == "A" else False,
+        "sample_fills": sample_fills if window == "A" else 0,
+        "target_fills": target_fills if window == "A" else 0,
+        "a_thin_bit": a_thin_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
         "b_block_bit": b_block_bit if window == "A" else "",

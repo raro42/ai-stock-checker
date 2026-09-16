@@ -151,6 +151,7 @@ def test_format_window_stats_bit_fallback_without_net_field() -> None:
 
 def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
     trades_path = tmp_path / "trades.jsonl"
+    # Day target met but only 2 fills → A thin (need ≥10 fills before ready for B).
     trades_path.write_text(
         "\n".join(
             [
@@ -171,12 +172,80 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
         open_positions=2,
     )
     assert g["ready"] is True
-    assert g["tone"] == "ready"
+    assert g["tone"] == "warn"
     assert g["window_stats"]["trades"] == 2
     assert "€20 fees" in g["line"]
     assert "+€230 net" in g["line"]  # 250 realized − 20 all fees
+    assert "A thin" in g["line"]
+    assert "2 fills <10" in g["line"]
+    assert "keep Window A" in g["line"]
+    assert "ready for B" not in g["line"]
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is False
+    assert g["sample_fills"] == 2
+    assert g["target_fills"] == 10
+    assert g["b_ready"] is False
+    assert g["b_blockers"] == []
+
+
+def test_window_a_sample_readiness_fill_floor() -> None:
+    from stock_checker.promote_ab import (
+        WINDOW_A_TARGET_FILLS,
+        format_window_a_thin_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(None)
+    assert unknown["known"] is False
+    assert unknown["ready"] is False
+    assert unknown["thin"] is False
+    assert format_window_a_thin_bit(unknown) == ""
+
+    thin = window_a_sample_readiness({"trades": 2, "fees": 20.0, "realized_pnl": 10.0})
+    assert thin["known"] is True
+    assert thin["ready"] is False
+    assert thin["thin"] is True
+    assert thin["fills"] == 2
+    assert thin["target_fills"] == WINDOW_A_TARGET_FILLS
+    assert thin["thin_bit"] == "A thin · 2 fills <10"
+    assert format_window_a_thin_bit(thin) == "A thin · 2 fills <10"
+
+    ok = window_a_sample_readiness({"trades": 10, "fees": 50.0, "realized_pnl": 100.0})
+    assert ok["ready"] is True
+    assert ok["thin"] is False
+    assert ok["thin_bit"] == ""
+
+
+def test_promote_ab_glance_ready_for_b_when_fills_meet_floor() -> None:
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 13),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "fees": 40.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 160.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "ready"
+    assert g["sample_ready"] is True
+    assert g["sample_fills"] == 12
     assert "ready for B" in g["line"]
-    assert "summarize before B" not in g["line"]
+    assert "A thin" not in g["line"]
     assert g["b_ready"] is True
     assert g["b_blockers"] == []
 

@@ -15,6 +15,8 @@ from typing import Any, Iterable
 WINDOW_A_START = date(2026, 8, 12)
 WINDOW_A_START_UTC = datetime(2026, 8, 12, 15, 22, tzinfo=timezone.utc)
 WINDOW_A_TARGET_TRADING_DAYS = 10
+# Protocol records days *and* fills — day count alone is a thin sample (PROMOTE_AB).
+WINDOW_A_TARGET_FILLS = 10
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
@@ -147,6 +149,54 @@ def format_window_b_block_bit(blockers: list[str] | None) -> str:
     if not clean:
         return ""
     return "B blocked · " + " · ".join(clean)
+
+
+def window_a_sample_readiness(
+    stats: dict[str, Any] | None,
+    *,
+    target_fills: int = WINDOW_A_TARGET_FILLS,
+) -> dict[str, Any]:
+    """Whether Window A has enough fills to start B (display / ops honesty).
+
+    PROMOTE_AB records trading days *and* fills. Hitting the day target with a
+    thin ledger is not a fair control sample — portfolio AI sample-size
+    honesty before ``ready for B``. Missing stats → unknown (keep summarize).
+    Not a gate; does not flip compose promote.
+    """
+    need = max(1, int(target_fills))
+    if not isinstance(stats, dict):
+        return {
+            "ready": False,
+            "known": False,
+            "fills": 0,
+            "target_fills": need,
+            "thin": False,
+            "thin_bit": "",
+        }
+    try:
+        fills = int(stats.get("trades") or 0)
+    except (TypeError, ValueError):
+        fills = 0
+    thin = fills < need
+    thin_bit = ""
+    if thin:
+        thin_bit = f"A thin · {fills} fills <{need}"
+    return {
+        "ready": not thin,
+        "known": True,
+        "fills": fills,
+        "target_fills": need,
+        "thin": thin,
+        "thin_bit": thin_bit,
+    }
+
+
+def format_window_a_thin_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A thin-sample bit for promote A/B glance."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("thin_bit") or "").strip()
+    return bit
 
 
 def weekday_trading_days(start: date, end: date) -> int:
