@@ -819,6 +819,140 @@ def test_entry_rebuy_mark_returns_prior_sell_vs_fresh() -> None:
     assert "rebuy " not in out["note"]
 
 
+def test_entry_rebuy_gap_mark_returns_fast_vs_cool_vs_fresh() -> None:
+    from stock_checker.risk_halts import (
+        DEFAULT_REBUY_COOLDOWN_SEC,
+        book_risk_report,
+        entry_rebuy_gap_mark_returns,
+    )
+
+    # SCHW: sell → buy 1h later (fast, inside 24h cooldown)
+    # WMT: sell → buy 25h later (cool)
+    # AAPL: no prior sell (fresh)
+    # MSFT: missing bought_at (unknown)
+    holds = [
+        {
+            "symbol": "SCHW",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": -1.5,
+            "marked": True,
+            "bought_at": "2026-09-15T13:00:00Z",
+        },
+        {
+            "symbol": "WMT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": 2.0,
+            "marked": True,
+            "bought_at": "2026-09-16T13:00:00Z",
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+            "bought_at": "2026-09-14T14:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+    ]
+    trades = [
+        {
+            "type": "SELL",
+            "symbol": "SCHW",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "exit_reason": "rotation",
+            "quantity": 10,
+            "price": 70,
+        },
+        {
+            "type": "SELL",
+            "symbol": "WMT",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "exit_reason": "tp",
+            "quantity": 20,
+            "price": 80,
+        },
+        {
+            "type": "BUY",
+            "symbol": "SCHW",
+            "timestamp": "2026-09-15T13:00:00Z",
+            "quantity": 10,
+            "price": 71,
+        },
+        {
+            "type": "BUY",
+            "symbol": "WMT",
+            "timestamp": "2026-09-16T13:00:00Z",
+            "quantity": 20,
+            "price": 82,
+        },
+    ]
+    gm = entry_rebuy_gap_mark_returns(holds, trades)
+    assert gm["entry_rebuy_gap_cooldown_sec"] == float(DEFAULT_REBUY_COOLDOWN_SEC)
+    assert gm["entry_rebuy_gap_fast_pct"] == -1.5
+    assert gm["entry_rebuy_gap_fast_label"] == "−1.5%×1"
+    assert gm["entry_rebuy_gap_fast_lots"] == 1
+    assert gm["entry_rebuy_gap_cool_pct"] == 2.0
+    assert gm["entry_rebuy_gap_cool_label"] == "+2.0%×1"
+    assert gm["entry_rebuy_gap_cool_lots"] == 1
+    assert gm["entry_rebuy_gap_fresh_pct"] == 3.0
+    assert gm["entry_rebuy_gap_fresh_label"] == "+3.0%×1"
+    assert gm["entry_rebuy_gap_fresh_lots"] == 1
+    assert gm["entry_rebuy_gap_unknown_lots"] == 1
+    assert gm["entry_rebuy_gap_marks_ready"] is True
+    assert "fast −1.5%×1" in gm["entry_rebuy_gap_marks_bit"]
+    assert "cool +2.0%×1" in gm["entry_rebuy_gap_marks_bit"]
+    assert "fresh +3.0%×1" in gm["entry_rebuy_gap_marks_bit"]
+
+    empty = entry_rebuy_gap_mark_returns([], [])
+    assert empty["entry_rebuy_gap_marks_ready"] is False
+    assert empty["entry_rebuy_gap_marks_bit"] == ""
+
+    no_ledger = entry_rebuy_gap_mark_returns(
+        [
+            {
+                "symbol": "NVDA",
+                "kind": "stock",
+                "cost_basis": 2_000,
+                "unrealized_pct": 4.0,
+                "marked": True,
+                "bought_at": "2026-09-10T12:00:00Z",
+            }
+        ],
+        None,
+    )
+    assert no_ledger["entry_rebuy_gap_fresh_pct"] == 4.0
+    assert no_ledger["entry_rebuy_gap_fast_lots"] == 0
+
+    # Custom short cooldown: WMT 25h gap becomes fast when cooldown is 48h
+    short = entry_rebuy_gap_mark_returns(
+        holds, trades, cooldown_seconds=48 * 3600
+    )
+    assert short["entry_rebuy_gap_fast_lots"] == 2
+    assert short["entry_rebuy_gap_cool_lots"] == 0
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=28_000,
+        holdings=holds,
+        max_positions=5,
+        min_hold_seconds=float(DEFAULT_REBUY_COOLDOWN_SEC),
+        trades=trades,
+    )
+    assert out["entry_rebuy_gap_marks_ready"] is True
+    assert out["entry_rebuy_gap_fast_pct"] == -1.5
+    assert out["entry_rebuy_gap_cool_pct"] == 2.0
+    assert "gap " not in out["note"]
+
+
 def test_entry_post_sl_mark_returns_sl_vs_oth_vs_fresh() -> None:
     from stock_checker.risk_halts import (
         book_risk_report,

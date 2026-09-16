@@ -36,6 +36,8 @@ SCAN_NEAR_HIGH_PCT = -5.0
 SCAN_NEAR_HIGH_MID = -20.0
 # StockBee-lite ±4% day movers (match Breadth crypto_big / mover ratio).
 SCAN_MOVER_PCT = 4.0
+# Rebuy gap vs anti flip-flop cooldown (match Ops default min hold 24h).
+DEFAULT_REBUY_COOLDOWN_SEC = 24 * 3600
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -1245,6 +1247,139 @@ def entry_rebuy_mark_returns(
         out["entry_rebuy_marks_bit"] = "rebuy " + " · ".join(bits)
     return out
 
+
+def _prior_sell_epoch_before_buy(
+    h: dict[str, Any],
+    sell_epochs: dict[str, list[float]],
+) -> tuple[float | None, float | None]:
+    """(buy_epoch, most recent prior sell epoch) or (None, None) if no buy time."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None, None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None, None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None, None
+    prior: float | None = None
+    for sell_epoch in sell_epochs.get(sym) or []:
+        if sell_epoch < buy_epoch:
+            prior = float(sell_epoch)
+        else:
+            break
+    return float(buy_epoch), prior
+
+
+def _entry_rebuy_gap_bucket(
+    h: dict[str, Any],
+    sell_epochs: dict[str, list[float]],
+    *,
+    cooldown_seconds: float,
+) -> str | None:
+    """fast / cool / fresh from gap to prior SELL; None if no entry time."""
+    buy_epoch, prior = _prior_sell_epoch_before_buy(h, sell_epochs)
+    if buy_epoch is None:
+        return None
+    if prior is None:
+        return "fresh"
+    gap = buy_epoch - prior
+    need = max(0.0, float(cooldown_seconds))
+    if gap < need:
+        return "fast"
+    return "cool"
+
+
+def entry_rebuy_gap_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+    *,
+    cooldown_seconds: float | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by rebuy cooldown gap (display only).
+
+    tradermonty SCHW flip-flop + portfolio AI Group Matrix twin of Rebuy:
+    lots whose most recent prior SELL was inside the anti-rebuy cooldown
+    (``fast``) vs after cooldown (``cool``) vs no prior SELL (``fresh``).
+    Default cooldown matches Ops min hold (24h). Missing ``bought_at`` →
+    unknown. Empty ledger → all dated lots count as fresh. Cluster n on
+    labels. Strip only; not a gate — live ``should_allow_rebuy`` still
+    blocks fast rebeys.
+    """
+    try:
+        cool = (
+            float(DEFAULT_REBUY_COOLDOWN_SEC)
+            if cooldown_seconds is None
+            else max(0.0, float(cooldown_seconds))
+        )
+    except (TypeError, ValueError):
+        cool = float(DEFAULT_REBUY_COOLDOWN_SEC)
+    sells = _sell_epochs_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "fast": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "cool": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "fresh": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_rebuy_gap_bucket(h, sells, cooldown_seconds=cool)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_rebuy_gap_fast_pct": None,
+        "entry_rebuy_gap_cool_pct": None,
+        "entry_rebuy_gap_fresh_pct": None,
+        "entry_rebuy_gap_fast_label": "",
+        "entry_rebuy_gap_cool_label": "",
+        "entry_rebuy_gap_fresh_label": "",
+        "entry_rebuy_gap_fast_lots": 0,
+        "entry_rebuy_gap_cool_lots": 0,
+        "entry_rebuy_gap_fresh_lots": 0,
+        "entry_rebuy_gap_unknown_lots": unknown_lots,
+        "entry_rebuy_gap_marks_ready": False,
+        "entry_rebuy_gap_marks_bit": "",
+        "entry_rebuy_gap_cooldown_sec": cool,
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("fast", "fast", "entry_rebuy_gap_fast"),
+        ("cool", "cool", "entry_rebuy_gap_cool"),
+        ("fresh", "fresh", "entry_rebuy_gap_fresh"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_rebuy_gap_marks_ready"] = True
+        out["entry_rebuy_gap_marks_bit"] = "gap " + " · ".join(bits)
+    return out
 
 
 def _sell_events_by_symbol(
@@ -2824,10 +2959,11 @@ def book_risk_report(
     sleeve + venue + exit-band + min-hold lock + entry session
     (wd Mon–Fri UTC / we Sat–Sun) + entry hours (cash open / AH /
     crypto 24/7) + entry rebuy vs fresh (prior SELL in trades) +
-    entry post-SL vs other exit vs fresh (revenge-refill honesty) +
-    entry post-TP vs other vs fresh + soft concentration cap at/under +
-    scan membership + screener list role (lead/brk/rec/off) + scan
-    score bands (hi/mid/lo/off) + pct_from_high near/mid/deep/off +
+    entry rebuy gap fast/cool/fresh (inside vs after anti-flip-flop
+    cooldown) + entry post-SL vs other exit vs fresh (revenge-refill
+    honesty) + entry post-TP vs other vs fresh + soft concentration cap
+    at/under + scan membership + screener list role (lead/brk/rec/off) +
+    scan score bands (hi/mid/lo/off) + pct_from_high near/mid/deep/off +
     day-change hot/cold/quiet/off (±4% StockBee) + ATR vol
     with/soft/off + AI debate action + AI confidence + multi-role
     gated + hold-tenure + win/lose polarity + size + leader mark
@@ -2950,6 +3086,19 @@ def book_risk_report(
         "entry_rebuy_unknown_lots": 0,
         "entry_rebuy_marks_ready": False,
         "entry_rebuy_marks_bit": "",
+        "entry_rebuy_gap_fast_pct": None,
+        "entry_rebuy_gap_cool_pct": None,
+        "entry_rebuy_gap_fresh_pct": None,
+        "entry_rebuy_gap_fast_label": "",
+        "entry_rebuy_gap_cool_label": "",
+        "entry_rebuy_gap_fresh_label": "",
+        "entry_rebuy_gap_fast_lots": 0,
+        "entry_rebuy_gap_cool_lots": 0,
+        "entry_rebuy_gap_fresh_lots": 0,
+        "entry_rebuy_gap_unknown_lots": 0,
+        "entry_rebuy_gap_marks_ready": False,
+        "entry_rebuy_gap_marks_bit": "",
+        "entry_rebuy_gap_cooldown_sec": float(DEFAULT_REBUY_COOLDOWN_SEC),
         "entry_post_sl_sl_pct": None,
         "entry_post_sl_oth_pct": None,
         "entry_post_sl_fresh_pct": None,
@@ -3212,6 +3361,13 @@ def book_risk_report(
     entry_session = entry_session_mark_returns(rows)
     entry_hours = entry_hours_mark_returns(rows)
     entry_rebuy = entry_rebuy_mark_returns(rows, trades)
+    entry_rebuy_gap = entry_rebuy_gap_mark_returns(
+        rows,
+        trades,
+        cooldown_seconds=(
+            hold_s if hold_s is not None else float(DEFAULT_REBUY_COOLDOWN_SEC)
+        ),
+    )
     entry_post_sl = entry_post_sl_mark_returns(rows, trades)
     entry_post_tp = entry_post_tp_mark_returns(rows, trades)
     entry_post_rot = entry_post_rotation_mark_returns(rows, trades)
@@ -3269,6 +3425,7 @@ def book_risk_report(
         **entry_session,
         **entry_hours,
         **entry_rebuy,
+        **entry_rebuy_gap,
         **entry_post_sl,
         **entry_post_tp,
         **entry_post_rot,

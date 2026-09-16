@@ -28,6 +28,7 @@ INSIDE_DETAILS = (
     ">Session</span>",
     ">Hours</span>",
     ">Rebuy</span>",
+    ">Gap</span>",
     ">Post-SL</span>",
     ">Post-TP</span>",
     ">Post-rot</span>",

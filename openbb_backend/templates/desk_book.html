@@ -141,6 +141,7 @@
   {% set br = snap.book_risk if snap.book_risk is mapping else {} %}
   {% set matrix_ready = (
     br.entry_session_marks_ready or br.entry_hours_marks_ready or br.entry_rebuy_marks_ready
+    or br.entry_rebuy_gap_marks_ready
     or br.entry_post_sl_marks_ready or br.entry_post_tp_marks_ready or br.entry_post_rot_marks_ready
     or br.entry_post_trim_marks_ready or br.entry_buy_fee_marks_ready
     or br.entry_conc_marks_ready
@@ -151,10 +152,10 @@
   <details class="matrix-honesty" id="matrix-honesty">
     <summary>
       Screener &amp; AI marks
-      <span class="meta">Session · Hours · Rebuy · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Cap · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
+      <span class="meta">Session · Hours · Rebuy · Gap · Post-SL · Post-TP · Post-rot · Post-trim · Fee · Cap · List · Score · Near · Move · Vol · AI · Conf · Roles</span>
     </summary>
     <p class="sub">
-      Group Matrix research clusters — entry session/hours/rebuy/post-SL/post-TP/post-rot/post-trim/fee/cap + scan-list + debate memory; display only; not a gate.
+      Group Matrix research clusters — entry session/hours/rebuy/gap/post-SL/post-TP/post-rot/post-trim/fee/cap + scan-list + debate memory; display only; not a gate.
       {% if not matrix_ready %}No cluster data yet.{% endif %}
     </p>
     <ul class="risk-strip" aria-label="Screener and AI mark clusters">
@@ -174,6 +175,12 @@
         <span class="k">Rebuy</span>
         <span class="v" title="Cost-weighted since-buy mark % by prior exit — rebuy (SELL of same symbol before bought_at) / fresh (no prior SELL); ×N names; tradermonty flip-flop / SCHW honesty from trades.jsonl; missing bought_at → unknown; not a gate">
           {% if br.entry_rebuy_marks_ready %}{{ br.entry_rebuy_marks_bit[6:] }}{% else %}—{% endif %}
+        </span>
+      </li>
+      <li>
+        <span class="k">Gap</span>
+        <span class="v" title="Cost-weighted since-buy mark % by rebuy cooldown gap — fast (prior SELL inside min-hold cooldown) / cool (after cooldown) / fresh (no prior SELL); ×N names; tradermonty SCHW flip-flop gap honesty; pairs with Rebuy + rebuy-cooldown glance; live should_allow_rebuy still blocks fast; not a gate">
+          {% if br.entry_rebuy_gap_marks_ready %}{{ br.entry_rebuy_gap_marks_bit[4:] }}{% else %}—{% endif %}
         </span>
       </li>
       <li>
