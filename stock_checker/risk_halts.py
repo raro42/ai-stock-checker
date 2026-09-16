@@ -1484,6 +1484,112 @@ def entry_post_tp_mark_returns(
     return out
 
 
+def _entry_concentration_bucket(
+    h: dict[str, Any],
+    *,
+    equity: float,
+    max_name_pct: float,
+) -> str | None:
+    """at / under soft single-name cap from market weight; None if unreadable."""
+    if equity <= 0 or max_name_pct <= 0:
+        return None
+    try:
+        mv = float(h.get("market_value") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if mv <= 0:
+        # Fall back to cost when mark is missing (cost-flat desk rows).
+        mv = _holding_cost_basis(h)
+    if mv <= 0:
+        return None
+    weight_pct = (mv / equity) * 100.0
+    if weight_pct >= max_name_pct:
+        return "at"
+    return "under"
+
+
+def entry_concentration_mark_returns(
+    holdings: list[dict[str, Any]],
+    *,
+    equity: float,
+    max_name_pct: float = DEFAULT_MAX_NAME_PCT,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by soft concentration cap (display only).
+
+    tradermonty multi-asset replay ``max_position_pct`` breach honesty +
+    portfolio AI Group Matrix: lots whose market weight is ≥ soft single-name
+    cap (default 30% equity) → ``at`` vs ``under``. Unreadable equity/weight
+    → skipped. Cluster n on labels. Strip only; not a new gate — live soft
+    halt stays ``concentration_allows``.
+    """
+    try:
+        equity_f = float(equity)
+        cap = abs(float(max_name_pct))
+    except (TypeError, ValueError):
+        equity_f = 0.0
+        cap = 0.0
+    bands: dict[str, dict[str, Any]] = {
+        "at": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "under": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_concentration_bucket(h, equity=equity_f, max_name_pct=cap)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_conc_at_pct": None,
+        "entry_conc_under_pct": None,
+        "entry_conc_at_label": "",
+        "entry_conc_under_label": "",
+        "entry_conc_at_lots": 0,
+        "entry_conc_under_lots": 0,
+        "entry_conc_unknown_lots": unknown_lots,
+        "entry_conc_cap_pct": round(cap, 1) if cap > 0 else float(DEFAULT_MAX_NAME_PCT),
+        "entry_conc_marks_ready": False,
+        "entry_conc_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("at", "at", "entry_conc_at"),
+        ("under", "under", "entry_conc_under"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_conc_marks_ready"] = True
+        out["entry_conc_marks_bit"] = "cap " + " · ".join(bits)
+    return out
+
+
 def scan_mark_returns(
     holdings: list[dict[str, Any]],
     scan_symbols: Iterable[str] | None = None,
@@ -2380,6 +2486,7 @@ def book_risk_report(
     (wd Mon–Fri UTC / we Sat–Sun) + entry hours (cash open / AH /
     crypto 24/7) + entry rebuy vs fresh (prior SELL in trades) +
     entry post-SL vs other exit vs fresh (revenge-refill honesty) +
+    entry post-TP vs other vs fresh + soft concentration cap at/under +
     scan membership + screener list role (lead/brk/rec/off) + scan
     score bands (hi/mid/lo/off) + pct_from_high near/mid/deep/off +
     day-change hot/cold/quiet/off (±4% StockBee) + ATR vol
@@ -2528,6 +2635,16 @@ def book_risk_report(
         "entry_post_tp_unknown_lots": 0,
         "entry_post_tp_marks_ready": False,
         "entry_post_tp_marks_bit": "",
+        "entry_conc_at_pct": None,
+        "entry_conc_under_pct": None,
+        "entry_conc_at_label": "",
+        "entry_conc_under_label": "",
+        "entry_conc_at_lots": 0,
+        "entry_conc_under_lots": 0,
+        "entry_conc_unknown_lots": 0,
+        "entry_conc_cap_pct": float(DEFAULT_MAX_NAME_PCT),
+        "entry_conc_marks_ready": False,
+        "entry_conc_marks_bit": "",
         "scan_on_pct": None,
         "scan_off_pct": None,
         "scan_on_label": "",
@@ -2725,6 +2842,9 @@ def book_risk_report(
     entry_rebuy = entry_rebuy_mark_returns(rows, trades)
     entry_post_sl = entry_post_sl_mark_returns(rows, trades)
     entry_post_tp = entry_post_tp_mark_returns(rows, trades)
+    entry_conc = entry_concentration_mark_returns(
+        rows, equity=equity_f, max_name_pct=cap_pct
+    )
     scan = scan_mark_returns(rows, scan_symbols)
     scan_list = scan_list_mark_returns(
         rows,
@@ -2776,6 +2896,7 @@ def book_risk_report(
         **entry_rebuy,
         **entry_post_sl,
         **entry_post_tp,
+        **entry_conc,
         **scan,
         **scan_list,
         **scan_score,

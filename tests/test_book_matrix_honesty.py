@@ -29,6 +29,8 @@ INSIDE_DETAILS = (
     ">Hours</span>",
     ">Rebuy</span>",
     ">Post-SL</span>",
+    ">Post-TP</span>",
+    ">Cap</span>",
     ">List</span>",
     ">Score</span>",
     ">Near</span>",

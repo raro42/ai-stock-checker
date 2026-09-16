@@ -1059,6 +1059,91 @@ def test_entry_post_tp_mark_returns_tp_vs_oth_vs_fresh() -> None:
     assert "post-tp " not in out["note"]
 
 
+def test_entry_concentration_mark_returns_at_vs_under() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_concentration_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 40_000,
+            "market_value": 40_000,
+            "unrealized_pct": -2.0,
+            "marked": True,
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "market_value": 10_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+        },
+        {
+            "symbol": "GOOG",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "market_value": 5_000,
+            "unrealized_pct": 1.5,
+            "marked": True,
+        },
+        {
+            "symbol": "BAD",
+            "kind": "stock",
+            "cost_basis": 0,
+            "market_value": 0,
+            "unrealized_pct": 0.0,
+            "marked": False,
+        },
+    ]
+    # Equity 100k → AAPL 40% at-cap; MSFT 10% + GOOG 5% under. BAD skipped (no basis).
+    cm = entry_concentration_mark_returns(holds, equity=100_000, max_name_pct=30.0)
+    assert cm["entry_conc_at_pct"] == -2.0
+    assert cm["entry_conc_at_label"] == "−2.0%×1"
+    assert cm["entry_conc_at_lots"] == 1
+    assert cm["entry_conc_under_pct"] == round((10_000 * 3.0 + 5_000 * 1.5) / 15_000, 2)
+    assert cm["entry_conc_under_lots"] == 2
+    assert cm["entry_conc_unknown_lots"] == 0
+    assert cm["entry_conc_cap_pct"] == 30.0
+    assert cm["entry_conc_marks_ready"] is True
+    assert "at −2.0%×1" in cm["entry_conc_marks_bit"]
+    assert "under" in cm["entry_conc_marks_bit"]
+
+    empty = entry_concentration_mark_returns([], equity=100_000)
+    assert empty["entry_conc_marks_ready"] is False
+    assert empty["entry_conc_marks_bit"] == ""
+
+    no_equity = entry_concentration_mark_returns(
+        [
+            {
+                "symbol": "X",
+                "kind": "stock",
+                "cost_basis": 1_000,
+                "market_value": 1_000,
+                "unrealized_pct": 1.0,
+                "marked": True,
+            }
+        ],
+        equity=0,
+    )
+    assert no_equity["entry_conc_unknown_lots"] == 1
+    assert no_equity["entry_conc_marks_ready"] is False
+
+    out = book_risk_report(
+        cash=45_000,
+        equity=100_000,
+        holdings=holds[:3],
+        max_positions=5,
+        max_name_pct=30.0,
+    )
+    assert out["entry_conc_marks_ready"] is True
+    assert out["entry_conc_at_pct"] == -2.0
+    assert "cap " not in out["note"]
+
+
 def test_min_hold_mark_returns_lock_vs_free() -> None:
     from stock_checker.risk_halts import book_risk_report, min_hold_mark_returns
 
