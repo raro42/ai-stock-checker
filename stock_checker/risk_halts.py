@@ -38,6 +38,10 @@ SCAN_NEAR_HIGH_MID = -20.0
 SCAN_MOVER_PCT = 4.0
 # Rebuy gap vs anti flip-flop cooldown (match Ops default min hold 24h).
 DEFAULT_REBUY_COOLDOWN_SEC = 24 * 3600
+# Entry cash-fraction vs sizer default (~10% of cash) — Group Matrix Buy-%.
+DEFAULT_ENTRY_CASH_FRAC = 0.10
+ENTRY_SIZE_FAT_FRAC = 0.15  # ≥1.5× default
+ENTRY_SIZE_THIN_FRAC = 0.05  # <0.5× default
 
 
 def utc_day_key(when: Optional[datetime] = None) -> str:
@@ -2679,6 +2683,171 @@ def entry_buy_strategy_mark_returns(
     return out
 
 
+def _buy_cash_frac_from_row(raw: Mapping[str, Any]) -> float | None:
+    """BUY total_cost / (cash_remaining + total_cost); None if unreadable."""
+    try:
+        total_raw = raw.get("total_cost")
+        if total_raw is None:
+            cost = float(raw.get("cost") or 0.0)
+            commission = float(raw.get("commission") or 0.0)
+            total = cost + commission if cost > 0 else 0.0
+        else:
+            total = float(total_raw)
+        cash_rem = float(raw.get("cash_remaining"))
+    except (TypeError, ValueError):
+        return None
+    if total <= 0 or cash_rem < 0:
+        return None
+    pre_cash = cash_rem + total
+    if pre_cash <= 0:
+        return None
+    return total / pre_cash
+
+
+def _normalize_buy_size_frac(frac: float | None) -> str:
+    """Map entry cash fraction to fat / ok / thin / none (display only)."""
+    if frac is None:
+        return "none"
+    if frac >= ENTRY_SIZE_FAT_FRAC:
+        return "fat"
+    if frac < ENTRY_SIZE_THIN_FRAC:
+        return "thin"
+    return "ok"
+
+
+def _buy_size_events_by_symbol(
+    trades: Iterable[Mapping[str, Any]] | None,
+) -> dict[str, list[tuple[float, str]]]:
+    """Symbol → sorted (epoch, fat|ok|thin|none) BUY cash-frac band."""
+    out: dict[str, list[tuple[float, str]]] = {}
+    if not trades:
+        return out
+    for raw in trades:
+        if not isinstance(raw, Mapping):
+            continue
+        if str(raw.get("type") or "").upper() != "BUY":
+            continue
+        sym = str(raw.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        epoch = _parse_trade_epoch(str(raw.get("timestamp") or ""))
+        if epoch is None:
+            continue
+        key = _normalize_buy_size_frac(_buy_cash_frac_from_row(raw))
+        out.setdefault(sym, []).append((float(epoch), key))
+    for sym, events in out.items():
+        events.sort(key=lambda item: item[0])
+    return out
+
+
+def _entry_buy_size_bucket(
+    h: dict[str, Any],
+    buy_events: dict[str, list[tuple[float, str]]],
+) -> str | None:
+    """fat / ok / thin / none from matching BUY; None if no entry or BUY row."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    for epoch, key in buy_events.get(sym) or []:
+        if abs(epoch - buy_epoch) < 0.5:
+            return key
+    return None
+
+
+def entry_buy_size_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by BUY cash-fraction vs sizer (display).
+
+    tradermonty position-sizer + portfolio AI Group Matrix: lots whose matching
+    BUY used fat (≥15% of pre-buy cash) / ok (5–15%, ~10% default) / thin
+    (<5%) / none (ledger missing total_cost·cash_remaining). Contrasts entry
+    size with Overview next-buy sizer. Missing ``bought_at`` / no matching BUY
+    → unknown. Cluster n on labels. Strip only; not a new gate — live size
+    stays ``suggest_entry_notional`` / trader cash frac.
+    """
+    buys = _buy_size_events_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "fat": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "ok": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "thin": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "none": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_buy_size_bucket(h, buys)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_buy_size_fat_pct": None,
+        "entry_buy_size_ok_pct": None,
+        "entry_buy_size_thin_pct": None,
+        "entry_buy_size_none_pct": None,
+        "entry_buy_size_fat_label": "",
+        "entry_buy_size_ok_label": "",
+        "entry_buy_size_thin_label": "",
+        "entry_buy_size_none_label": "",
+        "entry_buy_size_fat_lots": 0,
+        "entry_buy_size_ok_lots": 0,
+        "entry_buy_size_thin_lots": 0,
+        "entry_buy_size_none_lots": 0,
+        "entry_buy_size_unknown_lots": unknown_lots,
+        "entry_buy_size_marks_ready": False,
+        "entry_buy_size_marks_bit": "",
+        "entry_buy_size_default_frac": float(DEFAULT_ENTRY_CASH_FRAC),
+        "entry_buy_size_fat_floor": float(ENTRY_SIZE_FAT_FRAC),
+        "entry_buy_size_thin_floor": float(ENTRY_SIZE_THIN_FRAC),
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("fat", "fat", "entry_buy_size_fat"),
+        ("ok", "ok", "entry_buy_size_ok"),
+        ("thin", "thin", "entry_buy_size_thin"),
+        ("none", "none", "entry_buy_size_none"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_buy_size_marks_ready"] = True
+        out["entry_buy_size_marks_bit"] = "buy-% " + " · ".join(bits)
+    return out
+
+
 def _entry_concentration_bucket(
     h: dict[str, Any],
     *,
@@ -3954,6 +4123,24 @@ def book_risk_report(
         "entry_buy_strat_unknown_lots": 0,
         "entry_buy_strat_marks_ready": False,
         "entry_buy_strat_marks_bit": "",
+        "entry_buy_size_fat_pct": None,
+        "entry_buy_size_ok_pct": None,
+        "entry_buy_size_thin_pct": None,
+        "entry_buy_size_none_pct": None,
+        "entry_buy_size_fat_label": "",
+        "entry_buy_size_ok_label": "",
+        "entry_buy_size_thin_label": "",
+        "entry_buy_size_none_label": "",
+        "entry_buy_size_fat_lots": 0,
+        "entry_buy_size_ok_lots": 0,
+        "entry_buy_size_thin_lots": 0,
+        "entry_buy_size_none_lots": 0,
+        "entry_buy_size_unknown_lots": 0,
+        "entry_buy_size_marks_ready": False,
+        "entry_buy_size_marks_bit": "",
+        "entry_buy_size_default_frac": float(DEFAULT_ENTRY_CASH_FRAC),
+        "entry_buy_size_fat_floor": float(ENTRY_SIZE_FAT_FRAC),
+        "entry_buy_size_thin_floor": float(ENTRY_SIZE_THIN_FRAC),
         "entry_conc_at_pct": None,
         "entry_conc_under_pct": None,
         "entry_conc_at_label": "",
@@ -4176,6 +4363,7 @@ def book_risk_report(
     entry_buy_src = entry_buy_source_mark_returns(rows, trades)
     entry_buy_score = entry_buy_score_mark_returns(rows, trades)
     entry_buy_strat = entry_buy_strategy_mark_returns(rows, trades)
+    entry_buy_size = entry_buy_size_mark_returns(rows, trades)
     entry_conc = entry_concentration_mark_returns(
         rows, equity=equity_f, max_name_pct=cap_pct
     )
@@ -4239,6 +4427,7 @@ def book_risk_report(
         **entry_buy_src,
         **entry_buy_score,
         **entry_buy_strat,
+        **entry_buy_size,
         **entry_conc,
         **scan,
         **scan_list,

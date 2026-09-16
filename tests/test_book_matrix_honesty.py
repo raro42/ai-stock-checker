@@ -36,6 +36,8 @@ INSIDE_DETAILS = (
     ">Fee</span>",
     ">Buy-c</span>",
     ">Buy-s</span>",
+    ">Strat</span>",
+    ">Buy-%</span>",
     ">Src</span>",
     ">Cap</span>",
     ">RR</span>",
