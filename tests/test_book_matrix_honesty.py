@@ -30,6 +30,7 @@ INSIDE_DETAILS = (
     ">Rebuy</span>",
     ">Post-SL</span>",
     ">Post-TP</span>",
+    ">Post-rot</span>",
     ">Cap</span>",
     ">List</span>",
     ">Score</span>",
