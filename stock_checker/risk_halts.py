@@ -2537,6 +2537,148 @@ def entry_buy_score_mark_returns(
     return out
 
 
+def _normalize_buy_strategy(raw: Any) -> str:
+    """Map ledger buy strategy to brk / mom / oth / none (display only)."""
+    strat = str(raw or "").strip().lower()
+    if not strat:
+        return "none"
+    if strat == "breakout":
+        return "brk"
+    if strat == "momentum":
+        return "mom"
+    return "oth"
+
+
+def _buy_strategy_events_by_symbol(
+    trades: Iterable[Mapping[str, Any]] | None,
+) -> dict[str, list[tuple[float, str]]]:
+    """Symbol → sorted (epoch, brk|mom|oth|none) BUY strategy (display only)."""
+    out: dict[str, list[tuple[float, str]]] = {}
+    if not trades:
+        return out
+    for raw in trades:
+        if not isinstance(raw, Mapping):
+            continue
+        if str(raw.get("type") or "").upper() != "BUY":
+            continue
+        sym = str(raw.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        epoch = _parse_trade_epoch(str(raw.get("timestamp") or ""))
+        if epoch is None:
+            continue
+        key = _normalize_buy_strategy(raw.get("strategy"))
+        out.setdefault(sym, []).append((float(epoch), key))
+    for sym, events in out.items():
+        events.sort(key=lambda item: item[0])
+    return out
+
+
+def _entry_buy_strategy_bucket(
+    h: dict[str, Any],
+    buy_events: dict[str, list[tuple[float, str]]],
+) -> str | None:
+    """brk / mom / oth / none from matching BUY; None if no entry or BUY row."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    for epoch, key in buy_events.get(sym) or []:
+        if abs(epoch - buy_epoch) < 0.5:
+            return key
+    return None
+
+
+def entry_buy_strategy_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by BUY-ledger strategy (display only).
+
+    xang1234 screener + FinRobot + portfolio AI Group Matrix: lots whose
+    matching BUY ``strategy`` was breakout (brk) / momentum (mom) / other
+    (oth) vs blank (none). Contrasts entry thesis with live List role +
+    breakout-guard glance. Missing ``bought_at`` / no matching BUY →
+    unknown. Cluster n on labels. Strip only; not a research score; not a
+    new gate — breakout AI BUY + pullback stay in ``entry_guards``.
+    """
+    buys = _buy_strategy_events_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "brk": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "mom": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "oth": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "none": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_buy_strategy_bucket(h, buys)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_buy_strat_brk_pct": None,
+        "entry_buy_strat_mom_pct": None,
+        "entry_buy_strat_oth_pct": None,
+        "entry_buy_strat_none_pct": None,
+        "entry_buy_strat_brk_label": "",
+        "entry_buy_strat_mom_label": "",
+        "entry_buy_strat_oth_label": "",
+        "entry_buy_strat_none_label": "",
+        "entry_buy_strat_brk_lots": 0,
+        "entry_buy_strat_mom_lots": 0,
+        "entry_buy_strat_oth_lots": 0,
+        "entry_buy_strat_none_lots": 0,
+        "entry_buy_strat_unknown_lots": unknown_lots,
+        "entry_buy_strat_marks_ready": False,
+        "entry_buy_strat_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("brk", "brk", "entry_buy_strat_brk"),
+        ("mom", "mom", "entry_buy_strat_mom"),
+        ("oth", "oth", "entry_buy_strat_oth"),
+        ("none", "none", "entry_buy_strat_none"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_buy_strat_marks_ready"] = True
+        out["entry_buy_strat_marks_bit"] = "strat " + " · ".join(bits)
+    return out
+
+
 def _entry_concentration_bucket(
     h: dict[str, Any],
     *,
@@ -3797,6 +3939,21 @@ def book_risk_report(
         "entry_buy_score_marks_bit": "",
         "entry_buy_score_hi_floor": float(SCAN_SCORE_HI),
         "entry_buy_score_mid_floor": float(SCAN_SCORE_MID),
+        "entry_buy_strat_brk_pct": None,
+        "entry_buy_strat_mom_pct": None,
+        "entry_buy_strat_oth_pct": None,
+        "entry_buy_strat_none_pct": None,
+        "entry_buy_strat_brk_label": "",
+        "entry_buy_strat_mom_label": "",
+        "entry_buy_strat_oth_label": "",
+        "entry_buy_strat_none_label": "",
+        "entry_buy_strat_brk_lots": 0,
+        "entry_buy_strat_mom_lots": 0,
+        "entry_buy_strat_oth_lots": 0,
+        "entry_buy_strat_none_lots": 0,
+        "entry_buy_strat_unknown_lots": 0,
+        "entry_buy_strat_marks_ready": False,
+        "entry_buy_strat_marks_bit": "",
         "entry_conc_at_pct": None,
         "entry_conc_under_pct": None,
         "entry_conc_at_label": "",
@@ -4018,6 +4175,7 @@ def book_risk_report(
     entry_buy_conf = entry_buy_confidence_mark_returns(rows, trades)
     entry_buy_src = entry_buy_source_mark_returns(rows, trades)
     entry_buy_score = entry_buy_score_mark_returns(rows, trades)
+    entry_buy_strat = entry_buy_strategy_mark_returns(rows, trades)
     entry_conc = entry_concentration_mark_returns(
         rows, equity=equity_f, max_name_pct=cap_pct
     )
@@ -4080,6 +4238,7 @@ def book_risk_report(
         **entry_buy_conf,
         **entry_buy_src,
         **entry_buy_score,
+        **entry_buy_strat,
         **entry_conc,
         **scan,
         **scan_list,

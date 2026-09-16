@@ -1946,6 +1946,139 @@ def test_entry_buy_score_mark_returns_hi_mid_lo_none() -> None:
     assert "buy-s " not in out["note"]
 
 
+def test_entry_buy_strategy_mark_returns_brk_mom_oth_none() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_buy_strategy_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "WMT",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": -0.5,
+            "marked": True,
+            "bought_at": "2026-09-15T18:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": 2.5,
+            "marked": True,
+            "bought_at": "2026-09-14T14:00:00Z",
+        },
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+            "bought_at": "2026-09-13T12:00:00Z",
+        },
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 3_000,
+            "unrealized_pct": 0.5,
+            "marked": True,
+            "bought_at": "2026-09-12T10:00:00Z",
+        },
+        {
+            "symbol": "GOOG",
+            "kind": "stock",
+            "cost_basis": 2_000,
+            "unrealized_pct": 3.0,
+            "marked": True,
+        },
+    ]
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "WMT",
+            "timestamp": "2026-09-15T18:00:00Z",
+            "quantity": 10,
+            "price": 68,
+            "strategy": "breakout",
+        },
+        {
+            "type": "BUY",
+            "symbol": "MSFT",
+            "timestamp": "2026-09-14T14:00:00Z",
+            "quantity": 5,
+            "price": 400,
+            "strategy": "momentum",
+        },
+        {
+            "type": "BUY",
+            "symbol": "NVDA",
+            "timestamp": "2026-09-13T12:00:00Z",
+            "quantity": 2,
+            "price": 100,
+            "strategy": "mtf",
+        },
+        {
+            "type": "BUY",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-12T10:00:00Z",
+            "quantity": 3,
+            "price": 180,
+        },
+    ]
+    pm = entry_buy_strategy_mark_returns(holds, trades)
+    assert pm["entry_buy_strat_brk_pct"] == -0.5
+    assert pm["entry_buy_strat_brk_label"] == "−0.5%×1"
+    assert pm["entry_buy_strat_brk_lots"] == 1
+    assert pm["entry_buy_strat_mom_pct"] == 2.5
+    assert pm["entry_buy_strat_mom_label"] == "+2.5%×1"
+    assert pm["entry_buy_strat_mom_lots"] == 1
+    assert pm["entry_buy_strat_oth_pct"] == 1.0
+    assert pm["entry_buy_strat_oth_label"] == "+1.0%×1"
+    assert pm["entry_buy_strat_oth_lots"] == 1
+    assert pm["entry_buy_strat_none_pct"] == 0.5
+    assert pm["entry_buy_strat_none_label"] == "+0.5%×1"
+    assert pm["entry_buy_strat_none_lots"] == 1
+    assert pm["entry_buy_strat_unknown_lots"] == 1
+    assert pm["entry_buy_strat_marks_ready"] is True
+    assert "brk −0.5%×1" in pm["entry_buy_strat_marks_bit"]
+    assert "mom +2.5%×1" in pm["entry_buy_strat_marks_bit"]
+    assert "oth +1.0%×1" in pm["entry_buy_strat_marks_bit"]
+    assert "none +0.5%×1" in pm["entry_buy_strat_marks_bit"]
+
+    empty = entry_buy_strategy_mark_returns([], [])
+    assert empty["entry_buy_strat_marks_ready"] is False
+    assert empty["entry_buy_strat_marks_bit"] == ""
+
+    no_ledger = entry_buy_strategy_mark_returns(
+        [
+            {
+                "symbol": "META",
+                "kind": "stock",
+                "cost_basis": 2_000,
+                "unrealized_pct": 4.0,
+                "marked": True,
+                "bought_at": "2026-09-10T12:00:00Z",
+            }
+        ],
+        None,
+    )
+    assert no_ledger["entry_buy_strat_marks_ready"] is False
+    assert no_ledger["entry_buy_strat_unknown_lots"] == 1
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=28_000,
+        holdings=holds,
+        max_positions=5,
+        trades=trades,
+    )
+    assert out["entry_buy_strat_marks_ready"] is True
+    assert out["entry_buy_strat_brk_pct"] == -0.5
+    assert out["entry_buy_strat_mom_pct"] == 2.5
+    assert "strat " not in out["note"]
+
+
 def test_live_rr_mark_returns_ok_thin_hit() -> None:
     from stock_checker.risk_halts import book_risk_report, live_rr_mark_returns
 
