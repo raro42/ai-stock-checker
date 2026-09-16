@@ -1378,6 +1378,112 @@ def entry_post_sl_mark_returns(
     return out
 
 
+def _entry_post_tp_bucket(
+    h: dict[str, Any],
+    sell_events: dict[str, list[tuple[float, str]]],
+) -> str | None:
+    """tp / oth / fresh from most recent prior SELL; None if no entry time."""
+    sym = str(h.get("symbol") or "").strip().upper()
+    if not sym:
+        return None
+    raw = str(h.get("bought_at") or "").strip()
+    if not raw:
+        return None
+    buy_epoch = _parse_trade_epoch(raw)
+    if buy_epoch is None:
+        return None
+    prior: tuple[float, str] | None = None
+    for epoch, reason in sell_events.get(sym) or []:
+        if epoch < buy_epoch:
+            prior = (epoch, reason)
+            continue
+        break
+    if prior is None:
+        return "fresh"
+    if prior[1] == "tp":
+        return "tp"
+    return "oth"
+
+
+def entry_post_tp_mark_returns(
+    holdings: list[dict[str, Any]],
+    trades: Iterable[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Cost-weighted since-buy mark % by post-TP refill vs other (display only).
+
+    tradermonty + portfolio AI Group Matrix twin of post-SL: lots whose most
+    recent prior SELL of the same symbol had ``exit_reason=tp`` (tp) vs any
+    other prior exit (oth) vs no prior SELL (fresh). Missing ``bought_at`` →
+    unknown. Empty ledger → all dated lots count as fresh. Cluster n on
+    labels. Strip only; not a gate; anti chase-refill after take-profit.
+    """
+    sells = _sell_events_by_symbol(trades)
+    bands: dict[str, dict[str, Any]] = {
+        "tp": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "oth": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+        "fresh": {"cost": 0.0, "w_pct": 0.0, "lots": 0, "marked": 0},
+    }
+    unknown_lots = 0
+    for h in holdings:
+        if not isinstance(h, dict):
+            continue
+        basis = _holding_cost_basis(h)
+        if basis <= 0:
+            continue
+        key = _entry_post_tp_bucket(h, sells)
+        if key is None:
+            unknown_lots += 1
+            continue
+        bucket = bands[key]
+        bucket["lots"] += 1
+        pct = _holding_marked_pct(h)
+        if pct is None:
+            continue
+        bucket["marked"] += 1
+        bucket["cost"] += basis
+        bucket["w_pct"] += basis * pct
+
+    out: dict[str, Any] = {
+        "entry_post_tp_tp_pct": None,
+        "entry_post_tp_oth_pct": None,
+        "entry_post_tp_fresh_pct": None,
+        "entry_post_tp_tp_label": "",
+        "entry_post_tp_oth_label": "",
+        "entry_post_tp_fresh_label": "",
+        "entry_post_tp_tp_lots": 0,
+        "entry_post_tp_oth_lots": 0,
+        "entry_post_tp_fresh_lots": 0,
+        "entry_post_tp_unknown_lots": unknown_lots,
+        "entry_post_tp_marks_ready": False,
+        "entry_post_tp_marks_bit": "",
+    }
+    bits: list[str] = []
+    for key, short, field in (
+        ("tp", "tp", "entry_post_tp_tp"),
+        ("oth", "oth", "entry_post_tp_oth"),
+        ("fresh", "fresh", "entry_post_tp_fresh"),
+    ):
+        bucket = bands[key]
+        has_lots = int(bucket["lots"]) > 0
+        any_marked = int(bucket["marked"]) > 0
+        pct: float | None = None
+        if any_marked and float(bucket["cost"]) > 0:
+            pct = float(bucket["w_pct"]) / float(bucket["cost"])
+        cluster_n = int(bucket["marked"] if any_marked else bucket["lots"])
+        label = _format_mark_pct(
+            pct, has_lots=has_lots, any_marked=any_marked, cluster_n=cluster_n
+        )
+        out[f"{field}_lots"] = int(bucket["lots"])
+        out[f"{field}_pct"] = round(pct, 2) if pct is not None else None
+        out[f"{field}_label"] = label
+        if label:
+            bits.append(f"{short} {label}")
+    if bits:
+        out["entry_post_tp_marks_ready"] = True
+        out["entry_post_tp_marks_bit"] = "post-tp " + " · ".join(bits)
+    return out
+
+
 def scan_mark_returns(
     holdings: list[dict[str, Any]],
     scan_symbols: Iterable[str] | None = None,
@@ -2410,6 +2516,18 @@ def book_risk_report(
         "entry_post_sl_unknown_lots": 0,
         "entry_post_sl_marks_ready": False,
         "entry_post_sl_marks_bit": "",
+        "entry_post_tp_tp_pct": None,
+        "entry_post_tp_oth_pct": None,
+        "entry_post_tp_fresh_pct": None,
+        "entry_post_tp_tp_label": "",
+        "entry_post_tp_oth_label": "",
+        "entry_post_tp_fresh_label": "",
+        "entry_post_tp_tp_lots": 0,
+        "entry_post_tp_oth_lots": 0,
+        "entry_post_tp_fresh_lots": 0,
+        "entry_post_tp_unknown_lots": 0,
+        "entry_post_tp_marks_ready": False,
+        "entry_post_tp_marks_bit": "",
         "scan_on_pct": None,
         "scan_off_pct": None,
         "scan_on_label": "",
@@ -2606,6 +2724,7 @@ def book_risk_report(
     entry_hours = entry_hours_mark_returns(rows)
     entry_rebuy = entry_rebuy_mark_returns(rows, trades)
     entry_post_sl = entry_post_sl_mark_returns(rows, trades)
+    entry_post_tp = entry_post_tp_mark_returns(rows, trades)
     scan = scan_mark_returns(rows, scan_symbols)
     scan_list = scan_list_mark_returns(
         rows,
@@ -2656,6 +2775,7 @@ def book_risk_report(
         **entry_hours,
         **entry_rebuy,
         **entry_post_sl,
+        **entry_post_tp,
         **scan,
         **scan_list,
         **scan_score,

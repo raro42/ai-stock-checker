@@ -939,6 +939,126 @@ def test_entry_post_sl_mark_returns_sl_vs_oth_vs_fresh() -> None:
     assert "post-sl " not in out["note"]
 
 
+def test_entry_post_tp_mark_returns_tp_vs_oth_vs_fresh() -> None:
+    from stock_checker.risk_halts import (
+        book_risk_report,
+        entry_post_tp_mark_returns,
+    )
+
+    holds = [
+        {
+            "symbol": "AAPL",
+            "kind": "stock",
+            "cost_basis": 10_000,
+            "unrealized_pct": -1.0,
+            "marked": True,
+            "bought_at": "2026-09-15T18:00:00Z",
+        },
+        {
+            "symbol": "ESP",
+            "kind": "stock",
+            "cost_basis": 8_000,
+            "unrealized_pct": 2.0,
+            "marked": True,
+            "bought_at": "2026-09-15T16:00:00Z",
+        },
+        {
+            "symbol": "MSFT",
+            "kind": "stock",
+            "cost_basis": 5_000,
+            "unrealized_pct": 3.5,
+            "marked": True,
+            "bought_at": "2026-09-14T14:00:00Z",
+        },
+        {
+            "symbol": "NVDA",
+            "kind": "stock",
+            "cost_basis": 4_000,
+            "unrealized_pct": 1.0,
+            "marked": True,
+        },
+    ]
+    trades = [
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "exit_reason": "tp",
+            "quantity": 10,
+            "price": 200,
+        },
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-14T12:00:00Z",
+            "exit_reason": "sl",
+            "quantity": 5,
+            "price": 180,
+        },
+        {
+            "type": "SELL",
+            "symbol": "ESP",
+            "timestamp": "2026-09-15T12:00:00Z",
+            "exit_reason": "sl",
+            "quantity": 10,
+            "price": 50,
+        },
+        {
+            "type": "BUY",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-15T18:00:00Z",
+            "quantity": 10,
+            "price": 195,
+        },
+    ]
+    pm = entry_post_tp_mark_returns(holds, trades)
+    assert pm["entry_post_tp_tp_pct"] == -1.0
+    assert pm["entry_post_tp_tp_label"] == "−1.0%×1"
+    assert pm["entry_post_tp_tp_lots"] == 1
+    assert pm["entry_post_tp_oth_pct"] == 2.0
+    assert pm["entry_post_tp_oth_label"] == "+2.0%×1"
+    assert pm["entry_post_tp_oth_lots"] == 1
+    assert pm["entry_post_tp_fresh_pct"] == 3.5
+    assert pm["entry_post_tp_fresh_label"] == "+3.5%×1"
+    assert pm["entry_post_tp_fresh_lots"] == 1
+    assert pm["entry_post_tp_unknown_lots"] == 1
+    assert pm["entry_post_tp_marks_ready"] is True
+    assert "tp −1.0%×1" in pm["entry_post_tp_marks_bit"]
+    assert "oth +2.0%×1" in pm["entry_post_tp_marks_bit"]
+    assert "fresh +3.5%×1" in pm["entry_post_tp_marks_bit"]
+
+    empty = entry_post_tp_mark_returns([], [])
+    assert empty["entry_post_tp_marks_ready"] is False
+    assert empty["entry_post_tp_marks_bit"] == ""
+
+    no_ledger = entry_post_tp_mark_returns(
+        [
+            {
+                "symbol": "GOOG",
+                "kind": "stock",
+                "cost_basis": 2_000,
+                "unrealized_pct": 4.0,
+                "marked": True,
+                "bought_at": "2026-09-10T12:00:00Z",
+            }
+        ],
+        None,
+    )
+    assert no_ledger["entry_post_tp_fresh_pct"] == 4.0
+    assert no_ledger["entry_post_tp_tp_lots"] == 0
+
+    out = book_risk_report(
+        cash=1_000,
+        equity=28_000,
+        holdings=holds,
+        max_positions=5,
+        trades=trades,
+    )
+    assert out["entry_post_tp_marks_ready"] is True
+    assert out["entry_post_tp_tp_pct"] == -1.0
+    assert "post-tp " not in out["note"]
+
+
 def test_min_hold_mark_returns_lock_vs_free() -> None:
     from stock_checker.risk_halts import book_risk_report, min_hold_mark_returns
 
