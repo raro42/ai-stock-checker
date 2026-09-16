@@ -17,6 +17,8 @@ WINDOW_A_START_UTC = datetime(2026, 8, 12, 15, 22, tzinfo=timezone.utc)
 WINDOW_A_TARGET_TRADING_DAYS = 10
 # Protocol records days *and* fills — day count alone is a thin sample (PROMOTE_AB).
 WINDOW_A_TARGET_FILLS = 10
+# Fee-adjusted edge needs closed rounds. All-buy ledgers are open-only (not ready).
+WINDOW_A_TARGET_SELLS = 1
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
@@ -155,39 +157,78 @@ def window_a_sample_readiness(
     stats: dict[str, Any] | None,
     *,
     target_fills: int = WINDOW_A_TARGET_FILLS,
+    target_sells: int = WINDOW_A_TARGET_SELLS,
 ) -> dict[str, Any]:
     """Whether Window A has enough fills to start B (display / ops honesty).
 
     PROMOTE_AB records trading days *and* fills. Hitting the day target with a
     thin ledger is not a fair control sample — portfolio AI sample-size
-    honesty before ``ready for B``. Missing stats → unknown (keep summarize).
-    Not a gate; does not flip compose promote.
+    honesty before ``ready for B``. When ``buys``/``sells`` are present, an
+    all-buy ledger is ``open-only`` (no closed rounds → fee-adjusted edge is
+    just −fees). Missing stats → unknown (keep summarize). Missing side keys
+    → fail-open on closed-round check (older fixtures). Not a gate; does not
+    flip compose promote.
     """
     need = max(1, int(target_fills))
+    sell_need = max(1, int(target_sells))
     if not isinstance(stats, dict):
         return {
             "ready": False,
             "known": False,
             "fills": 0,
             "target_fills": need,
+            "buys": 0,
+            "sells": 0,
+            "sides_known": False,
+            "target_sells": sell_need,
             "thin": False,
             "thin_bit": "",
+            "open_only": False,
+            "open_only_bit": "",
         }
     try:
         fills = int(stats.get("trades") or 0)
     except (TypeError, ValueError):
         fills = 0
+    sides_known = "sells" in stats or "buys" in stats
+    buys = 0
+    sells = 0
+    if sides_known:
+        try:
+            buys = int(stats.get("buys") or 0)
+        except (TypeError, ValueError):
+            buys = 0
+        try:
+            sells = int(stats.get("sells") or 0)
+        except (TypeError, ValueError):
+            sells = 0
+        # Prefer explicit sides; if only one key, derive the other from fills.
+        if "buys" not in stats and "sells" in stats:
+            buys = max(0, fills - sells)
+        elif "sells" not in stats and "buys" in stats:
+            sells = max(0, fills - buys)
     thin = fills < need
     thin_bit = ""
     if thin:
         thin_bit = f"A thin · {fills} fills <{need}"
+    open_only = sides_known and fills > 0 and sells < sell_need
+    open_only_bit = ""
+    if open_only:
+        open_only_bit = f"A open-only · {sells} sells <{sell_need}"
+    ready = (not thin) and (not open_only)
     return {
-        "ready": not thin,
+        "ready": ready,
         "known": True,
         "fills": fills,
         "target_fills": need,
+        "buys": buys,
+        "sells": sells,
+        "sides_known": sides_known,
+        "target_sells": sell_need,
         "thin": thin,
         "thin_bit": thin_bit,
+        "open_only": open_only,
+        "open_only_bit": open_only_bit,
     }
 
 
@@ -199,10 +240,36 @@ def format_window_a_thin_bit(sample: dict[str, Any] | None) -> str:
     return bit
 
 
+def format_window_a_open_only_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A open-only (no closed rounds) bit for promote A/B glance."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("open_only_bit") or "").strip()
+    return bit
+
+
+def format_window_a_side_bit(sample: dict[str, Any] | None) -> str:
+    """Compact buy/sell composition: ``Nb/Ns`` (portfolio AI sample honesty).
+
+    Unknown sides → empty. Display only; not a gate.
+    """
+    if not isinstance(sample, dict) or not sample.get("known"):
+        return ""
+    if not sample.get("sides_known"):
+        return ""
+    try:
+        buys = int(sample.get("buys") or 0)
+        sells = int(sample.get("sells") or 0)
+    except (TypeError, ValueError):
+        return ""
+    return f"{buys}b/{sells}s"
+
+
 def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
     """Dual sample meter: ``N/M fills`` beside days (portfolio AI honesty).
 
     Days alone mislead — show fill progress while Window A is still running.
+    When buy/sell sides are known, append compact ``Nb/Ns`` (open vs closed).
     Unknown stats → empty (keep summarize). Display only; not a gate.
     """
     if not isinstance(sample, dict) or not sample.get("known"):
@@ -213,7 +280,11 @@ def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
     except (TypeError, ValueError):
         return ""
     need = max(1, need)
-    return f"{fills}/{need} fills"
+    bit = f"{fills}/{need} fills"
+    side = format_window_a_side_bit(sample)
+    if side:
+        bit = f"{bit} · {side}"
+    return bit
 
 
 def weekday_trading_days(start: date, end: date) -> int:

@@ -120,6 +120,8 @@ def test_format_window_a_fill_progress_bit() -> None:
     assert format_window_a_fill_progress_bit(thin) == "4/10 fills"
     ok = window_a_sample_readiness({"trades": 12})
     assert format_window_a_fill_progress_bit(ok) == "12/10 fills"
+    sided = window_a_sample_readiness({"trades": 12, "buys": 7, "sells": 5})
+    assert format_window_a_fill_progress_bit(sided) == "12/10 fills · 7b/5s"
 
 
 def test_promote_ab_glance_target_met_without_stats() -> None:
@@ -249,6 +251,7 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
     assert "€20 fees" in g["line"]
     assert "+€230 net" in g["line"]  # 250 realized − 20 all fees
     assert "2/10 fills" in g["line"]
+    assert "1b/1s" in g["line"]
     assert "A thin" in g["line"]
     assert "2 fills <10" in g["line"]
     assert "keep Window A" in g["line"]
@@ -256,8 +259,11 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
     assert g["sample_known"] is True
     assert g["sample_ready"] is False
     assert g["sample_fills"] == 2
+    assert g["sample_buys"] == 1
+    assert g["sample_sells"] == 1
+    assert g["sample_open_only"] is False
     assert g["target_fills"] == 10
-    assert g["a_fill_progress_bit"] == "2/10 fills"
+    assert g["a_fill_progress_bit"] == "2/10 fills · 1b/1s"
     assert g["b_ready"] is False
     assert g["b_blockers"] == []
 
@@ -265,6 +271,9 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
 def test_window_a_sample_readiness_fill_floor() -> None:
     from stock_checker.promote_ab import (
         WINDOW_A_TARGET_FILLS,
+        format_window_a_fill_progress_bit,
+        format_window_a_open_only_bit,
+        format_window_a_side_bit,
         format_window_a_thin_bit,
         window_a_sample_readiness,
     )
@@ -273,21 +282,93 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     assert unknown["known"] is False
     assert unknown["ready"] is False
     assert unknown["thin"] is False
+    assert unknown["open_only"] is False
     assert format_window_a_thin_bit(unknown) == ""
+    assert format_window_a_open_only_bit(unknown) == ""
+    assert format_window_a_side_bit(unknown) == ""
 
     thin = window_a_sample_readiness({"trades": 2, "fees": 20.0, "realized_pnl": 10.0})
     assert thin["known"] is True
     assert thin["ready"] is False
     assert thin["thin"] is True
+    assert thin["sides_known"] is False
     assert thin["fills"] == 2
     assert thin["target_fills"] == WINDOW_A_TARGET_FILLS
     assert thin["thin_bit"] == "A thin · 2 fills <10"
     assert format_window_a_thin_bit(thin) == "A thin · 2 fills <10"
+    assert format_window_a_side_bit(thin) == ""
 
     ok = window_a_sample_readiness({"trades": 10, "fees": 50.0, "realized_pnl": 100.0})
     assert ok["ready"] is True
     assert ok["thin"] is False
+    assert ok["open_only"] is False
     assert ok["thin_bit"] == ""
+
+    open_only = window_a_sample_readiness(
+        {"trades": 12, "buys": 12, "sells": 0, "fees": 40.0, "realized_pnl": 0.0}
+    )
+    assert open_only["known"] is True
+    assert open_only["sides_known"] is True
+    assert open_only["ready"] is False
+    assert open_only["thin"] is False
+    assert open_only["open_only"] is True
+    assert open_only["open_only_bit"] == "A open-only · 0 sells <1"
+    assert format_window_a_open_only_bit(open_only) == "A open-only · 0 sells <1"
+    assert format_window_a_side_bit(open_only) == "12b/0s"
+    assert format_window_a_fill_progress_bit(open_only) == "12/10 fills · 12b/0s"
+
+    closed_ok = window_a_sample_readiness(
+        {"trades": 12, "buys": 8, "sells": 4, "fees": 40.0, "realized_pnl": 100.0}
+    )
+    assert closed_ok["ready"] is True
+    assert closed_ok["open_only"] is False
+    assert format_window_a_side_bit(closed_ok) == "8b/4s"
+    assert format_window_a_fill_progress_bit(closed_ok) == "12/10 fills · 8b/4s"
+
+
+def test_promote_ab_glance_open_only_keeps_window_a() -> None:
+    """Fills ≥10 but 0 sells → open-only · keep Window A (net needs closes)."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 13),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 12,
+            "sells": 0,
+            "fees": 40.0,
+            "realized_pnl": 0.0,
+            "net_after_all_fees": -40.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["target_met"] is True
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is False
+    assert g["sample_open_only"] is True
+    assert g["sample_buys"] == 12
+    assert g["sample_sells"] == 0
+    assert g["a_fill_progress_bit"] == "12/10 fills · 12b/0s"
+    assert "12b/0s" in g["line"]
+    assert "A open-only" in g["line"]
+    assert "0 sells" in g["line"]
+    assert "keep Window A" in g["line"]
+    assert "ready for B" not in g["line"]
+    assert "fills ready" not in g["line"]
+    assert g["b_ready"] is False
 
 
 def test_promote_ab_glance_ready_for_b_when_fills_meet_floor() -> None:

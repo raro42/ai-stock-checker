@@ -495,23 +495,26 @@ def build_promote_ab_glance(
 
     Shows Window A/B trading-day progress and whether live promote matches the
     protocol (A = off, B = on). Window A also shows dual sample progress
-    ``N/M fills`` beside days (portfolio AI — days alone mislead). When fills
+    ``N/M fills`` beside days (portfolio AI — days alone mislead). When buy/sell
+    sides are known, appends compact ``Nb/Ns`` (open vs closed). When fills
     exist, appends in-window fees / fee-adjusted net (realized − all fees) —
     honesty before Window B (gross sell P&L alone is not edge). While A is
     still running with a thin ledger, status is ``building sample`` instead of
     bare ``running``. When fills already meet the floor but days are still
     short, status is ``fills ready · keep Window A`` (days still needed —
-    portfolio AI dual-meter honesty). When Window A day target is met but
-    fills stay under the protocol floor (``WINDOW_A_TARGET_FILLS``), status is
-    ``A thin · N fills <M`` instead of ready. When day+fill targets are met but
-    Ops knobs drift from protocol (max 5 / 24h / revolut_standard /
-    regime·RS·breadth on / AI validate / multi-role on / scan ≥15m /
-    trade ≥5m, or open names > 5), status is ``B blocked · …`` instead of
-    ready. Calm ≠ edge; compose default-on still blocked until A/B verdict +
-    calm gate. Not an entry gate.
+    portfolio AI dual-meter honesty). An all-buy ledger (``A open-only · 0
+    sells``) is not ready — fee-adjusted edge needs closed rounds. When Window A
+    day target is met but fills stay under the protocol floor
+    (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
+    ready. When day+fill targets are met but Ops knobs drift from protocol
+    (max 5 / 24h / revolut_standard / regime·RS·breadth on / AI validate /
+    multi-role on / scan ≥15m / trade ≥5m, or open names > 5), status is
+    ``B blocked · …`` instead of ready. Calm ≠ edge; compose default-on still
+    blocked until A/B verdict + calm gate. Not an entry gate.
     """
     from stock_checker.promote_ab import (
         format_window_a_fill_progress_bit,
+        format_window_a_open_only_bit,
         format_window_a_thin_bit,
         format_window_b_block_bit,
         format_window_stats_bit,
@@ -537,8 +540,12 @@ def build_promote_ab_glance(
         "sample_known": False,
         "sample_fills": 0,
         "target_fills": 0,
+        "sample_buys": 0,
+        "sample_sells": 0,
+        "sample_open_only": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
+        "a_open_only_bit": "",
         "b_ready": False,
         "b_blockers": [],
         "b_block_bit": "",
@@ -598,15 +605,21 @@ def build_promote_ab_glance(
     sample_known = bool(sample.get("known"))
     sample_fills = int(sample.get("fills") or 0)
     target_fills = int(sample.get("target_fills") or 0)
+    sample_buys = int(sample.get("buys") or 0)
+    sample_sells = int(sample.get("sells") or 0)
+    sample_open_only = bool(sample.get("open_only"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
     a_thin_bit = format_window_a_thin_bit(sample) if window == "A" else ""
+    a_open_only_bit = (
+        format_window_a_open_only_bit(sample) if window == "A" else ""
+    )
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
     stats_bit = format_window_stats_bit(
         stats, include_fills=not bool(a_fill_progress_bit)
     )
-    # Window B start needs knobs + (for A) a non-thin fill sample.
+    # Window B start needs knobs + (for A) a non-thin fill sample with closes.
     b_ready = b_knobs_ready and (sample_ready if window == "A" and sample_known else True)
     if not protocol_ok:
         tone = "warn"
@@ -618,6 +631,9 @@ def build_promote_ab_glance(
         if window == "A" and a_thin_bit and sample_known:
             tone = "warn"
             status = f"{a_thin_bit} · keep Window A"
+        elif window == "A" and a_open_only_bit and sample_known:
+            tone = "warn"
+            status = f"{a_open_only_bit} · keep Window A"
         elif window == "A" and b_block_bit:
             tone = "warn"
             status = b_block_bit
@@ -631,9 +647,11 @@ def build_promote_ab_glance(
                 status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
-        # Days still running: dual sample honesty (fills vs days).
+        # Days still running: dual sample honesty (fills vs days + open-only).
         if window == "A" and sample_known and a_thin_bit:
             status = "building sample"
+        elif window == "A" and sample_known and a_open_only_bit:
+            status = f"{a_open_only_bit} · keep Window A"
         elif window == "A" and sample_known and sample_ready:
             status = "fills ready · keep Window A"
         else:
@@ -649,8 +667,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    if len(line) > 110:
-        line = line[:109] + "…"
+    # Allow room for Nb/Ns + open-only / thin status (portfolio AI sample honesty).
+    if len(line) > 140:
+        line = line[:139] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -667,8 +686,12 @@ def build_promote_ab_glance(
         "sample_known": sample_known if window == "A" else False,
         "sample_fills": sample_fills if window == "A" else 0,
         "target_fills": target_fills if window == "A" else 0,
+        "sample_buys": sample_buys if window == "A" else 0,
+        "sample_sells": sample_sells if window == "A" else 0,
+        "sample_open_only": sample_open_only if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
+        "a_open_only_bit": a_open_only_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
         "b_block_bit": b_block_bit if window == "A" else "",
