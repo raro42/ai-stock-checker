@@ -199,6 +199,23 @@ def format_window_a_thin_bit(sample: dict[str, Any] | None) -> str:
     return bit
 
 
+def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
+    """Dual sample meter: ``N/M fills`` beside days (portfolio AI honesty).
+
+    Days alone mislead — show fill progress while Window A is still running.
+    Unknown stats → empty (keep summarize). Display only; not a gate.
+    """
+    if not isinstance(sample, dict) or not sample.get("known"):
+        return ""
+    try:
+        fills = int(sample.get("fills") or 0)
+        need = int(sample.get("target_fills") or WINDOW_A_TARGET_FILLS)
+    except (TypeError, ValueError):
+        return ""
+    need = max(1, need)
+    return f"{fills}/{need} fills"
+
+
 def weekday_trading_days(start: date, end: date) -> int:
     """Count Mon–Fri calendar days from start through end (inclusive)."""
     if end < start:
@@ -394,12 +411,18 @@ def window_stats_from_data_dir(
     return summarize_window_trades(trades, start=start)
 
 
-def format_window_stats_bit(stats: dict[str, Any] | None) -> str:
+def format_window_stats_bit(
+    stats: dict[str, Any] | None,
+    *,
+    include_fills: bool = True,
+) -> str:
     """Short fee / fee-adjusted net / fill bit for promote A/B glance.
 
     Prefers ``net_after_all_fees`` (realized − all buy+sell fees) so the desk
     does not read gross sell P&L as edge. Falls back to realized − fees when
-    older stats dicts omit the field. Portfolio AI fee honesty; display only.
+    older stats dicts omit the field. When ``include_fills`` is False, omit the
+    trailing fill count (glance already shows ``N/M fills`` dual progress).
+    Portfolio AI fee honesty; display only.
     """
     if not isinstance(stats, dict):
         return ""
@@ -414,11 +437,14 @@ def format_window_stats_bit(stats: dict[str, Any] | None) -> str:
     except (TypeError, ValueError):
         return ""
     if n <= 0 and fees <= 0 and realized == 0 and net == 0:
-        return "0 fills"
+        return "0 fills" if include_fills else ""
     sign = "+" if net >= 0 else "−"
     abs_n = abs(net)
     if abs_n >= 1000:
         pnl = f"{sign}€{abs_n / 1000:.1f}k"
     else:
         pnl = f"{sign}€{abs_n:,.0f}"
-    return f"€{fees:,.0f} fees · {pnl} net · {n} fills"
+    bit = f"€{fees:,.0f} fees · {pnl} net"
+    if include_fills:
+        bit = f"{bit} · {n} fills"
+    return bit

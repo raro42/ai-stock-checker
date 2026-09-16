@@ -494,19 +494,22 @@ def build_promote_ab_glance(
     """Compact promote A/B window line (Phase A / portfolio AI; display only).
 
     Shows Window A/B trading-day progress and whether live promote matches the
-    protocol (A = off, B = on). When fills exist, appends in-window fees /
-    fee-adjusted net (realized − all fees) / fill count — portfolio AI
-    honesty before Window B (gross sell P&L alone is not edge). When
-    Window A day target is met but fills stay under the protocol floor
-    (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
-    ready — days alone are a thin control sample. When day+fill targets are
-    met but Ops knobs drift from protocol (max 5 / 24h / revolut_standard /
+    protocol (A = off, B = on). Window A also shows dual sample progress
+    ``N/M fills`` beside days (portfolio AI — days alone mislead). When fills
+    exist, appends in-window fees / fee-adjusted net (realized − all fees) —
+    honesty before Window B (gross sell P&L alone is not edge). While A is
+    still running with a thin ledger, status is ``building sample`` instead of
+    bare ``running``. When Window A day target is met but fills stay under the
+    protocol floor (``WINDOW_A_TARGET_FILLS``), status is
+    ``A thin · N fills <M`` instead of ready. When day+fill targets are met but
+    Ops knobs drift from protocol (max 5 / 24h / revolut_standard /
     regime·RS·breadth on / AI validate / multi-role on / scan ≥15m /
     trade ≥5m, or open names > 5), status is ``B blocked · …`` instead of
     ready. Calm ≠ edge; compose default-on still blocked until A/B verdict +
     calm gate. Not an entry gate.
     """
     from stock_checker.promote_ab import (
+        format_window_a_fill_progress_bit,
         format_window_a_thin_bit,
         format_window_b_block_bit,
         format_window_stats_bit,
@@ -532,6 +535,7 @@ def build_promote_ab_glance(
         "sample_known": False,
         "sample_fills": 0,
         "target_fills": 0,
+        "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "b_ready": False,
         "b_blockers": [],
@@ -550,7 +554,6 @@ def build_promote_ab_glance(
     stats = window_stats
     if stats is None and data_dir is not None:
         stats = window_stats_from_data_dir(data_dir, promote_on=promote_on)
-    stats_bit = format_window_stats_bit(stats)
     max_pos_raw = runtime.get("max_positions")
     max_pos = int(max_pos_raw) if max_pos_raw is not None else None
     open_n = open_positions
@@ -593,7 +596,14 @@ def build_promote_ab_glance(
     sample_known = bool(sample.get("known"))
     sample_fills = int(sample.get("fills") or 0)
     target_fills = int(sample.get("target_fills") or 0)
+    a_fill_progress_bit = (
+        format_window_a_fill_progress_bit(sample) if window == "A" else ""
+    )
     a_thin_bit = format_window_a_thin_bit(sample) if window == "A" else ""
+    # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
+    stats_bit = format_window_stats_bit(
+        stats, include_fills=not bool(a_fill_progress_bit)
+    )
     # Window B start needs knobs + (for A) a non-thin fill sample.
     b_ready = b_knobs_ready and (sample_ready if window == "A" and sample_known else True)
     if not protocol_ok:
@@ -619,12 +629,18 @@ def build_promote_ab_glance(
                 status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
-        status = "running"
+        # Days still running: surface thin ledger early (portfolio AI sample honesty).
+        if window == "A" and sample_known and a_thin_bit:
+            status = "building sample"
+        else:
+            status = "running"
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
         f"{days}/{need} days",
     ]
+    if a_fill_progress_bit:
+        parts.append(a_fill_progress_bit)
     if stats_bit and protocol_ok:
         parts.append(stats_bit)
     parts.append(status)
@@ -647,6 +663,7 @@ def build_promote_ab_glance(
         "sample_known": sample_known if window == "A" else False,
         "sample_fills": sample_fills if window == "A" else 0,
         "target_fills": target_fills if window == "A" else 0,
+        "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
