@@ -46,6 +46,11 @@ WINDOW_A_PAYOFF_THIN_RATIO = 1.0
 # Still ready for B in all cases.
 WINDOW_A_EXPECTANCY_STRONG_RATIO = 0.5
 WINDOW_A_EXPECTANCY_THIN_RATIO = 0.25
+# Close profit factor = gross wins ÷ gross losses (portfolio AI).
+# Distinct from payoff (avg_win ÷ avg_loss): count × size, not avg alone.
+# strong ≥2× · ok mid · thin <1× (warn only; still ready for B).
+WINDOW_A_PROFIT_FACTOR_STRONG_RATIO = 2.0
+WINDOW_A_PROFIT_FACTOR_THIN_RATIO = 1.0
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -243,8 +248,14 @@ def window_a_sample_readiness(
     strong ≥``WINDOW_A_EXPECTANCY_STRONG_RATIO`` · ok mid · thin
     <``WINDOW_A_EXPECTANCY_THIN_RATIO`` (tiny € edge vs typical loss).
     Negative and thin warn only (still ready for B). Missing avg_loss →
-    signed € only (fail-open severity). Missing avgs → fail-open. Not a
-    gate; does not flip compose promote.
+    signed € only (fail-open severity). Missing avgs → fail-open. When
+    both sides have positive gross €, speak close profit factor
+    ``A PF [strong|thin] · N×`` (gross wins ÷ gross losses; PF = profit
+    factor) — portfolio AI after expectancy; payoff is avg ratio, PF is
+    total € ratio (count × size). strong ≥``WINDOW_A_PROFIT_FACTOR_STRONG_RATIO``
+    · ok mid · thin <``WINDOW_A_PROFIT_FACTOR_THIN_RATIO`` (warn only;
+    still ready for B). Missing grosses → fail-open. Not a gate; does
+    not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -302,6 +313,12 @@ def window_a_sample_readiness(
         "closes_expectancy_severity": "",
         "closes_expectancy_thin": False,
         "closes_expectancy_ratio": None,
+        "closes_profit_factor": None,
+        "closes_profit_factor_severity": "",
+        "closes_profit_factor_bit": "",
+        "closes_profit_factor_thin": False,
+        "closes_gross_wins": None,
+        "closes_gross_losses": None,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -644,6 +661,73 @@ def window_a_sample_readiness(
             else:
                 closes_expectancy_bit = f"A expectancy {body}"
 
+    # Portfolio AI profit factor after expectancy: gross wins ÷ gross losses.
+    # Payoff is avg_win÷avg_loss; profit factor is total € (count × size).
+    # Needs both sides with positive gross; all_win / all_loss → fail-open.
+    # thin <1× warns only (still ready for B).
+    closes_gross_wins: float | None = None
+    closes_gross_losses: float | None = None
+    closes_profit_factor: float | None = None
+    closes_profit_factor_severity = ""
+    closes_profit_factor_bit = ""
+    closes_profit_factor_thin = False
+    if sides_known and sells > 0 and not open_only and closes_wins > 0 and closes_losses > 0:
+        try:
+            gw = stats.get("gross_wins")
+            closes_gross_wins = float(gw) if gw is not None else None
+        except (TypeError, ValueError):
+            closes_gross_wins = None
+        try:
+            gl = stats.get("gross_losses")
+            closes_gross_losses = float(gl) if gl is not None else None
+        except (TypeError, ValueError):
+            closes_gross_losses = None
+        try:
+            pf = stats.get("profit_factor")
+            closes_profit_factor = float(pf) if pf is not None else None
+        except (TypeError, ValueError):
+            closes_profit_factor = None
+        if (
+            closes_gross_wins is None
+            and closes_avg_win is not None
+            and closes_avg_win > 0
+        ):
+            closes_gross_wins = closes_wins * closes_avg_win
+        if (
+            closes_gross_losses is None
+            and closes_avg_loss is not None
+            and closes_avg_loss > 0
+        ):
+            closes_gross_losses = closes_losses * closes_avg_loss
+        if (
+            closes_profit_factor is None
+            and closes_gross_wins is not None
+            and closes_gross_losses is not None
+            and closes_gross_wins > 0
+            and closes_gross_losses > 0
+        ):
+            closes_profit_factor = closes_gross_wins / closes_gross_losses
+        if closes_profit_factor is not None and closes_profit_factor > 0:
+            rounded = round(closes_profit_factor, 2)
+            if abs(closes_profit_factor - round(closes_profit_factor)) < 0.05:
+                ratio_s = f"{int(round(closes_profit_factor))}×"
+            else:
+                ratio_s = f"{closes_profit_factor:.1f}×"
+            closes_profit_factor = rounded
+            if closes_gross_wins is not None:
+                closes_gross_wins = round(closes_gross_wins, 2)
+            if closes_gross_losses is not None:
+                closes_gross_losses = round(closes_gross_losses, 2)
+            if closes_profit_factor < WINDOW_A_PROFIT_FACTOR_THIN_RATIO:
+                closes_profit_factor_severity = "thin"
+                closes_profit_factor_thin = True
+                closes_profit_factor_bit = f"A PF thin · {ratio_s}"
+            elif closes_profit_factor >= WINDOW_A_PROFIT_FACTOR_STRONG_RATIO:
+                closes_profit_factor_severity = "strong"
+                closes_profit_factor_bit = f"A PF strong · {ratio_s}"
+            else:
+                closes_profit_factor_bit = f"A PF · {ratio_s}"
+
     ready = (
         (not thin)
         and (not open_only)
@@ -702,6 +786,12 @@ def window_a_sample_readiness(
         "closes_expectancy_severity": closes_expectancy_severity,
         "closes_expectancy_thin": closes_expectancy_thin,
         "closes_expectancy_ratio": closes_expectancy_ratio,
+        "closes_profit_factor": closes_profit_factor,
+        "closes_profit_factor_severity": closes_profit_factor_severity,
+        "closes_profit_factor_bit": closes_profit_factor_bit,
+        "closes_profit_factor_thin": closes_profit_factor_thin,
+        "closes_gross_wins": closes_gross_wins,
+        "closes_gross_losses": closes_gross_losses,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -795,6 +885,14 @@ def format_window_a_closes_expectancy_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_expectancy_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_profit_factor_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A profit-factor bit (gross wins ÷ losses; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_profit_factor_bit") or "").strip()
     return bit
 
 
@@ -1010,6 +1108,16 @@ def summarize_window_trades(
         if avg_win is not None and avg_loss is not None and avg_loss > 0
         else None
     )
+    gross_wins = sum(win_pnls) if win_pnls else None
+    gross_losses = sum(loss_pnls) if loss_pnls else None
+    profit_factor = (
+        (gross_wins / gross_losses)
+        if gross_wins is not None
+        and gross_losses is not None
+        and gross_wins > 0
+        and gross_losses > 0
+        else None
+    )
     n_closed = wins + losses
     expectancy: float | None = None
     if n_closed > 0:
@@ -1053,6 +1161,9 @@ def summarize_window_trades(
         "avg_win": avg_win,
         "avg_loss": avg_loss,
         "payoff_ratio": payoff_ratio,
+        "gross_wins": gross_wins,
+        "gross_losses": gross_losses,
+        "profit_factor": profit_factor,
         "expectancy": expectancy,
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,

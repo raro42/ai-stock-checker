@@ -534,7 +534,12 @@ def build_promote_ab_glance(
     (win_rate·avg_win − loss_rate·avg_loss) — portfolio AI €/close after
     payoff; positive severity vs avg_loss (strong ≥0.5× · ok mid · thin
     <0.25× warn); neg + thin warn only; does not block ready for B.
-    When Window A day target is met but fills stay under the protocol floor
+    When both sides have positive gross €, close profit factor speaks
+    ``A PF [strong|thin] · N×`` (gross wins ÷ gross losses; PF = profit
+    factor) — portfolio AI + xang1234 severity (strong ≥2× · ok mid ·
+    thin <1× warn); payoff is avg ratio, PF is total € ratio; thin does
+    not block ready for B. When Window A day target is met but fills stay
+    under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
     (max 5 / 24h / revolut_standard / regime·RS·breadth on / AI validate /
@@ -547,6 +552,7 @@ def build_promote_ab_glance(
         format_window_a_closes_expectancy_bit,
         format_window_a_closes_payoff_bit,
         format_window_a_closes_polarity_bit,
+        format_window_a_closes_profit_factor_bit,
         format_window_a_fee_drag_bit,
         format_window_a_fees_ok_bit,
         format_window_a_fill_progress_bit,
@@ -603,6 +609,9 @@ def build_promote_ab_glance(
         "closes_expectancy_severity": "",
         "closes_expectancy_thin": False,
         "closes_expectancy_ratio": None,
+        "closes_profit_factor": None,
+        "closes_profit_factor_severity": "",
+        "closes_profit_factor_thin": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -615,6 +624,7 @@ def build_promote_ab_glance(
         "a_closes_polarity_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
+        "a_closes_profit_factor_bit": "",
         "b_ready": False,
         "b_blockers": [],
         "b_block_bit": "",
@@ -702,6 +712,9 @@ def build_promote_ab_glance(
     closes_expectancy_severity = str(sample.get("closes_expectancy_severity") or "")
     closes_expectancy_thin = bool(sample.get("closes_expectancy_thin"))
     closes_expectancy_ratio = sample.get("closes_expectancy_ratio")
+    closes_profit_factor = sample.get("closes_profit_factor")
+    closes_profit_factor_severity = str(sample.get("closes_profit_factor_severity") or "")
+    closes_profit_factor_thin = bool(sample.get("closes_profit_factor_thin"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -738,9 +751,12 @@ def build_promote_ab_glance(
     a_closes_expectancy_bit = (
         format_window_a_closes_expectancy_bit(sample) if window == "A" else ""
     )
+    a_closes_profit_factor_bit = (
+        format_window_a_closes_profit_factor_bit(sample) if window == "A" else ""
+    )
 
     def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + payoff + expectancy bits."""
+        """Prepend fee + polarity + payoff + expectancy + profit-factor bits."""
         bits = [
             b
             for b in (
@@ -748,6 +764,7 @@ def build_promote_ab_glance(
                 a_closes_polarity_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
+                a_closes_profit_factor_bit,
             )
             if b
         ]
@@ -756,7 +773,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / payoff thin / neg·thin expectancy."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / payoff·PF thin / neg·thin expectancy."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -765,6 +782,7 @@ def build_promote_ab_glance(
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
+            or closes_profit_factor_thin
         )
 
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
@@ -819,8 +837,9 @@ def build_promote_ab_glance(
                 or a_closes_polarity_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
+                or a_closes_profit_factor_bit
             ):
-                # Fee / polarity / payoff / expectancy warn; still ready for B.
+                # Fee / polarity / payoff / expectancy / PF warn; still ready for B.
                 tone = "warn" if _honesty_warn() else "ready"
                 status = _prefix_honesty(
                     "ready for B" if stats_bit else "target met"
@@ -860,6 +879,7 @@ def build_promote_ab_glance(
                 or a_closes_polarity_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
+                or a_closes_profit_factor_bit
             ):
                 if _honesty_warn():
                     tone = "warn"
@@ -879,9 +899,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / payoff / expectancy / freshness.
-    if len(line) > 260:
-        line = line[:259] + "…"
+    # Allow room for N/M sells + fee / polarity / payoff / expectancy / PF / freshness.
+    if len(line) > 300:
+        line = line[:299] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -926,6 +946,13 @@ def build_promote_ab_glance(
         "closes_expectancy_ratio": (
             closes_expectancy_ratio if window == "A" else None
         ),
+        "closes_profit_factor": closes_profit_factor if window == "A" else None,
+        "closes_profit_factor_severity": (
+            closes_profit_factor_severity if window == "A" else ""
+        ),
+        "closes_profit_factor_thin": (
+            closes_profit_factor_thin if window == "A" else False
+        ),
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
@@ -938,6 +965,7 @@ def build_promote_ab_glance(
         "a_closes_polarity_bit": a_closes_polarity_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
+        "a_closes_profit_factor_bit": a_closes_profit_factor_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
         "b_block_bit": b_block_bit if window == "A" else "",

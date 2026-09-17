@@ -230,6 +230,9 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["avg_win"] == 100.0
     assert s["avg_loss"] is None
     assert s["payoff_ratio"] is None
+    assert s["gross_wins"] == 100.0
+    assert s["gross_losses"] is None
+    assert s["profit_factor"] is None
     assert s["expectancy"] == 100.0
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
@@ -1251,6 +1254,187 @@ def test_window_a_closes_expectancy() -> None:
     assert from_key["closes_expectancy_bit"] == "A expectancy +€12"
 
 
+def test_window_a_closes_profit_factor_triad() -> None:
+    """Profit factor = gross wins ÷ gross losses (distinct from avg payoff)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_PROFIT_FACTOR_STRONG_RATIO,
+        WINDOW_A_PROFIT_FACTOR_THIN_RATIO,
+        format_window_a_closes_profit_factor_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_profit_factor"] is None
+    assert unknown["closes_profit_factor_bit"] == ""
+    assert unknown["closes_profit_factor_thin"] is False
+    assert format_window_a_closes_profit_factor_bit(unknown) == ""
+
+    # Count lean win but avg thin: payoff 0.5× thin, PF = 60/40 = 1.5× ok.
+    diverge = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 20.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert diverge["closes_payoff_ratio"] == 0.5
+    assert diverge["closes_payoff_thin"] is True
+    assert diverge["closes_profit_factor"] == 1.5
+    assert diverge["closes_profit_factor_severity"] == ""
+    assert diverge["closes_profit_factor_thin"] is False
+    assert diverge["closes_profit_factor_bit"] == "A PF · 1.5×"
+    assert diverge["closes_gross_wins"] == 60.0
+    assert diverge["closes_gross_losses"] == 40.0
+    assert format_window_a_closes_profit_factor_bit(diverge) == diverge[
+        "closes_profit_factor_bit"
+    ]
+
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert strong["closes_profit_factor"] == 6.0
+    assert strong["closes_profit_factor_severity"] == "strong"
+    assert strong["closes_profit_factor_thin"] is False
+    assert strong["closes_profit_factor_bit"] == "A PF strong · 6×"
+    assert strong["closes_profit_factor"] >= WINDOW_A_PROFIT_FACTOR_STRONG_RATIO
+
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": -40.0,
+            "wins": 1,
+            "losses": 3,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin["closes_profit_factor"] == 0.17
+    assert thin["closes_profit_factor_severity"] == "thin"
+    assert thin["closes_profit_factor_thin"] is True
+    assert thin["closes_profit_factor_bit"] == "A PF thin · 0.2×"
+    assert thin["closes_profit_factor"] < WINDOW_A_PROFIT_FACTOR_THIN_RATIO
+    assert thin["ready"] is True  # warn only
+
+    from_key = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "profit_factor": 2.5,
+            "gross_wins": 200.0,
+            "gross_losses": 80.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert from_key["closes_profit_factor"] == 2.5
+    assert from_key["closes_profit_factor_severity"] == "strong"
+    assert from_key["closes_profit_factor_bit"] == "A PF strong · 2.5×"
+    assert from_key["closes_gross_wins"] == 200.0
+    assert from_key["closes_gross_losses"] == 80.0
+
+    all_win = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "wins": 4,
+            "losses": 0,
+            "avg_win": 50.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert all_win["closes_profit_factor"] is None
+    assert all_win["closes_profit_factor_bit"] == ""
+
+
+def test_promote_ab_glance_closes_profit_factor_thin_warns_but_ready_for_b() -> None:
+    """Thin profit factor → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 20.0,
+            "wins": 1,
+            "losses": 3,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_profit_factor"] == 0.17
+    assert g["closes_profit_factor_thin"] is True
+    assert g["closes_profit_factor_severity"] == "thin"
+    assert "A PF thin · 0.2×" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_promote_ab_glance_closes_expectancy_neg_warns_but_ready_for_b() -> None:
     """Negative €/close expectancy → warn · still ready for B."""
     g = build_promote_ab_glance(
@@ -1429,6 +1613,10 @@ def test_promote_ab_glance_closes_payoff_strong_ready_for_b() -> None:
     assert g["closes_expectancy_severity"] == "strong"
     assert "A payoff strong · 2×" in g["line"]
     assert "A expectancy strong · +€50" in g["line"]
+    assert "A PF strong · 6×" in g["line"]
+    assert g["closes_profit_factor"] == 6.0
+    assert g["closes_profit_factor_severity"] == "strong"
+    assert g["closes_profit_factor_thin"] is False
     assert "A mixed · mostly wins · 3w/1l" in g["line"]
     assert "A fees comfortable" in g["line"]
     assert "ready for B" in g["line"]
