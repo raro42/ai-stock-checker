@@ -1764,6 +1764,175 @@ def test_promote_ab_glance_closes_wr_edge_thin_warns_but_ready_for_b() -> None:
     assert g["b_ready"] is True
 
 
+def test_window_a_closes_net_expectancy_triad() -> None:
+    """Fee-adjusted net ÷ sells — gross €/close ≠ fee-adjusted €/close."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_EXPECTANCY_STRONG_RATIO,
+        WINDOW_A_EXPECTANCY_THIN_RATIO,
+        format_window_a_closes_net_expectancy_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_net_expectancy"] is None
+    assert unknown["closes_net_expectancy_bit"] == ""
+    assert unknown["closes_net_expectancy_neg"] is False
+    assert unknown["closes_net_expectancy_eats_edge"] is False
+    assert format_window_a_closes_net_expectancy_bit(unknown) == ""
+
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 180.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert strong["closes_net_expectancy"] == 45.0
+    assert strong["closes_net_expectancy_neg"] is False
+    assert strong["closes_net_expectancy_severity"] == "strong"
+    assert strong["closes_net_expectancy_thin"] is False
+    assert strong["closes_net_expectancy_ratio"] == 1.125
+    assert strong["closes_net_expectancy_ratio"] >= WINDOW_A_EXPECTANCY_STRONG_RATIO
+    assert strong["closes_net_expectancy_eats_edge"] is False
+    assert strong["closes_net_expectancy_bit"] == "A net expect strong · +€45"
+    assert format_window_a_closes_net_expectancy_bit(strong) == strong[
+        "closes_net_expectancy_bit"
+    ]
+
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 10.0,
+            "realized_pnl": 20.0,
+            "net_after_all_fees": 10.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin["closes_net_expectancy"] == 2.5
+    assert thin["closes_net_expectancy_severity"] == "thin"
+    assert thin["closes_net_expectancy_thin"] is True
+    assert thin["closes_net_expectancy_ratio"] == 0.062
+    assert thin["closes_net_expectancy_ratio"] < WINDOW_A_EXPECTANCY_THIN_RATIO
+    assert thin["closes_net_expectancy_bit"] == "A net expect thin · +€2"
+    assert thin["ready"] is True
+
+    eats = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 120.0,
+            "realized_pnl": 100.0,
+            "net_after_all_fees": -20.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "expectancy": 50.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert eats["closes_expectancy"] == 50.0
+    assert eats["closes_net_expectancy"] == -5.0
+    assert eats["closes_net_expectancy_neg"] is True
+    assert eats["closes_net_expectancy_eats_edge"] is True
+    assert eats["closes_net_expectancy_bit"] == (
+        "A net expect −€5 · fees eat edge"
+    )
+    assert eats["ready"] is True
+
+    from_fees = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 5,
+            "fees": 25.0,
+            "realized_pnl": 85.0,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 50.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert from_fees["closes_net_expectancy"] == 12.0
+    assert from_fees["closes_net_expectancy_severity"] == ""
+    assert from_fees["closes_net_expectancy_bit"] == "A net expect · +€12"
+
+
+def test_promote_ab_glance_closes_net_expectancy_eats_edge_warns_but_ready() -> None:
+    """Gross+ / net− → fees eat edge warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 120.0,
+            "realized_pnl": 100.0,
+            "net_after_all_fees": -20.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "expectancy": 50.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_net_expectancy"] == -5.0
+    assert g["closes_net_expectancy_neg"] is True
+    assert g["closes_net_expectancy_eats_edge"] is True
+    assert "A net expect −€5 · fees eat edge" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_promote_ab_glance_closes_win_rate_thin_warns_but_ready_for_b() -> None:
     """Thin win rate → warn · still ready for B."""
     g = build_promote_ab_glance(
