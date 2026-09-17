@@ -60,6 +60,11 @@ WINDOW_A_WIN_RATE_THIN_PCT = 40.0
 # BE% = 100 / (1 + avg_win/avg_loss). Hit rate alone ≠ edge when payoff ≠ 1.
 # above / at (±AT pp) / below (warn only; still ready for B).
 WINDOW_A_WR_BE_AT_PP = 2.0
+# Edge cushion (WR − BE) severity when above BE (portfolio AI + xang1234).
+# above alone ≠ wide edge — thin cushion <THIN pp warns; strong ≥STRONG pp.
+# below keeps warn via closes_wr_below_be (still ready for B).
+WINDOW_A_WR_EDGE_STRONG_PP = 10.0
+WINDOW_A_WR_EDGE_THIN_PP = 5.0
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -269,12 +274,14 @@ def window_a_sample_readiness(
     severity). Count lean ≠ hit rate. strong ≥``WINDOW_A_WIN_RATE_STRONG_PCT``
     · ok mid · thin <``WINDOW_A_WIN_RATE_THIN_PCT`` (warn only; still ready
     for B). Missing polarity → fail-open. When win rate and payoff are both
-    known, speak WR vs breakeven ``A WR [above|at|below] BE · N% vs M%``
+    known, speak WR vs breakeven ``A WR [above|at|below] BE [strong|thin] · ±Npp``
     (BE% = 100/(1+payoff); portfolio AI edge after WR+payoff + xang1234
     severity). Hit rate alone ≠ edge when payoff ≠ 1. ``at`` within
-    ±``WINDOW_A_WR_BE_AT_PP`` pp; ``below`` warns only (still ready for B).
-    Missing payoff or WR → fail-open. Not a gate; does not flip compose
-    promote.
+    ±``WINDOW_A_WR_BE_AT_PP`` pp. Above-BE cushion severity:
+    strong ≥``WINDOW_A_WR_EDGE_STRONG_PP`` · ok mid · thin
+    <``WINDOW_A_WR_EDGE_THIN_PP`` (warn). ``below`` and thin cushion warn
+    only (still ready for B). Missing payoff or WR → fail-open. Not a
+    gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -346,6 +353,9 @@ def window_a_sample_readiness(
         "closes_wr_vs_be": "",
         "closes_wr_vs_be_bit": "",
         "closes_wr_below_be": False,
+        "closes_wr_edge_pp": None,
+        "closes_wr_edge_severity": "",
+        "closes_wr_edge_thin": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -794,38 +804,52 @@ def window_a_sample_readiness(
 
     # Portfolio AI WR vs breakeven from payoff: BE% = 100/(1+R).
     # Hit rate alone ≠ edge when payoff ≠ 1 (need higher WR when R < 1).
-    # above / at (±AT pp) / below — below warns only (still ready for B).
+    # above / at (±AT pp) / below — speak cushion ±Npp with severity triad.
+    # Thin cushion + below warn only (still ready for B).
     closes_breakeven_wr_pct: float | None = None
     closes_wr_vs_be = ""
     closes_wr_vs_be_bit = ""
     closes_wr_below_be = False
+    closes_wr_edge_pp: float | None = None
+    closes_wr_edge_severity = ""
+    closes_wr_edge_thin = False
     if (
         closes_win_rate_pct is not None
         and closes_payoff_ratio is not None
         and closes_payoff_ratio > 0
     ):
         closes_breakeven_wr_pct = round(100.0 / (1.0 + closes_payoff_ratio), 1)
-        wr_s = (
-            f"{int(round(closes_win_rate_pct))}%"
-            if abs(closes_win_rate_pct - round(closes_win_rate_pct)) < 0.05
-            else f"{closes_win_rate_pct:.1f}%"
-        )
-        be_s = (
-            f"{int(round(closes_breakeven_wr_pct))}%"
-            if abs(closes_breakeven_wr_pct - round(closes_breakeven_wr_pct)) < 0.05
-            else f"{closes_breakeven_wr_pct:.1f}%"
-        )
         delta = closes_win_rate_pct - closes_breakeven_wr_pct
+        closes_wr_edge_pp = round(delta, 1)
+
+        def _fmt_edge_pp(pp: float) -> str:
+            if abs(pp) < 0.05:
+                return "~0pp"
+            nearest = round(pp)
+            if abs(pp - nearest) < 0.05:
+                return f"{int(nearest):+d}pp"
+            return f"{pp:+.1f}pp"
+
+        pp_s = _fmt_edge_pp(closes_wr_edge_pp)
         if delta < -WINDOW_A_WR_BE_AT_PP:
             closes_wr_vs_be = "below"
             closes_wr_below_be = True
-            closes_wr_vs_be_bit = f"A WR below BE · {wr_s} vs {be_s}"
+            closes_wr_edge_thin = True
+            closes_wr_vs_be_bit = f"A WR below BE · {pp_s}"
         elif delta > WINDOW_A_WR_BE_AT_PP:
             closes_wr_vs_be = "above"
-            closes_wr_vs_be_bit = f"A WR above BE · {wr_s} vs {be_s}"
+            if closes_wr_edge_pp >= WINDOW_A_WR_EDGE_STRONG_PP:
+                closes_wr_edge_severity = "strong"
+                closes_wr_vs_be_bit = f"A WR above BE strong · {pp_s}"
+            elif closes_wr_edge_pp < WINDOW_A_WR_EDGE_THIN_PP:
+                closes_wr_edge_severity = "thin"
+                closes_wr_edge_thin = True
+                closes_wr_vs_be_bit = f"A WR above BE thin · {pp_s}"
+            else:
+                closes_wr_vs_be_bit = f"A WR above BE · {pp_s}"
         else:
             closes_wr_vs_be = "at"
-            closes_wr_vs_be_bit = f"A WR at BE · {wr_s} vs {be_s}"
+            closes_wr_vs_be_bit = f"A WR at BE · {pp_s}"
 
     ready = (
         (not thin)
@@ -899,6 +923,9 @@ def window_a_sample_readiness(
         "closes_wr_vs_be": closes_wr_vs_be,
         "closes_wr_vs_be_bit": closes_wr_vs_be_bit,
         "closes_wr_below_be": closes_wr_below_be,
+        "closes_wr_edge_pp": closes_wr_edge_pp,
+        "closes_wr_edge_severity": closes_wr_edge_severity,
+        "closes_wr_edge_thin": closes_wr_edge_thin,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -1012,7 +1039,7 @@ def format_window_a_closes_win_rate_bit(sample: dict[str, Any] | None) -> str:
 
 
 def format_window_a_closes_wr_vs_be_bit(sample: dict[str, Any] | None) -> str:
-    """Short Window A WR vs breakeven bit (from payoff; display only)."""
+    """Short Window A WR vs breakeven bit (±pp cushion; display only)."""
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_wr_vs_be_bit") or "").strip()

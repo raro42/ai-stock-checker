@@ -628,6 +628,9 @@ def build_promote_ab_glance(
         "closes_breakeven_wr_pct": None,
         "closes_wr_vs_be": "",
         "closes_wr_below_be": False,
+        "closes_wr_edge_pp": None,
+        "closes_wr_edge_severity": "",
+        "closes_wr_edge_thin": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -739,6 +742,9 @@ def build_promote_ab_glance(
     closes_breakeven_wr_pct = sample.get("closes_breakeven_wr_pct")
     closes_wr_vs_be = str(sample.get("closes_wr_vs_be") or "")
     closes_wr_below_be = bool(sample.get("closes_wr_below_be"))
+    closes_wr_edge_pp = sample.get("closes_wr_edge_pp")
+    closes_wr_edge_severity = str(sample.get("closes_wr_edge_severity") or "")
+    closes_wr_edge_thin = bool(sample.get("closes_wr_edge_thin"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -805,7 +811,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·payoff·PF thin / neg·thin expectancy / WR below BE."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·payoff·PF thin / neg·thin expectancy / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -813,6 +819,7 @@ def build_promote_ab_glance(
             or closes_loss_lean
             or closes_win_rate_thin
             or closes_wr_below_be
+            or closes_wr_edge_thin
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
@@ -1001,6 +1008,11 @@ def build_promote_ab_glance(
         ),
         "closes_wr_vs_be": closes_wr_vs_be if window == "A" else "",
         "closes_wr_below_be": closes_wr_below_be if window == "A" else False,
+        "closes_wr_edge_pp": closes_wr_edge_pp if window == "A" else None,
+        "closes_wr_edge_severity": (
+            closes_wr_edge_severity if window == "A" else ""
+        ),
+        "closes_wr_edge_thin": closes_wr_edge_thin if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
