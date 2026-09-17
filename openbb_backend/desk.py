@@ -511,7 +511,9 @@ def build_promote_ab_glance(
     (``A fresh closes · last sell Nd``) and aging
     (``WINDOW_A_AGING_SELL_DAYS``) speak on the glance; stale
     (``WINDOW_A_MAX_SELL_STALE_DAYS``) blocks ready (staskh
-    confirm-against-latest-closed).
+    confirm-against-latest-closed). When closed rounds exist and in-window
+    fees exceed realized sell P&L, ``A fee drag · fees > realized`` warns
+    (portfolio AI fee-burn adapted) — does not block ready for B.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -522,6 +524,7 @@ def build_promote_ab_glance(
     """
     from stock_checker.promote_ab import (
         format_window_a_aging_closes_bit,
+        format_window_a_fee_drag_bit,
         format_window_a_fill_progress_bit,
         format_window_a_fresh_closes_bit,
         format_window_a_open_only_bit,
@@ -560,6 +563,7 @@ def build_promote_ab_glance(
         "sample_aging_closes": False,
         "sample_fresh_closes": False,
         "closes_freshness": "",
+        "sample_fee_drag": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -567,6 +571,7 @@ def build_promote_ab_glance(
         "a_stale_closes_bit": "",
         "a_aging_closes_bit": "",
         "a_fresh_closes_bit": "",
+        "a_fee_drag_bit": "",
         "b_ready": False,
         "b_blockers": [],
         "b_block_bit": "",
@@ -637,6 +642,7 @@ def build_promote_ab_glance(
     sample_aging_closes = bool(sample.get("aging_closes"))
     sample_fresh_closes = bool(sample.get("fresh_closes"))
     closes_freshness = str(sample.get("closes_freshness") or "")
+    sample_fee_drag = bool(sample.get("fee_drag"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -655,6 +661,9 @@ def build_promote_ab_glance(
     )
     a_fresh_closes_bit = (
         format_window_a_fresh_closes_bit(sample) if window == "A" else ""
+    )
+    a_fee_drag_bit = (
+        format_window_a_fee_drag_bit(sample) if window == "A" else ""
     )
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
     stats_bit = format_window_stats_bit(
@@ -687,27 +696,42 @@ def build_promote_ab_glance(
         elif window == "A" and a_aging_closes_bit and sample_known:
             # Aging warns but does not block ready for B (stale alone blocks).
             tone = "warn"
-            status = (
+            base = (
                 f"{a_aging_closes_bit} · ready for B"
                 if stats_bit
                 else f"{a_aging_closes_bit} · target met"
             )
+            status = f"{a_fee_drag_bit} · {base}" if a_fee_drag_bit else base
         elif window == "A" and a_fresh_closes_bit and sample_known:
             # Fresh completes RyanJHamby triad (was silent before).
-            tone = "ready"
-            status = (
+            base = (
                 f"{a_fresh_closes_bit} · ready for B"
                 if stats_bit
                 else f"{a_fresh_closes_bit} · target met"
             )
+            if a_fee_drag_bit:
+                tone = "warn"
+                status = f"{a_fee_drag_bit} · {base}"
+            else:
+                tone = "ready"
+                status = base
         else:
-            tone = "ready"
-            if window == "A":
+            if window == "A" and a_fee_drag_bit and sample_known and sample_ready:
+                # Portfolio AI fee-burn: fees > realized warns; still ready for B.
+                tone = "warn"
                 status = (
-                    "ready for B" if stats_bit else "target met · summarize before B"
+                    f"{a_fee_drag_bit} · ready for B"
+                    if stats_bit
+                    else f"{a_fee_drag_bit} · target met"
                 )
             else:
-                status = "target met · write fee-adjusted verdict"
+                tone = "ready"
+                if window == "A":
+                    status = (
+                        "ready for B" if stats_bit else "target met · summarize before B"
+                    )
+                else:
+                    status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
         # Days still running: multi-meter honesty (fills · sells · open-only).
@@ -722,11 +746,21 @@ def build_promote_ab_glance(
             status = f"{a_stale_closes_bit} · keep Window A"
         elif window == "A" and sample_known and a_aging_closes_bit and sample_ready:
             tone = "warn"
-            status = f"{a_aging_closes_bit} · sample ready · keep Window A"
+            base = f"{a_aging_closes_bit} · sample ready · keep Window A"
+            status = f"{a_fee_drag_bit} · {base}" if a_fee_drag_bit else base
         elif window == "A" and sample_known and a_fresh_closes_bit and sample_ready:
-            status = f"{a_fresh_closes_bit} · sample ready · keep Window A"
+            base = f"{a_fresh_closes_bit} · sample ready · keep Window A"
+            if a_fee_drag_bit:
+                tone = "warn"
+                status = f"{a_fee_drag_bit} · {base}"
+            else:
+                status = base
         elif window == "A" and sample_known and sample_ready:
-            status = "sample ready · keep Window A"
+            if a_fee_drag_bit:
+                tone = "warn"
+                status = f"{a_fee_drag_bit} · sample ready · keep Window A"
+            else:
+                status = "sample ready · keep Window A"
         else:
             status = "running"
     parts = [
@@ -740,9 +774,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + open-only / thin status (portfolio AI honesty).
-    if len(line) > 140:
-        line = line[:139] + "…"
+    # Allow room for N/M sells + fee-drag / freshness status (portfolio AI honesty).
+    if len(line) > 168:
+        line = line[:167] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -767,6 +801,7 @@ def build_promote_ab_glance(
         "sample_aging_closes": sample_aging_closes if window == "A" else False,
         "sample_fresh_closes": sample_fresh_closes if window == "A" else False,
         "closes_freshness": closes_freshness if window == "A" else "",
+        "sample_fee_drag": sample_fee_drag if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
@@ -774,6 +809,7 @@ def build_promote_ab_glance(
         "a_stale_closes_bit": a_stale_closes_bit,
         "a_aging_closes_bit": a_aging_closes_bit,
         "a_fresh_closes_bit": a_fresh_closes_bit,
+        "a_fee_drag_bit": a_fee_drag_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
         "b_block_bit": b_block_bit if window == "A" else "",
