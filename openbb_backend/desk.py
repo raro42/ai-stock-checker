@@ -512,8 +512,9 @@ def build_promote_ab_glance(
     (``WINDOW_A_AGING_SELL_DAYS``) speak on the glance; stale
     (``WINDOW_A_MAX_SELL_STALE_DAYS``) blocks ready (staskh
     confirm-against-latest-closed). When closed rounds exist and in-window
-    fees exceed realized sell P&L, ``A fee drag · fees > realized`` warns
-    (portfolio AI fee-burn adapted) — does not block ready for B.
+    fees exceed realized sell P&L, ``A fee drag · net −€N`` warns
+    (portfolio AI fee-burn adapted; prefers fee-adjusted net € when known) —
+    does not block ready for B.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
