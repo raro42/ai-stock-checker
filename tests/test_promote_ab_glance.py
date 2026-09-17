@@ -226,6 +226,10 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["crypto_legs"] == 1
     assert s["stock_legs"] == 2
     assert s["wins"] == 1
+    assert s["losses"] == 0
+    assert s["avg_win"] == 100.0
+    assert s["avg_loss"] is None
+    assert s["payoff_ratio"] is None
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
     assert "+€82 net" in bit
@@ -950,6 +954,210 @@ def test_window_a_closes_polarity_triad() -> None:
     assert all_loss["closes_loss_lean"] is False
     assert all_loss["closes_polarity_bit"] == "A all-loss · 0w/4l"
     assert all_loss["ready"] is True  # warn only — does not block
+
+
+def test_window_a_closes_payoff_triad() -> None:
+    """Close payoff = avg_win ÷ avg_loss: strong / ok / thin (fail-open without avgs)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_PAYOFF_STRONG_RATIO,
+        WINDOW_A_PAYOFF_THIN_RATIO,
+        format_window_a_closes_payoff_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_payoff_ratio"] is None
+    assert unknown["closes_payoff_bit"] == ""
+    assert unknown["closes_payoff_thin"] is False
+    assert format_window_a_closes_payoff_bit(unknown) == ""
+
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert strong["closes_payoff_ratio"] == 2.0
+    assert strong["closes_payoff_severity"] == "strong"
+    assert strong["closes_payoff_thin"] is False
+    assert strong["closes_payoff_bit"] == "A payoff strong · 2×"
+    assert strong["closes_payoff_ratio"] >= WINDOW_A_PAYOFF_STRONG_RATIO
+    assert format_window_a_closes_payoff_bit(strong) == strong["closes_payoff_bit"]
+
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "avg_win": 60.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert mid["closes_payoff_ratio"] == 1.5
+    assert mid["closes_payoff_severity"] == ""
+    assert mid["closes_payoff_thin"] is False
+    assert mid["closes_payoff_bit"] == "A payoff · 1.5×"
+    assert mid["closes_payoff_ratio"] >= WINDOW_A_PAYOFF_THIN_RATIO
+
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 40.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin["closes_payoff_ratio"] == 0.5
+    assert thin["closes_payoff_severity"] == "thin"
+    assert thin["closes_payoff_thin"] is True
+    assert thin["closes_payoff_bit"] == "A payoff thin · 0.5×"
+    assert thin["closes_payoff_ratio"] < WINDOW_A_PAYOFF_THIN_RATIO
+    assert thin["ready"] is True  # warn only — does not block
+    # Count lean mostly wins but € payoff thin — count ≠ € lean.
+    assert thin["closes_polarity_lean"] == "win_lean"
+
+    from_ratio = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "payoff_ratio": 2.5,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert from_ratio["closes_payoff_ratio"] == 2.5
+    assert from_ratio["closes_payoff_severity"] == "strong"
+    assert from_ratio["closes_payoff_bit"] == "A payoff strong · 2.5×"
+
+
+def test_promote_ab_glance_closes_payoff_thin_warns_but_ready_for_b() -> None:
+    """Mostly wins by count but thin € payoff → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "net_after_all_fees": 80.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_polarity"] == "mixed"
+    assert g["closes_polarity_lean"] == "win_lean"
+    assert g["closes_payoff_thin"] is True
+    assert g["closes_payoff_severity"] == "thin"
+    assert g["closes_payoff_ratio"] == 0.5
+    assert "A mixed · mostly wins · 3w/1l" in g["line"]
+    assert "A payoff thin · 0.5×" in g["line"]
+    assert "A fresh closes" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
+
+
+def test_promote_ab_glance_closes_payoff_strong_ready_for_b() -> None:
+    """Strong € payoff + fees comfortable → speak both · ready for B (no warn)."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 160.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "ready"
+    assert g["closes_payoff_thin"] is False
+    assert g["closes_payoff_severity"] == "strong"
+    assert g["closes_payoff_ratio"] == 2.0
+    assert "A payoff strong · 2×" in g["line"]
+    assert "A mixed · mostly wins · 3w/1l" in g["line"]
+    assert "A fees comfortable" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
 
 
 def test_promote_ab_glance_closes_loss_lean_warns_but_ready_for_b() -> None:

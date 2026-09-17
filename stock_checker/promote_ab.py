@@ -34,6 +34,11 @@ WINDOW_A_FEES_COMFORTABLE_RATIO = 0.25
 WINDOW_A_FEES_THIN_RATIO = 0.5
 # Close win/lose polarity (portfolio AI Book Win·Lose + xang1234 speak-both-sides).
 # all_win / mixed / all_loss — all_loss warns; does not block ready for B.
+# Close payoff = avg_win ÷ avg_loss (portfolio AI expectancy + xang1234 severity).
+# Count lean ≠ € lean — many small wins / one large loss is thin payoff.
+# strong ≥2× · ok mid · thin <1× (warn only; still ready for B).
+WINDOW_A_PAYOFF_STRONG_RATIO = 2.0
+WINDOW_A_PAYOFF_THIN_RATIO = 1.0
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -218,7 +223,13 @@ def window_a_sample_readiness(
     wins (``closes_polarity_lean`` = win_lean / even / loss_lean).
     ``all_loss`` and mixed ``loss_lean`` warn only — do not block ready
     (one red or loss-lean book is still a valid control sample). Missing
-    wins/losses → fail-open (no bit). Not a gate; does not flip compose promote.
+    wins/losses → fail-open (no bit). When ``avg_win`` and ``avg_loss`` are
+    both > 0, speak close payoff ``A payoff [strong|thin] · N×`` (avg win ÷
+    avg loss) — portfolio AI expectancy honesty + xang1234 severity triad
+    (strong ≥``WINDOW_A_PAYOFF_STRONG_RATIO`` · ok mid · thin
+    <``WINDOW_A_PAYOFF_THIN_RATIO``). Count lean ≠ € lean; thin warns only
+    (still ready for B). Missing avgs → fail-open. Not a gate; does not flip
+    compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -264,6 +275,12 @@ def window_a_sample_readiness(
         "closes_polarity_lean": "",
         "closes_all_loss": False,
         "closes_loss_lean": False,
+        "closes_avg_win": None,
+        "closes_avg_loss": None,
+        "closes_payoff_ratio": None,
+        "closes_payoff_severity": "",
+        "closes_payoff_bit": "",
+        "closes_payoff_thin": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -486,6 +503,59 @@ def window_a_sample_readiness(
                 closes_polarity_bit = f"A mixed · even · {side_bit}"
         # else: all flat closes (0w/0l) — stay silent (rare; no edge signal)
 
+    # Portfolio AI expectancy + xang1234 severity: avg_win ÷ avg_loss.
+    # Count lean ≠ € lean (many small wins / one large loss → thin payoff).
+    # Needs both sides with positive avgs; all_win / all_loss → fail-open.
+    # thin <1× warns only (still ready for B).
+    closes_avg_win: float | None = None
+    closes_avg_loss: float | None = None
+    closes_payoff_ratio: float | None = None
+    closes_payoff_severity = ""
+    closes_payoff_bit = ""
+    closes_payoff_thin = False
+    if sides_known and sells > 0 and not open_only and (
+        "avg_win" in stats or "avg_loss" in stats or "payoff_ratio" in stats
+    ):
+        try:
+            aw = stats.get("avg_win")
+            closes_avg_win = float(aw) if aw is not None else None
+        except (TypeError, ValueError):
+            closes_avg_win = None
+        try:
+            al = stats.get("avg_loss")
+            closes_avg_loss = float(al) if al is not None else None
+        except (TypeError, ValueError):
+            closes_avg_loss = None
+        try:
+            pr = stats.get("payoff_ratio")
+            closes_payoff_ratio = float(pr) if pr is not None else None
+        except (TypeError, ValueError):
+            closes_payoff_ratio = None
+        if (
+            closes_payoff_ratio is None
+            and closes_avg_win is not None
+            and closes_avg_loss is not None
+            and closes_avg_win > 0
+            and closes_avg_loss > 0
+        ):
+            closes_payoff_ratio = closes_avg_win / closes_avg_loss
+        if closes_payoff_ratio is not None and closes_payoff_ratio > 0:
+            rounded = round(closes_payoff_ratio, 2)
+            if abs(closes_payoff_ratio - round(closes_payoff_ratio)) < 0.05:
+                ratio_s = f"{int(round(closes_payoff_ratio))}×"
+            else:
+                ratio_s = f"{closes_payoff_ratio:.1f}×"
+            closes_payoff_ratio = rounded
+            if closes_payoff_ratio < WINDOW_A_PAYOFF_THIN_RATIO:
+                closes_payoff_severity = "thin"
+                closes_payoff_thin = True
+                closes_payoff_bit = f"A payoff thin · {ratio_s}"
+            elif closes_payoff_ratio >= WINDOW_A_PAYOFF_STRONG_RATIO:
+                closes_payoff_severity = "strong"
+                closes_payoff_bit = f"A payoff strong · {ratio_s}"
+            else:
+                closes_payoff_bit = f"A payoff · {ratio_s}"
+
     ready = (
         (not thin)
         and (not open_only)
@@ -532,6 +602,12 @@ def window_a_sample_readiness(
         "closes_polarity_lean": closes_polarity_lean,
         "closes_all_loss": closes_all_loss,
         "closes_loss_lean": closes_loss_lean,
+        "closes_avg_win": closes_avg_win,
+        "closes_avg_loss": closes_avg_loss,
+        "closes_payoff_ratio": closes_payoff_ratio,
+        "closes_payoff_severity": closes_payoff_severity,
+        "closes_payoff_bit": closes_payoff_bit,
+        "closes_payoff_thin": closes_payoff_thin,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -609,6 +685,14 @@ def format_window_a_closes_polarity_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_polarity_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_payoff_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A close payoff bit (avg win ÷ avg loss; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_payoff_bit") or "").strip()
     return bit
 
 
@@ -807,6 +891,23 @@ def summarize_window_trades(
     )
     wins = sum(1 for t in sells if float(t.get("profit_loss") or 0) > 0)
     losses = sum(1 for t in sells if float(t.get("profit_loss") or 0) < 0)
+    win_pnls = [
+        float(t.get("profit_loss") or 0)
+        for t in sells
+        if float(t.get("profit_loss") or 0) > 0
+    ]
+    loss_pnls = [
+        abs(float(t.get("profit_loss") or 0))
+        for t in sells
+        if float(t.get("profit_loss") or 0) < 0
+    ]
+    avg_win = (sum(win_pnls) / len(win_pnls)) if win_pnls else None
+    avg_loss = (sum(loss_pnls) / len(loss_pnls)) if loss_pnls else None
+    payoff_ratio = (
+        (avg_win / avg_loss)
+        if avg_win is not None and avg_loss is not None and avg_loss > 0
+        else None
+    )
     first_ts = window[0].get("timestamp") if window else None
     last_ts = window[-1].get("timestamp") if window else None
     last_sell_ts = None
@@ -831,6 +932,9 @@ def summarize_window_trades(
         "net_after_all_fees": net_all,
         "wins": wins,
         "losses": losses,
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
+        "payoff_ratio": payoff_ratio,
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,
