@@ -512,9 +512,10 @@ def build_promote_ab_glance(
     (``WINDOW_A_AGING_SELL_DAYS``) speak on the glance; stale
     (``WINDOW_A_MAX_SELL_STALE_DAYS``) blocks ready (staskh
     confirm-against-latest-closed). When closed rounds exist and in-window
-    fees exceed realized sell P&L, ``A fee drag · net −€N · fees N×`` warns
-    (portfolio AI fee-burn adapted; prefers fee-adjusted net € + fees÷realized
-    multiple when known) — does not block ready for B.
+    fees exceed realized sell P&L, ``A fee drag {mild|heavy|severe|total} ·
+    net −€N · fees N×`` warns (portfolio AI fee-burn + xang1234 severity
+    bands; prefers fee-adjusted net € + fees÷realized multiple when known) —
+    does not block ready for B.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -565,6 +566,7 @@ def build_promote_ab_glance(
         "sample_fresh_closes": False,
         "closes_freshness": "",
         "sample_fee_drag": False,
+        "fee_drag_severity": "",
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -644,6 +646,7 @@ def build_promote_ab_glance(
     sample_fresh_closes = bool(sample.get("fresh_closes"))
     closes_freshness = str(sample.get("closes_freshness") or "")
     sample_fee_drag = bool(sample.get("fee_drag"))
+    fee_drag_severity = str(sample.get("fee_drag_severity") or "")
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -775,9 +778,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee-drag / freshness status (portfolio AI honesty).
-    if len(line) > 168:
-        line = line[:167] + "…"
+    # Allow room for N/M sells + fee-drag severity / freshness status.
+    if len(line) > 190:
+        line = line[:189] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -803,6 +806,7 @@ def build_promote_ab_glance(
         "sample_fresh_closes": sample_fresh_closes if window == "A" else False,
         "closes_freshness": closes_freshness if window == "A" else "",
         "sample_fee_drag": sample_fee_drag if window == "A" else False,
+        "fee_drag_severity": fee_drag_severity if window == "A" else "",
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,

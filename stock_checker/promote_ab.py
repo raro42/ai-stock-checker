@@ -24,6 +24,10 @@ WINDOW_A_TARGET_SELLS = 3
 WINDOW_A_MAX_SELL_STALE_DAYS = 5
 # RyanJHamby fresh/aging/stale — warn before hard stale (display only).
 WINDOW_A_AGING_SELL_DAYS = 3
+# Fee-drag severity from fees÷realized (portfolio AI + xang1234 severity bands).
+# mild <2× · heavy ≥2× · severe ≥5× · total when realized ≤0 (no multiple).
+WINDOW_A_FEE_DRAG_HEAVY_RATIO = 2.0
+WINDOW_A_FEE_DRAG_SEVERE_RATIO = 5.0
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
@@ -191,9 +195,10 @@ def window_a_sample_readiness(
     exceed realized sell P&L, ``fee_drag`` warns (portfolio AI fee-burn
     adapted) — bit prefers fee-adjusted ``net −€N`` when known so friends
     see the € damage without parsing the fees strip; appends ``fees N×``
-    (fees÷realized) when realized > 0 so severity is visible (xang1234
-    multi-meter + portfolio AI); does not block ready. Not a gate; does
-    not flip compose promote.
+    (fees÷realized) when realized > 0; labels severity ``mild`` / ``heavy`` /
+    ``severe`` / ``total`` from the multiple (xang1234 severity bands +
+    portfolio AI); does not block ready. Not a gate; does not flip compose
+    promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -225,6 +230,7 @@ def window_a_sample_readiness(
         "fee_drag_bit": "",
         "fee_drag_net": None,
         "fee_drag_ratio": None,
+        "fee_drag_severity": "",
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -304,12 +310,14 @@ def window_a_sample_readiness(
 
     # Portfolio AI fee-burn: fees > realized on closed rounds → fee drag warn.
     # Prefer net −€N on the bit (same math as format_window_stats_bit).
-    # Append fees÷realized multiple when realized > 0 (severity without fees strip).
-    # Open-only is already −fees; skip until at least one SELL exists.
+    # Append fees÷realized multiple when realized > 0; label mild/heavy/severe
+    # (or total when closed red) so friends see severity without math
+    # (xang1234 severity bands + portfolio AI). Open-only is already −fees.
     fee_drag = False
     fee_drag_bit = ""
     fee_drag_net: float | None = None
     fee_drag_ratio: float | None = None
+    fee_drag_severity = ""
     if sides_known and sells > 0 and not open_only:
         try:
             fees = float(stats.get("fees") or 0)
@@ -333,19 +341,28 @@ def window_a_sample_readiness(
                     ratio_bit = f"fees {int(round(ratio))}×"
                 else:
                     ratio_bit = f"fees {ratio:.1f}×"
+                if fee_drag_ratio >= WINDOW_A_FEE_DRAG_SEVERE_RATIO:
+                    fee_drag_severity = "severe"
+                elif fee_drag_ratio >= WINDOW_A_FEE_DRAG_HEAVY_RATIO:
+                    fee_drag_severity = "heavy"
+                else:
+                    fee_drag_severity = "mild"
+            else:
+                fee_drag_severity = "total"
+            head = f"A fee drag {fee_drag_severity}"
             if net < 0:
                 abs_n = abs(net)
                 if abs_n >= 1000:
                     net_s = f"−€{abs_n / 1000:.1f}k"
                 else:
                     net_s = f"−€{abs_n:,.0f}"
-                fee_drag_bit = f"A fee drag · net {net_s}"
+                fee_drag_bit = f"{head} · net {net_s}"
                 if ratio_bit:
                     fee_drag_bit = f"{fee_drag_bit} · {ratio_bit}"
             elif ratio_bit:
-                fee_drag_bit = f"A fee drag · {ratio_bit}"
+                fee_drag_bit = f"{head} · {ratio_bit}"
             else:
-                fee_drag_bit = "A fee drag · fees > realized"
+                fee_drag_bit = f"{head} · fees > realized"
 
     ready = (
         (not thin)
@@ -379,6 +396,7 @@ def window_a_sample_readiness(
         "fee_drag_bit": fee_drag_bit,
         "fee_drag_net": fee_drag_net,
         "fee_drag_ratio": fee_drag_ratio,
+        "fee_drag_severity": fee_drag_severity,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
