@@ -65,6 +65,10 @@ WINDOW_A_WR_BE_AT_PP = 2.0
 # below keeps warn via closes_wr_below_be (still ready for B).
 WINDOW_A_WR_EDGE_STRONG_PP = 10.0
 WINDOW_A_WR_EDGE_THIN_PP = 5.0
+# Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
+# (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
+# Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
+# only (still ready for B). Gross+ / net− → closes_net_expectancy_eats_edge.
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -280,8 +284,15 @@ def window_a_sample_readiness(
     ±``WINDOW_A_WR_BE_AT_PP`` pp. Above-BE cushion severity:
     strong ≥``WINDOW_A_WR_EDGE_STRONG_PP`` · ok mid · thin
     <``WINDOW_A_WR_EDGE_THIN_PP`` (warn). ``below`` and thin cushion warn
-    only (still ready for B). Missing payoff or WR → fail-open. Not a
-    gate; does not flip compose promote.
+    only (still ready for B). Missing payoff or WR → fail-open. When
+    ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
+    expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
+    (net ÷ sells) — portfolio AI after gross expectancy; gross €/close ≠
+    fee-adjusted €/close. Positive severity reuses
+    ``WINDOW_A_EXPECTANCY_*_RATIO`` vs avg_loss. When gross expectancy > 0
+    and net expect < 0, ``closes_net_expectancy_eats_edge`` warns (fees eat
+    gross edge). Neg / thin / eats-edge warn only (still ready for B).
+    Missing net → fail-open. Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -356,6 +367,13 @@ def window_a_sample_readiness(
         "closes_wr_edge_pp": None,
         "closes_wr_edge_severity": "",
         "closes_wr_edge_thin": False,
+        "closes_net_expectancy": None,
+        "closes_net_expectancy_bit": "",
+        "closes_net_expectancy_neg": False,
+        "closes_net_expectancy_severity": "",
+        "closes_net_expectancy_thin": False,
+        "closes_net_expectancy_ratio": None,
+        "closes_net_expectancy_eats_edge": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -851,6 +869,83 @@ def window_a_sample_readiness(
             closes_wr_vs_be = "at"
             closes_wr_vs_be_bit = f"A WR at BE · {pp_s}"
 
+    # Portfolio AI fee-adjusted net expectancy after gross €/close.
+    # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
+    # expectancy can look fine while fee-adjusted €/close is red.
+    # Severity reuses EXPECTANCY_* vs avg_loss. Gross+ / net− → eats_edge.
+    # Neg + thin + eats_edge warn only (still ready for B).
+    closes_net_expectancy: float | None = None
+    closes_net_expectancy_bit = ""
+    closes_net_expectancy_neg = False
+    closes_net_expectancy_severity = ""
+    closes_net_expectancy_thin = False
+    closes_net_expectancy_ratio: float | None = None
+    closes_net_expectancy_eats_edge = False
+    if sides_known and sells > 0 and not open_only:
+        net_all: float | None = None
+        if "net_after_all_fees" in stats:
+            try:
+                raw_net = stats.get("net_after_all_fees")
+                net_all = float(raw_net) if raw_net is not None else None
+            except (TypeError, ValueError):
+                net_all = None
+        elif "fees" in stats and "realized_pnl" in stats:
+            try:
+                net_all = float(stats.get("realized_pnl") or 0) - float(
+                    stats.get("fees") or 0
+                )
+            except (TypeError, ValueError):
+                net_all = None
+        if net_all is not None:
+            closes_net_expectancy = round(net_all / sells, 2)
+            abs_n = abs(closes_net_expectancy)
+            if abs_n >= 1000:
+                body = f"€{abs_n / 1000:.1f}k"
+            else:
+                body = f"€{abs_n:,.0f}"
+            if closes_net_expectancy < 0:
+                signed = f"−{body}"
+                closes_net_expectancy_neg = True
+                closes_net_expectancy_bit = f"A net expect {signed}"
+                if (
+                    closes_expectancy is not None
+                    and closes_expectancy > 0
+                ):
+                    closes_net_expectancy_eats_edge = True
+                    closes_net_expectancy_bit = (
+                        f"A net expect {signed} · fees eat edge"
+                    )
+            elif closes_net_expectancy > 0:
+                signed = f"+{body}"
+                al = closes_avg_loss
+                if al is not None and al > 0:
+                    closes_net_expectancy_ratio = round(
+                        closes_net_expectancy / al, 3
+                    )
+                    if (
+                        closes_net_expectancy_ratio
+                        < WINDOW_A_EXPECTANCY_THIN_RATIO
+                    ):
+                        closes_net_expectancy_severity = "thin"
+                        closes_net_expectancy_thin = True
+                        closes_net_expectancy_bit = (
+                            f"A net expect thin · {signed}"
+                        )
+                    elif (
+                        closes_net_expectancy_ratio
+                        >= WINDOW_A_EXPECTANCY_STRONG_RATIO
+                    ):
+                        closes_net_expectancy_severity = "strong"
+                        closes_net_expectancy_bit = (
+                            f"A net expect strong · {signed}"
+                        )
+                    else:
+                        closes_net_expectancy_bit = f"A net expect · {signed}"
+                else:
+                    closes_net_expectancy_bit = f"A net expect {signed}"
+            else:
+                closes_net_expectancy_bit = f"A net expect {body}"
+
     ready = (
         (not thin)
         and (not open_only)
@@ -926,6 +1021,13 @@ def window_a_sample_readiness(
         "closes_wr_edge_pp": closes_wr_edge_pp,
         "closes_wr_edge_severity": closes_wr_edge_severity,
         "closes_wr_edge_thin": closes_wr_edge_thin,
+        "closes_net_expectancy": closes_net_expectancy,
+        "closes_net_expectancy_bit": closes_net_expectancy_bit,
+        "closes_net_expectancy_neg": closes_net_expectancy_neg,
+        "closes_net_expectancy_severity": closes_net_expectancy_severity,
+        "closes_net_expectancy_thin": closes_net_expectancy_thin,
+        "closes_net_expectancy_ratio": closes_net_expectancy_ratio,
+        "closes_net_expectancy_eats_edge": closes_net_expectancy_eats_edge,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -1043,6 +1145,16 @@ def format_window_a_closes_wr_vs_be_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_wr_vs_be_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_net_expectancy_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A fee-adjusted net expectancy bit (€/close; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_net_expectancy_bit") or "").strip()
     return bit
 
 
