@@ -17,8 +17,9 @@ WINDOW_A_START_UTC = datetime(2026, 8, 12, 15, 22, tzinfo=timezone.utc)
 WINDOW_A_TARGET_TRADING_DAYS = 10
 # Protocol records days *and* fills — day count alone is a thin sample (PROMOTE_AB).
 WINDOW_A_TARGET_FILLS = 10
-# Fee-adjusted edge needs closed rounds. All-buy ledgers are open-only (not ready).
-WINDOW_A_TARGET_SELLS = 1
+# Fee-adjusted edge needs closed rounds. All-buy = open-only; 1–2 sells = thin closes.
+# One lucky close after many buys is not a fair control sample (portfolio AI).
+WINDOW_A_TARGET_SELLS = 3
 # staskh confirm-against-latest-closed → Window A closes must be fresh.
 WINDOW_A_MAX_SELL_STALE_DAYS = 5
 # RyanJHamby fresh/aging/stale — warn before hard stale (display only).
@@ -179,12 +180,14 @@ def window_a_sample_readiness(
     thin ledger is not a fair control sample — portfolio AI sample-size
     honesty before ``ready for B``. When ``buys``/``sells`` are present, an
     all-buy ledger is ``open-only`` (no closed rounds → fee-adjusted edge is
-    just −fees). When a last SELL timestamp is present, closes use
+    just −fees). Sparse closes (``0 < sells < target_sells``) are ``thin
+    closes`` — one lucky SELL after many buys is not a fair control (staskh
+    confirm-against-latest-closed + portfolio AI close floor). When a last
+    SELL timestamp is present and the close floor is met, closes use
     RyanJHamby fresh/aging/stale vs ``aging_sell_days`` / ``max_sell_stale_days``
-    weekday days (staskh confirm-against-latest-closed). Fresh and aging speak
-    on the glance; stale blocks ready. Missing stats → unknown (keep summarize).
-    Missing side keys / last_sell → fail-open on those checks. Not a gate; does
-    not flip compose promote.
+    weekday days. Fresh and aging speak on the glance; stale blocks ready.
+    Missing stats → unknown (keep summarize). Missing side keys / last_sell →
+    fail-open on those checks. Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -203,6 +206,8 @@ def window_a_sample_readiness(
         "thin_bit": "",
         "open_only": False,
         "open_only_bit": "",
+        "thin_closes": False,
+        "thin_closes_bit": "",
         "stale_closes": False,
         "stale_closes_bit": "",
         "aging_closes": False,
@@ -241,10 +246,14 @@ def window_a_sample_readiness(
     thin_bit = ""
     if thin:
         thin_bit = f"A thin · {fills} fills <{need}"
-    open_only = sides_known and fills > 0 and sells < sell_need
+    open_only = sides_known and fills > 0 and sells == 0
     open_only_bit = ""
     if open_only:
-        open_only_bit = f"A open-only · {sells} sells <{sell_need}"
+        open_only_bit = "A open-only · 0 sells"
+    thin_closes = sides_known and sells > 0 and sells < sell_need
+    thin_closes_bit = ""
+    if thin_closes:
+        thin_closes_bit = f"A thin closes · {sells} sells <{sell_need}"
 
     last_sell_raw = stats.get("last_sell")
     last_sell_dt = parse_trade_timestamp(last_sell_raw)
@@ -256,7 +265,12 @@ def window_a_sample_readiness(
     fresh_closes = False
     fresh_closes_bit = ""
     closes_freshness = ""
-    if last_sell_dt is not None and not open_only and sells >= sell_need:
+    if (
+        last_sell_dt is not None
+        and not open_only
+        and not thin_closes
+        and sells >= sell_need
+    ):
         today = as_of or date.today()
         sell_stale_days = _weekday_days_since(last_sell_dt.date(), today)
         if sell_stale_days > stale_need:
@@ -274,13 +288,16 @@ def window_a_sample_readiness(
         else:
             fresh_closes = True
             closes_freshness = "fresh"
-            # RyanJHamby / xang1234 freshness meter — speak when fresh too
-            # (aging/stale already have bits; silent fresh hid the triad).
             fresh_closes_bit = (
                 f"A fresh closes · last sell {sell_stale_days}d"
             )
 
-    ready = (not thin) and (not open_only) and (not stale_closes)
+    ready = (
+        (not thin)
+        and (not open_only)
+        and (not thin_closes)
+        and (not stale_closes)
+    )
     return {
         "ready": ready,
         "known": True,
@@ -294,6 +311,8 @@ def window_a_sample_readiness(
         "thin_bit": thin_bit,
         "open_only": open_only,
         "open_only_bit": open_only_bit,
+        "thin_closes": thin_closes,
+        "thin_closes_bit": thin_closes_bit,
         "stale_closes": stale_closes,
         "stale_closes_bit": stale_closes_bit,
         "aging_closes": aging_closes,
@@ -306,6 +325,7 @@ def window_a_sample_readiness(
         "aging_sell_days": aging_need,
         "last_sell": last_sell_dt.isoformat() if last_sell_dt else None,
     }
+
 
 
 def format_window_a_thin_bit(sample: dict[str, Any] | None) -> str:
@@ -321,6 +341,14 @@ def format_window_a_open_only_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("open_only_bit") or "").strip()
+    return bit
+
+
+def format_window_a_thin_closes_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A thin-closes bit (sparse sells vs close floor; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("thin_closes_bit") or "").strip()
     return bit
 
 

@@ -503,7 +503,9 @@ def build_promote_ab_glance(
     bare ``running``. When fills already meet the floor but days are still
     short, status is ``fills ready · keep Window A`` (days still needed —
     portfolio AI dual-meter honesty). An all-buy ledger (``A open-only · 0
-    sells``) is not ready — fee-adjusted edge needs closed rounds. Newest
+    sells``) is not ready — fee-adjusted edge needs closed rounds. Sparse
+    closes (``A thin closes · N sells <WINDOW_A_TARGET_SELLS``) are also not
+    ready — one lucky SELL after many buys is a thin control. Newest
     in-window SELL age uses RyanJHamby fresh/aging/stale: fresh
     (``A fresh closes · last sell Nd``) and aging
     (``WINDOW_A_AGING_SELL_DAYS``) speak on the glance; stale
@@ -524,6 +526,7 @@ def build_promote_ab_glance(
         format_window_a_open_only_bit,
         format_window_a_stale_closes_bit,
         format_window_a_thin_bit,
+        format_window_a_thin_closes_bit,
         format_window_b_block_bit,
         format_window_stats_bit,
         promote_ab_snapshot,
@@ -551,6 +554,7 @@ def build_promote_ab_glance(
         "sample_buys": 0,
         "sample_sells": 0,
         "sample_open_only": False,
+        "sample_thin_closes": False,
         "sample_stale_closes": False,
         "sample_aging_closes": False,
         "sample_fresh_closes": False,
@@ -558,6 +562,7 @@ def build_promote_ab_glance(
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
+        "a_thin_closes_bit": "",
         "a_stale_closes_bit": "",
         "a_aging_closes_bit": "",
         "a_fresh_closes_bit": "",
@@ -626,6 +631,7 @@ def build_promote_ab_glance(
     sample_buys = int(sample.get("buys") or 0)
     sample_sells = int(sample.get("sells") or 0)
     sample_open_only = bool(sample.get("open_only"))
+    sample_thin_closes = bool(sample.get("thin_closes"))
     sample_stale_closes = bool(sample.get("stale_closes"))
     sample_aging_closes = bool(sample.get("aging_closes"))
     sample_fresh_closes = bool(sample.get("fresh_closes"))
@@ -636,6 +642,9 @@ def build_promote_ab_glance(
     a_thin_bit = format_window_a_thin_bit(sample) if window == "A" else ""
     a_open_only_bit = (
         format_window_a_open_only_bit(sample) if window == "A" else ""
+    )
+    a_thin_closes_bit = (
+        format_window_a_thin_closes_bit(sample) if window == "A" else ""
     )
     a_stale_closes_bit = (
         format_window_a_stale_closes_bit(sample) if window == "A" else ""
@@ -665,6 +674,9 @@ def build_promote_ab_glance(
         elif window == "A" and a_open_only_bit and sample_known:
             tone = "warn"
             status = f"{a_open_only_bit} · keep Window A"
+        elif window == "A" and a_thin_closes_bit and sample_known:
+            tone = "warn"
+            status = f"{a_thin_closes_bit} · keep Window A"
         elif window == "A" and a_stale_closes_bit and sample_known:
             tone = "warn"
             status = f"{a_stale_closes_bit} · keep Window A"
@@ -702,6 +714,8 @@ def build_promote_ab_glance(
             status = "building sample"
         elif window == "A" and sample_known and a_open_only_bit:
             status = f"{a_open_only_bit} · keep Window A"
+        elif window == "A" and sample_known and a_thin_closes_bit:
+            status = f"{a_thin_closes_bit} · keep Window A"
         elif window == "A" and sample_known and a_stale_closes_bit:
             status = f"{a_stale_closes_bit} · keep Window A"
         elif window == "A" and sample_known and a_aging_closes_bit and sample_ready:
@@ -746,6 +760,7 @@ def build_promote_ab_glance(
         "sample_buys": sample_buys if window == "A" else 0,
         "sample_sells": sample_sells if window == "A" else 0,
         "sample_open_only": sample_open_only if window == "A" else False,
+        "sample_thin_closes": sample_thin_closes if window == "A" else False,
         "sample_stale_closes": sample_stale_closes if window == "A" else False,
         "sample_aging_closes": sample_aging_closes if window == "A" else False,
         "sample_fresh_closes": sample_fresh_closes if window == "A" else False,
@@ -753,6 +768,7 @@ def build_promote_ab_glance(
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
+        "a_thin_closes_bit": a_thin_closes_bit,
         "a_stale_closes_bit": a_stale_closes_bit,
         "a_aging_closes_bit": a_aging_closes_bit,
         "a_fresh_closes_bit": a_fresh_closes_bit,

@@ -273,6 +273,7 @@ def test_window_a_sample_readiness_fill_floor() -> None:
         WINDOW_A_AGING_SELL_DAYS,
         WINDOW_A_MAX_SELL_STALE_DAYS,
         WINDOW_A_TARGET_FILLS,
+        WINDOW_A_TARGET_SELLS,
         format_window_a_aging_closes_bit,
         format_window_a_fill_progress_bit,
         format_window_a_fresh_closes_bit,
@@ -280,6 +281,7 @@ def test_window_a_sample_readiness_fill_floor() -> None:
         format_window_a_side_bit,
         format_window_a_stale_closes_bit,
         format_window_a_thin_bit,
+        format_window_a_thin_closes_bit,
         window_a_sample_readiness,
     )
 
@@ -317,10 +319,36 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     assert open_only["ready"] is False
     assert open_only["thin"] is False
     assert open_only["open_only"] is True
-    assert open_only["open_only_bit"] == "A open-only · 0 sells <1"
-    assert format_window_a_open_only_bit(open_only) == "A open-only · 0 sells <1"
+    assert open_only["open_only_bit"] == "A open-only · 0 sells"
+    assert format_window_a_open_only_bit(open_only) == "A open-only · 0 sells"
     assert format_window_a_side_bit(open_only) == "12b/0s"
     assert format_window_a_fill_progress_bit(open_only) == "12/10 fills · 12b/0s"
+    assert open_only["thin_closes"] is False
+
+    thin_closes = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 11,
+            "sells": 1,
+            "fees": 40.0,
+            "realized_pnl": 10.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin_closes["known"] is True
+    assert thin_closes["sides_known"] is True
+    assert thin_closes["ready"] is False
+    assert thin_closes["thin"] is False
+    assert thin_closes["open_only"] is False
+    assert thin_closes["thin_closes"] is True
+    assert thin_closes["target_sells"] == WINDOW_A_TARGET_SELLS
+    assert thin_closes["thin_closes_bit"] == "A thin closes · 1 sells <3"
+    assert format_window_a_thin_closes_bit(thin_closes) == (
+        "A thin closes · 1 sells <3"
+    )
+    assert thin_closes["fresh_closes"] is False
+    assert thin_closes["stale_closes"] is False
 
     closed_ok = window_a_sample_readiness(
         {"trades": 12, "buys": 8, "sells": 4, "fees": 40.0, "realized_pnl": 100.0}
@@ -599,6 +627,7 @@ def test_promote_ab_glance_open_only_keeps_window_a() -> None:
     assert g["sample_known"] is True
     assert g["sample_ready"] is False
     assert g["sample_open_only"] is True
+    assert g["sample_thin_closes"] is False
     assert g["sample_buys"] == 12
     assert g["sample_sells"] == 0
     assert g["a_fill_progress_bit"] == "12/10 fills · 12b/0s"
@@ -608,6 +637,51 @@ def test_promote_ab_glance_open_only_keeps_window_a() -> None:
     assert "keep Window A" in g["line"]
     assert "ready for B" not in g["line"]
     assert "fills ready" not in g["line"]
+    assert g["b_ready"] is False
+
+
+def test_promote_ab_glance_thin_closes_keeps_window_a() -> None:
+    """Fills ≥10 but sparse sells → thin closes · keep Window A."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 10,
+            "sells": 2,
+            "fees": 40.0,
+            "realized_pnl": 50.0,
+            "net_after_all_fees": 10.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["target_met"] is True
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is False
+    assert g["sample_open_only"] is False
+    assert g["sample_thin_closes"] is True
+    assert g["sample_fresh_closes"] is False
+    assert g["sample_sells"] == 2
+    assert "A thin closes" in g["line"]
+    assert "2 sells" in g["line"]
+    assert "keep Window A" in g["line"]
+    assert "ready for B" not in g["line"]
+    assert "A fresh closes" not in g["line"]
     assert g["b_ready"] is False
 
 
