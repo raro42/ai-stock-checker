@@ -197,8 +197,11 @@ def window_a_sample_readiness(
     see the € damage without parsing the fees strip; appends ``fees N×``
     (fees÷realized) when realized > 0; labels severity ``mild`` / ``heavy`` /
     ``severe`` / ``total`` from the multiple (xang1234 severity bands +
-    portfolio AI); does not block ready. Not a gate; does not flip compose
-    promote.
+    portfolio AI); does not block ready. When closes exist and fees ≤
+    realized, ``fees_ok`` speaks the quiet complement
+    (``A fees ok · net +€N · fees N×``) — portfolio AI fee-burn quiet vs
+    high + xang1234 speak-both-sides (like fresh completes freshness).
+    Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -231,6 +234,10 @@ def window_a_sample_readiness(
         "fee_drag_net": None,
         "fee_drag_ratio": None,
         "fee_drag_severity": "",
+        "fees_ok": False,
+        "fees_ok_bit": "",
+        "fees_ok_net": None,
+        "fees_ok_ratio": None,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -312,12 +319,18 @@ def window_a_sample_readiness(
     # Prefer net −€N on the bit (same math as format_window_stats_bit).
     # Append fees÷realized multiple when realized > 0; label mild/heavy/severe
     # (or total when closed red) so friends see severity without math
-    # (xang1234 severity bands + portfolio AI). Open-only is already −fees.
+    # (xang1234 severity bands + portfolio AI). When fees ≤ realized, speak
+    # quiet complement ``A fees ok`` (portfolio AI quiet vs high). Open-only
+    # is already −fees.
     fee_drag = False
     fee_drag_bit = ""
     fee_drag_net: float | None = None
     fee_drag_ratio: float | None = None
     fee_drag_severity = ""
+    fees_ok = False
+    fees_ok_bit = ""
+    fees_ok_net: float | None = None
+    fees_ok_ratio: float | None = None
     if sides_known and sells > 0 and not open_only:
         try:
             fees = float(stats.get("fees") or 0)
@@ -330,20 +343,36 @@ def window_a_sample_readiness(
             fees = 0.0
             realized = 0.0
             net = 0.0
+
+        def _ratio_bit(fees_v: float, realized_v: float) -> tuple[float | None, str]:
+            if realized_v <= 0:
+                return None, ""
+            ratio = fees_v / realized_v
+            rounded = round(ratio, 2)
+            if abs(ratio - round(ratio)) < 0.05:
+                return rounded, f"fees {int(round(ratio))}×"
+            return rounded, f"fees {ratio:.1f}×"
+
+        def _net_s(net_v: float) -> str:
+            abs_n = abs(net_v)
+            if abs_n >= 1000:
+                body = f"€{abs_n / 1000:.1f}k"
+            else:
+                body = f"€{abs_n:,.0f}"
+            if net_v < 0:
+                return f"−{body}"
+            if net_v > 0:
+                return f"+{body}"
+            return body
+
         if fees > 0 and fees > realized:
             fee_drag = True
             fee_drag_net = net
-            ratio_bit = ""
+            fee_drag_ratio, ratio_bit = _ratio_bit(fees, realized)
             if realized > 0:
-                ratio = fees / realized
-                fee_drag_ratio = round(ratio, 2)
-                if abs(ratio - round(ratio)) < 0.05:
-                    ratio_bit = f"fees {int(round(ratio))}×"
-                else:
-                    ratio_bit = f"fees {ratio:.1f}×"
-                if fee_drag_ratio >= WINDOW_A_FEE_DRAG_SEVERE_RATIO:
+                if fee_drag_ratio is not None and fee_drag_ratio >= WINDOW_A_FEE_DRAG_SEVERE_RATIO:
                     fee_drag_severity = "severe"
-                elif fee_drag_ratio >= WINDOW_A_FEE_DRAG_HEAVY_RATIO:
+                elif fee_drag_ratio is not None and fee_drag_ratio >= WINDOW_A_FEE_DRAG_HEAVY_RATIO:
                     fee_drag_severity = "heavy"
                 else:
                     fee_drag_severity = "mild"
@@ -351,18 +380,23 @@ def window_a_sample_readiness(
                 fee_drag_severity = "total"
             head = f"A fee drag {fee_drag_severity}"
             if net < 0:
-                abs_n = abs(net)
-                if abs_n >= 1000:
-                    net_s = f"−€{abs_n / 1000:.1f}k"
-                else:
-                    net_s = f"−€{abs_n:,.0f}"
-                fee_drag_bit = f"{head} · net {net_s}"
+                fee_drag_bit = f"{head} · net {_net_s(net)}"
                 if ratio_bit:
                     fee_drag_bit = f"{fee_drag_bit} · {ratio_bit}"
             elif ratio_bit:
                 fee_drag_bit = f"{head} · {ratio_bit}"
             else:
                 fee_drag_bit = f"{head} · fees > realized"
+        elif fees >= 0 and fees <= realized and (fees > 0 or realized > 0):
+            # Quiet complement when churn did not eat closed-round edge.
+            fees_ok = True
+            fees_ok_net = net
+            fees_ok_ratio, ratio_bit = _ratio_bit(fees, realized)
+            fees_ok_bit = "A fees ok"
+            if net != 0:
+                fees_ok_bit = f"{fees_ok_bit} · net {_net_s(net)}"
+            if ratio_bit:
+                fees_ok_bit = f"{fees_ok_bit} · {ratio_bit}"
 
     ready = (
         (not thin)
@@ -397,6 +431,10 @@ def window_a_sample_readiness(
         "fee_drag_net": fee_drag_net,
         "fee_drag_ratio": fee_drag_ratio,
         "fee_drag_severity": fee_drag_severity,
+        "fees_ok": fees_ok,
+        "fees_ok_bit": fees_ok_bit,
+        "fees_ok_net": fees_ok_net,
+        "fees_ok_ratio": fees_ok_ratio,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -458,6 +496,14 @@ def format_window_a_fee_drag_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("fee_drag_bit") or "").strip()
+    return bit
+
+
+def format_window_a_fees_ok_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A fees-ok bit (quiet complement to fee drag; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("fees_ok_bit") or "").strip()
     return bit
 
 
