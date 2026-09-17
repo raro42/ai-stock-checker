@@ -21,6 +21,8 @@ WINDOW_A_TARGET_FILLS = 10
 WINDOW_A_TARGET_SELLS = 1
 # staskh confirm-against-latest-closed → Window A closes must be fresh.
 WINDOW_A_MAX_SELL_STALE_DAYS = 5
+# RyanJHamby fresh/aging/stale — warn before hard stale (display only).
+WINDOW_A_AGING_SELL_DAYS = 3
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
 WINDOW_B_START_UTC: datetime | None = None
@@ -168,6 +170,7 @@ def window_a_sample_readiness(
     target_fills: int = WINDOW_A_TARGET_FILLS,
     target_sells: int = WINDOW_A_TARGET_SELLS,
     max_sell_stale_days: int = WINDOW_A_MAX_SELL_STALE_DAYS,
+    aging_sell_days: int = WINDOW_A_AGING_SELL_DAYS,
     as_of: date | None = None,
 ) -> dict[str, Any]:
     """Whether Window A has enough fills to start B (display / ops honesty).
@@ -176,15 +179,17 @@ def window_a_sample_readiness(
     thin ledger is not a fair control sample — portfolio AI sample-size
     honesty before ``ready for B``. When ``buys``/``sells`` are present, an
     all-buy ledger is ``open-only`` (no closed rounds → fee-adjusted edge is
-    just −fees). When a last SELL timestamp is present, closes older than
-    ``max_sell_stale_days`` weekday days are ``stale`` (staskh confirm-against-
-    latest-closed adapted). Missing stats → unknown (keep summarize). Missing
+    just −fees). When a last SELL timestamp is present, closes use
+    RyanJHamby fresh/aging/stale vs ``aging_sell_days`` / ``max_sell_stale_days``
+    weekday days (staskh confirm-against-latest-closed). Aging warns only;
+    stale blocks ready. Missing stats → unknown (keep summarize). Missing
     side keys / last_sell → fail-open on those checks. Not a gate; does not
     flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
     stale_need = max(1, int(max_sell_stale_days))
+    aging_need = max(0, min(int(aging_sell_days), stale_need))
     empty = {
         "ready": False,
         "known": False,
@@ -200,8 +205,12 @@ def window_a_sample_readiness(
         "open_only_bit": "",
         "stale_closes": False,
         "stale_closes_bit": "",
+        "aging_closes": False,
+        "aging_closes_bit": "",
+        "closes_freshness": "",
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
+        "aging_sell_days": aging_need,
         "last_sell": None,
     }
     if not isinstance(stats, dict):
@@ -240,14 +249,26 @@ def window_a_sample_readiness(
     sell_stale_days: int | None = None
     stale_closes = False
     stale_closes_bit = ""
+    aging_closes = False
+    aging_closes_bit = ""
+    closes_freshness = ""
     if last_sell_dt is not None and not open_only and sells >= sell_need:
         today = as_of or date.today()
         sell_stale_days = _weekday_days_since(last_sell_dt.date(), today)
         if sell_stale_days > stale_need:
             stale_closes = True
+            closes_freshness = "stale"
             stale_closes_bit = (
                 f"A stale closes · last sell {sell_stale_days}d >{stale_need}d"
             )
+        elif aging_need > 0 and sell_stale_days > aging_need:
+            aging_closes = True
+            closes_freshness = "aging"
+            aging_closes_bit = (
+                f"A aging closes · last sell {sell_stale_days}d"
+            )
+        else:
+            closes_freshness = "fresh"
 
     ready = (not thin) and (not open_only) and (not stale_closes)
     return {
@@ -265,8 +286,12 @@ def window_a_sample_readiness(
         "open_only_bit": open_only_bit,
         "stale_closes": stale_closes,
         "stale_closes_bit": stale_closes_bit,
+        "aging_closes": aging_closes,
+        "aging_closes_bit": aging_closes_bit,
+        "closes_freshness": closes_freshness,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
+        "aging_sell_days": aging_need,
         "last_sell": last_sell_dt.isoformat() if last_sell_dt else None,
     }
 
@@ -292,6 +317,14 @@ def format_window_a_stale_closes_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("stale_closes_bit") or "").strip()
+    return bit
+
+
+def format_window_a_aging_closes_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A aging-closes bit (warn before hard stale; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("aging_closes_bit") or "").strip()
     return bit
 
 

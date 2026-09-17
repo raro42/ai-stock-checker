@@ -270,10 +270,14 @@ def test_promote_ab_glance_includes_window_stats(tmp_path: Path) -> None:
 
 def test_window_a_sample_readiness_fill_floor() -> None:
     from stock_checker.promote_ab import (
+        WINDOW_A_AGING_SELL_DAYS,
+        WINDOW_A_MAX_SELL_STALE_DAYS,
         WINDOW_A_TARGET_FILLS,
+        format_window_a_aging_closes_bit,
         format_window_a_fill_progress_bit,
         format_window_a_open_only_bit,
         format_window_a_side_bit,
+        format_window_a_stale_closes_bit,
         format_window_a_thin_bit,
         window_a_sample_readiness,
     )
@@ -339,12 +343,31 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     )
     assert fresh["ready"] is True
     assert fresh["stale_closes"] is False
+    assert fresh["aging_closes"] is False
+    assert fresh["closes_freshness"] == "fresh"
     assert fresh["sell_stale_days"] == 1
+    assert format_window_a_aging_closes_bit(fresh) == ""
 
-    from stock_checker.promote_ab import (
-        WINDOW_A_MAX_SELL_STALE_DAYS,
-        format_window_a_stale_closes_bit,
+    aging = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 100.0,
+            "last_sell": "2026-09-08T12:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
     )
+    assert aging["ready"] is True
+    assert aging["stale_closes"] is False
+    assert aging["aging_closes"] is True
+    assert aging["closes_freshness"] == "aging"
+    assert aging["sell_stale_days"] == 4
+    assert aging["sell_stale_days"] > WINDOW_A_AGING_SELL_DAYS
+    assert aging["sell_stale_days"] <= WINDOW_A_MAX_SELL_STALE_DAYS
+    assert "A aging closes" in aging["aging_closes_bit"]
+    assert format_window_a_aging_closes_bit(aging) == aging["aging_closes_bit"]
 
     stale = window_a_sample_readiness(
         {
@@ -361,10 +384,55 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     assert stale["thin"] is False
     assert stale["open_only"] is False
     assert stale["stale_closes"] is True
+    assert stale["aging_closes"] is False
+    assert stale["closes_freshness"] == "stale"
     assert stale["sell_stale_days"] is not None
     assert stale["sell_stale_days"] > WINDOW_A_MAX_SELL_STALE_DAYS
     assert "A stale closes" in stale["stale_closes_bit"]
     assert format_window_a_stale_closes_bit(stale) == stale["stale_closes_bit"]
+    assert format_window_a_aging_closes_bit(stale) == ""
+
+
+def test_promote_ab_glance_aging_closes_warns_but_ready_for_b() -> None:
+    """Fills + sells ok but last sell aging → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 160.0,
+            "last_sell": "2026-09-08T12:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["target_met"] is True
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is True
+    assert g["sample_aging_closes"] is True
+    assert g["sample_stale_closes"] is False
+    assert g["closes_freshness"] == "aging"
+    assert "A aging closes" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
 
 
 def test_promote_ab_glance_stale_closes_keeps_window_a() -> None:
