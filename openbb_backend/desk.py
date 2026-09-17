@@ -977,8 +977,8 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / WR / vs-BE / payoff / expectancy / PF / freshness.
-    if len(line) > 360:
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / payoff / expectancy / net / PF / freshness.
+    if len(line) > 420:
         line = line[:359] + "…"
     return {
         "ready": True,
