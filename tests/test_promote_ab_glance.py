@@ -831,7 +831,7 @@ def test_promote_ab_glance_fees_thin_warns_but_ready_for_b() -> None:
 
 
 def test_window_a_closes_polarity_triad() -> None:
-    """Close win/lose polarity: all_win / mixed / all_loss (fail-open without keys)."""
+    """Close win/lose polarity: all_win / mixed lean / all_loss (fail-open without keys)."""
     from stock_checker.promote_ab import (
         format_window_a_closes_polarity_bit,
         window_a_sample_readiness,
@@ -850,6 +850,7 @@ def test_window_a_closes_polarity_triad() -> None:
     )
     assert unknown["closes_polarity_known"] is False
     assert unknown["closes_polarity"] == ""
+    assert unknown["closes_polarity_lean"] == ""
     assert format_window_a_closes_polarity_bit(unknown) == ""
 
     all_win = window_a_sample_readiness(
@@ -867,11 +868,13 @@ def test_window_a_closes_polarity_triad() -> None:
     )
     assert all_win["closes_polarity_known"] is True
     assert all_win["closes_polarity"] == "all_win"
+    assert all_win["closes_polarity_lean"] == ""
     assert all_win["closes_all_loss"] is False
+    assert all_win["closes_loss_lean"] is False
     assert all_win["closes_polarity_bit"] == "A all-win · 4w/0l"
     assert format_window_a_closes_polarity_bit(all_win) == all_win["closes_polarity_bit"]
 
-    mixed = window_a_sample_readiness(
+    even = window_a_sample_readiness(
         {
             "trades": 12,
             "buys": 8,
@@ -884,9 +887,48 @@ def test_window_a_closes_polarity_triad() -> None:
         },
         as_of=date(2026, 9, 14),
     )
-    assert mixed["closes_polarity"] == "mixed"
-    assert mixed["closes_all_loss"] is False
-    assert mixed["closes_polarity_bit"] == "A mixed · 2w/2l"
+    assert even["closes_polarity"] == "mixed"
+    assert even["closes_polarity_lean"] == "even"
+    assert even["closes_loss_lean"] is False
+    assert even["closes_polarity_bit"] == "A mixed · even · 2w/2l"
+
+    win_lean = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 150.0,
+            "wins": 3,
+            "losses": 1,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert win_lean["closes_polarity"] == "mixed"
+    assert win_lean["closes_polarity_lean"] == "win_lean"
+    assert win_lean["closes_loss_lean"] is False
+    assert win_lean["closes_polarity_bit"] == "A mixed · mostly wins · 3w/1l"
+
+    loss_lean = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 40.0,
+            "realized_pnl": 20.0,
+            "wins": 1,
+            "losses": 3,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert loss_lean["closes_polarity"] == "mixed"
+    assert loss_lean["closes_polarity_lean"] == "loss_lean"
+    assert loss_lean["closes_loss_lean"] is True
+    assert loss_lean["closes_all_loss"] is False
+    assert loss_lean["closes_polarity_bit"] == "A mixed · mostly losses · 1w/3l"
+    assert loss_lean["ready"] is True  # warn only — does not block
 
     all_loss = window_a_sample_readiness(
         {
@@ -903,9 +945,56 @@ def test_window_a_closes_polarity_triad() -> None:
         as_of=date(2026, 9, 14),
     )
     assert all_loss["closes_polarity"] == "all_loss"
+    assert all_loss["closes_polarity_lean"] == ""
     assert all_loss["closes_all_loss"] is True
+    assert all_loss["closes_loss_lean"] is False
     assert all_loss["closes_polarity_bit"] == "A all-loss · 0w/4l"
     assert all_loss["ready"] is True  # warn only — does not block
+
+
+def test_promote_ab_glance_closes_loss_lean_warns_but_ready_for_b() -> None:
+    """Mixed mostly losses → A mixed · mostly losses · warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 20.0,
+            "wins": 1,
+            "losses": 3,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_polarity"] == "mixed"
+    assert g["closes_polarity_lean"] == "loss_lean"
+    assert g["closes_loss_lean"] is True
+    assert g["closes_all_loss"] is False
+    assert g["fees_ok_severity"] == "thin"  # 20/40 = 0.5×
+    assert "A mixed · mostly losses · 1w/3l" in g["line"]
+    assert "A fees thin" in g["line"]
+    assert "A fresh closes" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
 
 
 def test_promote_ab_glance_closes_all_loss_warns_but_ready_for_b() -> None:
@@ -955,7 +1044,7 @@ def test_promote_ab_glance_closes_all_loss_warns_but_ready_for_b() -> None:
 
 
 def test_promote_ab_glance_closes_mixed_with_fees_comfortable() -> None:
-    """Mixed closes + fees comfortable → speak both · ready for B (no warn)."""
+    """Mixed mostly wins + fees comfortable → speak both · ready for B (no warn)."""
     g = build_promote_ab_glance(
         {
             "promote_experiment_strategy": False,
@@ -987,9 +1076,11 @@ def test_promote_ab_glance_closes_mixed_with_fees_comfortable() -> None:
     assert g["ready"] is True
     assert g["tone"] == "ready"
     assert g["closes_polarity"] == "mixed"
+    assert g["closes_polarity_lean"] == "win_lean"
+    assert g["closes_loss_lean"] is False
     assert g["closes_all_loss"] is False
     assert g["fees_ok_severity"] == "comfortable"
-    assert "A mixed · 3w/1l" in g["line"]
+    assert "A mixed · mostly wins · 3w/1l" in g["line"]
     assert "A fees comfortable · net +€160 · fees 0.2×" in g["line"]
     assert "A fresh closes" in g["line"]
     assert "ready for B" in g["line"]

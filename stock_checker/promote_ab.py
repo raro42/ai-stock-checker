@@ -212,8 +212,12 @@ def window_a_sample_readiness(
     (still ≤1×; warn tone, does not block ready) — thin edge before fee drag.
     When closed rounds exist and ``wins``/``losses`` keys are present, speak
     close polarity ``A all-win|mixed|all-loss · Nw/Nl`` (portfolio AI
-    Win·Lose + xang1234 speak-both-sides). ``all_loss`` warns only — does not
-    block ready (one red book is still a valid control sample). Missing
+    Win·Lose + xang1234 speak-both-sides). Mixed closes add a lean triad
+    (xang1234 severity + portfolio AI Win·Lose): ``mostly wins`` when
+    wins > losses, ``even`` when equal, ``mostly losses`` when losses >
+    wins (``closes_polarity_lean`` = win_lean / even / loss_lean).
+    ``all_loss`` and mixed ``loss_lean`` warn only — do not block ready
+    (one red or loss-lean book is still a valid control sample). Missing
     wins/losses → fail-open (no bit). Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
@@ -257,7 +261,9 @@ def window_a_sample_readiness(
         "closes_polarity_known": False,
         "closes_polarity": "",
         "closes_polarity_bit": "",
+        "closes_polarity_lean": "",
         "closes_all_loss": False,
+        "closes_loss_lean": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -435,14 +441,17 @@ def window_a_sample_readiness(
                 fees_ok_bit = f"{fees_ok_bit} · {ratio_bit}"
 
     # Portfolio AI Win·Lose + xang1234 speak-both-sides: closed-round polarity.
-    # all_win / mixed / all_loss · Nw/Nl. all_loss warns only (still ready for B).
-    # Missing wins/losses keys → fail-open (no bit).
+    # all_win / mixed / all_loss · Nw/Nl. Mixed lean triad: mostly wins / even /
+    # mostly losses (xang1234 severity bands). all_loss + loss_lean warn only
+    # (still ready for B). Missing wins/losses keys → fail-open (no bit).
     closes_wins = 0
     closes_losses = 0
     closes_polarity_known = False
     closes_polarity = ""
     closes_polarity_bit = ""
+    closes_polarity_lean = ""
     closes_all_loss = False
+    closes_loss_lean = False
     if sides_known and sells > 0 and not open_only and (
         "wins" in stats or "losses" in stats
     ):
@@ -465,7 +474,16 @@ def window_a_sample_readiness(
             closes_polarity_bit = f"A all-loss · {side_bit}"
         elif closes_wins > 0 and closes_losses > 0:
             closes_polarity = "mixed"
-            closes_polarity_bit = f"A mixed · {side_bit}"
+            if closes_wins > closes_losses:
+                closes_polarity_lean = "win_lean"
+                closes_polarity_bit = f"A mixed · mostly wins · {side_bit}"
+            elif closes_losses > closes_wins:
+                closes_polarity_lean = "loss_lean"
+                closes_loss_lean = True
+                closes_polarity_bit = f"A mixed · mostly losses · {side_bit}"
+            else:
+                closes_polarity_lean = "even"
+                closes_polarity_bit = f"A mixed · even · {side_bit}"
         # else: all flat closes (0w/0l) — stay silent (rare; no edge signal)
 
     ready = (
@@ -511,7 +529,9 @@ def window_a_sample_readiness(
         "closes_polarity_known": closes_polarity_known,
         "closes_polarity": closes_polarity,
         "closes_polarity_bit": closes_polarity_bit,
+        "closes_polarity_lean": closes_polarity_lean,
         "closes_all_loss": closes_all_loss,
+        "closes_loss_lean": closes_loss_lean,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,

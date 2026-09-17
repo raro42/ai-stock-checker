@@ -522,8 +522,10 @@ def build_promote_ab_glance(
     still ready for B) — portfolio AI quiet vs high + xang1234 speak-both-sides
     severity — display only. When closed rounds carry ``wins``/``losses``,
     close polarity speaks ``A all-win|mixed|all-loss · Nw/Nl``
-    (portfolio AI Win·Lose + xang1234 speak-both-sides); ``all_loss`` warns
-    only — does not block ready for B.
+    (portfolio AI Win·Lose + xang1234 speak-both-sides). Mixed closes add a
+    lean triad: ``mostly wins`` / ``even`` / ``mostly losses``
+    (``closes_polarity_lean`` = win_lean / even / loss_lean). ``all_loss``
+    and mixed ``loss_lean`` warn only — do not block ready for B.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -580,7 +582,9 @@ def build_promote_ab_glance(
         "sample_fees_ok": False,
         "fees_ok_severity": "",
         "closes_polarity": "",
+        "closes_polarity_lean": "",
         "closes_all_loss": False,
+        "closes_loss_lean": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -667,7 +671,9 @@ def build_promote_ab_glance(
     fees_ok_severity = str(sample.get("fees_ok_severity") or "")
     fees_thin = fees_ok_severity == "thin"
     closes_polarity = str(sample.get("closes_polarity") or "")
+    closes_polarity_lean = str(sample.get("closes_polarity_lean") or "")
     closes_all_loss = bool(sample.get("closes_all_loss"))
+    closes_loss_lean = bool(sample.get("closes_loss_lean"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -707,8 +713,10 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn when fee drag / fees thin / all-loss closes (still may be ready)."""
-        return bool(a_fee_drag_bit or fees_thin or closes_all_loss)
+        """Warn when fee drag / fees thin / all-loss / loss-lean (still may be ready)."""
+        return bool(
+            a_fee_drag_bit or fees_thin or closes_all_loss or closes_loss_lean
+        )
 
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
     stats_bit = format_window_stats_bit(
@@ -846,7 +854,9 @@ def build_promote_ab_glance(
         "sample_fees_ok": sample_fees_ok if window == "A" else False,
         "fees_ok_severity": fees_ok_severity if window == "A" else "",
         "closes_polarity": closes_polarity if window == "A" else "",
+        "closes_polarity_lean": closes_polarity_lean if window == "A" else "",
         "closes_all_loss": closes_all_loss if window == "A" else False,
+        "closes_loss_lean": closes_loss_lean if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
