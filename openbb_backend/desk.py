@@ -516,8 +516,11 @@ def build_promote_ab_glance(
     net −€N · fees N×`` warns (portfolio AI fee-burn + xang1234 severity
     bands; prefers fee-adjusted net € + fees÷realized multiple when known) —
     does not block ready for B. When fees ≤ realized on closed rounds,
-    ``A fees ok · net +€N · fees N×`` speaks the quiet complement (portfolio
-    AI fee-burn quiet vs high + xang1234 speak-both-sides) — display only.
+    ``A fees ok · net +€N · fees N×`` speaks the quiet complement; when
+    fees÷realized ≥ ``WINDOW_A_FEES_THIN_RATIO`` (still ≤1×),
+    ``A fees thin · net +€N · fees N×`` warns (thin edge before fee drag;
+    still ready for B) — portfolio AI quiet vs high + xang1234 speak-both-sides
+    severity — display only.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -571,6 +574,7 @@ def build_promote_ab_glance(
         "sample_fee_drag": False,
         "fee_drag_severity": "",
         "sample_fees_ok": False,
+        "fees_ok_severity": "",
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -653,6 +657,8 @@ def build_promote_ab_glance(
     sample_fee_drag = bool(sample.get("fee_drag"))
     fee_drag_severity = str(sample.get("fee_drag_severity") or "")
     sample_fees_ok = bool(sample.get("fees_ok"))
+    fees_ok_severity = str(sample.get("fees_ok_severity") or "")
+    fees_thin = fees_ok_severity == "thin"
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -730,7 +736,8 @@ def build_promote_ab_glance(
                 tone = "warn"
                 status = f"{a_fee_drag_bit} · {base}"
             elif a_fees_ok_bit:
-                tone = "ready"
+                # Thin edge (fees ≥ half realized) warns; solid fees ok stays ready.
+                tone = "warn" if fees_thin else "ready"
                 status = f"{a_fees_ok_bit} · {base}"
             else:
                 tone = "ready"
@@ -745,7 +752,7 @@ def build_promote_ab_glance(
                     else f"{a_fee_drag_bit} · target met"
                 )
             elif window == "A" and a_fees_ok_bit and sample_known and sample_ready:
-                tone = "ready"
+                tone = "warn" if fees_thin else "ready"
                 status = (
                     f"{a_fees_ok_bit} · ready for B"
                     if stats_bit
@@ -783,6 +790,8 @@ def build_promote_ab_glance(
                 tone = "warn"
                 status = f"{a_fee_drag_bit} · {base}"
             elif a_fees_ok_bit:
+                if fees_thin:
+                    tone = "warn"
                 status = f"{a_fees_ok_bit} · {base}"
             else:
                 status = base
@@ -791,6 +800,8 @@ def build_promote_ab_glance(
                 tone = "warn"
                 status = f"{a_fee_drag_bit} · sample ready · keep Window A"
             elif a_fees_ok_bit:
+                if fees_thin:
+                    tone = "warn"
                 status = f"{a_fees_ok_bit} · sample ready · keep Window A"
             else:
                 status = "sample ready · keep Window A"
@@ -837,6 +848,7 @@ def build_promote_ab_glance(
         "sample_fee_drag": sample_fee_drag if window == "A" else False,
         "fee_drag_severity": fee_drag_severity if window == "A" else "",
         "sample_fees_ok": sample_fees_ok if window == "A" else False,
+        "fees_ok_severity": fees_ok_severity if window == "A" else "",
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
