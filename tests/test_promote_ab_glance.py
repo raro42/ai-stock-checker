@@ -234,6 +234,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["gross_losses"] is None
     assert s["profit_factor"] is None
     assert s["expectancy"] == 100.0
+    assert s["win_rate"] == 100.0
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
     assert "+€82 net" in bit
@@ -1390,6 +1391,172 @@ def test_window_a_closes_profit_factor_triad() -> None:
     )
     assert all_win["closes_profit_factor"] is None
     assert all_win["closes_profit_factor_bit"] == ""
+
+
+def test_window_a_closes_win_rate_triad() -> None:
+    """Win rate % severity triad after polarity (count lean ≠ hit rate)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_WIN_RATE_STRONG_PCT,
+        WINDOW_A_WIN_RATE_THIN_PCT,
+        format_window_a_closes_win_rate_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_win_rate_pct"] is None
+    assert unknown["closes_win_rate_bit"] == ""
+    assert unknown["closes_win_rate_thin"] is False
+    assert format_window_a_closes_win_rate_bit(unknown) == ""
+
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 5,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 3,
+            "losses": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert strong["closes_win_rate_pct"] == 60.0
+    assert strong["closes_win_rate_severity"] == "strong"
+    assert strong["closes_win_rate_thin"] is False
+    assert strong["closes_win_rate_bit"] == "A win rate strong · 60%"
+    assert strong["closes_win_rate_pct"] >= WINDOW_A_WIN_RATE_STRONG_PCT
+    assert strong["closes_polarity_lean"] == "win_lean"
+    assert format_window_a_closes_win_rate_bit(strong) == strong[
+        "closes_win_rate_bit"
+    ]
+
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 80.0,
+            "wins": 2,
+            "losses": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert mid["closes_win_rate_pct"] == 50.0
+    assert mid["closes_win_rate_severity"] == ""
+    assert mid["closes_win_rate_thin"] is False
+    assert mid["closes_win_rate_bit"] == "A win rate · 50%"
+    assert WINDOW_A_WIN_RATE_THIN_PCT <= mid["closes_win_rate_pct"] < WINDOW_A_WIN_RATE_STRONG_PCT
+
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 40.0,
+            "wins": 1,
+            "losses": 3,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin["closes_win_rate_pct"] == 25.0
+    assert thin["closes_win_rate_severity"] == "thin"
+    assert thin["closes_win_rate_thin"] is True
+    assert thin["closes_win_rate_bit"] == "A win rate thin · 25%"
+    assert thin["closes_win_rate_pct"] < WINDOW_A_WIN_RATE_THIN_PCT
+    assert thin["ready"] is True  # warn only
+
+    from_key = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 3,
+            "losses": 1,
+            "win_rate": 75.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert from_key["closes_win_rate_pct"] == 75.0
+    assert from_key["closes_win_rate_severity"] == "strong"
+    assert from_key["closes_win_rate_bit"] == "A win rate strong · 75%"
+
+    all_loss = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": -80.0,
+            "wins": 0,
+            "losses": 4,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert all_loss["closes_win_rate_pct"] == 0.0
+    assert all_loss["closes_win_rate_thin"] is True
+    assert all_loss["closes_win_rate_bit"] == "A win rate thin · 0%"
+
+
+def test_promote_ab_glance_closes_win_rate_thin_warns_but_ready_for_b() -> None:
+    """Thin win rate → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 60.0,
+            "wins": 1,
+            "losses": 3,
+            "avg_win": 100.0,
+            "avg_loss": 20.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_win_rate_pct"] == 25.0
+    assert g["closes_win_rate_thin"] is True
+    assert g["closes_win_rate_severity"] == "thin"
+    assert "A win rate thin · 25%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
 
 
 def test_promote_ab_glance_closes_profit_factor_thin_warns_but_ready_for_b() -> None:

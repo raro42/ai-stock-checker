@@ -51,6 +51,11 @@ WINDOW_A_EXPECTANCY_THIN_RATIO = 0.25
 # strong ≥2× · ok mid · thin <1× (warn only; still ready for B).
 WINDOW_A_PROFIT_FACTOR_STRONG_RATIO = 2.0
 WINDOW_A_PROFIT_FACTOR_THIN_RATIO = 1.0
+# Close win rate % = wins ÷ (wins+losses) (portfolio AI after polarity).
+# Count lean ≠ hit rate — 3W/2L is mostly-wins lean and 60% strong.
+# strong ≥60% · ok mid · thin <40% (warn only; still ready for B).
+WINDOW_A_WIN_RATE_STRONG_PCT = 60.0
+WINDOW_A_WIN_RATE_THIN_PCT = 40.0
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -254,8 +259,13 @@ def window_a_sample_readiness(
     factor) — portfolio AI after expectancy; payoff is avg ratio, PF is
     total € ratio (count × size). strong ≥``WINDOW_A_PROFIT_FACTOR_STRONG_RATIO``
     · ok mid · thin <``WINDOW_A_PROFIT_FACTOR_THIN_RATIO`` (warn only;
-    still ready for B). Missing grosses → fail-open. Not a gate; does
-    not flip compose promote.
+    still ready for B). Missing grosses → fail-open. When wins+losses > 0,
+    speak close win rate ``A win rate [strong|thin] · N%``
+    (wins ÷ (wins+losses); portfolio AI hit rate after polarity + xang1234
+    severity). Count lean ≠ hit rate. strong ≥``WINDOW_A_WIN_RATE_STRONG_PCT``
+    · ok mid · thin <``WINDOW_A_WIN_RATE_THIN_PCT`` (warn only; still ready
+    for B). Missing polarity → fail-open. Not a gate; does not flip compose
+    promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -319,6 +329,10 @@ def window_a_sample_readiness(
         "closes_profit_factor_thin": False,
         "closes_gross_wins": None,
         "closes_gross_losses": None,
+        "closes_win_rate_pct": None,
+        "closes_win_rate_severity": "",
+        "closes_win_rate_bit": "",
+        "closes_win_rate_thin": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -728,6 +742,43 @@ def window_a_sample_readiness(
             else:
                 closes_profit_factor_bit = f"A PF · {ratio_s}"
 
+    # Portfolio AI win rate % after polarity: wins ÷ (wins+losses).
+    # Count lean ≠ hit rate (3W/2L = mostly-wins lean and 60% strong).
+    # Flats (pnl==0) are excluded from wins/losses already. thin <40% warns
+    # only (still ready for B). Missing polarity → fail-open.
+    closes_win_rate_pct: float | None = None
+    closes_win_rate_severity = ""
+    closes_win_rate_bit = ""
+    closes_win_rate_thin = False
+    if closes_polarity_known:
+        n_decided = closes_wins + closes_losses
+        if n_decided > 0:
+            if "win_rate" in stats:
+                try:
+                    wr_raw = stats.get("win_rate")
+                    closes_win_rate_pct = (
+                        float(wr_raw) if wr_raw is not None else None
+                    )
+                except (TypeError, ValueError):
+                    closes_win_rate_pct = None
+            if closes_win_rate_pct is None:
+                closes_win_rate_pct = 100.0 * closes_wins / n_decided
+            closes_win_rate_pct = round(closes_win_rate_pct, 1)
+            pct_s = (
+                f"{int(round(closes_win_rate_pct))}%"
+                if abs(closes_win_rate_pct - round(closes_win_rate_pct)) < 0.05
+                else f"{closes_win_rate_pct:.1f}%"
+            )
+            if closes_win_rate_pct < WINDOW_A_WIN_RATE_THIN_PCT:
+                closes_win_rate_severity = "thin"
+                closes_win_rate_thin = True
+                closes_win_rate_bit = f"A win rate thin · {pct_s}"
+            elif closes_win_rate_pct >= WINDOW_A_WIN_RATE_STRONG_PCT:
+                closes_win_rate_severity = "strong"
+                closes_win_rate_bit = f"A win rate strong · {pct_s}"
+            else:
+                closes_win_rate_bit = f"A win rate · {pct_s}"
+
     ready = (
         (not thin)
         and (not open_only)
@@ -792,6 +843,10 @@ def window_a_sample_readiness(
         "closes_profit_factor_thin": closes_profit_factor_thin,
         "closes_gross_wins": closes_gross_wins,
         "closes_gross_losses": closes_gross_losses,
+        "closes_win_rate_pct": closes_win_rate_pct,
+        "closes_win_rate_severity": closes_win_rate_severity,
+        "closes_win_rate_bit": closes_win_rate_bit,
+        "closes_win_rate_thin": closes_win_rate_thin,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -893,6 +948,14 @@ def format_window_a_closes_profit_factor_bit(sample: dict[str, Any] | None) -> s
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_profit_factor_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_win_rate_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A win-rate bit (wins ÷ decided closes; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_win_rate_bit") or "").strip()
     return bit
 
 
@@ -1134,6 +1197,7 @@ def summarize_window_trades(
             and avg_loss > 0
         ):
             expectancy = (wins / n_closed) * avg_win - (losses / n_closed) * avg_loss
+    win_rate = (100.0 * wins / n_closed) if n_closed > 0 else None
     first_ts = window[0].get("timestamp") if window else None
     last_ts = window[-1].get("timestamp") if window else None
     last_sell_ts = None
@@ -1165,6 +1229,7 @@ def summarize_window_trades(
         "gross_losses": gross_losses,
         "profit_factor": profit_factor,
         "expectancy": expectancy,
+        "win_rate": win_rate,
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,
