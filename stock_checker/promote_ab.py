@@ -41,7 +41,11 @@ WINDOW_A_PAYOFF_STRONG_RATIO = 2.0
 WINDOW_A_PAYOFF_THIN_RATIO = 1.0
 # Close expectancy €/close = win_rate·avg_win − loss_rate·avg_loss
 # (portfolio AI expectancy; payoff is ratio, expectancy is €).
-# Negative warns only — still ready for B.
+# Positive severity vs avg_loss (xang1234 bands + portfolio AI):
+# strong ≥0.5× · ok mid · thin <0.25× (warn only). Negative warns only.
+# Still ready for B in all cases.
+WINDOW_A_EXPECTANCY_STRONG_RATIO = 0.5
+WINDOW_A_EXPECTANCY_THIN_RATIO = 0.25
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -232,11 +236,15 @@ def window_a_sample_readiness(
     (strong ≥``WINDOW_A_PAYOFF_STRONG_RATIO`` · ok mid · thin
     <``WINDOW_A_PAYOFF_THIN_RATIO``). Count lean ≠ € lean; thin warns only
     (still ready for B). When wins/losses + avgs allow, speak close
-    expectancy ``A expectancy +€N`` / ``−€N``
+    expectancy ``A expectancy [strong|thin] · +€N`` / ``−€N``
     (win_rate·avg_win − loss_rate·avg_loss) — portfolio AI €/close after
-    payoff ratio; all-win uses avg_win; all-loss uses −avg_loss; negative
-    warns only (still ready for B). Missing avgs → fail-open. Not a gate;
-    does not flip compose promote.
+    payoff ratio; all-win uses avg_win; all-loss uses −avg_loss. Positive
+    expectancy adds a severity triad vs avg_loss (xang1234 + portfolio AI):
+    strong ≥``WINDOW_A_EXPECTANCY_STRONG_RATIO`` · ok mid · thin
+    <``WINDOW_A_EXPECTANCY_THIN_RATIO`` (tiny € edge vs typical loss).
+    Negative and thin warn only (still ready for B). Missing avg_loss →
+    signed € only (fail-open severity). Missing avgs → fail-open. Not a
+    gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -291,6 +299,9 @@ def window_a_sample_readiness(
         "closes_expectancy": None,
         "closes_expectancy_bit": "",
         "closes_expectancy_neg": False,
+        "closes_expectancy_severity": "",
+        "closes_expectancy_thin": False,
+        "closes_expectancy_ratio": None,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -568,10 +579,15 @@ def window_a_sample_readiness(
 
     # Portfolio AI €/close expectancy after payoff ratio.
     # win_rate·avg_win − loss_rate·avg_loss; all-win → avg_win; all-loss → −avg_loss.
-    # Negative warns only (still ready for B). Missing avgs / expectancy → fail-open.
+    # Positive severity vs avg_loss (xang1234 bands): strong ≥0.5× · ok mid ·
+    # thin <0.25× (tiny € edge vs typical loss). Neg + thin warn only.
+    # Missing avgs / expectancy → fail-open.
     closes_expectancy: float | None = None
     closes_expectancy_bit = ""
     closes_expectancy_neg = False
+    closes_expectancy_severity = ""
+    closes_expectancy_thin = False
+    closes_expectancy_ratio: float | None = None
     if sides_known and sells > 0 and not open_only:
         n_closed = closes_wins + closes_losses
         exp: float | None = None
@@ -607,11 +623,26 @@ def window_a_sample_readiness(
             if closes_expectancy < 0:
                 signed = f"−{body}"
                 closes_expectancy_neg = True
+                closes_expectancy_bit = f"A expectancy {signed}"
             elif closes_expectancy > 0:
                 signed = f"+{body}"
+                # Severity vs avg_loss when known (payoff-style ratio bands).
+                al = closes_avg_loss
+                if al is not None and al > 0:
+                    closes_expectancy_ratio = round(closes_expectancy / al, 3)
+                    if closes_expectancy_ratio < WINDOW_A_EXPECTANCY_THIN_RATIO:
+                        closes_expectancy_severity = "thin"
+                        closes_expectancy_thin = True
+                        closes_expectancy_bit = f"A expectancy thin · {signed}"
+                    elif closes_expectancy_ratio >= WINDOW_A_EXPECTANCY_STRONG_RATIO:
+                        closes_expectancy_severity = "strong"
+                        closes_expectancy_bit = f"A expectancy strong · {signed}"
+                    else:
+                        closes_expectancy_bit = f"A expectancy · {signed}"
+                else:
+                    closes_expectancy_bit = f"A expectancy {signed}"
             else:
-                signed = body
-            closes_expectancy_bit = f"A expectancy {signed}"
+                closes_expectancy_bit = f"A expectancy {body}"
 
     ready = (
         (not thin)
@@ -668,6 +699,9 @@ def window_a_sample_readiness(
         "closes_expectancy": closes_expectancy,
         "closes_expectancy_bit": closes_expectancy_bit,
         "closes_expectancy_neg": closes_expectancy_neg,
+        "closes_expectancy_severity": closes_expectancy_severity,
+        "closes_expectancy_thin": closes_expectancy_thin,
+        "closes_expectancy_ratio": closes_expectancy_ratio,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,

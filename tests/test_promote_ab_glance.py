@@ -1071,8 +1071,10 @@ def test_window_a_closes_payoff_triad() -> None:
 
 
 def test_window_a_closes_expectancy() -> None:
-    """Close expectancy €/close after payoff ratio (portfolio AI; warn when neg)."""
+    """Close expectancy €/close after payoff (portfolio AI; severity vs avg_loss)."""
     from stock_checker.promote_ab import (
+        WINDOW_A_EXPECTANCY_STRONG_RATIO,
+        WINDOW_A_EXPECTANCY_THIN_RATIO,
         format_window_a_closes_expectancy_bit,
         window_a_sample_readiness,
     )
@@ -1093,6 +1095,9 @@ def test_window_a_closes_expectancy() -> None:
     assert unknown["closes_expectancy"] is None
     assert unknown["closes_expectancy_bit"] == ""
     assert unknown["closes_expectancy_neg"] is False
+    assert unknown["closes_expectancy_severity"] == ""
+    assert unknown["closes_expectancy_thin"] is False
+    assert unknown["closes_expectancy_ratio"] is None
     assert format_window_a_closes_expectancy_bit(unknown) == ""
 
     pos = window_a_sample_readiness(
@@ -1110,11 +1115,62 @@ def test_window_a_closes_expectancy() -> None:
         },
         as_of=date(2026, 9, 14),
     )
-    # 0.75*80 − 0.25*40 = 50
+    # 0.75*80 − 0.25*40 = 50; ratio vs avg_loss = 50/40 = 1.25 ≥ strong
     assert pos["closes_expectancy"] == 50.0
     assert pos["closes_expectancy_neg"] is False
-    assert pos["closes_expectancy_bit"] == "A expectancy +€50"
+    assert pos["closes_expectancy_severity"] == "strong"
+    assert pos["closes_expectancy_thin"] is False
+    assert pos["closes_expectancy_ratio"] == 1.25
+    assert pos["closes_expectancy_ratio"] >= WINDOW_A_EXPECTANCY_STRONG_RATIO
+    assert pos["closes_expectancy_bit"] == "A expectancy strong · +€50"
     assert format_window_a_closes_expectancy_bit(pos) == pos["closes_expectancy_bit"]
+
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 50.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 30.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    # 0.75*30 − 0.25*40 = 12.5; ratio = 12.5/40 = 0.3125 (mid band)
+    assert mid["closes_expectancy"] == 12.5
+    assert mid["closes_expectancy_severity"] == ""
+    assert mid["closes_expectancy_thin"] is False
+    assert mid["closes_expectancy_ratio"] == 0.312
+    assert WINDOW_A_EXPECTANCY_THIN_RATIO <= mid["closes_expectancy_ratio"] < WINDOW_A_EXPECTANCY_STRONG_RATIO
+    assert mid["closes_expectancy_bit"] == "A expectancy · +€12"
+
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 20.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 15.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    # 0.75*15 − 0.25*40 = 1.25; ratio = 1.25/40 = 0.03125 < thin
+    assert thin["closes_expectancy"] == 1.25
+    assert thin["closes_expectancy_severity"] == "thin"
+    assert thin["closes_expectancy_thin"] is True
+    assert thin["closes_expectancy_ratio"] == 0.031
+    assert thin["closes_expectancy_ratio"] < WINDOW_A_EXPECTANCY_THIN_RATIO
+    assert thin["closes_expectancy_bit"] == "A expectancy thin · +€1"
+    assert thin["ready"] is True  # warn only
 
     neg = window_a_sample_readiness(
         {
@@ -1134,6 +1190,8 @@ def test_window_a_closes_expectancy() -> None:
     # 0.25*20 − 0.75*40 = −25
     assert neg["closes_expectancy"] == -25.0
     assert neg["closes_expectancy_neg"] is True
+    assert neg["closes_expectancy_severity"] == ""
+    assert neg["closes_expectancy_thin"] is False
     assert neg["closes_expectancy_bit"] == "A expectancy −€25"
     assert neg["ready"] is True  # warn only
 
@@ -1151,7 +1209,9 @@ def test_window_a_closes_expectancy() -> None:
         },
         as_of=date(2026, 9, 14),
     )
+    # No avg_loss → signed € only (fail-open severity)
     assert all_win["closes_expectancy"] == 50.0
+    assert all_win["closes_expectancy_severity"] == ""
     assert all_win["closes_expectancy_bit"] == "A expectancy +€50"
 
     all_loss = window_a_sample_readiness(
@@ -1187,6 +1247,7 @@ def test_window_a_closes_expectancy() -> None:
         as_of=date(2026, 9, 14),
     )
     assert from_key["closes_expectancy"] == 12.5
+    assert from_key["closes_expectancy_severity"] == ""
     assert from_key["closes_expectancy_bit"] == "A expectancy +€12"
 
 
@@ -1226,8 +1287,53 @@ def test_promote_ab_glance_closes_expectancy_neg_warns_but_ready_for_b() -> None
     assert g["tone"] == "warn"
     assert g["closes_expectancy"] == -25.0
     assert g["closes_expectancy_neg"] is True
+    assert g["closes_expectancy_thin"] is False
     assert "A expectancy −€25" in g["line"]
     assert "A mixed · mostly losses" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
+
+
+def test_promote_ab_glance_closes_expectancy_thin_warns_but_ready_for_b() -> None:
+    """Tiny positive €/close vs avg_loss → thin warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 10.0,
+            "realized_pnl": 50.0,
+            "net_after_all_fees": 40.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 15.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_expectancy"] == 1.25
+    assert g["closes_expectancy_neg"] is False
+    assert g["closes_expectancy_thin"] is True
+    assert g["closes_expectancy_severity"] == "thin"
+    assert "A expectancy thin · +€1" in g["line"]
     assert "ready for B" in g["line"]
     assert "keep Window A" not in g["line"]
     assert g["b_ready"] is True
@@ -1319,8 +1425,10 @@ def test_promote_ab_glance_closes_payoff_strong_ready_for_b() -> None:
     assert g["closes_payoff_ratio"] == 2.0
     assert g["closes_expectancy"] == 50.0
     assert g["closes_expectancy_neg"] is False
+    assert g["closes_expectancy_thin"] is False
+    assert g["closes_expectancy_severity"] == "strong"
     assert "A payoff strong · 2×" in g["line"]
-    assert "A expectancy +€50" in g["line"]
+    assert "A expectancy strong · +€50" in g["line"]
     assert "A mixed · mostly wins · 3w/1l" in g["line"]
     assert "A fees comfortable" in g["line"]
     assert "ready for B" in g["line"]

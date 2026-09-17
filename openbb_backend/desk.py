@@ -530,9 +530,10 @@ def build_promote_ab_glance(
     ``A payoff [strong|thin] · N×`` (avg win ÷ avg loss) — portfolio AI
     + xang1234 severity (strong ≥2× · ok mid · thin <1× warn); count lean
     ≠ € lean; thin does not block ready for B. When avgs allow, close
-    expectancy speaks ``A expectancy +€N`` / ``−€N`` (win_rate·avg_win −
-    loss_rate·avg_loss) — portfolio AI €/close after payoff ratio; negative
-    warns only; does not block ready for B.
+    expectancy speaks ``A expectancy [strong|thin] · +€N`` / ``−€N``
+    (win_rate·avg_win − loss_rate·avg_loss) — portfolio AI €/close after
+    payoff; positive severity vs avg_loss (strong ≥0.5× · ok mid · thin
+    <0.25× warn); neg + thin warn only; does not block ready for B.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -599,6 +600,9 @@ def build_promote_ab_glance(
         "closes_payoff_thin": False,
         "closes_expectancy": None,
         "closes_expectancy_neg": False,
+        "closes_expectancy_severity": "",
+        "closes_expectancy_thin": False,
+        "closes_expectancy_ratio": None,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -695,6 +699,9 @@ def build_promote_ab_glance(
     closes_payoff_thin = bool(sample.get("closes_payoff_thin"))
     closes_expectancy = sample.get("closes_expectancy")
     closes_expectancy_neg = bool(sample.get("closes_expectancy_neg"))
+    closes_expectancy_severity = str(sample.get("closes_expectancy_severity") or "")
+    closes_expectancy_thin = bool(sample.get("closes_expectancy_thin"))
+    closes_expectancy_ratio = sample.get("closes_expectancy_ratio")
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -749,7 +756,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / payoff thin / neg expectancy."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / payoff thin / neg·thin expectancy."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -757,6 +764,7 @@ def build_promote_ab_glance(
             or closes_loss_lean
             or closes_payoff_thin
             or closes_expectancy_neg
+            or closes_expectancy_thin
         )
 
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
@@ -911,6 +919,13 @@ def build_promote_ab_glance(
         "closes_payoff_thin": closes_payoff_thin if window == "A" else False,
         "closes_expectancy": closes_expectancy if window == "A" else None,
         "closes_expectancy_neg": closes_expectancy_neg if window == "A" else False,
+        "closes_expectancy_severity": (
+            closes_expectancy_severity if window == "A" else ""
+        ),
+        "closes_expectancy_thin": closes_expectancy_thin if window == "A" else False,
+        "closes_expectancy_ratio": (
+            closes_expectancy_ratio if window == "A" else None
+        ),
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
