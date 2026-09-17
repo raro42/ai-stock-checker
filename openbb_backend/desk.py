@@ -520,7 +520,10 @@ def build_promote_ab_glance(
     ``WINDOW_A_FEES_COMFORTABLE_RATIO``; ``A fees ok`` in the mid band;
     ``A fees thin`` when ≥ ``WINDOW_A_FEES_THIN_RATIO`` (still ≤1×; warn;
     still ready for B) — portfolio AI quiet vs high + xang1234 speak-both-sides
-    severity — display only.
+    severity — display only. When closed rounds carry ``wins``/``losses``,
+    close polarity speaks ``A all-win|mixed|all-loss · Nw/Nl``
+    (portfolio AI Win·Lose + xang1234 speak-both-sides); ``all_loss`` warns
+    only — does not block ready for B.
     When Window A day target is met but fills stay under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -531,6 +534,7 @@ def build_promote_ab_glance(
     """
     from stock_checker.promote_ab import (
         format_window_a_aging_closes_bit,
+        format_window_a_closes_polarity_bit,
         format_window_a_fee_drag_bit,
         format_window_a_fees_ok_bit,
         format_window_a_fill_progress_bit,
@@ -575,6 +579,8 @@ def build_promote_ab_glance(
         "fee_drag_severity": "",
         "sample_fees_ok": False,
         "fees_ok_severity": "",
+        "closes_polarity": "",
+        "closes_all_loss": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -584,6 +590,7 @@ def build_promote_ab_glance(
         "a_fresh_closes_bit": "",
         "a_fee_drag_bit": "",
         "a_fees_ok_bit": "",
+        "a_closes_polarity_bit": "",
         "b_ready": False,
         "b_blockers": [],
         "b_block_bit": "",
@@ -659,6 +666,8 @@ def build_promote_ab_glance(
     sample_fees_ok = bool(sample.get("fees_ok"))
     fees_ok_severity = str(sample.get("fees_ok_severity") or "")
     fees_thin = fees_ok_severity == "thin"
+    closes_polarity = str(sample.get("closes_polarity") or "")
+    closes_all_loss = bool(sample.get("closes_all_loss"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -686,6 +695,21 @@ def build_promote_ab_glance(
     )
     # Fee drag and fees ok are mutually exclusive; one status fee bit.
     a_fee_status_bit = a_fee_drag_bit or a_fees_ok_bit
+    a_closes_polarity_bit = (
+        format_window_a_closes_polarity_bit(sample) if window == "A" else ""
+    )
+
+    def _prefix_honesty(base: str) -> str:
+        """Prepend fee + close-polarity bits (portfolio AI / xang1234)."""
+        bits = [b for b in (a_fee_status_bit, a_closes_polarity_bit) if b]
+        if not bits:
+            return base
+        return " · ".join([*bits, base])
+
+    def _honesty_warn() -> bool:
+        """Warn when fee drag / fees thin / all-loss closes (still may be ready)."""
+        return bool(a_fee_drag_bit or fees_thin or closes_all_loss)
+
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
     stats_bit = format_window_stats_bit(
         stats, include_fills=not bool(a_fill_progress_bit)
@@ -722,9 +746,7 @@ def build_promote_ab_glance(
                 if stats_bit
                 else f"{a_aging_closes_bit} · target met"
             )
-            status = (
-                f"{a_fee_status_bit} · {base}" if a_fee_status_bit else base
-            )
+            status = _prefix_honesty(base)
         elif window == "A" and a_fresh_closes_bit and sample_known:
             # Fresh completes RyanJHamby triad (was silent before).
             base = (
@@ -732,31 +754,16 @@ def build_promote_ab_glance(
                 if stats_bit
                 else f"{a_fresh_closes_bit} · target met"
             )
-            if a_fee_drag_bit:
-                tone = "warn"
-                status = f"{a_fee_drag_bit} · {base}"
-            elif a_fees_ok_bit:
-                # Thin edge (fees ≥ half realized) warns; solid fees ok stays ready.
-                tone = "warn" if fees_thin else "ready"
-                status = f"{a_fees_ok_bit} · {base}"
-            else:
-                tone = "ready"
-                status = base
+            status = _prefix_honesty(base)
+            tone = "warn" if _honesty_warn() else "ready"
         else:
-            if window == "A" and a_fee_drag_bit and sample_known and sample_ready:
-                # Portfolio AI fee-burn: fees > realized warns; still ready for B.
-                tone = "warn"
-                status = (
-                    f"{a_fee_drag_bit} · ready for B"
-                    if stats_bit
-                    else f"{a_fee_drag_bit} · target met"
-                )
-            elif window == "A" and a_fees_ok_bit and sample_known and sample_ready:
-                tone = "warn" if fees_thin else "ready"
-                status = (
-                    f"{a_fees_ok_bit} · ready for B"
-                    if stats_bit
-                    else f"{a_fees_ok_bit} · target met"
+            if window == "A" and sample_known and sample_ready and (
+                a_fee_status_bit or a_closes_polarity_bit
+            ):
+                # Fee drag / fees thin / all-loss warn; still ready for B.
+                tone = "warn" if _honesty_warn() else "ready"
+                status = _prefix_honesty(
+                    "ready for B" if stats_bit else "target met"
                 )
             else:
                 tone = "ready"
@@ -781,28 +788,17 @@ def build_promote_ab_glance(
         elif window == "A" and sample_known and a_aging_closes_bit and sample_ready:
             tone = "warn"
             base = f"{a_aging_closes_bit} · sample ready · keep Window A"
-            status = (
-                f"{a_fee_status_bit} · {base}" if a_fee_status_bit else base
-            )
+            status = _prefix_honesty(base)
         elif window == "A" and sample_known and a_fresh_closes_bit and sample_ready:
             base = f"{a_fresh_closes_bit} · sample ready · keep Window A"
-            if a_fee_drag_bit:
+            status = _prefix_honesty(base)
+            if _honesty_warn():
                 tone = "warn"
-                status = f"{a_fee_drag_bit} · {base}"
-            elif a_fees_ok_bit:
-                if fees_thin:
-                    tone = "warn"
-                status = f"{a_fees_ok_bit} · {base}"
-            else:
-                status = base
         elif window == "A" and sample_known and sample_ready:
-            if a_fee_drag_bit:
-                tone = "warn"
-                status = f"{a_fee_drag_bit} · sample ready · keep Window A"
-            elif a_fees_ok_bit:
-                if fees_thin:
+            if a_fee_status_bit or a_closes_polarity_bit:
+                if _honesty_warn():
                     tone = "warn"
-                status = f"{a_fees_ok_bit} · sample ready · keep Window A"
+                status = _prefix_honesty("sample ready · keep Window A")
             else:
                 status = "sample ready · keep Window A"
         else:
@@ -818,9 +814,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee-drag / fees-ok / freshness status.
-    if len(line) > 190:
-        line = line[:189] + "…"
+    # Allow room for N/M sells + fee / polarity / freshness status.
+    if len(line) > 220:
+        line = line[:219] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -849,6 +845,8 @@ def build_promote_ab_glance(
         "fee_drag_severity": fee_drag_severity if window == "A" else "",
         "sample_fees_ok": sample_fees_ok if window == "A" else False,
         "fees_ok_severity": fees_ok_severity if window == "A" else "",
+        "closes_polarity": closes_polarity if window == "A" else "",
+        "closes_all_loss": closes_all_loss if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
@@ -858,6 +856,7 @@ def build_promote_ab_glance(
         "a_fresh_closes_bit": a_fresh_closes_bit,
         "a_fee_drag_bit": a_fee_drag_bit,
         "a_fees_ok_bit": a_fees_ok_bit,
+        "a_closes_polarity_bit": a_closes_polarity_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
         "b_block_bit": b_block_bit if window == "A" else "",

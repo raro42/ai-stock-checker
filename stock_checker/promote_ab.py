@@ -32,8 +32,9 @@ WINDOW_A_FEE_DRAG_SEVERE_RATIO = 5.0
 # comfortable <0.25 · ok mid · thin ≥0.5 (warn, still ready for B).
 WINDOW_A_FEES_COMFORTABLE_RATIO = 0.25
 WINDOW_A_FEES_THIN_RATIO = 0.5
-# Window B (promote ON) — not started
-WINDOW_B_START: date | None = None
+# Close win/lose polarity (portfolio AI Book Win·Lose + xang1234 speak-both-sides).
+# all_win / mixed / all_loss — all_loss warns; does not block ready for B.
+WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
 PROTOCOL_MAX_POSITIONS = 5
@@ -209,7 +210,11 @@ def window_a_sample_readiness(
     ``A fees comfortable`` when fees÷realized < ``WINDOW_A_FEES_COMFORTABLE_RATIO``;
     ``A fees ok`` in the mid band; ``A fees thin`` when ≥ ``WINDOW_A_FEES_THIN_RATIO``
     (still ≤1×; warn tone, does not block ready) — thin edge before fee drag.
-    Not a gate; does not flip compose promote.
+    When closed rounds exist and ``wins``/``losses`` keys are present, speak
+    close polarity ``A all-win|mixed|all-loss · Nw/Nl`` (portfolio AI
+    Win·Lose + xang1234 speak-both-sides). ``all_loss`` warns only — does not
+    block ready (one red book is still a valid control sample). Missing
+    wins/losses → fail-open (no bit). Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -247,6 +252,12 @@ def window_a_sample_readiness(
         "fees_ok_net": None,
         "fees_ok_ratio": None,
         "fees_ok_severity": "",
+        "closes_wins": 0,
+        "closes_losses": 0,
+        "closes_polarity_known": False,
+        "closes_polarity": "",
+        "closes_polarity_bit": "",
+        "closes_all_loss": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -423,6 +434,40 @@ def window_a_sample_readiness(
             if ratio_bit:
                 fees_ok_bit = f"{fees_ok_bit} · {ratio_bit}"
 
+    # Portfolio AI Win·Lose + xang1234 speak-both-sides: closed-round polarity.
+    # all_win / mixed / all_loss · Nw/Nl. all_loss warns only (still ready for B).
+    # Missing wins/losses keys → fail-open (no bit).
+    closes_wins = 0
+    closes_losses = 0
+    closes_polarity_known = False
+    closes_polarity = ""
+    closes_polarity_bit = ""
+    closes_all_loss = False
+    if sides_known and sells > 0 and not open_only and (
+        "wins" in stats or "losses" in stats
+    ):
+        try:
+            closes_wins = int(stats.get("wins") or 0)
+        except (TypeError, ValueError):
+            closes_wins = 0
+        try:
+            closes_losses = int(stats.get("losses") or 0)
+        except (TypeError, ValueError):
+            closes_losses = 0
+        closes_polarity_known = True
+        side_bit = f"{closes_wins}w/{closes_losses}l"
+        if closes_wins > 0 and closes_losses == 0:
+            closes_polarity = "all_win"
+            closes_polarity_bit = f"A all-win · {side_bit}"
+        elif closes_losses > 0 and closes_wins == 0:
+            closes_polarity = "all_loss"
+            closes_all_loss = True
+            closes_polarity_bit = f"A all-loss · {side_bit}"
+        elif closes_wins > 0 and closes_losses > 0:
+            closes_polarity = "mixed"
+            closes_polarity_bit = f"A mixed · {side_bit}"
+        # else: all flat closes (0w/0l) — stay silent (rare; no edge signal)
+
     ready = (
         (not thin)
         and (not open_only)
@@ -461,6 +506,12 @@ def window_a_sample_readiness(
         "fees_ok_net": fees_ok_net,
         "fees_ok_ratio": fees_ok_ratio,
         "fees_ok_severity": fees_ok_severity,
+        "closes_wins": closes_wins,
+        "closes_losses": closes_losses,
+        "closes_polarity_known": closes_polarity_known,
+        "closes_polarity": closes_polarity,
+        "closes_polarity_bit": closes_polarity_bit,
+        "closes_all_loss": closes_all_loss,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -530,6 +581,14 @@ def format_window_a_fees_ok_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("fees_ok_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_polarity_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A close win/lose polarity bit (display only; not a gate)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_polarity_bit") or "").strip()
     return bit
 
 
