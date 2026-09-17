@@ -181,10 +181,10 @@ def window_a_sample_readiness(
     all-buy ledger is ``open-only`` (no closed rounds → fee-adjusted edge is
     just −fees). When a last SELL timestamp is present, closes use
     RyanJHamby fresh/aging/stale vs ``aging_sell_days`` / ``max_sell_stale_days``
-    weekday days (staskh confirm-against-latest-closed). Aging warns only;
-    stale blocks ready. Missing stats → unknown (keep summarize). Missing
-    side keys / last_sell → fail-open on those checks. Not a gate; does not
-    flip compose promote.
+    weekday days (staskh confirm-against-latest-closed). Fresh and aging speak
+    on the glance; stale blocks ready. Missing stats → unknown (keep summarize).
+    Missing side keys / last_sell → fail-open on those checks. Not a gate; does
+    not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -207,6 +207,8 @@ def window_a_sample_readiness(
         "stale_closes_bit": "",
         "aging_closes": False,
         "aging_closes_bit": "",
+        "fresh_closes": False,
+        "fresh_closes_bit": "",
         "closes_freshness": "",
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
@@ -251,6 +253,8 @@ def window_a_sample_readiness(
     stale_closes_bit = ""
     aging_closes = False
     aging_closes_bit = ""
+    fresh_closes = False
+    fresh_closes_bit = ""
     closes_freshness = ""
     if last_sell_dt is not None and not open_only and sells >= sell_need:
         today = as_of or date.today()
@@ -268,7 +272,13 @@ def window_a_sample_readiness(
                 f"A aging closes · last sell {sell_stale_days}d"
             )
         else:
+            fresh_closes = True
             closes_freshness = "fresh"
+            # RyanJHamby / xang1234 freshness meter — speak when fresh too
+            # (aging/stale already have bits; silent fresh hid the triad).
+            fresh_closes_bit = (
+                f"A fresh closes · last sell {sell_stale_days}d"
+            )
 
     ready = (not thin) and (not open_only) and (not stale_closes)
     return {
@@ -288,6 +298,8 @@ def window_a_sample_readiness(
         "stale_closes_bit": stale_closes_bit,
         "aging_closes": aging_closes,
         "aging_closes_bit": aging_closes_bit,
+        "fresh_closes": fresh_closes,
+        "fresh_closes_bit": fresh_closes_bit,
         "closes_freshness": closes_freshness,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
@@ -325,6 +337,14 @@ def format_window_a_aging_closes_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("aging_closes_bit") or "").strip()
+    return bit
+
+
+def format_window_a_fresh_closes_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A fresh-closes bit (completes fresh/aging/stale; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("fresh_closes_bit") or "").strip()
     return bit
 
 
