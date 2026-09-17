@@ -587,9 +587,28 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     assert no_drag["fees_ok"] is True
     assert no_drag["fees_ok_net"] == 160.0
     assert no_drag["fees_ok_ratio"] == 0.2
-    assert no_drag["fees_ok_severity"] == ""
-    assert no_drag["fees_ok_bit"] == "A fees ok · net +€160 · fees 0.2×"
+    assert no_drag["fees_ok_severity"] == "comfortable"
+    assert no_drag["fees_ok_bit"] == "A fees comfortable · net +€160 · fees 0.2×"
     assert format_window_a_fees_ok_bit(no_drag) == no_drag["fees_ok_bit"]
+
+    mid_fees = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 80.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 120.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert mid_fees["fees_ok"] is True
+    assert mid_fees["fee_drag"] is False
+    assert mid_fees["fees_ok_ratio"] == 0.4
+    assert mid_fees["fees_ok_severity"] == ""
+    assert mid_fees["fees_ok_bit"] == "A fees ok · net +€120 · fees 0.4×"
+    assert format_window_a_fees_ok_bit(mid_fees) == mid_fees["fees_ok_bit"]
 
     thin_fees = window_a_sample_readiness(
         {
@@ -674,7 +693,53 @@ def test_promote_ab_glance_fee_drag_warns_but_ready_for_b() -> None:
 
 
 def test_promote_ab_glance_fees_ok_ready_for_b() -> None:
-    """Fills + sells ok + fees ≤ realized → A fees ok · ready for B (quiet)."""
+    """Fills + sells ok + mid-band fees÷realized → A fees ok · ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 80.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 120.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "ready"
+    assert g["target_met"] is True
+    assert g["sample_known"] is True
+    assert g["sample_ready"] is True
+    assert g["sample_fee_drag"] is False
+    assert g["sample_fees_ok"] is True
+    assert g["fees_ok_severity"] == ""
+    assert g["sample_fresh_closes"] is True
+    assert "A fees ok · net +€120 · fees 0.4×" in g["line"]
+    assert "A fees comfortable" not in g["line"]
+    assert "A fees thin" not in g["line"]
+    assert "A fee drag" not in g["line"]
+    assert "A fresh closes" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
+def test_promote_ab_glance_fees_comfortable_ready_for_b() -> None:
+    """Fills + sells ok + fees÷realized <0.25 → A fees comfortable · ready for B."""
     g = build_promote_ab_glance(
         {
             "promote_experiment_strategy": False,
@@ -708,9 +773,10 @@ def test_promote_ab_glance_fees_ok_ready_for_b() -> None:
     assert g["sample_ready"] is True
     assert g["sample_fee_drag"] is False
     assert g["sample_fees_ok"] is True
-    assert g["fees_ok_severity"] == ""
+    assert g["fees_ok_severity"] == "comfortable"
     assert g["sample_fresh_closes"] is True
-    assert "A fees ok · net +€160 · fees 0.2×" in g["line"]
+    assert "A fees comfortable · net +€160 · fees 0.2×" in g["line"]
+    assert "A fees ok" not in g["line"]
     assert "A fees thin" not in g["line"]
     assert "A fee drag" not in g["line"]
     assert "A fresh closes" in g["line"]
@@ -802,7 +868,7 @@ def test_promote_ab_glance_aging_closes_warns_but_ready_for_b() -> None:
     assert g["sample_fees_ok"] is True
     assert g["closes_freshness"] == "aging"
     assert "A aging closes" in g["line"]
-    assert "A fees ok · net +€160 · fees 0.2×" in g["line"]
+    assert "A fees comfortable · net +€160 · fees 0.2×" in g["line"]
     assert "ready for B" in g["line"]
     assert "keep Window A" not in g["line"]
     assert g["b_ready"] is True
@@ -847,7 +913,7 @@ def test_promote_ab_glance_fresh_closes_ready_for_b() -> None:
     assert g["sample_fees_ok"] is True
     assert g["closes_freshness"] == "fresh"
     assert "A fresh closes" in g["line"]
-    assert "A fees ok" in g["line"]
+    assert "A fees comfortable" in g["line"]
     assert "ready for B" in g["line"]
     assert "keep Window A" not in g["line"]
     assert g["b_ready"] is True

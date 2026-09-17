@@ -515,10 +515,10 @@ def build_promote_ab_glance(
     fees exceed realized sell P&L, ``A fee drag {mild|heavy|severe|total} ·
     net −€N · fees N×`` warns (portfolio AI fee-burn + xang1234 severity
     bands; prefers fee-adjusted net € + fees÷realized multiple when known) —
-    does not block ready for B. When fees ≤ realized on closed rounds,
-    ``A fees ok · net +€N · fees N×`` speaks the quiet complement; when
-    fees÷realized ≥ ``WINDOW_A_FEES_THIN_RATIO`` (still ≤1×),
-    ``A fees thin · net +€N · fees N×`` warns (thin edge before fee drag;
+    does not block ready for B. When fees ≤ realized on closed rounds, the
+    fees-ok triad speaks: ``A fees comfortable`` when fees÷realized &lt;
+    ``WINDOW_A_FEES_COMFORTABLE_RATIO``; ``A fees ok`` in the mid band;
+    ``A fees thin`` when ≥ ``WINDOW_A_FEES_THIN_RATIO`` (still ≤1×; warn;
     still ready for B) — portfolio AI quiet vs high + xang1234 speak-both-sides
     severity — display only.
     When Window A day target is met but fills stay under the protocol floor

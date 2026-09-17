@@ -28,8 +28,9 @@ WINDOW_A_AGING_SELL_DAYS = 3
 # mild <2× · heavy ≥2× · severe ≥5× · total when realized ≤0 (no multiple).
 WINDOW_A_FEE_DRAG_HEAVY_RATIO = 2.0
 WINDOW_A_FEE_DRAG_SEVERE_RATIO = 5.0
-# Fees ≤ realized but churn ate ≥ half the edge → thin (warn, still ready for B).
-# Complements fee-drag severity (portfolio AI quiet vs high + xang1234 bands).
+# Fees ≤ realized severity triad (portfolio AI quiet vs high + xang1234 bands):
+# comfortable <0.25 · ok mid · thin ≥0.5 (warn, still ready for B).
+WINDOW_A_FEES_COMFORTABLE_RATIO = 0.25
 WINDOW_A_FEES_THIN_RATIO = 0.5
 # Window B (promote ON) — not started
 WINDOW_B_START: date | None = None
@@ -204,9 +205,11 @@ def window_a_sample_readiness(
     realized, ``fees_ok`` speaks the quiet complement
     (``A fees ok · net +€N · fees N×``) — portfolio AI fee-burn quiet vs
     high + xang1234 speak-both-sides (like fresh completes freshness).
-    When fees÷realized ≥ ``WINDOW_A_FEES_THIN_RATIO`` (still ≤1×), label
-    ``A fees thin`` (warn tone, does not block ready) — thin edge before
-    fee drag. Not a gate; does not flip compose promote.
+    Fees-ok severity triad (xang1234 speak-both-sides):
+    ``A fees comfortable`` when fees÷realized < ``WINDOW_A_FEES_COMFORTABLE_RATIO``;
+    ``A fees ok`` in the mid band; ``A fees thin`` when ≥ ``WINDOW_A_FEES_THIN_RATIO``
+    (still ≤1×; warn tone, does not block ready) — thin edge before fee drag.
+    Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -326,8 +329,8 @@ def window_a_sample_readiness(
     # Append fees÷realized multiple when realized > 0; label mild/heavy/severe
     # (or total when closed red) so friends see severity without math
     # (xang1234 severity bands + portfolio AI). When fees ≤ realized, speak
-    # quiet complement ``A fees ok``; when fees÷realized ≥ thin floor, speak
-    # ``A fees thin`` (warn, still ready) — portfolio AI quiet vs high.
+    # fees-ok triad: comfortable (<0.25×) · ok (mid) · thin (≥0.5× warn) —
+    # portfolio AI quiet vs high + xang1234 speak-both-sides.
     # Open-only is already −fees.
     fee_drag = False
     fee_drag_bit = ""
@@ -397,7 +400,7 @@ def window_a_sample_readiness(
                 fee_drag_bit = f"{head} · fees > realized"
         elif fees >= 0 and fees <= realized and (fees > 0 or realized > 0):
             # Quiet complement when churn did not eat closed-round edge.
-            # Thin = fees still ≤ realized but ≥ half the edge (warn only).
+            # Triad: comfortable (<0.25×) · ok (mid) · thin (≥0.5×, warn only).
             fees_ok = True
             fees_ok_net = net
             fees_ok_ratio, ratio_bit = _ratio_bit(fees, realized)
@@ -407,6 +410,12 @@ def window_a_sample_readiness(
             ):
                 fees_ok_severity = "thin"
                 fees_ok_bit = "A fees thin"
+            elif (
+                fees_ok_ratio is not None
+                and fees_ok_ratio < WINDOW_A_FEES_COMFORTABLE_RATIO
+            ):
+                fees_ok_severity = "comfortable"
+                fees_ok_bit = "A fees comfortable"
             else:
                 fees_ok_bit = "A fees ok"
             if net != 0:
