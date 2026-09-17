@@ -1516,6 +1516,147 @@ def test_window_a_closes_win_rate_triad() -> None:
     assert all_loss["closes_win_rate_bit"] == "A win rate thin · 0%"
 
 
+def test_window_a_closes_wr_vs_be_triad() -> None:
+    """WR vs breakeven from payoff (hit rate alone ≠ edge when R ≠ 1)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_WR_BE_AT_PP,
+        format_window_a_closes_wr_vs_be_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 3,
+            "losses": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_breakeven_wr_pct"] is None
+    assert unknown["closes_wr_vs_be"] == ""
+    assert unknown["closes_wr_vs_be_bit"] == ""
+    assert unknown["closes_wr_below_be"] is False
+    assert format_window_a_closes_wr_vs_be_bit(unknown) == ""
+
+    # payoff 2× → BE = 100/3 ≈ 33.3%; WR 60% → above
+    above = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 5,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert above["closes_payoff_ratio"] == 2.0
+    assert above["closes_breakeven_wr_pct"] == 33.3
+    assert above["closes_win_rate_pct"] == 60.0
+    assert above["closes_wr_vs_be"] == "above"
+    assert above["closes_wr_below_be"] is False
+    assert above["closes_wr_vs_be_bit"] == "A WR above BE · 60% vs 33.3%"
+    assert format_window_a_closes_wr_vs_be_bit(above) == above["closes_wr_vs_be_bit"]
+
+    # payoff 1× → BE = 50%; WR 50% → at
+    at = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 80.0,
+            "wins": 2,
+            "losses": 2,
+            "avg_win": 40.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert at["closes_breakeven_wr_pct"] == 50.0
+    assert at["closes_win_rate_pct"] == 50.0
+    assert abs(at["closes_win_rate_pct"] - at["closes_breakeven_wr_pct"]) <= WINDOW_A_WR_BE_AT_PP
+    assert at["closes_wr_vs_be"] == "at"
+    assert at["closes_wr_below_be"] is False
+    assert at["closes_wr_vs_be_bit"] == "A WR at BE · 50% vs 50%"
+
+    # payoff 1× → BE = 50%; WR 25% → below (warn)
+    below = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 40.0,
+            "wins": 1,
+            "losses": 3,
+            "avg_win": 40.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert below["closes_breakeven_wr_pct"] == 50.0
+    assert below["closes_win_rate_pct"] == 25.0
+    assert below["closes_wr_vs_be"] == "below"
+    assert below["closes_wr_below_be"] is True
+    assert below["closes_wr_vs_be_bit"] == "A WR below BE · 25% vs 50%"
+    assert below["ready"] is True  # warn only
+
+
+def test_promote_ab_glance_closes_wr_below_be_warns_but_ready_for_b() -> None:
+    """WR below BE → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 60.0,
+            "wins": 1,
+            "losses": 3,
+            "avg_win": 40.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_wr_vs_be"] == "below"
+    assert g["closes_wr_below_be"] is True
+    assert g["closes_breakeven_wr_pct"] == 50.0
+    assert "A WR below BE · 25% vs 50%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert "keep Window A" not in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_promote_ab_glance_closes_win_rate_thin_warns_but_ready_for_b() -> None:
     """Thin win rate → warn · still ready for B."""
     g = build_promote_ab_glance(

@@ -56,6 +56,10 @@ WINDOW_A_PROFIT_FACTOR_THIN_RATIO = 1.0
 # strong ≥60% · ok mid · thin <40% (warn only; still ready for B).
 WINDOW_A_WIN_RATE_STRONG_PCT = 60.0
 WINDOW_A_WIN_RATE_THIN_PCT = 40.0
+# Win rate vs breakeven from payoff (portfolio AI edge + xang1234 severity).
+# BE% = 100 / (1 + avg_win/avg_loss). Hit rate alone ≠ edge when payoff ≠ 1.
+# above / at (±AT pp) / below (warn only; still ready for B).
+WINDOW_A_WR_BE_AT_PP = 2.0
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -264,7 +268,12 @@ def window_a_sample_readiness(
     (wins ÷ (wins+losses); portfolio AI hit rate after polarity + xang1234
     severity). Count lean ≠ hit rate. strong ≥``WINDOW_A_WIN_RATE_STRONG_PCT``
     · ok mid · thin <``WINDOW_A_WIN_RATE_THIN_PCT`` (warn only; still ready
-    for B). Missing polarity → fail-open. Not a gate; does not flip compose
+    for B). Missing polarity → fail-open. When win rate and payoff are both
+    known, speak WR vs breakeven ``A WR [above|at|below] BE · N% vs M%``
+    (BE% = 100/(1+payoff); portfolio AI edge after WR+payoff + xang1234
+    severity). Hit rate alone ≠ edge when payoff ≠ 1. ``at`` within
+    ±``WINDOW_A_WR_BE_AT_PP`` pp; ``below`` warns only (still ready for B).
+    Missing payoff or WR → fail-open. Not a gate; does not flip compose
     promote.
     """
     need = max(1, int(target_fills))
@@ -333,6 +342,10 @@ def window_a_sample_readiness(
         "closes_win_rate_severity": "",
         "closes_win_rate_bit": "",
         "closes_win_rate_thin": False,
+        "closes_breakeven_wr_pct": None,
+        "closes_wr_vs_be": "",
+        "closes_wr_vs_be_bit": "",
+        "closes_wr_below_be": False,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -779,6 +792,41 @@ def window_a_sample_readiness(
             else:
                 closes_win_rate_bit = f"A win rate · {pct_s}"
 
+    # Portfolio AI WR vs breakeven from payoff: BE% = 100/(1+R).
+    # Hit rate alone ≠ edge when payoff ≠ 1 (need higher WR when R < 1).
+    # above / at (±AT pp) / below — below warns only (still ready for B).
+    closes_breakeven_wr_pct: float | None = None
+    closes_wr_vs_be = ""
+    closes_wr_vs_be_bit = ""
+    closes_wr_below_be = False
+    if (
+        closes_win_rate_pct is not None
+        and closes_payoff_ratio is not None
+        and closes_payoff_ratio > 0
+    ):
+        closes_breakeven_wr_pct = round(100.0 / (1.0 + closes_payoff_ratio), 1)
+        wr_s = (
+            f"{int(round(closes_win_rate_pct))}%"
+            if abs(closes_win_rate_pct - round(closes_win_rate_pct)) < 0.05
+            else f"{closes_win_rate_pct:.1f}%"
+        )
+        be_s = (
+            f"{int(round(closes_breakeven_wr_pct))}%"
+            if abs(closes_breakeven_wr_pct - round(closes_breakeven_wr_pct)) < 0.05
+            else f"{closes_breakeven_wr_pct:.1f}%"
+        )
+        delta = closes_win_rate_pct - closes_breakeven_wr_pct
+        if delta < -WINDOW_A_WR_BE_AT_PP:
+            closes_wr_vs_be = "below"
+            closes_wr_below_be = True
+            closes_wr_vs_be_bit = f"A WR below BE · {wr_s} vs {be_s}"
+        elif delta > WINDOW_A_WR_BE_AT_PP:
+            closes_wr_vs_be = "above"
+            closes_wr_vs_be_bit = f"A WR above BE · {wr_s} vs {be_s}"
+        else:
+            closes_wr_vs_be = "at"
+            closes_wr_vs_be_bit = f"A WR at BE · {wr_s} vs {be_s}"
+
     ready = (
         (not thin)
         and (not open_only)
@@ -847,6 +895,10 @@ def window_a_sample_readiness(
         "closes_win_rate_severity": closes_win_rate_severity,
         "closes_win_rate_bit": closes_win_rate_bit,
         "closes_win_rate_thin": closes_win_rate_thin,
+        "closes_breakeven_wr_pct": closes_breakeven_wr_pct,
+        "closes_wr_vs_be": closes_wr_vs_be,
+        "closes_wr_vs_be_bit": closes_wr_vs_be_bit,
+        "closes_wr_below_be": closes_wr_below_be,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -956,6 +1008,14 @@ def format_window_a_closes_win_rate_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_win_rate_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_wr_vs_be_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A WR vs breakeven bit (from payoff; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_wr_vs_be_bit") or "").strip()
     return bit
 
 

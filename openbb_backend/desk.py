@@ -542,7 +542,11 @@ def build_promote_ab_glance(
     win rate speaks ``A win rate [strong|thin] · N%`` (wins ÷ decided;
     portfolio AI hit rate after polarity + xang1234 severity: strong ≥60%
     · ok mid · thin <40% warn) — count lean ≠ hit rate; thin does not
-    block ready for B. When Window A day target is met but fills stay
+    block ready for B. When win rate and payoff are both known, WR vs
+    breakeven speaks ``A WR [above|at|below] BE · N% vs M%`` (BE% =
+    100/(1+payoff); portfolio AI edge after WR+payoff + xang1234 severity)
+    — hit rate alone ≠ edge when payoff ≠ 1; ``below`` warns only (still
+    ready for B). When Window A day target is met but fills stay
     under the protocol floor
     (``WINDOW_A_TARGET_FILLS``), status is ``A thin · N fills <M`` instead of
     ready. When day+fill targets are met but Ops knobs drift from protocol
@@ -558,6 +562,7 @@ def build_promote_ab_glance(
         format_window_a_closes_polarity_bit,
         format_window_a_closes_profit_factor_bit,
         format_window_a_closes_win_rate_bit,
+        format_window_a_closes_wr_vs_be_bit,
         format_window_a_fee_drag_bit,
         format_window_a_fees_ok_bit,
         format_window_a_fill_progress_bit,
@@ -620,6 +625,9 @@ def build_promote_ab_glance(
         "closes_win_rate_pct": None,
         "closes_win_rate_severity": "",
         "closes_win_rate_thin": False,
+        "closes_breakeven_wr_pct": None,
+        "closes_wr_vs_be": "",
+        "closes_wr_below_be": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -631,6 +639,7 @@ def build_promote_ab_glance(
         "a_fees_ok_bit": "",
         "a_closes_polarity_bit": "",
         "a_closes_win_rate_bit": "",
+        "a_closes_wr_vs_be_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
         "a_closes_profit_factor_bit": "",
@@ -727,6 +736,9 @@ def build_promote_ab_glance(
     closes_win_rate_pct = sample.get("closes_win_rate_pct")
     closes_win_rate_severity = str(sample.get("closes_win_rate_severity") or "")
     closes_win_rate_thin = bool(sample.get("closes_win_rate_thin"))
+    closes_breakeven_wr_pct = sample.get("closes_breakeven_wr_pct")
+    closes_wr_vs_be = str(sample.get("closes_wr_vs_be") or "")
+    closes_wr_below_be = bool(sample.get("closes_wr_below_be"))
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -760,6 +772,9 @@ def build_promote_ab_glance(
     a_closes_win_rate_bit = (
         format_window_a_closes_win_rate_bit(sample) if window == "A" else ""
     )
+    a_closes_wr_vs_be_bit = (
+        format_window_a_closes_wr_vs_be_bit(sample) if window == "A" else ""
+    )
     a_closes_payoff_bit = (
         format_window_a_closes_payoff_bit(sample) if window == "A" else ""
     )
@@ -771,13 +786,14 @@ def build_promote_ab_glance(
     )
 
     def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + win-rate + payoff + expectancy + PF bits."""
+        """Prepend fee + polarity + WR + vs-BE + payoff + expectancy + PF bits."""
         bits = [
             b
             for b in (
                 a_fee_status_bit,
                 a_closes_polarity_bit,
                 a_closes_win_rate_bit,
+                a_closes_wr_vs_be_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
                 a_closes_profit_factor_bit,
@@ -789,13 +805,14 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / win-rate·payoff·PF thin / neg·thin expectancy."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·payoff·PF thin / neg·thin expectancy / WR below BE."""
         return bool(
             a_fee_drag_bit
             or fees_thin
             or closes_all_loss
             or closes_loss_lean
             or closes_win_rate_thin
+            or closes_wr_below_be
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
@@ -853,11 +870,12 @@ def build_promote_ab_glance(
                 a_fee_status_bit
                 or a_closes_polarity_bit
                 or a_closes_win_rate_bit
+                or a_closes_wr_vs_be_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_profit_factor_bit
             ):
-                # Fee / polarity / win-rate / payoff / expectancy / PF warn; still ready for B.
+                # Fee / polarity / WR / vs-BE / payoff / expectancy / PF warn; still ready for B.
                 tone = "warn" if _honesty_warn() else "ready"
                 status = _prefix_honesty(
                     "ready for B" if stats_bit else "target met"
@@ -896,6 +914,7 @@ def build_promote_ab_glance(
                 a_fee_status_bit
                 or a_closes_polarity_bit
                 or a_closes_win_rate_bit
+                or a_closes_wr_vs_be_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_profit_factor_bit
@@ -918,9 +937,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / win-rate / payoff / expectancy / PF / freshness.
-    if len(line) > 320:
-        line = line[:319] + "…"
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / payoff / expectancy / PF / freshness.
+    if len(line) > 360:
+        line = line[:359] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -977,6 +996,11 @@ def build_promote_ab_glance(
             closes_win_rate_severity if window == "A" else ""
         ),
         "closes_win_rate_thin": closes_win_rate_thin if window == "A" else False,
+        "closes_breakeven_wr_pct": (
+            closes_breakeven_wr_pct if window == "A" else None
+        ),
+        "closes_wr_vs_be": closes_wr_vs_be if window == "A" else "",
+        "closes_wr_below_be": closes_wr_below_be if window == "A" else False,
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
@@ -988,6 +1012,7 @@ def build_promote_ab_glance(
         "a_fees_ok_bit": a_fees_ok_bit,
         "a_closes_polarity_bit": a_closes_polarity_bit,
         "a_closes_win_rate_bit": a_closes_win_rate_bit,
+        "a_closes_wr_vs_be_bit": a_closes_wr_vs_be_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
         "a_closes_profit_factor_bit": a_closes_profit_factor_bit,
