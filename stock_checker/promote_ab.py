@@ -380,6 +380,7 @@ def format_window_a_side_bit(sample: dict[str, Any] | None) -> str:
     """Compact buy/sell composition: ``Nb/Ns`` (portfolio AI sample honesty).
 
     Unknown sides → empty. Display only; not a gate.
+    Prefer ``format_window_a_sell_progress_bit`` on the glance meter.
     """
     if not isinstance(sample, dict) or not sample.get("known"):
         return ""
@@ -393,11 +394,31 @@ def format_window_a_side_bit(sample: dict[str, Any] | None) -> str:
     return f"{buys}b/{sells}s"
 
 
+def format_window_a_sell_progress_bit(sample: dict[str, Any] | None) -> str:
+    """Close-floor meter: ``N/M sells`` (portfolio AI + xang1234 multi-meter).
+
+    Fills alone mislead after the ≥3 close floor — show sell progress beside
+    days/fills. Unknown / no sides → empty. Display only; not a gate.
+    """
+    if not isinstance(sample, dict) or not sample.get("known"):
+        return ""
+    if not sample.get("sides_known"):
+        return ""
+    try:
+        sells = int(sample.get("sells") or 0)
+        need = int(sample.get("target_sells") or WINDOW_A_TARGET_SELLS)
+    except (TypeError, ValueError):
+        return ""
+    need = max(1, need)
+    return f"{sells}/{need} sells"
+
+
 def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
-    """Dual sample meter: ``N/M fills`` beside days (portfolio AI honesty).
+    """Triple sample meter: ``N/M fills`` · ``N/M sells`` beside days.
 
     Days alone mislead — show fill progress while Window A is still running.
-    When buy/sell sides are known, append compact ``Nb/Ns`` (open vs closed).
+    When buy/sell sides are known, append close-floor ``N/M sells`` (not
+    ``Nb/Ns`` — sell progress toward the floor is the honest dual meter).
     Unknown stats → empty (keep summarize). Display only; not a gate.
     """
     if not isinstance(sample, dict) or not sample.get("known"):
@@ -409,9 +430,9 @@ def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
         return ""
     need = max(1, need)
     bit = f"{fills}/{need} fills"
-    side = format_window_a_side_bit(sample)
-    if side:
-        bit = f"{bit} · {side}"
+    sells = format_window_a_sell_progress_bit(sample)
+    if sells:
+        bit = f"{bit} · {sells}"
     return bit
 
 

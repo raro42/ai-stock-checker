@@ -494,19 +494,20 @@ def build_promote_ab_glance(
     """Compact promote A/B window line (Phase A / portfolio AI; display only).
 
     Shows Window A/B trading-day progress and whether live promote matches the
-    protocol (A = off, B = on). Window A also shows dual sample progress
-    ``N/M fills`` beside days (portfolio AI — days alone mislead). When buy/sell
-    sides are known, appends compact ``Nb/Ns`` (open vs closed). When fills
+    protocol (A = off, B = on). Window A also shows triple sample progress
+    ``N/M fills`` · ``N/M sells`` beside days (portfolio AI + xang1234 —
+    days alone mislead; sell progress tracks the ≥3 close floor). When fills
     exist, appends in-window fees / fee-adjusted net (realized − all fees) —
     honesty before Window B (gross sell P&L alone is not edge). While A is
-    still running with a thin ledger, status is ``building sample`` instead of
-    bare ``running``. When fills already meet the floor but days are still
-    short, status is ``fills ready · keep Window A`` (days still needed —
-    portfolio AI dual-meter honesty). An all-buy ledger (``A open-only · 0
-    sells``) is not ready — fee-adjusted edge needs closed rounds. Sparse
-    closes (``A thin closes · N sells <WINDOW_A_TARGET_SELLS``) are also not
-    ready — one lucky SELL after many buys is a thin control. Newest
-    in-window SELL age uses RyanJHamby fresh/aging/stale: fresh
+    still running with a thin ledger, status is ``building sample``; with
+    fills ok but sparse closes, ``building closes``. When fills+closes already
+    meet floors but days are still short, status is
+    ``sample ready · keep Window A`` (days still needed — portfolio AI
+    multi-meter honesty). An all-buy ledger (``A open-only · 0 sells``) is
+    not ready — fee-adjusted edge needs closed rounds. Sparse closes
+    (``A thin closes · N sells <WINDOW_A_TARGET_SELLS``) are also not ready —
+    one lucky SELL after many buys is a thin control. Newest in-window SELL
+    age uses RyanJHamby fresh/aging/stale: fresh
     (``A fresh closes · last sell Nd``) and aging
     (``WINDOW_A_AGING_SELL_DAYS``) speak on the glance; stale
     (``WINDOW_A_MAX_SELL_STALE_DAYS``) blocks ready (staskh
@@ -709,22 +710,23 @@ def build_promote_ab_glance(
                 status = "target met · write fee-adjusted verdict"
     else:
         tone = "progress"
-        # Days still running: dual sample honesty (fills vs days + open-only).
+        # Days still running: multi-meter honesty (fills · sells · open-only).
         if window == "A" and sample_known and a_thin_bit:
             status = "building sample"
         elif window == "A" and sample_known and a_open_only_bit:
             status = f"{a_open_only_bit} · keep Window A"
         elif window == "A" and sample_known and a_thin_closes_bit:
-            status = f"{a_thin_closes_bit} · keep Window A"
+            # Fills ok but close floor short — parallel to building sample.
+            status = "building closes"
         elif window == "A" and sample_known and a_stale_closes_bit:
             status = f"{a_stale_closes_bit} · keep Window A"
         elif window == "A" and sample_known and a_aging_closes_bit and sample_ready:
             tone = "warn"
-            status = f"{a_aging_closes_bit} · fills ready · keep Window A"
+            status = f"{a_aging_closes_bit} · sample ready · keep Window A"
         elif window == "A" and sample_known and a_fresh_closes_bit and sample_ready:
-            status = f"{a_fresh_closes_bit} · fills ready · keep Window A"
+            status = f"{a_fresh_closes_bit} · sample ready · keep Window A"
         elif window == "A" and sample_known and sample_ready:
-            status = "fills ready · keep Window A"
+            status = "sample ready · keep Window A"
         else:
             status = "running"
     parts = [
@@ -738,7 +740,7 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for Nb/Ns + open-only / thin status (portfolio AI sample honesty).
+    # Allow room for N/M sells + open-only / thin status (portfolio AI honesty).
     if len(line) > 140:
         line = line[:139] + "…"
     return {
