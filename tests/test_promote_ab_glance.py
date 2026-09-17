@@ -477,7 +477,8 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     assert drag["fee_drag"] is True
     assert drag["ready"] is True  # warn only — does not block
     assert drag["fee_drag_net"] == -60.0
-    assert drag["fee_drag_bit"] == "A fee drag · net −€60"
+    assert drag["fee_drag_ratio"] == 4.0
+    assert drag["fee_drag_bit"] == "A fee drag · net −€60 · fees 4×"
     assert format_window_a_fee_drag_bit(drag) == drag["fee_drag_bit"]
 
     # Fallback when net is missing / non-negative but fees still > realized.
@@ -488,13 +489,31 @@ def test_window_a_sample_readiness_fill_floor() -> None:
             "sells": 4,
             "fees": 80.0,
             "realized_pnl": 20.0,
-            "net_after_all_fees": 0.0,  # odd stats → keep fees > realized wording
+            "net_after_all_fees": 0.0,  # odd stats → keep fees N× wording
             "last_sell": "2026-09-11T15:00:00+00:00",
         },
         as_of=date(2026, 9, 14),
     )
     assert drag_fallback["fee_drag"] is True
-    assert drag_fallback["fee_drag_bit"] == "A fee drag · fees > realized"
+    assert drag_fallback["fee_drag_ratio"] == 4.0
+    assert drag_fallback["fee_drag_bit"] == "A fee drag · fees 4×"
+
+    # Non-integer multiple keeps one decimal.
+    drag_frac = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 50.0,
+            "realized_pnl": 20.0,
+            "net_after_all_fees": -30.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert drag_frac["fee_drag"] is True
+    assert drag_frac["fee_drag_ratio"] == 2.5
+    assert drag_frac["fee_drag_bit"] == "A fee drag · net −€30 · fees 2.5×"
 
     no_drag = window_a_sample_readiness(
         {
@@ -509,6 +528,7 @@ def test_window_a_sample_readiness_fill_floor() -> None:
         as_of=date(2026, 9, 14),
     )
     assert no_drag["fee_drag"] is False
+    assert no_drag["fee_drag_ratio"] is None
     assert format_window_a_fee_drag_bit(no_drag) == ""
 
     open_fees = window_a_sample_readiness(
@@ -522,6 +542,7 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     )
     assert open_fees["open_only"] is True
     assert open_fees["fee_drag"] is False  # open-only already covers −fees
+    assert open_fees["fee_drag_ratio"] is None
 
 
 def test_promote_ab_glance_fee_drag_warns_but_ready_for_b() -> None:
@@ -559,7 +580,7 @@ def test_promote_ab_glance_fee_drag_warns_but_ready_for_b() -> None:
     assert g["sample_ready"] is True
     assert g["sample_fee_drag"] is True
     assert g["sample_fresh_closes"] is True
-    assert "A fee drag · net −€60" in g["line"]
+    assert "A fee drag · net −€60 · fees 4×" in g["line"]
     assert "A fresh closes" in g["line"]
     assert "ready for B" in g["line"]
     assert "keep Window A" not in g["line"]

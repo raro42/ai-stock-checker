@@ -190,8 +190,10 @@ def window_a_sample_readiness(
     fail-open on those checks. When closed rounds exist and in-window fees
     exceed realized sell P&L, ``fee_drag`` warns (portfolio AI fee-burn
     adapted) — bit prefers fee-adjusted ``net −€N`` when known so friends
-    see the € damage without parsing the fees strip; does not block ready.
-    Not a gate; does not flip compose promote.
+    see the € damage without parsing the fees strip; appends ``fees N×``
+    (fees÷realized) when realized > 0 so severity is visible (xang1234
+    multi-meter + portfolio AI); does not block ready. Not a gate; does
+    not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -222,6 +224,7 @@ def window_a_sample_readiness(
         "fee_drag": False,
         "fee_drag_bit": "",
         "fee_drag_net": None,
+        "fee_drag_ratio": None,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -301,10 +304,12 @@ def window_a_sample_readiness(
 
     # Portfolio AI fee-burn: fees > realized on closed rounds → fee drag warn.
     # Prefer net −€N on the bit (same math as format_window_stats_bit).
+    # Append fees÷realized multiple when realized > 0 (severity without fees strip).
     # Open-only is already −fees; skip until at least one SELL exists.
     fee_drag = False
     fee_drag_bit = ""
     fee_drag_net: float | None = None
+    fee_drag_ratio: float | None = None
     if sides_known and sells > 0 and not open_only:
         try:
             fees = float(stats.get("fees") or 0)
@@ -320,6 +325,14 @@ def window_a_sample_readiness(
         if fees > 0 and fees > realized:
             fee_drag = True
             fee_drag_net = net
+            ratio_bit = ""
+            if realized > 0:
+                ratio = fees / realized
+                fee_drag_ratio = round(ratio, 2)
+                if abs(ratio - round(ratio)) < 0.05:
+                    ratio_bit = f"fees {int(round(ratio))}×"
+                else:
+                    ratio_bit = f"fees {ratio:.1f}×"
             if net < 0:
                 abs_n = abs(net)
                 if abs_n >= 1000:
@@ -327,6 +340,10 @@ def window_a_sample_readiness(
                 else:
                     net_s = f"−€{abs_n:,.0f}"
                 fee_drag_bit = f"A fee drag · net {net_s}"
+                if ratio_bit:
+                    fee_drag_bit = f"{fee_drag_bit} · {ratio_bit}"
+            elif ratio_bit:
+                fee_drag_bit = f"A fee drag · {ratio_bit}"
             else:
                 fee_drag_bit = "A fee drag · fees > realized"
 
@@ -361,6 +378,7 @@ def window_a_sample_readiness(
         "fee_drag": fee_drag,
         "fee_drag_bit": fee_drag_bit,
         "fee_drag_net": fee_drag_net,
+        "fee_drag_ratio": fee_drag_ratio,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -418,7 +436,7 @@ def format_window_a_fresh_closes_bit(sample: dict[str, Any] | None) -> str:
 
 
 def format_window_a_fee_drag_bit(sample: dict[str, Any] | None) -> str:
-    """Short Window A fee-drag bit (net −€N when known; display only; does not block)."""
+    """Short Window A fee-drag bit (net −€N · fees N× when known; display only)."""
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("fee_drag_bit") or "").strip()
