@@ -2452,6 +2452,155 @@ def test_window_a_half_kelly_vs_sizer() -> None:
     assert neg["closes_half_kelly_bit"] == "A half-Kelly vs sizer under · −40% vs 10%"
 
 
+def test_window_a_half_kelly_vs_slot() -> None:
+    """Half-Kelly vs equal-slot equity share (display only)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_EQUAL_SLOT_PCT,
+        WINDOW_A_HALF_KELLY_MATCH_PP,
+        format_window_a_closes_half_kelly_slot_bit,
+        window_a_sample_readiness,
+    )
+
+    assert WINDOW_A_EQUAL_SLOT_PCT == 20.0
+    assert WINDOW_A_HALF_KELLY_MATCH_PP == 5.0
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_half_kelly_slot_pct"] is None
+    assert unknown["closes_half_kelly_vs_slot"] == ""
+    assert unknown["closes_half_kelly_slot_bit"] == ""
+    assert unknown["closes_half_kelly_slot_under"] is False
+    assert format_window_a_closes_half_kelly_slot_bit(unknown) == ""
+    assert format_window_a_closes_half_kelly_slot_bit(None) == ""
+
+    # 75% WR · payoff 2 → Kelly 62.5 → half 31.2 vs 20 → over
+    over = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert over["closes_half_kelly_pct"] == 31.2
+    assert over["closes_half_kelly_slot_pct"] == 20.0
+    assert over["closes_half_kelly_vs_slot"] == "over"
+    assert over["closes_half_kelly_slot_under"] is False
+    assert over["closes_half_kelly_slot_bit"] == (
+        "A half-Kelly vs slot over · 31.2% vs 20%"
+    )
+
+    # 50% WR · payoff 2 → Kelly 25 → half 12.5 vs 20 → under
+    under = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 2,
+            "losses": 2,
+            "avg_win": 40.0,
+            "avg_loss": 20.0,
+        }
+    )
+    assert under["closes_kelly_pct"] == 25.0
+    assert under["closes_half_kelly_pct"] == 12.5
+    assert under["closes_half_kelly_vs_slot"] == "under"
+    assert under["closes_half_kelly_slot_under"] is True
+    assert under["closes_half_kelly_slot_bit"] == (
+        "A half-Kelly vs slot under · 12.5% vs 20%"
+    )
+    assert format_window_a_closes_half_kelly_slot_bit(under) == under[
+        "closes_half_kelly_slot_bit"
+    ]
+
+    # 60% WR · payoff 1 → Kelly 20 → half 10 vs 20 → under
+    mid_under = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 40.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert mid_under["closes_kelly_pct"] == 20.0
+    assert mid_under["closes_half_kelly_pct"] == 10.0
+    assert mid_under["closes_half_kelly_vs_slot"] == "under"
+    assert mid_under["closes_half_kelly_slot_under"] is True
+
+    # 60% WR · payoff 50/30 → Kelly ~36 → half 18 vs 20 → match (±5pp)
+    match = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 50.0,
+            "avg_loss": 30.0,
+        }
+    )
+    assert match["closes_half_kelly_pct"] == 18.0
+    assert match["closes_half_kelly_vs_slot"] == "match"
+    assert match["closes_half_kelly_slot_under"] is False
+    assert match["closes_half_kelly_slot_bit"] == (
+        "A half-Kelly vs slot match · 18% vs 20%"
+    )
+
+
+def test_promote_ab_glance_half_kelly_slot_under_warns_but_ready() -> None:
+    """Half-Kelly below equal slot → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "fees": 4.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 36.0,
+            "wins": 2,
+            "losses": 2,
+            "avg_win": 40.0,
+            "avg_loss": 20.0,
+            "last_sell": "2026-09-12",
+        },
+    )
+    assert g["closes_half_kelly_pct"] == 12.5
+    assert g["closes_half_kelly_slot_under"] is True
+    assert g["closes_half_kelly_vs_slot"] == "under"
+    assert "A half-Kelly vs slot under · 12.5% vs 20%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+    assert g["tone"] == "warn"
+
+
 def test_promote_ab_glance_half_kelly_under_warns_but_ready() -> None:
     """Half-Kelly below the cash sizer → warn · still ready for B."""
     g = build_promote_ab_glance(
