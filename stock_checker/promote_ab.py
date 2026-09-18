@@ -97,6 +97,11 @@ WINDOW_A_CONC_CAP_PCT = round(float(DEFAULT_MAX_NAME_PCT), 1)
 # quarter-Kelly is the conservative practical fraction (portfolio AI).
 # Same MATCH band. under = sizer larger than ¼ Kelly (warn). Not a live sizer.
 WINDOW_A_QUARTER_KELLY_FRAC = 0.25
+# Decided closes (wins+losses) before a Kelly fraction is a size sample.
+# Close floor is 3 sells. That is not enough to trust f*. thin <10 warns.
+# ok speaks when the count is met (xang1234 speak-both-sides). Warn only
+# (still ready for B). Not a live sizer. Missing wins/losses → no bit.
+WINDOW_A_KELLY_SAMPLE_MIN = 10
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -511,6 +516,10 @@ def window_a_sample_readiness(
         "closes_practical_kelly_pct": None,
         "closes_practical_kelly_bit": "",
         "closes_practical_kelly_cut": False,
+        "closes_kelly_sample": "",
+        "closes_kelly_sample_n": None,
+        "closes_kelly_sample_bit": "",
+        "closes_kelly_sample_thin": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1103,6 +1112,10 @@ def window_a_sample_readiness(
     closes_practical_kelly_pct: float | None = None
     closes_practical_kelly_bit = ""
     closes_practical_kelly_cut = False
+    closes_kelly_sample = ""
+    closes_kelly_sample_n: int | None = None
+    closes_kelly_sample_bit = ""
+    closes_kelly_sample_thin = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1299,6 +1312,24 @@ def window_a_sample_readiness(
                 "A practical Kelly quarter · "
                 f"{_fmt_kelly_pct(closes_quarter_kelly_pct)}%"
             )
+
+        # Kelly from few closes is noise (portfolio AI + xang1234 sample).
+        # Close floor of 3 sells ≠ a size sample. thin warns only.
+        if closes_polarity_known:
+            n_sample = closes_wins + closes_losses
+            closes_kelly_sample_n = n_sample
+            need = int(WINDOW_A_KELLY_SAMPLE_MIN)
+            if n_sample < need:
+                closes_kelly_sample = "thin"
+                closes_kelly_sample_thin = True
+                closes_kelly_sample_bit = (
+                    f"A Kelly sample thin · {n_sample} closes <{need}"
+                )
+            else:
+                closes_kelly_sample = "ok"
+                closes_kelly_sample_bit = (
+                    f"A Kelly sample ok · {n_sample} closes"
+                )
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
@@ -1619,6 +1650,10 @@ def window_a_sample_readiness(
         "closes_practical_kelly_pct": closes_practical_kelly_pct,
         "closes_practical_kelly_bit": closes_practical_kelly_bit,
         "closes_practical_kelly_cut": closes_practical_kelly_cut,
+        "closes_kelly_sample": closes_kelly_sample,
+        "closes_kelly_sample_n": closes_kelly_sample_n,
+        "closes_kelly_sample_bit": closes_kelly_sample_bit,
+        "closes_kelly_sample_thin": closes_kelly_sample_thin,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1834,6 +1869,16 @@ def format_window_a_closes_practical_kelly_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_practical_kelly_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_kelly_sample_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A Kelly sample-size bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_kelly_sample_bit") or "").strip()
     return bit
 
 

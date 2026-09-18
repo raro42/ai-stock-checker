@@ -623,7 +623,10 @@ def build_promote_ab_glance(
     pick speaks ``A practical Kelly [half|quarter|sizer|none]`` — the
     largest fraction that fits the ~10% cash sizer (portfolio AI after
     the comparisons). ``half · cut`` and ``none`` warn only (still ready
-    for B). When closed rounds carry fee-adjusted net, net expectancy
+    for B). When Kelly is known, sample size speaks
+    ``A Kelly sample [thin|ok] · N closes`` (decided closes vs 10). A
+    close floor of 3 sells is not a size sample. ``thin`` warns only
+    (still ready for B). When closed rounds carry fee-adjusted net, net expectancy
     speaks ``A net expect [strong|thin] · +€N`` / ``−€N`` (net ÷ sells;
     portfolio AI after gross expectancy) — gross €/close ≠ fee-adjusted
     €/close; gross+ / net− warns ``fees eat edge``; neg/thin warn only
@@ -661,6 +664,7 @@ def build_promote_ab_glance(
         format_window_a_closes_quarter_kelly_cap_bit,
         format_window_a_closes_quarter_kelly_slot_bit,
         format_window_a_closes_practical_kelly_bit,
+        format_window_a_closes_kelly_sample_bit,
         format_window_a_closes_win_rate_bit,
         format_window_a_closes_wr_vs_be_bit,
         format_window_a_fee_drag_bit,
@@ -758,6 +762,9 @@ def build_promote_ab_glance(
         "closes_practical_kelly": "",
         "closes_practical_kelly_pct": None,
         "closes_practical_kelly_cut": False,
+        "closes_kelly_sample": "",
+        "closes_kelly_sample_n": None,
+        "closes_kelly_sample_thin": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -795,6 +802,7 @@ def build_promote_ab_glance(
         "a_closes_quarter_kelly_slot_bit": "",
         "a_closes_quarter_kelly_cap_bit": "",
         "a_closes_practical_kelly_bit": "",
+        "a_closes_kelly_sample_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
         "a_closes_net_expectancy_bit": "",
@@ -936,6 +944,9 @@ def build_promote_ab_glance(
     closes_practical_kelly = str(sample.get("closes_practical_kelly") or "")
     closes_practical_kelly_pct = sample.get("closes_practical_kelly_pct")
     closes_practical_kelly_cut = bool(sample.get("closes_practical_kelly_cut"))
+    closes_kelly_sample = str(sample.get("closes_kelly_sample") or "")
+    closes_kelly_sample_n = sample.get("closes_kelly_sample_n")
+    closes_kelly_sample_thin = bool(sample.get("closes_kelly_sample_thin"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1033,6 +1044,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_kelly_sample_bit = (
+        format_window_a_closes_kelly_sample_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_payoff_bit = (
         format_window_a_closes_payoff_bit(sample) if window == "A" else ""
     )
@@ -1060,7 +1076,7 @@ def build_promote_ab_glance(
     )
 
     def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + WR + vs-BE + Kelly + half-Kelly + slot + cap + quarter + quarter-slot + quarter-cap + practical + payoff + expectancy + net + fee take + PF + net PF bits."""
+        """Prepend fee + polarity + WR + vs-BE + Kelly + half-Kelly + slot + cap + quarter + quarter-slot + quarter-cap + practical + Kelly sample + payoff + expectancy + net + fee take + PF + net PF bits."""
         bits = [
             b
             for b in (
@@ -1076,6 +1092,7 @@ def build_promote_ab_glance(
                 a_closes_quarter_kelly_slot_bit,
                 a_closes_quarter_kelly_cap_bit,
                 a_closes_practical_kelly_bit,
+                a_closes_kelly_sample_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
                 a_closes_net_expectancy_bit,
@@ -1091,7 +1108,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -1109,6 +1126,7 @@ def build_promote_ab_glance(
             or closes_quarter_kelly_slot_under
             or closes_quarter_kelly_cap_under
             or closes_practical_kelly_cut
+            or closes_kelly_sample_thin
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
@@ -1182,6 +1200,7 @@ def build_promote_ab_glance(
                 or a_closes_quarter_kelly_slot_bit
                 or a_closes_quarter_kelly_cap_bit
                 or a_closes_practical_kelly_bit
+                or a_closes_kelly_sample_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1238,6 +1257,7 @@ def build_promote_ab_glance(
                 or a_closes_quarter_kelly_slot_bit
                 or a_closes_quarter_kelly_cap_bit
                 or a_closes_practical_kelly_bit
+                or a_closes_kelly_sample_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1264,9 +1284,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / payoff / expectancy / net / fee take / PF / net PF / freshness.
-    if len(line) > 860:
-        line = line[:749] + "…"
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / payoff / expectancy / net / fee take / PF / net PF / freshness.
+    if len(line) > 920:
+        line = line[:809] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -1400,6 +1420,13 @@ def build_promote_ab_glance(
         "closes_practical_kelly_cut": (
             closes_practical_kelly_cut if window == "A" else False
         ),
+        "closes_kelly_sample": closes_kelly_sample if window == "A" else "",
+        "closes_kelly_sample_n": (
+            closes_kelly_sample_n if window == "A" else None
+        ),
+        "closes_kelly_sample_thin": (
+            closes_kelly_sample_thin if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -1461,6 +1488,7 @@ def build_promote_ab_glance(
         "a_closes_quarter_kelly_slot_bit": a_closes_quarter_kelly_slot_bit,
         "a_closes_quarter_kelly_cap_bit": a_closes_quarter_kelly_cap_bit,
         "a_closes_practical_kelly_bit": a_closes_practical_kelly_bit,
+        "a_closes_kelly_sample_bit": a_closes_kelly_sample_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
         "a_closes_net_expectancy_bit": a_closes_net_expectancy_bit,

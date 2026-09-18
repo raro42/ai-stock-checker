@@ -4695,3 +4695,106 @@ def test_promote_ab_glance_practical_kelly_cut_warns_but_ready() -> None:
     assert "A practical Kelly half · cut · 4.2%" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
+
+
+def test_window_a_kelly_sample_size() -> None:
+    """Kelly from few closes is thin. Ten or more decided closes is ok."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_KELLY_SAMPLE_MIN,
+        format_window_a_closes_kelly_sample_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_kelly_sample"] == ""
+    assert unknown["closes_kelly_sample_n"] is None
+    assert unknown["closes_kelly_sample_bit"] == ""
+    assert unknown["closes_kelly_sample_thin"] is False
+    assert format_window_a_closes_kelly_sample_bit(unknown) == ""
+    assert format_window_a_closes_kelly_sample_bit(None) == ""
+
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert thin["closes_kelly_pct"] is not None
+    assert thin["closes_kelly_sample_n"] == 5
+    assert thin["closes_kelly_sample_n"] < WINDOW_A_KELLY_SAMPLE_MIN
+    assert thin["closes_kelly_sample"] == "thin"
+    assert thin["closes_kelly_sample_thin"] is True
+    assert thin["closes_kelly_sample_bit"] == "A Kelly sample thin · 5 closes <10"
+    assert format_window_a_closes_kelly_sample_bit(thin) == thin[
+        "closes_kelly_sample_bit"
+    ]
+
+    ok = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert ok["closes_kelly_sample_n"] == 12
+    assert ok["closes_kelly_sample"] == "ok"
+    assert ok["closes_kelly_sample_thin"] is False
+    assert ok["closes_kelly_sample_bit"] == "A Kelly sample ok · 12 closes"
+
+
+def test_promote_ab_glance_kelly_sample_thin_warns_but_ready() -> None:
+    """A thin Kelly sample warns. It does not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_kelly_sample"] == "thin"
+    assert g["closes_kelly_sample_thin"] is True
+    assert "A Kelly sample thin · 5 closes <10" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
