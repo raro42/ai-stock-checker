@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Tests for earnings blackout helper (offline)."""
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from stock_checker.earnings_guard import (
+    EARNINGS_CLOCK,
     STATUS_DATED,
     STATUS_EMPTY_WINDOW,
     STATUS_MISSING,
+    earnings_day_delta,
     is_in_earnings_blackout,
     probe_earnings_calendar,
 )
@@ -82,3 +85,33 @@ def test_probe_detects_suspicious_empty_earnings_window():
 
     assert days is None
     assert status == STATUS_EMPTY_WINDOW
+
+
+def test_earnings_window_uses_new_york_date_not_utc():
+    """02:00 UTC is still the prior US session date (EDT). Do not drop blackout."""
+    # 2026-09-19 02:00 UTC = 2026-09-18 22:00 America/New_York.
+    now = datetime(2026, 9, 19, 2, 0)
+    assert earnings_day_delta(datetime(2026, 9, 18), now) == 0.0
+    assert EARNINGS_CLOCK == "America/New_York"
+
+    class _Index:
+        def __iter__(self):
+            yield datetime(2026, 9, 18)
+
+    ed = SimpleNamespace(empty=False, index=_Index())
+    ticker = SimpleNamespace(earnings_dates=ed, calendar={})
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL", now=now)
+        blocked, why = is_in_earnings_blackout("AAPL", now=now)
+
+    assert status == STATUS_DATED
+    assert days == 0.0
+    assert blocked is True
+    assert "0.0d" in why
+
+
+def test_aware_utc_stamp_converts_before_ny_date():
+    """16:00 UTC on the 18th is still the 18th in New York (12:00 EDT)."""
+    event = datetime(2026, 9, 18, 16, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 19, 2, 0, tzinfo=timezone.utc)
+    assert earnings_day_delta(event, now) == 0.0

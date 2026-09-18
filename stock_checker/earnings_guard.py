@@ -3,12 +3,20 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional, Tuple
+
+import pytz
+
+from .market_hours import US_TZ
 
 # Live entry blackout window (stocks only; crypto exempt).
 DEFAULT_DAYS_BEFORE = 2.0
 DEFAULT_DAYS_AFTER = 1.0
+
+# tradermonty #426: blackout uses the US session date, not UTC.
+# US/Eastern is the same zone as America/New_York (see market_hours.US_TZ).
+EARNINGS_CLOCK = "America/New_York"
 
 # Probe statuses — tradermonty empty-window honesty (display / fail-open why).
 STATUS_CRYPTO = "crypto"
@@ -18,26 +26,55 @@ STATUS_MISSING = "missing"
 STATUS_ERROR = "error"
 
 
-def _as_naive(dt: Any) -> Optional[datetime]:
-    if dt is None:
+def earnings_session_now(now: Optional[datetime] = None) -> datetime:
+    """US session clock for the earnings window.
+
+    Naive ``now`` is UTC (legacy ``utcnow``). Aware stamps convert to
+    US/Eastern. After the US close, UTC is often already the next date.
+    """
+    tz = pytz.timezone(US_TZ)
+    if now is None:
+        return datetime.now(tz)
+    if now.tzinfo is None:
+        return pytz.utc.localize(now).astimezone(tz)
+    return now.astimezone(tz)
+
+
+def _event_session_date(raw: Any) -> Optional[date]:
+    """Calendar date of a Yahoo earnings stamp on the US session clock.
+
+    Naive stamps keep their calendar date (Yahoo date-only). Aware stamps
+    convert to US/Eastern before the date is taken.
+    """
+    if raw is None:
         return None
-    if hasattr(dt, "to_pydatetime"):
-        dt = dt.to_pydatetime()
-    if not isinstance(dt, datetime):
+    if hasattr(raw, "to_pydatetime"):
+        raw = raw.to_pydatetime()
+    if isinstance(raw, datetime):
+        if raw.tzinfo is not None:
+            return raw.astimezone(pytz.timezone(US_TZ)).date()
+        return raw.date()
+    if isinstance(raw, date):
+        return raw
+    return None
+
+
+def earnings_day_delta(event: Any, now: Optional[datetime] = None) -> Optional[float]:
+    """Whole US-session days until ``event`` (negative if already reported)."""
+    event_day = _event_session_date(event)
+    if event_day is None:
         return None
-    if getattr(dt, "tzinfo", None) is not None:
-        return dt.replace(tzinfo=None)
-    return dt
+    clock = earnings_session_now(now)
+    return float((event_day - clock.date()).days)
 
 
 def _days_from_earnings_dates(ed: Any, now: datetime) -> Optional[float]:
     future: list[float] = []
     past: list[float] = []
     for ts in ed.index:
-        dt = _as_naive(ts)
-        if dt is None:
+        delta = earnings_day_delta(ts, now)
+        if delta is None:
             continue
-        delta = (dt - now).total_seconds() / 86400.0
         if delta >= 0:
             future.append(delta)
         else:
@@ -57,13 +94,12 @@ def _days_from_calendar(cal: Any, now: datetime) -> Optional[float]:
         return None
     if isinstance(raw, (list, tuple)) and raw:
         raw = raw[0]
-    dt = _as_naive(raw)
-    if dt is None:
-        return None
-    return (dt - now).total_seconds() / 86400.0
+    return earnings_day_delta(raw, now)
 
 
-def probe_earnings_calendar(symbol: str) -> Tuple[Optional[float], str]:
+def probe_earnings_calendar(
+    symbol: str, *, now: Optional[datetime] = None
+) -> Tuple[Optional[float], str]:
     """Return (days_to_next, status).
 
     ``empty_window`` means Yahoo exposed ``earnings_dates`` but it was empty
@@ -80,7 +116,7 @@ def probe_earnings_calendar(symbol: str) -> Tuple[Optional[float], str]:
 
     try:
         ticker = yf.Ticker(symbol)
-        now = datetime.utcnow()
+        clock = earnings_session_now(now)
         empty_dates = False
 
         ed = getattr(ticker, "earnings_dates", None)
@@ -88,11 +124,11 @@ def probe_earnings_calendar(symbol: str) -> Tuple[Optional[float], str]:
             if ed.empty:
                 empty_dates = True
             else:
-                days = _days_from_earnings_dates(ed, now)
+                days = _days_from_earnings_dates(ed, clock)
                 if days is not None:
                     return days, STATUS_DATED
 
-        days = _days_from_calendar(getattr(ticker, "calendar", None), now)
+        days = _days_from_calendar(getattr(ticker, "calendar", None), clock)
         if days is not None:
             return days, STATUS_DATED
 
@@ -117,18 +153,19 @@ def is_in_earnings_blackout(
     *,
     days_before: float = DEFAULT_DAYS_BEFORE,
     days_after: float = DEFAULT_DAYS_AFTER,
+    now: Optional[datetime] = None,
 ) -> Tuple[bool, str]:
     """
     True if we should block NEW entries near earnings.
 
-    Window: [-days_after, +days_before] around the event in day units
-    where positive days_to means earnings in the future.
+    Window: [-days_after, +days_before] in whole US-session days
+    (America/New_York date, not UTC). Positive days_to means earnings ahead.
 
     Missing Yahoo calendar fail-opens: allow entry.
     Empty Yahoo ``earnings_dates`` with no calendar date also fail-opens, but
     returns an explicit why so Ops soft-allow memory can show the suspect case.
     """
-    days, status = probe_earnings_calendar(symbol)
+    days, status = probe_earnings_calendar(symbol, now=now)
     if days is None:
         if status == STATUS_EMPTY_WINDOW:
             return False, "empty Yahoo earnings window · fail-open"

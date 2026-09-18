@@ -1562,7 +1562,8 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     """Stock earnings blackout + empty-window fail-open (tradermonty; display only).
 
     New stock entries stay blocked DEFAULT_DAYS_BEFORE before and DEFAULT_DAYS_AFTER
-    after earnings. Crypto is exempt. Missing Yahoo date → allow (fail-open).
+    after earnings. The window uses the America/New_York date, not UTC
+    (tradermonty #426). Crypto is exempt. Missing Yahoo date → allow (fail-open).
     Empty Yahoo ``earnings_dates`` with no calendar date is a *suspect* empty
     window (tradermonty #379) — still allow, but call it out (not a silent waiver).
     Policy honesty only — no live calendar poll. Not a new gate.
@@ -1570,12 +1571,13 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     from stock_checker.earnings_guard import (
         DEFAULT_DAYS_AFTER,
         DEFAULT_DAYS_BEFORE,
+        EARNINGS_CLOCK,
     )
 
     before = float(DEFAULT_DAYS_BEFORE)
     after = float(DEFAULT_DAYS_AFTER)
     line = (
-        f"stocks · {before:g}d/{after:g}d · "
+        f"stocks · NY date · {before:g}d/{after:g}d · "
         "empty Yahoo → allow (suspect) · crypto exempt"
     )
     if len(line) > 96:
@@ -1589,6 +1591,7 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
         "fail_open": True,
         "missing_calendar": "allow",
         "empty_window": "allow_suspect",
+        "clock": EARNINGS_CLOCK,
     }
 
 
