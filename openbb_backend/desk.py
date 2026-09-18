@@ -191,6 +191,61 @@ def build_scan_freshness(
     }
 
 
+def build_mark_coverage(
+    rows: Sequence[Mapping[str, Any]] | None,
+) -> dict[str, Any]:
+    """Holding price-coverage honesty (xang1234 Cot stale-coverage reject; display only).
+
+    Scan age is ``build_scan_freshness``. This counts lots with a live mark
+    versus cost fallback. ok = all marked. thin = some cost fallback.
+    none = no marks. An empty book stays silent. Not an entry gate.
+    Cost fallback still fills equity when marks are missing.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "severity": "",
+        "marked": 0,
+        "open": 0,
+        "pct": None,
+        "bit": "",
+    }
+    lots = [r for r in (rows or []) if isinstance(r, dict)]
+    n = len(lots)
+    if n <= 0:
+        return empty
+    marked = sum(1 for r in lots if r.get("marked"))
+    if marked <= 0:
+        return {
+            "ready": True,
+            "tone": "warn",
+            "severity": "none",
+            "marked": 0,
+            "open": n,
+            "pct": 0.0,
+            "bit": f"price coverage none · 0/{n}",
+        }
+    if marked >= n:
+        return {
+            "ready": True,
+            "tone": "ok",
+            "severity": "ok",
+            "marked": marked,
+            "open": n,
+            "pct": 100.0,
+            "bit": f"price coverage ok · {n}/{n}",
+        }
+    return {
+        "ready": True,
+        "tone": "warn",
+        "severity": "thin",
+        "marked": marked,
+        "open": n,
+        "pct": round(100.0 * marked / n, 1),
+        "bit": f"price coverage thin · {marked}/{n}",
+    }
+
+
 def build_soft_allow_glance(
     events: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -6702,6 +6757,15 @@ def load_desk_snapshot(
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
     scan_time_raw = opportunities.get("scan_time") or ""
+    mark_coverage = build_mark_coverage(rows)
+    mark_base = {
+        "live": "Marks from live quotes + latest scan.",
+        "live+scan": "Marks from live quotes + latest scan.",
+        "scan": "Marks from latest scan prices (live quotes skipped/unavailable).",
+        "cost": "Showing cost basis — no fresh marks yet.",
+    }.get(mark_source, "")
+    cov_bit = str(mark_coverage.get("bit") or "")
+    mark_note = f"{mark_base} {cov_bit}." if mark_base and cov_bit else mark_base
 
     return {
         "brand": "AI Stock Checker",
@@ -6820,12 +6884,8 @@ def load_desk_snapshot(
         if weekend
         else "Weekday session: stocks + crypto per scan rules.",
         "mark_source": mark_source,
-        "mark_note": {
-            "live": "Marks from live quotes + latest scan.",
-            "live+scan": "Marks from live quotes + latest scan.",
-            "scan": "Marks from latest scan prices (live quotes skipped/unavailable).",
-            "cost": "Showing cost basis — no fresh marks yet.",
-        }.get(mark_source, ""),
+        "mark_coverage": mark_coverage,
+        "mark_note": mark_note,
         "recommendations": recs,
         "crypto_leaders": crypto_leaders,
         "stock_breakouts": stock_breakouts,

@@ -223,6 +223,9 @@ def test_desk_snapshot_rich(tmp_path: Path):
     assert any(h["symbol"] == "BTC-USD" and h["name"] == "Bitcoin" for h in snap["holdings"])
     assert "needs_agent=0" in snap["watchdog"]
     assert snap["mark_source"] in {"scan", "live+scan"}
+    assert snap["mark_coverage"]["severity"] == "ok"
+    assert snap["mark_coverage"]["bit"] == "price coverage ok · 2/2"
+    assert "price coverage ok · 2/2" in snap["mark_note"]
     assert snap["github_ideas"] == []
     assert snap["github_watch_updates"] == 0
     assert snap["github_watch_has_digest"] is False
