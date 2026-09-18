@@ -11,7 +11,10 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from stock_checker.risk_halts import DEFAULT_ENTRY_CASH_FRAC
+from stock_checker.risk_halts import (
+    DEFAULT_ENTRY_CASH_FRAC,
+    DEFAULT_MAX_NAME_PCT,
+)
 from stock_checker.trader_config import DEFAULTS as TRADER_DEFAULTS
 
 # Window A control (promote OFF) — started 2026-08-12 ~15:22 UTC
@@ -85,6 +88,10 @@ WINDOW_A_HALF_KELLY_MATCH_PP = 5.0
 WINDOW_A_EQUAL_SLOT_PCT = round(
     100.0 / max(1, int(TRADER_DEFAULTS.get("max_positions") or 5)), 1
 )
+# Half-Kelly vs soft single-name concentration cap (~30% equity).
+# Equal slot ≠ the soft max-name ceiling (C-conc / Book Cap). Same MATCH.
+# under = cap larger than practical edge (warn). Not a live cap change.
+WINDOW_A_CONC_CAP_PCT = round(float(DEFAULT_MAX_NAME_PCT), 1)
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -335,6 +342,11 @@ def window_a_sample_readiness(
     (``WINDOW_A_EQUAL_SLOT_PCT`` = 100/max_positions). Cash sizer ≠ equal
     book weight when the book is full. ``under`` when half-Kelly is more
     than ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the slot (warn only; still
+    ready for B). When Kelly is known, also speak half-Kelly vs soft
+    concentration cap ``A half-Kelly vs cap [under|match|over] · N% vs 30%``
+    (``WINDOW_A_CONC_CAP_PCT`` = ``DEFAULT_MAX_NAME_PCT``). Equal slot ≠
+    the single-name ceiling. ``under`` when half-Kelly is more than
+    ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the cap (warn only; still
     ready for B). Missing WR or payoff → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
@@ -449,6 +461,10 @@ def window_a_sample_readiness(
         "closes_half_kelly_vs_slot": "",
         "closes_half_kelly_slot_bit": "",
         "closes_half_kelly_slot_under": False,
+        "closes_half_kelly_cap_pct": None,
+        "closes_half_kelly_vs_cap": "",
+        "closes_half_kelly_cap_bit": "",
+        "closes_half_kelly_cap_under": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1009,6 +1025,8 @@ def window_a_sample_readiness(
     # under = sizer larger than that practical edge (warn only).
     # Then half-Kelly vs equal-slot (~20% at max_positions=5): cash sizer
     # ≠ equal book weight when the book is full (xang1234 severity).
+    # Then half-Kelly vs soft concentration cap (~30%): equal slot ≠ the
+    # single-name ceiling (tradermonty max_position_pct / C-conc).
     closes_half_kelly_pct: float | None = None
     closes_half_kelly_sizer_pct: float | None = None
     closes_half_kelly_vs = ""
@@ -1018,6 +1036,10 @@ def window_a_sample_readiness(
     closes_half_kelly_vs_slot = ""
     closes_half_kelly_slot_bit = ""
     closes_half_kelly_slot_under = False
+    closes_half_kelly_cap_pct: float | None = None
+    closes_half_kelly_vs_cap = ""
+    closes_half_kelly_cap_bit = ""
+    closes_half_kelly_cap_under = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1071,6 +1093,30 @@ def window_a_sample_readiness(
             closes_half_kelly_vs_slot = "match"
             closes_half_kelly_slot_bit = (
                 f"A half-Kelly vs slot match · {slot_pair}"
+            )
+
+        cap_pct = float(WINDOW_A_CONC_CAP_PCT)
+        closes_half_kelly_cap_pct = cap_pct
+        cap_delta = closes_half_kelly_pct - cap_pct
+        cap_pair = (
+            f"{_fmt_kelly_pct(closes_half_kelly_pct)}% vs "
+            f"{_fmt_kelly_pct(cap_pct)}%"
+        )
+        if cap_delta < -WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_half_kelly_vs_cap = "under"
+            closes_half_kelly_cap_under = True
+            closes_half_kelly_cap_bit = (
+                f"A half-Kelly vs cap under · {cap_pair}"
+            )
+        elif cap_delta > WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_half_kelly_vs_cap = "over"
+            closes_half_kelly_cap_bit = (
+                f"A half-Kelly vs cap over · {cap_pair}"
+            )
+        else:
+            closes_half_kelly_vs_cap = "match"
+            closes_half_kelly_cap_bit = (
+                f"A half-Kelly vs cap match · {cap_pair}"
             )
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
@@ -1371,6 +1417,10 @@ def window_a_sample_readiness(
         "closes_half_kelly_vs_slot": closes_half_kelly_vs_slot,
         "closes_half_kelly_slot_bit": closes_half_kelly_slot_bit,
         "closes_half_kelly_slot_under": closes_half_kelly_slot_under,
+        "closes_half_kelly_cap_pct": closes_half_kelly_cap_pct,
+        "closes_half_kelly_vs_cap": closes_half_kelly_vs_cap,
+        "closes_half_kelly_cap_bit": closes_half_kelly_cap_bit,
+        "closes_half_kelly_cap_under": closes_half_kelly_cap_under,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1536,6 +1586,16 @@ def format_window_a_closes_half_kelly_slot_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_half_kelly_slot_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_half_kelly_cap_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A half-Kelly vs concentration-cap bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_half_kelly_cap_bit") or "").strip()
     return bit
 
 

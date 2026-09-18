@@ -8,7 +8,7 @@ fees gates.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Sequence
+from typing import Any, List, Sequence
 
 from stock_checker.symbol_filters import is_tradeable_symbol
 

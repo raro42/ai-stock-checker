@@ -9,7 +9,7 @@ Does not change exits or autoresearch.
 from __future__ import annotations
 
 import os
-from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 # Fraction of directional names that must be "up" (crypto) before new crypto buys.
 DEFAULT_MIN_ADVANCE_RATIO = 0.40

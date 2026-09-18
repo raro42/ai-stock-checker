@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 
 from stock_checker.trader_cycle import run_one_cycle
 

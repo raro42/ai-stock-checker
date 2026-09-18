@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-import urllib.error
 
-import pytest
 
 from stock_checker import ai_analyzer as aa
 
