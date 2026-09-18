@@ -65,6 +65,12 @@ WINDOW_A_WR_BE_AT_PP = 2.0
 # below keeps warn via closes_wr_below_be (still ready for B).
 WINDOW_A_WR_EDGE_STRONG_PP = 10.0
 WINDOW_A_WR_EDGE_THIN_PP = 5.0
+# Full Kelly % of equity = 100·(p − (1−p)/R) from win rate and payoff.
+# WR vs BE says if hit rate clears breakeven; Kelly says the size fraction.
+# Full Kelly only (not half, not clamped). strong ≥20% · thin <5% · neg ≤0.
+# Neg and thin warn only (still ready for B). Not a live sizer.
+WINDOW_A_KELLY_STRONG_PCT = 20.0
+WINDOW_A_KELLY_THIN_PCT = 5.0
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -298,7 +304,14 @@ def window_a_sample_readiness(
     ±``WINDOW_A_WR_BE_AT_PP`` pp. Above-BE cushion severity:
     strong ≥``WINDOW_A_WR_EDGE_STRONG_PP`` · ok mid · thin
     <``WINDOW_A_WR_EDGE_THIN_PP`` (warn). ``below`` and thin cushion warn
-    only (still ready for B). Missing payoff or WR → fail-open. When
+    only (still ready for B). Missing payoff or WR → fail-open. When win
+    rate and payoff are both known, speak full Kelly
+    ``A Kelly [strong|thin|neg] · N%`` (f* = p − (1−p)/R) — portfolio AI
+    size fraction after WR vs BE. WR vs BE ≠ the equity fraction the edge
+    supports. strong ≥``WINDOW_A_KELLY_STRONG_PCT`` · ok mid · thin
+    <``WINDOW_A_KELLY_THIN_PCT`` · neg ≤0. Neg and thin warn only (still
+    ready for B). Not half-Kelly; not a live sizer. Missing WR or payoff
+    → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
     (net ÷ sells) — portfolio AI after gross expectancy; gross €/close ≠
@@ -398,6 +411,11 @@ def window_a_sample_readiness(
         "closes_wr_edge_pp": None,
         "closes_wr_edge_severity": "",
         "closes_wr_edge_thin": False,
+        "closes_kelly_pct": None,
+        "closes_kelly_bit": "",
+        "closes_kelly_severity": "",
+        "closes_kelly_thin": False,
+        "closes_kelly_neg": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -915,6 +933,44 @@ def window_a_sample_readiness(
             closes_wr_vs_be = "at"
             closes_wr_vs_be_bit = f"A WR at BE · {pp_s}"
 
+    # Portfolio AI full Kelly after WR vs BE.
+    # f* = p − (1−p)/R. WR vs BE ≠ the equity fraction the edge supports.
+    # Full Kelly only — not half-Kelly and not the live cash sizer.
+    # neg ≤0 and thin <5% warn only (still ready for B).
+    closes_kelly_pct: float | None = None
+    closes_kelly_bit = ""
+    closes_kelly_severity = ""
+    closes_kelly_thin = False
+    closes_kelly_neg = False
+    if (
+        closes_win_rate_pct is not None
+        and closes_payoff_ratio is not None
+        and closes_payoff_ratio > 0
+    ):
+        p = closes_win_rate_pct / 100.0
+        kelly = p - ((1.0 - p) / closes_payoff_ratio)
+        closes_kelly_pct = round(kelly * 100.0, 1)
+        abs_k = abs(closes_kelly_pct)
+        if abs(abs_k - round(abs_k)) < 0.05:
+            num = f"{int(round(abs_k))}"
+        else:
+            num = f"{abs_k:.1f}"
+        if closes_kelly_pct < 0:
+            closes_kelly_neg = True
+            closes_kelly_bit = f"A Kelly neg · −{num}%"
+        elif closes_kelly_pct == 0:
+            closes_kelly_neg = True
+            closes_kelly_bit = "A Kelly neg · 0%"
+        elif closes_kelly_pct < WINDOW_A_KELLY_THIN_PCT:
+            closes_kelly_severity = "thin"
+            closes_kelly_thin = True
+            closes_kelly_bit = f"A Kelly thin · {num}%"
+        elif closes_kelly_pct >= WINDOW_A_KELLY_STRONG_PCT:
+            closes_kelly_severity = "strong"
+            closes_kelly_bit = f"A Kelly strong · {num}%"
+        else:
+            closes_kelly_bit = f"A Kelly · {num}%"
+
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
     # expectancy can look fine while fee-adjusted €/close is red.
@@ -1199,6 +1255,11 @@ def window_a_sample_readiness(
         "closes_wr_edge_pp": closes_wr_edge_pp,
         "closes_wr_edge_severity": closes_wr_edge_severity,
         "closes_wr_edge_thin": closes_wr_edge_thin,
+        "closes_kelly_pct": closes_kelly_pct,
+        "closes_kelly_bit": closes_kelly_bit,
+        "closes_kelly_severity": closes_kelly_severity,
+        "closes_kelly_thin": closes_kelly_thin,
+        "closes_kelly_neg": closes_kelly_neg,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1338,6 +1399,14 @@ def format_window_a_closes_wr_vs_be_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_wr_vs_be_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_kelly_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A full-Kelly bit (equity fraction; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_kelly_bit") or "").strip()
     return bit
 
 

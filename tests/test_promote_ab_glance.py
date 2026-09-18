@@ -2172,6 +2172,168 @@ def test_promote_ab_glance_closes_net_vs_fee_thin_warns_but_ready() -> None:
     assert g["b_ready"] is True
 
 
+def test_window_a_closes_kelly_triad() -> None:
+    """Full Kelly from WR + payoff (portfolio AI size fraction; not half-Kelly)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_KELLY_STRONG_PCT,
+        WINDOW_A_KELLY_THIN_PCT,
+        format_window_a_closes_kelly_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_kelly_pct"] is None
+    assert unknown["closes_kelly_bit"] == ""
+    assert unknown["closes_kelly_thin"] is False
+    assert unknown["closes_kelly_neg"] is False
+    assert format_window_a_closes_kelly_bit(unknown) == ""
+    assert format_window_a_closes_kelly_bit(None) == ""
+
+    # 75% WR · payoff 2 → f* = 0.75 − 0.25/2 = 62.5%
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert strong["closes_kelly_pct"] == 62.5
+    assert strong["closes_kelly_pct"] >= WINDOW_A_KELLY_STRONG_PCT
+    assert strong["closes_kelly_severity"] == "strong"
+    assert strong["closes_kelly_thin"] is False
+    assert strong["closes_kelly_neg"] is False
+    assert strong["closes_kelly_bit"] == "A Kelly strong · 62.5%"
+    assert format_window_a_closes_kelly_bit(strong) == strong["closes_kelly_bit"]
+
+    # 50% WR · payoff 1.1 → f* = 0.5 − 0.5/1.1 ≈ 4.5%
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 5,
+            "losses": 5,
+            "avg_win": 11.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert thin["closes_kelly_pct"] == 4.5
+    assert thin["closes_kelly_pct"] < WINDOW_A_KELLY_THIN_PCT
+    assert thin["closes_kelly_severity"] == "thin"
+    assert thin["closes_kelly_thin"] is True
+    assert thin["closes_kelly_bit"] == "A Kelly thin · 4.5%"
+
+    # 50% WR · payoff 1.5 → f* = 0.5 − 0.5/1.5 ≈ 16.7%
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 5,
+            "losses": 5,
+            "avg_win": 15.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert mid["closes_kelly_pct"] == 16.7
+    assert (
+        WINDOW_A_KELLY_THIN_PCT
+        <= mid["closes_kelly_pct"]
+        < WINDOW_A_KELLY_STRONG_PCT
+    )
+    assert mid["closes_kelly_severity"] == ""
+    assert mid["closes_kelly_thin"] is False
+    assert mid["closes_kelly_bit"] == "A Kelly · 16.7%"
+
+    # 50% WR · payoff 1 → f* = 0
+    zero = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "avg_win": 10.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert zero["closes_kelly_pct"] == 0.0
+    assert zero["closes_kelly_neg"] is True
+    assert zero["closes_kelly_bit"] == "A Kelly neg · 0%"
+
+    # 40% WR · payoff 0.5 → f* = 0.4 − 0.6/0.5 = −80%
+    neg = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 2,
+            "losses": 3,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert neg["closes_kelly_pct"] == -80.0
+    assert neg["closes_kelly_neg"] is True
+    assert neg["closes_kelly_thin"] is False
+    assert neg["closes_kelly_bit"] == "A Kelly neg · −80%"
+
+
+def test_promote_ab_glance_closes_kelly_neg_warns_but_ready() -> None:
+    """Negative Kelly → warn · still ready for B. Not a live sizer."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "fees": 4.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 36.0,
+            "wins": 2,
+            "losses": 3,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "gross_wins": 40.0,
+            "gross_losses": 120.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_kelly_pct"] == -80.0
+    assert g["closes_kelly_neg"] is True
+    assert "A Kelly neg · −80%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_window_a_closes_net_profit_factor_triad() -> None:
     """Net PF = (gross_wins − fees) ÷ gross_losses (portfolio AI after gross PF)."""
     from stock_checker.promote_ab import (
