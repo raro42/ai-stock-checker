@@ -4491,3 +4491,207 @@ def test_promote_ab_glance_b_blocked_on_cadence_drift() -> None:
     assert "trade 1m<5m" in g["b_blockers"]
     assert "scan 5m<15m" in g["line"]
     assert "ready for B" not in g["line"]
+
+
+def test_window_a_practical_kelly_pick() -> None:
+    """One practical Kelly pick after the half/quarter comparisons."""
+    from stock_checker.promote_ab import (
+        format_window_a_closes_practical_kelly_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_practical_kelly"] == ""
+    assert unknown["closes_practical_kelly_pct"] is None
+    assert unknown["closes_practical_kelly_bit"] == ""
+    assert unknown["closes_practical_kelly_cut"] is False
+    assert format_window_a_closes_practical_kelly_bit(unknown) == ""
+    assert format_window_a_closes_practical_kelly_bit(None) == ""
+
+    # 45% WR · payoff 1.5 → Kelly 8.3 → half 4.2 under sizer → cut
+    cut = window_a_sample_readiness(
+        {
+            "trades": 20,
+            "buys": 10,
+            "sells": 10,
+            "wins": 9,
+            "losses": 11,
+            "avg_win": 15.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert cut["closes_half_kelly_pct"] == 4.2
+    assert cut["closes_half_kelly_vs"] == "under"
+    assert cut["closes_practical_kelly"] == "half"
+    assert cut["closes_practical_kelly_pct"] == 4.2
+    assert cut["closes_practical_kelly_cut"] is True
+    assert cut["closes_practical_kelly_bit"] == (
+        "A practical Kelly half · cut · 4.2%"
+    )
+
+    # 50% WR · payoff 1.5 → half 8.3 matches sizer
+    half = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 5,
+            "losses": 5,
+            "avg_win": 15.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert half["closes_half_kelly_vs"] == "match"
+    assert half["closes_practical_kelly"] == "half"
+    assert half["closes_practical_kelly_pct"] == 8.3
+    assert half["closes_practical_kelly_cut"] is False
+    assert half["closes_practical_kelly_bit"] == "A practical Kelly half · 8.3%"
+    assert format_window_a_closes_practical_kelly_bit(half) == half[
+        "closes_practical_kelly_bit"
+    ]
+
+    # 60% WR · payoff 2 → half 20 over · quarter 10 fits
+    quarter = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert quarter["closes_half_kelly_vs"] == "over"
+    assert quarter["closes_quarter_kelly_vs"] == "match"
+    assert quarter["closes_practical_kelly"] == "quarter"
+    assert quarter["closes_practical_kelly_pct"] == 10.0
+    assert quarter["closes_practical_kelly_cut"] is False
+    assert quarter["closes_practical_kelly_bit"] == (
+        "A practical Kelly quarter · 10%"
+    )
+
+    # 75% WR · payoff 2 → quarter 15.6 over sizer → cash slice binds
+    sizer = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert sizer["closes_quarter_kelly_vs"] == "over"
+    assert sizer["closes_practical_kelly"] == "sizer"
+    assert sizer["closes_practical_kelly_pct"] == 10.0
+    assert sizer["closes_practical_kelly_cut"] is False
+    assert sizer["closes_practical_kelly_bit"] == "A practical Kelly sizer · 10%"
+
+    # Payoff below breakeven → f* ≤ 0
+    none = window_a_sample_readiness(
+        {
+            "trades": 8,
+            "buys": 4,
+            "sells": 4,
+            "wins": 1,
+            "losses": 3,
+            "avg_win": 10.0,
+            "avg_loss": 20.0,
+        }
+    )
+    assert none["closes_kelly_neg"] is True
+    assert none["closes_practical_kelly"] == "none"
+    assert none["closes_practical_kelly_pct"] is None
+    assert none["closes_practical_kelly_cut"] is True
+    assert none["closes_practical_kelly_bit"] == "A practical Kelly none"
+
+
+def test_promote_ab_glance_practical_kelly_quarter_ready() -> None:
+    """Quarter pick speaks on the glance and does not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["closes_practical_kelly"] == "quarter"
+    assert g["closes_practical_kelly_cut"] is False
+    assert "A practical Kelly quarter · 10%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
+def test_promote_ab_glance_practical_kelly_cut_warns_but_ready() -> None:
+    """Half · cut warns. It does not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 20,
+            "buys": 10,
+            "sells": 10,
+            "fees": 10.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 30.0,
+            "wins": 9,
+            "losses": 11,
+            "avg_win": 15.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_practical_kelly"] == "half"
+    assert g["closes_practical_kelly_cut"] is True
+    assert "A practical Kelly half · cut · 4.2%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True

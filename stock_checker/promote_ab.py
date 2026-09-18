@@ -369,7 +369,14 @@ def window_a_sample_readiness(
     quarter vs slot ≠ quarter vs cap. Quarter of full Kelly is at most 25%,
     so vs 30% it is usually ``under``. ``under`` when quarter-Kelly is more
     than ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the cap (warn only; still
-    ready for B). Missing WR or payoff → fail-open. When
+    ready for B). When Kelly is known, also speak one practical pick
+    ``A practical Kelly [half|quarter|sizer|none]`` — the largest
+    conventional fraction that fits the cash sizer (portfolio AI after
+    the half/quarter comparisons + tradermonty sizer). ``half · cut`` when
+    half is under the sizer. ``half`` when half matches. ``quarter`` when
+    half is over but quarter fits. ``sizer`` when even quarter is over
+    (desk already tighter than ¼ Kelly). ``none`` when f* ≤ 0. Cut and
+    none warn only (still ready for B). Missing WR or payoff → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
     (net ÷ sells) — portfolio AI after gross expectancy; gross €/close ≠
@@ -500,6 +507,10 @@ def window_a_sample_readiness(
         "closes_quarter_kelly_vs_cap": "",
         "closes_quarter_kelly_cap_bit": "",
         "closes_quarter_kelly_cap_under": False,
+        "closes_practical_kelly": "",
+        "closes_practical_kelly_pct": None,
+        "closes_practical_kelly_bit": "",
+        "closes_practical_kelly_cut": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1088,6 +1099,10 @@ def window_a_sample_readiness(
     closes_quarter_kelly_vs_cap = ""
     closes_quarter_kelly_cap_bit = ""
     closes_quarter_kelly_cap_under = False
+    closes_practical_kelly = ""
+    closes_practical_kelly_pct: float | None = None
+    closes_practical_kelly_bit = ""
+    closes_practical_kelly_cut = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1245,6 +1260,44 @@ def window_a_sample_readiness(
             closes_quarter_kelly_vs_cap = "match"
             closes_quarter_kelly_cap_bit = (
                 f"A quarter-Kelly vs cap match · {q_cap_pair}"
+            )
+
+        # One pick after the half/quarter comparisons (portfolio AI).
+        # Largest conventional fraction that fits the cash sizer.
+        # half · cut when the sizer exceeds half-Kelly. none when f* ≤ 0.
+        # Cut and none warn only (still ready for B). Not a live sizer.
+        if closes_kelly_pct <= 0:
+            closes_practical_kelly = "none"
+            closes_practical_kelly_cut = True
+            closes_practical_kelly_bit = "A practical Kelly none"
+        elif closes_half_kelly_vs == "under":
+            closes_practical_kelly = "half"
+            closes_practical_kelly_cut = True
+            closes_practical_kelly_pct = closes_half_kelly_pct
+            closes_practical_kelly_bit = (
+                "A practical Kelly half · cut · "
+                f"{_fmt_kelly_pct(closes_half_kelly_pct)}%"
+            )
+        elif closes_half_kelly_vs == "match":
+            closes_practical_kelly = "half"
+            closes_practical_kelly_pct = closes_half_kelly_pct
+            closes_practical_kelly_bit = (
+                "A practical Kelly half · "
+                f"{_fmt_kelly_pct(closes_half_kelly_pct)}%"
+            )
+        elif closes_quarter_kelly_vs == "over":
+            closes_practical_kelly = "sizer"
+            closes_practical_kelly_pct = sizer_pct
+            closes_practical_kelly_bit = (
+                "A practical Kelly sizer · "
+                f"{_fmt_kelly_pct(sizer_pct)}%"
+            )
+        else:
+            closes_practical_kelly = "quarter"
+            closes_practical_kelly_pct = closes_quarter_kelly_pct
+            closes_practical_kelly_bit = (
+                "A practical Kelly quarter · "
+                f"{_fmt_kelly_pct(closes_quarter_kelly_pct)}%"
             )
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
@@ -1562,6 +1615,10 @@ def window_a_sample_readiness(
         "closes_quarter_kelly_vs_cap": closes_quarter_kelly_vs_cap,
         "closes_quarter_kelly_cap_bit": closes_quarter_kelly_cap_bit,
         "closes_quarter_kelly_cap_under": closes_quarter_kelly_cap_under,
+        "closes_practical_kelly": closes_practical_kelly,
+        "closes_practical_kelly_pct": closes_practical_kelly_pct,
+        "closes_practical_kelly_bit": closes_practical_kelly_bit,
+        "closes_practical_kelly_cut": closes_practical_kelly_cut,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1767,6 +1824,16 @@ def format_window_a_closes_quarter_kelly_cap_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_quarter_kelly_cap_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_practical_kelly_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A practical-Kelly pick (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_practical_kelly_bit") or "").strip()
     return bit
 
 
