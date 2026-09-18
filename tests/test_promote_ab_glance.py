@@ -235,6 +235,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["profit_factor"] is None
     assert s["expectancy"] == 100.0
     assert s["win_rate"] == 100.0
+    assert s["loss_streak"] == 0
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
     assert "+€82 net" in bit
@@ -4072,6 +4073,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     shuffled = [trades[0], trades[2], trades[1], trades[3]]
     s2 = summarize_window_trades(shuffled, start=WINDOW_A_START_UTC)
     assert s2["last_sell"] == "2026-08-18T10:00:00+00:00"
+    assert s["loss_streak"] == 1
+    assert s2["loss_streak"] == 1
 
 
 def test_promote_ab_glance_open_only_keeps_window_a() -> None:
@@ -4796,5 +4799,142 @@ def test_promote_ab_glance_kelly_sample_thin_warns_but_ready() -> None:
     assert g["closes_kelly_sample"] == "thin"
     assert g["closes_kelly_sample_thin"] is True
     assert "A Kelly sample thin · 5 closes <10" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
+def test_window_a_loss_streak_quiet_and_hot() -> None:
+    """Win/lose counts ≠ a current losing run. Hot warns. It does not block B."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_LOSS_STREAK_HOT,
+        ending_loss_streak,
+        format_window_a_closes_loss_streak_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+        }
+    )
+    assert unknown["closes_loss_streak"] is None
+    assert unknown["closes_loss_streak_bit"] == ""
+    assert unknown["closes_loss_streak_hot"] is False
+    assert format_window_a_closes_loss_streak_bit(unknown) == ""
+    assert format_window_a_closes_loss_streak_bit(None) == ""
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "loss_streak": 0,
+        }
+    )
+    assert quiet["closes_loss_streak"] == 0
+    assert quiet["closes_loss_streak"] < WINDOW_A_LOSS_STREAK_HOT
+    assert quiet["closes_loss_streak_hot"] is False
+    assert quiet["closes_loss_streak_bit"] == "A loss streak quiet · 0"
+    assert format_window_a_closes_loss_streak_bit(quiet) == quiet[
+        "closes_loss_streak_bit"
+    ]
+
+    one = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "loss_streak": 1,
+        }
+    )
+    assert one["closes_loss_streak_bit"] == "A loss streak quiet · 1"
+    assert one["closes_loss_streak_hot"] is False
+
+    hot = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 2,
+            "losses": 4,
+            "loss_streak": 3,
+        }
+    )
+    assert hot["closes_loss_streak"] == 3
+    assert hot["closes_loss_streak"] >= WINDOW_A_LOSS_STREAK_HOT
+    assert hot["closes_loss_streak_hot"] is True
+    assert hot["closes_loss_streak_bit"] == "A loss streak hot · 3"
+
+    # Newest two losses after an older win. List order is not time order.
+    streak = ending_loss_streak(
+        [
+            {
+                "timestamp": "2026-08-20T10:00:00+00:00",
+                "profit_loss": -4.0,
+            },
+            {
+                "timestamp": "2026-08-14T10:00:00+00:00",
+                "profit_loss": 8.0,
+            },
+            {
+                "timestamp": "2026-08-18T10:00:00+00:00",
+                "profit_loss": 0.0,
+            },
+            {
+                "timestamp": "2026-08-22T10:00:00+00:00",
+                "profit_loss": -2.0,
+            },
+        ]
+    )
+    assert streak == 2
+    assert ending_loss_streak([]) is None
+
+
+def test_promote_ab_glance_loss_streak_hot_warns_but_ready() -> None:
+    """A hot loss streak warns. It does not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "avg_win": 40.0,
+            "avg_loss": 10.0,
+            "loss_streak": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_loss_streak"] == 2
+    assert g["closes_loss_streak_hot"] is True
+    assert "A loss streak hot · 2" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True

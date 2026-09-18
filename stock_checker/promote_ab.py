@@ -102,6 +102,10 @@ WINDOW_A_QUARTER_KELLY_FRAC = 0.25
 # ok speaks when the count is met (xang1234 speak-both-sides). Warn only
 # (still ready for B). Not a live sizer. Missing wins/losses → no bit.
 WINDOW_A_KELLY_SAMPLE_MIN = 10
+# Ending run of losing closes (portfolio AI + tradermonty postmortem).
+# Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
+# Still ready for B. Missing loss_streak → no bit. Not a live halt.
+WINDOW_A_LOSS_STREAK_HOT = 2
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -520,6 +524,9 @@ def window_a_sample_readiness(
         "closes_kelly_sample_n": None,
         "closes_kelly_sample_bit": "",
         "closes_kelly_sample_thin": False,
+        "closes_loss_streak": None,
+        "closes_loss_streak_bit": "",
+        "closes_loss_streak_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1116,6 +1123,9 @@ def window_a_sample_readiness(
     closes_kelly_sample_n: int | None = None
     closes_kelly_sample_bit = ""
     closes_kelly_sample_thin = False
+    closes_loss_streak: int | None = None
+    closes_loss_streak_bit = ""
+    closes_loss_streak_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1330,6 +1340,24 @@ def window_a_sample_readiness(
                 closes_kelly_sample_bit = (
                     f"A Kelly sample ok · {n_sample} closes"
                 )
+
+    # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
+    # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
+    # Missing key or None → fail-open (no bit).
+    if sides_known and sells > 0 and not open_only and "loss_streak" in stats:
+        raw_streak = stats.get("loss_streak")
+        if raw_streak is not None:
+            try:
+                n_streak = int(raw_streak)
+            except (TypeError, ValueError):
+                n_streak = -1
+            if n_streak >= 0:
+                closes_loss_streak = n_streak
+                if n_streak >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_loss_streak_hot = True
+                    closes_loss_streak_bit = f"A loss streak hot · {n_streak}"
+                else:
+                    closes_loss_streak_bit = f"A loss streak quiet · {n_streak}"
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
@@ -1654,6 +1682,9 @@ def window_a_sample_readiness(
         "closes_kelly_sample_n": closes_kelly_sample_n,
         "closes_kelly_sample_bit": closes_kelly_sample_bit,
         "closes_kelly_sample_thin": closes_kelly_sample_thin,
+        "closes_loss_streak": closes_loss_streak,
+        "closes_loss_streak_bit": closes_loss_streak_bit,
+        "closes_loss_streak_hot": closes_loss_streak_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1882,6 +1913,16 @@ def format_window_a_closes_kelly_sample_bit(
     return bit
 
 
+def format_window_a_closes_loss_streak_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A ending loss-streak bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_loss_streak_bit") or "").strip()
+    return bit
+
+
 def format_window_a_closes_net_expectancy_bit(
     sample: dict[str, Any] | None,
 ) -> str:
@@ -2093,6 +2134,38 @@ def filter_trades_in_window(
     return out
 
 
+def ending_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
+    """Newest run of losing closes. None when no dated decided sell.
+
+    Flat closes do not count and do not break the run. A win breaks the run.
+    Order uses timestamps, not list order. Display only — not a gate.
+    """
+    dated: list[tuple[datetime, float]] = []
+    for sell in sells:
+        if not isinstance(sell, dict):
+            continue
+        ts = parse_trade_timestamp(sell.get("timestamp"))
+        if ts is None:
+            continue
+        try:
+            pnl = float(sell.get("profit_loss") or 0)
+        except (TypeError, ValueError):
+            continue
+        if pnl == 0:
+            continue
+        dated.append((ts, pnl))
+    if not dated:
+        return None
+    dated.sort(key=lambda row: row[0])
+    streak = 0
+    for _ts, pnl in reversed(dated):
+        if pnl < 0:
+            streak += 1
+            continue
+        break
+    return streak
+
+
 def summarize_window_trades(
     trades: Iterable[dict[str, Any]],
     *,
@@ -2194,6 +2267,7 @@ def summarize_window_trades(
         "profit_factor": profit_factor,
         "expectancy": expectancy,
         "win_rate": win_rate,
+        "loss_streak": ending_loss_streak(sells),
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,
