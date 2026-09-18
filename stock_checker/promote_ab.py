@@ -74,6 +74,11 @@ WINDOW_A_WR_EDGE_THIN_PP = 5.0
 # realized) and from net expect (€/close). Severity when gross > 0 reuses
 # FEES_COMFORTABLE / FEES_THIN ratios (comfortable <0.25 · thin ≥0.5 warn).
 # Thin warn only (still ready for B).
+# Fee-adjusted net profit factor = (gross_wins − fees) ÷ gross_losses
+# (portfolio AI after gross PF + fee take). Gross PF ≠ fee-adjusted PF.
+# Severity reuses PROFIT_FACTOR_* ratios. Gross PF ≥1× / net wins ≤0 →
+# closes_net_profit_factor_eats_edge. Thin / eats-edge warn only (still
+# ready for B).
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -303,7 +308,14 @@ def window_a_sample_readiness(
     (total fees vs realized) and from net expect (€/close). Severity when
     gross > 0 reuses ``WINDOW_A_FEES_COMFORTABLE_RATIO`` /
     ``WINDOW_A_FEES_THIN_RATIO``. Thin warn only (still ready for B).
-    Not a gate; does not flip compose promote.
+    When gross wins/losses and fees are known, speak fee-adjusted net
+    profit factor ``A net PF [strong|thin] · N×``
+    ((gross_wins − fees) ÷ gross_losses) — portfolio AI after gross PF +
+    fee take; gross PF ≠ fee-adjusted PF. Severity reuses
+    ``WINDOW_A_PROFIT_FACTOR_*``. When gross PF ≥1× and net wins ≤0,
+    ``closes_net_profit_factor_eats_edge`` warns (fees eat PF). Thin /
+    eats-edge warn only (still ready for B). Missing fees/grosses →
+    fail-open. Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -390,6 +402,12 @@ def window_a_sample_readiness(
         "closes_fee_take_severity": "",
         "closes_fee_take_thin": False,
         "closes_fee_take_ratio": None,
+        "closes_net_profit_factor": None,
+        "closes_net_profit_factor_bit": "",
+        "closes_net_profit_factor_severity": "",
+        "closes_net_profit_factor_thin": False,
+        "closes_net_profit_factor_eats_edge": False,
+        "closes_net_gross_wins": None,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -1005,6 +1023,65 @@ def window_a_sample_readiness(
             else:
                 closes_fee_take_bit = f"A fee take · {body}/close"
 
+    # Portfolio AI fee-adjusted net profit factor after gross PF + fee take.
+    # net_wins = gross_wins − window fees (conservative: fees hit winners).
+    # net_pf = net_wins ÷ gross_losses. Gross PF can look fine while fees
+    # wipe the total € ratio. Severity reuses PROFIT_FACTOR_*. Gross PF ≥1×
+    # and net_wins ≤0 → eats_edge. Thin + eats_edge warn only (still ready).
+    closes_net_profit_factor: float | None = None
+    closes_net_profit_factor_bit = ""
+    closes_net_profit_factor_severity = ""
+    closes_net_profit_factor_thin = False
+    closes_net_profit_factor_eats_edge = False
+    closes_net_gross_wins: float | None = None
+    if (
+        closes_gross_wins is not None
+        and closes_gross_losses is not None
+        and closes_gross_wins > 0
+        and closes_gross_losses > 0
+        and sides_known
+        and sells > 0
+        and not open_only
+    ):
+        fees_for_pf: float | None = None
+        if "fees" in stats:
+            try:
+                fees_for_pf = float(stats.get("fees") or 0)
+            except (TypeError, ValueError):
+                fees_for_pf = None
+        if fees_for_pf is not None and fees_for_pf >= 0:
+            closes_net_gross_wins = round(closes_gross_wins - fees_for_pf, 2)
+            gross_pf_ok = (
+                closes_profit_factor is not None
+                and closes_profit_factor >= WINDOW_A_PROFIT_FACTOR_THIN_RATIO
+            )
+            if closes_net_gross_wins <= 0:
+                closes_net_profit_factor_thin = True
+                if gross_pf_ok:
+                    closes_net_profit_factor_eats_edge = True
+                    closes_net_profit_factor_bit = "A net PF · fees eat PF"
+                else:
+                    closes_net_profit_factor_severity = "thin"
+                    closes_net_profit_factor_bit = "A net PF thin · 0×"
+            else:
+                net_pf = closes_net_gross_wins / closes_gross_losses
+                rounded = round(net_pf, 2)
+                if abs(net_pf - round(net_pf)) < 0.05:
+                    ratio_s = f"{int(round(net_pf))}×"
+                else:
+                    ratio_s = f"{net_pf:.1f}×"
+                closes_net_profit_factor = rounded
+                if net_pf < WINDOW_A_PROFIT_FACTOR_THIN_RATIO:
+                    closes_net_profit_factor_severity = "thin"
+                    closes_net_profit_factor_thin = True
+                    closes_net_profit_factor_bit = f"A net PF thin · {ratio_s}"
+                elif net_pf >= WINDOW_A_PROFIT_FACTOR_STRONG_RATIO:
+                    closes_net_profit_factor_severity = "strong"
+                    closes_net_profit_factor_bit = f"A net PF strong · {ratio_s}"
+                else:
+                    closes_net_profit_factor_bit = f"A net PF · {ratio_s}"
+
+
     ready = (
         (not thin)
         and (not open_only)
@@ -1092,6 +1169,12 @@ def window_a_sample_readiness(
         "closes_fee_take_severity": closes_fee_take_severity,
         "closes_fee_take_thin": closes_fee_take_thin,
         "closes_fee_take_ratio": closes_fee_take_ratio,
+        "closes_net_profit_factor": closes_net_profit_factor,
+        "closes_net_profit_factor_bit": closes_net_profit_factor_bit,
+        "closes_net_profit_factor_severity": closes_net_profit_factor_severity,
+        "closes_net_profit_factor_thin": closes_net_profit_factor_thin,
+        "closes_net_profit_factor_eats_edge": closes_net_profit_factor_eats_edge,
+        "closes_net_gross_wins": closes_net_gross_wins,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -1229,6 +1312,16 @@ def format_window_a_closes_fee_take_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_fee_take_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_net_profit_factor_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A fee-adjusted net profit-factor bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_net_profit_factor_bit") or "").strip()
     return bit
 
 

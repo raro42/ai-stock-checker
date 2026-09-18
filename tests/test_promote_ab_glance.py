@@ -2005,6 +2005,175 @@ def test_window_a_closes_fee_take_triad() -> None:
     assert mid["closes_fee_take_bit"] == "A fee take · €15/close"
 
 
+def test_window_a_closes_net_profit_factor_triad() -> None:
+    """Net PF = (gross_wins − fees) ÷ gross_losses (portfolio AI after gross PF)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_PROFIT_FACTOR_STRONG_RATIO,
+        WINDOW_A_PROFIT_FACTOR_THIN_RATIO,
+        format_window_a_closes_net_profit_factor_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_profit_factor"] == 6.0
+    assert unknown["closes_net_profit_factor"] is None
+    assert unknown["closes_net_profit_factor_bit"] == ""
+    assert unknown["closes_net_profit_factor_thin"] is False
+    assert format_window_a_closes_net_profit_factor_bit(unknown) == ""
+
+    # gross 240/40 = 6×; fees 20 → net wins 220 → net PF 5.5× strong
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert strong["closes_profit_factor"] == 6.0
+    assert strong["closes_net_gross_wins"] == 220.0
+    assert strong["closes_net_profit_factor"] == 5.5
+    assert strong["closes_net_profit_factor"] >= WINDOW_A_PROFIT_FACTOR_STRONG_RATIO
+    assert strong["closes_net_profit_factor_severity"] == "strong"
+    assert strong["closes_net_profit_factor_thin"] is False
+    assert strong["closes_net_profit_factor_eats_edge"] is False
+    assert strong["closes_net_profit_factor_bit"] == "A net PF strong · 5.5×"
+    assert format_window_a_closes_net_profit_factor_bit(strong) == strong[
+        "closes_net_profit_factor_bit"
+    ]
+
+    # gross 60/40 = 1.5×; fees 30 → net wins 30 → net PF 0.75× thin
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 30.0,
+            "realized_pnl": 20.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin["closes_profit_factor"] == 1.5
+    assert thin["closes_net_gross_wins"] == 30.0
+    assert thin["closes_net_profit_factor"] == 0.75
+    assert thin["closes_net_profit_factor"] < WINDOW_A_PROFIT_FACTOR_THIN_RATIO
+    assert thin["closes_net_profit_factor_severity"] == "thin"
+    assert thin["closes_net_profit_factor_thin"] is True
+    assert thin["closes_net_profit_factor_bit"] == "A net PF thin · 0.8×"
+
+    # mid: gross 60/40 = 1.5; fees 10 → net 50/40 = 1.25× ok
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 10.0,
+            "realized_pnl": 20.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert mid["closes_net_profit_factor"] == 1.25
+    assert (
+        WINDOW_A_PROFIT_FACTOR_THIN_RATIO
+        <= mid["closes_net_profit_factor"]
+        < WINDOW_A_PROFIT_FACTOR_STRONG_RATIO
+    )
+    assert mid["closes_net_profit_factor_severity"] == ""
+    assert mid["closes_net_profit_factor_thin"] is False
+    assert mid["closes_net_profit_factor_bit"] == "A net PF · 1.2×"
+
+    # gross PF strong, fees wipe wins → fees eat PF
+    eats = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 250.0,
+            "realized_pnl": 200.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert eats["closes_profit_factor"] == 6.0
+    assert eats["closes_net_gross_wins"] == -10.0
+    assert eats["closes_net_profit_factor"] is None
+    assert eats["closes_net_profit_factor_eats_edge"] is True
+    assert eats["closes_net_profit_factor_thin"] is True
+    assert eats["closes_net_profit_factor_bit"] == "A net PF · fees eat PF"
+
+
+def test_promote_ab_glance_closes_net_profit_factor_eats_edge_warns_but_ready() -> None:
+    """Gross PF ok + fees wipe winners → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 250.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": -50.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["sample_ready"] is True
+    assert g["closes_net_profit_factor_eats_edge"] is True
+    assert g["closes_net_profit_factor_thin"] is True
+    assert "fees eat PF" in g["line"]
+    assert g["tone"] == "warn"
+
+
 def test_promote_ab_glance_closes_fee_take_thin_warns_but_ready() -> None:
     """Thin fee take → warn · still ready for B."""
     g = build_promote_ab_glance(

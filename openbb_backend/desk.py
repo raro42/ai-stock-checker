@@ -568,6 +568,7 @@ def build_promote_ab_glance(
         format_window_a_closes_expectancy_bit,
         format_window_a_closes_fee_take_bit,
         format_window_a_closes_net_expectancy_bit,
+        format_window_a_closes_net_profit_factor_bit,
         format_window_a_closes_payoff_bit,
         format_window_a_closes_polarity_bit,
         format_window_a_closes_profit_factor_bit,
@@ -651,6 +652,10 @@ def build_promote_ab_glance(
         "closes_fee_take_severity": "",
         "closes_fee_take_thin": False,
         "closes_fee_take_ratio": None,
+        "closes_net_profit_factor": None,
+        "closes_net_profit_factor_severity": "",
+        "closes_net_profit_factor_thin": False,
+        "closes_net_profit_factor_eats_edge": False,
         "a_fill_progress_bit": "",
         "a_thin_bit": "",
         "a_open_only_bit": "",
@@ -667,6 +672,7 @@ def build_promote_ab_glance(
         "a_closes_expectancy_bit": "",
         "a_closes_net_expectancy_bit": "",
         "a_closes_fee_take_bit": "",
+        "a_closes_net_profit_factor_bit": "",
         "a_closes_profit_factor_bit": "",
         "b_ready": False,
         "b_blockers": [],
@@ -781,6 +787,14 @@ def build_promote_ab_glance(
     closes_fee_take_severity = str(sample.get("closes_fee_take_severity") or "")
     closes_fee_take_thin = bool(sample.get("closes_fee_take_thin"))
     closes_fee_take_ratio = sample.get("closes_fee_take_ratio")
+    closes_net_profit_factor = sample.get("closes_net_profit_factor")
+    closes_net_profit_factor_severity = str(
+        sample.get("closes_net_profit_factor_severity") or ""
+    )
+    closes_net_profit_factor_thin = bool(sample.get("closes_net_profit_factor_thin"))
+    closes_net_profit_factor_eats_edge = bool(
+        sample.get("closes_net_profit_factor_eats_edge")
+    )
     a_fill_progress_bit = (
         format_window_a_fill_progress_bit(sample) if window == "A" else ""
     )
@@ -831,12 +845,17 @@ def build_promote_ab_glance(
     a_closes_fee_take_bit = (
         format_window_a_closes_fee_take_bit(sample) if window == "A" else ""
     )
+    a_closes_net_profit_factor_bit = (
+        format_window_a_closes_net_profit_factor_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_profit_factor_bit = (
         format_window_a_closes_profit_factor_bit(sample) if window == "A" else ""
     )
 
     def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + WR + vs-BE + payoff + expectancy + net + fee take + PF bits."""
+        """Prepend fee + polarity + WR + vs-BE + payoff + expectancy + net + fee take + PF + net PF bits."""
         bits = [
             b
             for b in (
@@ -849,6 +868,7 @@ def build_promote_ab_glance(
                 a_closes_net_expectancy_bit,
                 a_closes_fee_take_bit,
                 a_closes_profit_factor_bit,
+                a_closes_net_profit_factor_bit,
             )
             if b
         ]
@@ -857,7 +877,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·payoff·PF thin / neg·thin expectancy / net expect / fee take / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·payoff·PF thin / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -874,6 +894,8 @@ def build_promote_ab_glance(
             or closes_net_expectancy_eats_edge
             or closes_fee_take_thin
             or closes_profit_factor_thin
+            or closes_net_profit_factor_thin
+            or closes_net_profit_factor_eats_edge
         )
 
     # Dual progress already shows N/M fills — omit trailing fill count from fees bit.
@@ -933,8 +955,9 @@ def build_promote_ab_glance(
                 or a_closes_net_expectancy_bit
                 or a_closes_fee_take_bit
                 or a_closes_profit_factor_bit
+                or a_closes_net_profit_factor_bit
             ):
-                # Fee / polarity / WR / vs-BE / payoff / expectancy / net / fee take / PF warn; still ready for B.
+                # Fee / polarity / WR / vs-BE / payoff / expectancy / net / fee take / PF / net PF warn; still ready for B.
                 tone = "warn" if _honesty_warn() else "ready"
                 status = _prefix_honesty(
                     "ready for B" if stats_bit else "target met"
@@ -979,6 +1002,7 @@ def build_promote_ab_glance(
                 or a_closes_net_expectancy_bit
                 or a_closes_fee_take_bit
                 or a_closes_profit_factor_bit
+                or a_closes_net_profit_factor_bit
             ):
                 if _honesty_warn():
                     tone = "warn"
@@ -998,7 +1022,7 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / WR / vs-BE / payoff / expectancy / net / fee take / PF / freshness.
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / payoff / expectancy / net / fee take / PF / net PF / freshness.
     if len(line) > 460:
         line = line[:399] + "…"
     return {
@@ -1091,6 +1115,18 @@ def build_promote_ab_glance(
         "closes_fee_take_ratio": (
             closes_fee_take_ratio if window == "A" else None
         ),
+        "closes_net_profit_factor": (
+            closes_net_profit_factor if window == "A" else None
+        ),
+        "closes_net_profit_factor_severity": (
+            closes_net_profit_factor_severity if window == "A" else ""
+        ),
+        "closes_net_profit_factor_thin": (
+            closes_net_profit_factor_thin if window == "A" else False
+        ),
+        "closes_net_profit_factor_eats_edge": (
+            closes_net_profit_factor_eats_edge if window == "A" else False
+        ),
         "a_fill_progress_bit": a_fill_progress_bit,
         "a_thin_bit": a_thin_bit,
         "a_open_only_bit": a_open_only_bit,
@@ -1107,6 +1143,7 @@ def build_promote_ab_glance(
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
         "a_closes_net_expectancy_bit": a_closes_net_expectancy_bit,
         "a_closes_fee_take_bit": a_closes_fee_take_bit,
+        "a_closes_net_profit_factor_bit": a_closes_net_profit_factor_bit,
         "a_closes_profit_factor_bit": a_closes_profit_factor_bit,
         "b_ready": b_ready if window == "A" else True,
         "b_blockers": b_blockers if window == "A" else [],
