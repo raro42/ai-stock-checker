@@ -20,8 +20,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
     build_breadth_glance,
+    build_ledger_health,
     find_day_scan_archive,
     load_desk_snapshot,
+    load_jsonl_checked,
     scan_breadth_pulse_for_day,
 )
 from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
@@ -194,18 +196,7 @@ def _load_json(path: Path, default: Any) -> Any:
 
 
 def _load_trades(limit: int = 50) -> List[Dict]:
-    path = DATA_DIR / "trades.jsonl"
-    if not path.exists():
-        return []
-    rows: List[Dict] = []
-    try:
-        with path.open() as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    rows.append(json.loads(line))
-    except (json.JSONDecodeError, OSError):
-        return []
+    rows, _meta = load_jsonl_checked(DATA_DIR / "trades.jsonl")
     return rows[-limit:]
 
 
@@ -517,8 +508,11 @@ def opportunities_markdown(
 
 @app.get("/health")
 def health():
+    ledger = build_ledger_health(DATA_DIR)
     return {
         "ok": True,
         "time": datetime.utcnow().isoformat() + "Z",
         "portfolio_exists": (DATA_DIR / "portfolio.json").exists(),
+        "ledger": ledger.get("line") or "ledger none",
+        "ledger_severity": ledger.get("severity") or "",
     }

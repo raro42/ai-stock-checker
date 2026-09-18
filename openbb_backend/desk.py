@@ -20,25 +20,65 @@ from stock_checker.trade_postmortem import DEFAULT_LIMIT as POSTMORTEM_LIMIT
 from stock_checker.trade_postmortem import closed_rounds
 
 
-def _load_json(path: Path, default: Any) -> Any:
+def load_json_checked(path: Path, default: Any) -> tuple[Any, dict[str, Any]]:
+    """Parse one JSON file. Report missing, ok, malformed, or unreadable.
+
+    A bad file returns ``default``. Callers must not treat that as an empty book.
+    """
     if not path.exists():
-        return default
+        return default, {"state": "missing", "bad": 0}
     try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return default
+        text = path.read_text()
+    except OSError:
+        return default, {"state": "unreadable", "bad": 1}
+    try:
+        return json.loads(text), {"state": "ok", "bad": 0}
+    except json.JSONDecodeError:
+        return default, {"state": "malformed", "bad": 1}
+
+
+def load_jsonl_checked(path: Path) -> tuple[list[dict], dict[str, Any]]:
+    """Parse JSONL. Keep good rows. Count bad lines. Do not drop the file.
+
+    One bad line used to wipe the ledger. ``thin`` means some rows survived.
+    ``malformed`` means the file exists but every non-empty line failed.
+    """
+    if not path.exists():
+        return [], {"state": "missing", "bad": 0, "good": 0}
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return [], {"state": "unreadable", "bad": 1, "good": 0}
+    rows: list[dict] = []
+    bad = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            bad += 1
+            continue
+        if isinstance(obj, dict):
+            rows.append(obj)
+        else:
+            bad += 1
+    if bad == 0:
+        state = "ok"
+    elif rows:
+        state = "thin"
+    else:
+        state = "malformed"
+    return rows, {"state": state, "bad": bad, "good": len(rows)}
+
+
+def _load_json(path: Path, default: Any) -> Any:
+    doc, _meta = load_json_checked(path, default)
+    return doc
 
 
 def _load_jsonl(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    rows: list[dict] = []
-    try:
-        for line in path.read_text().splitlines():
-            if line.strip():
-                rows.append(json.loads(line))
-    except (json.JSONDecodeError, OSError):
-        return []
+    rows, _meta = load_jsonl_checked(path)
     return rows
 
 
@@ -250,6 +290,76 @@ def build_mark_coverage(
         "pct": round(100.0 * marked / n, 1),
         "bit": bit,
         "line": bit,
+    }
+
+
+def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
+    """Report portfolio.json / trades.jsonl parse health (display only).
+
+    tradermonty #411: name a malformed shard. Do not show an empty book as truth.
+    A thin trades file keeps good rows and says the ledger is partial (#416).
+    Missing both files stays silent. Not an entry gate.
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "severity": "",
+        "bit": "",
+        "line": "",
+        "portfolio_state": "missing",
+        "trades_state": "missing",
+        "bad_lines": 0,
+        "good_lines": 0,
+    }
+    root = Path(data_dir)
+    port_doc, port = load_json_checked(root / "portfolio.json", {})
+    if port["state"] == "ok" and not isinstance(port_doc, dict):
+        port = {"state": "malformed", "bad": 1}
+    _rows, trades = load_jsonl_checked(root / "trades.jsonl")
+    port_state = str(port.get("state") or "missing")
+    trades_state = str(trades.get("state") or "missing")
+    if port_state == "missing" and trades_state == "missing":
+        return empty
+
+    problems: list[str] = []
+    severity = "ok"
+    if port_state == "malformed":
+        severity = "bad"
+        problems.append("portfolio malformed")
+    elif port_state == "unreadable":
+        severity = "bad"
+        problems.append("portfolio unreadable")
+    elif port_state == "missing":
+        severity = "thin"
+        problems.append("no portfolio")
+
+    bad_lines = int(trades.get("bad") or 0)
+    if trades_state == "thin":
+        if severity != "bad":
+            severity = "thin"
+        label = "1 bad line" if bad_lines == 1 else f"{bad_lines} bad lines"
+        problems.append(label)
+    elif trades_state == "malformed":
+        severity = "bad"
+        problems.append("trades malformed")
+    elif trades_state == "unreadable":
+        severity = "bad"
+        problems.append("trades unreadable")
+
+    if severity == "ok":
+        bit = "ledger ok"
+    else:
+        bit = f"ledger {severity} · " + " · ".join(problems)
+    return {
+        "ready": True,
+        "tone": "ok" if severity == "ok" else "warn",
+        "severity": severity,
+        "bit": bit,
+        "line": bit,
+        "portfolio_state": port_state,
+        "trades_state": trades_state,
+        "bad_lines": bad_lines,
+        "good_lines": int(trades.get("good") or 0),
     }
 
 
@@ -6845,6 +6955,7 @@ def load_desk_snapshot(
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
     scan_time_raw = opportunities.get("scan_time") or ""
     mark_coverage = build_mark_coverage(rows)
+    ledger_health = build_ledger_health(data_dir)
     mark_base = {
         "live": "Marks from live quotes + latest scan.",
         "live+scan": "Marks from live quotes + latest scan.",
@@ -6972,6 +7083,7 @@ def load_desk_snapshot(
         else "Weekday session: stocks + crypto per scan rules.",
         "mark_source": mark_source,
         "mark_coverage": mark_coverage,
+        "ledger_health": ledger_health,
         "mark_note": mark_note,
         "recommendations": recs,
         "crypto_leaders": crypto_leaders,

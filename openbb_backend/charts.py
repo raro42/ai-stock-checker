@@ -31,15 +31,9 @@ def _load_json(path: Path, default: Any) -> Any:
 
 
 def _load_jsonl(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    rows: list[dict] = []
-    try:
-        for line in path.read_text().splitlines():
-            if line.strip():
-                rows.append(json.loads(line))
-    except (json.JSONDecodeError, OSError):
-        return []
+    from openbb_backend.desk import load_jsonl_checked
+
+    rows, _meta = load_jsonl_checked(path)
     return rows
 
 
@@ -692,6 +686,12 @@ def _mark_coverage_from_data(
     return build_mark_coverage(rows)
 
 
+def _ledger_health_from_data(data_dir: Path) -> dict[str, Any]:
+    from openbb_backend.desk import build_ledger_health
+
+    return build_ledger_health(data_dir)
+
+
 def _concentration_glance_from_portfolio(
     data_dir: Path, portfolio: dict[str, Any]
 ) -> dict[str, Any]:
@@ -1265,4 +1265,5 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
         "mark_coverage": _mark_coverage_from_data(data_dir, portfolio),
+        "ledger_health": _ledger_health_from_data(data_dir),
     }

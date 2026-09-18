@@ -1567,6 +1567,51 @@
     appendGlance(wrap);
   }
 
+  function renderLedgerHealthGlance(payload) {
+    var glance = payload && payload.ledger_health;
+    if (!glance || !glance.ready || !(glance.line || glance.bit)) return;
+    var wrap = document.createElement("section");
+    wrap.className = "ledger-health-glance";
+    wrap.setAttribute("aria-labelledby", "charts-ledger-h");
+    var h = document.createElement("h2");
+    h.id = "charts-ledger-h";
+    h.className = "visually-hidden";
+    h.textContent = "Ledger health";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "ledger-health-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "ledger-health-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Ledger";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "ledger-health-glance-body";
+    body.textContent = String(glance.line || glance.bit);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "ledger-health-glance-link";
+    link.href = "/desk/book";
+    link.textContent = "Book ledger →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "portfolio.json and trades.jsonl parse check. Bad lines are named. Good rows stay. Not a gate.";
+    wrap.appendChild(sub);
+    appendGlance(wrap);
+  }
+
   function renderPromoteAbGlance(payload) {
     var glance = payload && payload.promote_ab_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -3071,6 +3116,7 @@
     renderBookPostureGlance(payload);
     renderBookRiskGlance(payload);
     renderMarkCoverageGlance(payload);
+    renderLedgerHealthGlance(payload);
 
     /* MonsterDeveloper + xang1234: collapse long policy wall (parity with HTML screens). */
     var details = document.createElement("details");

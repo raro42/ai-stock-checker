@@ -121,6 +121,31 @@
 {%- endmacro %}
 
 
+{# Ledger file parse honesty (display only). Bad lines stay named; good rows stay. #}
+{% macro ledger_health_glance(
+  snap,
+  heading_id='ledger-health-h',
+  link_href='/desk/book',
+  link_label='Book ledger →',
+  sub='portfolio.json and trades.jsonl parse check. Bad lines are dropped and named. Good rows stay. Not a gate.'
+) -%}
+{% set glance = snap.ledger_health if snap.ledger_health is mapping else {} %}
+{% if glance.ready %}
+<section class="ledger-health-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Ledger health</h2>
+  <p class="ledger-health-glance-line">
+    <span class="ledger-health-glance-tone {{ glance.tone }}">Ledger</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="ledger-health-glance-body">{{ glance.line or glance.bit }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="ledger-health-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book slots/posture glance (display only). Book keeps the full risk strip. #}
 {% macro book_risk_glance(
   snap,
