@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from stock_checker.risk_halts import DEFAULT_ENTRY_CASH_FRAC
+
 # Window A control (promote OFF) — started 2026-08-12 ~15:22 UTC
 WINDOW_A_START = date(2026, 8, 12)
 WINDOW_A_START_UTC = datetime(2026, 8, 12, 15, 22, tzinfo=timezone.utc)
@@ -71,6 +73,11 @@ WINDOW_A_WR_EDGE_THIN_PP = 5.0
 # Neg and thin warn only (still ready for B). Not a live sizer.
 WINDOW_A_KELLY_STRONG_PCT = 20.0
 WINDOW_A_KELLY_THIN_PCT = 5.0
+# Half of full Kelly vs the live cash sizer (DEFAULT_ENTRY_CASH_FRAC ~10%).
+# Full Kelly is the theoretical max; the desk sizes near 10% of cash.
+# match within ±MATCH pp. under = sizer larger than the practical edge
+# (warn). over = sizer smaller (ok). Not a live sizer change.
+WINDOW_A_HALF_KELLY_MATCH_PP = 5.0
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -310,8 +317,13 @@ def window_a_sample_readiness(
     size fraction after WR vs BE. WR vs BE ≠ the equity fraction the edge
     supports. strong ≥``WINDOW_A_KELLY_STRONG_PCT`` · ok mid · thin
     <``WINDOW_A_KELLY_THIN_PCT`` · neg ≤0. Neg and thin warn only (still
-    ready for B). Not half-Kelly; not a live sizer. Missing WR or payoff
-    → fail-open. When
+    ready for B). The Kelly bit is full Kelly, not half and not the live
+    sizer. When Kelly is known, speak half-Kelly vs that sizer
+    ``A half-Kelly vs sizer [under|match|over] · N% vs 10%`` (half of f*
+    vs ``DEFAULT_ENTRY_CASH_FRAC``). Full Kelly ≠ the cash slice the desk
+    uses. ``under`` when half-Kelly is more than
+    ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the sizer (warn only; still
+    ready for B). Missing WR or payoff → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
     (net ÷ sells) — portfolio AI after gross expectancy; gross €/close ≠
@@ -416,6 +428,11 @@ def window_a_sample_readiness(
         "closes_kelly_severity": "",
         "closes_kelly_thin": False,
         "closes_kelly_neg": False,
+        "closes_half_kelly_pct": None,
+        "closes_half_kelly_sizer_pct": None,
+        "closes_half_kelly_vs": "",
+        "closes_half_kelly_bit": "",
+        "closes_half_kelly_under": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -971,6 +988,45 @@ def window_a_sample_readiness(
         else:
             closes_kelly_bit = f"A Kelly · {num}%"
 
+    # Portfolio AI half-Kelly vs the live ~10% cash sizer.
+    # Practitioners size at half of full Kelly. The desk uses ~10% of cash.
+    # under = sizer larger than that practical edge (warn only).
+    closes_half_kelly_pct: float | None = None
+    closes_half_kelly_sizer_pct: float | None = None
+    closes_half_kelly_vs = ""
+    closes_half_kelly_bit = ""
+    closes_half_kelly_under = False
+    if closes_kelly_pct is not None:
+        closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
+        sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
+        closes_half_kelly_sizer_pct = sizer_pct
+        delta = closes_half_kelly_pct - sizer_pct
+
+        def _fmt_kelly_pct(pct: float) -> str:
+            abs_v = abs(pct)
+            if abs(abs_v - round(abs_v)) < 0.05:
+                num_s = f"{int(round(abs_v))}"
+            else:
+                num_s = f"{abs_v:.1f}"
+            if pct < 0:
+                return f"−{num_s}"
+            return num_s
+
+        pair = (
+            f"{_fmt_kelly_pct(closes_half_kelly_pct)}% vs "
+            f"{_fmt_kelly_pct(sizer_pct)}%"
+        )
+        if delta < -WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_half_kelly_vs = "under"
+            closes_half_kelly_under = True
+            closes_half_kelly_bit = f"A half-Kelly vs sizer under · {pair}"
+        elif delta > WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_half_kelly_vs = "over"
+            closes_half_kelly_bit = f"A half-Kelly vs sizer over · {pair}"
+        else:
+            closes_half_kelly_vs = "match"
+            closes_half_kelly_bit = f"A half-Kelly vs sizer match · {pair}"
+
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
     # expectancy can look fine while fee-adjusted €/close is red.
@@ -1260,6 +1316,11 @@ def window_a_sample_readiness(
         "closes_kelly_severity": closes_kelly_severity,
         "closes_kelly_thin": closes_kelly_thin,
         "closes_kelly_neg": closes_kelly_neg,
+        "closes_half_kelly_pct": closes_half_kelly_pct,
+        "closes_half_kelly_sizer_pct": closes_half_kelly_sizer_pct,
+        "closes_half_kelly_vs": closes_half_kelly_vs,
+        "closes_half_kelly_bit": closes_half_kelly_bit,
+        "closes_half_kelly_under": closes_half_kelly_under,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1407,6 +1468,14 @@ def format_window_a_closes_kelly_bit(sample: dict[str, Any] | None) -> str:
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_kelly_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_half_kelly_bit(sample: dict[str, Any] | None) -> str:
+    """Short Window A half-Kelly vs cash-sizer bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_half_kelly_bit") or "").strip()
     return bit
 
 

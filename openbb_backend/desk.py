@@ -550,7 +550,10 @@ def build_promote_ab_glance(
     speaks ``A Kelly [strong|thin|neg] · N%`` (f* = p − (1−p)/R) —
     portfolio AI size fraction after WR vs BE. WR vs BE ≠ the equity
     fraction the edge supports. Neg ≤0 and thin <5% warn only (still
-    ready for B). Not half-Kelly; not a live sizer. When closed rounds carry fee-adjusted net, net expectancy
+    ready for B). The Kelly bit is full Kelly, not half and not the live
+    sizer. When Kelly is known, half-Kelly vs the cash sizer speaks
+    ``A half-Kelly vs sizer [under|match|over] · N% vs 10%`` (half of f*
+    vs ~10% cash). ``under`` warns only (still ready for B). When closed rounds carry fee-adjusted net, net expectancy
     speaks ``A net expect [strong|thin] · +€N`` / ``−€N`` (net ÷ sells;
     portfolio AI after gross expectancy) — gross €/close ≠ fee-adjusted
     €/close; gross+ / net− warns ``fees eat edge``; neg/thin warn only
@@ -574,6 +577,7 @@ def build_promote_ab_glance(
         format_window_a_aging_closes_bit,
         format_window_a_closes_expectancy_bit,
         format_window_a_closes_fee_take_bit,
+        format_window_a_closes_half_kelly_bit,
         format_window_a_closes_kelly_bit,
         format_window_a_closes_net_expectancy_bit,
         format_window_a_closes_net_profit_factor_bit,
@@ -655,6 +659,10 @@ def build_promote_ab_glance(
         "closes_kelly_severity": "",
         "closes_kelly_thin": False,
         "closes_kelly_neg": False,
+        "closes_half_kelly_pct": None,
+        "closes_half_kelly_sizer_pct": None,
+        "closes_half_kelly_vs": "",
+        "closes_half_kelly_under": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -685,6 +693,7 @@ def build_promote_ab_glance(
         "a_closes_win_rate_bit": "",
         "a_closes_wr_vs_be_bit": "",
         "a_closes_kelly_bit": "",
+        "a_closes_half_kelly_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
         "a_closes_net_expectancy_bit": "",
@@ -795,6 +804,10 @@ def build_promote_ab_glance(
     closes_kelly_severity = str(sample.get("closes_kelly_severity") or "")
     closes_kelly_thin = bool(sample.get("closes_kelly_thin"))
     closes_kelly_neg = bool(sample.get("closes_kelly_neg"))
+    closes_half_kelly_pct = sample.get("closes_half_kelly_pct")
+    closes_half_kelly_sizer_pct = sample.get("closes_half_kelly_sizer_pct")
+    closes_half_kelly_vs = str(sample.get("closes_half_kelly_vs") or "")
+    closes_half_kelly_under = bool(sample.get("closes_half_kelly_under"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -859,6 +872,9 @@ def build_promote_ab_glance(
     a_closes_kelly_bit = (
         format_window_a_closes_kelly_bit(sample) if window == "A" else ""
     )
+    a_closes_half_kelly_bit = (
+        format_window_a_closes_half_kelly_bit(sample) if window == "A" else ""
+    )
     a_closes_payoff_bit = (
         format_window_a_closes_payoff_bit(sample) if window == "A" else ""
     )
@@ -886,7 +902,7 @@ def build_promote_ab_glance(
     )
 
     def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + WR + vs-BE + Kelly + payoff + expectancy + net + fee take + PF + net PF bits."""
+        """Prepend fee + polarity + WR + vs-BE + Kelly + half-Kelly + payoff + expectancy + net + fee take + PF + net PF bits."""
         bits = [
             b
             for b in (
@@ -895,6 +911,7 @@ def build_promote_ab_glance(
                 a_closes_win_rate_bit,
                 a_closes_wr_vs_be_bit,
                 a_closes_kelly_bit,
+                a_closes_half_kelly_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
                 a_closes_net_expectancy_bit,
@@ -910,7 +927,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -921,6 +938,7 @@ def build_promote_ab_glance(
             or closes_wr_edge_thin
             or closes_kelly_neg
             or closes_kelly_thin
+            or closes_half_kelly_under
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
@@ -987,6 +1005,7 @@ def build_promote_ab_glance(
                 or a_closes_win_rate_bit
                 or a_closes_wr_vs_be_bit
                 or a_closes_kelly_bit
+                or a_closes_half_kelly_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -995,7 +1014,7 @@ def build_promote_ab_glance(
                 or a_closes_profit_factor_bit
                 or a_closes_net_profit_factor_bit
             ):
-                # Fee / polarity / WR / vs-BE / Kelly / payoff / expectancy / net / fee take / PF / net PF warn; still ready for B.
+                # Fee / polarity / WR / vs-BE / Kelly / half-Kelly / payoff / expectancy / net / fee take / PF / net PF warn; still ready for B.
                 tone = "warn" if _honesty_warn() else "ready"
                 status = _prefix_honesty(
                     "ready for B" if stats_bit else "target met"
@@ -1036,6 +1055,7 @@ def build_promote_ab_glance(
                 or a_closes_win_rate_bit
                 or a_closes_wr_vs_be_bit
                 or a_closes_kelly_bit
+                or a_closes_half_kelly_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1062,9 +1082,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / payoff / expectancy / net / fee take / PF / net PF / freshness.
-    if len(line) > 640:
-        line = line[:579] + "…"
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / payoff / expectancy / net / fee take / PF / net PF / freshness.
+    if len(line) > 720:
+        line = line[:659] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -1135,6 +1155,14 @@ def build_promote_ab_glance(
         "closes_kelly_severity": closes_kelly_severity if window == "A" else "",
         "closes_kelly_thin": closes_kelly_thin if window == "A" else False,
         "closes_kelly_neg": closes_kelly_neg if window == "A" else False,
+        "closes_half_kelly_pct": closes_half_kelly_pct if window == "A" else None,
+        "closes_half_kelly_sizer_pct": (
+            closes_half_kelly_sizer_pct if window == "A" else None
+        ),
+        "closes_half_kelly_vs": closes_half_kelly_vs if window == "A" else "",
+        "closes_half_kelly_under": (
+            closes_half_kelly_under if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -1189,6 +1217,7 @@ def build_promote_ab_glance(
         "a_closes_win_rate_bit": a_closes_win_rate_bit,
         "a_closes_wr_vs_be_bit": a_closes_wr_vs_be_bit,
         "a_closes_kelly_bit": a_closes_kelly_bit,
+        "a_closes_half_kelly_bit": a_closes_half_kelly_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
         "a_closes_net_expectancy_bit": a_closes_net_expectancy_bit,
