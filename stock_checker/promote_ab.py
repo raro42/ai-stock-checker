@@ -69,6 +69,11 @@ WINDOW_A_WR_EDGE_THIN_PP = 5.0
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
 # only (still ready for B). Gross+ / net− → closes_net_expectancy_eats_edge.
+# Expectancy fee take €/close = gross_expectancy − net_expectancy
+# (portfolio AI after net expect). Distinct from fee drag (total fees vs
+# realized) and from net expect (€/close). Severity when gross > 0 reuses
+# FEES_COMFORTABLE / FEES_THIN ratios (comfortable <0.25 · thin ≥0.5 warn).
+# Thin warn only (still ready for B).
 WINDOW_B_START: date | None = None  # Window B (promote ON) — not started
 WINDOW_B_START_UTC: datetime | None = None
 # Protocol table in docs/PROMOTE_AB.md — restore before starting B
@@ -292,7 +297,13 @@ def window_a_sample_readiness(
     ``WINDOW_A_EXPECTANCY_*_RATIO`` vs avg_loss. When gross expectancy > 0
     and net expect < 0, ``closes_net_expectancy_eats_edge`` warns (fees eat
     gross edge). Neg / thin / eats-edge warn only (still ready for B).
-    Missing net → fail-open. Not a gate; does not flip compose promote.
+    Missing net → fail-open. When gross and net expectancy are both known,
+    speak expectancy fee take ``A fee take [comfortable|thin] · €N/close``
+    (gross − net) — portfolio AI after net expect; distinct from fee drag
+    (total fees vs realized) and from net expect (€/close). Severity when
+    gross > 0 reuses ``WINDOW_A_FEES_COMFORTABLE_RATIO`` /
+    ``WINDOW_A_FEES_THIN_RATIO``. Thin warn only (still ready for B).
+    Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -374,6 +385,11 @@ def window_a_sample_readiness(
         "closes_net_expectancy_thin": False,
         "closes_net_expectancy_ratio": None,
         "closes_net_expectancy_eats_edge": False,
+        "closes_fee_take": None,
+        "closes_fee_take_bit": "",
+        "closes_fee_take_severity": "",
+        "closes_fee_take_thin": False,
+        "closes_fee_take_ratio": None,
         "sell_stale_days": None,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -946,6 +962,49 @@ def window_a_sample_readiness(
             else:
                 closes_net_expectancy_bit = f"A net expect {body}"
 
+    # Portfolio AI expectancy fee take after gross + net €/close.
+    # fee_take = gross_expectancy − net_expectancy (€/close fees remove).
+    # Distinct from fee drag (total fees vs realized) and net expect (€/close).
+    # Severity when gross > 0 reuses FEES_* ratios (comfortable <0.25 ·
+    # thin ≥0.5). Thin warn only (still ready for B).
+    closes_fee_take: float | None = None
+    closes_fee_take_bit = ""
+    closes_fee_take_severity = ""
+    closes_fee_take_thin = False
+    closes_fee_take_ratio: float | None = None
+    if (
+        closes_expectancy is not None
+        and closes_net_expectancy is not None
+    ):
+        closes_fee_take = round(closes_expectancy - closes_net_expectancy, 2)
+        if abs(closes_fee_take) >= 0.005:
+            abs_t = abs(closes_fee_take)
+            if abs_t >= 1000:
+                body = f"€{abs_t / 1000:.1f}k"
+            else:
+                body = f"€{abs_t:,.0f}"
+            if closes_fee_take < 0:
+                closes_fee_take_bit = f"A fee take −{body}/close"
+            elif closes_expectancy > 0:
+                closes_fee_take_ratio = round(
+                    closes_fee_take / closes_expectancy, 3
+                )
+                if closes_fee_take_ratio >= WINDOW_A_FEES_THIN_RATIO:
+                    closes_fee_take_severity = "thin"
+                    closes_fee_take_thin = True
+                    closes_fee_take_bit = f"A fee take thin · {body}/close"
+                elif (
+                    closes_fee_take_ratio < WINDOW_A_FEES_COMFORTABLE_RATIO
+                ):
+                    closes_fee_take_severity = "comfortable"
+                    closes_fee_take_bit = (
+                        f"A fee take comfortable · {body}/close"
+                    )
+                else:
+                    closes_fee_take_bit = f"A fee take · {body}/close"
+            else:
+                closes_fee_take_bit = f"A fee take · {body}/close"
+
     ready = (
         (not thin)
         and (not open_only)
@@ -1028,6 +1087,11 @@ def window_a_sample_readiness(
         "closes_net_expectancy_thin": closes_net_expectancy_thin,
         "closes_net_expectancy_ratio": closes_net_expectancy_ratio,
         "closes_net_expectancy_eats_edge": closes_net_expectancy_eats_edge,
+        "closes_fee_take": closes_fee_take,
+        "closes_fee_take_bit": closes_fee_take_bit,
+        "closes_fee_take_severity": closes_fee_take_severity,
+        "closes_fee_take_thin": closes_fee_take_thin,
+        "closes_fee_take_ratio": closes_fee_take_ratio,
         "sell_stale_days": sell_stale_days,
         "max_sell_stale_days": stale_need,
         "aging_sell_days": aging_need,
@@ -1155,6 +1219,16 @@ def format_window_a_closes_net_expectancy_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_net_expectancy_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_fee_take_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A expectancy fee take bit (€/close; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_fee_take_bit") or "").strip()
     return bit
 
 

@@ -1890,6 +1890,163 @@ def test_window_a_closes_net_expectancy_triad() -> None:
     assert from_fees["closes_net_expectancy_bit"] == "A net expect · +€12"
 
 
+def test_window_a_closes_fee_take_triad() -> None:
+    """Expectancy fee take = gross − net €/close (portfolio AI after net expect)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_FEES_COMFORTABLE_RATIO,
+        WINDOW_A_FEES_THIN_RATIO,
+        format_window_a_closes_fee_take_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert unknown["closes_fee_take"] is None
+    assert unknown["closes_fee_take_bit"] == ""
+    assert unknown["closes_fee_take_thin"] is False
+    assert format_window_a_closes_fee_take_bit(unknown) == ""
+
+    # gross 50, net 45 → take 5; 5/50 = 0.1 < comfortable
+    comfortable = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 180.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert comfortable["closes_expectancy"] == 50.0
+    assert comfortable["closes_net_expectancy"] == 45.0
+    assert comfortable["closes_fee_take"] == 5.0
+    assert comfortable["closes_fee_take_severity"] == "comfortable"
+    assert comfortable["closes_fee_take_thin"] is False
+    assert comfortable["closes_fee_take_ratio"] == 0.1
+    assert comfortable["closes_fee_take_ratio"] < WINDOW_A_FEES_COMFORTABLE_RATIO
+    assert comfortable["closes_fee_take_bit"] == (
+        "A fee take comfortable · €5/close"
+    )
+    assert format_window_a_closes_fee_take_bit(comfortable) == comfortable[
+        "closes_fee_take_bit"
+    ]
+
+    # gross 50, net 2.5 → take 47.5; 47.5/50 = 0.95 ≥ thin
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 10.0,
+            "realized_pnl": 20.0,
+            "net_after_all_fees": 10.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert thin["closes_expectancy"] == 50.0
+    assert thin["closes_net_expectancy"] == 2.5
+    assert thin["closes_fee_take"] == 47.5
+    assert thin["closes_fee_take_severity"] == "thin"
+    assert thin["closes_fee_take_thin"] is True
+    assert thin["closes_fee_take_ratio"] == 0.95
+    assert thin["closes_fee_take_ratio"] >= WINDOW_A_FEES_THIN_RATIO
+    assert thin["closes_fee_take_bit"] == "A fee take thin · €48/close"
+    assert thin["ready"] is True  # warn only
+
+    # Mid band: take / gross in [0.25, 0.5)
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 60.0,
+            "realized_pnl": 200.0,
+            "net_after_all_fees": 140.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    # gross 50, net 35 → take 15; 15/50 = 0.3 mid
+    assert mid["closes_fee_take"] == 15.0
+    assert mid["closes_fee_take_severity"] == ""
+    assert mid["closes_fee_take_thin"] is False
+    assert mid["closes_fee_take_ratio"] == 0.3
+    assert (
+        WINDOW_A_FEES_COMFORTABLE_RATIO
+        <= mid["closes_fee_take_ratio"]
+        < WINDOW_A_FEES_THIN_RATIO
+    )
+    assert mid["closes_fee_take_bit"] == "A fee take · €15/close"
+
+
+def test_promote_ab_glance_closes_fee_take_thin_warns_but_ready() -> None:
+    """Thin fee take → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 10.0,
+            "realized_pnl": 20.0,
+            "net_after_all_fees": 10.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_fee_take"] == 47.5
+    assert g["closes_fee_take_thin"] is True
+    assert g["closes_fee_take_severity"] == "thin"
+    assert "A fee take thin · €48/close" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_promote_ab_glance_closes_net_expectancy_eats_edge_warns_but_ready() -> None:
     """Gross+ / net− → fees eat edge warn · still ready for B."""
     g = build_promote_ab_glance(
