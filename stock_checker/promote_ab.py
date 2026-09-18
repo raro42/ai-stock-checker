@@ -363,6 +363,12 @@ def window_a_sample_readiness(
     (``WINDOW_A_EQUAL_SLOT_PCT``). Cash sizer ≠ equal book weight; quarter
     vs sizer ≠ quarter vs slot. ``under`` when quarter-Kelly is more than
     ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the slot (warn only; still
+    ready for B). When Kelly is known, also speak quarter-Kelly vs soft
+    concentration cap ``A quarter-Kelly vs cap [under|match|over] · N% vs 30%``
+    (``WINDOW_A_CONC_CAP_PCT``). Equal slot ≠ the single-name ceiling;
+    quarter vs slot ≠ quarter vs cap. Quarter of full Kelly is at most 25%,
+    so vs 30% it is usually ``under``. ``under`` when quarter-Kelly is more
+    than ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the cap (warn only; still
     ready for B). Missing WR or payoff → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
@@ -490,6 +496,10 @@ def window_a_sample_readiness(
         "closes_quarter_kelly_vs_slot": "",
         "closes_quarter_kelly_slot_bit": "",
         "closes_quarter_kelly_slot_under": False,
+        "closes_quarter_kelly_cap_pct": None,
+        "closes_quarter_kelly_vs_cap": "",
+        "closes_quarter_kelly_cap_bit": "",
+        "closes_quarter_kelly_cap_under": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1074,6 +1084,10 @@ def window_a_sample_readiness(
     closes_quarter_kelly_vs_slot = ""
     closes_quarter_kelly_slot_bit = ""
     closes_quarter_kelly_slot_under = False
+    closes_quarter_kelly_cap_pct: float | None = None
+    closes_quarter_kelly_vs_cap = ""
+    closes_quarter_kelly_cap_bit = ""
+    closes_quarter_kelly_cap_under = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1183,7 +1197,7 @@ def window_a_sample_readiness(
             )
 
         # Quarter-Kelly vs equal-slot (~20%): cash sizer ≠ equal book weight.
-        # Completes quarter sizer→slot (cap next); same ±5pp match band.
+        # Same ±5pp match band. Cap is the next comparison.
         closes_quarter_kelly_slot_pct = slot_pct
         q_slot_delta = closes_quarter_kelly_pct - slot_pct
         q_slot_pair = (
@@ -1205,6 +1219,32 @@ def window_a_sample_readiness(
             closes_quarter_kelly_vs_slot = "match"
             closes_quarter_kelly_slot_bit = (
                 f"A quarter-Kelly vs slot match · {q_slot_pair}"
+            )
+
+        # Quarter-Kelly vs soft concentration cap (~30%).
+        # Equal slot ≠ single-name ceiling. ¼ of full Kelly is ≤25%, so
+        # vs 30% this is usually under (portfolio AI + C-conc).
+        closes_quarter_kelly_cap_pct = cap_pct
+        q_cap_delta = closes_quarter_kelly_pct - cap_pct
+        q_cap_pair = (
+            f"{_fmt_kelly_pct(closes_quarter_kelly_pct)}% vs "
+            f"{_fmt_kelly_pct(cap_pct)}%"
+        )
+        if q_cap_delta < -WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_quarter_kelly_vs_cap = "under"
+            closes_quarter_kelly_cap_under = True
+            closes_quarter_kelly_cap_bit = (
+                f"A quarter-Kelly vs cap under · {q_cap_pair}"
+            )
+        elif q_cap_delta > WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_quarter_kelly_vs_cap = "over"
+            closes_quarter_kelly_cap_bit = (
+                f"A quarter-Kelly vs cap over · {q_cap_pair}"
+            )
+        else:
+            closes_quarter_kelly_vs_cap = "match"
+            closes_quarter_kelly_cap_bit = (
+                f"A quarter-Kelly vs cap match · {q_cap_pair}"
             )
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
@@ -1518,6 +1558,10 @@ def window_a_sample_readiness(
         "closes_quarter_kelly_vs_slot": closes_quarter_kelly_vs_slot,
         "closes_quarter_kelly_slot_bit": closes_quarter_kelly_slot_bit,
         "closes_quarter_kelly_slot_under": closes_quarter_kelly_slot_under,
+        "closes_quarter_kelly_cap_pct": closes_quarter_kelly_cap_pct,
+        "closes_quarter_kelly_vs_cap": closes_quarter_kelly_vs_cap,
+        "closes_quarter_kelly_cap_bit": closes_quarter_kelly_cap_bit,
+        "closes_quarter_kelly_cap_under": closes_quarter_kelly_cap_under,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1713,6 +1757,16 @@ def format_window_a_closes_quarter_kelly_slot_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_quarter_kelly_slot_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_quarter_kelly_cap_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A quarter-Kelly vs concentration-cap bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_quarter_kelly_cap_bit") or "").strip()
     return bit
 
 

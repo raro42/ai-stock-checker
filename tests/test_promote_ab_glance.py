@@ -2995,6 +2995,120 @@ def test_window_a_quarter_kelly_vs_equal_slot() -> None:
     )
 
 
+def test_window_a_quarter_kelly_vs_conc_cap() -> None:
+    """Quarter of full Kelly vs soft name cap ~30% (display only)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_CONC_CAP_PCT,
+        WINDOW_A_HALF_KELLY_MATCH_PP,
+        format_window_a_closes_quarter_kelly_cap_bit,
+        window_a_sample_readiness,
+    )
+
+    assert WINDOW_A_CONC_CAP_PCT == 30.0
+    assert WINDOW_A_HALF_KELLY_MATCH_PP == 5.0
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_quarter_kelly_cap_pct"] is None
+    assert unknown["closes_quarter_kelly_vs_cap"] == ""
+    assert unknown["closes_quarter_kelly_cap_bit"] == ""
+    assert unknown["closes_quarter_kelly_cap_under"] is False
+    assert format_window_a_closes_quarter_kelly_cap_bit(unknown) == ""
+    assert format_window_a_closes_quarter_kelly_cap_bit(None) == ""
+
+    # 75% WR · payoff 2 → Kelly 62.5 → quarter 15.6 vs 20 match, vs 30 under
+    under = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert under["closes_quarter_kelly_pct"] == 15.6
+    assert under["closes_quarter_kelly_vs_slot"] == "match"
+    assert under["closes_quarter_kelly_cap_pct"] == 30.0
+    assert under["closes_quarter_kelly_vs_cap"] == "under"
+    assert under["closes_quarter_kelly_cap_under"] is True
+    assert under["closes_quarter_kelly_cap_bit"] == (
+        "A quarter-Kelly vs cap under · 15.6% vs 30%"
+    )
+    assert format_window_a_closes_quarter_kelly_cap_bit(under) == under[
+        "closes_quarter_kelly_cap_bit"
+    ]
+
+    # 100% WR · payoff 2 → Kelly 100 → quarter 25 vs 30 → match (δ=-5)
+    match = window_a_sample_readiness(
+        {
+            "trades": 8,
+            "buys": 4,
+            "sells": 4,
+            "wins": 4,
+            "losses": 0,
+            "payoff_ratio": 2.0,
+        }
+    )
+    assert match["closes_kelly_pct"] == 100.0
+    assert match["closes_quarter_kelly_pct"] == 25.0
+    assert match["closes_quarter_kelly_vs_cap"] == "match"
+    assert match["closes_quarter_kelly_cap_under"] is False
+    assert match["closes_quarter_kelly_cap_bit"] == (
+        "A quarter-Kelly vs cap match · 25% vs 30%"
+    )
+
+
+def test_promote_ab_glance_quarter_kelly_cap_under_warns_but_ready() -> None:
+    """Quarter-Kelly below name cap → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 4.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 36.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-12",
+        },
+    )
+    assert g["closes_quarter_kelly_pct"] == 15.6
+    assert g["closes_quarter_kelly_vs_slot"] == "match"
+    assert g["closes_quarter_kelly_vs_cap"] == "under"
+    assert g["closes_quarter_kelly_cap_under"] is True
+    assert "A quarter-Kelly vs cap under · 15.6% vs 30%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+    assert g["tone"] == "warn"
+
+
 def test_promote_ab_glance_quarter_kelly_under_warns_but_ready() -> None:
     """Quarter-Kelly below cash sizer → warn · still ready for B."""
     g = build_promote_ab_glance(
@@ -3598,7 +3712,11 @@ def test_promote_ab_glance_closes_payoff_thin_warns_but_ready_for_b() -> None:
 
 
 def test_promote_ab_glance_closes_payoff_strong_ready_for_b() -> None:
-    """Strong € payoff + fees comfortable → speak both · ready for B (no warn)."""
+    """Strong € payoff + fees comfortable → still ready for B.
+
+    Quarter-Kelly vs the 30% name cap is under on this book, so tone warns.
+    Payoff itself is not thin.
+    """
     g = build_promote_ab_glance(
         {
             "promote_experiment_strategy": False,
@@ -3630,7 +3748,9 @@ def test_promote_ab_glance_closes_payoff_strong_ready_for_b() -> None:
         },
     )
     assert g["ready"] is True
-    assert g["tone"] == "ready"
+    assert g["tone"] == "warn"
+    assert g["closes_quarter_kelly_cap_under"] is True
+    assert "A quarter-Kelly vs cap under" in g["line"]
     assert g["closes_payoff_thin"] is False
     assert g["closes_payoff_severity"] == "strong"
     assert g["closes_payoff_ratio"] == 2.0
