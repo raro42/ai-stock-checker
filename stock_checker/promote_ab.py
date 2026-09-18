@@ -108,7 +108,9 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # (xang1234 max vs ending). A hot peak warns only. Still ready for B.
 # Ending win run (`win_streak`) is the speak-both-sides complement
 # (portfolio AI). Same hot floor. A hot win run speaks and does not warn.
-# Missing loss_streak / loss_streak_max / win_streak → no bit. Not a live halt.
+# Peak win run (`win_streak_max`) speaks only when it exceeds the ending
+# run (xang1234 max vs ending). A hot peak speaks and does not warn.
+# Missing keys → no bit. Not a live halt.
 WINDOW_A_LOSS_STREAK_HOT = 2
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
@@ -537,6 +539,9 @@ def window_a_sample_readiness(
         "closes_win_streak": None,
         "closes_win_streak_bit": "",
         "closes_win_streak_hot": False,
+        "closes_win_streak_max": None,
+        "closes_win_streak_max_bit": "",
+        "closes_win_streak_max_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1142,6 +1147,9 @@ def window_a_sample_readiness(
     closes_win_streak: int | None = None
     closes_win_streak_bit = ""
     closes_win_streak_hot = False
+    closes_win_streak_max: int | None = None
+    closes_win_streak_max_bit = ""
+    closes_win_streak_max_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1416,6 +1424,28 @@ def window_a_sample_readiness(
                     closes_win_streak_bit = f"A win streak hot · {n_win}"
                 else:
                     closes_win_streak_bit = f"A win streak quiet · {n_win}"
+
+    # Peak winning run vs the newest run (xang1234 max vs ending).
+    # Speak only when max > ending. A hot peak does not warn.
+    # Missing key → fail-open (no bit).
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and closes_win_streak is not None
+        and "win_streak_max" in stats
+    ):
+        raw_win_max = stats.get("win_streak_max")
+        if raw_win_max is not None:
+            try:
+                n_win_max = int(raw_win_max)
+            except (TypeError, ValueError):
+                n_win_max = -1
+            if n_win_max > closes_win_streak:
+                closes_win_streak_max = n_win_max
+                closes_win_streak_max_bit = f"A win streak max · {n_win_max}"
+                if n_win_max >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_win_streak_max_hot = True
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
@@ -1749,6 +1779,9 @@ def window_a_sample_readiness(
         "closes_win_streak": closes_win_streak,
         "closes_win_streak_bit": closes_win_streak_bit,
         "closes_win_streak_hot": closes_win_streak_hot,
+        "closes_win_streak_max": closes_win_streak_max,
+        "closes_win_streak_max_bit": closes_win_streak_max_bit,
+        "closes_win_streak_max_hot": closes_win_streak_max_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2004,6 +2037,16 @@ def format_window_a_closes_win_streak_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_win_streak_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_win_streak_max_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A peak win-streak bit (max > ending; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_win_streak_max_bit") or "").strip()
     return bit
 
 
@@ -2297,6 +2340,27 @@ def max_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     return best
 
 
+def max_win_streak(sells: Iterable[dict[str, Any]]) -> int | None:
+    """Longest run of winning closes. None when no dated decided sell.
+
+    Flat closes do not count and do not break a run. A loss breaks the run.
+    The peak can exceed the newest ending run. Display only — not a gate.
+    """
+    dated = _dated_decided_pnls(sells)
+    if not dated:
+        return None
+    best = 0
+    streak = 0
+    for _ts, pnl in dated:
+        if pnl > 0:
+            streak += 1
+            if streak > best:
+                best = streak
+            continue
+        streak = 0
+    return best
+
+
 def summarize_window_trades(
     trades: Iterable[dict[str, Any]],
     *,
@@ -2401,6 +2465,7 @@ def summarize_window_trades(
         "loss_streak": ending_loss_streak(sells),
         "loss_streak_max": max_loss_streak(sells),
         "win_streak": ending_win_streak(sells),
+        "win_streak_max": max_win_streak(sells),
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,

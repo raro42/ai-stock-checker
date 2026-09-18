@@ -238,6 +238,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["loss_streak"] == 0
     assert s["loss_streak_max"] == 0
     assert s["win_streak"] == 1
+    assert s["win_streak_max"] == 1
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
     assert "+€82 net" in bit
@@ -4081,6 +4082,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     assert s2["loss_streak_max"] == 1
     assert s["win_streak"] == 0
     assert s2["win_streak"] == 0
+    assert s["win_streak_max"] == 1
+    assert s2["win_streak_max"] == 1
 
 
 def test_promote_ab_glance_open_only_keeps_window_a() -> None:
@@ -5209,3 +5212,97 @@ def test_promote_ab_glance_win_streak_hot_speaks_but_ready() -> None:
     assert "A win streak hot · 2" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
+
+
+def test_window_a_win_streak_max_speaks_when_peak_exceeds_ending() -> None:
+    """A later loss hides an earlier win run. Peak speaks only when max > ending."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_LOSS_STREAK_HOT,
+        format_window_a_closes_win_streak_max_bit,
+        max_win_streak,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 4,
+            "losses": 2,
+            "win_streak": 0,
+        }
+    )
+    assert unknown["closes_win_streak_max"] is None
+    assert unknown["closes_win_streak_max_bit"] == ""
+    assert format_window_a_closes_win_streak_max_bit(None) == ""
+
+    same = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 4,
+            "losses": 2,
+            "win_streak": 2,
+            "win_streak_max": 2,
+        }
+    )
+    assert same["closes_win_streak_max_bit"] == ""
+
+    peak = max_win_streak(
+        [
+            {"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": 3.0},
+            {"timestamp": "2026-08-14T10:00:00+00:00", "profit_loss": 1.0},
+            {"timestamp": "2026-08-22T10:00:00+00:00", "profit_loss": -6.0},
+        ]
+    )
+    assert peak == 2
+    assert peak >= WINDOW_A_LOSS_STREAK_HOT
+    assert max_win_streak([]) is None
+
+
+def test_promote_ab_glance_win_streak_max_does_not_warn() -> None:
+    """A hot peak win streak speaks. It does not warn or block ready for B."""
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    base = {
+        "trades": 12,
+        "buys": 8,
+        "sells": 4,
+        "fees": 40.0,
+        "realized_pnl": 200.0,
+        "net_after_all_fees": 160.0,
+        "wins": 3,
+        "losses": 1,
+        "win_streak": 0,
+        "last_sell": "2026-09-11T15:00:00+00:00",
+    }
+    quiet = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats=base,
+    )
+    hot = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={**base, "win_streak_max": 3},
+    )
+    assert hot["ready"] is True
+    assert hot["tone"] == quiet["tone"] == "ready"
+    assert hot["closes_win_streak_max"] == 3
+    assert "A win streak max · 3" in hot["line"]
+    assert hot["b_ready"] is True
