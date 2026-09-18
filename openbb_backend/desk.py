@@ -776,6 +776,7 @@ def build_promote_ab_glance(
         format_window_a_closes_practical_kelly_bit,
         format_window_a_closes_kelly_sample_bit,
         format_window_a_closes_loss_streak_bit,
+        format_window_a_closes_loss_streak_max_bit,
         format_window_a_closes_win_rate_bit,
         format_window_a_closes_wr_vs_be_bit,
         format_window_a_fee_drag_bit,
@@ -878,6 +879,8 @@ def build_promote_ab_glance(
         "closes_kelly_sample_thin": False,
         "closes_loss_streak": None,
         "closes_loss_streak_hot": False,
+        "closes_loss_streak_max": None,
+        "closes_loss_streak_max_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -917,6 +920,7 @@ def build_promote_ab_glance(
         "a_closes_practical_kelly_bit": "",
         "a_closes_kelly_sample_bit": "",
         "a_closes_loss_streak_bit": "",
+        "a_closes_loss_streak_max_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
         "a_closes_net_expectancy_bit": "",
@@ -1063,6 +1067,8 @@ def build_promote_ab_glance(
     closes_kelly_sample_thin = bool(sample.get("closes_kelly_sample_thin"))
     closes_loss_streak = sample.get("closes_loss_streak")
     closes_loss_streak_hot = bool(sample.get("closes_loss_streak_hot"))
+    closes_loss_streak_max = sample.get("closes_loss_streak_max")
+    closes_loss_streak_max_hot = bool(sample.get("closes_loss_streak_max_hot"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1168,6 +1174,11 @@ def build_promote_ab_glance(
     a_closes_loss_streak_bit = (
         format_window_a_closes_loss_streak_bit(sample) if window == "A" else ""
     )
+    a_closes_loss_streak_max_bit = (
+        format_window_a_closes_loss_streak_max_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_payoff_bit = (
         format_window_a_closes_payoff_bit(sample) if window == "A" else ""
     )
@@ -1195,7 +1206,7 @@ def build_promote_ab_glance(
     )
 
     def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + WR + vs-BE + Kelly + half-Kelly + slot + cap + quarter + quarter-slot + quarter-cap + practical + Kelly sample + payoff + expectancy + net + fee take + PF + net PF bits."""
+        """Prepend fee + polarity + WR + vs-BE + Kelly + half-Kelly + slot + cap + quarter + quarter-slot + quarter-cap + practical + Kelly sample + loss streak + loss max + payoff + expectancy + net + fee take + PF + net PF bits."""
         bits = [
             b
             for b in (
@@ -1213,6 +1224,7 @@ def build_promote_ab_glance(
                 a_closes_practical_kelly_bit,
                 a_closes_kelly_sample_bit,
                 a_closes_loss_streak_bit,
+                a_closes_loss_streak_max_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
                 a_closes_net_expectancy_bit,
@@ -1228,7 +1240,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -1248,6 +1260,7 @@ def build_promote_ab_glance(
             or closes_practical_kelly_cut
             or closes_kelly_sample_thin
             or closes_loss_streak_hot
+            or closes_loss_streak_max_hot
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
@@ -1323,6 +1336,7 @@ def build_promote_ab_glance(
                 or a_closes_practical_kelly_bit
                 or a_closes_kelly_sample_bit
                 or a_closes_loss_streak_bit
+                or a_closes_loss_streak_max_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1331,7 +1345,7 @@ def build_promote_ab_glance(
                 or a_closes_profit_factor_bit
                 or a_closes_net_profit_factor_bit
             ):
-                # Fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / quarter-slot / quarter-cap / practical / payoff / expectancy / net / fee take / PF / net PF warn; still ready for B.
+                # Fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / quarter-slot / quarter-cap / practical / payoff / expectancy / net / fee take / PF / net PF / loss max warn; still ready for B.
                 tone = "warn" if _honesty_warn() else "ready"
                 status = _prefix_honesty(
                     "ready for B" if stats_bit else "target met"
@@ -1381,6 +1395,7 @@ def build_promote_ab_glance(
                 or a_closes_practical_kelly_bit
                 or a_closes_kelly_sample_bit
                 or a_closes_loss_streak_bit
+                or a_closes_loss_streak_max_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1407,9 +1422,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / loss streak / payoff / expectancy / net / fee take / PF / net PF / freshness.
-    if len(line) > 960:
-        line = line[:849] + "…"
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / loss streak / loss max / payoff / expectancy / net / fee take / PF / net PF / freshness.
+    if len(line) > 1020:
+        line = line[:909] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -1554,6 +1569,12 @@ def build_promote_ab_glance(
         "closes_loss_streak_hot": (
             closes_loss_streak_hot if window == "A" else False
         ),
+        "closes_loss_streak_max": (
+            closes_loss_streak_max if window == "A" else None
+        ),
+        "closes_loss_streak_max_hot": (
+            closes_loss_streak_max_hot if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -1617,6 +1638,7 @@ def build_promote_ab_glance(
         "a_closes_practical_kelly_bit": a_closes_practical_kelly_bit,
         "a_closes_kelly_sample_bit": a_closes_kelly_sample_bit,
         "a_closes_loss_streak_bit": a_closes_loss_streak_bit,
+        "a_closes_loss_streak_max_bit": a_closes_loss_streak_max_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
         "a_closes_net_expectancy_bit": a_closes_net_expectancy_bit,
