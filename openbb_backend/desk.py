@@ -777,6 +777,7 @@ def build_promote_ab_glance(
         format_window_a_closes_kelly_sample_bit,
         format_window_a_closes_loss_streak_bit,
         format_window_a_closes_loss_streak_max_bit,
+        format_window_a_closes_win_streak_bit,
         format_window_a_closes_win_rate_bit,
         format_window_a_closes_wr_vs_be_bit,
         format_window_a_fee_drag_bit,
@@ -881,6 +882,8 @@ def build_promote_ab_glance(
         "closes_loss_streak_hot": False,
         "closes_loss_streak_max": None,
         "closes_loss_streak_max_hot": False,
+        "closes_win_streak": None,
+        "closes_win_streak_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -921,6 +924,7 @@ def build_promote_ab_glance(
         "a_closes_kelly_sample_bit": "",
         "a_closes_loss_streak_bit": "",
         "a_closes_loss_streak_max_bit": "",
+        "a_closes_win_streak_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
         "a_closes_net_expectancy_bit": "",
@@ -1069,6 +1073,8 @@ def build_promote_ab_glance(
     closes_loss_streak_hot = bool(sample.get("closes_loss_streak_hot"))
     closes_loss_streak_max = sample.get("closes_loss_streak_max")
     closes_loss_streak_max_hot = bool(sample.get("closes_loss_streak_max_hot"))
+    closes_win_streak = sample.get("closes_win_streak")
+    closes_win_streak_hot = bool(sample.get("closes_win_streak_hot"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1179,6 +1185,9 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_win_streak_bit = (
+        format_window_a_closes_win_streak_bit(sample) if window == "A" else ""
+    )
     a_closes_payoff_bit = (
         format_window_a_closes_payoff_bit(sample) if window == "A" else ""
     )
@@ -1225,6 +1234,7 @@ def build_promote_ab_glance(
                 a_closes_kelly_sample_bit,
                 a_closes_loss_streak_bit,
                 a_closes_loss_streak_max_bit,
+                a_closes_win_streak_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
                 a_closes_net_expectancy_bit,
@@ -1337,6 +1347,7 @@ def build_promote_ab_glance(
                 or a_closes_kelly_sample_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
+                or a_closes_win_streak_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1396,6 +1407,7 @@ def build_promote_ab_glance(
                 or a_closes_kelly_sample_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
+                or a_closes_win_streak_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
                 or a_closes_net_expectancy_bit
@@ -1575,6 +1587,10 @@ def build_promote_ab_glance(
         "closes_loss_streak_max_hot": (
             closes_loss_streak_max_hot if window == "A" else False
         ),
+        "closes_win_streak": closes_win_streak if window == "A" else None,
+        "closes_win_streak_hot": (
+            closes_win_streak_hot if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -1639,6 +1655,7 @@ def build_promote_ab_glance(
         "a_closes_kelly_sample_bit": a_closes_kelly_sample_bit,
         "a_closes_loss_streak_bit": a_closes_loss_streak_bit,
         "a_closes_loss_streak_max_bit": a_closes_loss_streak_max_bit,
+        "a_closes_win_streak_bit": a_closes_win_streak_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
         "a_closes_net_expectancy_bit": a_closes_net_expectancy_bit,
