@@ -74,6 +74,10 @@ WINDOW_A_WR_EDGE_THIN_PP = 5.0
 # realized) and from net expect (€/close). Severity when gross > 0 reuses
 # FEES_COMFORTABLE / FEES_THIN ratios (comfortable <0.25 · thin ≥0.5 warn).
 # Thin warn only (still ready for B).
+# Net vs fee take multiple = net_expectancy ÷ fee_take when both > 0
+# (portfolio AI after fee take). Fee take € alone ≠ how many fee-takes of
+# edge remain. Reuses PROFIT_FACTOR_* ratios (strong ≥2× · ok mid · thin <1×).
+# Thin warn only (still ready for B).
 # Fee-adjusted net profit factor = (gross_wins − fees) ÷ gross_losses
 # (portfolio AI after gross PF + fee take). Gross PF ≠ fee-adjusted PF.
 # Severity reuses PROFIT_FACTOR_* ratios. Gross PF ≥1× / net wins ≤0 →
@@ -308,6 +312,10 @@ def window_a_sample_readiness(
     (total fees vs realized) and from net expect (€/close). Severity when
     gross > 0 reuses ``WINDOW_A_FEES_COMFORTABLE_RATIO`` /
     ``WINDOW_A_FEES_THIN_RATIO``. Thin warn only (still ready for B).
+    When net expect and fee take are both > 0, speak net/fee multiple
+    ``A net/fee [strong|thin] · N×`` (net ÷ fee take) — portfolio AI after
+    fee take; fee take € alone ≠ remaining edge multiples. Severity reuses
+    ``WINDOW_A_PROFIT_FACTOR_*_RATIO``. Thin warn only (still ready for B).
     When gross wins/losses and fees are known, speak fee-adjusted net
     profit factor ``A net PF [strong|thin] · N×``
     ((gross_wins − fees) ÷ gross_losses) — portfolio AI after gross PF +
@@ -402,6 +410,10 @@ def window_a_sample_readiness(
         "closes_fee_take_severity": "",
         "closes_fee_take_thin": False,
         "closes_fee_take_ratio": None,
+        "closes_net_vs_fee": None,
+        "closes_net_vs_fee_bit": "",
+        "closes_net_vs_fee_severity": "",
+        "closes_net_vs_fee_thin": False,
         "closes_net_profit_factor": None,
         "closes_net_profit_factor_bit": "",
         "closes_net_profit_factor_severity": "",
@@ -1023,6 +1035,36 @@ def window_a_sample_readiness(
             else:
                 closes_fee_take_bit = f"A fee take · {body}/close"
 
+    # Portfolio AI net vs fee take after fee take €/close.
+    # net_vs_fee = net_expectancy ÷ fee_take — how many fee-takes of edge
+    # remain. Fee take € alone ≠ remaining edge multiples. Severity reuses
+    # PROFIT_FACTOR_* (strong ≥2× · thin <1×). Thin warn only (still ready
+    # for B). Skip when net ≤ 0 or fee take ≤ 0 (covered by other bits).
+    closes_net_vs_fee: float | None = None
+    closes_net_vs_fee_bit = ""
+    closes_net_vs_fee_severity = ""
+    closes_net_vs_fee_thin = False
+    if (
+        closes_net_expectancy is not None
+        and closes_fee_take is not None
+        and closes_net_expectancy > 0
+        and closes_fee_take > 0
+    ):
+        closes_net_vs_fee = round(closes_net_expectancy / closes_fee_take, 2)
+        if abs(closes_net_vs_fee - round(closes_net_vs_fee)) < 0.05:
+            ratio_s = f"{int(round(closes_net_vs_fee))}×"
+        else:
+            ratio_s = f"{closes_net_vs_fee:.1f}×"
+        if closes_net_vs_fee < WINDOW_A_PROFIT_FACTOR_THIN_RATIO:
+            closes_net_vs_fee_severity = "thin"
+            closes_net_vs_fee_thin = True
+            closes_net_vs_fee_bit = f"A net/fee thin · {ratio_s}"
+        elif closes_net_vs_fee >= WINDOW_A_PROFIT_FACTOR_STRONG_RATIO:
+            closes_net_vs_fee_severity = "strong"
+            closes_net_vs_fee_bit = f"A net/fee strong · {ratio_s}"
+        else:
+            closes_net_vs_fee_bit = f"A net/fee · {ratio_s}"
+
     # Portfolio AI fee-adjusted net profit factor after gross PF + fee take.
     # net_wins = gross_wins − window fees (conservative: fees hit winners).
     # net_pf = net_wins ÷ gross_losses. Gross PF can look fine while fees
@@ -1169,6 +1211,10 @@ def window_a_sample_readiness(
         "closes_fee_take_severity": closes_fee_take_severity,
         "closes_fee_take_thin": closes_fee_take_thin,
         "closes_fee_take_ratio": closes_fee_take_ratio,
+        "closes_net_vs_fee": closes_net_vs_fee,
+        "closes_net_vs_fee_bit": closes_net_vs_fee_bit,
+        "closes_net_vs_fee_severity": closes_net_vs_fee_severity,
+        "closes_net_vs_fee_thin": closes_net_vs_fee_thin,
         "closes_net_profit_factor": closes_net_profit_factor,
         "closes_net_profit_factor_bit": closes_net_profit_factor_bit,
         "closes_net_profit_factor_severity": closes_net_profit_factor_severity,
@@ -1312,6 +1358,17 @@ def format_window_a_closes_fee_take_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_fee_take_bit") or "").strip()
+    return bit
+
+
+
+def format_window_a_closes_net_vs_fee_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A net/fee multiple bit (net ÷ fee take; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_net_vs_fee_bit") or "").strip()
     return bit
 
 
