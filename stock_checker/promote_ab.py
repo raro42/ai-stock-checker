@@ -92,6 +92,11 @@ WINDOW_A_EQUAL_SLOT_PCT = round(
 # Equal slot ≠ the soft max-name ceiling (C-conc / Book Cap). Same MATCH.
 # under = cap larger than practical edge (warn). Not a live cap change.
 WINDOW_A_CONC_CAP_PCT = round(float(DEFAULT_MAX_NAME_PCT), 1)
+# Quarter of full Kelly vs the live cash sizer (~10%).
+# Half-Kelly often sits well above the desk cash slice when edge is strong;
+# quarter-Kelly is the conservative practical fraction (portfolio AI).
+# Same MATCH band. under = sizer larger than ¼ Kelly (warn). Not a live sizer.
+WINDOW_A_QUARTER_KELLY_FRAC = 0.25
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -347,6 +352,12 @@ def window_a_sample_readiness(
     (``WINDOW_A_CONC_CAP_PCT`` = ``DEFAULT_MAX_NAME_PCT``). Equal slot ≠
     the single-name ceiling. ``under`` when half-Kelly is more than
     ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the cap (warn only; still
+    ready for B). When Kelly is known, also speak quarter-Kelly vs sizer
+    ``A quarter-Kelly vs sizer [under|match|over] · N% vs 10%``
+    (``WINDOW_A_QUARTER_KELLY_FRAC`` of f*). Half-Kelly often sits well
+    above the cash slice when edge is strong; quarter is the conservative
+    practical fraction. ``under`` when quarter-Kelly is more than
+    ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the sizer (warn only; still
     ready for B). Missing WR or payoff → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
@@ -465,6 +476,11 @@ def window_a_sample_readiness(
         "closes_half_kelly_vs_cap": "",
         "closes_half_kelly_cap_bit": "",
         "closes_half_kelly_cap_under": False,
+        "closes_quarter_kelly_pct": None,
+        "closes_quarter_kelly_sizer_pct": None,
+        "closes_quarter_kelly_vs": "",
+        "closes_quarter_kelly_bit": "",
+        "closes_quarter_kelly_under": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1040,6 +1056,11 @@ def window_a_sample_readiness(
     closes_half_kelly_vs_cap = ""
     closes_half_kelly_cap_bit = ""
     closes_half_kelly_cap_under = False
+    closes_quarter_kelly_pct: float | None = None
+    closes_quarter_kelly_sizer_pct: float | None = None
+    closes_quarter_kelly_vs = ""
+    closes_quarter_kelly_bit = ""
+    closes_quarter_kelly_under = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1117,6 +1138,35 @@ def window_a_sample_readiness(
             closes_half_kelly_vs_cap = "match"
             closes_half_kelly_cap_bit = (
                 f"A half-Kelly vs cap match · {cap_pair}"
+            )
+
+        # Quarter-Kelly vs cash sizer — conservative practical fraction.
+        # Half often sits well above ~10% when edge is strong; quarter shows
+        # whether the desk cash slice is closer to ¼ Kelly (portfolio AI).
+        closes_quarter_kelly_pct = round(
+            closes_kelly_pct * float(WINDOW_A_QUARTER_KELLY_FRAC), 1
+        )
+        closes_quarter_kelly_sizer_pct = sizer_pct
+        q_delta = closes_quarter_kelly_pct - sizer_pct
+        q_pair = (
+            f"{_fmt_kelly_pct(closes_quarter_kelly_pct)}% vs "
+            f"{_fmt_kelly_pct(sizer_pct)}%"
+        )
+        if q_delta < -WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_quarter_kelly_vs = "under"
+            closes_quarter_kelly_under = True
+            closes_quarter_kelly_bit = (
+                f"A quarter-Kelly vs sizer under · {q_pair}"
+            )
+        elif q_delta > WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_quarter_kelly_vs = "over"
+            closes_quarter_kelly_bit = (
+                f"A quarter-Kelly vs sizer over · {q_pair}"
+            )
+        else:
+            closes_quarter_kelly_vs = "match"
+            closes_quarter_kelly_bit = (
+                f"A quarter-Kelly vs sizer match · {q_pair}"
             )
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
@@ -1421,6 +1471,11 @@ def window_a_sample_readiness(
         "closes_half_kelly_vs_cap": closes_half_kelly_vs_cap,
         "closes_half_kelly_cap_bit": closes_half_kelly_cap_bit,
         "closes_half_kelly_cap_under": closes_half_kelly_cap_under,
+        "closes_quarter_kelly_pct": closes_quarter_kelly_pct,
+        "closes_quarter_kelly_sizer_pct": closes_quarter_kelly_sizer_pct,
+        "closes_quarter_kelly_vs": closes_quarter_kelly_vs,
+        "closes_quarter_kelly_bit": closes_quarter_kelly_bit,
+        "closes_quarter_kelly_under": closes_quarter_kelly_under,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1596,6 +1651,16 @@ def format_window_a_closes_half_kelly_cap_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_half_kelly_cap_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_quarter_kelly_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A quarter-Kelly vs cash-sizer bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_quarter_kelly_bit") or "").strip()
     return bit
 
 

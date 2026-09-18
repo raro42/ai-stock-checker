@@ -2753,6 +2753,173 @@ def test_promote_ab_glance_half_kelly_cap_under_warns_but_ready() -> None:
     assert g["tone"] == "warn"
 
 
+def test_window_a_quarter_kelly_vs_sizer() -> None:
+    """Quarter of full Kelly vs the ~10% cash sizer (display only)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_HALF_KELLY_MATCH_PP,
+        WINDOW_A_QUARTER_KELLY_FRAC,
+        format_window_a_closes_quarter_kelly_bit,
+        window_a_sample_readiness,
+    )
+    from stock_checker.risk_halts import DEFAULT_ENTRY_CASH_FRAC
+
+    sizer = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
+    assert sizer == 10.0
+    assert WINDOW_A_QUARTER_KELLY_FRAC == 0.25
+    assert WINDOW_A_HALF_KELLY_MATCH_PP == 5.0
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_quarter_kelly_pct"] is None
+    assert unknown["closes_quarter_kelly_sizer_pct"] is None
+    assert unknown["closes_quarter_kelly_vs"] == ""
+    assert unknown["closes_quarter_kelly_bit"] == ""
+    assert unknown["closes_quarter_kelly_under"] is False
+    assert format_window_a_closes_quarter_kelly_bit(unknown) == ""
+    assert format_window_a_closes_quarter_kelly_bit(None) == ""
+
+    # 75% WR · payoff 2 → Kelly 62.5 → quarter 15.6 vs 10 → over
+    # (half 31.2 also over — quarter still above sizer when edge is strong)
+    over = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert over["closes_kelly_pct"] == 62.5
+    assert over["closes_half_kelly_pct"] == 31.2
+    assert over["closes_quarter_kelly_pct"] == 15.6
+    assert over["closes_quarter_kelly_sizer_pct"] == 10.0
+    assert over["closes_quarter_kelly_vs"] == "over"
+    assert over["closes_quarter_kelly_under"] is False
+    assert over["closes_quarter_kelly_bit"] == (
+        "A quarter-Kelly vs sizer over · 15.6% vs 10%"
+    )
+
+    # 50% WR · payoff 1.5 → Kelly 16.7 → quarter 4.2 vs 10 → under
+    # (half 8.3 matches sizer — quarter shows the conservative fraction is thin)
+    under = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 5,
+            "losses": 5,
+            "avg_win": 15.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert under["closes_half_kelly_pct"] == 8.3
+    assert under["closes_half_kelly_vs"] == "match"
+    assert under["closes_quarter_kelly_pct"] == 4.2
+    assert under["closes_quarter_kelly_vs"] == "under"
+    assert under["closes_quarter_kelly_under"] is True
+    assert under["closes_quarter_kelly_bit"] == (
+        "A quarter-Kelly vs sizer under · 4.2% vs 10%"
+    )
+    assert format_window_a_closes_quarter_kelly_bit(under) == under[
+        "closes_quarter_kelly_bit"
+    ]
+
+    # 80% WR · payoff 1 → Kelly 60 → half 30 over · quarter 15 over
+    # 60% WR · payoff 1 → Kelly 20 → quarter 5.0 vs 10 → match (δ=-5 not < -5)
+    match = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 10.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert match["closes_kelly_pct"] == 20.0
+    assert match["closes_quarter_kelly_pct"] == 5.0
+    assert match["closes_quarter_kelly_vs"] == "match"
+    assert match["closes_quarter_kelly_under"] is False
+    assert match["closes_quarter_kelly_bit"] == (
+        "A quarter-Kelly vs sizer match · 5% vs 10%"
+    )
+
+    # 80% WR · payoff 1 → Kelly 60 → quarter 15 vs 10 → over
+    # Better: Kelly 40 → quarter 10 exact match
+    # 70% WR · payoff ~1.43 → use wins/losses + avgs for Kelly 40
+    # Kelly = p - (1-p)/R; want 0.40 → try 60% WR payoff 2: 0.6 - 0.4/2 = 0.4
+    exact = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert exact["closes_kelly_pct"] == 40.0
+    assert exact["closes_half_kelly_pct"] == 20.0
+    assert exact["closes_half_kelly_vs"] == "over"  # half well above sizer
+    assert exact["closes_quarter_kelly_pct"] == 10.0
+    assert exact["closes_quarter_kelly_vs"] == "match"
+    assert exact["closes_quarter_kelly_bit"] == (
+        "A quarter-Kelly vs sizer match · 10% vs 10%"
+    )
+
+
+def test_promote_ab_glance_quarter_kelly_under_warns_but_ready() -> None:
+    """Quarter-Kelly below cash sizer → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "fees": 4.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 36.0,
+            "wins": 5,
+            "losses": 5,
+            "avg_win": 15.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-12",
+        },
+    )
+    assert g["closes_quarter_kelly_pct"] == 4.2
+    assert g["closes_quarter_kelly_under"] is True
+    assert g["closes_quarter_kelly_vs"] == "under"
+    assert "A quarter-Kelly vs sizer under · 4.2% vs 10%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+    assert g["tone"] == "warn"
+
+
 def test_promote_ab_glance_half_kelly_under_warns_but_ready() -> None:
     """Half-Kelly below the cash sizer → warn · still ready for B."""
     g = build_promote_ab_glance(
