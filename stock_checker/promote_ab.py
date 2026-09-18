@@ -358,6 +358,11 @@ def window_a_sample_readiness(
     above the cash slice when edge is strong; quarter is the conservative
     practical fraction. ``under`` when quarter-Kelly is more than
     ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the sizer (warn only; still
+    ready for B). When Kelly is known, also speak quarter-Kelly vs equal
+    slot ``A quarter-Kelly vs slot [under|match|over] · N% vs 20%``
+    (``WINDOW_A_EQUAL_SLOT_PCT``). Cash sizer ≠ equal book weight; quarter
+    vs sizer ≠ quarter vs slot. ``under`` when quarter-Kelly is more than
+    ``WINDOW_A_HALF_KELLY_MATCH_PP`` below the slot (warn only; still
     ready for B). Missing WR or payoff → fail-open. When
     ``net_after_all_fees`` is known and sells > 0, speak fee-adjusted net
     expectancy ``A net expect [strong|thin] · +€N`` / ``−€N``
@@ -481,6 +486,10 @@ def window_a_sample_readiness(
         "closes_quarter_kelly_vs": "",
         "closes_quarter_kelly_bit": "",
         "closes_quarter_kelly_under": False,
+        "closes_quarter_kelly_slot_pct": None,
+        "closes_quarter_kelly_vs_slot": "",
+        "closes_quarter_kelly_slot_bit": "",
+        "closes_quarter_kelly_slot_under": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1061,6 +1070,10 @@ def window_a_sample_readiness(
     closes_quarter_kelly_vs = ""
     closes_quarter_kelly_bit = ""
     closes_quarter_kelly_under = False
+    closes_quarter_kelly_slot_pct: float | None = None
+    closes_quarter_kelly_vs_slot = ""
+    closes_quarter_kelly_slot_bit = ""
+    closes_quarter_kelly_slot_under = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1167,6 +1180,31 @@ def window_a_sample_readiness(
             closes_quarter_kelly_vs = "match"
             closes_quarter_kelly_bit = (
                 f"A quarter-Kelly vs sizer match · {q_pair}"
+            )
+
+        # Quarter-Kelly vs equal-slot (~20%): cash sizer ≠ equal book weight.
+        # Completes quarter sizer→slot (cap next); same ±5pp match band.
+        closes_quarter_kelly_slot_pct = slot_pct
+        q_slot_delta = closes_quarter_kelly_pct - slot_pct
+        q_slot_pair = (
+            f"{_fmt_kelly_pct(closes_quarter_kelly_pct)}% vs "
+            f"{_fmt_kelly_pct(slot_pct)}%"
+        )
+        if q_slot_delta < -WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_quarter_kelly_vs_slot = "under"
+            closes_quarter_kelly_slot_under = True
+            closes_quarter_kelly_slot_bit = (
+                f"A quarter-Kelly vs slot under · {q_slot_pair}"
+            )
+        elif q_slot_delta > WINDOW_A_HALF_KELLY_MATCH_PP:
+            closes_quarter_kelly_vs_slot = "over"
+            closes_quarter_kelly_slot_bit = (
+                f"A quarter-Kelly vs slot over · {q_slot_pair}"
+            )
+        else:
+            closes_quarter_kelly_vs_slot = "match"
+            closes_quarter_kelly_slot_bit = (
+                f"A quarter-Kelly vs slot match · {q_slot_pair}"
             )
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
@@ -1476,6 +1514,10 @@ def window_a_sample_readiness(
         "closes_quarter_kelly_vs": closes_quarter_kelly_vs,
         "closes_quarter_kelly_bit": closes_quarter_kelly_bit,
         "closes_quarter_kelly_under": closes_quarter_kelly_under,
+        "closes_quarter_kelly_slot_pct": closes_quarter_kelly_slot_pct,
+        "closes_quarter_kelly_vs_slot": closes_quarter_kelly_vs_slot,
+        "closes_quarter_kelly_slot_bit": closes_quarter_kelly_slot_bit,
+        "closes_quarter_kelly_slot_under": closes_quarter_kelly_slot_under,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -1661,6 +1703,16 @@ def format_window_a_closes_quarter_kelly_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_quarter_kelly_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_quarter_kelly_slot_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A quarter-Kelly vs equal-slot bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_quarter_kelly_slot_bit") or "").strip()
     return bit
 
 

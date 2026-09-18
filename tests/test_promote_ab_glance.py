@@ -2879,6 +2879,122 @@ def test_window_a_quarter_kelly_vs_sizer() -> None:
     )
 
 
+def test_window_a_quarter_kelly_vs_equal_slot() -> None:
+    """Quarter of full Kelly vs equal book slot ~20% (display only)."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_EQUAL_SLOT_PCT,
+        WINDOW_A_HALF_KELLY_MATCH_PP,
+        format_window_a_closes_quarter_kelly_slot_bit,
+        window_a_sample_readiness,
+    )
+
+    assert WINDOW_A_EQUAL_SLOT_PCT == 20.0
+    assert WINDOW_A_HALF_KELLY_MATCH_PP == 5.0
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+        }
+    )
+    assert unknown["closes_quarter_kelly_slot_pct"] is None
+    assert unknown["closes_quarter_kelly_vs_slot"] == ""
+    assert unknown["closes_quarter_kelly_slot_bit"] == ""
+    assert unknown["closes_quarter_kelly_slot_under"] is False
+    assert format_window_a_closes_quarter_kelly_slot_bit(unknown) == ""
+    assert format_window_a_closes_quarter_kelly_slot_bit(None) == ""
+
+    # 75% WR · payoff 2 → Kelly 62.5 → quarter 15.6 vs 20 → match (δ=-4.4)
+    # (quarter over sizer but still within ±5pp of equal slot)
+    match_strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert match_strong["closes_quarter_kelly_pct"] == 15.6
+    assert match_strong["closes_quarter_kelly_vs"] == "over"  # vs sizer
+    assert match_strong["closes_quarter_kelly_slot_pct"] == 20.0
+    assert match_strong["closes_quarter_kelly_vs_slot"] == "match"
+    assert match_strong["closes_quarter_kelly_slot_under"] is False
+    assert match_strong["closes_quarter_kelly_slot_bit"] == (
+        "A quarter-Kelly vs slot match · 15.6% vs 20%"
+    )
+
+    # 60% WR · payoff 2 → Kelly 40 → quarter 10 vs 20 → under
+    under = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert under["closes_kelly_pct"] == 40.0
+    assert under["closes_quarter_kelly_pct"] == 10.0
+    assert under["closes_quarter_kelly_vs"] == "match"  # vs sizer exact
+    assert under["closes_quarter_kelly_vs_slot"] == "under"
+    assert under["closes_quarter_kelly_slot_under"] is True
+    assert under["closes_quarter_kelly_slot_bit"] == (
+        "A quarter-Kelly vs slot under · 10% vs 20%"
+    )
+    assert format_window_a_closes_quarter_kelly_slot_bit(under) == under[
+        "closes_quarter_kelly_slot_bit"
+    ]
+
+    # 80% WR · payoff 1 → Kelly 60 → quarter 15 vs 20 → match (δ=-5)
+    match = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 4,
+            "losses": 1,
+            "avg_win": 10.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert match["closes_kelly_pct"] == 60.0
+    assert match["closes_quarter_kelly_pct"] == 15.0
+    assert match["closes_quarter_kelly_vs_slot"] == "match"
+    assert match["closes_quarter_kelly_slot_under"] is False
+    assert match["closes_quarter_kelly_slot_bit"] == (
+        "A quarter-Kelly vs slot match · 15% vs 20%"
+    )
+
+    # Kelly 80 → quarter 20 exact match vs slot
+    # 80% WR · payoff 2: 0.8 - 0.2/2 = 0.7 → 70; need 80
+    # p - (1-p)/R = 0.8 → try 90% WR payoff 1: 0.9 - 0.1/1 = 0.8
+    exact = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 9,
+            "losses": 1,
+            "avg_win": 10.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert exact["closes_kelly_pct"] == 80.0
+    assert exact["closes_quarter_kelly_pct"] == 20.0
+    assert exact["closes_quarter_kelly_vs_slot"] == "match"
+    assert exact["closes_quarter_kelly_slot_bit"] == (
+        "A quarter-Kelly vs slot match · 20% vs 20%"
+    )
+
+
 def test_promote_ab_glance_quarter_kelly_under_warns_but_ready() -> None:
     """Quarter-Kelly below cash sizer → warn · still ready for B."""
     g = build_promote_ab_glance(
@@ -2915,6 +3031,48 @@ def test_promote_ab_glance_quarter_kelly_under_warns_but_ready() -> None:
     assert g["closes_quarter_kelly_under"] is True
     assert g["closes_quarter_kelly_vs"] == "under"
     assert "A quarter-Kelly vs sizer under · 4.2% vs 10%" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+    assert g["tone"] == "warn"
+
+
+def test_promote_ab_glance_quarter_kelly_slot_under_warns_but_ready() -> None:
+    """Quarter-Kelly below equal slot → warn · still ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "fees": 4.0,
+            "realized_pnl": 40.0,
+            "net_after_all_fees": 36.0,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-12",
+        },
+    )
+    assert g["closes_quarter_kelly_pct"] == 10.0
+    assert g["closes_quarter_kelly_vs"] == "match"  # vs sizer
+    assert g["closes_quarter_kelly_vs_slot"] == "under"
+    assert g["closes_quarter_kelly_slot_under"] is True
+    assert "A quarter-Kelly vs slot under · 10% vs 20%" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
     assert g["tone"] == "warn"
