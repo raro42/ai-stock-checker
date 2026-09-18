@@ -14,12 +14,12 @@ from typing import Dict, List
 import math
 
 
-# idea: Lowering the structural stack activation threshold from 55.0 to 50.0. This expands the entry window for the strict structural stack (S>M>L) to capture high-conviction trends that are slightly less explosive but still structurally sound.
+# idea: Increasing the Medium SMA reference period from 50 to 60. This makes the structural stack (S>M) and the associated trend confirmation significantly slower and more stable, filtering out short-term noise in favor of deeper, longer-term structural alignment.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
 SHORT_MOMENTUM_SMA = 5 # NEW: Short-term filter to confirm immediate momentum
-MED_SMA = 50    # Secondary filter/reference SMA (Used for entry confirmation)
+MED_SMA = 60    # Secondary filter/reference SMA (Increased from 50 to 60 for deeper structural confirmation)
 LONG_SMA = 40   # Primary exit structural guide (Reduced from 60 to 40 for faster exit)
 # The entry now requires Short > Medium (Core signal) + Conditional Structural Stack.
 REQUIRE_VOLUME_CONFIRM = True
