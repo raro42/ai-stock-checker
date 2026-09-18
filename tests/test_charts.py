@@ -64,6 +64,10 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert payload["book_risk_glance"]["ready"] is True
     assert payload["book_risk_glance"]["posture"] == "open"
     assert "1/5" in payload["book_risk_glance"]["slots"]
+    assert "mark_coverage" in payload
+    assert payload["mark_coverage"]["ready"] is True
+    assert payload["mark_coverage"]["severity"] == "none"
+    assert payload["mark_coverage"]["line"] == "price coverage none · 0/1"
     assert "pretrade_glance" in payload
     assert payload["pretrade_glance"]["ready"] is True
     assert payload["pretrade_glance"]["level"] == "PASS"

@@ -673,6 +673,25 @@ def _book_risk_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) 
     return build_book_risk_glance(_book_risk_report_from_portfolio(data_dir, portfolio))
 
 
+def _mark_coverage_from_data(
+    data_dir: Path, portfolio: dict[str, Any]
+) -> dict[str, Any]:
+    """Scan-price coverage (display only). Charts skip live quotes."""
+    from openbb_backend.desk import _prices_from_scan, build_mark_coverage
+
+    holdings_raw = portfolio.get("holdings") or {}
+    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
+    prices = _prices_from_scan(opp) if isinstance(opp, dict) else {}
+    rows: list[dict[str, Any]] = []
+    if isinstance(holdings_raw, dict):
+        for sym, qty in holdings_raw.items():
+            if _finite(qty) <= 0:
+                continue
+            px = prices.get(str(sym))
+            rows.append({"marked": px is not None and px > 0})
+    return build_mark_coverage(rows)
+
+
 def _concentration_glance_from_portfolio(
     data_dir: Path, portfolio: dict[str, Any]
 ) -> dict[str, Any]:
@@ -1245,4 +1264,5 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "min_hold_lock_glance": _min_hold_lock_glance_from_data(data_dir),
         "postmortem_glance": _postmortem_glance_from_data(data_dir),
         "book_risk_glance": _book_risk_glance_from_portfolio(data_dir, portfolio),
+        "mark_coverage": _mark_coverage_from_data(data_dir, portfolio),
     }

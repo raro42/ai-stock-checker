@@ -96,6 +96,31 @@
 {%- endmacro %}
 
 
+{# Holding mark vs cost fallback (display only). Book/Overview/Breadth keep mark_note. #}
+{% macro mark_coverage_glance(
+  snap,
+  heading_id='mark-coverage-glance-h',
+  link_href='/desk/book',
+  link_label='Book marks →',
+  sub='Live mark vs cost fallback. Incomplete coverage warns. Cost still fills equity. Not a gate.'
+) -%}
+{% set glance = snap.mark_coverage if snap.mark_coverage is mapping else {} %}
+{% if glance.ready %}
+<section class="mark-coverage-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Price coverage</h2>
+  <p class="mark-coverage-glance-line">
+    <span class="mark-coverage-glance-tone {{ glance.tone }}">Marks</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="mark-coverage-glance-body">{{ glance.line or glance.bit }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="mark-coverage-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Book slots/posture glance (display only). Book keeps the full risk strip. #}
 {% macro book_risk_glance(
   snap,

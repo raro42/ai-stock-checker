@@ -1522,6 +1522,51 @@
     appendGlance(wrap);
   }
 
+  function renderMarkCoverageGlance(payload) {
+    var glance = payload && payload.mark_coverage;
+    if (!glance || !glance.ready || !(glance.line || glance.bit)) return;
+    var wrap = document.createElement("section");
+    wrap.className = "mark-coverage-glance";
+    wrap.setAttribute("aria-labelledby", "charts-marks-h");
+    var h = document.createElement("h2");
+    h.id = "charts-marks-h";
+    h.className = "visually-hidden";
+    h.textContent = "Price coverage";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "mark-coverage-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "mark-coverage-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Marks";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "mark-coverage-glance-body";
+    body.textContent = String(glance.line || glance.bit);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "mark-coverage-glance-link";
+    link.href = "/desk/book";
+    link.textContent = "Book marks →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Scan mark vs cost fallback beside charts. Live quotes stay on Book. Not a gate.";
+    wrap.appendChild(sub);
+    appendGlance(wrap);
+  }
+
   function renderPromoteAbGlance(payload) {
     var glance = payload && payload.promote_ab_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -3025,6 +3070,7 @@
     renderPromoteAbGlance(payload);
     renderBookPostureGlance(payload);
     renderBookRiskGlance(payload);
+    renderMarkCoverageGlance(payload);
 
     /* MonsterDeveloper + xang1234: collapse long policy wall (parity with HTML screens). */
     var details = document.createElement("details");

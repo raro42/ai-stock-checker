@@ -209,6 +209,7 @@ def build_mark_coverage(
         "open": 0,
         "pct": None,
         "bit": "",
+        "line": "",
     }
     lots = [r for r in (rows or []) if isinstance(r, dict)]
     n = len(lots)
@@ -216,6 +217,7 @@ def build_mark_coverage(
         return empty
     marked = sum(1 for r in lots if r.get("marked"))
     if marked <= 0:
+        bit = f"price coverage none · 0/{n}"
         return {
             "ready": True,
             "tone": "warn",
@@ -223,9 +225,11 @@ def build_mark_coverage(
             "marked": 0,
             "open": n,
             "pct": 0.0,
-            "bit": f"price coverage none · 0/{n}",
+            "bit": bit,
+            "line": bit,
         }
     if marked >= n:
+        bit = f"price coverage ok · {n}/{n}"
         return {
             "ready": True,
             "tone": "ok",
@@ -233,8 +237,10 @@ def build_mark_coverage(
             "marked": marked,
             "open": n,
             "pct": 100.0,
-            "bit": f"price coverage ok · {n}/{n}",
+            "bit": bit,
+            "line": bit,
         }
+    bit = f"price coverage thin · {marked}/{n}"
     return {
         "ready": True,
         "tone": "warn",
@@ -242,7 +248,8 @@ def build_mark_coverage(
         "marked": marked,
         "open": n,
         "pct": round(100.0 * marked / n, 1),
-        "bit": f"price coverage thin · {marked}/{n}",
+        "bit": bit,
+        "line": bit,
     }
 
 

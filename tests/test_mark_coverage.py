@@ -18,6 +18,7 @@ def test_mark_coverage_ok() -> None:
     assert g["tone"] == "ok"
     assert g["pct"] == 100.0
     assert g["bit"] == "price coverage ok · 2/2"
+    assert g["line"] == g["bit"]
 
 
 def test_mark_coverage_thin() -> None:
@@ -29,6 +30,7 @@ def test_mark_coverage_thin() -> None:
     assert g["marked"] == 1
     assert g["open"] == 3
     assert g["bit"] == "price coverage thin · 1/3"
+    assert g["line"] == g["bit"]
 
 
 def test_mark_coverage_none() -> None:
@@ -37,3 +39,4 @@ def test_mark_coverage_none() -> None:
     assert g["tone"] == "warn"
     assert g["pct"] == 0.0
     assert g["bit"] == "price coverage none · 0/2"
+    assert g["line"] == g["bit"]
