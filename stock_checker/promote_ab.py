@@ -118,6 +118,9 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # runs and the median differs from the mean (xang1234 median vs mean).
 # Two runs: median equals the pair mean, so it stays silent. A hot
 # median (≥2) warns only. Missing keys → no bit. Not a live halt.
+# Median win run (`win_streak_median`) is the speak-both-sides complement.
+# Same ≥3-run floor and gap vs the mean. A hot median speaks and does
+# not warn. Missing keys → no bit. Not a live halt.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -563,6 +566,9 @@ def window_a_sample_readiness(
         "closes_win_streak_runs": None,
         "closes_win_streak_mean_bit": "",
         "closes_win_streak_mean_hot": False,
+        "closes_win_streak_median": None,
+        "closes_win_streak_median_bit": "",
+        "closes_win_streak_median_hot": False,
         "closes_flat": None,
         "closes_flat_bit": "",
         "closes_flat_warn": False,
@@ -1185,6 +1191,9 @@ def window_a_sample_readiness(
     closes_win_streak_runs: int | None = None
     closes_win_streak_mean_bit = ""
     closes_win_streak_mean_hot = False
+    closes_win_streak_median: float | None = None
+    closes_win_streak_median_bit = ""
+    closes_win_streak_median_hot = False
     closes_flat: int | None = None
     closes_flat_bit = ""
     closes_flat_warn = False
@@ -1584,6 +1593,47 @@ def window_a_sample_readiness(
                 if mean_win >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_win_streak_mean_hot = True
 
+    # Robust typical win-run length (xang1234 median vs mean).
+    # Speak only when ≥3 runs and med differs from mean. Two runs share
+    # the same med and mean. A hot median (≥2) speaks and does not warn
+    # (still ready for B). Missing keys → fail-open.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "win_streak_median" in stats
+        and "win_streak_mean" in stats
+        and "win_streak_runs" in stats
+    ):
+        raw_win_med = stats.get("win_streak_median")
+        raw_win_mean_cmp = stats.get("win_streak_mean")
+        raw_win_med_runs = stats.get("win_streak_runs")
+        if (
+            raw_win_med is not None
+            and raw_win_mean_cmp is not None
+            and raw_win_med_runs is not None
+        ):
+            try:
+                med_win = float(raw_win_med)
+                mean_win_cmp = float(raw_win_mean_cmp)
+                n_win_med_runs = int(raw_win_med_runs)
+            except (TypeError, ValueError):
+                med_win = -1.0
+                mean_win_cmp = -1.0
+                n_win_med_runs = -1
+            if (
+                n_win_med_runs >= WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS
+                and med_win >= 0
+                and abs(med_win - mean_win_cmp)
+                >= WINDOW_A_LOSS_STREAK_MEDIAN_GAP
+            ):
+                closes_win_streak_median = med_win
+                closes_win_streak_median_bit = (
+                    f"A win streak med · {med_win:.1f} · {n_win_med_runs} runs"
+                )
+                if med_win >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_win_streak_median_hot = True
+
     # Zero-P&L sells sit in the N/3 sell meter but not in WR or Kelly
     # (portfolio AI sample honesty). Speak when any flat close exists.
     # Warn only (still ready for B). Zero stays silent. Missing key → fail-open.
@@ -1945,6 +1995,9 @@ def window_a_sample_readiness(
         "closes_win_streak_runs": closes_win_streak_runs,
         "closes_win_streak_mean_bit": closes_win_streak_mean_bit,
         "closes_win_streak_mean_hot": closes_win_streak_mean_hot,
+        "closes_win_streak_median": closes_win_streak_median,
+        "closes_win_streak_median_bit": closes_win_streak_median_bit,
+        "closes_win_streak_median_hot": closes_win_streak_median_hot,
         "closes_flat": closes_flat,
         "closes_flat_bit": closes_flat_bit,
         "closes_flat_warn": closes_flat_warn,
@@ -2243,6 +2296,16 @@ def format_window_a_closes_win_streak_mean_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_win_streak_mean_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_win_streak_median_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A median win-streak bit (≥3 runs, med ≠ mean; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_win_streak_median_bit") or "").strip()
     return bit
 
 
@@ -2574,13 +2637,8 @@ def mean_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     return sum(runs) / len(runs)
 
 
-def median_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
-    """Median losing-close run length. None when there is no loss run.
-
-    One long storm pulls the mean up. The median resists that.
-    Display only — not a gate.
-    """
-    runs = _loss_run_lengths(sells)
+def _median_run_length(runs: list[int] | None) -> float | None:
+    """Median run length. None when there is no run."""
     if not runs:
         return None
     ordered = sorted(runs)
@@ -2589,6 +2647,24 @@ def median_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     if n % 2:
         return float(ordered[mid])
     return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+
+def median_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
+    """Median losing-close run length. None when there is no loss run.
+
+    One long storm pulls the mean up. The median resists that.
+    Display only — not a gate.
+    """
+    return _median_run_length(_loss_run_lengths(sells))
+
+
+def median_win_streak(sells: Iterable[dict[str, Any]]) -> float | None:
+    """Median winning-close run length. None when there is no win run.
+
+    One long run pulls the mean up. The median resists that.
+    Display only — not a gate.
+    """
+    return _median_run_length(_win_run_lengths(sells))
 
 
 def loss_streak_run_count(sells: Iterable[dict[str, Any]]) -> int | None:
@@ -2773,6 +2849,7 @@ def summarize_window_trades(
         "win_streak": ending_win_streak(sells),
         "win_streak_max": max_win_streak(sells),
         "win_streak_mean": mean_win_streak(sells),
+        "win_streak_median": median_win_streak(sells),
         "win_streak_runs": win_streak_run_count(sells),
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,

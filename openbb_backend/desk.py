@@ -782,6 +782,7 @@ def build_promote_ab_glance(
         format_window_a_closes_win_streak_bit,
         format_window_a_closes_win_streak_max_bit,
         format_window_a_closes_win_streak_mean_bit,
+        format_window_a_closes_win_streak_median_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
         format_window_a_closes_wr_vs_be_bit,
@@ -899,6 +900,8 @@ def build_promote_ab_glance(
         "closes_win_streak_mean": None,
         "closes_win_streak_runs": None,
         "closes_win_streak_mean_hot": False,
+        "closes_win_streak_median": None,
+        "closes_win_streak_median_hot": False,
         "closes_flat": None,
         "closes_flat_warn": False,
         "closes_net_expectancy": None,
@@ -946,6 +949,7 @@ def build_promote_ab_glance(
         "a_closes_win_streak_bit": "",
         "a_closes_win_streak_max_bit": "",
         "a_closes_win_streak_mean_bit": "",
+        "a_closes_win_streak_median_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
@@ -1109,6 +1113,10 @@ def build_promote_ab_glance(
     closes_win_streak_mean = sample.get("closes_win_streak_mean")
     closes_win_streak_runs = sample.get("closes_win_streak_runs")
     closes_win_streak_mean_hot = bool(sample.get("closes_win_streak_mean_hot"))
+    closes_win_streak_median = sample.get("closes_win_streak_median")
+    closes_win_streak_median_hot = bool(
+        sample.get("closes_win_streak_median_hot")
+    )
     closes_flat = sample.get("closes_flat")
     closes_flat_warn = bool(sample.get("closes_flat_warn"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
@@ -1244,6 +1252,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_win_streak_median_bit = (
+        format_window_a_closes_win_streak_median_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_flat_bit = (
         format_window_a_closes_flat_bit(sample) if window == "A" else ""
     )
@@ -1298,6 +1311,7 @@ def build_promote_ab_glance(
                 a_closes_win_streak_bit,
                 a_closes_win_streak_max_bit,
                 a_closes_win_streak_mean_bit,
+                a_closes_win_streak_median_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
@@ -1419,6 +1433,7 @@ def build_promote_ab_glance(
                 or a_closes_win_streak_bit
                 or a_closes_win_streak_max_bit
                 or a_closes_win_streak_mean_bit
+                or a_closes_win_streak_median_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
@@ -1484,6 +1499,7 @@ def build_promote_ab_glance(
                 or a_closes_win_streak_bit
                 or a_closes_win_streak_max_bit
                 or a_closes_win_streak_mean_bit
+                or a_closes_win_streak_median_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
@@ -1511,9 +1527,9 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
-    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / loss streak / loss max / loss mean / win streak / win max / win mean / flats / payoff / expectancy / net / fee take / PF / net PF / freshness.
-    if len(line) > 1080:
-        line = line[:969] + "…"
+    # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / loss streak / loss max / loss mean / loss med / win streak / win max / win mean / win med / flats / payoff / expectancy / net / fee take / PF / net PF / freshness.
+    if len(line) > 1160:
+        line = line[:1049] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -1696,6 +1712,12 @@ def build_promote_ab_glance(
         "closes_win_streak_mean_hot": (
             closes_win_streak_mean_hot if window == "A" else False
         ),
+        "closes_win_streak_median": (
+            closes_win_streak_median if window == "A" else None
+        ),
+        "closes_win_streak_median_hot": (
+            closes_win_streak_median_hot if window == "A" else False
+        ),
         "closes_flat": closes_flat if window == "A" else None,
         "closes_flat_warn": closes_flat_warn if window == "A" else False,
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
@@ -1767,6 +1789,7 @@ def build_promote_ab_glance(
         "a_closes_win_streak_bit": a_closes_win_streak_bit,
         "a_closes_win_streak_max_bit": a_closes_win_streak_max_bit,
         "a_closes_win_streak_mean_bit": a_closes_win_streak_mean_bit,
+        "a_closes_win_streak_median_bit": a_closes_win_streak_median_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
