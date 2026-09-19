@@ -6819,3 +6819,189 @@ def test_promote_ab_glance_win_streak_cv_does_not_warn() -> None:
     assert "ready for B" in hot["line"]
     assert hot["b_ready"] is True
 
+
+def test_window_a_exit_mix_speaks_and_warns() -> None:
+    """Exit mix says why closes happened. Stops and churn leading TP warn only."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_START_UTC,
+        exit_reason_bucket,
+        format_window_a_closes_exit_mix_bit,
+        sell_exit_counts,
+        summarize_window_trades,
+        window_a_sample_readiness,
+    )
+
+    assert exit_reason_bucket("take_profit") == "tp"
+    assert exit_reason_bucket("rotation") == "rot"
+    assert exit_reason_bucket("mystery") is None
+    assert exit_reason_bucket("") is None
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+        }
+    )
+    assert unknown["closes_exit_tp"] is None
+    assert unknown["closes_exit_mix_bit"] == ""
+    assert unknown["closes_exit_mix_hot"] is False
+    assert format_window_a_closes_exit_mix_bit(unknown) == ""
+    assert format_window_a_closes_exit_mix_bit(None) == ""
+
+    silent = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 0,
+            "exit_sl": 0,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert silent["closes_exit_mix_bit"] == ""
+    assert silent["closes_exit_mix_hot"] is False
+
+    led = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert led["closes_exit_tp"] == 3
+    assert led["closes_exit_sl"] == 1
+    assert led["closes_exit_mix_hot"] is False
+    assert led["closes_exit_mix_bit"] == "A exits tp 3 · sl 1"
+    assert format_window_a_closes_exit_mix_bit(led) == "A exits tp 3 · sl 1"
+
+    hot_sample = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 1,
+            "losses": 3,
+            "exit_tp": 1,
+            "exit_sl": 2,
+            "exit_rot": 1,
+            "exit_trim": 0,
+        }
+    )
+    assert hot_sample["closes_exit_mix_hot"] is True
+    assert hot_sample["closes_exit_mix_bit"] == "A exits tp 1 · sl 2 · rot 1"
+
+    trades = [
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-08-15T10:00:00+00:00",
+            "profit_loss": 10.0,
+            "exit_reason": "tp",
+        },
+        {
+            "type": "SELL",
+            "symbol": "MSFT",
+            "timestamp": "2026-08-16T10:00:00+00:00",
+            "profit_loss": -4.0,
+            "exit_reason": "sl",
+        },
+        {
+            "type": "SELL",
+            "symbol": "NVDA",
+            "timestamp": "2026-08-17T10:00:00+00:00",
+            "profit_loss": 6.0,
+            "exit_reason": "rotation",
+        },
+        {
+            "type": "SELL",
+            "symbol": "SAP.DE",
+            "timestamp": "2026-08-18T10:00:00+00:00",
+            "profit_loss": 2.0,
+        },
+    ]
+    s = summarize_window_trades(trades, start=WINDOW_A_START_UTC)
+    assert s["exit_tp"] == 1
+    assert s["exit_sl"] == 1
+    assert s["exit_rot"] == 1
+    assert s["exit_trim"] == 0
+    assert sell_exit_counts([]) is None
+    assert sell_exit_counts([{"exit_reason": "nope"}]) == {
+        "tp": 0,
+        "sl": 0,
+        "rot": 0,
+        "trim": 0,
+    }
+
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    base = {
+        "trades": 12,
+        "buys": 6,
+        "sells": 6,
+        "fees": 10.0,
+        "realized_pnl": 80.0,
+        "net_after_all_fees": 70.0,
+        "wins": 4,
+        "losses": 2,
+        "exit_tp": 4,
+        "exit_sl": 1,
+        "exit_rot": 0,
+        "exit_trim": 1,
+        "last_sell": "2026-09-11T15:00:00+00:00",
+    }
+    quiet = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats=base,
+    )
+    hot = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            **base,
+            "exit_tp": 1,
+            "exit_sl": 2,
+            "exit_rot": 2,
+            "exit_trim": 1,
+        },
+    )
+    assert quiet["ready"] is True
+    assert quiet["tone"] == "ready"
+    assert quiet["closes_exit_mix_hot"] is False
+    assert "A exits tp 4 · sl 1 · trim 1" in quiet["line"]
+    assert hot["ready"] is True
+    assert hot["tone"] == "warn"
+    assert hot["closes_exit_tp"] == 1
+    assert hot["closes_exit_sl"] == 2
+    assert hot["closes_exit_rot"] == 2
+    assert hot["closes_exit_trim"] == 1
+    assert hot["closes_exit_mix_hot"] is True
+    assert "A exits tp 1 · sl 2 · rot 2 · trim 1" in hot["line"]
+    assert "ready for B" in hot["line"]
+    assert hot["b_ready"] is True
+

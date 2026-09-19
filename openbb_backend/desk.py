@@ -789,6 +789,7 @@ def build_promote_ab_glance(
         format_window_a_closes_win_streak_min_bit,
         format_window_a_closes_win_streak_stdev_bit,
         format_window_a_closes_win_streak_cv_bit,
+        format_window_a_closes_exit_mix_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
         format_window_a_closes_wr_vs_be_bit,
@@ -922,6 +923,11 @@ def build_promote_ab_glance(
         "closes_win_streak_cv_hot": False,
         "closes_flat": None,
         "closes_flat_warn": False,
+        "closes_exit_tp": None,
+        "closes_exit_sl": None,
+        "closes_exit_rot": None,
+        "closes_exit_trim": None,
+        "closes_exit_mix_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -974,6 +980,7 @@ def build_promote_ab_glance(
         "a_closes_win_streak_min_bit": "",
         "a_closes_win_streak_stdev_bit": "",
         "a_closes_win_streak_cv_bit": "",
+        "a_closes_exit_mix_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
@@ -1155,6 +1162,11 @@ def build_promote_ab_glance(
     closes_win_streak_cv_hot = bool(sample.get("closes_win_streak_cv_hot"))
     closes_flat = sample.get("closes_flat")
     closes_flat_warn = bool(sample.get("closes_flat_warn"))
+    closes_exit_tp = sample.get("closes_exit_tp")
+    closes_exit_sl = sample.get("closes_exit_sl")
+    closes_exit_rot = sample.get("closes_exit_rot")
+    closes_exit_trim = sample.get("closes_exit_trim")
+    closes_exit_mix_hot = bool(sample.get("closes_exit_mix_hot"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1323,6 +1335,9 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_exit_mix_bit = (
+        format_window_a_closes_exit_mix_bit(sample) if window == "A" else ""
+    )
     a_closes_flat_bit = (
         format_window_a_closes_flat_bit(sample) if window == "A" else ""
     )
@@ -1384,6 +1399,7 @@ def build_promote_ab_glance(
                 a_closes_win_streak_min_bit,
                 a_closes_win_streak_stdev_bit,
                 a_closes_win_streak_cv_bit,
+                a_closes_exit_mix_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
@@ -1400,7 +1416,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / loss streak med hot / loss streak min hot / loss streak σ hot / loss streak CV hot / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / loss streak med hot / loss streak min hot / loss streak σ hot / loss streak CV hot / exit mix hot / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -1427,6 +1443,7 @@ def build_promote_ab_glance(
             or closes_loss_streak_stdev_hot
             or closes_loss_streak_cv_hot
             or closes_flat_warn
+            or closes_exit_mix_hot
             or closes_payoff_thin
             or closes_expectancy_neg
             or closes_expectancy_thin
@@ -1515,6 +1532,7 @@ def build_promote_ab_glance(
                 or a_closes_win_streak_min_bit
                 or a_closes_win_streak_stdev_bit
                 or a_closes_win_streak_cv_bit
+                or a_closes_exit_mix_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
@@ -1587,6 +1605,7 @@ def build_promote_ab_glance(
                 or a_closes_win_streak_min_bit
                 or a_closes_win_streak_stdev_bit
                 or a_closes_win_streak_cv_bit
+                or a_closes_exit_mix_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
@@ -1843,6 +1862,11 @@ def build_promote_ab_glance(
         ),
         "closes_flat": closes_flat if window == "A" else None,
         "closes_flat_warn": closes_flat_warn if window == "A" else False,
+        "closes_exit_tp": closes_exit_tp if window == "A" else None,
+        "closes_exit_sl": closes_exit_sl if window == "A" else None,
+        "closes_exit_rot": closes_exit_rot if window == "A" else None,
+        "closes_exit_trim": closes_exit_trim if window == "A" else None,
+        "closes_exit_mix_hot": closes_exit_mix_hot if window == "A" else False,
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -1919,6 +1943,7 @@ def build_promote_ab_glance(
         "a_closes_win_streak_min_bit": a_closes_win_streak_min_bit,
         "a_closes_win_streak_stdev_bit": a_closes_win_streak_stdev_bit,
         "a_closes_win_streak_cv_bit": a_closes_win_streak_cv_bit,
+        "a_closes_exit_mix_bit": a_closes_exit_mix_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,

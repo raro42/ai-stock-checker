@@ -137,6 +137,10 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # Mean ≤ 0 stays silent. A wide CV (≥2) warns only. Missing keys → no bit.
 # Win-run CV (`win_streak_cv`) is the speak-both-sides complement.
 # Same floors. A wide CV speaks and does not warn.
+# Exit mix (`exit_tp` / `exit_sl` / `exit_rot` / `exit_trim`) says why
+# the book closed (tradermonty postmortem). Win/lose counts do not.
+# Speak non-zero live reasons only. Unknown reasons stay silent.
+# Stops + rotation + trim leading take-profits warns only.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -608,6 +612,12 @@ def window_a_sample_readiness(
         "closes_flat": None,
         "closes_flat_bit": "",
         "closes_flat_warn": False,
+        "closes_exit_tp": None,
+        "closes_exit_sl": None,
+        "closes_exit_rot": None,
+        "closes_exit_trim": None,
+        "closes_exit_mix_bit": "",
+        "closes_exit_mix_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1251,6 +1261,12 @@ def window_a_sample_readiness(
     closes_flat: int | None = None
     closes_flat_bit = ""
     closes_flat_warn = False
+    closes_exit_tp: int | None = None
+    closes_exit_sl: int | None = None
+    closes_exit_rot: int | None = None
+    closes_exit_trim: int | None = None
+    closes_exit_mix_bit = ""
+    closes_exit_mix_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1898,6 +1914,51 @@ def window_a_sample_readiness(
                 closes_flat_bit = f"A flats · {n_flat}"
                 closes_flat_warn = True
 
+    # Why the book closed (tradermonty postmortem). Win/lose counts do not
+    # say take-profit vs stop vs rotation vs trim. Speak non-zero live
+    # reasons. Unknown reasons stay silent. Stops + rot + trim leading
+    # take-profits warns only (still ready for B). Missing keys → fail-open.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "exit_tp" in stats
+        and "exit_sl" in stats
+        and "exit_rot" in stats
+        and "exit_trim" in stats
+    ):
+        raw_tp = stats.get("exit_tp")
+        raw_sl = stats.get("exit_sl")
+        raw_rot = stats.get("exit_rot")
+        raw_trim = stats.get("exit_trim")
+        if None not in (raw_tp, raw_sl, raw_rot, raw_trim):
+            try:
+                n_tp = int(raw_tp)
+                n_sl = int(raw_sl)
+                n_rot = int(raw_rot)
+                n_trim = int(raw_trim)
+            except (TypeError, ValueError):
+                n_tp = n_sl = n_rot = n_trim = -1
+            known = n_tp + n_sl + n_rot + n_trim
+            if min(n_tp, n_sl, n_rot, n_trim) >= 0 and known > 0:
+                closes_exit_tp = n_tp
+                closes_exit_sl = n_sl
+                closes_exit_rot = n_rot
+                closes_exit_trim = n_trim
+                parts = [
+                    f"{name} {n}"
+                    for name, n in (
+                        ("tp", n_tp),
+                        ("sl", n_sl),
+                        ("rot", n_rot),
+                        ("trim", n_trim),
+                    )
+                    if n
+                ]
+                closes_exit_mix_bit = "A exits " + " · ".join(parts)
+                if (n_sl + n_rot + n_trim) > n_tp:
+                    closes_exit_mix_hot = True
+
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
     # expectancy can look fine while fee-adjusted €/close is red.
@@ -2268,6 +2329,12 @@ def window_a_sample_readiness(
         "closes_flat": closes_flat,
         "closes_flat_bit": closes_flat_bit,
         "closes_flat_warn": closes_flat_warn,
+        "closes_exit_tp": closes_exit_tp,
+        "closes_exit_sl": closes_exit_sl,
+        "closes_exit_rot": closes_exit_rot,
+        "closes_exit_trim": closes_exit_trim,
+        "closes_exit_mix_bit": closes_exit_mix_bit,
+        "closes_exit_mix_hot": closes_exit_mix_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2643,6 +2710,16 @@ def format_window_a_closes_flat_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_flat_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_mix_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A exit-mix bit (tp/sl/rot/trim; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_mix_bit") or "").strip()
     return bit
 
 
@@ -3138,6 +3215,47 @@ def cv_win_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     return _sample_cv(_win_run_lengths(sells))
 
 
+_EXIT_REASON_BUCKET = {
+    "tp": "tp",
+    "take_profit": "tp",
+    "take-profit": "tp",
+    "sl": "sl",
+    "stop_loss": "sl",
+    "stop-loss": "sl",
+    "stop": "sl",
+    "rotation": "rot",
+    "rot": "rot",
+    "rotate": "rot",
+    "trim": "trim",
+}
+
+
+def exit_reason_bucket(raw: Any) -> str | None:
+    """Map a ledger exit_reason to tp, sl, rot, or trim. Unknown stays None."""
+    key = str(raw or "").strip().lower().replace(" ", "_")
+    if not key:
+        return None
+    return _EXIT_REASON_BUCKET.get(key)
+
+
+def sell_exit_counts(sells: Iterable[dict[str, Any]]) -> dict[str, int] | None:
+    """Count live exit reasons on sells. None when there are no sells.
+
+    Missing or unknown reasons stay out of the four buckets.
+    All-zero means sells exist but none used tp, sl, rot, or trim.
+    Display only — not a gate.
+    """
+    rows = list(sells)
+    if not rows:
+        return None
+    counts = {"tp": 0, "sl": 0, "rot": 0, "trim": 0}
+    for row in rows:
+        bucket = exit_reason_bucket(row.get("exit_reason"))
+        if bucket:
+            counts[bucket] += 1
+    return counts
+
+
 def win_streak_run_count(sells: Iterable[dict[str, Any]]) -> int | None:
     """Count of winning-close runs. None when no dated decided sell.
 
@@ -3233,6 +3351,7 @@ def summarize_window_trades(
     # Fee-adjusted edge for A/B: realized sell P&L minus *all* in-window fees
     # (buy+sell). net_after_sell_fees keeps sell-leg-only for summarize_trades.
     net_all = realized - fees
+    exits = sell_exit_counts(sells)
     return {
         "trades": len(window),
         "buys": len(buys),
@@ -3268,6 +3387,10 @@ def summarize_window_trades(
         "win_streak_mean": mean_win_streak(sells),
         "win_streak_median": median_win_streak(sells),
         "win_streak_runs": win_streak_run_count(sells),
+        "exit_tp": None if exits is None else exits["tp"],
+        "exit_sl": None if exits is None else exits["sl"],
+        "exit_rot": None if exits is None else exits["rot"],
+        "exit_trim": None if exits is None else exits["trim"],
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,
