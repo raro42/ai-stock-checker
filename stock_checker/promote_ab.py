@@ -121,6 +121,9 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # Median win run (`win_streak_median`) is the speak-both-sides complement.
 # Same ≥3-run floor and gap vs the mean. A hot median speaks and does
 # not warn. Missing keys → no bit. Not a live halt.
+# Shortest loss run (`loss_streak_min`) speaks when there are ≥2 loss
+# runs and the floor is under the peak (xang1234 min vs max). Equal
+# lengths stay silent. A hot floor (≥2) warns only. Missing keys → no bit.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -556,6 +559,9 @@ def window_a_sample_readiness(
         "closes_loss_streak_median": None,
         "closes_loss_streak_median_bit": "",
         "closes_loss_streak_median_hot": False,
+        "closes_loss_streak_min": None,
+        "closes_loss_streak_min_bit": "",
+        "closes_loss_streak_min_hot": False,
         "closes_win_streak": None,
         "closes_win_streak_bit": "",
         "closes_win_streak_hot": False,
@@ -1181,6 +1187,9 @@ def window_a_sample_readiness(
     closes_loss_streak_median: float | None = None
     closes_loss_streak_median_bit = ""
     closes_loss_streak_median_hot = False
+    closes_loss_streak_min: int | None = None
+    closes_loss_streak_min_bit = ""
+    closes_loss_streak_min_hot = False
     closes_win_streak: int | None = None
     closes_win_streak_bit = ""
     closes_win_streak_hot = False
@@ -1520,6 +1529,39 @@ def window_a_sample_readiness(
                 )
                 if med_v >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_loss_streak_median_hot = True
+
+    # Shortest loss run vs the peak (xang1234 min vs max).
+    # Speak only when ≥2 runs and min < max. Equal lengths stay silent.
+    # A hot floor (≥2) warns only (still ready for B). Missing keys → fail-open.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "loss_streak_min" in stats
+        and "loss_streak_max" in stats
+        and "loss_streak_runs" in stats
+    ):
+        raw_min = stats.get("loss_streak_min")
+        raw_peak = stats.get("loss_streak_max")
+        raw_min_runs = stats.get("loss_streak_runs")
+        if raw_min is not None and raw_peak is not None and raw_min_runs is not None:
+            try:
+                n_min = int(raw_min)
+                n_peak = int(raw_peak)
+                n_min_runs = int(raw_min_runs)
+            except (TypeError, ValueError):
+                n_min = -1
+                n_peak = -1
+                n_min_runs = -1
+            if (
+                n_min_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
+                and n_min >= 0
+                and n_min < n_peak
+            ):
+                closes_loss_streak_min = n_min
+                closes_loss_streak_min_bit = f"A loss streak min · {n_min}"
+                if n_min >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_loss_streak_min_hot = True
 
     # Newest winning-close run (portfolio AI speak-both-sides).
     # Loss counts ≠ a current win run. quiet 0–1 speaks. hot ≥2 speaks.
@@ -1985,6 +2027,9 @@ def window_a_sample_readiness(
         "closes_loss_streak_median": closes_loss_streak_median,
         "closes_loss_streak_median_bit": closes_loss_streak_median_bit,
         "closes_loss_streak_median_hot": closes_loss_streak_median_hot,
+        "closes_loss_streak_min": closes_loss_streak_min,
+        "closes_loss_streak_min_bit": closes_loss_streak_min_bit,
+        "closes_loss_streak_min_hot": closes_loss_streak_min_hot,
         "closes_win_streak": closes_win_streak,
         "closes_win_streak_bit": closes_win_streak_bit,
         "closes_win_streak_hot": closes_win_streak_hot,
@@ -2266,6 +2311,16 @@ def format_window_a_closes_loss_streak_median_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_loss_streak_median_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_loss_streak_min_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A min loss-streak bit (≥2 runs, min < max; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_loss_streak_min_bit") or "").strip()
     return bit
 
 
@@ -2625,6 +2680,18 @@ def max_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     return max(runs)
 
 
+def min_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
+    """Shortest run of losing closes. None when there is no loss run.
+
+    The floor can sit under the peak. Equal runs share one length.
+    Display only — not a gate.
+    """
+    runs = _loss_run_lengths(sells)
+    if not runs:
+        return None
+    return min(runs)
+
+
 def mean_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     """Average losing-close run length. None when there is no loss run.
 
@@ -2843,6 +2910,7 @@ def summarize_window_trades(
         "win_rate": win_rate,
         "loss_streak": ending_loss_streak(sells),
         "loss_streak_max": max_loss_streak(sells),
+        "loss_streak_min": min_loss_streak(sells),
         "loss_streak_mean": mean_loss_streak(sells),
         "loss_streak_median": median_loss_streak(sells),
         "loss_streak_runs": loss_streak_run_count(sells),

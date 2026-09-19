@@ -239,6 +239,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["loss_streak_max"] == 0
     assert s["loss_streak_mean"] is None
     assert s["loss_streak_median"] is None
+    assert s["loss_streak_min"] is None
     assert s["loss_streak_runs"] == 0
     assert s["win_streak"] == 1
     assert s["win_streak_max"] == 1
@@ -4091,6 +4092,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     assert s2["loss_streak_mean"] == 1.0
     assert s["loss_streak_median"] == 1.0
     assert s2["loss_streak_median"] == 1.0
+    assert s["loss_streak_min"] == 1
+    assert s2["loss_streak_min"] == 1
     assert s["loss_streak_runs"] == 1
     assert s2["loss_streak_runs"] == 1
     assert s["win_streak"] == 0
@@ -5689,6 +5692,141 @@ def test_promote_ab_glance_loss_streak_median_warns_but_ready() -> None:
     assert "A loss streak med · 2.5 · 3 runs" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
+
+
+def test_window_a_loss_streak_min_speaks_when_floor_is_under_peak() -> None:
+    """Min speaks when ≥2 runs and the shortest run is under the peak."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_LOSS_STREAK_HOT,
+        WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS,
+        format_window_a_closes_loss_streak_min_bit,
+        min_loss_streak,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_max": 3,
+            "loss_streak_runs": 2,
+        }
+    )
+    assert unknown["closes_loss_streak_min"] is None
+    assert unknown["closes_loss_streak_min_bit"] == ""
+    assert unknown["closes_loss_streak_min_hot"] is False
+    assert format_window_a_closes_loss_streak_min_bit(None) == ""
+
+    one = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 2,
+            "loss_streak_min": 2,
+            "loss_streak_max": 2,
+            "loss_streak_runs": 1,
+        }
+    )
+    assert one["closes_loss_streak_min_bit"] == ""
+    assert 1 < WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
+
+    same = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_min": 1,
+            "loss_streak_max": 1,
+            "loss_streak_runs": 2,
+        }
+    )
+    assert same["closes_loss_streak_min_bit"] == ""
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_min": 1,
+            "loss_streak_max": 3,
+            "loss_streak_runs": 2,
+        }
+    )
+    assert quiet["closes_loss_streak_min"] == 1
+    assert quiet["closes_loss_streak_min_hot"] is False
+    assert quiet["closes_loss_streak_min"] < WINDOW_A_LOSS_STREAK_HOT
+    assert quiet["closes_loss_streak_min_bit"] == "A loss streak min · 1"
+
+    sells = [
+        {"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": -4.0},
+        {"timestamp": "2026-08-13T10:00:00+00:00", "profit_loss": -3.0},
+        {"timestamp": "2026-08-14T10:00:00+00:00", "profit_loss": 5.0},
+        {"timestamp": "2026-08-15T10:00:00+00:00", "profit_loss": -1.0},
+    ]
+    assert min_loss_streak(sells) == 1
+    assert min_loss_streak([]) is None
+    assert min_loss_streak(
+        [{"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": 2.0}]
+    ) is None
+
+
+def test_promote_ab_glance_loss_streak_min_warns_but_ready() -> None:
+    """A hot min loss streak warns. It does not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "avg_win": 40.0,
+            "avg_loss": 10.0,
+            "loss_streak": 2,
+            "loss_streak_min": 2,
+            "loss_streak_max": 4,
+            "loss_streak_runs": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_loss_streak_min"] == 2
+    assert g["closes_loss_streak_min_hot"] is True
+    assert "A loss streak min · 2" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
 
 def test_window_a_win_streak_mean_speaks_when_two_runs() -> None:
     """Typical win-run length speaks only when there are two or more runs."""
