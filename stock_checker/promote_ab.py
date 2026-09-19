@@ -542,6 +542,9 @@ def window_a_sample_readiness(
         "closes_win_streak_max": None,
         "closes_win_streak_max_bit": "",
         "closes_win_streak_max_hot": False,
+        "closes_flat": None,
+        "closes_flat_bit": "",
+        "closes_flat_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1150,6 +1153,9 @@ def window_a_sample_readiness(
     closes_win_streak_max: int | None = None
     closes_win_streak_max_bit = ""
     closes_win_streak_max_hot = False
+    closes_flat: int | None = None
+    closes_flat_bit = ""
+    closes_flat_warn = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1446,6 +1452,21 @@ def window_a_sample_readiness(
                 closes_win_streak_max_bit = f"A win streak max · {n_win_max}"
                 if n_win_max >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_win_streak_max_hot = True
+
+    # Zero-P&L sells sit in the N/3 sell meter but not in WR or Kelly
+    # (portfolio AI sample honesty). Speak when any flat close exists.
+    # Warn only (still ready for B). Zero stays silent. Missing key → fail-open.
+    if sides_known and sells > 0 and not open_only and "flat_closes" in stats:
+        raw_flat = stats.get("flat_closes")
+        if raw_flat is not None:
+            try:
+                n_flat = int(raw_flat)
+            except (TypeError, ValueError):
+                n_flat = -1
+            if n_flat > 0:
+                closes_flat = n_flat
+                closes_flat_bit = f"A flats · {n_flat}"
+                closes_flat_warn = True
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
@@ -1782,6 +1803,9 @@ def window_a_sample_readiness(
         "closes_win_streak_max": closes_win_streak_max,
         "closes_win_streak_max_bit": closes_win_streak_max_bit,
         "closes_win_streak_max_hot": closes_win_streak_max_hot,
+        "closes_flat": closes_flat,
+        "closes_flat_bit": closes_flat_bit,
+        "closes_flat_warn": closes_flat_warn,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2047,6 +2071,16 @@ def format_window_a_closes_win_streak_max_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_win_streak_max_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_flat_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A flat-close bit (sell meter ≠ decided closes; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_flat_bit") or "").strip()
     return bit
 
 
@@ -2386,6 +2420,7 @@ def summarize_window_trades(
     )
     wins = sum(1 for t in sells if float(t.get("profit_loss") or 0) > 0)
     losses = sum(1 for t in sells if float(t.get("profit_loss") or 0) < 0)
+    flat_closes = sum(1 for t in sells if float(t.get("profit_loss") or 0) == 0)
     win_pnls = [
         float(t.get("profit_loss") or 0)
         for t in sells
@@ -2454,6 +2489,7 @@ def summarize_window_trades(
         "net_after_all_fees": net_all,
         "wins": wins,
         "losses": losses,
+        "flat_closes": flat_closes,
         "avg_win": avg_win,
         "avg_loss": avg_loss,
         "payoff_ratio": payoff_ratio,

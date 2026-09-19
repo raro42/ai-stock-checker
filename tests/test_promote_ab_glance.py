@@ -239,6 +239,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["loss_streak_max"] == 0
     assert s["win_streak"] == 1
     assert s["win_streak_max"] == 1
+    assert s["flat_closes"] == 0
     bit = format_window_stats_bit(s)
     assert "€18 fees" in bit
     assert "+€82 net" in bit
@@ -4084,6 +4085,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     assert s2["win_streak"] == 0
     assert s["win_streak_max"] == 1
     assert s2["win_streak_max"] == 1
+    assert s["flat_closes"] == 0
+    assert s2["flat_closes"] == 0
 
 
 def test_promote_ab_glance_open_only_keeps_window_a() -> None:
@@ -5306,3 +5309,115 @@ def test_promote_ab_glance_win_streak_max_does_not_warn() -> None:
     assert hot["closes_win_streak_max"] == 3
     assert "A win streak max · 3" in hot["line"]
     assert hot["b_ready"] is True
+
+
+def test_window_a_flat_closes_warn_but_ready() -> None:
+    """Zero-P&L sells inflate the sell meter. They warn and do not block B."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_START_UTC,
+        format_window_a_closes_flat_bit,
+        summarize_window_trades,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+        }
+    )
+    assert unknown["closes_flat"] is None
+    assert unknown["closes_flat_bit"] == ""
+    assert unknown["closes_flat_warn"] is False
+    assert format_window_a_closes_flat_bit(unknown) == ""
+    assert format_window_a_closes_flat_bit(None) == ""
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "flat_closes": 0,
+        }
+    )
+    assert quiet["closes_flat"] is None
+    assert quiet["closes_flat_bit"] == ""
+    assert quiet["closes_flat_warn"] is False
+
+    warned = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 2,
+            "losses": 2,
+            "flat_closes": 2,
+        }
+    )
+    assert warned["closes_flat"] == 2
+    assert warned["closes_flat_warn"] is True
+    assert warned["closes_flat_bit"] == "A flats · 2"
+    assert format_window_a_closes_flat_bit(warned) == "A flats · 2"
+
+    trades = [
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-08-15T10:00:00+00:00",
+            "profit_loss": 10.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "MSFT",
+            "timestamp": "2026-08-16T10:00:00+00:00",
+            "profit_loss": 0.0,
+        },
+    ]
+    s = summarize_window_trades(trades, start=WINDOW_A_START_UTC)
+    assert s["sells"] == 2
+    assert s["wins"] == 1
+    assert s["losses"] == 0
+    assert s["flat_closes"] == 1
+
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 1,
+            "flat_closes": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_flat"] == 2
+    assert g["closes_flat_warn"] is True
+    assert "A flats · 2" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
