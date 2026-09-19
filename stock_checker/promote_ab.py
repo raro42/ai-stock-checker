@@ -110,8 +110,11 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # (portfolio AI). Same hot floor. A hot win run speaks and does not warn.
 # Peak win run (`win_streak_max`) speaks only when it exceeds the ending
 # run (xang1234 max vs ending). A hot peak speaks and does not warn.
+# Mean loss run (`loss_streak_mean`) speaks when there are ≥2 loss runs
+# (xang1234 mean vs peak). One run stays silent. A hot mean (≥2) warns only.
 # Missing keys → no bit. Not a live halt.
 WINDOW_A_LOSS_STREAK_HOT = 2
+WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -536,6 +539,10 @@ def window_a_sample_readiness(
         "closes_loss_streak_max": None,
         "closes_loss_streak_max_bit": "",
         "closes_loss_streak_max_hot": False,
+        "closes_loss_streak_mean": None,
+        "closes_loss_streak_runs": None,
+        "closes_loss_streak_mean_bit": "",
+        "closes_loss_streak_mean_hot": False,
         "closes_win_streak": None,
         "closes_win_streak_bit": "",
         "closes_win_streak_hot": False,
@@ -1147,6 +1154,10 @@ def window_a_sample_readiness(
     closes_loss_streak_max: int | None = None
     closes_loss_streak_max_bit = ""
     closes_loss_streak_max_hot = False
+    closes_loss_streak_mean: float | None = None
+    closes_loss_streak_runs: int | None = None
+    closes_loss_streak_mean_bit = ""
+    closes_loss_streak_mean_hot = False
     closes_win_streak: int | None = None
     closes_win_streak_bit = ""
     closes_win_streak_hot = False
@@ -1411,6 +1422,34 @@ def window_a_sample_readiness(
                 closes_loss_streak_max_bit = f"A loss streak max · {n_max}"
                 if n_max >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_loss_streak_max_hot = True
+
+    # Typical loss-run length vs the peak (xang1234 mean vs max).
+    # Speak only when ≥2 runs. One run is already the max. A hot mean
+    # (≥2) warns only (still ready for B). Missing keys → fail-open.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "loss_streak_mean" in stats
+        and "loss_streak_runs" in stats
+    ):
+        raw_mean = stats.get("loss_streak_mean")
+        raw_runs = stats.get("loss_streak_runs")
+        if raw_mean is not None and raw_runs is not None:
+            try:
+                mean_v = float(raw_mean)
+                n_runs = int(raw_runs)
+            except (TypeError, ValueError):
+                mean_v = -1.0
+                n_runs = -1
+            if n_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS and mean_v >= 0:
+                closes_loss_streak_mean = mean_v
+                closes_loss_streak_runs = n_runs
+                closes_loss_streak_mean_bit = (
+                    f"A loss streak mean · {mean_v:.1f} · {n_runs} runs"
+                )
+                if mean_v >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_loss_streak_mean_hot = True
 
     # Newest winning-close run (portfolio AI speak-both-sides).
     # Loss counts ≠ a current win run. quiet 0–1 speaks. hot ≥2 speaks.
@@ -1797,6 +1836,10 @@ def window_a_sample_readiness(
         "closes_loss_streak_max": closes_loss_streak_max,
         "closes_loss_streak_max_bit": closes_loss_streak_max_bit,
         "closes_loss_streak_max_hot": closes_loss_streak_max_hot,
+        "closes_loss_streak_mean": closes_loss_streak_mean,
+        "closes_loss_streak_runs": closes_loss_streak_runs,
+        "closes_loss_streak_mean_bit": closes_loss_streak_mean_bit,
+        "closes_loss_streak_mean_hot": closes_loss_streak_mean_hot,
         "closes_win_streak": closes_win_streak,
         "closes_win_streak_bit": closes_win_streak_bit,
         "closes_win_streak_hot": closes_win_streak_hot,
@@ -2051,6 +2094,16 @@ def format_window_a_closes_loss_streak_max_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_loss_streak_max_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_loss_streak_mean_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A mean loss-streak bit (≥2 runs; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_loss_streak_mean_bit") or "").strip()
     return bit
 
 
@@ -2353,25 +2406,64 @@ def ending_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     return streak
 
 
+def _loss_run_lengths(sells: Iterable[dict[str, Any]]) -> list[int] | None:
+    """Lengths of losing-close runs. None when no dated decided sell.
+
+    Flat closes do not count and do not break a run. A win breaks the run.
+    An empty list means dated sells with no losses. Display only — not a gate.
+    """
+    dated = _dated_decided_pnls(sells)
+    if not dated:
+        return None
+    runs: list[int] = []
+    streak = 0
+    for _ts, pnl in dated:
+        if pnl < 0:
+            streak += 1
+            continue
+        if streak:
+            runs.append(streak)
+            streak = 0
+    if streak:
+        runs.append(streak)
+    return runs
+
+
 def max_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     """Longest run of losing closes. None when no dated decided sell.
 
     Flat closes do not count and do not break a run. A win breaks the run.
     The peak can exceed the newest ending run. Display only — not a gate.
     """
-    dated = _dated_decided_pnls(sells)
-    if not dated:
+    runs = _loss_run_lengths(sells)
+    if runs is None:
         return None
-    best = 0
-    streak = 0
-    for _ts, pnl in dated:
-        if pnl < 0:
-            streak += 1
-            if streak > best:
-                best = streak
-            continue
-        streak = 0
-    return best
+    if not runs:
+        return 0
+    return max(runs)
+
+
+def mean_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
+    """Average losing-close run length. None when there is no loss run.
+
+    One long storm and many short runs share the same peak. The mean
+    shows the typical run. Display only — not a gate.
+    """
+    runs = _loss_run_lengths(sells)
+    if not runs:
+        return None
+    return sum(runs) / len(runs)
+
+
+def loss_streak_run_count(sells: Iterable[dict[str, Any]]) -> int | None:
+    """Count of losing-close runs. None when no dated decided sell.
+
+    Zero means dated sells with no losses. Display only — not a gate.
+    """
+    runs = _loss_run_lengths(sells)
+    if runs is None:
+        return None
+    return len(runs)
 
 
 def max_win_streak(sells: Iterable[dict[str, Any]]) -> int | None:
@@ -2500,6 +2592,8 @@ def summarize_window_trades(
         "win_rate": win_rate,
         "loss_streak": ending_loss_streak(sells),
         "loss_streak_max": max_loss_streak(sells),
+        "loss_streak_mean": mean_loss_streak(sells),
+        "loss_streak_runs": loss_streak_run_count(sells),
         "win_streak": ending_win_streak(sells),
         "win_streak_max": max_win_streak(sells),
         "crypto_legs": crypto_legs,

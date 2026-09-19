@@ -777,6 +777,7 @@ def build_promote_ab_glance(
         format_window_a_closes_kelly_sample_bit,
         format_window_a_closes_loss_streak_bit,
         format_window_a_closes_loss_streak_max_bit,
+        format_window_a_closes_loss_streak_mean_bit,
         format_window_a_closes_win_streak_bit,
         format_window_a_closes_win_streak_max_bit,
         format_window_a_closes_flat_bit,
@@ -884,6 +885,9 @@ def build_promote_ab_glance(
         "closes_loss_streak_hot": False,
         "closes_loss_streak_max": None,
         "closes_loss_streak_max_hot": False,
+        "closes_loss_streak_mean": None,
+        "closes_loss_streak_runs": None,
+        "closes_loss_streak_mean_hot": False,
         "closes_win_streak": None,
         "closes_win_streak_hot": False,
         "closes_win_streak_max": None,
@@ -930,6 +934,7 @@ def build_promote_ab_glance(
         "a_closes_kelly_sample_bit": "",
         "a_closes_loss_streak_bit": "",
         "a_closes_loss_streak_max_bit": "",
+        "a_closes_loss_streak_mean_bit": "",
         "a_closes_win_streak_bit": "",
         "a_closes_win_streak_max_bit": "",
         "a_closes_flat_bit": "",
@@ -1081,6 +1086,9 @@ def build_promote_ab_glance(
     closes_loss_streak_hot = bool(sample.get("closes_loss_streak_hot"))
     closes_loss_streak_max = sample.get("closes_loss_streak_max")
     closes_loss_streak_max_hot = bool(sample.get("closes_loss_streak_max_hot"))
+    closes_loss_streak_mean = sample.get("closes_loss_streak_mean")
+    closes_loss_streak_runs = sample.get("closes_loss_streak_runs")
+    closes_loss_streak_mean_hot = bool(sample.get("closes_loss_streak_mean_hot"))
     closes_win_streak = sample.get("closes_win_streak")
     closes_win_streak_hot = bool(sample.get("closes_win_streak_hot"))
     closes_win_streak_max = sample.get("closes_win_streak_max")
@@ -1197,6 +1205,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_loss_streak_mean_bit = (
+        format_window_a_closes_loss_streak_mean_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_win_streak_bit = (
         format_window_a_closes_win_streak_bit(sample) if window == "A" else ""
     )
@@ -1254,6 +1267,7 @@ def build_promote_ab_glance(
                 a_closes_kelly_sample_bit,
                 a_closes_loss_streak_bit,
                 a_closes_loss_streak_max_bit,
+                a_closes_loss_streak_mean_bit,
                 a_closes_win_streak_bit,
                 a_closes_win_streak_max_bit,
                 a_closes_flat_bit,
@@ -1272,7 +1286,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -1293,6 +1307,7 @@ def build_promote_ab_glance(
             or closes_kelly_sample_thin
             or closes_loss_streak_hot
             or closes_loss_streak_max_hot
+            or closes_loss_streak_mean_hot
             or closes_flat_warn
             or closes_payoff_thin
             or closes_expectancy_neg
@@ -1370,6 +1385,7 @@ def build_promote_ab_glance(
                 or a_closes_kelly_sample_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
+                or a_closes_loss_streak_mean_bit
                 or a_closes_win_streak_bit
                 or a_closes_win_streak_max_bit
                 or a_closes_flat_bit
@@ -1432,6 +1448,7 @@ def build_promote_ab_glance(
                 or a_closes_kelly_sample_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
+                or a_closes_loss_streak_mean_bit
                 or a_closes_win_streak_bit
                 or a_closes_win_streak_max_bit
                 or a_closes_flat_bit
@@ -1614,6 +1631,15 @@ def build_promote_ab_glance(
         "closes_loss_streak_max_hot": (
             closes_loss_streak_max_hot if window == "A" else False
         ),
+        "closes_loss_streak_mean": (
+            closes_loss_streak_mean if window == "A" else None
+        ),
+        "closes_loss_streak_runs": (
+            closes_loss_streak_runs if window == "A" else None
+        ),
+        "closes_loss_streak_mean_hot": (
+            closes_loss_streak_mean_hot if window == "A" else False
+        ),
         "closes_win_streak": closes_win_streak if window == "A" else None,
         "closes_win_streak_hot": (
             closes_win_streak_hot if window == "A" else False
@@ -1688,6 +1714,7 @@ def build_promote_ab_glance(
         "a_closes_kelly_sample_bit": a_closes_kelly_sample_bit,
         "a_closes_loss_streak_bit": a_closes_loss_streak_bit,
         "a_closes_loss_streak_max_bit": a_closes_loss_streak_max_bit,
+        "a_closes_loss_streak_mean_bit": a_closes_loss_streak_mean_bit,
         "a_closes_win_streak_bit": a_closes_win_streak_bit,
         "a_closes_win_streak_max_bit": a_closes_win_streak_max_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
