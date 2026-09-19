@@ -241,6 +241,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["loss_streak_median"] is None
     assert s["loss_streak_min"] is None
     assert s["loss_streak_stdev"] is None
+    assert s["loss_streak_cv"] is None
     assert s["loss_streak_runs"] == 0
     assert s["win_streak"] == 1
     assert s["win_streak_max"] == 1
@@ -4099,6 +4100,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     assert s2["loss_streak_min"] == 1
     assert s["loss_streak_stdev"] is None
     assert s2["loss_streak_stdev"] is None
+    assert s["loss_streak_cv"] is None
+    assert s2["loss_streak_cv"] is None
     assert s["loss_streak_runs"] == 1
     assert s2["loss_streak_runs"] == 1
     assert s["win_streak"] == 0
@@ -5971,6 +5974,144 @@ def test_promote_ab_glance_loss_streak_stdev_warns_but_ready() -> None:
     assert g["closes_loss_streak_stdev"] == 2.3
     assert g["closes_loss_streak_stdev_hot"] is True
     assert "A loss streak σ · 2.3 · 3 runs" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
+def test_window_a_loss_streak_cv_speaks_when_runs_differ() -> None:
+    """CV speaks when ≥3 loss runs and σ/mean is at least 0.05."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_LOSS_STREAK_HOT,
+        WINDOW_A_LOSS_STREAK_STDEV_MIN,
+        WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS,
+        cv_loss_streak,
+        format_window_a_closes_loss_streak_cv_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_runs": 3,
+        }
+    )
+    assert unknown["closes_loss_streak_cv"] is None
+    assert unknown["closes_loss_streak_cv_bit"] == ""
+    assert unknown["closes_loss_streak_cv_hot"] is False
+    assert format_window_a_closes_loss_streak_cv_bit(None) == ""
+
+    two = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_cv": 1.4,
+            "loss_streak_runs": 2,
+        }
+    )
+    assert two["closes_loss_streak_cv_bit"] == ""
+    assert 2 < WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+
+    flat = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_cv": 0.0,
+            "loss_streak_runs": 3,
+        }
+    )
+    assert flat["closes_loss_streak_cv_bit"] == ""
+    assert 0.0 < WINDOW_A_LOSS_STREAK_STDEV_MIN
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "loss_streak": 1,
+            "loss_streak_cv": 0.5,
+            "loss_streak_runs": 3,
+        }
+    )
+    assert quiet["closes_loss_streak_cv"] == 0.5
+    assert quiet["closes_loss_streak_cv_hot"] is False
+    assert quiet["closes_loss_streak_cv"] < WINDOW_A_LOSS_STREAK_HOT
+    assert quiet["closes_loss_streak_cv_bit"] == "A loss streak CV · 0.5 · 3 runs"
+
+    sells = [
+        {"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": -1.0},
+        {"timestamp": "2026-08-13T10:00:00+00:00", "profit_loss": 2.0},
+        {"timestamp": "2026-08-14T10:00:00+00:00", "profit_loss": -1.0},
+        {"timestamp": "2026-08-15T10:00:00+00:00", "profit_loss": -1.0},
+        {"timestamp": "2026-08-16T10:00:00+00:00", "profit_loss": 2.0},
+        {"timestamp": "2026-08-17T10:00:00+00:00", "profit_loss": -1.0},
+        {"timestamp": "2026-08-18T10:00:00+00:00", "profit_loss": -1.0},
+        {"timestamp": "2026-08-19T10:00:00+00:00", "profit_loss": -1.0},
+    ]
+    assert abs(cv_loss_streak(sells) - 0.5) < 1e-9
+    assert cv_loss_streak([]) is None
+    assert (
+        cv_loss_streak(
+            [{"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": -2.0}]
+        )
+        is None
+    )
+
+
+def test_promote_ab_glance_loss_streak_cv_warns_but_ready() -> None:
+    """A wide loss-streak CV warns. It does not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "avg_win": 40.0,
+            "avg_loss": 10.0,
+            "loss_streak": 1,
+            "loss_streak_cv": 2.3,
+            "loss_streak_runs": 3,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_loss_streak_cv"] == 2.3
+    assert g["closes_loss_streak_cv_hot"] is True
+    assert "A loss streak CV · 2.3 · 3 runs" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 

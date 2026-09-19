@@ -132,6 +132,9 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # (≥2) warns only. Missing keys → no bit. Not a live halt.
 # Win-run σ (`win_streak_stdev`) is the speak-both-sides complement.
 # Same ≥3-run floor and σ floor. A wide σ speaks and does not warn.
+# Loss-run CV (`loss_streak_cv` = σ ÷ mean) scales that spread by the
+# typical run (xang1234 flip-run CV). Same ≥3-run floor and 0.05 floor.
+# Mean ≤ 0 stays silent. A wide CV (≥2) warns only. Missing keys → no bit.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -575,6 +578,9 @@ def window_a_sample_readiness(
         "closes_loss_streak_stdev": None,
         "closes_loss_streak_stdev_bit": "",
         "closes_loss_streak_stdev_hot": False,
+        "closes_loss_streak_cv": None,
+        "closes_loss_streak_cv_bit": "",
+        "closes_loss_streak_cv_hot": False,
         "closes_win_streak": None,
         "closes_win_streak_bit": "",
         "closes_win_streak_hot": False,
@@ -1212,6 +1218,9 @@ def window_a_sample_readiness(
     closes_loss_streak_stdev: float | None = None
     closes_loss_streak_stdev_bit = ""
     closes_loss_streak_stdev_hot = False
+    closes_loss_streak_cv: float | None = None
+    closes_loss_streak_cv_bit = ""
+    closes_loss_streak_cv_hot = False
     closes_win_streak: int | None = None
     closes_win_streak_bit = ""
     closes_win_streak_hot = False
@@ -1621,6 +1630,37 @@ def window_a_sample_readiness(
                 )
                 if stdev_v >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_loss_streak_stdev_hot = True
+
+    # Relative spread of loss-run lengths (xang1234 flip-run CV = σ / mean).
+    # Speak only when ≥3 runs and CV ≥ 0.05. Two runs stay silent.
+    # Mean ≤ 0 stays silent. A wide CV (≥2) warns only (still ready for B).
+    # Missing keys → fail-open.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "loss_streak_cv" in stats
+        and "loss_streak_runs" in stats
+    ):
+        raw_cv = stats.get("loss_streak_cv")
+        raw_cv_runs = stats.get("loss_streak_runs")
+        if raw_cv is not None and raw_cv_runs is not None:
+            try:
+                cv_v = float(raw_cv)
+                n_cv_runs = int(raw_cv_runs)
+            except (TypeError, ValueError):
+                cv_v = -1.0
+                n_cv_runs = -1
+            if (
+                n_cv_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+                and cv_v >= WINDOW_A_LOSS_STREAK_STDEV_MIN
+            ):
+                closes_loss_streak_cv = cv_v
+                closes_loss_streak_cv_bit = (
+                    f"A loss streak CV · {cv_v:.1f} · {n_cv_runs} runs"
+                )
+                if cv_v >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_loss_streak_cv_hot = True
 
     # Newest winning-close run (portfolio AI speak-both-sides).
     # Loss counts ≠ a current win run. quiet 0–1 speaks. hot ≥2 speaks.
@@ -2161,6 +2201,9 @@ def window_a_sample_readiness(
         "closes_loss_streak_stdev": closes_loss_streak_stdev,
         "closes_loss_streak_stdev_bit": closes_loss_streak_stdev_bit,
         "closes_loss_streak_stdev_hot": closes_loss_streak_stdev_hot,
+        "closes_loss_streak_cv": closes_loss_streak_cv,
+        "closes_loss_streak_cv_bit": closes_loss_streak_cv_bit,
+        "closes_loss_streak_cv_hot": closes_loss_streak_cv_hot,
         "closes_win_streak": closes_win_streak,
         "closes_win_streak_bit": closes_win_streak_bit,
         "closes_win_streak_hot": closes_win_streak_hot,
@@ -2468,6 +2511,16 @@ def format_window_a_closes_loss_streak_stdev_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_loss_streak_stdev_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_loss_streak_cv_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A loss-streak CV bit (≥3 runs, CV ≥ 0.05; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_loss_streak_cv_bit") or "").strip()
     return bit
 
 
@@ -2878,6 +2931,27 @@ def stdev_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     return _sample_stdev(_loss_run_lengths(sells))
 
 
+def _sample_cv(runs: list[int] | None) -> float | None:
+    """Sample coefficient of variation (σ / mean). None when σ is missing or mean ≤ 0."""
+    stdev = _sample_stdev(runs)
+    if stdev is None or not runs:
+        return None
+    mean = sum(runs) / len(runs)
+    if mean <= 0:
+        return None
+    return stdev / mean
+
+
+def cv_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
+    """Sample CV of losing-close run lengths (σ / mean).
+
+    σ is the absolute spread. CV scales that spread by the typical run.
+    None when fewer than two runs or the mean is not positive.
+    Display only — not a gate.
+    """
+    return _sample_cv(_loss_run_lengths(sells))
+
+
 def mean_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     """Average losing-close run length. None when there is no loss run.
 
@@ -3120,6 +3194,7 @@ def summarize_window_trades(
         "loss_streak_max": max_loss_streak(sells),
         "loss_streak_min": min_loss_streak(sells),
         "loss_streak_stdev": stdev_loss_streak(sells),
+        "loss_streak_cv": cv_loss_streak(sells),
         "loss_streak_mean": mean_loss_streak(sells),
         "loss_streak_median": median_loss_streak(sells),
         "loss_streak_runs": loss_streak_run_count(sells),
