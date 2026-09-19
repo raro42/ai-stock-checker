@@ -153,6 +153,10 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # stops vs rotation vs trim. Same bands, inverted: hot ≥60% warns only;
 # quiet <40% speaks and does not warn; mid stays unlabeled. Unknown
 # exits stay out. Missing keys → fail-open.
+# Exit rotation share (`exit_rot` ÷ known live reasons) is the next
+# speak-both-sides slice (portfolio AI + tradermonty postmortem). Stop
+# share does not say scan-chase. Same inverted bands. Hot warns only.
+# Quiet speaks and does not warn. Unknown exits stay out. Fail-open.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -308,6 +312,24 @@ def format_window_b_block_bit(blockers: list[str] | None) -> str:
     if not clean:
         return ""
     return "B blocked · " + " · ".join(clean)
+
+
+def _adverse_exit_share(
+    count: int, known: int, label: str
+) -> tuple[float, str, str, bool]:
+    """Share of known exits. hot ≥60% warns; quiet <40% speaks."""
+    share = round(100.0 * count / known, 1)
+    pct_s = (
+        f"{int(round(share))}%"
+        if abs(share - round(share)) < 0.05
+        else f"{share:.1f}%"
+    )
+    prefix = f"A exits {label} share"
+    if share >= WINDOW_A_WIN_RATE_STRONG_PCT:
+        return share, "hot", f"{prefix} hot · {pct_s}", True
+    if share < WINDOW_A_WIN_RATE_THIN_PCT:
+        return share, "quiet", f"{prefix} quiet · {pct_s}", False
+    return share, "", f"{prefix} · {pct_s}", False
 
 
 def _weekday_days_since(earlier: date, later: date) -> int:
@@ -641,6 +663,10 @@ def window_a_sample_readiness(
         "closes_exit_sl_share_severity": "",
         "closes_exit_sl_share_bit": "",
         "closes_exit_sl_share_hot": False,
+        "closes_exit_rot_share_pct": None,
+        "closes_exit_rot_share_severity": "",
+        "closes_exit_rot_share_bit": "",
+        "closes_exit_rot_share_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1301,6 +1327,10 @@ def window_a_sample_readiness(
     closes_exit_sl_share_severity = ""
     closes_exit_sl_share_bit = ""
     closes_exit_sl_share_hot = False
+    closes_exit_rot_share_pct: float | None = None
+    closes_exit_rot_share_severity = ""
+    closes_exit_rot_share_bit = ""
+    closes_exit_rot_share_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2019,32 +2049,22 @@ def window_a_sample_readiness(
                         )
                     else:
                         closes_exit_tp_share_bit = f"A exits tp share · {pct_s}"
-                    # Stop share of the same known set (portfolio AI
-                    # speak-both-sides). Rotation can lead the mix without
-                    # a stop problem. hot ≥60% warns only. quiet <40%
-                    # speaks and does not warn. Unknown exits stay out.
-                    sl_share = round(100.0 * n_sl / known, 1)
-                    closes_exit_sl_share_pct = sl_share
-                    sl_pct_s = (
-                        f"{int(round(sl_share))}%"
-                        if abs(sl_share - round(sl_share)) < 0.05
-                        else f"{sl_share:.1f}%"
-                    )
-                    if sl_share >= WINDOW_A_WIN_RATE_STRONG_PCT:
-                        closes_exit_sl_share_severity = "hot"
-                        closes_exit_sl_share_hot = True
-                        closes_exit_sl_share_bit = (
-                            f"A exits sl share hot · {sl_pct_s}"
-                        )
-                    elif sl_share < WINDOW_A_WIN_RATE_THIN_PCT:
-                        closes_exit_sl_share_severity = "quiet"
-                        closes_exit_sl_share_bit = (
-                            f"A exits sl share quiet · {sl_pct_s}"
-                        )
-                    else:
-                        closes_exit_sl_share_bit = (
-                            f"A exits sl share · {sl_pct_s}"
-                        )
+                    # Stop and rotation shares of the same known set
+                    # (portfolio AI speak-both-sides). A stop problem is
+                    # not a scan-chase problem. hot ≥60% warns only.
+                    # quiet <40% speaks and does not warn. Unknown stays out.
+                    (
+                        closes_exit_sl_share_pct,
+                        closes_exit_sl_share_severity,
+                        closes_exit_sl_share_bit,
+                        closes_exit_sl_share_hot,
+                    ) = _adverse_exit_share(n_sl, known, "sl")
+                    (
+                        closes_exit_rot_share_pct,
+                        closes_exit_rot_share_severity,
+                        closes_exit_rot_share_bit,
+                        closes_exit_rot_share_hot,
+                    ) = _adverse_exit_share(n_rot, known, "rot")
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2437,6 +2457,10 @@ def window_a_sample_readiness(
         "closes_exit_sl_share_severity": closes_exit_sl_share_severity,
         "closes_exit_sl_share_bit": closes_exit_sl_share_bit,
         "closes_exit_sl_share_hot": closes_exit_sl_share_hot,
+        "closes_exit_rot_share_pct": closes_exit_rot_share_pct,
+        "closes_exit_rot_share_severity": closes_exit_rot_share_severity,
+        "closes_exit_rot_share_bit": closes_exit_rot_share_bit,
+        "closes_exit_rot_share_hot": closes_exit_rot_share_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2852,6 +2876,16 @@ def format_window_a_closes_exit_sl_share_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_sl_share_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_rot_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A rotation share bit (rot ÷ known exits; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_rot_share_bit") or "").strip()
     return bit
 
 
