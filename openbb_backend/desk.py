@@ -786,6 +786,7 @@ def build_promote_ab_glance(
         format_window_a_closes_win_streak_mean_bit,
         format_window_a_closes_win_streak_median_bit,
         format_window_a_closes_win_streak_min_bit,
+        format_window_a_closes_win_streak_stdev_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
         format_window_a_closes_wr_vs_be_bit,
@@ -911,6 +912,8 @@ def build_promote_ab_glance(
         "closes_win_streak_median_hot": False,
         "closes_win_streak_min": None,
         "closes_win_streak_min_hot": False,
+        "closes_win_streak_stdev": None,
+        "closes_win_streak_stdev_hot": False,
         "closes_flat": None,
         "closes_flat_warn": False,
         "closes_net_expectancy": None,
@@ -962,6 +965,7 @@ def build_promote_ab_glance(
         "a_closes_win_streak_mean_bit": "",
         "a_closes_win_streak_median_bit": "",
         "a_closes_win_streak_min_bit": "",
+        "a_closes_win_streak_stdev_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
         "a_closes_expectancy_bit": "",
@@ -1135,6 +1139,8 @@ def build_promote_ab_glance(
     )
     closes_win_streak_min = sample.get("closes_win_streak_min")
     closes_win_streak_min_hot = bool(sample.get("closes_win_streak_min_hot"))
+    closes_win_streak_stdev = sample.get("closes_win_streak_stdev")
+    closes_win_streak_stdev_hot = bool(sample.get("closes_win_streak_stdev_hot"))
     closes_flat = sample.get("closes_flat")
     closes_flat_warn = bool(sample.get("closes_flat_warn"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
@@ -1290,6 +1296,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_win_streak_stdev_bit = (
+        format_window_a_closes_win_streak_stdev_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_flat_bit = (
         format_window_a_closes_flat_bit(sample) if window == "A" else ""
     )
@@ -1348,6 +1359,7 @@ def build_promote_ab_glance(
                 a_closes_win_streak_mean_bit,
                 a_closes_win_streak_median_bit,
                 a_closes_win_streak_min_bit,
+                a_closes_win_streak_stdev_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
                 a_closes_expectancy_bit,
@@ -1475,6 +1487,7 @@ def build_promote_ab_glance(
                 or a_closes_win_streak_mean_bit
                 or a_closes_win_streak_median_bit
                 or a_closes_win_streak_min_bit
+                or a_closes_win_streak_stdev_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
@@ -1544,6 +1557,7 @@ def build_promote_ab_glance(
                 or a_closes_win_streak_mean_bit
                 or a_closes_win_streak_median_bit
                 or a_closes_win_streak_min_bit
+                or a_closes_win_streak_stdev_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
                 or a_closes_expectancy_bit
@@ -1780,6 +1794,12 @@ def build_promote_ab_glance(
         "closes_win_streak_min_hot": (
             closes_win_streak_min_hot if window == "A" else False
         ),
+        "closes_win_streak_stdev": (
+            closes_win_streak_stdev if window == "A" else None
+        ),
+        "closes_win_streak_stdev_hot": (
+            closes_win_streak_stdev_hot if window == "A" else False
+        ),
         "closes_flat": closes_flat if window == "A" else None,
         "closes_flat_warn": closes_flat_warn if window == "A" else False,
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
@@ -1855,6 +1875,7 @@ def build_promote_ab_glance(
         "a_closes_win_streak_mean_bit": a_closes_win_streak_mean_bit,
         "a_closes_win_streak_median_bit": a_closes_win_streak_median_bit,
         "a_closes_win_streak_min_bit": a_closes_win_streak_min_bit,
+        "a_closes_win_streak_stdev_bit": a_closes_win_streak_stdev_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
         "a_closes_expectancy_bit": a_closes_expectancy_bit,
