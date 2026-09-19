@@ -157,6 +157,10 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # speak-both-sides slice (portfolio AI + tradermonty postmortem). Stop
 # share does not say scan-chase. Same inverted bands. Hot warns only.
 # Quiet speaks and does not warn. Unknown exits stay out. Fail-open.
+# Exit trim share (`exit_trim` ÷ known live reasons) is the last live
+# reason (portfolio AI + tradermonty A16 overweight trim). Rotation
+# share does not say trim-to-cap. Same inverted bands. Hot warns only.
+# Quiet speaks and does not warn. Unknown exits stay out. Fail-open.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -667,6 +671,10 @@ def window_a_sample_readiness(
         "closes_exit_rot_share_severity": "",
         "closes_exit_rot_share_bit": "",
         "closes_exit_rot_share_hot": False,
+        "closes_exit_trim_share_pct": None,
+        "closes_exit_trim_share_severity": "",
+        "closes_exit_trim_share_bit": "",
+        "closes_exit_trim_share_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1331,6 +1339,10 @@ def window_a_sample_readiness(
     closes_exit_rot_share_severity = ""
     closes_exit_rot_share_bit = ""
     closes_exit_rot_share_hot = False
+    closes_exit_trim_share_pct: float | None = None
+    closes_exit_trim_share_severity = ""
+    closes_exit_trim_share_bit = ""
+    closes_exit_trim_share_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2065,6 +2077,16 @@ def window_a_sample_readiness(
                         closes_exit_rot_share_bit,
                         closes_exit_rot_share_hot,
                     ) = _adverse_exit_share(n_rot, known, "rot")
+                    # Trim share of the same known set (portfolio AI +
+                    # tradermonty A16). Rotation is not overweight trim.
+                    # hot ≥60% warns only. quiet <40% speaks and does not
+                    # warn. Unknown stays out.
+                    (
+                        closes_exit_trim_share_pct,
+                        closes_exit_trim_share_severity,
+                        closes_exit_trim_share_bit,
+                        closes_exit_trim_share_hot,
+                    ) = _adverse_exit_share(n_trim, known, "trim")
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2461,6 +2483,10 @@ def window_a_sample_readiness(
         "closes_exit_rot_share_severity": closes_exit_rot_share_severity,
         "closes_exit_rot_share_bit": closes_exit_rot_share_bit,
         "closes_exit_rot_share_hot": closes_exit_rot_share_hot,
+        "closes_exit_trim_share_pct": closes_exit_trim_share_pct,
+        "closes_exit_trim_share_severity": closes_exit_trim_share_severity,
+        "closes_exit_trim_share_bit": closes_exit_trim_share_bit,
+        "closes_exit_trim_share_hot": closes_exit_trim_share_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2886,6 +2912,16 @@ def format_window_a_closes_exit_rot_share_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_rot_share_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_trim_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A trim share bit (trim ÷ known exits; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_trim_share_bit") or "").strip()
     return bit
 
 

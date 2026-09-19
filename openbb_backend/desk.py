@@ -793,6 +793,7 @@ def build_promote_ab_glance(
         format_window_a_closes_exit_tp_share_bit,
         format_window_a_closes_exit_sl_share_bit,
         format_window_a_closes_exit_rot_share_bit,
+        format_window_a_closes_exit_trim_share_bit,
         format_window_a_closes_exit_unknown_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
@@ -943,6 +944,9 @@ def build_promote_ab_glance(
         "closes_exit_rot_share_pct": None,
         "closes_exit_rot_share_severity": "",
         "closes_exit_rot_share_hot": False,
+        "closes_exit_trim_share_pct": None,
+        "closes_exit_trim_share_severity": "",
+        "closes_exit_trim_share_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -999,6 +1003,7 @@ def build_promote_ab_glance(
         "a_closes_exit_tp_share_bit": "",
         "a_closes_exit_sl_share_bit": "",
         "a_closes_exit_rot_share_bit": "",
+        "a_closes_exit_trim_share_bit": "",
         "a_closes_exit_unknown_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
@@ -1203,6 +1208,11 @@ def build_promote_ab_glance(
         sample.get("closes_exit_rot_share_severity") or ""
     )
     closes_exit_rot_share_hot = bool(sample.get("closes_exit_rot_share_hot"))
+    closes_exit_trim_share_pct = sample.get("closes_exit_trim_share_pct")
+    closes_exit_trim_share_severity = str(
+        sample.get("closes_exit_trim_share_severity") or ""
+    )
+    closes_exit_trim_share_hot = bool(sample.get("closes_exit_trim_share_hot"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1383,6 +1393,9 @@ def build_promote_ab_glance(
     a_closes_exit_rot_share_bit = (
         format_window_a_closes_exit_rot_share_bit(sample) if window == "A" else ""
     )
+    a_closes_exit_trim_share_bit = (
+        format_window_a_closes_exit_trim_share_bit(sample) if window == "A" else ""
+    )
     a_closes_exit_unknown_bit = (
         format_window_a_closes_exit_unknown_bit(sample) if window == "A" else ""
     )
@@ -1451,6 +1464,7 @@ def build_promote_ab_glance(
                 a_closes_exit_tp_share_bit,
                 a_closes_exit_sl_share_bit,
                 a_closes_exit_rot_share_bit,
+                a_closes_exit_trim_share_bit,
                 a_closes_exit_unknown_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
@@ -1468,7 +1482,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / loss streak med hot / loss streak min hot / loss streak σ hot / loss streak CV hot / exit mix hot / tp share thin / sl share hot / rot share hot / unknown exits / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / loss streak med hot / loss streak min hot / loss streak σ hot / loss streak CV hot / exit mix hot / tp share thin / sl share hot / rot share hot / trim share hot / unknown exits / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -1499,6 +1513,7 @@ def build_promote_ab_glance(
             or closes_exit_tp_share_thin
             or closes_exit_sl_share_hot
             or closes_exit_rot_share_hot
+            or closes_exit_trim_share_hot
             or closes_exit_unknown_warn
             or closes_payoff_thin
             or closes_expectancy_neg
@@ -1592,6 +1607,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_tp_share_bit
                 or a_closes_exit_sl_share_bit
                 or a_closes_exit_rot_share_bit
+                or a_closes_exit_trim_share_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -1669,6 +1685,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_tp_share_bit
                 or a_closes_exit_sl_share_bit
                 or a_closes_exit_rot_share_bit
+                or a_closes_exit_trim_share_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -1962,6 +1979,15 @@ def build_promote_ab_glance(
         "closes_exit_rot_share_hot": (
             closes_exit_rot_share_hot if window == "A" else False
         ),
+        "closes_exit_trim_share_pct": (
+            closes_exit_trim_share_pct if window == "A" else None
+        ),
+        "closes_exit_trim_share_severity": (
+            closes_exit_trim_share_severity if window == "A" else ""
+        ),
+        "closes_exit_trim_share_hot": (
+            closes_exit_trim_share_hot if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -2042,6 +2068,7 @@ def build_promote_ab_glance(
         "a_closes_exit_tp_share_bit": a_closes_exit_tp_share_bit,
         "a_closes_exit_sl_share_bit": a_closes_exit_sl_share_bit,
         "a_closes_exit_rot_share_bit": a_closes_exit_rot_share_bit,
+        "a_closes_exit_trim_share_bit": a_closes_exit_trim_share_bit,
         "a_closes_exit_unknown_bit": a_closes_exit_unknown_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
