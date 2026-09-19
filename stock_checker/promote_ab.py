@@ -144,7 +144,10 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # Unknown exits (`sells` − those four) sit in the sell meter but not
 # in the mix (portfolio AI sample honesty). Speak `A exits unknown · N`
 # when N > 0. Zero stays silent. Warn only (still ready for B).
-# Missing keys → fail-open.
+# Exit TP share (`exit_tp` ÷ known live reasons) says how much of that
+# mix is take-profit (xang1234 severity). Counts do not. Reuse win-rate
+# bands: strong ≥60% · ok mid · thin <40%. Thin warns only. Unknown
+# exits stay out of the share. Missing keys → fail-open.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -625,6 +628,10 @@ def window_a_sample_readiness(
         "closes_exit_unknown": None,
         "closes_exit_unknown_bit": "",
         "closes_exit_unknown_warn": False,
+        "closes_exit_tp_share_pct": None,
+        "closes_exit_tp_share_severity": "",
+        "closes_exit_tp_share_bit": "",
+        "closes_exit_tp_share_thin": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1277,6 +1284,10 @@ def window_a_sample_readiness(
     closes_exit_unknown: int | None = None
     closes_exit_unknown_bit = ""
     closes_exit_unknown_warn = False
+    closes_exit_tp_share_pct: float | None = None
+    closes_exit_tp_share_severity = ""
+    closes_exit_tp_share_bit = ""
+    closes_exit_tp_share_thin = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1972,6 +1983,29 @@ def window_a_sample_readiness(
                     closes_exit_mix_bit = "A exits " + " · ".join(parts)
                     if (n_sl + n_rot + n_trim) > n_tp:
                         closes_exit_mix_hot = True
+                    # Take-profit share of known live reasons (xang1234
+                    # severity). Counts do not say the slice. Unknown
+                    # exits stay out. Thin <40% warns only.
+                    share = round(100.0 * n_tp / known, 1)
+                    closes_exit_tp_share_pct = share
+                    pct_s = (
+                        f"{int(round(share))}%"
+                        if abs(share - round(share)) < 0.05
+                        else f"{share:.1f}%"
+                    )
+                    if share < WINDOW_A_WIN_RATE_THIN_PCT:
+                        closes_exit_tp_share_severity = "thin"
+                        closes_exit_tp_share_thin = True
+                        closes_exit_tp_share_bit = (
+                            f"A exits tp share thin · {pct_s}"
+                        )
+                    elif share >= WINDOW_A_WIN_RATE_STRONG_PCT:
+                        closes_exit_tp_share_severity = "strong"
+                        closes_exit_tp_share_bit = (
+                            f"A exits tp share strong · {pct_s}"
+                        )
+                    else:
+                        closes_exit_tp_share_bit = f"A exits tp share · {pct_s}"
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2356,6 +2390,10 @@ def window_a_sample_readiness(
         "closes_exit_unknown": closes_exit_unknown,
         "closes_exit_unknown_bit": closes_exit_unknown_bit,
         "closes_exit_unknown_warn": closes_exit_unknown_warn,
+        "closes_exit_tp_share_pct": closes_exit_tp_share_pct,
+        "closes_exit_tp_share_severity": closes_exit_tp_share_severity,
+        "closes_exit_tp_share_bit": closes_exit_tp_share_bit,
+        "closes_exit_tp_share_thin": closes_exit_tp_share_thin,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2751,6 +2789,16 @@ def format_window_a_closes_exit_unknown_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_unknown_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_tp_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A take-profit share bit (tp ÷ known exits; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_tp_share_bit") or "").strip()
     return bit
 
 
