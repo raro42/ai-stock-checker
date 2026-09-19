@@ -139,8 +139,12 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # Same floors. A wide CV speaks and does not warn.
 # Exit mix (`exit_tp` / `exit_sl` / `exit_rot` / `exit_trim`) says why
 # the book closed (tradermonty postmortem). Win/lose counts do not.
-# Speak non-zero live reasons only. Unknown reasons stay silent.
-# Stops + rotation + trim leading take-profits warns only.
+# Speak non-zero live reasons only. Stops + rotation + trim leading
+# take-profits warns only.
+# Unknown exits (`sells` − those four) sit in the sell meter but not
+# in the mix (portfolio AI sample honesty). Speak `A exits unknown · N`
+# when N > 0. Zero stays silent. Warn only (still ready for B).
+# Missing keys → fail-open.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -618,6 +622,9 @@ def window_a_sample_readiness(
         "closes_exit_trim": None,
         "closes_exit_mix_bit": "",
         "closes_exit_mix_hot": False,
+        "closes_exit_unknown": None,
+        "closes_exit_unknown_bit": "",
+        "closes_exit_unknown_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1267,6 +1274,9 @@ def window_a_sample_readiness(
     closes_exit_trim: int | None = None
     closes_exit_mix_bit = ""
     closes_exit_mix_hot = False
+    closes_exit_unknown: int | None = None
+    closes_exit_unknown_bit = ""
+    closes_exit_unknown_warn = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -1916,8 +1926,10 @@ def window_a_sample_readiness(
 
     # Why the book closed (tradermonty postmortem). Win/lose counts do not
     # say take-profit vs stop vs rotation vs trim. Speak non-zero live
-    # reasons. Unknown reasons stay silent. Stops + rot + trim leading
-    # take-profits warns only (still ready for B). Missing keys → fail-open.
+    # reasons. Stops + rot + trim leading take-profits warns only.
+    # Sells with no live reason speak `A exits unknown · N` (portfolio AI
+    # sample honesty). Zero unknown stays silent. Warn only (still ready
+    # for B). Missing keys → fail-open.
     if (
         sides_known
         and sells > 0
@@ -1940,24 +1952,30 @@ def window_a_sample_readiness(
             except (TypeError, ValueError):
                 n_tp = n_sl = n_rot = n_trim = -1
             known = n_tp + n_sl + n_rot + n_trim
-            if min(n_tp, n_sl, n_rot, n_trim) >= 0 and known > 0:
-                closes_exit_tp = n_tp
-                closes_exit_sl = n_sl
-                closes_exit_rot = n_rot
-                closes_exit_trim = n_trim
-                parts = [
-                    f"{name} {n}"
-                    for name, n in (
-                        ("tp", n_tp),
-                        ("sl", n_sl),
-                        ("rot", n_rot),
-                        ("trim", n_trim),
-                    )
-                    if n
-                ]
-                closes_exit_mix_bit = "A exits " + " · ".join(parts)
-                if (n_sl + n_rot + n_trim) > n_tp:
-                    closes_exit_mix_hot = True
+            if min(n_tp, n_sl, n_rot, n_trim) >= 0:
+                n_unknown = sells - known
+                if known > 0:
+                    closes_exit_tp = n_tp
+                    closes_exit_sl = n_sl
+                    closes_exit_rot = n_rot
+                    closes_exit_trim = n_trim
+                    parts = [
+                        f"{name} {n}"
+                        for name, n in (
+                            ("tp", n_tp),
+                            ("sl", n_sl),
+                            ("rot", n_rot),
+                            ("trim", n_trim),
+                        )
+                        if n
+                    ]
+                    closes_exit_mix_bit = "A exits " + " · ".join(parts)
+                    if (n_sl + n_rot + n_trim) > n_tp:
+                        closes_exit_mix_hot = True
+                if n_unknown > 0:
+                    closes_exit_unknown = n_unknown
+                    closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
+                    closes_exit_unknown_warn = True
 
     # Portfolio AI fee-adjusted net expectancy after gross €/close.
     # net_after_all_fees ÷ sells — buy+sell fees on every close. Gross
@@ -2335,6 +2353,9 @@ def window_a_sample_readiness(
         "closes_exit_trim": closes_exit_trim,
         "closes_exit_mix_bit": closes_exit_mix_bit,
         "closes_exit_mix_hot": closes_exit_mix_hot,
+        "closes_exit_unknown": closes_exit_unknown,
+        "closes_exit_unknown_bit": closes_exit_unknown_bit,
+        "closes_exit_unknown_warn": closes_exit_unknown_warn,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2720,6 +2741,16 @@ def format_window_a_closes_exit_mix_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_mix_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_unknown_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A unknown-exit bit (sells outside tp/sl/rot/trim; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_unknown_bit") or "").strip()
     return bit
 
 
@@ -3391,6 +3422,11 @@ def summarize_window_trades(
         "exit_sl": None if exits is None else exits["sl"],
         "exit_rot": None if exits is None else exits["rot"],
         "exit_trim": None if exits is None else exits["trim"],
+        "exit_unknown": (
+            None
+            if exits is None
+            else len(sells) - (exits["tp"] + exits["sl"] + exits["rot"] + exits["trim"])
+        ),
         "crypto_legs": crypto_legs,
         "stock_legs": len(window) - crypto_legs,
         "first": first_ts,

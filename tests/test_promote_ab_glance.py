@@ -6826,6 +6826,7 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
         WINDOW_A_START_UTC,
         exit_reason_bucket,
         format_window_a_closes_exit_mix_bit,
+        format_window_a_closes_exit_unknown_bit,
         sell_exit_counts,
         summarize_window_trades,
         window_a_sample_readiness,
@@ -6848,8 +6849,12 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert unknown["closes_exit_tp"] is None
     assert unknown["closes_exit_mix_bit"] == ""
     assert unknown["closes_exit_mix_hot"] is False
+    assert unknown["closes_exit_unknown"] is None
+    assert unknown["closes_exit_unknown_bit"] == ""
+    assert unknown["closes_exit_unknown_warn"] is False
     assert format_window_a_closes_exit_mix_bit(unknown) == ""
     assert format_window_a_closes_exit_mix_bit(None) == ""
+    assert format_window_a_closes_exit_unknown_bit(None) == ""
 
     silent = window_a_sample_readiness(
         {
@@ -6866,6 +6871,10 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     )
     assert silent["closes_exit_mix_bit"] == ""
     assert silent["closes_exit_mix_hot"] is False
+    assert silent["closes_exit_unknown"] == 4
+    assert silent["closes_exit_unknown_bit"] == "A exits unknown · 4"
+    assert silent["closes_exit_unknown_warn"] is True
+    assert format_window_a_closes_exit_unknown_bit(silent) == "A exits unknown · 4"
 
     led = window_a_sample_readiness(
         {
@@ -6884,6 +6893,8 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert led["closes_exit_sl"] == 1
     assert led["closes_exit_mix_hot"] is False
     assert led["closes_exit_mix_bit"] == "A exits tp 3 · sl 1"
+    assert led["closes_exit_unknown"] is None
+    assert led["closes_exit_unknown_bit"] == ""
     assert format_window_a_closes_exit_mix_bit(led) == "A exits tp 3 · sl 1"
 
     hot_sample = window_a_sample_readiness(
@@ -6936,6 +6947,7 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert s["exit_sl"] == 1
     assert s["exit_rot"] == 1
     assert s["exit_trim"] == 0
+    assert s["exit_unknown"] == 1
     assert sell_exit_counts([]) is None
     assert sell_exit_counts([{"exit_reason": "nope"}]) == {
         "tp": 0,
@@ -7004,4 +7016,28 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert "A exits tp 1 · sl 2 · rot 2 · trim 1" in hot["line"]
     assert "ready for B" in hot["line"]
     assert hot["b_ready"] is True
+    assert "A exits unknown" not in quiet["line"]
+    assert "A exits unknown" not in hot["line"]
+
+    unk = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            **base,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        },
+    )
+    assert unk["ready"] is True
+    assert unk["tone"] == "warn"
+    assert unk["closes_exit_unknown"] == 2
+    assert unk["closes_exit_unknown_warn"] is True
+    assert unk["closes_exit_mix_hot"] is False
+    assert "A exits tp 3 · sl 1" in unk["line"]
+    assert "A exits unknown · 2" in unk["line"]
+    assert "ready for B" in unk["line"]
+    assert unk["b_ready"] is True
 
