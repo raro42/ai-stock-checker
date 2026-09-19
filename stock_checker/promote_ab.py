@@ -114,9 +114,14 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # (xang1234 mean vs peak). One run stays silent. A hot mean (≥2) warns only.
 # Mean win run (`win_streak_mean`) is the speak-both-sides complement.
 # Same ≥2-run floor. A hot mean speaks and does not warn.
-# Missing keys → no bit. Not a live halt.
+# Median loss run (`loss_streak_median`) speaks when there are ≥3 loss
+# runs and the median differs from the mean (xang1234 median vs mean).
+# Two runs: median equals the pair mean, so it stays silent. A hot
+# median (≥2) warns only. Missing keys → no bit. Not a live halt.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
+WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
+WINDOW_A_LOSS_STREAK_MEDIAN_GAP = 0.05
 # Fee-adjusted net expectancy €/close = net_after_all_fees ÷ sells
 # (portfolio AI after gross expectancy). Gross €/close ≠ fee-adjusted €/close.
 # Positive severity reuses EXPECTANCY_* ratios vs avg_loss. Neg + thin warn
@@ -545,6 +550,9 @@ def window_a_sample_readiness(
         "closes_loss_streak_runs": None,
         "closes_loss_streak_mean_bit": "",
         "closes_loss_streak_mean_hot": False,
+        "closes_loss_streak_median": None,
+        "closes_loss_streak_median_bit": "",
+        "closes_loss_streak_median_hot": False,
         "closes_win_streak": None,
         "closes_win_streak_bit": "",
         "closes_win_streak_hot": False,
@@ -1164,6 +1172,9 @@ def window_a_sample_readiness(
     closes_loss_streak_runs: int | None = None
     closes_loss_streak_mean_bit = ""
     closes_loss_streak_mean_hot = False
+    closes_loss_streak_median: float | None = None
+    closes_loss_streak_median_bit = ""
+    closes_loss_streak_median_hot = False
     closes_win_streak: int | None = None
     closes_win_streak_bit = ""
     closes_win_streak_hot = False
@@ -1460,6 +1471,46 @@ def window_a_sample_readiness(
                 )
                 if mean_v >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_loss_streak_mean_hot = True
+
+    # Robust typical loss-run length (xang1234 median vs mean).
+    # Speak only when ≥3 runs and med differs from mean. Two runs share
+    # the same med and mean. A hot median (≥2) warns only (still ready
+    # for B). Missing keys → fail-open.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "loss_streak_median" in stats
+        and "loss_streak_mean" in stats
+        and "loss_streak_runs" in stats
+    ):
+        raw_med = stats.get("loss_streak_median")
+        raw_mean_cmp = stats.get("loss_streak_mean")
+        raw_med_runs = stats.get("loss_streak_runs")
+        if (
+            raw_med is not None
+            and raw_mean_cmp is not None
+            and raw_med_runs is not None
+        ):
+            try:
+                med_v = float(raw_med)
+                mean_cmp = float(raw_mean_cmp)
+                n_med_runs = int(raw_med_runs)
+            except (TypeError, ValueError):
+                med_v = -1.0
+                mean_cmp = -1.0
+                n_med_runs = -1
+            if (
+                n_med_runs >= WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS
+                and med_v >= 0
+                and abs(med_v - mean_cmp) >= WINDOW_A_LOSS_STREAK_MEDIAN_GAP
+            ):
+                closes_loss_streak_median = med_v
+                closes_loss_streak_median_bit = (
+                    f"A loss streak med · {med_v:.1f} · {n_med_runs} runs"
+                )
+                if med_v >= WINDOW_A_LOSS_STREAK_HOT:
+                    closes_loss_streak_median_hot = True
 
     # Newest winning-close run (portfolio AI speak-both-sides).
     # Loss counts ≠ a current win run. quiet 0–1 speaks. hot ≥2 speaks.
@@ -1881,6 +1932,9 @@ def window_a_sample_readiness(
         "closes_loss_streak_runs": closes_loss_streak_runs,
         "closes_loss_streak_mean_bit": closes_loss_streak_mean_bit,
         "closes_loss_streak_mean_hot": closes_loss_streak_mean_hot,
+        "closes_loss_streak_median": closes_loss_streak_median,
+        "closes_loss_streak_median_bit": closes_loss_streak_median_bit,
+        "closes_loss_streak_median_hot": closes_loss_streak_median_hot,
         "closes_win_streak": closes_win_streak,
         "closes_win_streak_bit": closes_win_streak_bit,
         "closes_win_streak_hot": closes_win_streak_hot,
@@ -2149,6 +2203,16 @@ def format_window_a_closes_loss_streak_mean_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_loss_streak_mean_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_loss_streak_median_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A median loss-streak bit (≥3 runs, med ≠ mean; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_loss_streak_median_bit") or "").strip()
     return bit
 
 
@@ -2510,6 +2574,23 @@ def mean_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
     return sum(runs) / len(runs)
 
 
+def median_loss_streak(sells: Iterable[dict[str, Any]]) -> float | None:
+    """Median losing-close run length. None when there is no loss run.
+
+    One long storm pulls the mean up. The median resists that.
+    Display only — not a gate.
+    """
+    runs = _loss_run_lengths(sells)
+    if not runs:
+        return None
+    ordered = sorted(runs)
+    n = len(ordered)
+    mid = n // 2
+    if n % 2:
+        return float(ordered[mid])
+    return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+
 def loss_streak_run_count(sells: Iterable[dict[str, Any]]) -> int | None:
     """Count of losing-close runs. None when no dated decided sell.
 
@@ -2687,6 +2768,7 @@ def summarize_window_trades(
         "loss_streak": ending_loss_streak(sells),
         "loss_streak_max": max_loss_streak(sells),
         "loss_streak_mean": mean_loss_streak(sells),
+        "loss_streak_median": median_loss_streak(sells),
         "loss_streak_runs": loss_streak_run_count(sells),
         "win_streak": ending_win_streak(sells),
         "win_streak_max": max_win_streak(sells),
