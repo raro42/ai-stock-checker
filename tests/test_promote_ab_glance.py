@@ -249,6 +249,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["win_streak_median"] == 1.0
     assert s["win_streak_min"] == 1
     assert s["win_streak_stdev"] is None
+    assert s["win_streak_cv"] is None
     assert s["win_streak_runs"] == 1
     assert s["flat_closes"] == 0
     bit = format_window_stats_bit(s)
@@ -4116,6 +4117,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     assert s2["win_streak_min"] == 1
     assert s["win_streak_stdev"] is None
     assert s2["win_streak_stdev"] is None
+    assert s["win_streak_cv"] is None
+    assert s2["win_streak_cv"] is None
     assert s["win_streak_runs"] == 1
     assert s2["win_streak_runs"] == 1
     assert s["flat_closes"] == 0
@@ -6669,6 +6672,150 @@ def test_promote_ab_glance_win_streak_stdev_does_not_warn() -> None:
     assert hot["closes_win_streak_stdev"] == 2.3
     assert hot["closes_win_streak_stdev_hot"] is True
     assert "A win streak σ · 2.3 · 3 runs" in hot["line"]
+    assert "ready for B" in hot["line"]
+    assert hot["b_ready"] is True
+
+
+def test_window_a_win_streak_cv_speaks_when_runs_differ() -> None:
+    """CV speaks when ≥3 win runs and σ/mean is at least 0.05."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_LOSS_STREAK_HOT,
+        WINDOW_A_LOSS_STREAK_STDEV_MIN,
+        WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS,
+        cv_win_streak,
+        format_window_a_closes_win_streak_cv_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_runs": 3,
+        }
+    )
+    assert unknown["closes_win_streak_cv"] is None
+    assert unknown["closes_win_streak_cv_bit"] == ""
+    assert unknown["closes_win_streak_cv_hot"] is False
+    assert format_window_a_closes_win_streak_cv_bit(None) == ""
+
+    two = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_cv": 1.4,
+            "win_streak_runs": 2,
+        }
+    )
+    assert two["closes_win_streak_cv_bit"] == ""
+    assert 2 < WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+
+    flat = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_cv": 0.0,
+            "win_streak_runs": 3,
+        }
+    )
+    assert flat["closes_win_streak_cv_bit"] == ""
+    assert 0.0 < WINDOW_A_LOSS_STREAK_STDEV_MIN
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_cv": 0.5,
+            "win_streak_runs": 3,
+        }
+    )
+    assert quiet["closes_win_streak_cv"] == 0.5
+    assert quiet["closes_win_streak_cv_hot"] is False
+    assert quiet["closes_win_streak_cv"] < WINDOW_A_LOSS_STREAK_HOT
+    assert quiet["closes_win_streak_cv_bit"] == "A win streak CV · 0.5 · 3 runs"
+
+    sells = [
+        {"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": 1.0},
+        {"timestamp": "2026-08-13T10:00:00+00:00", "profit_loss": -2.0},
+        {"timestamp": "2026-08-14T10:00:00+00:00", "profit_loss": 1.0},
+        {"timestamp": "2026-08-15T10:00:00+00:00", "profit_loss": 1.0},
+        {"timestamp": "2026-08-16T10:00:00+00:00", "profit_loss": -2.0},
+        {"timestamp": "2026-08-17T10:00:00+00:00", "profit_loss": 1.0},
+        {"timestamp": "2026-08-18T10:00:00+00:00", "profit_loss": 1.0},
+        {"timestamp": "2026-08-19T10:00:00+00:00", "profit_loss": 1.0},
+    ]
+    assert abs(cv_win_streak(sells) - 0.5) < 1e-9
+    assert cv_win_streak([]) is None
+    assert (
+        cv_win_streak(
+            [{"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": 2.0}]
+        )
+        is None
+    )
+
+
+def test_promote_ab_glance_win_streak_cv_does_not_warn() -> None:
+    """A wide win-streak CV speaks. It does not warn or block ready for B."""
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    base = {
+        "trades": 12,
+        "buys": 6,
+        "sells": 6,
+        "fees": 10.0,
+        "realized_pnl": 80.0,
+        "net_after_all_fees": 70.0,
+        "wins": 4,
+        "losses": 2,
+        "win_streak": 1,
+        "win_streak_cv": 0.5,
+        "win_streak_runs": 3,
+        "last_sell": "2026-09-11T15:00:00+00:00",
+    }
+    quiet = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats=base,
+    )
+    hot = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={**base, "win_streak_cv": 2.3},
+    )
+    assert hot["ready"] is True
+    assert hot["tone"] == quiet["tone"] == "ready"
+    assert hot["closes_win_streak_cv"] == 2.3
+    assert hot["closes_win_streak_cv_hot"] is True
+    assert "A win streak CV · 2.3 · 3 runs" in hot["line"]
     assert "ready for B" in hot["line"]
     assert hot["b_ready"] is True
 
