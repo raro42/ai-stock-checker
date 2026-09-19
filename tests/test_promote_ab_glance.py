@@ -6827,6 +6827,7 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
         exit_reason_bucket,
         format_window_a_closes_exit_mix_bit,
         format_window_a_closes_exit_tp_share_bit,
+        format_window_a_closes_exit_sl_share_bit,
         format_window_a_closes_exit_unknown_bit,
         sell_exit_counts,
         summarize_window_trades,
@@ -6856,10 +6857,14 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert unknown["closes_exit_tp_share_pct"] is None
     assert unknown["closes_exit_tp_share_bit"] == ""
     assert unknown["closes_exit_tp_share_thin"] is False
+    assert unknown["closes_exit_sl_share_pct"] is None
+    assert unknown["closes_exit_sl_share_bit"] == ""
+    assert unknown["closes_exit_sl_share_hot"] is False
     assert format_window_a_closes_exit_mix_bit(unknown) == ""
     assert format_window_a_closes_exit_mix_bit(None) == ""
     assert format_window_a_closes_exit_unknown_bit(None) == ""
     assert format_window_a_closes_exit_tp_share_bit(None) == ""
+    assert format_window_a_closes_exit_sl_share_bit(None) == ""
 
     silent = window_a_sample_readiness(
         {
@@ -6881,6 +6886,9 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert silent["closes_exit_unknown_warn"] is True
     assert silent["closes_exit_tp_share_pct"] is None
     assert silent["closes_exit_tp_share_bit"] == ""
+    assert silent["closes_exit_sl_share_pct"] is None
+    assert silent["closes_exit_sl_share_bit"] == ""
+    assert silent["closes_exit_sl_share_hot"] is False
     assert format_window_a_closes_exit_unknown_bit(silent) == "A exits unknown · 4"
 
     led = window_a_sample_readiness(
@@ -6908,6 +6916,11 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert led["closes_exit_tp_share_thin"] is False
     assert led["closes_exit_tp_share_bit"] == "A exits tp share strong · 75%"
     assert format_window_a_closes_exit_tp_share_bit(led) == "A exits tp share strong · 75%"
+    assert led["closes_exit_sl_share_pct"] == 25.0
+    assert led["closes_exit_sl_share_severity"] == "quiet"
+    assert led["closes_exit_sl_share_hot"] is False
+    assert led["closes_exit_sl_share_bit"] == "A exits sl share quiet · 25%"
+    assert format_window_a_closes_exit_sl_share_bit(led) == "A exits sl share quiet · 25%"
 
     hot_sample = window_a_sample_readiness(
         {
@@ -6928,6 +6941,10 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert hot_sample["closes_exit_tp_share_severity"] == "thin"
     assert hot_sample["closes_exit_tp_share_thin"] is True
     assert hot_sample["closes_exit_tp_share_bit"] == "A exits tp share thin · 25%"
+    assert hot_sample["closes_exit_sl_share_pct"] == 50.0
+    assert hot_sample["closes_exit_sl_share_severity"] == ""
+    assert hot_sample["closes_exit_sl_share_hot"] is False
+    assert hot_sample["closes_exit_sl_share_bit"] == "A exits sl share · 50%"
 
     mid = window_a_sample_readiness(
         {
@@ -6947,6 +6964,29 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert mid["closes_exit_tp_share_severity"] == ""
     assert mid["closes_exit_tp_share_thin"] is False
     assert mid["closes_exit_tp_share_bit"] == "A exits tp share · 50%"
+    assert mid["closes_exit_sl_share_pct"] == 50.0
+    assert mid["closes_exit_sl_share_severity"] == ""
+    assert mid["closes_exit_sl_share_hot"] is False
+    assert mid["closes_exit_sl_share_bit"] == "A exits sl share · 50%"
+
+    rot_led = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 1,
+            "exit_sl": 0,
+            "exit_rot": 3,
+            "exit_trim": 0,
+        }
+    )
+    assert rot_led["closes_exit_mix_hot"] is True
+    assert rot_led["closes_exit_sl_share_pct"] == 0.0
+    assert rot_led["closes_exit_sl_share_severity"] == "quiet"
+    assert rot_led["closes_exit_sl_share_hot"] is False
+    assert rot_led["closes_exit_sl_share_bit"] == "A exits sl share quiet · 0%"
 
     trades = [
         {
@@ -7042,6 +7082,8 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert quiet["closes_exit_mix_hot"] is False
     assert "A exits tp 4 · sl 1 · trim 1" in quiet["line"]
     assert "A exits tp share strong · 66.7%" in quiet["line"]
+    assert "A exits sl share quiet · 16.7%" in quiet["line"]
+    assert quiet["closes_exit_sl_share_hot"] is False
     assert hot["ready"] is True
     assert hot["tone"] == "warn"
     assert hot["closes_exit_tp"] == 1
@@ -7051,6 +7093,8 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert hot["closes_exit_mix_hot"] is True
     assert "A exits tp 1 · sl 2 · rot 2 · trim 1" in hot["line"]
     assert "A exits tp share thin · 16.7%" in hot["line"]
+    assert "A exits sl share quiet · 33.3%" in hot["line"]
+    assert hot["closes_exit_sl_share_hot"] is False
     assert "ready for B" in hot["line"]
     assert hot["b_ready"] is True
     assert "A exits unknown" not in quiet["line"]
@@ -7076,6 +7120,28 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert "A exits tp 3 · sl 1" in unk["line"]
     assert "A exits tp share strong · 75%" in unk["line"]
     assert "A exits unknown · 2" in unk["line"]
+    assert "A exits sl share quiet · 25%" in unk["line"]
     assert "ready for B" in unk["line"]
     assert unk["b_ready"] is True
+
+    stop_led = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            **base,
+            "sells": 5,
+            "exit_tp": 1,
+            "exit_sl": 4,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        },
+    )
+    assert stop_led["ready"] is True
+    assert stop_led["tone"] == "warn"
+    assert stop_led["closes_exit_sl_share_pct"] == 80.0
+    assert stop_led["closes_exit_sl_share_hot"] is True
+    assert "A exits sl share hot · 80%" in stop_led["line"]
+    assert "ready for B" in stop_led["line"]
+    assert stop_led["b_ready"] is True
 

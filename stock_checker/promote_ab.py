@@ -148,6 +148,11 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # mix is take-profit (xang1234 severity). Counts do not. Reuse win-rate
 # bands: strong ≥60% · ok mid · thin <40%. Thin warns only. Unknown
 # exits stay out of the share. Missing keys → fail-open.
+# Exit SL share (`exit_sl` ÷ known live reasons) is the speak-both-sides
+# pair (portfolio AI). TP share does not say how much of the rest is
+# stops vs rotation vs trim. Same bands, inverted: hot ≥60% warns only;
+# quiet <40% speaks and does not warn; mid stays unlabeled. Unknown
+# exits stay out. Missing keys → fail-open.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -632,6 +637,10 @@ def window_a_sample_readiness(
         "closes_exit_tp_share_severity": "",
         "closes_exit_tp_share_bit": "",
         "closes_exit_tp_share_thin": False,
+        "closes_exit_sl_share_pct": None,
+        "closes_exit_sl_share_severity": "",
+        "closes_exit_sl_share_bit": "",
+        "closes_exit_sl_share_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1288,6 +1297,10 @@ def window_a_sample_readiness(
     closes_exit_tp_share_severity = ""
     closes_exit_tp_share_bit = ""
     closes_exit_tp_share_thin = False
+    closes_exit_sl_share_pct: float | None = None
+    closes_exit_sl_share_severity = ""
+    closes_exit_sl_share_bit = ""
+    closes_exit_sl_share_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2006,6 +2019,32 @@ def window_a_sample_readiness(
                         )
                     else:
                         closes_exit_tp_share_bit = f"A exits tp share · {pct_s}"
+                    # Stop share of the same known set (portfolio AI
+                    # speak-both-sides). Rotation can lead the mix without
+                    # a stop problem. hot ≥60% warns only. quiet <40%
+                    # speaks and does not warn. Unknown exits stay out.
+                    sl_share = round(100.0 * n_sl / known, 1)
+                    closes_exit_sl_share_pct = sl_share
+                    sl_pct_s = (
+                        f"{int(round(sl_share))}%"
+                        if abs(sl_share - round(sl_share)) < 0.05
+                        else f"{sl_share:.1f}%"
+                    )
+                    if sl_share >= WINDOW_A_WIN_RATE_STRONG_PCT:
+                        closes_exit_sl_share_severity = "hot"
+                        closes_exit_sl_share_hot = True
+                        closes_exit_sl_share_bit = (
+                            f"A exits sl share hot · {sl_pct_s}"
+                        )
+                    elif sl_share < WINDOW_A_WIN_RATE_THIN_PCT:
+                        closes_exit_sl_share_severity = "quiet"
+                        closes_exit_sl_share_bit = (
+                            f"A exits sl share quiet · {sl_pct_s}"
+                        )
+                    else:
+                        closes_exit_sl_share_bit = (
+                            f"A exits sl share · {sl_pct_s}"
+                        )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2394,6 +2433,10 @@ def window_a_sample_readiness(
         "closes_exit_tp_share_severity": closes_exit_tp_share_severity,
         "closes_exit_tp_share_bit": closes_exit_tp_share_bit,
         "closes_exit_tp_share_thin": closes_exit_tp_share_thin,
+        "closes_exit_sl_share_pct": closes_exit_sl_share_pct,
+        "closes_exit_sl_share_severity": closes_exit_sl_share_severity,
+        "closes_exit_sl_share_bit": closes_exit_sl_share_bit,
+        "closes_exit_sl_share_hot": closes_exit_sl_share_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2799,6 +2842,16 @@ def format_window_a_closes_exit_tp_share_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_tp_share_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_sl_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A stop share bit (sl ÷ known exits; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_sl_share_bit") or "").strip()
     return bit
 
 
