@@ -79,7 +79,7 @@ Typical friend flow:
 
 ## Product rules wired in code
 
-- **Earnings blackout:** no new stock entries within 2d before / 1d after earnings on the America/New_York date, not UTC (`earnings_guard.py`); empty Yahoo `earnings_dates` window → allow (suspect fail-open); missing calendar date → allow (fail-open)
+- **Earnings blackout:** no new stock entries within 2d before / 1d after earnings on the America/New_York date, not UTC (`earnings_guard.py`); empty Yahoo `earnings_dates` window or a nonempty/junk date (epoch) → allow (suspect fail-open); missing calendar date → allow (fail-open)
 - **Sentiment soft factor:** `news_sentiment` / `openbb_sentiment` / near-earnings penalty in recommender (±10 cap)
 - **Do not** put OpenBB account tokens in compose
 

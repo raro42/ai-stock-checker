@@ -15,10 +15,11 @@ def test_earnings_blackout_glance_window() -> None:
     assert g["fail_open"] is True
     assert g["missing_calendar"] == "allow"
     assert g["empty_window"] == "allow_suspect"
+    assert g["malformed"] == "allow_suspect"
     assert "2d/1d" in g["line"]
     assert "NY date" in g["line"]
     assert g["clock"] == "America/New_York"
-    assert "empty Yahoo → allow (suspect)" in g["line"]
+    assert "empty/bad Yahoo → allow (suspect)" in g["line"]
     assert "crypto exempt" in g["line"]
 
 
@@ -34,9 +35,10 @@ def test_earnings_blackout_glance_in_snapshot(tmp_path) -> None:
     assert g["ready"] is True
     assert "NY date" in g["line"]
     assert g["clock"] == "America/New_York"
-    assert "empty Yahoo → allow (suspect)" in g["line"]
+    assert "empty/bad Yahoo → allow (suspect)" in g["line"]
     assert g["fail_open"] is True
     assert g["empty_window"] == "allow_suspect"
+    assert g["malformed"] == "allow_suspect"
 
 
 def test_earnings_blackout_glance_in_chart_payload(tmp_path) -> None:
@@ -51,5 +53,5 @@ def test_earnings_blackout_glance_in_chart_payload(tmp_path) -> None:
     assert "2d/1d" in g["line"]
     assert "NY date" in g["line"]
     assert g["clock"] == "America/New_York"
-    assert "empty Yahoo → allow (suspect)" in g["line"]
+    assert "empty/bad Yahoo → allow (suspect)" in g["line"]
     assert "crypto exempt" in g["line"]

@@ -22,8 +22,12 @@ EARNINGS_CLOCK = "America/New_York"
 STATUS_CRYPTO = "crypto"
 STATUS_DATED = "dated"
 STATUS_EMPTY_WINDOW = "empty_window"
+STATUS_MALFORMED = "malformed"
 STATUS_MISSING = "missing"
 STATUS_ERROR = "error"
+
+# xang1234 e433265: index-as-date parses as 1970-01-01. That is not an earnings date.
+EARNINGS_MIN_YEAR = 2000
 
 
 def earnings_session_now(now: Optional[datetime] = None) -> datetime:
@@ -59,9 +63,17 @@ def _event_session_date(raw: Any) -> Optional[date]:
     return None
 
 
+def _usable_session_date(raw: Any) -> Optional[date]:
+    """Session date, or None when the stamp is missing, junk, or epoch-stale."""
+    event_day = _event_session_date(raw)
+    if event_day is None or event_day.year < EARNINGS_MIN_YEAR:
+        return None
+    return event_day
+
+
 def earnings_day_delta(event: Any, now: Optional[datetime] = None) -> Optional[float]:
     """Whole US-session days until ``event`` (negative if already reported)."""
-    event_day = _event_session_date(event)
+    event_day = _usable_session_date(event)
     if event_day is None:
         return None
     clock = earnings_session_now(now)
@@ -86,15 +98,24 @@ def _days_from_earnings_dates(ed: Any, now: datetime) -> Optional[float]:
     return None
 
 
-def _days_from_calendar(cal: Any, now: datetime) -> Optional[float]:
-    if not isinstance(cal, dict):
-        return None
+def _days_from_calendar(cal: Any, now: datetime) -> tuple[Optional[float], bool]:
+    """Return ``(days, unusable)``.
+
+    ``unusable`` is true when ``Earnings Date`` is present but not a real
+    date (missing cell, epoch, junk). A missing key is not unusable — that
+    is an empty window, not a bad payload (xang1234 e433265).
+    """
+    if not isinstance(cal, dict) or "Earnings Date" not in cal:
+        return None, False
     raw = cal.get("Earnings Date")
+    if isinstance(raw, (list, tuple)):
+        raw = raw[0] if raw else None
     if raw is None:
-        return None
-    if isinstance(raw, (list, tuple)) and raw:
-        raw = raw[0]
-    return earnings_day_delta(raw, now)
+        return None, True
+    days = earnings_day_delta(raw, now)
+    if days is None:
+        return None, True
+    return days, False
 
 
 def probe_earnings_calendar(
@@ -104,7 +125,10 @@ def probe_earnings_calendar(
 
     ``empty_window`` means Yahoo exposed ``earnings_dates`` but it was empty
     and calendar also had no date — suspicious empty window (tradermonty #379
-    pattern). Fail-open still allows; status is for honesty / soft-allow why.
+    pattern). ``malformed`` means a nonempty payload or an ``Earnings Date``
+    cell yielded no usable date (epoch / junk — xang1234 e433265). That is
+    not a successful “no earnings” lookup. Fail-open still allows; status is
+    for honesty / soft-allow why.
     """
     if not symbol or "-USD" in symbol.upper() or symbol.upper().endswith("USDT"):
         return None, STATUS_CRYPTO
@@ -118,6 +142,7 @@ def probe_earnings_calendar(
         ticker = yf.Ticker(symbol)
         clock = earnings_session_now(now)
         empty_dates = False
+        malformed = False
 
         ed = getattr(ticker, "earnings_dates", None)
         if ed is not None and hasattr(ed, "empty"):
@@ -127,11 +152,18 @@ def probe_earnings_calendar(
                 days = _days_from_earnings_dates(ed, clock)
                 if days is not None:
                     return days, STATUS_DATED
+                malformed = True
 
-        days = _days_from_calendar(getattr(ticker, "calendar", None), clock)
+        days, cal_bad = _days_from_calendar(
+            getattr(ticker, "calendar", None), clock
+        )
         if days is not None:
             return days, STATUS_DATED
+        if cal_bad:
+            malformed = True
 
+        if malformed:
+            return None, STATUS_MALFORMED
         if empty_dates:
             return None, STATUS_EMPTY_WINDOW
         return None, STATUS_MISSING
@@ -164,11 +196,15 @@ def is_in_earnings_blackout(
     Missing Yahoo calendar fail-opens: allow entry.
     Empty Yahoo ``earnings_dates`` with no calendar date also fail-opens, but
     returns an explicit why so Ops soft-allow memory can show the suspect case.
+    A nonempty or present-but-junk calendar fail-opens the same way
+    (``malformed``) — it is not proof that earnings are far away.
     """
     days, status = probe_earnings_calendar(symbol, now=now)
     if days is None:
         if status == STATUS_EMPTY_WINDOW:
             return False, "empty Yahoo earnings window · fail-open"
+        if status == STATUS_MALFORMED:
+            return False, "malformed Yahoo earnings · fail-open"
         return False, ""
 
     # Upcoming earnings within days_before

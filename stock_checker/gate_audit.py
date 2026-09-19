@@ -20,6 +20,7 @@ _SOFT_MARKERS = (
     "insufficient",
     "empty yahoo",
     "empty earnings",
+    "malformed yahoo",
 )
 
 

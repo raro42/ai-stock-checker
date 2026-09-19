@@ -9,6 +9,7 @@ from stock_checker.earnings_guard import (
     EARNINGS_CLOCK,
     STATUS_DATED,
     STATUS_EMPTY_WINDOW,
+    STATUS_MALFORMED,
     STATUS_MISSING,
     earnings_day_delta,
     is_in_earnings_blackout,
@@ -74,6 +75,19 @@ def test_empty_yahoo_window_fail_open_with_why(_mock):
     assert is_soft_allow_reason(why)
 
 
+@patch(
+    "stock_checker.earnings_guard.probe_earnings_calendar",
+    return_value=(None, STATUS_MALFORMED),
+)
+def test_malformed_yahoo_fail_open_with_why(_mock):
+    """Nonempty or junk Yahoo dates → allow, but not a silent 'no earnings'."""
+    blocked, why = is_in_earnings_blackout("FAKE")
+    assert blocked is False
+    assert "malformed Yahoo" in why
+    assert "fail-open" in why
+    assert is_soft_allow_reason(why)
+
+
 def test_probe_detects_suspicious_empty_earnings_window():
     """Yahoo earnings_dates present but empty, calendar blank → empty_window."""
     empty = MagicMock()
@@ -108,6 +122,60 @@ def test_earnings_window_uses_new_york_date_not_utc():
     assert days == 0.0
     assert blocked is True
     assert "0.0d" in why
+
+
+def test_nonempty_unparseable_earnings_is_malformed():
+    """Nonempty Yahoo frame with no usable date is not a missing calendar."""
+
+    class _Index:
+        def __iter__(self):
+            yield "not-a-date"
+            yield datetime(1970, 1, 1)
+
+    ed = SimpleNamespace(empty=False, index=_Index())
+    ticker = SimpleNamespace(earnings_dates=ed, calendar={})
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL")
+
+    assert days is None
+    assert status == STATUS_MALFORMED
+
+
+def test_epoch_calendar_date_is_malformed_not_dated():
+    """1970-01-01 from an index fallback must not look like a real earnings date."""
+    empty = MagicMock()
+    empty.empty = True
+    ticker = SimpleNamespace(
+        earnings_dates=empty,
+        calendar={"Earnings Date": datetime(1970, 1, 1)},
+    )
+    now = datetime(2026, 9, 19, 16, 0)
+    assert earnings_day_delta(datetime(1970, 1, 1), now) is None
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL", now=now)
+
+    assert days is None
+    assert status == STATUS_MALFORMED
+
+
+def test_valid_calendar_date_wins_over_junk_earnings_frame():
+    """A real calendar date still counts when the dates frame is junk."""
+
+    class _Index:
+        def __iter__(self):
+            yield datetime(1970, 1, 1)
+
+    ed = SimpleNamespace(empty=False, index=_Index())
+    ticker = SimpleNamespace(
+        earnings_dates=ed,
+        calendar={"Earnings Date": datetime(2026, 9, 21)},
+    )
+    now = datetime(2026, 9, 19, 16, 0)
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL", now=now)
+
+    assert status == STATUS_DATED
+    assert days == 2.0
 
 
 def test_aware_utc_stamp_converts_before_ny_date():

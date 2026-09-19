@@ -2103,7 +2103,10 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     (tradermonty #426). Crypto is exempt. Missing Yahoo date → allow (fail-open).
     Empty Yahoo ``earnings_dates`` with no calendar date is a *suspect* empty
     window (tradermonty #379) — still allow, but call it out (not a silent waiver).
-    Policy honesty only — no live calendar poll. Not a new gate.
+    A nonempty payload or an ``Earnings Date`` cell with no usable date
+    (epoch / junk) is ``malformed`` (xang1234 e433265) — still allow, not a
+    successful “no earnings” lookup. Policy honesty only — no live calendar
+    poll. Not a new gate.
     """
     from stock_checker.earnings_guard import (
         DEFAULT_DAYS_AFTER,
@@ -2115,7 +2118,7 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
     after = float(DEFAULT_DAYS_AFTER)
     line = (
         f"stocks · NY date · {before:g}d/{after:g}d · "
-        "empty Yahoo → allow (suspect) · crypto exempt"
+        "empty/bad Yahoo → allow (suspect) · crypto exempt"
     )
     if len(line) > 96:
         line = line[:95] + "…"
@@ -2128,6 +2131,7 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
         "fail_open": True,
         "missing_calendar": "allow",
         "empty_window": "allow_suspect",
+        "malformed": "allow_suspect",
         "clock": EARNINGS_CLOCK,
     }
 
