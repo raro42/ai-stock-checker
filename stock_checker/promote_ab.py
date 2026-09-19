@@ -161,6 +161,9 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # reason (portfolio AI + tradermonty A16 overweight trim). Rotation
 # share does not say trim-to-cap. Same inverted bands. Hot warns only.
 # Quiet speaks and does not warn. Unknown exits stay out. Fail-open.
+# Exit lead names the peak live reason (xang1234 leader cluster).
+# Four shares still need a compare. Unique `tp` speaks. A unique
+# adverse lead, or a tie with no `tp`, warns only. Still ready for B.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -318,22 +321,42 @@ def format_window_b_block_bit(blockers: list[str] | None) -> str:
     return "B blocked · " + " · ".join(clean)
 
 
+def _fmt_share_pct(share: float) -> str:
+    if abs(share - round(share)) < 0.05:
+        return f"{int(round(share))}%"
+    return f"{share:.1f}%"
+
+
 def _adverse_exit_share(
     count: int, known: int, label: str
 ) -> tuple[float, str, str, bool]:
     """Share of known exits. hot ≥60% warns; quiet <40% speaks."""
     share = round(100.0 * count / known, 1)
-    pct_s = (
-        f"{int(round(share))}%"
-        if abs(share - round(share)) < 0.05
-        else f"{share:.1f}%"
-    )
+    pct_s = _fmt_share_pct(share)
     prefix = f"A exits {label} share"
     if share >= WINDOW_A_WIN_RATE_STRONG_PCT:
         return share, "hot", f"{prefix} hot · {pct_s}", True
     if share < WINDOW_A_WIN_RATE_THIN_PCT:
         return share, "quiet", f"{prefix} quiet · {pct_s}", False
     return share, "", f"{prefix} · {pct_s}", False
+
+
+def _exit_lead(
+    n_tp: int, n_sl: int, n_rot: int, n_trim: int, known: int
+) -> tuple[str, float, str, bool]:
+    """Peak live reason. Unique adverse lead, or a no-tp tie, warns."""
+    counts = (("tp", n_tp), ("sl", n_sl), ("rot", n_rot), ("trim", n_trim))
+    top = max(n for _, n in counts)
+    leaders = [name for name, n in counts if n == top]
+    share = round(100.0 * top / known, 1)
+    pct_s = _fmt_share_pct(share)
+    if len(leaders) == 1:
+        label = leaders[0]
+        hot = label != "tp"
+        return label, share, f"A exits lead {label} · {pct_s}", hot
+    hot = "tp" not in leaders
+    joined = "=".join(leaders)
+    return "tie", share, f"A exits lead tie · {joined} · {pct_s}", hot
 
 
 def _weekday_days_since(earlier: date, later: date) -> int:
@@ -675,6 +698,10 @@ def window_a_sample_readiness(
         "closes_exit_trim_share_severity": "",
         "closes_exit_trim_share_bit": "",
         "closes_exit_trim_share_hot": False,
+        "closes_exit_lead": None,
+        "closes_exit_lead_pct": None,
+        "closes_exit_lead_bit": "",
+        "closes_exit_lead_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1343,6 +1370,10 @@ def window_a_sample_readiness(
     closes_exit_trim_share_severity = ""
     closes_exit_trim_share_bit = ""
     closes_exit_trim_share_hot = False
+    closes_exit_lead: str | None = None
+    closes_exit_lead_pct: float | None = None
+    closes_exit_lead_bit = ""
+    closes_exit_lead_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2087,6 +2118,15 @@ def window_a_sample_readiness(
                         closes_exit_trim_share_bit,
                         closes_exit_trim_share_hot,
                     ) = _adverse_exit_share(n_trim, known, "trim")
+                    # Peak reason (xang1234 leader). Four shares still
+                    # need a compare. Unique tp speaks. Unique adverse
+                    # lead, or a tie with no tp, warns only.
+                    (
+                        closes_exit_lead,
+                        closes_exit_lead_pct,
+                        closes_exit_lead_bit,
+                        closes_exit_lead_hot,
+                    ) = _exit_lead(n_tp, n_sl, n_rot, n_trim, known)
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2487,6 +2527,10 @@ def window_a_sample_readiness(
         "closes_exit_trim_share_severity": closes_exit_trim_share_severity,
         "closes_exit_trim_share_bit": closes_exit_trim_share_bit,
         "closes_exit_trim_share_hot": closes_exit_trim_share_hot,
+        "closes_exit_lead": closes_exit_lead,
+        "closes_exit_lead_pct": closes_exit_lead_pct,
+        "closes_exit_lead_bit": closes_exit_lead_bit,
+        "closes_exit_lead_hot": closes_exit_lead_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2922,6 +2966,16 @@ def format_window_a_closes_exit_trim_share_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_trim_share_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_lead_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A exit-lead bit (peak live reason; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_lead_bit") or "").strip()
     return bit
 
 

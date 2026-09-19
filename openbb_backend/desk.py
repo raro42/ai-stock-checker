@@ -794,6 +794,7 @@ def build_promote_ab_glance(
         format_window_a_closes_exit_sl_share_bit,
         format_window_a_closes_exit_rot_share_bit,
         format_window_a_closes_exit_trim_share_bit,
+        format_window_a_closes_exit_lead_bit,
         format_window_a_closes_exit_unknown_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
@@ -947,6 +948,9 @@ def build_promote_ab_glance(
         "closes_exit_trim_share_pct": None,
         "closes_exit_trim_share_severity": "",
         "closes_exit_trim_share_hot": False,
+        "closes_exit_lead": None,
+        "closes_exit_lead_pct": None,
+        "closes_exit_lead_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -1004,6 +1008,7 @@ def build_promote_ab_glance(
         "a_closes_exit_sl_share_bit": "",
         "a_closes_exit_rot_share_bit": "",
         "a_closes_exit_trim_share_bit": "",
+        "a_closes_exit_lead_bit": "",
         "a_closes_exit_unknown_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
@@ -1213,6 +1218,9 @@ def build_promote_ab_glance(
         sample.get("closes_exit_trim_share_severity") or ""
     )
     closes_exit_trim_share_hot = bool(sample.get("closes_exit_trim_share_hot"))
+    closes_exit_lead = sample.get("closes_exit_lead")
+    closes_exit_lead_pct = sample.get("closes_exit_lead_pct")
+    closes_exit_lead_hot = bool(sample.get("closes_exit_lead_hot"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1396,6 +1404,9 @@ def build_promote_ab_glance(
     a_closes_exit_trim_share_bit = (
         format_window_a_closes_exit_trim_share_bit(sample) if window == "A" else ""
     )
+    a_closes_exit_lead_bit = (
+        format_window_a_closes_exit_lead_bit(sample) if window == "A" else ""
+    )
     a_closes_exit_unknown_bit = (
         format_window_a_closes_exit_unknown_bit(sample) if window == "A" else ""
     )
@@ -1465,6 +1476,7 @@ def build_promote_ab_glance(
                 a_closes_exit_sl_share_bit,
                 a_closes_exit_rot_share_bit,
                 a_closes_exit_trim_share_bit,
+                a_closes_exit_lead_bit,
                 a_closes_exit_unknown_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
@@ -1514,6 +1526,7 @@ def build_promote_ab_glance(
             or closes_exit_sl_share_hot
             or closes_exit_rot_share_hot
             or closes_exit_trim_share_hot
+            or closes_exit_lead_hot
             or closes_exit_unknown_warn
             or closes_payoff_thin
             or closes_expectancy_neg
@@ -1608,6 +1621,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_sl_share_bit
                 or a_closes_exit_rot_share_bit
                 or a_closes_exit_trim_share_bit
+                or a_closes_exit_lead_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -1686,6 +1700,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_sl_share_bit
                 or a_closes_exit_rot_share_bit
                 or a_closes_exit_trim_share_bit
+                or a_closes_exit_lead_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -1988,6 +2003,13 @@ def build_promote_ab_glance(
         "closes_exit_trim_share_hot": (
             closes_exit_trim_share_hot if window == "A" else False
         ),
+        "closes_exit_lead": closes_exit_lead if window == "A" else None,
+        "closes_exit_lead_pct": (
+            closes_exit_lead_pct if window == "A" else None
+        ),
+        "closes_exit_lead_hot": (
+            closes_exit_lead_hot if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -2069,6 +2091,7 @@ def build_promote_ab_glance(
         "a_closes_exit_sl_share_bit": a_closes_exit_sl_share_bit,
         "a_closes_exit_rot_share_bit": a_closes_exit_rot_share_bit,
         "a_closes_exit_trim_share_bit": a_closes_exit_trim_share_bit,
+        "a_closes_exit_lead_bit": a_closes_exit_lead_bit,
         "a_closes_exit_unknown_bit": a_closes_exit_unknown_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,

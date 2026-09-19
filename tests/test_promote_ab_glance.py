@@ -6830,6 +6830,7 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
         format_window_a_closes_exit_sl_share_bit,
         format_window_a_closes_exit_rot_share_bit,
         format_window_a_closes_exit_trim_share_bit,
+        format_window_a_closes_exit_lead_bit,
         format_window_a_closes_exit_unknown_bit,
         sell_exit_counts,
         summarize_window_trades,
@@ -6868,6 +6869,10 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert unknown["closes_exit_trim_share_pct"] is None
     assert unknown["closes_exit_trim_share_bit"] == ""
     assert unknown["closes_exit_trim_share_hot"] is False
+    assert unknown["closes_exit_lead"] is None
+    assert unknown["closes_exit_lead_pct"] is None
+    assert unknown["closes_exit_lead_bit"] == ""
+    assert unknown["closes_exit_lead_hot"] is False
     assert format_window_a_closes_exit_mix_bit(unknown) == ""
     assert format_window_a_closes_exit_mix_bit(None) == ""
     assert format_window_a_closes_exit_unknown_bit(None) == ""
@@ -6875,6 +6880,7 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert format_window_a_closes_exit_sl_share_bit(None) == ""
     assert format_window_a_closes_exit_rot_share_bit(None) == ""
     assert format_window_a_closes_exit_trim_share_bit(None) == ""
+    assert format_window_a_closes_exit_lead_bit(None) == ""
 
     silent = window_a_sample_readiness(
         {
@@ -6905,6 +6911,9 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert silent["closes_exit_trim_share_pct"] is None
     assert silent["closes_exit_trim_share_bit"] == ""
     assert silent["closes_exit_trim_share_hot"] is False
+    assert silent["closes_exit_lead"] is None
+    assert silent["closes_exit_lead_bit"] == ""
+    assert silent["closes_exit_lead_hot"] is False
     assert format_window_a_closes_exit_unknown_bit(silent) == "A exits unknown · 4"
 
     led = window_a_sample_readiness(
@@ -6947,6 +6956,11 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert led["closes_exit_trim_share_hot"] is False
     assert led["closes_exit_trim_share_bit"] == "A exits trim share quiet · 0%"
     assert format_window_a_closes_exit_trim_share_bit(led) == "A exits trim share quiet · 0%"
+    assert led["closes_exit_lead"] == "tp"
+    assert led["closes_exit_lead_pct"] == 75.0
+    assert led["closes_exit_lead_hot"] is False
+    assert led["closes_exit_lead_bit"] == "A exits lead tp · 75%"
+    assert format_window_a_closes_exit_lead_bit(led) == "A exits lead tp · 75%"
 
     hot_sample = window_a_sample_readiness(
         {
@@ -7246,6 +7260,49 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert trim_led["closes_exit_rot_share_hot"] is False
     assert trim_led["closes_exit_sl_share_hot"] is False
     assert "A exits trim share hot · 80%" in trim_led["line"]
+    assert trim_led["closes_exit_lead"] == "trim"
+    assert trim_led["closes_exit_lead_pct"] == 80.0
+    assert trim_led["closes_exit_lead_hot"] is True
+    assert "A exits lead trim · 80%" in trim_led["line"]
     assert "ready for B" in trim_led["line"]
     assert trim_led["b_ready"] is True
+
+    tie = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            **base,
+            "sells": 4,
+            "exit_tp": 0,
+            "exit_sl": 2,
+            "exit_rot": 2,
+            "exit_trim": 0,
+        },
+    )
+    assert tie["ready"] is True
+    assert tie["tone"] == "warn"
+    assert tie["closes_exit_lead"] == "tie"
+    assert tie["closes_exit_lead_pct"] == 50.0
+    assert tie["closes_exit_lead_hot"] is True
+    assert "A exits lead tie · sl=rot · 50%" in tie["line"]
+    assert "ready for B" in tie["line"]
+    assert tie["b_ready"] is True
+
+    tp_tie = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 2,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert tp_tie["closes_exit_lead"] == "tie"
+    assert tp_tie["closes_exit_lead_hot"] is False
+    assert tp_tie["closes_exit_lead_bit"] == "A exits lead tie · tp=sl · 50%"
 
