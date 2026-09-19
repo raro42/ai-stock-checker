@@ -14,7 +14,7 @@ from typing import Dict, List
 import math
 
 
-# idea: Disabling the SPY medium SMA rising requirement allows the strategy to take structural trades even when the broader market (SPY) is experiencing a medium-term structural pullback, thereby increasing trade opportunities during diverse market regimes.
+# idea: Increasing the Medium SMA reference period from 50 to 60. This makes the structural stack (S>M) and the associated trend confirmation significantly slower and more stable, filtering out short-term noise in favor of deeper, longer-term structural alignment.
 # ----------------------------------------------------------------------------
 # --- hyperparameters the agent may tune ---
 SHORT_SMA = 20  # Core entry trigger (Increased from 15 for more stable trend confirmation)
@@ -29,7 +29,7 @@ MIN_VOLUME_RATIO = 1.1 # MODIFIED: Increased from 1.0 to 1.1 for higher convicti
 VOLATILITY_LOOKBACK = 15
 MAX_RETURN_STDEV = 0.014  # MODIFIED: Increased from 0.013 to 0.014 to allow entries during slightly higher volatility periods
 # Only buy non-SPY names when SPY medium SMA is rising
-REQUIRE_SPY_UPTREND = False # MODIFIED: Disabled SPY structural requirement to capture trades during market pullbacks
+REQUIRE_SPY_UPTREND = True
 # Prefer names beating SPY over this lookback (relative strength)
 REQUIRE_REL_STRENGTH = False # Disabled relative strength requirement for robustness
 RS_LOOKBACK = 20 # CHANGED: Reduced lookback for faster reaction
@@ -160,8 +160,6 @@ def generate_signals(
             # Calculate previous medium SMA using the helper function with exclusion
             spy_m_prev = _sma(spy_closes, MED_SMA, exclude_last=True)
             spy_ok = spy_m_now >= spy_m_prev
-        elif not REQUIRE_SPY_UPTREND:
-             spy_ok = True # Explicitly set to True if requirement is disabled
 
         # SPY Relative Strength calculation (used only if REQUIRE_REL_STRENGTH is True)
         if REQUIRE_REL_STRENGTH:
