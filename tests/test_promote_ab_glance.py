@@ -245,6 +245,7 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert s["win_streak_max"] == 1
     assert s["win_streak_mean"] == 1.0
     assert s["win_streak_median"] == 1.0
+    assert s["win_streak_min"] == 1
     assert s["win_streak_runs"] == 1
     assert s["flat_closes"] == 0
     bit = format_window_stats_bit(s)
@@ -4104,6 +4105,8 @@ def test_summarize_window_trades_tracks_last_sell() -> None:
     assert s2["win_streak_mean"] == 1.0
     assert s["win_streak_median"] == 1.0
     assert s2["win_streak_median"] == 1.0
+    assert s["win_streak_min"] == 1
+    assert s2["win_streak_min"] == 1
     assert s["win_streak_runs"] == 1
     assert s2["win_streak_runs"] == 1
     assert s["flat_closes"] == 0
@@ -6093,6 +6096,150 @@ def test_promote_ab_glance_win_streak_median_does_not_warn() -> None:
     assert hot["closes_win_streak_median"] == 2.5
     assert hot["closes_win_streak_median_hot"] is True
     assert "A win streak med · 2.5 · 3 runs" in hot["line"]
+    assert "ready for B" in hot["line"]
+    assert hot["b_ready"] is True
+
+
+def test_window_a_win_streak_min_speaks_when_floor_is_under_peak() -> None:
+    """Min speaks when ≥2 win runs and the shortest run is under the peak."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_LOSS_STREAK_HOT,
+        WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS,
+        format_window_a_closes_win_streak_min_bit,
+        min_win_streak,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_max": 3,
+            "win_streak_runs": 2,
+        }
+    )
+    assert unknown["closes_win_streak_min"] is None
+    assert unknown["closes_win_streak_min_bit"] == ""
+    assert unknown["closes_win_streak_min_hot"] is False
+    assert format_window_a_closes_win_streak_min_bit(None) == ""
+
+    one = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 2,
+            "win_streak_min": 2,
+            "win_streak_max": 2,
+            "win_streak_runs": 1,
+        }
+    )
+    assert one["closes_win_streak_min_bit"] == ""
+    assert 1 < WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
+
+    same = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_min": 1,
+            "win_streak_max": 1,
+            "win_streak_runs": 2,
+        }
+    )
+    assert same["closes_win_streak_min_bit"] == ""
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "win_streak": 1,
+            "win_streak_min": 1,
+            "win_streak_max": 3,
+            "win_streak_runs": 2,
+        }
+    )
+    assert quiet["closes_win_streak_min"] == 1
+    assert quiet["closes_win_streak_min_hot"] is False
+    assert quiet["closes_win_streak_min"] < WINDOW_A_LOSS_STREAK_HOT
+    assert quiet["closes_win_streak_min_bit"] == "A win streak min · 1"
+
+    sells = [
+        {"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": 4.0},
+        {"timestamp": "2026-08-13T10:00:00+00:00", "profit_loss": 3.0},
+        {"timestamp": "2026-08-14T10:00:00+00:00", "profit_loss": -5.0},
+        {"timestamp": "2026-08-15T10:00:00+00:00", "profit_loss": 1.0},
+    ]
+    assert min_win_streak(sells) == 1
+    assert min_win_streak([]) is None
+    assert min_win_streak(
+        [{"timestamp": "2026-08-12T10:00:00+00:00", "profit_loss": -2.0}]
+    ) is None
+
+
+def test_promote_ab_glance_win_streak_min_does_not_warn() -> None:
+    """A hot min win streak speaks. It does not warn or block ready for B."""
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    base = {
+        "trades": 12,
+        "buys": 6,
+        "sells": 6,
+        "fees": 10.0,
+        "realized_pnl": 80.0,
+        "net_after_all_fees": 70.0,
+        "wins": 4,
+        "losses": 2,
+        "win_streak": 1,
+        "win_streak_max": 1,
+        "win_streak_min": 1,
+        "win_streak_runs": 2,
+        "last_sell": "2026-09-11T15:00:00+00:00",
+    }
+    quiet = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats=base,
+    )
+    hot = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            **base,
+            "win_streak_min": 2,
+            "win_streak_max": 4,
+        },
+    )
+    assert hot["ready"] is True
+    assert hot["tone"] == quiet["tone"] == "ready"
+    assert hot["closes_win_streak_min"] == 2
+    assert hot["closes_win_streak_min_hot"] is True
+    assert "A win streak min · 2" in hot["line"]
     assert "ready for B" in hot["line"]
     assert hot["b_ready"] is True
 
