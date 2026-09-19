@@ -1636,7 +1636,7 @@
     line.appendChild(sep1);
     var body = document.createElement("span");
     body.className = "promote-ab-glance-body";
-    body.textContent = String(glance.line);
+    body.textContent = String(glance.summary_line || glance.line);
     line.appendChild(body);
     var sep2 = document.createElement("span");
     sep2.className = "pretrade-sep";
@@ -1649,6 +1649,28 @@
     link.textContent = "Ops promote →";
     line.appendChild(link);
     wrap.appendChild(line);
+    if (glance.honesty_line) {
+      var details = document.createElement("details");
+      details.className = "promote-honesty";
+      details.id = "promote-honesty";
+      var summary = document.createElement("summary");
+      summary.appendChild(document.createTextNode("Close honesty "));
+      var meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = "fees · Kelly · streaks · exits";
+      summary.appendChild(meta);
+      details.appendChild(summary);
+      var note = document.createElement("p");
+      note.className = "sub";
+      note.textContent =
+        "Warn only. The short line above is the Window A decision. Not a gate.";
+      details.appendChild(note);
+      var weight = document.createElement("p");
+      weight.className = "weight";
+      weight.textContent = String(glance.honesty_line);
+      details.appendChild(weight);
+      wrap.appendChild(details);
+    }
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =

@@ -48,6 +48,8 @@ def test_promote_ab_glance_running() -> None:
     assert g["protocol_ok"] is True
     assert "running" in g["line"]
     assert "promote off" in g["line"]
+    assert g["honesty_line"] == ""
+    assert g["summary_line"] == g["line"]
     assert g["a_fill_progress_bit"] == ""
 
 
@@ -761,6 +763,11 @@ def test_promote_ab_glance_fees_ok_ready_for_b() -> None:
     assert "A fee drag" not in g["line"]
     assert "A fresh closes" in g["line"]
     assert "ready for B" in g["line"]
+    assert "A fees ok" not in g["summary_line"]
+    assert "A fresh closes" in g["summary_line"]
+    assert "ready for B" in g["summary_line"]
+    assert "A fees ok · net +€120 · fees 0.4×" in g["honesty_line"]
+    assert "ready for B" not in g["honesty_line"]
     assert g["b_ready"] is True
 
 

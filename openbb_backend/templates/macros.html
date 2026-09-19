@@ -238,10 +238,17 @@
   <p class="promote-ab-glance-line">
     <span class="promote-ab-glance-tone {{ glance.tone }}">A/B</span>
     <span class="pretrade-sep" aria-hidden="true">·</span>
-    <span class="promote-ab-glance-body">{{ glance.line }}</span>
+    <span class="promote-ab-glance-body">{{ glance.summary_line or glance.line }}</span>
     <span class="pretrade-sep" aria-hidden="true">·</span>
     <a class="promote-ab-glance-link" href="{{ link_href }}">{{ link_label }}</a>
   </p>
+  {% if glance.honesty_line %}
+  <details class="promote-honesty" id="promote-honesty">
+    <summary>Close honesty <span class="meta">fees · Kelly · streaks · exits</span></summary>
+    <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
+    <p class="weight">{{ glance.honesty_line }}</p>
+  </details>
+  {% endif %}
   <p class="sub">{{ sub }}</p>
 </section>
 {% endif %}

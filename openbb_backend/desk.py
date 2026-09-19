@@ -1439,9 +1439,9 @@ def build_promote_ab_glance(
         format_window_a_closes_profit_factor_bit(sample) if window == "A" else ""
     )
 
-    def _prefix_honesty(base: str) -> str:
-        """Prepend fee + polarity + WR + vs-BE + Kelly + half-Kelly + slot + cap + quarter + quarter-slot + quarter-cap + practical + Kelly sample + loss streak + loss max + payoff + expectancy + net + fee take + PF + net PF bits."""
-        bits = [
+    def _honesty_bits() -> list[str]:
+        """Close-stat bits. The short line stays the decision; these fold under details."""
+        return [
             b
             for b in (
                 a_fee_status_bit,
@@ -1489,6 +1489,10 @@ def build_promote_ab_glance(
             )
             if b
         ]
+
+    def _prefix_honesty(base: str) -> str:
+        """Prepend close-stat bits so `line` stays one string for tests."""
+        bits = _honesty_bits()
         if not bits:
             return base
         return " · ".join([*bits, base])
@@ -1718,6 +1722,15 @@ def build_promote_ab_glance(
                 status = "sample ready · keep Window A"
         else:
             status = "running"
+    honesty_bits = _honesty_bits()
+    honesty_line = ""
+    summary_status = status
+    if honesty_bits:
+        joined = " · ".join(honesty_bits)
+        prefix = f"{joined} · "
+        if status.startswith(prefix):
+            honesty_line = joined
+            summary_status = status[len(prefix) :]
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
@@ -1729,6 +1742,7 @@ def build_promote_ab_glance(
         parts.append(stats_bit)
     parts.append(status)
     line = " · ".join(parts)
+    summary_line = " · ".join([*parts[:-1], summary_status])
     # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / loss streak / loss max / loss mean / loss med / loss min / loss σ / win streak / win max / win mean / win med / win min / flats / payoff / expectancy / net / fee take / PF / net PF / freshness.
     if len(line) > 1260:
         line = line[:1149] + "…"
@@ -1736,6 +1750,8 @@ def build_promote_ab_glance(
         "ready": True,
         "tone": tone,
         "line": line,
+        "summary_line": summary_line,
+        "honesty_line": honesty_line,
         "window": window,
         "trading_days": days,
         "target_days": need,

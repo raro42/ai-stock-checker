@@ -93,3 +93,20 @@ def test_charts_js_policy_honesty_parity() -> None:
         assert name in after, name
     # Breadth stays after the disclosure (with the chart mounts).
     assert after.index("glanceMount = null") < after.index("renderBreadthGlance")
+
+
+def test_promote_honesty_fold_in_macro_and_charts() -> None:
+    """Close-stat bits sit under details. The short A/B line stays the decision."""
+    macro = (TEMPLATES / "macros.html").read_text(encoding="utf-8")
+    assert 'class="promote-honesty"' in macro
+    assert "glance.summary_line or glance.line" in macro
+    assert "glance.honesty_line" in macro
+    css = (
+        Path(__file__).resolve().parents[1] / "openbb_backend" / "static" / "desk.css"
+    ).read_text(encoding="utf-8")
+    assert ".promote-honesty" in css
+    js = (
+        Path(__file__).resolve().parents[1] / "openbb_backend" / "static" / "charts.js"
+    ).read_text(encoding="utf-8")
+    assert "glance.summary_line || glance.line" in js
+    assert 'details.className = "promote-honesty"' in js
