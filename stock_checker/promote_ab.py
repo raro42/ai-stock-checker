@@ -393,6 +393,51 @@ def _exit_euro_lead(
     return label, value, f"A exits € lead {label} · {_fmt_signed_euro(value)}", hot
 
 
+def _fmt_multiple(ratio: float) -> str:
+    if abs(ratio - round(ratio)) < 0.05:
+        return f"{int(round(ratio))}×"
+    return f"{ratio:.1f}×"
+
+
+def _exit_euro_offset(
+    count_lead: str | None,
+    pnl_tp: float,
+    pnl_sl: float,
+    pnl_rot: float,
+    pnl_trim: float,
+) -> tuple[str | None, float | None, float | None, str, bool]:
+    """Runner-up € when the euro lead matches the count lead.
+
+    The euro-lead bit stays silent on a match. A large second reason can
+    still erase that lead. Speak when runner-up |P&L| is at least
+    ``WINDOW_A_FEES_THIN_RATIO`` of the lead. An adverse runner-up warns.
+    A take-profit runner-up speaks and does not warn. A disagree, a euro
+    tie, and a small runner-up stay silent.
+    """
+    amounts = (("tp", pnl_tp), ("sl", pnl_sl), ("rot", pnl_rot), ("trim", pnl_trim))
+    top = max(abs(v) for _, v in amounts)
+    if top < 0.5:
+        return None, None, None, "", False
+    leaders = [name for name, v in amounts if abs(abs(v) - top) < 0.05]
+    if len(leaders) != 1 or count_lead != leaders[0]:
+        return None, None, None, "", False
+    rest = [(name, v) for name, v in amounts if name != leaders[0]]
+    second_name, second_val = max(rest, key=lambda item: abs(item[1]))
+    second_abs = abs(second_val)
+    if second_abs < 0.5:
+        return None, None, None, "", False
+    ratio = second_abs / top
+    if ratio < WINDOW_A_FEES_THIN_RATIO:
+        return None, None, None, "", False
+    hot = second_name != "tp"
+    severity = "hot" if hot else "quiet"
+    bit = (
+        f"A exits € offset {severity} · {second_name} "
+        f"{_fmt_signed_euro(second_val)} · {_fmt_multiple(ratio)}"
+    )
+    return second_name, round(second_val, 2), round(ratio, 2), bit, hot
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -740,6 +785,11 @@ def window_a_sample_readiness(
         "closes_exit_euro_pnl": None,
         "closes_exit_euro_lead_bit": "",
         "closes_exit_euro_lead_hot": False,
+        "closes_exit_euro_offset": None,
+        "closes_exit_euro_offset_pnl": None,
+        "closes_exit_euro_offset_ratio": None,
+        "closes_exit_euro_offset_bit": "",
+        "closes_exit_euro_offset_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1416,6 +1466,11 @@ def window_a_sample_readiness(
     closes_exit_euro_pnl: float | None = None
     closes_exit_euro_lead_bit = ""
     closes_exit_euro_lead_hot = False
+    closes_exit_euro_offset: str | None = None
+    closes_exit_euro_offset_pnl: float | None = None
+    closes_exit_euro_offset_ratio: float | None = None
+    closes_exit_euro_offset_bit = ""
+    closes_exit_euro_offset_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2193,6 +2248,13 @@ def window_a_sample_readiness(
                                     closes_exit_euro_lead_bit,
                                     closes_exit_euro_lead_hot,
                                 ) = _exit_euro_lead(closes_exit_lead, *euros)
+                                (
+                                    closes_exit_euro_offset,
+                                    closes_exit_euro_offset_pnl,
+                                    closes_exit_euro_offset_ratio,
+                                    closes_exit_euro_offset_bit,
+                                    closes_exit_euro_offset_hot,
+                                ) = _exit_euro_offset(closes_exit_lead, *euros)
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2601,6 +2663,11 @@ def window_a_sample_readiness(
         "closes_exit_euro_pnl": closes_exit_euro_pnl,
         "closes_exit_euro_lead_bit": closes_exit_euro_lead_bit,
         "closes_exit_euro_lead_hot": closes_exit_euro_lead_hot,
+        "closes_exit_euro_offset": closes_exit_euro_offset,
+        "closes_exit_euro_offset_pnl": closes_exit_euro_offset_pnl,
+        "closes_exit_euro_offset_ratio": closes_exit_euro_offset_ratio,
+        "closes_exit_euro_offset_bit": closes_exit_euro_offset_bit,
+        "closes_exit_euro_offset_hot": closes_exit_euro_offset_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -3056,6 +3123,16 @@ def format_window_a_closes_exit_euro_lead_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_euro_lead_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_offset_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A euro-offset bit (runner-up vs a matching lead; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_euro_offset_bit") or "").strip()
     return bit
 
 
