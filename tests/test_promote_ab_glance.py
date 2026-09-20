@@ -8196,11 +8196,13 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     from stock_checker.promote_ab import (
         format_window_a_closes_exit_euro_size_bit,
         format_window_a_closes_exit_euro_size_n_bit,
+        format_window_a_closes_exit_euro_size_rest_n_bit,
         window_a_sample_readiness,
     )
 
     assert format_window_a_closes_exit_euro_size_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_n_bit(None) == ""
+    assert format_window_a_closes_exit_euro_size_rest_n_bit(None) == ""
 
     missing = window_a_sample_readiness(
         {
@@ -8221,8 +8223,11 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert missing["closes_exit_euro_size_n"] == ""
     assert missing["closes_exit_euro_size_n_bit"] == ""
     assert missing["closes_exit_euro_size_n_thin"] is False
+    assert missing["closes_exit_euro_size_rest_n"] == ""
+    assert missing["closes_exit_euro_size_rest_n_bit"] == ""
+    assert missing["closes_exit_euro_size_rest_n_thin"] is False
 
-    # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet.
+    # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet; rest n=2 thin.
     quiet = window_a_sample_readiness(
         {
             "trades": 12,
@@ -8251,9 +8256,45 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert quiet["closes_exit_euro_size_n_thin"] is False
     qn = "A exits € size n ok · tp · 6 closes"
     assert quiet["closes_exit_euro_size_n_bit"] == qn
+    assert quiet["closes_exit_euro_size_rest_n"] == "thin"
+    assert quiet["closes_exit_euro_size_rest_n_count"] == 2
+    assert quiet["closes_exit_euro_size_rest_n_thin"] is True
+    qrn = "A exits € size rest n thin · 2 closes <3"
+    assert quiet["closes_exit_euro_size_rest_n_bit"] == qrn
+    assert format_window_a_closes_exit_euro_size_rest_n_bit(quiet) == qrn
     assert quiet["ready"] is True
 
-    # sl avg €33.33 vs tp avg €5 → 6.67× fat hot.
+    # Both sides ≥3: fat quiet + rest ok.
+    both_ok = window_a_sample_readiness(
+        {
+            "trades": 14,
+            "buys": 6,
+            "sells": 8,
+            "wins": 5,
+            "losses": 3,
+            "exit_tp": 5,
+            "exit_sl": 3,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -15.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert both_ok["closes_exit_euro_conc"] == "tp"
+    assert both_ok["closes_exit_euro_size_ratio"] == 4.0
+    assert both_ok["closes_exit_euro_size_n"] == "ok"
+    assert both_ok["closes_exit_euro_size_n_count"] == 5
+    assert both_ok["closes_exit_euro_size_rest_n"] == "ok"
+    assert both_ok["closes_exit_euro_size_rest_n_count"] == 3
+    assert both_ok["closes_exit_euro_size_rest_n_thin"] is False
+    assert both_ok["closes_exit_euro_size_rest_n_bit"] == (
+        "A exits € size rest n ok · 3 closes"
+    )
+    assert both_ok["ready"] is True
+
+    # sl avg €33.33 vs tp avg €5 → 6.67× fat hot; rest n=2 thin.
     hot = window_a_sample_readiness(
         {
             "trades": 12,
@@ -8281,6 +8322,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert hot["closes_exit_euro_size_n_bit"] == (
         "A exits € size n ok · sl · 6 closes"
     )
+    assert hot["closes_exit_euro_size_rest_n"] == "thin"
+    assert hot["closes_exit_euro_size_rest_n_count"] == 2
+    assert hot["closes_exit_euro_size_rest_n_thin"] is True
+    assert hot["closes_exit_euro_size_rest_n_bit"] == (
+        "A exits € size rest n thin · 2 closes <3"
+    )
     assert hot["ready"] is True
 
     # Mid ratio stays silent (tp avg €13.33 vs sl €10 → 1.33×).
@@ -8305,6 +8352,8 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert mid["closes_exit_euro_size_bit"] == ""
     assert mid["closes_exit_euro_size_n"] == ""
     assert mid["closes_exit_euro_size_n_bit"] == ""
+    assert mid["closes_exit_euro_size_rest_n"] == ""
+    assert mid["closes_exit_euro_size_rest_n_bit"] == ""
 
     # Many small tp vs one large sl: tp owns |€| but avg is thin (0.4×).
     thin = window_a_sample_readiness(
@@ -8331,8 +8380,11 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert thin["closes_exit_euro_size_bit"] == tbit
     assert thin["closes_exit_euro_size_n"] == "ok"
     assert thin["closes_exit_euro_size_n_count"] == 7
+    assert thin["closes_exit_euro_size_rest_n"] == "thin"
+    assert thin["closes_exit_euro_size_rest_n_count"] == 1
+    assert thin["closes_exit_euro_size_rest_n_thin"] is True
 
-    # Fat from one close: size speaks, size-n thin warns (still ready for B).
+    # Fat from one close: size speaks, size-n thin warns; rest ok (still ready).
     sparse = window_a_sample_readiness(
         {
             "trades": 12,
@@ -8358,6 +8410,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     sn = "A exits € size n thin · tp · 1 closes <3"
     assert sparse["closes_exit_euro_size_n_bit"] == sn
     assert format_window_a_closes_exit_euro_size_n_bit(sparse) == sn
+    assert sparse["closes_exit_euro_size_rest_n"] == "ok"
+    assert sparse["closes_exit_euro_size_rest_n_count"] == 7
+    assert sparse["closes_exit_euro_size_rest_n_thin"] is False
+    assert sparse["closes_exit_euro_size_rest_n_bit"] == (
+        "A exits € size rest n ok · 7 closes"
+    )
     assert sparse["ready"] is True
 
     knobs = {
@@ -8402,6 +8460,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert hbit in glance["line"]
     assert hbit in glance["honesty_line"]
     assert "A exits € size n ok · sl · 6 closes" in glance["honesty_line"]
+    assert "A exits € size rest n thin · 2 closes <3" in glance["honesty_line"]
     assert "A exits € size" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
 
@@ -8433,3 +8492,4 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert glance_thin_n["b_ready"] is True
     assert sn in glance_thin_n["honesty_line"]
     assert sn in glance_thin_n["line"]
+    assert "A exits € size rest n ok · 7 closes" in glance_thin_n["honesty_line"]
