@@ -8012,3 +8012,179 @@ def test_window_a_exit_euro_conc_speaks_share_of_abs_pnl() -> None:
     assert bit in glance["honesty_line"]
     assert "A exits € conc" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
+
+
+def test_window_a_exit_euro_count_skew_speaks_when_shares_diverge() -> None:
+    """Same reason owns count and €; share gap ≥20pp speaks. Hot warn does not block B."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        WINDOW_A_EXIT_CONC_SKEW_PP,
+        format_window_a_closes_exit_euro_count_skew_bit,
+        window_a_sample_readiness,
+    )
+
+    assert WINDOW_A_EXIT_CONC_SKEW_PP == 20.0
+    assert format_window_a_closes_exit_euro_count_skew_bit(None) == ""
+
+    missing = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert missing["closes_exit_euro_count_skew_pp"] is None
+    assert missing["closes_exit_euro_count_skew_bit"] == ""
+    assert missing["closes_exit_euro_count_skew_hot"] is False
+
+    # Count lead tp 75%; € conc tp 95.2% → gap 20.2pp quiet.
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert quiet["closes_exit_lead"] == "tp"
+    assert quiet["closes_exit_lead_pct"] == 75.0
+    assert quiet["closes_exit_euro_conc"] == "tp"
+    assert quiet["closes_exit_euro_conc_pct"] == 95.2
+    assert quiet["closes_exit_euro_count_skew_pp"] == 20.2
+    assert quiet["closes_exit_euro_count_skew_hot"] is False
+    qbit = "A exits € skew quiet · tp · n 75% · € 95.2%"
+    assert quiet["closes_exit_euro_count_skew_bit"] == qbit
+    assert format_window_a_closes_exit_euro_count_skew_bit(quiet) == qbit
+    assert quiet["ready"] is True
+
+    # Count lead sl 75%; € conc sl 95.2% → hot.
+    hot = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 2,
+            "losses": 6,
+            "exit_tp": 2,
+            "exit_sl": 6,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 10.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert hot["closes_exit_lead"] == "sl"
+    assert hot["closes_exit_euro_conc"] == "sl"
+    assert hot["closes_exit_euro_count_skew_pp"] == 20.2
+    assert hot["closes_exit_euro_count_skew_hot"] is True
+    hbit = "A exits € skew hot · sl · n 75% · € 95.2%"
+    assert hot["closes_exit_euro_count_skew_bit"] == hbit
+    assert hot["ready"] is True
+
+    # Same reason, thin gap stays silent.
+    thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 80.0,
+            "exit_pnl_sl": -20.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert thin["closes_exit_lead"] == "tp"
+    assert thin["closes_exit_euro_conc"] == "tp"
+    assert thin["closes_exit_euro_conc_pct"] == 80.0
+    assert thin["closes_exit_euro_count_skew_pp"] is None
+    assert thin["closes_exit_euro_count_skew_bit"] == ""
+
+    # Reason disagree → euro lead speaks; skew stays silent.
+    disagree = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 20.0,
+            "exit_pnl_sl": -100.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert disagree["closes_exit_lead"] == "tp"
+    assert disagree["closes_exit_euro_conc"] == "sl"
+    assert disagree["closes_exit_euro_lead"] == "sl"
+    assert disagree["closes_exit_euro_count_skew_bit"] == ""
+
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    glance = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "fees": 4.0,
+            "realized_pnl": -190.0,
+            "net_after_all_fees": -194.0,
+            "wins": 2,
+            "losses": 6,
+            "exit_tp": 2,
+            "exit_sl": 6,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 10.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert glance["tone"] == "warn"
+    assert glance["b_ready"] is True
+    assert hbit in glance["line"]
+    assert hbit in glance["honesty_line"]
+    assert "A exits € skew" not in glance["summary_line"]
+    assert "ready for B" in glance["summary_line"]
