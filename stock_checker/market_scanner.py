@@ -46,14 +46,6 @@ class MarketScanner:
             'LINKUSDT', 'UNIUSDT', 'LTCUSDT', 'ATOMUSDT', 'NEARUSDT'
         ]
 
-        self.etf_universe = [
-            "SPY", "QQQ", "IWM", "DIA",  # Major indices
-            "VOO", "VTI", "SCHD",  # Low-cost core
-            "ARKK", "ARKW", "ARKG",  # Innovation
-            "XLF", "XLE", "XLK", "XLV", "XLY",  # Sector SPDRs
-            "GLD", "SLV", "UNG", "USO"  # Commodities
-        ]
-
         # Initialize persistent stock universe manager
         self.universe_manager = StockUniverseManager(data_dir="/data")
         

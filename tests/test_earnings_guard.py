@@ -23,6 +23,12 @@ def test_crypto_never_blackout():
     assert blocked is False
 
 
+def test_listed_fund_skips_earnings():
+    blocked, why = is_in_earnings_blackout("4GLD.DE")
+    assert blocked is False
+    assert "listed fund" in why
+
+
 @patch(
     "stock_checker.earnings_guard.probe_earnings_calendar",
     return_value=(1.0, STATUS_DATED),

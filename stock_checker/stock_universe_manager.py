@@ -10,6 +10,7 @@ from typing import List, Dict
 from pathlib import Path
 
 from stock_checker.german_universe import GERMAN_XETRA_SEED
+from stock_checker.listed_funds import LISTED_FUND_SEED
 
 
 class StockUniverseManager:
@@ -233,6 +234,7 @@ class StockUniverseManager:
             "APP": {"sector": "software", "exchange": "NASDAQ"},
             "ARM": {"sector": "semiconductor", "exchange": "NASDAQ"},
             "SMCI": {"sector": "technology", "exchange": "NASDAQ"},
+            **LISTED_FUND_SEED,
         }
 
         for symbol, info in initial_stocks.items():
@@ -288,6 +290,7 @@ class StockUniverseManager:
             "ARM": {"sector": "semiconductor", "exchange": "NASDAQ"},
             "SMCI": {"sector": "technology", "exchange": "NASDAQ"},
             **GERMAN_XETRA_SEED,
+            **LISTED_FUND_SEED,
         }
         added = 0
         for symbol, info in extras.items():

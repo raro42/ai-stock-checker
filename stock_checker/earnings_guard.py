@@ -8,6 +8,7 @@ from typing import Any, Optional, Tuple
 
 import pytz
 
+from .listed_funds import is_listed_fund
 from .market_hours import US_TZ
 
 # Live entry blackout window (stocks only; crypto exempt).
@@ -20,6 +21,7 @@ EARNINGS_CLOCK = "America/New_York"
 
 # Probe statuses — tradermonty empty-window honesty (display / fail-open why).
 STATUS_CRYPTO = "crypto"
+STATUS_FUND = "fund"
 STATUS_DATED = "dated"
 STATUS_EMPTY_WINDOW = "empty_window"
 STATUS_MALFORMED = "malformed"
@@ -151,6 +153,8 @@ def probe_earnings_calendar(
     """
     if not symbol or "-USD" in symbol.upper() or symbol.upper().endswith("USDT"):
         return None, STATUS_CRYPTO
+    if is_listed_fund(symbol):
+        return None, STATUS_FUND
 
     try:
         import yfinance as yf
@@ -219,6 +223,8 @@ def is_in_earnings_blackout(
     (``malformed``) — it is not proof that earnings are far away.
     """
     days, status = probe_earnings_calendar(symbol, now=now)
+    if status == STATUS_FUND:
+        return False, "listed fund · no company earnings"
     if days is None:
         if status == STATUS_EMPTY_WINDOW:
             return False, "empty Yahoo earnings window · fail-open"

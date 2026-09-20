@@ -66,6 +66,11 @@ _WELL_KNOWN = {
     "QQQ": "Invesco QQQ Trust",
     "IWM": "iShares Russell 2000 ETF",
     "GLD": "SPDR Gold Shares",
+    "SLV": "iShares Silver Trust",
+    "SXR8.DE": "iShares Core S&P 500",
+    "VWCE.DE": "Vanguard FTSE All-World",
+    "4GLD.DE": "Xetra-Gold",
+    "XAD6.DE": "Xtrackers Physical Silver",
 }
 
 

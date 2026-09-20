@@ -108,10 +108,10 @@ No secret sauce. No “proprietary neural alpha.” Just a few rude filters betw
 | Gate | What it actually does |
 |------|------------------------|
 | **Junk filter** | Stables, leveraged carnival tickets, and known noise stay in the lobby (`symbol_filters.py`) |
-| **Universe** | Curated US + **German Xetra (`.DE`)** seed (DAX/liquid names) merged into `stock_universe.json`; Yahoo movers still US-screen oriented |
+| **Universe** | Curated US shares + **German Xetra (`.DE`)** shares + a short **ETF / metal ETC** list (`listed_funds.py`: `VWCE.DE`, `SXR8.DE`, `SPY`, `4GLD.DE`, `XAD6.DE`, `GLD`, `SLV`). No leveraged funds. Yahoo movers stay US-screen oriented |
 | **Session hours** | US equities: RTH 09:30–16:00 ET. German `.DE`: Xetra ~09:00–17:30 Europe/Berlin. Crypto 24/7 |
 | **Crypto live policy** | Buys **and live scan**: **BTC/ETH only**, max **1** crypto slot, exits **±10%**. Stocks: **TP +8% / SL −5%**, rotate only at **≥+5%**. Full alt scans are not part of the live paper path (`crypto_policy.py` / `exit_policy.py`) |
-| **Earnings blackout** | No new stock entries within ~2d before / 1d after Yahoo earnings on the **America/New_York date** (not UTC); **empty or bad Yahoo → allow (suspect)** / missing calendar → allow (fail-open), not a silent waiver (`earnings_guard.py`) |
+| **Earnings blackout** | No new stock entries within ~2d before / 1d after Yahoo earnings on the **America/New_York date** (not UTC). Curated ETFs and metal ETCs skip this (no company earnings). **Empty or bad Yahoo → allow (suspect)** / missing calendar → allow (fail-open), not a silent waiver (`earnings_guard.py`) |
 | **SMA regime** | Soft block new buys when SPY is below SMA200 or BTC below SMA50 — “buy the dip” can wait until the dip stops dipping |
 | **Relative strength** | Soft block names lagging SPY (stocks) or BTC (crypto) over ~63 sessions — leaders over laggards; missing data fails *open*, not frozen |
 | **Scan breadth** | Soft block when our scan-list A/D looks weak (crypto advance ratio / stock leaders) — not full-universe magic |

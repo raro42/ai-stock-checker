@@ -67,10 +67,21 @@ Revolut Ltd still describes gold, silver, platinum, and palladium for some custo
 
 The [German help page](https://help.revolut.com/en-DE/help/wealth/precious-metals/2026-question-what-can-i-do-with-my-precious-metals-position/) says Commodities Services are **unavailable** for customers in Germany: no new buys, and existing holdings could be sold until **15 June 2026**. That date is past. Do not use Revolut metals as the plan for this group.
 
+The paper scan now includes this short list (`stock_checker/listed_funds.py`). It is not the full ETF market. Leveraged funds stay out.
+
+| Symbol | What it is |
+|--------|------------|
+| `VWCE.DE` | Vanguard FTSE All-World ETF |
+| `SXR8.DE` | iShares Core S&P 500 ETF (euro) |
+| `SPY` | SPDR S&P 500 ETF (US) |
+| `4GLD.DE` | Xetra-Gold (ETC) |
+| `XAD6.DE` | Xtrackers Physical Silver (ETC) |
+| `GLD` / `SLV` | US gold and silver funds |
+
+Same stock gates apply (hold, fees, take-profit, stop). An ETC has no company earnings, so the earnings blackout does not apply.
+
 ## What this desk should not add
 
 - Mining shares. That is the stock screen again.
 - Leveraged or futures metal notes. They fight the anti-churn fee model.
-- A claim that GLD/SLV in `market_scanner.py` is physical metal. It is not.
-
-A later paper symbol, if wanted, is `4GLD.DE` (Xetra-Gold), not a new miner list. Not built in this note.
+- A claim that `GLD` / `SLV` are bars in your vault. They are US funds. `4GLD.DE` is the German gold note.
