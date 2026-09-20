@@ -7090,6 +7090,10 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert s["exit_rot"] == 1
     assert s["exit_trim"] == 0
     assert s["exit_unknown"] == 1
+    assert s["exit_pnl_tp"] == 10.0
+    assert s["exit_pnl_sl"] == -4.0
+    assert s["exit_pnl_rot"] == 6.0
+    assert s["exit_pnl_trim"] == 0.0
     assert sell_exit_counts([]) is None
     assert sell_exit_counts([{"exit_reason": "nope"}]) == {
         "tp": 0,
@@ -7313,3 +7317,177 @@ def test_window_a_exit_mix_speaks_and_warns() -> None:
     assert tp_tie["closes_exit_lead_hot"] is False
     assert tp_tie["closes_exit_lead_bit"] == "A exits lead tie · tp=sl · 50%"
 
+
+
+def test_window_a_exit_euro_lead_speaks_when_count_differs() -> None:
+    """Euro mover speaks only when it is not the count lead. Warn does not block B."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_exit_euro_lead_bit,
+        sell_exit_pnl,
+        window_a_sample_readiness,
+    )
+
+    assert sell_exit_pnl([]) is None
+    assert sell_exit_pnl([{"exit_reason": "nope", "profit_loss": 9}]) == {
+        "tp": 0.0,
+        "sl": 0.0,
+        "rot": 0.0,
+        "trim": 0.0,
+    }
+    assert format_window_a_closes_exit_euro_lead_bit(None) == ""
+
+    missing = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert missing["closes_exit_euro_lead"] is None
+    assert missing["closes_exit_euro_lead_bit"] == ""
+    assert missing["closes_exit_euro_lead_hot"] is False
+
+    match = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 80.0,
+            "exit_pnl_sl": -10.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert match["closes_exit_lead"] == "tp"
+    assert match["closes_exit_euro_lead"] is None
+    assert match["closes_exit_euro_lead_bit"] == ""
+    assert match["closes_exit_euro_lead_hot"] is False
+    assert match["ready"] is True
+
+    disagree = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 12.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert disagree["closes_exit_lead"] == "tp"
+    assert disagree["closes_exit_euro_lead"] == "sl"
+    assert disagree["closes_exit_euro_pnl"] == -200.0
+    assert disagree["closes_exit_euro_lead_hot"] is True
+    assert disagree["closes_exit_euro_lead_bit"] == "A exits € lead sl · −€200"
+    assert (
+        format_window_a_closes_exit_euro_lead_bit(disagree)
+        == "A exits € lead sl · −€200"
+    )
+    assert disagree["ready"] is True
+
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    glance = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "fees": 4.0,
+            "realized_pnl": -188.0,
+            "net_after_all_fees": -192.0,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 12.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert glance["tone"] == "warn"
+    assert glance["b_ready"] is True
+    assert "A exits € lead sl · −€200" in glance["line"]
+    assert "A exits € lead sl · −€200" in glance["honesty_line"]
+    assert "A exits € lead" not in glance["summary_line"]
+    assert "ready for B" in glance["line"]
+    assert "ready for B" in glance["summary_line"]
+
+    speak = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 1,
+            "losses": 3,
+            "exit_tp": 1,
+            "exit_sl": 3,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 90.0,
+            "exit_pnl_sl": -8.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert speak["closes_exit_lead"] == "sl"
+    assert speak["closes_exit_euro_lead"] == "tp"
+    assert speak["closes_exit_euro_lead_hot"] is False
+    assert speak["closes_exit_euro_lead_bit"] == "A exits € lead tp · +€90"
+
+    tied = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 2,
+            "wins": 1,
+            "losses": 1,
+            "exit_tp": 1,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 40.0,
+            "exit_pnl_sl": -40.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert tied["closes_exit_euro_lead"] is None
+    assert tied["closes_exit_euro_lead_bit"] == ""

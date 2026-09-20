@@ -359,6 +359,40 @@ def _exit_lead(
     return "tie", share, f"A exits lead tie · {joined} · {pct_s}", hot
 
 
+def _fmt_signed_euro(amount: float) -> str:
+    abs_n = abs(amount)
+    if abs_n >= 1000:
+        body = f"€{abs_n / 1000:.1f}k"
+    else:
+        body = f"€{abs_n:,.0f}"
+    if amount < 0:
+        return f"−{body}"
+    return f"+{body}"
+
+
+def _exit_euro_lead(
+    count_lead: str | None,
+    pnl_tp: float,
+    pnl_sl: float,
+    pnl_rot: float,
+    pnl_trim: float,
+) -> tuple[str | None, float | None, str, bool]:
+    """Unique € mover when it is not the count lead. A match stays silent."""
+    amounts = (("tp", pnl_tp), ("sl", pnl_sl), ("rot", pnl_rot), ("trim", pnl_trim))
+    top = max(abs(v) for _, v in amounts)
+    if top < 0.5:
+        return None, None, "", False
+    leaders = [name for name, v in amounts if abs(abs(v) - top) < 0.05]
+    if len(leaders) != 1:
+        return None, None, "", False
+    label = leaders[0]
+    if count_lead == label:
+        return None, None, "", False
+    value = round(dict(amounts)[label], 2)
+    hot = label != "tp"
+    return label, value, f"A exits € lead {label} · {_fmt_signed_euro(value)}", hot
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -702,6 +736,10 @@ def window_a_sample_readiness(
         "closes_exit_lead_pct": None,
         "closes_exit_lead_bit": "",
         "closes_exit_lead_hot": False,
+        "closes_exit_euro_lead": None,
+        "closes_exit_euro_pnl": None,
+        "closes_exit_euro_lead_bit": "",
+        "closes_exit_euro_lead_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1374,6 +1412,10 @@ def window_a_sample_readiness(
     closes_exit_lead_pct: float | None = None
     closes_exit_lead_bit = ""
     closes_exit_lead_hot = False
+    closes_exit_euro_lead: str | None = None
+    closes_exit_euro_pnl: float | None = None
+    closes_exit_euro_lead_bit = ""
+    closes_exit_euro_lead_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2127,6 +2169,30 @@ def window_a_sample_readiness(
                         closes_exit_lead_bit,
                         closes_exit_lead_hot,
                     ) = _exit_lead(n_tp, n_sl, n_rot, n_trim, known)
+                    # Count lead ≠ euro lead (portfolio AI). Speak only when
+                    # the largest |P&L| reason is not the count lead. A match,
+                    # a euro tie, and near-zero stay silent. Adverse € lead
+                    # warns only. Missing keys fail-open.
+                    euro_keys = (
+                        "exit_pnl_tp",
+                        "exit_pnl_sl",
+                        "exit_pnl_rot",
+                        "exit_pnl_trim",
+                    )
+                    if all(k in stats for k in euro_keys):
+                        raws = [stats.get(k) for k in euro_keys]
+                        if None not in raws:
+                            try:
+                                euros = tuple(float(v) for v in raws)
+                            except (TypeError, ValueError):
+                                euros = None
+                            if euros is not None:
+                                (
+                                    closes_exit_euro_lead,
+                                    closes_exit_euro_pnl,
+                                    closes_exit_euro_lead_bit,
+                                    closes_exit_euro_lead_hot,
+                                ) = _exit_euro_lead(closes_exit_lead, *euros)
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2531,6 +2597,10 @@ def window_a_sample_readiness(
         "closes_exit_lead_pct": closes_exit_lead_pct,
         "closes_exit_lead_bit": closes_exit_lead_bit,
         "closes_exit_lead_hot": closes_exit_lead_hot,
+        "closes_exit_euro_lead": closes_exit_euro_lead,
+        "closes_exit_euro_pnl": closes_exit_euro_pnl,
+        "closes_exit_euro_lead_bit": closes_exit_euro_lead_bit,
+        "closes_exit_euro_lead_hot": closes_exit_euro_lead_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -2976,6 +3046,16 @@ def format_window_a_closes_exit_lead_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_lead_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_lead_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A euro-lead bit (P&L mover ≠ count lead; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_euro_lead_bit") or "").strip()
     return bit
 
 
@@ -3494,6 +3574,26 @@ def exit_reason_bucket(raw: Any) -> str | None:
     return _EXIT_REASON_BUCKET.get(key)
 
 
+def sell_exit_pnl(sells: Iterable[dict[str, Any]]) -> dict[str, float] | None:
+    """Signed profit_loss by live exit reason. None when there are no sells.
+
+    Unknown reasons stay out. Display only — not a gate.
+    """
+    rows = list(sells)
+    if not rows:
+        return None
+    pnl = {"tp": 0.0, "sl": 0.0, "rot": 0.0, "trim": 0.0}
+    for row in rows:
+        bucket = exit_reason_bucket(row.get("exit_reason"))
+        if not bucket:
+            continue
+        try:
+            pnl[bucket] += float(row.get("profit_loss") or 0)
+        except (TypeError, ValueError):
+            continue
+    return {k: round(v, 2) for k, v in pnl.items()}
+
+
 def sell_exit_counts(sells: Iterable[dict[str, Any]]) -> dict[str, int] | None:
     """Count live exit reasons on sells. None when there are no sells.
 
@@ -3608,6 +3708,7 @@ def summarize_window_trades(
     # (buy+sell). net_after_sell_fees keeps sell-leg-only for summarize_trades.
     net_all = realized - fees
     exits = sell_exit_counts(sells)
+    pnls = sell_exit_pnl(sells)
     return {
         "trades": len(window),
         "buys": len(buys),
@@ -3647,6 +3748,10 @@ def summarize_window_trades(
         "exit_sl": None if exits is None else exits["sl"],
         "exit_rot": None if exits is None else exits["rot"],
         "exit_trim": None if exits is None else exits["trim"],
+        "exit_pnl_tp": None if pnls is None else pnls["tp"],
+        "exit_pnl_sl": None if pnls is None else pnls["sl"],
+        "exit_pnl_rot": None if pnls is None else pnls["rot"],
+        "exit_pnl_trim": None if pnls is None else pnls["trim"],
         "exit_unknown": (
             None
             if exits is None
