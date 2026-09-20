@@ -176,6 +176,10 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # €-conc reason vs the rest. Share skew can hide large vs small closes.
 # Fat ≥2× · thin ≤0.5× (reuse PROFIT_FACTOR_STRONG / inverse). Adverse
 # warns only. Still ready for B.
+# Exit € size n (`closes_exit_euro_size_n`): sample honesty after fat/thin.
+# One fat close ≠ a size sample (portfolio AI + xang1234). Speak only when
+# size ratio spoke. thin when n_lead < WINDOW_A_TARGET_SELLS. thin warns
+# only. Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -629,6 +633,43 @@ def _exit_euro_size(
     return round(ratio, 2), bit, hot
 
 
+def _exit_euro_size_n(
+    euro_conc: str | None,
+    size_ratio: float | None,
+    n_tp: int,
+    n_sl: int,
+    n_rot: int,
+    n_trim: int,
+) -> tuple[str, int | None, str, bool]:
+    """Sample honesty for fat/thin € size.
+
+    Fat/thin from one close is noise. Speak only when ``size_ratio``
+    already spoke. ``thin`` when the €-conc reason has fewer than
+    ``WINDOW_A_TARGET_SELLS`` closes. ``thin`` warns only. Still ready
+    for B.
+    """
+    if size_ratio is None or not euro_conc or euro_conc == "tie":
+        return "", None, "", False
+    counts = {"tp": n_tp, "sl": n_sl, "rot": n_rot, "trim": n_trim}
+    if euro_conc not in counts:
+        return "", None, "", False
+    n_lead = int(counts[euro_conc])
+    need = int(WINDOW_A_TARGET_SELLS)
+    if n_lead < need:
+        return (
+            "thin",
+            n_lead,
+            f"A exits € size n thin · {euro_conc} · {n_lead} closes <{need}",
+            True,
+        )
+    return (
+        "ok",
+        n_lead,
+        f"A exits € size n ok · {euro_conc} · {n_lead} closes",
+        False,
+    )
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -995,6 +1036,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_ratio": None,
         "closes_exit_euro_size_bit": "",
         "closes_exit_euro_size_hot": False,
+        "closes_exit_euro_size_n": "",
+        "closes_exit_euro_size_n_count": None,
+        "closes_exit_euro_size_n_bit": "",
+        "closes_exit_euro_size_n_thin": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1690,6 +1735,10 @@ def window_a_sample_readiness(
     closes_exit_euro_size_ratio: float | None = None
     closes_exit_euro_size_bit = ""
     closes_exit_euro_size_hot = False
+    closes_exit_euro_size_n = ""
+    closes_exit_euro_size_n_count: int | None = None
+    closes_exit_euro_size_n_bit = ""
+    closes_exit_euro_size_n_thin = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2512,6 +2561,19 @@ def window_a_sample_readiness(
                                     n_trim,
                                     *euros,
                                 )
+                                (
+                                    closes_exit_euro_size_n,
+                                    closes_exit_euro_size_n_count,
+                                    closes_exit_euro_size_n_bit,
+                                    closes_exit_euro_size_n_thin,
+                                ) = _exit_euro_size_n(
+                                    closes_exit_euro_conc,
+                                    closes_exit_euro_size_ratio,
+                                    n_tp,
+                                    n_sl,
+                                    n_rot,
+                                    n_trim,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2939,6 +3001,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_ratio": closes_exit_euro_size_ratio,
         "closes_exit_euro_size_bit": closes_exit_euro_size_bit,
         "closes_exit_euro_size_hot": closes_exit_euro_size_hot,
+        "closes_exit_euro_size_n": closes_exit_euro_size_n,
+        "closes_exit_euro_size_n_count": closes_exit_euro_size_n_count,
+        "closes_exit_euro_size_n_bit": closes_exit_euro_size_n_bit,
+        "closes_exit_euro_size_n_thin": closes_exit_euro_size_n_thin,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -3444,6 +3510,16 @@ def format_window_a_closes_exit_euro_size_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_euro_size_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_n_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A exit € size-n sample bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_euro_size_n_bit") or "").strip()
     return bit
 
 
