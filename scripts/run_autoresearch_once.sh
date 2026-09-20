@@ -3,6 +3,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$ROOT/autoresearch" "$ROOT/data/experiment_bars"
+# Local tag only. A missing tag makes Docker Hub pull `ai-stock-checker` and deny access.
+if ! docker image inspect ai-stock-checker:latest >/dev/null 2>&1; then
+  echo "building local image ai-stock-checker:latest" >&2
+  docker build -t ai-stock-checker "$ROOT"
+fi
 docker run --rm -e PYTHONPATH=/app -w /app \
   -v "$ROOT/data:/app/data" \
   -v "$ROOT/stock_checker:/app/stock_checker" \
