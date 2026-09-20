@@ -8198,6 +8198,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_n_bit,
         format_window_a_closes_exit_euro_size_rest_n_bit,
         format_window_a_closes_exit_euro_size_sign_bit,
+        format_window_a_closes_exit_euro_size_rest_sign_bit,
         window_a_sample_readiness,
     )
 
@@ -8205,6 +8206,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert format_window_a_closes_exit_euro_size_n_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_rest_n_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_sign_bit(None) == ""
+    assert format_window_a_closes_exit_euro_size_rest_sign_bit(None) == ""
 
     missing = window_a_sample_readiness(
         {
@@ -8232,6 +8234,10 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert missing["closes_exit_euro_size_sign_pnl"] is None
     assert missing["closes_exit_euro_size_sign_bit"] == ""
     assert missing["closes_exit_euro_size_sign_loss"] is False
+    assert missing["closes_exit_euro_size_rest_sign"] == ""
+    assert missing["closes_exit_euro_size_rest_sign_pnl"] is None
+    assert missing["closes_exit_euro_size_rest_sign_bit"] == ""
+    assert missing["closes_exit_euro_size_rest_sign_loss"] is False
 
     # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet; rest n=2 thin.
     quiet = window_a_sample_readiness(
@@ -8274,6 +8280,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     qsign = "A exits € size sign win · tp · +€100"
     assert quiet["closes_exit_euro_size_sign_bit"] == qsign
     assert format_window_a_closes_exit_euro_size_sign_bit(quiet) == qsign
+    assert quiet["closes_exit_euro_size_rest_sign"] == "loss"
+    assert quiet["closes_exit_euro_size_rest_sign_pnl"] == -5.0
+    assert quiet["closes_exit_euro_size_rest_sign_loss"] is True
+    qrest = "A exits € size rest sign loss · −€5"
+    assert quiet["closes_exit_euro_size_rest_sign_bit"] == qrest
+    assert format_window_a_closes_exit_euro_size_rest_sign_bit(quiet) == qrest
     assert quiet["ready"] is True
 
     # Both sides ≥3: fat quiet + rest ok.
@@ -8303,6 +8315,11 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert both_ok["closes_exit_euro_size_rest_n_thin"] is False
     assert both_ok["closes_exit_euro_size_rest_n_bit"] == (
         "A exits € size rest n ok · 3 closes"
+    )
+    assert both_ok["closes_exit_euro_size_rest_sign"] == "loss"
+    assert both_ok["closes_exit_euro_size_rest_sign_pnl"] == -15.0
+    assert both_ok["closes_exit_euro_size_rest_sign_bit"] == (
+        "A exits € size rest sign loss · −€15"
     )
     assert both_ok["ready"] is True
 
@@ -8346,6 +8363,11 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     hsign = "A exits € size sign loss · sl · −€200"
     assert hot["closes_exit_euro_size_sign_bit"] == hsign
     assert format_window_a_closes_exit_euro_size_sign_bit(hot) == hsign
+    assert hot["closes_exit_euro_size_rest_sign"] == "win"
+    assert hot["closes_exit_euro_size_rest_sign_pnl"] == 10.0
+    assert hot["closes_exit_euro_size_rest_sign_loss"] is False
+    hrest = "A exits € size rest sign win · +€10"
+    assert hot["closes_exit_euro_size_rest_sign_bit"] == hrest
     assert hot["ready"] is True
 
     # Mid ratio stays silent (tp avg €13.33 vs sl €10 → 1.33×).
@@ -8375,6 +8397,9 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert mid["closes_exit_euro_size_sign"] == ""
     assert mid["closes_exit_euro_size_sign_bit"] == ""
     assert mid["closes_exit_euro_size_sign_loss"] is False
+    assert mid["closes_exit_euro_size_rest_sign"] == ""
+    assert mid["closes_exit_euro_size_rest_sign_bit"] == ""
+    assert mid["closes_exit_euro_size_rest_sign_loss"] is False
 
     # Many small tp vs one large sl: tp owns |€| but avg is thin (0.4×).
     thin = window_a_sample_readiness(
@@ -8404,6 +8429,8 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert thin["closes_exit_euro_size_rest_n"] == "thin"
     assert thin["closes_exit_euro_size_rest_n_count"] == 1
     assert thin["closes_exit_euro_size_rest_n_thin"] is True
+    assert thin["closes_exit_euro_size_rest_sign"] == "loss"
+    assert thin["closes_exit_euro_size_rest_sign_pnl"] == -100.0
 
     # Fat from one close: size speaks, size-n thin warns; rest ok (still ready).
     sparse = window_a_sample_readiness(
@@ -8437,6 +8464,8 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert sparse["closes_exit_euro_size_rest_n_bit"] == (
         "A exits € size rest n ok · 7 closes"
     )
+    assert sparse["closes_exit_euro_size_rest_sign"] == "loss"
+    assert sparse["closes_exit_euro_size_rest_sign_pnl"] == -14.0
     assert sparse["ready"] is True
 
     # Profitable rotation is fat and hot (reason ≠ tp) but the euros won.
@@ -8465,7 +8494,33 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert rot_win["closes_exit_euro_size_sign_bit"] == (
         "A exits € size sign win · rot · +€80"
     )
+    assert rot_win["closes_exit_euro_size_rest_sign"] == "win"
+    assert rot_win["closes_exit_euro_size_rest_sign_pnl"] == 20.0
+    assert rot_win["closes_exit_euro_size_rest_sign_loss"] is False
     assert rot_win["ready"] is True
+
+    # Fat lead, rest euros cancel. Size speaks; rest sign stays silent.
+    rest_flat = window_a_sample_readiness(
+        {
+            "trades": 14,
+            "buys": 4,
+            "sells": 10,
+            "wins": 8,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 2,
+            "exit_trim": 0,
+            "exit_pnl_tp": 300.0,
+            "exit_pnl_sl": -50.0,
+            "exit_pnl_rot": 50.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert rest_flat["closes_exit_euro_size_ratio"] is not None
+    assert rest_flat["closes_exit_euro_size_rest_sign"] == ""
+    assert rest_flat["closes_exit_euro_size_rest_sign_bit"] == ""
+    assert rest_flat["closes_exit_euro_size_rest_sign_loss"] is False
 
     knobs = {
         "promote_experiment_strategy": False,
@@ -8512,6 +8567,8 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert "A exits € size rest n thin · 2 closes <3" in glance["honesty_line"]
     assert hsign in glance["honesty_line"]
     assert hsign in glance["line"]
+    assert hrest in glance["honesty_line"]
+    assert hrest in glance["line"]
     assert "A exits € size" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
 
@@ -8545,3 +8602,6 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert sn in glance_thin_n["line"]
     assert "A exits € size rest n ok · 7 closes" in glance_thin_n["honesty_line"]
     assert "A exits € size sign win · tp · +€100" in glance_thin_n["honesty_line"]
+    assert (
+        "A exits € size rest sign loss · −€14" in glance_thin_n["honesty_line"]
+    )
