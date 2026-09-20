@@ -438,6 +438,54 @@ def _exit_euro_offset(
     return second_name, round(second_val, 2), round(ratio, 2), bit, hot
 
 
+
+def _exit_euro_gap(
+    count_lead: str | None,
+    euro_lead: str | None,
+    pnl_tp: float,
+    pnl_sl: float,
+    pnl_rot: float,
+    pnl_trim: float,
+) -> tuple[float | None, str | None, str, bool]:
+    """€-lead multiple vs the count lead when they disagree.
+
+    Euro-lead already names the disagree. This bit speaks how far count
+    and € diverge. Speak when |€ lead| is at least
+    ``WINDOW_A_PROFIT_FACTOR_STRONG_RATIO`` × |count lead €|. An adverse
+    € lead warns. A take-profit € lead speaks and does not warn. Match
+    (offset handles), count tie, missing leads, and a thin gap stay
+    silent.
+    """
+    if (
+        not euro_lead
+        or not count_lead
+        or count_lead == "tie"
+        or euro_lead == count_lead
+    ):
+        return None, None, "", False
+    amounts = {
+        "tp": pnl_tp,
+        "sl": pnl_sl,
+        "rot": pnl_rot,
+        "trim": pnl_trim,
+    }
+    if euro_lead not in amounts or count_lead not in amounts:
+        return None, None, "", False
+    euro_abs = abs(amounts[euro_lead])
+    count_abs = abs(amounts[count_lead])
+    if euro_abs < 0.5 or count_abs < 0.5:
+        return None, None, "", False
+    ratio = euro_abs / count_abs
+    if ratio < WINDOW_A_PROFIT_FACTOR_STRONG_RATIO:
+        return None, None, "", False
+    hot = euro_lead != "tp"
+    severity = "hot" if hot else "quiet"
+    bit = (
+        f"A exits € gap {severity} · {_fmt_multiple(ratio)} vs {count_lead}"
+    )
+    return round(ratio, 2), count_lead, bit, hot
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -790,6 +838,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_offset_ratio": None,
         "closes_exit_euro_offset_bit": "",
         "closes_exit_euro_offset_hot": False,
+        "closes_exit_euro_gap_ratio": None,
+        "closes_exit_euro_gap_vs": None,
+        "closes_exit_euro_gap_bit": "",
+        "closes_exit_euro_gap_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1471,6 +1523,10 @@ def window_a_sample_readiness(
     closes_exit_euro_offset_ratio: float | None = None
     closes_exit_euro_offset_bit = ""
     closes_exit_euro_offset_hot = False
+    closes_exit_euro_gap_ratio: float | None = None
+    closes_exit_euro_gap_vs: str | None = None
+    closes_exit_euro_gap_bit = ""
+    closes_exit_euro_gap_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2255,6 +2311,16 @@ def window_a_sample_readiness(
                                     closes_exit_euro_offset_bit,
                                     closes_exit_euro_offset_hot,
                                 ) = _exit_euro_offset(closes_exit_lead, *euros)
+                                (
+                                    closes_exit_euro_gap_ratio,
+                                    closes_exit_euro_gap_vs,
+                                    closes_exit_euro_gap_bit,
+                                    closes_exit_euro_gap_hot,
+                                ) = _exit_euro_gap(
+                                    closes_exit_lead,
+                                    closes_exit_euro_lead,
+                                    *euros,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2668,6 +2734,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_offset_ratio": closes_exit_euro_offset_ratio,
         "closes_exit_euro_offset_bit": closes_exit_euro_offset_bit,
         "closes_exit_euro_offset_hot": closes_exit_euro_offset_hot,
+        "closes_exit_euro_gap_ratio": closes_exit_euro_gap_ratio,
+        "closes_exit_euro_gap_vs": closes_exit_euro_gap_vs,
+        "closes_exit_euro_gap_bit": closes_exit_euro_gap_bit,
+        "closes_exit_euro_gap_hot": closes_exit_euro_gap_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -3133,6 +3203,16 @@ def format_window_a_closes_exit_euro_offset_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_euro_offset_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_gap_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A euro-gap bit (€ lead multiple vs count lead; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_euro_gap_bit") or "").strip()
     return bit
 
 
