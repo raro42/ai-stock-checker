@@ -202,6 +202,11 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # disagree. The sum says who keeps the money. Speak only when clash
 # already spoke. loss warns only. win speaks and does not warn.
 # A near-zero sum stays silent. Still ready for B.
+# Exit € size clash keep (`closes_exit_euro_size_sign_clash_keep`): |net|
+# ÷ (|lead| + |rest|) when the signs clash. Clash net is the leftover
+# euros. Keep says how much of the two-sided money survives. strong
+# ≥ EXPECTANCY_STRONG (0.5) speaks. thin < EXPECTANCY_THIN (0.25) warns,
+# including a full cancel (net ~0). Mid stays silent. Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -869,6 +874,39 @@ def _exit_euro_size_sign_clash_net(
     )
 
 
+def _exit_euro_size_sign_clash_keep(
+    clash: str,
+    lead_pnl: float | None,
+    rest_pnl: float | None,
+) -> tuple[str, float | None, str, bool]:
+    """Share of two-sided euros that survive a size-sign clash.
+
+    Clash net names the leftover. Keep is |lead + rest| ÷ (|lead| + |rest|).
+    Speak only when clash already spoke and both nets are known. strong
+    ≥ ``WINDOW_A_EXPECTANCY_STRONG_RATIO`` speaks and does not warn. thin
+    < ``WINDOW_A_EXPECTANCY_THIN_RATIO`` warns only, including a full
+    cancel. Mid stays silent. Still ready for B.
+    """
+    if clash != "clash" or lead_pnl is None or rest_pnl is None:
+        return "", None, "", False
+    lead = float(lead_pnl)
+    rest = float(rest_pnl)
+    gross = abs(lead) + abs(rest)
+    if gross < 0.5:
+        return "", None, "", False
+    keep = abs(lead + rest) / gross
+    if keep >= WINDOW_A_EXPECTANCY_STRONG_RATIO:
+        lean = "strong"
+        thin = False
+    elif keep < WINDOW_A_EXPECTANCY_THIN_RATIO:
+        lean = "thin"
+        thin = True
+    else:
+        return "", None, "", False
+    bit = f"A exits € size clash keep {lean} · {_fmt_multiple(keep)}"
+    return lean, round(keep, 2), bit, thin
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -1258,6 +1296,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash_net_pnl": None,
         "closes_exit_euro_size_sign_clash_net_bit": "",
         "closes_exit_euro_size_sign_clash_net_loss": False,
+        "closes_exit_euro_size_sign_clash_keep": "",
+        "closes_exit_euro_size_sign_clash_keep_ratio": None,
+        "closes_exit_euro_size_sign_clash_keep_bit": "",
+        "closes_exit_euro_size_sign_clash_keep_thin": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1976,6 +2018,10 @@ def window_a_sample_readiness(
     closes_exit_euro_size_sign_clash_net_pnl: float | None = None
     closes_exit_euro_size_sign_clash_net_bit = ""
     closes_exit_euro_size_sign_clash_net_loss = False
+    closes_exit_euro_size_sign_clash_keep = ""
+    closes_exit_euro_size_sign_clash_keep_ratio: float | None = None
+    closes_exit_euro_size_sign_clash_keep_bit = ""
+    closes_exit_euro_size_sign_clash_keep_thin = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2862,6 +2908,16 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign_pnl,
                                     closes_exit_euro_size_rest_sign_pnl,
                                 )
+                                (
+                                    closes_exit_euro_size_sign_clash_keep,
+                                    closes_exit_euro_size_sign_clash_keep_ratio,
+                                    closes_exit_euro_size_sign_clash_keep_bit,
+                                    closes_exit_euro_size_sign_clash_keep_thin,
+                                ) = _exit_euro_size_sign_clash_keep(
+                                    closes_exit_euro_size_sign_clash,
+                                    closes_exit_euro_size_sign_pnl,
+                                    closes_exit_euro_size_rest_sign_pnl,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -3325,6 +3381,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_net_loss": (
             closes_exit_euro_size_sign_clash_net_loss
+        ),
+        "closes_exit_euro_size_sign_clash_keep": (
+            closes_exit_euro_size_sign_clash_keep
+        ),
+        "closes_exit_euro_size_sign_clash_keep_ratio": (
+            closes_exit_euro_size_sign_clash_keep_ratio
+        ),
+        "closes_exit_euro_size_sign_clash_keep_bit": (
+            closes_exit_euro_size_sign_clash_keep_bit
+        ),
+        "closes_exit_euro_size_sign_clash_keep_thin": (
+            closes_exit_euro_size_sign_clash_keep_thin
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -3892,6 +3960,18 @@ def format_window_a_closes_exit_euro_size_sign_clash_net_bit(
         return ""
     bit = str(
         sample.get("closes_exit_euro_size_sign_clash_net_bit") or ""
+    ).strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_keep_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A exit € size clash-keep bit (|net| share; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get("closes_exit_euro_size_sign_clash_keep_bit") or ""
     ).strip()
     return bit
 
