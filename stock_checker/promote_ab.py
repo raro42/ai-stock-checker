@@ -247,6 +247,12 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # the additive spread. wide |Δ| ≥ FEES_THIN (0.5). thin |Δ| <
 # FEES_COMFORTABLE (0.25). Mid stays silent. Near-zero stays silent.
 # worse warns only. Still ready for B.
+# Exit € size clash keep fees vs drag gap dir sides share
+# (`closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share`):
+# leftover% and window% of (leftover× + window×) when sides already spoke
+# (portfolio AI + xang1234 €-conc share after absolute sides / Δ). Absolute
+# × and additive Δ ≠ ownership of the fee-pressure story. worse warns only.
+# Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -1242,6 +1248,42 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta(
     return lean, rounded, bit, vs == "worse"
 
 
+
+def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share(
+    sides_bit: str,
+    vs: str,
+    leftover: float | None,
+    window: float | None,
+) -> tuple[float | None, float | None, str, bool]:
+    """Leftover% and window% of fee× sum when gap dir sides already spoke.
+
+    Sides speak absolute fees×. Δ speaks additive spread. Share speaks
+    ownership of that fee-pressure pair (portfolio AI + xang1234 €-conc
+    after absolute). Speak only when sides already spoke and both
+    multiples are > 0. ``worse`` warns only. Still ready for B.
+    """
+    if not (sides_bit or "").strip():
+        return None, None, "", False
+    if vs not in ("worse", "better"):
+        return None, None, "", False
+    if leftover is None or window is None:
+        return None, None, "", False
+    left = float(leftover)
+    win = float(window)
+    if left <= 0 or win <= 0:
+        return None, None, "", False
+    total = left + win
+    if total < 1e-9:
+        return None, None, "", False
+    left_pct = round(100.0 * left / total, 1)
+    win_pct = round(100.0 - left_pct, 1)
+    bit = (
+        "A exits € size clash keep fees vs drag gap dir sides share · "
+        f"leftover {_fmt_share_pct(left_pct)} · window {_fmt_share_pct(win_pct)}"
+    )
+    return left_pct, win_pct, bit, vs == "worse"
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -1659,6 +1701,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_ratio": None,
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_bit": "",
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_warn": False,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover": None,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window": None,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -2411,6 +2457,14 @@ def window_a_sample_readiness(
     ) = None
     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_bit = ""
     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_warn = False
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover: (
+        float | None
+    ) = None
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window: (
+        float | None
+    ) = None
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit = ""
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_warn = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -3381,6 +3435,17 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover,
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window,
                                 )
+                                (
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_warn,
+                                ) = _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share(
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -3928,6 +3993,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_warn": (
             closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_warn
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_warn": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_warn
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -4585,6 +4662,21 @@ def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_
     bit = str(
         sample.get(
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_bit"
+        )
+        or ""
+    ).strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A leftover/window fee sides share bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get(
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit"
         )
         or ""
     ).strip()
