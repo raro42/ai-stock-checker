@@ -221,6 +221,13 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # hide a hot book. Speak only when both spoke and the moods differ.
 # worse (calm leftover, hot book) warns. better speaks and does not warn.
 # Same mood stays silent. Still ready for B.
+# Exit € size clash keep fees vs drag gap
+# (`closes_exit_euro_size_sign_clash_keep_fees_vs_gap`): hotter fees× ÷
+# cooler fees× when vs-drag already spoke (portfolio AI + xang1234).
+# Mood labels ≠ how far apart the multiples sit. Missing window ratio
+# (fee-drag total) fail-open. wide ≥ PROFIT_FACTOR_STRONG (2×). thin
+# < 1 + EXPECTANCY_THIN (1.25×). Mid stays silent. worse warns only.
+# Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -1039,6 +1046,53 @@ def _exit_euro_size_sign_clash_keep_fees_vs(
     )
 
 
+def _exit_euro_size_sign_clash_keep_fees_vs_gap(
+    vs: str,
+    keep_fees_ratio: float | None,
+    fee_drag_ratio: float | None,
+    fees_ok_ratio: float | None,
+) -> tuple[str, float | None, str, bool]:
+    """How far leftover fees× and window fees× sit apart.
+
+    Vs-drag names the mood disagree. Gap speaks the directed multiple
+    (hotter ÷ cooler). Speak only when vs already spoke and both ratios
+    are > 0. Fee-drag ``total`` has no ratio → fail-open. wide ≥
+    ``WINDOW_A_PROFIT_FACTOR_STRONG_RATIO``. thin <
+    ``1 + WINDOW_A_EXPECTANCY_THIN_RATIO``. Mid stays silent. ``worse``
+    warns only. Still ready for B.
+    """
+    if vs not in ("worse", "better"):
+        return "", None, "", False
+    if keep_fees_ratio is None or keep_fees_ratio <= 0:
+        return "", None, "", False
+    window_ratio: float | None = None
+    if fee_drag_ratio is not None and fee_drag_ratio > 0:
+        window_ratio = float(fee_drag_ratio)
+    elif fees_ok_ratio is not None and fees_ok_ratio > 0:
+        window_ratio = float(fees_ok_ratio)
+    else:
+        return "", None, "", False
+    leftover = float(keep_fees_ratio)
+    hot = max(leftover, window_ratio)
+    cool = min(leftover, window_ratio)
+    if cool < 1e-9:
+        return "", None, "", False
+    gap = hot / cool
+    thin_floor = 1.0 + WINDOW_A_EXPECTANCY_THIN_RATIO
+    if gap >= WINDOW_A_PROFIT_FACTOR_STRONG_RATIO:
+        lean = "wide"
+    elif gap < thin_floor:
+        lean = "thin"
+    else:
+        return "", None, "", False
+    rounded = round(gap, 2)
+    bit = (
+        "A exits € size clash keep fees vs drag gap "
+        f"{lean} · {_fmt_fee_keep(gap)}"
+    )
+    return lean, rounded, bit, vs == "worse"
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -1440,6 +1494,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash_keep_fees_vs_window": "",
         "closes_exit_euro_size_sign_clash_keep_fees_vs_bit": "",
         "closes_exit_euro_size_sign_clash_keep_fees_vs_warn": False,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio": None,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -2170,6 +2228,10 @@ def window_a_sample_readiness(
     closes_exit_euro_size_sign_clash_keep_fees_vs_window = ""
     closes_exit_euro_size_sign_clash_keep_fees_vs_bit = ""
     closes_exit_euro_size_sign_clash_keep_fees_vs_warn = False
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap = ""
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio: float | None = None
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit = ""
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_warn = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -3094,6 +3156,17 @@ def window_a_sample_readiness(
                                     fee_drag_severity,
                                     fees_ok_severity,
                                 )
+                                (
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_warn,
+                                ) = _exit_euro_size_sign_clash_keep_fees_vs_gap(
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs,
+                                    closes_exit_euro_size_sign_clash_keep_fees_ratio,
+                                    fee_drag_ratio,
+                                    fees_ok_ratio,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -3593,6 +3666,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_keep_fees_vs_warn": (
             closes_exit_euro_size_sign_clash_keep_fees_vs_warn
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_warn": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_warn
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -4196,6 +4281,19 @@ def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_bit(
         return ""
     bit = str(
         sample.get("closes_exit_euro_size_sign_clash_keep_fees_vs_bit") or ""
+    ).strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A leftover-vs-window fee gap bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get("closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit")
+        or ""
     ).strip()
     return bit
 
