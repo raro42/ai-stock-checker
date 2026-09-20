@@ -7823,3 +7823,192 @@ def test_window_a_exit_euro_gap_speaks_when_leads_disagree() -> None:
     assert bit in glance["honesty_line"]
     assert "A exits € gap" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
+
+
+def test_window_a_exit_euro_conc_speaks_share_of_abs_pnl() -> None:
+    """€ concentration speaks top reason share of |exit €|. Hot warn does not block B."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_exit_euro_conc_bit,
+        window_a_sample_readiness,
+    )
+
+    assert format_window_a_closes_exit_euro_conc_bit(None) == ""
+
+    missing = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert missing["closes_exit_euro_conc"] is None
+    assert missing["closes_exit_euro_conc_bit"] == ""
+    assert missing["closes_exit_euro_conc_hot"] is False
+
+    hot = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 12.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    # |sl| 200 / 212 ≈ 94.3%
+    assert hot["closes_exit_euro_conc"] == "sl"
+    assert hot["closes_exit_euro_conc_pct"] == 94.3
+    assert hot["closes_exit_euro_conc_hot"] is True
+    bit = "A exits € conc hot · sl · 94.3%"
+    assert hot["closes_exit_euro_conc_bit"] == bit
+    assert format_window_a_closes_exit_euro_conc_bit(hot) == bit
+    assert hot["ready"] is True
+
+    strong = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -20.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    # |tp| 100 / 120 ≈ 83.3%
+    assert strong["closes_exit_euro_conc"] == "tp"
+    assert strong["closes_exit_euro_conc_pct"] == 83.3
+    assert strong["closes_exit_euro_conc_hot"] is False
+    sbit = "A exits € conc strong · tp · 83.3%"
+    assert strong["closes_exit_euro_conc_bit"] == sbit
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 14,
+            "buys": 7,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 1,
+            "exit_sl": 1,
+            "exit_rot": 1,
+            "exit_trim": 1,
+            "exit_pnl_tp": 30.0,
+            "exit_pnl_sl": -28.0,
+            "exit_pnl_rot": -25.0,
+            "exit_pnl_trim": 22.0,
+        }
+    )
+    # |tp| 30 / 105 ≈ 28.6%
+    assert quiet["closes_exit_euro_conc"] == "tp"
+    assert quiet["closes_exit_euro_conc_pct"] == 28.6
+    assert quiet["closes_exit_euro_conc_hot"] is False
+    qbit = "A exits € conc quiet · tp · 28.6%"
+    assert quiet["closes_exit_euro_conc_bit"] == qbit
+
+    tied = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 2,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 50.0,
+            "exit_pnl_sl": -50.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert tied["closes_exit_euro_conc"] is None
+    assert tied["closes_exit_euro_conc_bit"] == ""
+
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 2,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 55.0,
+            "exit_pnl_sl": -45.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    # |tp| 55 / 100 = 55% mid band
+    assert mid["closes_exit_euro_conc"] == "tp"
+    assert mid["closes_exit_euro_conc_pct"] == 55.0
+    assert mid["closes_exit_euro_conc_hot"] is False
+    assert mid["closes_exit_euro_conc_bit"] == "A exits € conc · tp · 55%"
+
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    glance = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 4,
+            "fees": 4.0,
+            "realized_pnl": -188.0,
+            "net_after_all_fees": -192.0,
+            "wins": 3,
+            "losses": 1,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 12.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert glance["tone"] == "warn"
+    assert glance["b_ready"] is True
+    assert bit in glance["line"]
+    assert bit in glance["honesty_line"]
+    assert "A exits € conc" not in glance["summary_line"]
+    assert "ready for B" in glance["summary_line"]

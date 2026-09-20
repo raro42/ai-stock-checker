@@ -164,6 +164,10 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # Exit lead names the peak live reason (xang1234 leader cluster).
 # Four shares still need a compare. Unique `tp` speaks. A unique
 # adverse lead, or a tie with no `tp`, warns only. Still ready for B.
+# Exit euro concentration (`closes_exit_euro_conc`) is the |€| share of
+# the unique top reason (portfolio AI + xang1234). Lead/offset/gap
+# compare movers; conc asks if one reason owns the tape. Reuse win-rate
+# bands. Adverse ≥60% warns only. TP ≥60% speaks strong. Quiet <40%.
 WINDOW_A_LOSS_STREAK_HOT = 2
 WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS = 2
 WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS = 3
@@ -484,6 +488,41 @@ def _exit_euro_gap(
         f"A exits € gap {severity} · {_fmt_multiple(ratio)} vs {count_lead}"
     )
     return round(ratio, 2), count_lead, bit, hot
+
+
+def _exit_euro_conc(
+    pnl_tp: float,
+    pnl_sl: float,
+    pnl_rot: float,
+    pnl_trim: float,
+) -> tuple[str | None, float | None, str, bool]:
+    """Share of total |exit €| in the unique top reason.
+
+    Lead / offset / gap compare count vs € movers. Concentration asks
+    whether one reason owns most of the tape (xang1234 severity +
+    portfolio AI). Reuse win-rate bands: strong/hot ≥60% · quiet <40% ·
+    mid unlabeled. An adverse top at ≥60% warns only. A take-profit top
+    at ≥60% speaks strong and does not warn. A euro tie and near-zero
+    stay silent.
+    """
+    amounts = (("tp", pnl_tp), ("sl", pnl_sl), ("rot", pnl_rot), ("trim", pnl_trim))
+    total = sum(abs(v) for _, v in amounts)
+    if total < 0.5:
+        return None, None, "", False
+    top = max(abs(v) for _, v in amounts)
+    leaders = [name for name, v in amounts if abs(abs(v) - top) < 0.05]
+    if len(leaders) != 1:
+        return None, None, "", False
+    label = leaders[0]
+    share = round(100.0 * top / total, 1)
+    pct_s = _fmt_share_pct(share)
+    if share >= WINDOW_A_WIN_RATE_STRONG_PCT:
+        if label == "tp":
+            return label, share, f"A exits € conc strong · {label} · {pct_s}", False
+        return label, share, f"A exits € conc hot · {label} · {pct_s}", True
+    if share < WINDOW_A_WIN_RATE_THIN_PCT:
+        return label, share, f"A exits € conc quiet · {label} · {pct_s}", False
+    return label, share, f"A exits € conc · {label} · {pct_s}", False
 
 
 def _weekday_days_since(earlier: date, later: date) -> int:
@@ -842,6 +881,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_gap_vs": None,
         "closes_exit_euro_gap_bit": "",
         "closes_exit_euro_gap_hot": False,
+        "closes_exit_euro_conc": None,
+        "closes_exit_euro_conc_pct": None,
+        "closes_exit_euro_conc_bit": "",
+        "closes_exit_euro_conc_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1527,6 +1570,10 @@ def window_a_sample_readiness(
     closes_exit_euro_gap_vs: str | None = None
     closes_exit_euro_gap_bit = ""
     closes_exit_euro_gap_hot = False
+    closes_exit_euro_conc: str | None = None
+    closes_exit_euro_conc_pct: float | None = None
+    closes_exit_euro_conc_bit = ""
+    closes_exit_euro_conc_hot = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2321,6 +2368,12 @@ def window_a_sample_readiness(
                                     closes_exit_euro_lead,
                                     *euros,
                                 )
+                                (
+                                    closes_exit_euro_conc,
+                                    closes_exit_euro_conc_pct,
+                                    closes_exit_euro_conc_bit,
+                                    closes_exit_euro_conc_hot,
+                                ) = _exit_euro_conc(*euros)
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -2738,6 +2791,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_gap_vs": closes_exit_euro_gap_vs,
         "closes_exit_euro_gap_bit": closes_exit_euro_gap_bit,
         "closes_exit_euro_gap_hot": closes_exit_euro_gap_hot,
+        "closes_exit_euro_conc": closes_exit_euro_conc,
+        "closes_exit_euro_conc_pct": closes_exit_euro_conc_pct,
+        "closes_exit_euro_conc_bit": closes_exit_euro_conc_bit,
+        "closes_exit_euro_conc_hot": closes_exit_euro_conc_hot,
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
         "closes_net_expectancy_neg": closes_net_expectancy_neg,
@@ -3213,6 +3270,16 @@ def format_window_a_closes_exit_euro_gap_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_euro_gap_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_conc_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A euro-conc bit (top reason share of |exit €|; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_exit_euro_conc_bit") or "").strip()
     return bit
 
 
