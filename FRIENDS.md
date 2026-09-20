@@ -84,6 +84,21 @@ KEEP_SYMBOLS=WMT RESET_CAPITAL=100000 ./scripts/fresh_start_keep.sh
 
 5. Health anytime: `./scripts/healthcheck.sh`
 
+## Funds and metals
+
+The scan also checks a short list. It does not scan the whole ETF market.
+
+| Symbol | What it is |
+|--------|------------|
+| `VWCE.DE` | World stock ETF |
+| `SXR8.DE` | S&P 500 ETF, euro |
+| `SPY` | S&P 500 ETF, US |
+| `4GLD.DE` | Xetra-Gold (ETC, one gram of gold) |
+| `XAD6.DE` | Physical silver ETC |
+| `GLD`, `SLV` | US gold and silver funds |
+
+`SXR8.DE` and `SPY` are the same index. A single metal in the EU is an ETC, not a UCITS ETF. The same hold time and fees apply. `GLD` and `SLV` are funds, not bars in a vault. More detail: [docs/history/metals_invest_2026-09-20.md](docs/history/metals_invest_2026-09-20.md).
+
 History summaries land in `docs/history/` (committed). Full JSONL backups stay in `data/backup_*`.
 
 As of **2026-07-30**: offline walk-forward **beats SPY** under Revolut-standard fees. Promote filter + anti flip-flop + **overweight exits-only** are live. Prefer AI **validate** over **full** while the book is healing. That is **not** live proof — wait a calm month before treating promote as the group default.

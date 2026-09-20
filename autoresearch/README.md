@@ -26,7 +26,7 @@ One idea is **one tick**, not an 8-hour job. The night window runs **many** tick
 
 Never run Ollama + param loops together (git race on `experiment_strategy.py`).
 
-Host score (skip Docker cold path): `AUTOSEARCH_HOST_SCORE=1` (param loop default on).
+Host score (skip Docker cold path): `AUTOSEARCH_HOST_SCORE=1` (param loop default on). The Ollama loop scores in Docker. If the `ai-stock-checker` tag is missing, `scripts/run_autoresearch_once.sh` builds it. Do not score the Ollama loop on the host. Host Python has no numpy.
 
 ## Local Ollama (recommended overnight)
 

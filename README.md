@@ -1,6 +1,6 @@
 # AI Stock Checker
 
-**We scan stocks and crypto on your machine, paper-trade them with realistic fees and anti-churn rules, and show the book in a local browser desk — so friends can test strategies honestly before risking real money.**
+**We scan stocks, a short ETF and metal list, and crypto on your machine, paper-trade them with realistic fees and anti-churn rules, and show the book in a local browser desk — so friends can test strategies honestly before risking real money.**
 
 Docker-first scanning, fee-aware paper fills, optional Ollama AI, and a quiet editorial UI — not dashboard theater.
 

@@ -9,11 +9,15 @@ Versioning follows [SemVer](https://semver.org/) — see [RELEASES.md](RELEASES.
 
 ### Added
 
+- Paper scan includes a short ETF and metal ETC list: `VWCE.DE`, `SXR8.DE`, `SPY`, `4GLD.DE`, `XAD6.DE`, `GLD`, `SLV`. No leveraged funds. These names skip the earnings blackout. Metal notes: [docs/history/metals_invest_2026-09-20.md](docs/history/metals_invest_2026-09-20.md).
+
 ### Changed
 
 - Book risk Group Matrix labels show cluster size (`×N` names that feed each since-buy mark %).
 
 ### Fixed
+
+- Overnight experiments build the local `ai-stock-checker` image when the tag is missing. They do not pull that name from Docker Hub.
 
 ## [v0.2.2] - 2026-08-29
 
