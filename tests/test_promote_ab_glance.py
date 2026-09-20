@@ -8188,3 +8188,171 @@ def test_window_a_exit_euro_count_skew_speaks_when_shares_diverge() -> None:
     assert hbit in glance["honesty_line"]
     assert "A exits € skew" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
+
+
+def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
+    """€/close of €-conc vs rest: fat ≥2× / thin ≤0.5×. Hot warn does not block B."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_exit_euro_size_bit,
+        window_a_sample_readiness,
+    )
+
+    assert format_window_a_closes_exit_euro_size_bit(None) == ""
+
+    missing = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert missing["closes_exit_euro_size_ratio"] is None
+    assert missing["closes_exit_euro_size_bit"] == ""
+    assert missing["closes_exit_euro_size_hot"] is False
+
+    # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet.
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert quiet["closes_exit_euro_conc"] == "tp"
+    assert quiet["closes_exit_euro_size_ratio"] == 6.67
+    assert quiet["closes_exit_euro_size_hot"] is False
+    qbit = "A exits € size fat quiet · tp · 6.7×"
+    assert quiet["closes_exit_euro_size_bit"] == qbit
+    assert format_window_a_closes_exit_euro_size_bit(quiet) == qbit
+    assert quiet["ready"] is True
+
+    # sl avg €33.33 vs tp avg €5 → 6.67× fat hot.
+    hot = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 2,
+            "losses": 6,
+            "exit_tp": 2,
+            "exit_sl": 6,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 10.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert hot["closes_exit_euro_conc"] == "sl"
+    assert hot["closes_exit_euro_size_ratio"] == 6.67
+    assert hot["closes_exit_euro_size_hot"] is True
+    hbit = "A exits € size fat hot · sl · 6.7×"
+    assert hot["closes_exit_euro_size_bit"] == hbit
+    assert hot["ready"] is True
+
+    # Mid ratio stays silent (tp avg €13.33 vs sl €10 → 1.33×).
+    mid = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 80.0,
+            "exit_pnl_sl": -20.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert mid["closes_exit_euro_size_ratio"] is None
+    assert mid["closes_exit_euro_size_bit"] == ""
+
+    # Many small tp vs one large sl: tp owns |€| but avg is thin (0.4×).
+    thin = window_a_sample_readiness(
+        {
+            "trades": 16,
+            "buys": 8,
+            "sells": 8,
+            "wins": 7,
+            "losses": 1,
+            "exit_tp": 7,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 280.0,
+            "exit_pnl_sl": -100.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert thin["closes_exit_euro_conc"] == "tp"
+    assert thin["closes_exit_euro_size_ratio"] == 0.4
+    assert thin["closes_exit_euro_size_hot"] is False
+    tbit = "A exits € size thin quiet · tp · 0.4×"
+    assert thin["closes_exit_euro_size_bit"] == tbit
+
+    knobs = {
+        "promote_experiment_strategy": False,
+        "max_positions": 5,
+        "min_hold_hours": 24,
+        "fee_preset": "revolut_standard",
+        "regime_gate": True,
+        "rs_gate": True,
+        "breadth_gate": True,
+        "ai_mode": "validate",
+        "ai_multi_role": True,
+        "scan_interval_min": 15,
+        "trade_interval_min": 5,
+    }
+    glance = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "fees": 4.0,
+            "realized_pnl": -190.0,
+            "net_after_all_fees": -194.0,
+            "wins": 2,
+            "losses": 6,
+            "exit_tp": 2,
+            "exit_sl": 6,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 10.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert glance["tone"] == "warn"
+    assert glance["b_ready"] is True
+    assert hbit in glance["line"]
+    assert hbit in glance["honesty_line"]
+    assert "A exits € size" not in glance["summary_line"]
+    assert "ready for B" in glance["summary_line"]

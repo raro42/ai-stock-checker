@@ -800,6 +800,7 @@ def build_promote_ab_glance(
         format_window_a_closes_exit_euro_gap_bit,
         format_window_a_closes_exit_euro_conc_bit,
         format_window_a_closes_exit_euro_count_skew_bit,
+        format_window_a_closes_exit_euro_size_bit,
         format_window_a_closes_exit_unknown_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
@@ -971,6 +972,8 @@ def build_promote_ab_glance(
         "closes_exit_euro_conc_hot": False,
         "closes_exit_euro_count_skew_pp": None,
         "closes_exit_euro_count_skew_hot": False,
+        "closes_exit_euro_size_ratio": None,
+        "closes_exit_euro_size_hot": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -1034,6 +1037,7 @@ def build_promote_ab_glance(
         "a_closes_exit_euro_gap_bit": "",
         "a_closes_exit_euro_conc_bit": "",
         "a_closes_exit_euro_count_skew_bit": "",
+        "a_closes_exit_euro_size_bit": "",
         "a_closes_exit_unknown_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
@@ -1263,6 +1267,8 @@ def build_promote_ab_glance(
     closes_exit_euro_count_skew_hot = bool(
         sample.get("closes_exit_euro_count_skew_hot")
     )
+    closes_exit_euro_size_ratio = sample.get("closes_exit_euro_size_ratio")
+    closes_exit_euro_size_hot = bool(sample.get("closes_exit_euro_size_hot"))
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1466,6 +1472,9 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_exit_euro_size_bit = (
+        format_window_a_closes_exit_euro_size_bit(sample) if window == "A" else ""
+    )
     a_closes_exit_unknown_bit = (
         format_window_a_closes_exit_unknown_bit(sample) if window == "A" else ""
     )
@@ -1541,6 +1550,7 @@ def build_promote_ab_glance(
                 a_closes_exit_euro_gap_bit,
                 a_closes_exit_euro_conc_bit,
                 a_closes_exit_euro_count_skew_bit,
+                a_closes_exit_euro_size_bit,
                 a_closes_exit_unknown_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
@@ -1562,7 +1572,7 @@ def build_promote_ab_glance(
         return " · ".join([*bits, base])
 
     def _honesty_warn() -> bool:
-        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / loss streak med hot / loss streak min hot / loss streak σ hot / loss streak CV hot / exit mix hot / tp share thin / sl share hot / rot share hot / trim share hot / euro offset hot / euro gap hot / euro conc hot / euro count skew hot / unknown exits / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
+        """Warn on fee drag / fees thin / all-loss / loss-lean / WR·Kelly·payoff·PF thin / neg Kelly / half-Kelly under sizer·slot·cap / quarter-Kelly under sizer·slot·cap / practical Kelly cut·none / Kelly sample thin / loss streak hot / loss streak max hot / loss streak mean hot / loss streak med hot / loss streak min hot / loss streak σ hot / loss streak CV hot / exit mix hot / tp share thin / sl share hot / rot share hot / trim share hot / euro offset hot / euro gap hot / euro conc hot / euro count skew hot / euro size hot / unknown exits / neg·thin expectancy / net expect / fee take / net PF / WR below BE / thin WR edge."""
         return bool(
             a_fee_drag_bit
             or fees_thin
@@ -1600,6 +1610,7 @@ def build_promote_ab_glance(
             or closes_exit_euro_gap_hot
             or closes_exit_euro_conc_hot
             or closes_exit_euro_count_skew_hot
+            or closes_exit_euro_size_hot
             or closes_exit_unknown_warn
             or closes_payoff_thin
             or closes_expectancy_neg
@@ -1700,6 +1711,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_euro_gap_bit
                 or a_closes_exit_euro_conc_bit
                 or a_closes_exit_euro_count_skew_bit
+                or a_closes_exit_euro_size_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -1784,6 +1796,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_euro_gap_bit
                 or a_closes_exit_euro_conc_bit
                 or a_closes_exit_euro_count_skew_bit
+                or a_closes_exit_euro_size_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -2150,6 +2163,12 @@ def build_promote_ab_glance(
         "closes_exit_euro_count_skew_hot": (
             closes_exit_euro_count_skew_hot if window == "A" else False
         ),
+        "closes_exit_euro_size_ratio": (
+            closes_exit_euro_size_ratio if window == "A" else None
+        ),
+        "closes_exit_euro_size_hot": (
+            closes_exit_euro_size_hot if window == "A" else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -2237,6 +2256,7 @@ def build_promote_ab_glance(
         "a_closes_exit_euro_gap_bit": a_closes_exit_euro_gap_bit,
         "a_closes_exit_euro_conc_bit": a_closes_exit_euro_conc_bit,
         "a_closes_exit_euro_count_skew_bit": a_closes_exit_euro_count_skew_bit,
+        "a_closes_exit_euro_size_bit": a_closes_exit_euro_size_bit,
         "a_closes_exit_unknown_bit": a_closes_exit_unknown_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
         "a_closes_payoff_bit": a_closes_payoff_bit,
