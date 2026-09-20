@@ -178,6 +178,59 @@ def test_valid_calendar_date_wins_over_junk_earnings_frame():
     assert days == 2.0
 
 
+def test_calendar_list_skips_nonscalar_and_keeps_later_date():
+    """A nested list in Earnings Date must not hide a later real stamp."""
+    empty = MagicMock()
+    empty.empty = True
+    ticker = SimpleNamespace(
+        earnings_dates=empty,
+        calendar={"Earnings Date": [[1, 2], datetime(2026, 9, 21)]},
+    )
+    now = datetime(2026, 9, 19, 16, 0)
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL", now=now)
+
+    assert status == STATUS_DATED
+    assert days == 2.0
+
+
+def test_calendar_list_of_only_nonscalars_is_malformed():
+    """List and dict cells are junk, not a crash and not a real date."""
+    empty = MagicMock()
+    empty.empty = True
+    ticker = SimpleNamespace(
+        earnings_dates=empty,
+        calendar={"Earnings Date": [[1, 2], {"when": "soon"}]},
+    )
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL")
+
+    assert days is None
+    assert status == STATUS_MALFORMED
+
+
+def test_bad_earnings_row_does_not_abort_later_date():
+    """One stamp that raises must not drop a later date in the same frame."""
+
+    class _Boom:
+        def to_pydatetime(self):
+            raise ValueError("non-scalar")
+
+    class _Index:
+        def __iter__(self):
+            yield _Boom()
+            yield datetime(2026, 9, 21)
+
+    ed = SimpleNamespace(empty=False, index=_Index())
+    ticker = SimpleNamespace(earnings_dates=ed, calendar={})
+    now = datetime(2026, 9, 19, 16, 0)
+    with patch("yfinance.Ticker", return_value=ticker):
+        days, status = probe_earnings_calendar("AAPL", now=now)
+
+    assert status == STATUS_DATED
+    assert days == 2.0
+
+
 def test_aware_utc_stamp_converts_before_ny_date():
     """16:00 UTC on the 18th is still the 18th in New York (12:00 EDT)."""
     event = datetime(2026, 9, 18, 16, 0, tzinfo=timezone.utc)

@@ -44,16 +44,30 @@ def earnings_session_now(now: Optional[datetime] = None) -> datetime:
     return now.astimezone(tz)
 
 
+def _is_nonscalar_cell(raw: Any) -> bool:
+    """True for list-like or mapping cells. Those are not one earnings date.
+
+    xang1234 21194ec: a non-scalar cell must be skipped, not parsed as a stamp.
+    """
+    return isinstance(raw, (list, tuple, dict, set))
+
+
 def _event_session_date(raw: Any) -> Optional[date]:
     """Calendar date of a Yahoo earnings stamp on the US session clock.
 
     Naive stamps keep their calendar date (Yahoo date-only). Aware stamps
-    convert to US/Eastern before the date is taken.
+    convert to US/Eastern before the date is taken. A non-scalar cell, or a
+    stamp whose conversion raises, is not a date (xang1234 21194ec).
     """
-    if raw is None:
+    if raw is None or _is_nonscalar_cell(raw):
         return None
     if hasattr(raw, "to_pydatetime"):
-        raw = raw.to_pydatetime()
+        try:
+            raw = raw.to_pydatetime()
+        except (TypeError, ValueError, OverflowError):
+            return None
+    if raw is None or _is_nonscalar_cell(raw):
+        return None
     if isinstance(raw, datetime):
         if raw.tzinfo is not None:
             return raw.astimezone(pytz.timezone(US_TZ)).date()
@@ -104,18 +118,23 @@ def _days_from_calendar(cal: Any, now: datetime) -> tuple[Optional[float], bool]
     ``unusable`` is true when ``Earnings Date`` is present but not a real
     date (missing cell, epoch, junk). A missing key is not unusable — that
     is an empty window, not a bad payload (xang1234 e433265).
+
+    A list cell is several values, not one stamp. Skip nested lists and
+    dicts. The first later scalar date still counts (xang1234 21194ec).
     """
     if not isinstance(cal, dict) or "Earnings Date" not in cal:
         return None, False
     raw = cal.get("Earnings Date")
-    if isinstance(raw, (list, tuple)):
-        raw = raw[0] if raw else None
     if raw is None:
         return None, True
-    days = earnings_day_delta(raw, now)
-    if days is None:
-        return None, True
-    return days, False
+    cells = raw if isinstance(raw, (list, tuple)) else (raw,)
+    for item in cells:
+        if _is_nonscalar_cell(item):
+            continue
+        days = earnings_day_delta(item, now)
+        if days is not None:
+            return days, False
+    return None, True
 
 
 def probe_earnings_calendar(
