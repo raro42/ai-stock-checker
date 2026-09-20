@@ -197,6 +197,11 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # spoke and they differ (portfolio AI + xang1234). Same signs stay silent.
 # A losing lead warns only (the fat bucket is the loser). A winning lead
 # speaks and does not warn. Still ready for B.
+# Exit € size clash net (`closes_exit_euro_size_sign_clash_net`): signed
+# sum of the lead and the rest when the signs clash. Clash names the
+# disagree. The sum says who keeps the money. Speak only when clash
+# already spoke. loss warns only. win speaks and does not warn.
+# A near-zero sum stays silent. Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -830,6 +835,40 @@ def _exit_euro_size_sign_clash(
     return "clash", bit, lead_sign == "loss"
 
 
+def _exit_euro_size_sign_clash_net(
+    clash: str,
+    lead_pnl: float | None,
+    rest_pnl: float | None,
+) -> tuple[str, float | None, str, bool]:
+    """Signed sum of lead and rest when size signs clash.
+
+    Clash names the disagree. The sum says who keeps the money. Speak
+    only when clash already spoke and both nets are known. ``loss``
+    warns only. ``win`` speaks and does not warn. A near-zero sum stays
+    silent. Still ready for B.
+    """
+    if clash != "clash" or lead_pnl is None or rest_pnl is None:
+        return "", None, "", False
+    signed = float(lead_pnl) + float(rest_pnl)
+    if abs(signed) < 0.5:
+        return "", None, "", False
+    value = round(signed, 2)
+    euro = _fmt_signed_euro(value)
+    if signed < 0:
+        return (
+            "loss",
+            value,
+            f"A exits € size clash net loss · {euro}",
+            True,
+        )
+    return (
+        "win",
+        value,
+        f"A exits € size clash net win · {euro}",
+        False,
+    )
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -1215,6 +1254,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash": "",
         "closes_exit_euro_size_sign_clash_bit": "",
         "closes_exit_euro_size_sign_clash_loss": False,
+        "closes_exit_euro_size_sign_clash_net": "",
+        "closes_exit_euro_size_sign_clash_net_pnl": None,
+        "closes_exit_euro_size_sign_clash_net_bit": "",
+        "closes_exit_euro_size_sign_clash_net_loss": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -1929,6 +1972,10 @@ def window_a_sample_readiness(
     closes_exit_euro_size_sign_clash = ""
     closes_exit_euro_size_sign_clash_bit = ""
     closes_exit_euro_size_sign_clash_loss = False
+    closes_exit_euro_size_sign_clash_net = ""
+    closes_exit_euro_size_sign_clash_net_pnl: float | None = None
+    closes_exit_euro_size_sign_clash_net_bit = ""
+    closes_exit_euro_size_sign_clash_net_loss = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2805,6 +2852,16 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign,
                                     closes_exit_euro_size_rest_sign,
                                 )
+                                (
+                                    closes_exit_euro_size_sign_clash_net,
+                                    closes_exit_euro_size_sign_clash_net_pnl,
+                                    closes_exit_euro_size_sign_clash_net_bit,
+                                    closes_exit_euro_size_sign_clash_net_loss,
+                                ) = _exit_euro_size_sign_clash_net(
+                                    closes_exit_euro_size_sign_clash,
+                                    closes_exit_euro_size_sign_pnl,
+                                    closes_exit_euro_size_rest_sign_pnl,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -3256,6 +3313,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_loss": (
             closes_exit_euro_size_sign_clash_loss
+        ),
+        "closes_exit_euro_size_sign_clash_net": (
+            closes_exit_euro_size_sign_clash_net
+        ),
+        "closes_exit_euro_size_sign_clash_net_pnl": (
+            closes_exit_euro_size_sign_clash_net_pnl
+        ),
+        "closes_exit_euro_size_sign_clash_net_bit": (
+            closes_exit_euro_size_sign_clash_net_bit
+        ),
+        "closes_exit_euro_size_sign_clash_net_loss": (
+            closes_exit_euro_size_sign_clash_net_loss
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -3812,6 +3881,18 @@ def format_window_a_closes_exit_euro_size_sign_clash_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_exit_euro_size_sign_clash_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_net_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A exit € size clash-net bit (signed sum; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get("closes_exit_euro_size_sign_clash_net_bit") or ""
+    ).strip()
     return bit
 
 

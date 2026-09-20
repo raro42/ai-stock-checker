@@ -8200,6 +8200,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_bit,
         format_window_a_closes_exit_euro_size_rest_sign_bit,
         format_window_a_closes_exit_euro_size_sign_clash_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_net_bit,
         window_a_sample_readiness,
     )
 
@@ -8209,6 +8210,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert format_window_a_closes_exit_euro_size_sign_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_rest_sign_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_sign_clash_bit(None) == ""
+    assert format_window_a_closes_exit_euro_size_sign_clash_net_bit(None) == ""
 
     missing = window_a_sample_readiness(
         {
@@ -8243,6 +8245,10 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert missing["closes_exit_euro_size_sign_clash"] == ""
     assert missing["closes_exit_euro_size_sign_clash_bit"] == ""
     assert missing["closes_exit_euro_size_sign_clash_loss"] is False
+    assert missing["closes_exit_euro_size_sign_clash_net"] == ""
+    assert missing["closes_exit_euro_size_sign_clash_net_pnl"] is None
+    assert missing["closes_exit_euro_size_sign_clash_net_bit"] == ""
+    assert missing["closes_exit_euro_size_sign_clash_net_loss"] is False
 
     # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet; rest n=2 thin.
     quiet = window_a_sample_readiness(
@@ -8296,6 +8302,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert quiet["closes_exit_euro_size_sign_clash_bit"] == qclash
     assert quiet["closes_exit_euro_size_sign_clash_loss"] is False
     assert format_window_a_closes_exit_euro_size_sign_clash_bit(quiet) == qclash
+    qnet = "A exits € size clash net win · +€95"
+    assert quiet["closes_exit_euro_size_sign_clash_net"] == "win"
+    assert quiet["closes_exit_euro_size_sign_clash_net_pnl"] == 95.0
+    assert quiet["closes_exit_euro_size_sign_clash_net_loss"] is False
+    assert quiet["closes_exit_euro_size_sign_clash_net_bit"] == qnet
+    assert format_window_a_closes_exit_euro_size_sign_clash_net_bit(quiet) == qnet
     assert quiet["ready"] is True
 
     # Both sides ≥3: fat quiet + rest ok.
@@ -8335,6 +8347,10 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         "A exits € size clash · lead win · rest loss"
     )
     assert both_ok["closes_exit_euro_size_sign_clash_loss"] is False
+    assert both_ok["closes_exit_euro_size_sign_clash_net_bit"] == (
+        "A exits € size clash net win · +€85"
+    )
+    assert both_ok["closes_exit_euro_size_sign_clash_net_loss"] is False
     assert both_ok["ready"] is True
 
     # sl avg €33.33 vs tp avg €5 → 6.67× fat hot; rest n=2 thin.
@@ -8387,6 +8403,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert hot["closes_exit_euro_size_sign_clash_bit"] == hclash
     assert hot["closes_exit_euro_size_sign_clash_loss"] is True
     assert format_window_a_closes_exit_euro_size_sign_clash_bit(hot) == hclash
+    hnet = "A exits € size clash net loss · −€190"
+    assert hot["closes_exit_euro_size_sign_clash_net"] == "loss"
+    assert hot["closes_exit_euro_size_sign_clash_net_pnl"] == -190.0
+    assert hot["closes_exit_euro_size_sign_clash_net_loss"] is True
+    assert hot["closes_exit_euro_size_sign_clash_net_bit"] == hnet
+    assert format_window_a_closes_exit_euro_size_sign_clash_net_bit(hot) == hnet
     assert hot["ready"] is True
 
     # Mid ratio stays silent (tp avg €13.33 vs sl €10 → 1.33×).
@@ -8422,6 +8444,9 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert mid["closes_exit_euro_size_sign_clash"] == ""
     assert mid["closes_exit_euro_size_sign_clash_bit"] == ""
     assert mid["closes_exit_euro_size_sign_clash_loss"] is False
+    assert mid["closes_exit_euro_size_sign_clash_net"] == ""
+    assert mid["closes_exit_euro_size_sign_clash_net_bit"] == ""
+    assert mid["closes_exit_euro_size_sign_clash_net_loss"] is False
 
     # Many small tp vs one large sl: tp owns |€| but avg is thin (0.4×).
     thin = window_a_sample_readiness(
@@ -8522,6 +8547,9 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert rot_win["closes_exit_euro_size_sign_clash"] == ""
     assert rot_win["closes_exit_euro_size_sign_clash_bit"] == ""
     assert rot_win["closes_exit_euro_size_sign_clash_loss"] is False
+    assert rot_win["closes_exit_euro_size_sign_clash_net"] == ""
+    assert rot_win["closes_exit_euro_size_sign_clash_net_bit"] == ""
+    assert rot_win["closes_exit_euro_size_sign_clash_net_loss"] is False
     assert rot_win["ready"] is True
 
     # Fat lead, rest euros cancel. Size speaks; rest sign stays silent.
@@ -8550,6 +8578,61 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert rest_flat["closes_exit_euro_size_sign_clash"] == ""
     assert rest_flat["closes_exit_euro_size_sign_clash_bit"] == ""
     assert rest_flat["closes_exit_euro_size_sign_clash_loss"] is False
+    assert rest_flat["closes_exit_euro_size_sign_clash_net"] == ""
+    assert rest_flat["closes_exit_euro_size_sign_clash_net_bit"] == ""
+
+    # Lead wins on sign, but the other reasons lose more. Net is a loss.
+    net_loss = window_a_sample_readiness(
+        {
+            "trades": 14,
+            "buys": 4,
+            "sells": 10,
+            "wins": 6,
+            "losses": 4,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 2,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -80.0,
+            "exit_pnl_rot": -70.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert net_loss["closes_exit_euro_size_sign"] == "win"
+    assert net_loss["closes_exit_euro_size_rest_sign"] == "loss"
+    assert net_loss["closes_exit_euro_size_sign_clash"] == "clash"
+    assert net_loss["closes_exit_euro_size_sign_clash_loss"] is False
+    assert net_loss["closes_exit_euro_size_sign_clash_net"] == "loss"
+    assert net_loss["closes_exit_euro_size_sign_clash_net_pnl"] == -50.0
+    assert net_loss["closes_exit_euro_size_sign_clash_net_loss"] is True
+    assert net_loss["closes_exit_euro_size_sign_clash_net_bit"] == (
+        "A exits € size clash net loss · −€50"
+    )
+    assert net_loss["ready"] is True
+
+    # Opposite signs that sum to zero stay silent on the net bit.
+    cancel = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 1,
+            "exit_rot": 1,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -60.0,
+            "exit_pnl_rot": -40.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert cancel["closes_exit_euro_size_sign_clash"] == "clash"
+    assert cancel["closes_exit_euro_size_sign_clash_net"] == ""
+    assert cancel["closes_exit_euro_size_sign_clash_net_bit"] == ""
+    assert cancel["closes_exit_euro_size_sign_clash_net_loss"] is False
 
     knobs = {
         "promote_experiment_strategy": False,
@@ -8600,6 +8683,8 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert hrest in glance["line"]
     assert hclash in glance["honesty_line"]
     assert hclash in glance["line"]
+    assert hnet in glance["honesty_line"]
+    assert hnet in glance["line"]
     assert "A exits € size" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
 
@@ -8639,4 +8724,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert (
         "A exits € size clash · lead win · rest loss"
         in glance_thin_n["honesty_line"]
+    )
+    assert (
+        "A exits € size clash net win · +€86" in glance_thin_n["honesty_line"]
     )
