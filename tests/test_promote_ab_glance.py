@@ -8206,6 +8206,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit,
         window_a_sample_readiness,
     )
 
@@ -8230,6 +8231,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_bit(
+            None
+        )
+        == ""
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit(
             None
         )
         == ""
@@ -8300,6 +8307,26 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         missing["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_warn"]
+        is False
+    )
+    assert (
+        missing[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover"
+        ]
+        is None
+    )
+    assert (
+        missing[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window"
+        ]
+        is None
+    )
+    assert (
+        missing["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit"]
+        == ""
+    )
+    assert (
+        missing["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_warn"]
         is False
     )
 
@@ -8851,6 +8878,18 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         comfortable["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_warn"]
         is False
     )
+    assert (
+        comfortable[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit"
+        ]
+        == ""
+    )
+    assert (
+        comfortable[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_warn"
+        ]
+        is False
+    )
 
     fees_ok = _keep_fees(30.0)
     assert fees_ok["closes_exit_euro_size_sign_clash_keep_fees"] == "ok"
@@ -8947,6 +8986,34 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         )
         == gap_dir_better
     )
+    # leftover 2.11× · window 0.20× — audit the directed 10.55×.
+    assert (
+        better[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover"
+        ]
+        == 2.11
+    )
+    assert (
+        better[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window"
+        ]
+        == 0.2
+    )
+    assert better["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_warn"] is False
+    gap_dir_sides_better = (
+        "A exits € size clash keep fees vs drag gap dir sides · "
+        "leftover 2.1× · window 0.20×"
+    )
+    assert (
+        better["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit"]
+        == gap_dir_sides_better
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit(
+            better
+        )
+        == gap_dir_sides_better
+    )
     assert better["ready"] is True
 
     # Same calm mood: leftover comfortable and fees-ok comfortable stay silent.
@@ -8975,6 +9042,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert same["closes_exit_euro_size_sign_clash_keep_fees_vs_warn"] is False
     assert same["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_bit"] == ""
     assert same["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_bit"] == ""
+    assert same["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit"] == ""
 
     # Barely-across worse: leftover ok 0.45× vs fees-ok thin 0.5× → gap thin.
     thin_gap = window_a_sample_readiness(
@@ -9011,6 +9079,27 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert thin_gap["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_warn"] is True
     assert thin_gap["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_bit"] == (
         "A exits € size clash keep fees vs drag gap dir below · 0.90×"
+    )
+    assert (
+        thin_gap[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover"
+        ]
+        == 0.45
+    )
+    assert (
+        thin_gap[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window"
+        ]
+        == 0.5
+    )
+    assert thin_gap[
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_warn"
+    ] is True
+    assert thin_gap[
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_bit"
+    ] == (
+        "A exits € size clash keep fees vs drag gap dir sides · "
+        "leftover 0.45× · window 0.50×"
     )
     assert thin_gap["ready"] is True
 
@@ -9144,6 +9233,13 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert gap_dir_worse in glance_worse["honesty_line"]
     assert gap_dir_worse in glance_worse["line"]
+    gap_dir_sides_worse = (
+        "A exits € size clash keep fees vs drag gap dir sides · "
+        "leftover 0.04× · window 2×"
+    )
+    assert gap_dir_sides_worse in glance_worse["honesty_line"]
+    assert gap_dir_sides_worse in glance_worse["line"]
+    assert "vs drag gap dir sides" not in glance_worse["summary_line"]
     assert "vs drag gap dir" not in glance_worse["summary_line"]
     assert glance_worse["tone"] == "warn"
     assert glance_worse["b_ready"] is True
