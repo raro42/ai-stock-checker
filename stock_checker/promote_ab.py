@@ -215,6 +215,12 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # eat when fees > leftover warns. thin ≥ FEES_THIN (0.5) warns.
 # comfortable < FEES_COMFORTABLE (0.25) speaks. Mid is ok. A loss leftover
 # stays silent (clash net already warns). Still ready for B.
+# Exit € size clash keep fees vs drag
+# (`closes_exit_euro_size_sign_clash_keep_fees_vs`): leftover fee mood
+# versus the window fee mood (fee drag or fees-ok). A calm leftover can
+# hide a hot book. Speak only when both spoke and the moods differ.
+# worse (calm leftover, hot book) warns. better speaks and does not warn.
+# Same mood stays silent. Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -986,6 +992,53 @@ def _exit_euro_size_sign_clash_keep_fees(
     )
 
 
+def _exit_euro_size_sign_clash_keep_fees_vs(
+    keep_fees: str,
+    fee_drag_severity: str,
+    fees_ok_severity: str,
+) -> tuple[str, str, str, bool]:
+    """Leftover fee mood versus the window fee mood.
+
+    Clash-keep fees is fees ÷ leftover. Fee drag and fees-ok are fees ÷
+    all realized. A calm leftover can hide a hot book. A hot leftover can
+    overstate a calm book. Speak only when both spoke and the moods
+    differ. ``worse`` (calm leftover, hot book) warns. ``better`` speaks
+    and does not warn. Same mood stays silent. Still ready for B.
+    """
+    if keep_fees not in ("comfortable", "ok", "thin", "eat"):
+        return "", "", "", False
+    if fee_drag_severity:
+        window = fee_drag_severity
+        window_hot = True
+    elif fees_ok_severity in ("comfortable", "ok", "thin"):
+        window = fees_ok_severity
+        window_hot = fees_ok_severity == "thin"
+    else:
+        return "", "", "", False
+    leftover_hot = keep_fees in ("thin", "eat")
+    if leftover_hot == window_hot:
+        return "", "", "", False
+    if leftover_hot:
+        return (
+            "better",
+            window,
+            (
+                "A exits € size clash keep fees vs drag better"
+                f" · {keep_fees} · {window}"
+            ),
+            False,
+        )
+    return (
+        "worse",
+        window,
+        (
+            "A exits € size clash keep fees vs drag worse"
+            f" · {keep_fees} · {window}"
+        ),
+        True,
+    )
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -1383,6 +1436,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash_keep_fees_ratio": None,
         "closes_exit_euro_size_sign_clash_keep_fees_bit": "",
         "closes_exit_euro_size_sign_clash_keep_fees_warn": False,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_window": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_bit": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -2109,6 +2166,10 @@ def window_a_sample_readiness(
     closes_exit_euro_size_sign_clash_keep_fees_ratio: float | None = None
     closes_exit_euro_size_sign_clash_keep_fees_bit = ""
     closes_exit_euro_size_sign_clash_keep_fees_warn = False
+    closes_exit_euro_size_sign_clash_keep_fees_vs = ""
+    closes_exit_euro_size_sign_clash_keep_fees_vs_window = ""
+    closes_exit_euro_size_sign_clash_keep_fees_vs_bit = ""
+    closes_exit_euro_size_sign_clash_keep_fees_vs_warn = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -3023,6 +3084,16 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_rest_sign_pnl,
                                     keep_fees,
                                 )
+                                (
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_window,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_warn,
+                                ) = _exit_euro_size_sign_clash_keep_fees_vs(
+                                    closes_exit_euro_size_sign_clash_keep_fees,
+                                    fee_drag_severity,
+                                    fees_ok_severity,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -3510,6 +3581,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_keep_fees_warn": (
             closes_exit_euro_size_sign_clash_keep_fees_warn
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_window": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_window
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_bit": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_bit
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_warn": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_warn
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -4101,6 +4184,18 @@ def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_bit(
         return ""
     bit = str(
         sample.get("closes_exit_euro_size_sign_clash_keep_fees_bit") or ""
+    ).strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A leftover-vs-window fee mood bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get("closes_exit_euro_size_sign_clash_keep_fees_vs_bit") or ""
     ).strip()
     return bit
 
