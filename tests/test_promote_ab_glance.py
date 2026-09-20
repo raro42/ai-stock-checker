@@ -8202,6 +8202,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_bit,
         format_window_a_closes_exit_euro_size_sign_clash_net_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_bit,
         window_a_sample_readiness,
     )
 
@@ -8213,6 +8214,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert format_window_a_closes_exit_euro_size_sign_clash_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_sign_clash_net_bit(None) == ""
     assert format_window_a_closes_exit_euro_size_sign_clash_keep_bit(None) == ""
+    assert format_window_a_closes_exit_euro_size_sign_clash_keep_fees_bit(None) == ""
 
     missing = window_a_sample_readiness(
         {
@@ -8255,6 +8257,10 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert missing["closes_exit_euro_size_sign_clash_keep_ratio"] is None
     assert missing["closes_exit_euro_size_sign_clash_keep_bit"] == ""
     assert missing["closes_exit_euro_size_sign_clash_keep_thin"] is False
+    assert missing["closes_exit_euro_size_sign_clash_keep_fees"] == ""
+    assert missing["closes_exit_euro_size_sign_clash_keep_fees_ratio"] is None
+    assert missing["closes_exit_euro_size_sign_clash_keep_fees_bit"] == ""
+    assert missing["closes_exit_euro_size_sign_clash_keep_fees_warn"] is False
 
     # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet; rest n=2 thin.
     quiet = window_a_sample_readiness(
@@ -8320,6 +8326,9 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     qkeep = "A exits € size clash keep strong · 0.9×"
     assert quiet["closes_exit_euro_size_sign_clash_keep_bit"] == qkeep
     assert format_window_a_closes_exit_euro_size_sign_clash_keep_bit(quiet) == qkeep
+    assert quiet["closes_exit_euro_size_sign_clash_keep_fees"] == ""
+    assert quiet["closes_exit_euro_size_sign_clash_keep_fees_bit"] == ""
+    assert quiet["closes_exit_euro_size_sign_clash_keep_fees_warn"] is False
     assert quiet["ready"] is True
 
     # Both sides ≥3: fat quiet + rest ok.
@@ -8740,6 +8749,70 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert keep_thin["ready"] is True
 
+    def _keep_fees(fees: float | None) -> dict:
+        stats = {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+        if fees is not None:
+            stats["fees"] = fees
+        return window_a_sample_readiness(stats)
+
+    # Strong win leftover €95. Fees vs that leftover, not vs all realized.
+    comfortable = _keep_fees(4.0)
+    assert comfortable["closes_exit_euro_size_sign_clash_keep"] == "strong"
+    assert comfortable["closes_exit_euro_size_sign_clash_net"] == "win"
+    assert comfortable["closes_exit_euro_size_sign_clash_keep_fees"] == "comfortable"
+    assert comfortable["closes_exit_euro_size_sign_clash_keep_fees_ratio"] == 0.04
+    assert comfortable["closes_exit_euro_size_sign_clash_keep_fees_warn"] is False
+    cfees = "A exits € size clash keep fees comfortable · 0.04×"
+    assert comfortable["closes_exit_euro_size_sign_clash_keep_fees_bit"] == cfees
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_bit(comfortable)
+        == cfees
+    )
+    assert comfortable["ready"] is True
+
+    fees_ok = _keep_fees(30.0)
+    assert fees_ok["closes_exit_euro_size_sign_clash_keep_fees"] == "ok"
+    assert fees_ok["closes_exit_euro_size_sign_clash_keep_fees_ratio"] == 0.32
+    assert fees_ok["closes_exit_euro_size_sign_clash_keep_fees_warn"] is False
+    assert fees_ok["closes_exit_euro_size_sign_clash_keep_fees_bit"] == (
+        "A exits € size clash keep fees ok · 0.32×"
+    )
+    assert fees_ok["ready"] is True
+
+    fees_thin = _keep_fees(50.0)
+    assert fees_thin["closes_exit_euro_size_sign_clash_keep_fees"] == "thin"
+    assert fees_thin["closes_exit_euro_size_sign_clash_keep_fees_ratio"] == 0.53
+    assert fees_thin["closes_exit_euro_size_sign_clash_keep_fees_warn"] is True
+    assert fees_thin["closes_exit_euro_size_sign_clash_keep_fees_bit"] == (
+        "A exits € size clash keep fees thin · 0.53×"
+    )
+    assert fees_thin["ready"] is True
+
+    fees_eat = _keep_fees(200.0)
+    assert fees_eat["closes_exit_euro_size_sign_clash_keep_fees"] == "eat"
+    assert fees_eat["closes_exit_euro_size_sign_clash_keep_fees_ratio"] == 2.11
+    assert fees_eat["closes_exit_euro_size_sign_clash_keep_fees_warn"] is True
+    assert fees_eat["closes_exit_euro_size_sign_clash_keep_fees_bit"] == (
+        "A exits € size clash keep fees eat · 2.1×"
+    )
+    assert fees_eat["ready"] is True
+
+    assert _keep_fees(0.0)["closes_exit_euro_size_sign_clash_keep_fees_bit"] == ""
+
     knobs = {
         "promote_experiment_strategy": False,
         "max_positions": 5,
@@ -8793,8 +8866,43 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert hnet in glance["line"]
     assert "A exits € size clash keep strong · 0.9×" in glance["honesty_line"]
     assert "A exits € size clash keep strong · 0.9×" in glance["line"]
+    assert "clash keep fees" not in glance["honesty_line"]
     assert "A exits € size" not in glance["summary_line"]
     assert "ready for B" in glance["summary_line"]
+
+    glance_fees = build_promote_ab_glance(
+        knobs,
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "fees": 4.0,
+            "realized_pnl": 95.0,
+            "net_after_all_fees": 91.0,
+            "wins": 6,
+            "losses": 2,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert (
+        "A exits € size clash keep fees comfortable · 0.04×"
+        in glance_fees["honesty_line"]
+    )
+    assert (
+        "A exits € size clash keep fees comfortable · 0.04×" in glance_fees["line"]
+    )
+    assert "clash keep fees" not in glance_fees["summary_line"]
+    assert glance_fees["b_ready"] is True
 
     glance_thin_n = build_promote_ab_glance(
         knobs,

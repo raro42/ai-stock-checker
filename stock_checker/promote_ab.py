@@ -207,6 +207,14 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # euros. Keep says how much of the two-sided money survives. strong
 # ≥ EXPECTANCY_STRONG (0.5) speaks. thin < EXPECTANCY_THIN (0.25) warns,
 # including a full cancel (net ~0). Mid stays silent. Still ready for B.
+# Exit € size clash keep fees (`closes_exit_euro_size_sign_clash_keep_fees`):
+# window fees ÷ a strong winning leftover. Keep is the share that survives
+# the clash. This bit asks if fees eat that leftover (portfolio AI fee-burn
+# on the clash, not on all realized). Speak only when keep is strong and
+# clash net is a win. Missing fees fail-open. Zero fees stay silent.
+# eat when fees > leftover warns. thin ≥ FEES_THIN (0.5) warns.
+# comfortable < FEES_COMFORTABLE (0.25) speaks. Mid is ok. A loss leftover
+# stays silent (clash net already warns). Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -907,6 +915,77 @@ def _exit_euro_size_sign_clash_keep(
     return lean, round(keep, 2), bit, thin
 
 
+def _fmt_fee_keep(ratio: float) -> str:
+    """Fee multiple for a clash leftover. Small ratios keep two decimals."""
+    if ratio >= 1 and abs(ratio - round(ratio)) < 0.05:
+        return f"{int(round(ratio))}×"
+    if ratio >= 1:
+        return f"{ratio:.1f}×"
+    return f"{ratio:.2f}×"
+
+
+def _exit_euro_size_sign_clash_keep_fees(
+    keep: str,
+    net_sign: str,
+    lead_pnl: float | None,
+    rest_pnl: float | None,
+    fees: float | None,
+) -> tuple[str, float | None, str, bool]:
+    """Window fees versus a strong winning clash leftover.
+
+    Keep says how much two-sided money survives. This bit asks if fees
+    eat that leftover. Speak only when keep is strong and the clash net
+    is a win. A loss leftover stays silent. Missing fees fail-open.
+    Zero fees stay silent. ``eat`` when fees exceed the leftover warns.
+    ``thin`` when fees ÷ leftover ≥ ``WINDOW_A_FEES_THIN_RATIO`` warns.
+    ``comfortable`` when the ratio is under
+    ``WINDOW_A_FEES_COMFORTABLE_RATIO`` speaks. Mid is ``ok``. Still
+    ready for B.
+    """
+    if (
+        keep != "strong"
+        or net_sign != "win"
+        or lead_pnl is None
+        or rest_pnl is None
+        or fees is None
+    ):
+        return "", None, "", False
+    leftover = abs(float(lead_pnl) + float(rest_pnl))
+    fee_v = float(fees)
+    if leftover < 0.5 or fee_v <= 0:
+        return "", None, "", False
+    ratio = fee_v / leftover
+    rounded = round(ratio, 2)
+    mult = _fmt_fee_keep(ratio)
+    if ratio > 1:
+        return (
+            "eat",
+            rounded,
+            f"A exits € size clash keep fees eat · {mult}",
+            True,
+        )
+    if ratio >= WINDOW_A_FEES_THIN_RATIO:
+        return (
+            "thin",
+            rounded,
+            f"A exits € size clash keep fees thin · {mult}",
+            True,
+        )
+    if ratio < WINDOW_A_FEES_COMFORTABLE_RATIO:
+        return (
+            "comfortable",
+            rounded,
+            f"A exits € size clash keep fees comfortable · {mult}",
+            False,
+        )
+    return (
+        "ok",
+        rounded,
+        f"A exits € size clash keep fees ok · {mult}",
+        False,
+    )
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -1300,6 +1379,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash_keep_ratio": None,
         "closes_exit_euro_size_sign_clash_keep_bit": "",
         "closes_exit_euro_size_sign_clash_keep_thin": False,
+        "closes_exit_euro_size_sign_clash_keep_fees": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_ratio": None,
+        "closes_exit_euro_size_sign_clash_keep_fees_bit": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -2022,6 +2105,10 @@ def window_a_sample_readiness(
     closes_exit_euro_size_sign_clash_keep_ratio: float | None = None
     closes_exit_euro_size_sign_clash_keep_bit = ""
     closes_exit_euro_size_sign_clash_keep_thin = False
+    closes_exit_euro_size_sign_clash_keep_fees = ""
+    closes_exit_euro_size_sign_clash_keep_fees_ratio: float | None = None
+    closes_exit_euro_size_sign_clash_keep_fees_bit = ""
+    closes_exit_euro_size_sign_clash_keep_fees_warn = False
     if closes_kelly_pct is not None:
         closes_half_kelly_pct = round(closes_kelly_pct / 2.0, 1)
         sizer_pct = round(float(DEFAULT_ENTRY_CASH_FRAC) * 100.0, 1)
@@ -2918,6 +3005,24 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign_pnl,
                                     closes_exit_euro_size_rest_sign_pnl,
                                 )
+                                keep_fees = None
+                                if "fees" in stats:
+                                    try:
+                                        keep_fees = float(stats.get("fees") or 0)
+                                    except (TypeError, ValueError):
+                                        keep_fees = None
+                                (
+                                    closes_exit_euro_size_sign_clash_keep_fees,
+                                    closes_exit_euro_size_sign_clash_keep_fees_ratio,
+                                    closes_exit_euro_size_sign_clash_keep_fees_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_warn,
+                                ) = _exit_euro_size_sign_clash_keep_fees(
+                                    closes_exit_euro_size_sign_clash_keep,
+                                    closes_exit_euro_size_sign_clash_net,
+                                    closes_exit_euro_size_sign_pnl,
+                                    closes_exit_euro_size_rest_sign_pnl,
+                                    keep_fees,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -3393,6 +3498,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_keep_thin": (
             closes_exit_euro_size_sign_clash_keep_thin
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees": (
+            closes_exit_euro_size_sign_clash_keep_fees
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_ratio": (
+            closes_exit_euro_size_sign_clash_keep_fees_ratio
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_bit": (
+            closes_exit_euro_size_sign_clash_keep_fees_bit
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_warn": (
+            closes_exit_euro_size_sign_clash_keep_fees_warn
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -3972,6 +4089,18 @@ def format_window_a_closes_exit_euro_size_sign_clash_keep_bit(
         return ""
     bit = str(
         sample.get("closes_exit_euro_size_sign_clash_keep_bit") or ""
+    ).strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A clash-keep fees bit (fees vs leftover; display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get("closes_exit_euro_size_sign_clash_keep_fees_bit") or ""
     ).strip()
     return bit
 
