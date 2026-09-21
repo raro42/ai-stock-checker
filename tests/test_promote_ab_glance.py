@@ -52,6 +52,7 @@ def test_promote_ab_glance_running() -> None:
     assert g["honesty_core"] == ""
     assert g["kelly_line"] == ""
     assert g["streak_line"] == ""
+    assert g["exit_mix_line"] == ""
     assert g["exit_euro_line"] == ""
     assert g["fee_pressure_line"] == ""
     assert g["edge_line"] == ""
@@ -9710,7 +9711,10 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert "A exits €" not in glance_worse["honesty_core"]
     assert "A exits €" in glance_worse["exit_euro_line"]
     assert "clash keep fees" not in glance_worse["exit_euro_line"]
-    assert "A exits" in glance_worse["honesty_core"]
+    assert "A exits" not in glance_worse["honesty_core"]
+    assert "A exits" in glance_worse["exit_mix_line"]
+    assert "A exits €" not in glance_worse["exit_mix_line"]
+    assert glance_worse["exit_mix_line"] in glance_worse["honesty_line"]
     assert (
         glance_worse[
             "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit"

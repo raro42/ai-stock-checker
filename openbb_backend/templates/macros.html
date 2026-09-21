@@ -248,7 +248,7 @@
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>
-    {% elif not glance.fee_pressure_line and not glance.exit_euro_line and not glance.kelly_line and not glance.streak_line and not glance.edge_line %}
+    {% elif not glance.fee_pressure_line and not glance.exit_euro_line and not glance.exit_mix_line and not glance.kelly_line and not glance.streak_line and not glance.edge_line %}
     <p class="weight">{{ glance.honesty_line }}</p>
     {% endif %}
     {% if glance.edge_line %}
@@ -270,6 +270,13 @@
       <summary>Streaks <span class="meta">win · loss runs</span></summary>
       <p class="sub">Newest and past close runs, plus flat sells. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.streak_line }}</p>
+    </details>
+    {% endif %}
+    {% if glance.exit_mix_line %}
+    <details class="promote-honesty promote-exit-mix">
+      <summary>Exit mix <span class="meta">tp · sl · rot · trim</span></summary>
+      <p class="sub">Which close reasons fired (counts, not euros). Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.exit_mix_line }}</p>
     </details>
     {% endif %}
     {% if glance.exit_euro_line %}

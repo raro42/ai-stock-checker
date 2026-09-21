@@ -1668,6 +1668,7 @@
       var core = glance.honesty_core ? String(glance.honesty_core) : "";
       var kelly = glance.kelly_line ? String(glance.kelly_line) : "";
       var streaks = glance.streak_line ? String(glance.streak_line) : "";
+      var exitMix = glance.exit_mix_line ? String(glance.exit_mix_line) : "";
       var euros = glance.exit_euro_line ? String(glance.exit_euro_line) : "";
       var pressure = glance.fee_pressure_line
         ? String(glance.fee_pressure_line)
@@ -1694,7 +1695,10 @@
         fold.appendChild(foldWeight);
         details.appendChild(fold);
       }
-      if (core || (!pressure && !euros && !kelly && !streaks && !edge)) {
+      if (
+        core ||
+        (!pressure && !euros && !exitMix && !kelly && !streaks && !edge)
+      ) {
         var weight = document.createElement("p");
         weight.className = "weight";
         weight.textContent = core || String(glance.honesty_line);
@@ -1720,6 +1724,13 @@
         "win · loss runs",
         "Newest and past close runs, plus flat sells. Warn only. Not a gate.",
         streaks
+      );
+      appendHonestyFold(
+        "promote-exit-mix",
+        "Exit mix",
+        "tp · sl · rot · trim",
+        "Which close reasons fired (counts, not euros). Warn only. Not a gate.",
+        exitMix
       );
       appendHonestyFold(
         "promote-exit-euros",

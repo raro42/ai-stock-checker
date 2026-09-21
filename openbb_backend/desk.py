@@ -2210,6 +2210,7 @@ def build_promote_ab_glance(
     honesty_core = ""
     kelly_line = ""
     streak_line = ""
+    exit_mix_line = ""
     exit_euro_line = ""
     fee_pressure_line = ""
     edge_line = ""
@@ -2227,6 +2228,12 @@ def build_promote_ab_glance(
                 b
                 for b in honesty_bits
                 if b.startswith("A exits €") and b not in fee_pressure_bits
+            ]
+            # Count mix · shares · unknown (not € lead / clash).
+            exit_mix_bits = [
+                b
+                for b in honesty_bits
+                if b.startswith("A exits") and not b.startswith("A exits €")
             ]
             kelly_bits = [b for b in honesty_bits if "Kelly" in b]
             streak_bits = [
@@ -2252,6 +2259,7 @@ def build_promote_ab_glance(
             folded = {
                 *fee_pressure_bits,
                 *exit_euro_bits,
+                *exit_mix_bits,
                 *kelly_bits,
                 *streak_bits,
                 *edge_bits,
@@ -2260,6 +2268,7 @@ def build_promote_ab_glance(
             honesty_core = " · ".join(core_bits)
             kelly_line = " · ".join(kelly_bits)
             streak_line = " · ".join(streak_bits)
+            exit_mix_line = " · ".join(exit_mix_bits)
             exit_euro_line = " · ".join(exit_euro_bits)
             fee_pressure_line = " · ".join(fee_pressure_bits)
             edge_line = " · ".join(edge_bits)
@@ -2287,6 +2296,7 @@ def build_promote_ab_glance(
         "honesty_core": honesty_core,
         "kelly_line": kelly_line,
         "streak_line": streak_line,
+        "exit_mix_line": exit_mix_line,
         "exit_euro_line": exit_euro_line,
         "fee_pressure_line": fee_pressure_line,
         "edge_line": edge_line,

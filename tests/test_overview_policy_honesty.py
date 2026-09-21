@@ -113,12 +113,16 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "promote-kelly" in macro
     assert "promote-streaks" in macro
     assert "promote-edge" in macro
+    assert "promote-exit-mix" in macro
     assert "glance.kelly_line" in macro
     assert "glance.streak_line" in macro
     assert "glance.edge_line" in macro
+    assert "glance.exit_mix_line" in macro
     assert ".promote-kelly" in css
     assert ".promote-streaks" in css
     assert ".promote-edge" in css
+    assert ".promote-exit-mix" in css
     assert "promote-kelly" in js
     assert "promote-streaks" in js
     assert "promote-edge" in js
+    assert "promote-exit-mix" in js
