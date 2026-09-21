@@ -138,4 +138,8 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "glance.honesty_warns" in js
     assert "{% if warns %} open{% endif %}" in macro
     assert "details.open = warns.length > 0" in js
+    # Hot child folds open with the parent (MonsterDeveloper + xang1234).
+    assert "{% if 'fees' in warns %} open{% endif %}" in macro
+    assert "{% if 'fee pressure' in warns %} open{% endif %}" in macro
+    assert "fold.open = hot" in js
     assert ".promote-honesty.warn" in css

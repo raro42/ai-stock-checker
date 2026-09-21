@@ -1695,6 +1695,7 @@
         var hot = warns.indexOf(label) !== -1;
         var fold = document.createElement("details");
         fold.className = "promote-honesty " + className + (hot ? " warn" : "");
+        fold.open = hot;
         var foldSummary = document.createElement("summary");
         foldSummary.appendChild(document.createTextNode(title + " "));
         var foldMeta = document.createElement("span");
