@@ -244,12 +244,19 @@
   </p>
   {% if glance.honesty_line %}
   <details class="promote-honesty" id="promote-honesty">
-    <summary>Close honesty <span class="meta">fees · Kelly · streaks · exits</span></summary>
+    <summary>Close honesty <span class="meta">fees · edge · Kelly · streaks · exits</span></summary>
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>
-    {% elif not glance.fee_pressure_line and not glance.exit_euro_line and not glance.kelly_line and not glance.streak_line %}
+    {% elif not glance.fee_pressure_line and not glance.exit_euro_line and not glance.kelly_line and not glance.streak_line and not glance.edge_line %}
     <p class="weight">{{ glance.honesty_line }}</p>
+    {% endif %}
+    {% if glance.edge_line %}
+    <details class="promote-honesty promote-edge">
+      <summary>Edge <span class="meta">payoff · WR · PF</span></summary>
+      <p class="sub">Close quality after fees. Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.edge_line }}</p>
+    </details>
     {% endif %}
     {% if glance.kelly_line %}
     <details class="promote-honesty promote-kelly">

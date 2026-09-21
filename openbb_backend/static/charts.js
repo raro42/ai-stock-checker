@@ -1657,7 +1657,7 @@
       summary.appendChild(document.createTextNode("Close honesty "));
       var meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = "fees · Kelly · streaks · exits";
+      meta.textContent = "fees · edge · Kelly · streaks · exits";
       summary.appendChild(meta);
       details.appendChild(summary);
       var note = document.createElement("p");
@@ -1672,6 +1672,7 @@
       var pressure = glance.fee_pressure_line
         ? String(glance.fee_pressure_line)
         : "";
+      var edge = glance.edge_line ? String(glance.edge_line) : "";
       function appendHonestyFold(className, title, metaText, noteText, body) {
         if (!body) return;
         var fold = document.createElement("details");
@@ -1693,12 +1694,19 @@
         fold.appendChild(foldWeight);
         details.appendChild(fold);
       }
-      if (core || (!pressure && !euros && !kelly && !streaks)) {
+      if (core || (!pressure && !euros && !kelly && !streaks && !edge)) {
         var weight = document.createElement("p");
         weight.className = "weight";
         weight.textContent = core || String(glance.honesty_line);
         details.appendChild(weight);
       }
+      appendHonestyFold(
+        "promote-edge",
+        "Edge",
+        "payoff · WR · PF",
+        "Close quality after fees. Warn only. Not a gate.",
+        edge
+      );
       appendHonestyFold(
         "promote-kelly",
         "Kelly",

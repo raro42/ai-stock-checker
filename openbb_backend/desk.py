@@ -2212,6 +2212,7 @@ def build_promote_ab_glance(
     streak_line = ""
     exit_euro_line = ""
     fee_pressure_line = ""
+    edge_line = ""
     summary_status = status
     if honesty_bits:
         joined = " · ".join(honesty_bits)
@@ -2233,11 +2234,27 @@ def build_promote_ab_glance(
                 for b in honesty_bits
                 if "streak" in b or b.startswith("A flats")
             ]
+            # Payoff · expectancy · PF · win rate. Not fee drag, polarity, or exit counts.
+            edge_prefixes = (
+                "A payoff",
+                "A expectancy",
+                "A PF",
+                "A win rate",
+                "A WR ",
+                "A net expect",
+                "A fee take",
+                "A net/fee",
+                "A net PF",
+            )
+            edge_bits = [
+                b for b in honesty_bits if b.startswith(edge_prefixes)
+            ]
             folded = {
                 *fee_pressure_bits,
                 *exit_euro_bits,
                 *kelly_bits,
                 *streak_bits,
+                *edge_bits,
             }
             core_bits = [b for b in honesty_bits if b not in folded]
             honesty_core = " · ".join(core_bits)
@@ -2245,6 +2262,7 @@ def build_promote_ab_glance(
             streak_line = " · ".join(streak_bits)
             exit_euro_line = " · ".join(exit_euro_bits)
             fee_pressure_line = " · ".join(fee_pressure_bits)
+            edge_line = " · ".join(edge_bits)
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
@@ -2271,6 +2289,7 @@ def build_promote_ab_glance(
         "streak_line": streak_line,
         "exit_euro_line": exit_euro_line,
         "fee_pressure_line": fee_pressure_line,
+        "edge_line": edge_line,
         "window": window,
         "trading_days": days,
         "target_days": need,

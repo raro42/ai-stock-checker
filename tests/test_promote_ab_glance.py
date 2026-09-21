@@ -54,6 +54,7 @@ def test_promote_ab_glance_running() -> None:
     assert g["streak_line"] == ""
     assert g["exit_euro_line"] == ""
     assert g["fee_pressure_line"] == ""
+    assert g["edge_line"] == ""
     assert g["summary_line"] == g["line"]
     assert g["a_fill_progress_bit"] == ""
 
@@ -3791,6 +3792,13 @@ def test_promote_ab_glance_closes_payoff_strong_ready_for_b() -> None:
     assert g["closes_expectancy_thin"] is False
     assert g["closes_expectancy_severity"] == "strong"
     assert "A payoff strong · 2×" in g["line"]
+    assert "A payoff strong · 2×" in g["edge_line"]
+    assert "A expectancy strong · +€50" in g["edge_line"]
+    assert "A PF strong · 6×" in g["edge_line"]
+    assert "A payoff" not in g["honesty_core"]
+    assert "A expectancy" not in g["honesty_core"]
+    assert "A fees comfortable" in g["honesty_core"]
+    assert "A mixed · mostly wins · 3w/1l" in g["honesty_core"]
     assert "A expectancy strong · +€50" in g["line"]
     assert "A PF strong · 6×" in g["line"]
     assert g["closes_profit_factor"] == 6.0

@@ -2097,7 +2097,8 @@ a:active {
 .promote-honesty .promote-fee-pressure,
 .promote-honesty .promote-exit-euros,
 .promote-honesty .promote-kelly,
-.promote-honesty .promote-streaks {
+.promote-honesty .promote-streaks,
+.promote-honesty .promote-edge {
   margin-top: 0.45rem;
   border-top-style: dashed;
 }
