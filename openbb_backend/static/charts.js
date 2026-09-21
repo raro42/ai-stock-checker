@@ -1672,6 +1672,7 @@
         meta.textContent = "quiet";
       }
       summary.appendChild(meta);
+      details.open = warns.length > 0;
       details.appendChild(summary);
       var note = document.createElement("p");
       note.className = "sub";

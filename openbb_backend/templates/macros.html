@@ -244,7 +244,7 @@
   </p>
   {% if glance.honesty_line %}
   {% set warns = glance.honesty_warns if glance.honesty_warns else [] %}
-  <details class="promote-honesty" id="promote-honesty">
+  <details class="promote-honesty" id="promote-honesty"{% if warns %} open{% endif %}>
     <summary>Close honesty <span class="meta">{% if warns %}<span class="warn">warn</span> · {{ warns | join(' · ') }}{% else %}quiet{% endif %}</span></summary>
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}

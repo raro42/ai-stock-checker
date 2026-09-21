@@ -136,4 +136,6 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "promote-polarity" in js
     assert "glance.honesty_warns" in macro
     assert "glance.honesty_warns" in js
+    assert "{% if warns %} open{% endif %}" in macro
+    assert "details.open = warns.length > 0" in js
     assert ".promote-honesty.warn" in css
