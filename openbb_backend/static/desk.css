@@ -2099,7 +2099,9 @@ a:active {
 .promote-honesty .promote-exit-mix,
 .promote-honesty .promote-kelly,
 .promote-honesty .promote-streaks,
-.promote-honesty .promote-edge {
+.promote-honesty .promote-edge,
+.promote-honesty .promote-fees,
+.promote-honesty .promote-polarity {
   margin-top: 0.45rem;
   border-top-style: dashed;
 }

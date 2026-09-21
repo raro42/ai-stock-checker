@@ -2238,6 +2238,8 @@ def build_promote_ab_glance(
     honesty_bits = _honesty_bits()
     honesty_line = ""
     honesty_core = ""
+    fees_line = ""
+    polarity_line = ""
     kelly_line = ""
     streak_line = ""
     exit_mix_line = ""
@@ -2286,6 +2288,17 @@ def build_promote_ab_glance(
             edge_bits = [
                 b for b in honesty_bits if b.startswith(edge_prefixes)
             ]
+            # Fee drag / fees-ok. Not fee take (that stays on the edge fold).
+            fees_bits = [
+                b
+                for b in honesty_bits
+                if b.startswith(("A fee drag", "A fees "))
+            ]
+            polarity_bits = [
+                b
+                for b in honesty_bits
+                if b.startswith(("A all-win", "A all-loss", "A mixed"))
+            ]
             folded = {
                 *fee_pressure_bits,
                 *exit_euro_bits,
@@ -2293,9 +2306,13 @@ def build_promote_ab_glance(
                 *kelly_bits,
                 *streak_bits,
                 *edge_bits,
+                *fees_bits,
+                *polarity_bits,
             }
             core_bits = [b for b in honesty_bits if b not in folded]
             honesty_core = " · ".join(core_bits)
+            fees_line = " · ".join(fees_bits)
+            polarity_line = " · ".join(polarity_bits)
             kelly_line = " · ".join(kelly_bits)
             streak_line = " · ".join(streak_bits)
             exit_mix_line = " · ".join(exit_mix_bits)
@@ -2324,6 +2341,8 @@ def build_promote_ab_glance(
         "summary_line": summary_line,
         "honesty_line": honesty_line,
         "honesty_core": honesty_core,
+        "fees_line": fees_line,
+        "polarity_line": polarity_line,
         "kelly_line": kelly_line,
         "streak_line": streak_line,
         "exit_mix_line": exit_mix_line,

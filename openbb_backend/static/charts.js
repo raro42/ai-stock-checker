@@ -1657,7 +1657,7 @@
       summary.appendChild(document.createTextNode("Close honesty "));
       var meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = "fees · edge · Kelly · streaks · exits";
+      meta.textContent = "fees · polarity · edge · Kelly · streaks · exits";
       summary.appendChild(meta);
       details.appendChild(summary);
       var note = document.createElement("p");
@@ -1666,6 +1666,8 @@
         "Warn only. The short line above is the Window A decision. Not a gate.";
       details.appendChild(note);
       var core = glance.honesty_core ? String(glance.honesty_core) : "";
+      var fees = glance.fees_line ? String(glance.fees_line) : "";
+      var polarity = glance.polarity_line ? String(glance.polarity_line) : "";
       var kelly = glance.kelly_line ? String(glance.kelly_line) : "";
       var streaks = glance.streak_line ? String(glance.streak_line) : "";
       var exitMix = glance.exit_mix_line ? String(glance.exit_mix_line) : "";
@@ -1697,13 +1699,34 @@
       }
       if (
         core ||
-        (!pressure && !euros && !exitMix && !kelly && !streaks && !edge)
+        (!fees &&
+          !polarity &&
+          !pressure &&
+          !euros &&
+          !exitMix &&
+          !kelly &&
+          !streaks &&
+          !edge)
       ) {
         var weight = document.createElement("p");
         weight.className = "weight";
         weight.textContent = core || String(glance.honesty_line);
         details.appendChild(weight);
       }
+      appendHonestyFold(
+        "promote-fees",
+        "Fees",
+        "drag · comfortable",
+        "Window fees versus realized. Warn only. Not a gate.",
+        fees
+      );
+      appendHonestyFold(
+        "promote-polarity",
+        "Polarity",
+        "wins · losses",
+        "How the closes split. Warn only. Not a gate.",
+        polarity
+      );
       appendHonestyFold(
         "promote-edge",
         "Edge",
