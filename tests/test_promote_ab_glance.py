@@ -8245,6 +8245,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit,
         window_a_sample_readiness,
     )
 
@@ -8335,6 +8336,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta_bit(
+            None
+        )
+        == ""
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit(
             None
         )
         == ""
@@ -9765,6 +9772,41 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         ]
         is False
     )
+    # Absolute sides already spoke: ownership % still speaks (Δ mid ≠ no share).
+    align_thin_lead_size_sides_share = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align lead size sides share · louder 73.1% · quieter 26.9%"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_louder_pct"
+        ]
+        == 73.1
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct"
+        ]
+        == 26.9
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit"
+        ]
+        == align_thin_lead_size_sides_share
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_warn"
+        ]
+        is True
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit(
+            align_thin
+        )
+        == align_thin_lead_size_sides_share
+    )
     assert align_thin["ready"] is True
 
     # Wide louder−quieter floor-units: sides Δ speaks. Worse warns.
@@ -9820,6 +9862,40 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
             align_wide
         )
         == align_wide_sides_delta
+    )
+    align_wide_sides_share = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align lead size sides share · louder 78.6% · quieter 21.4%"
+    )
+    assert (
+        align_wide[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_louder_pct"
+        ]
+        == 78.6
+    )
+    assert (
+        align_wide[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct"
+        ]
+        == 21.4
+    )
+    assert (
+        align_wide[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit"
+        ]
+        == align_wide_sides_share
+    )
+    assert (
+        align_wide[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_warn"
+        ]
+        is True
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit(
+            align_wide
+        )
+        == align_wide_sides_share
     )
     assert align_wide["ready"] is True
 
@@ -9900,6 +9976,8 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert align_thin_lead_size in glance_lead_size["honesty_line"]
     assert align_thin_lead_size_sides in glance_lead_size["fee_pressure_line"]
     assert align_thin_lead_size_sides in glance_lead_size["honesty_line"]
+    assert align_thin_lead_size_sides_share in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size_sides_share in glance_lead_size["honesty_line"]
     assert "align lead size sides Δ" not in glance_lead_size["fee_pressure_line"]
     assert "align lead size" not in glance_lead_size["honesty_core"]
     assert glance_lead_size["tone"] == "warn"
@@ -9943,11 +10021,19 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert align_wide_sides_delta in glance_sides_delta["fee_pressure_line"]
     assert align_wide_sides_delta in glance_sides_delta["honesty_line"]
     assert align_wide_sides_delta not in glance_sides_delta["honesty_core"]
+    assert align_wide_sides_share in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share in glance_sides_delta["honesty_line"]
     assert (
         glance_sides_delta[
             "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta_bit"
         ]
         == align_wide_sides_delta
+    )
+    assert (
+        glance_sides_delta[
+            "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit"
+        ]
+        == align_wide_sides_share
     )
     assert glance_sides_delta["tone"] == "warn"
     assert glance_sides_delta["b_ready"] is True
@@ -9957,6 +10043,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size as _align_lead_size,
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides as _align_lead_size_sides,
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta as _align_lead_size_sides_delta,
+        _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share as _align_lead_size_sides_share,
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size as _align_size,
     )
 
@@ -10046,6 +10133,24 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert "align lead size sides Δ thin · +0.24×" in thin_delta_bit
     silent_delta = _align_lead_size_sides_delta("", "worse", 4.0, 0.5)
     assert silent_delta == ("", None, "", False)
+    pct_share_l, pct_share_q, pct_share_bit, pct_share_warn = (
+        _align_lead_size_sides_share(pct_sides_bit, "worse", 0.49, 0.18)
+    )
+    assert pct_share_l == 73.1
+    assert pct_share_q == 26.9
+    assert pct_share_warn is True
+    assert "align lead size sides share · louder 73.1% · quieter 26.9%" in (
+        pct_share_bit
+    )
+    x_share_l, x_share_q, x_share_bit, x_share_warn = _align_lead_size_sides_share(
+        x_sides_bit, "better", 4.0, 0.5
+    )
+    assert x_share_l == 88.9
+    assert x_share_q == 11.1
+    assert x_share_warn is False
+    assert "align lead size sides share · louder 88.9% · quieter 11.1%" in x_share_bit
+    silent_share = _align_lead_size_sides_share("", "worse", 4.0, 0.5)
+    assert silent_share == (None, None, "", False)
 
     # Mid × / wide % clash: align stays silent (not a same-lean confirm).
     assert (
@@ -10081,6 +10186,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert (
         clash[
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta"
+        ]
+        == ""
+    )
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_bit"
         ]
         == ""
     )
@@ -10312,6 +10423,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert "align lead size" not in glance_worse["fee_pressure_line"]
     assert "align lead size sides" not in glance_worse["fee_pressure_line"]
     assert "align lead size sides Δ" not in glance_worse["fee_pressure_line"]
+    assert "align lead size sides share" not in glance_worse["fee_pressure_line"]
     assert "share vs Δ clash" not in glance_worse["fee_pressure_line"]
     assert "clash keep fees" not in glance_worse["honesty_core"]
     assert "A exits €" not in glance_worse["honesty_core"]
