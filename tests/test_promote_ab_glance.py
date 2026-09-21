@@ -8242,6 +8242,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_bit,
         window_a_sample_readiness,
     )
 
@@ -8314,6 +8315,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_bit(
+            None
+        )
+        == ""
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_bit(
             None
         )
         == ""
@@ -9657,10 +9664,85 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         )
         == align_thin_lead
     )
+    align_thin_lead_size = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align lead size · 2.7×"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size"
+        ]
+        == "size"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_ratio"
+        ]
+        == 2.72
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_bit"
+        ]
+        == align_thin_lead_size
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_warn"
+        ]
+        is True
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_bit(
+            align_thin
+        )
+        == align_thin_lead_size
+    )
     assert align_thin["ready"] is True
+    glance_lead_size = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "fees": 39.0,
+            "realized_pnl": 77.75,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert align_thin_lead_size in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size in glance_lead_size["honesty_line"]
+    assert "align lead size" not in glance_lead_size["honesty_core"]
+    assert glance_lead_size["tone"] == "warn"
+    assert glance_lead_size["b_ready"] is True
 
     from stock_checker.promote_ab import (
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead as _align_lead,
+        _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size as _align_lead_size,
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size as _align_size,
     )
 
@@ -9690,6 +9772,27 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert clash_lead == ""
     assert clash_lead_bit == ""
     assert clash_lead_warn is False
+    pct_size, pct_ratio, pct_size_bit, pct_size_warn = _align_lead_size(
+        "%", "worse", -0.09, -9.8
+    )
+    assert pct_size == "size"
+    assert pct_ratio == 2.72
+    assert pct_size_warn is True
+    assert "align lead size · 2.7×" in pct_size_bit
+    x_size, x_ratio, x_size_bit, x_size_warn = _align_lead_size(
+        "×", "better", -2.0, -10.0
+    )
+    assert x_size == "size"
+    assert x_ratio == 8.0
+    assert x_size_warn is False
+    assert "align lead size · 8×" in x_size_bit
+    even_size, even_ratio, even_size_bit, even_size_warn = _align_lead_size(
+        "", "worse", -2.0, -96.0
+    )
+    assert even_size == ""
+    assert even_ratio is None
+    assert even_size_bit == ""
+    assert even_size_warn is False
 
     # Mid × / wide % clash: align stays silent (not a same-lean confirm).
     assert (
@@ -9707,6 +9810,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert (
         clash[
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead"
+        ]
+        == ""
+    )
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size"
         ]
         == ""
     )
@@ -9935,6 +10044,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         == align_size_worse
     )
     assert "align lead" not in glance_worse["fee_pressure_line"]
+    assert "align lead size" not in glance_worse["fee_pressure_line"]
     assert "share vs Δ clash" not in glance_worse["fee_pressure_line"]
     assert "clash keep fees" not in glance_worse["honesty_core"]
     assert "A exits €" not in glance_worse["honesty_core"]
