@@ -248,8 +248,15 @@
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>
-    {% elif not glance.fee_pressure_line %}
+    {% elif not glance.fee_pressure_line and not glance.exit_euro_line %}
     <p class="weight">{{ glance.honesty_line }}</p>
+    {% endif %}
+    {% if glance.exit_euro_line %}
+    <details class="promote-honesty promote-exit-euros">
+      <summary>Exit euros <span class="meta">count ≠ €</span></summary>
+      <p class="sub">Which close reason owns the euros. Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.exit_euro_line }}</p>
+    </details>
     {% endif %}
     {% if glance.fee_pressure_line %}
     <details class="promote-honesty promote-fee-pressure">

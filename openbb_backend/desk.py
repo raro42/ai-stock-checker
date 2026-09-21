@@ -2180,6 +2180,7 @@ def build_promote_ab_glance(
     honesty_bits = _honesty_bits()
     honesty_line = ""
     honesty_core = ""
+    exit_euro_line = ""
     fee_pressure_line = ""
     summary_status = status
     if honesty_bits:
@@ -2188,11 +2189,19 @@ def build_promote_ab_glance(
         if status.startswith(prefix):
             honesty_line = joined
             summary_status = status[len(prefix) :]
-            # Clash-fee ladder is rare. Keep it out of the main close paragraph
-            # (MonsterDeveloper fold). `honesty_line` stays the full string.
+            # Euro ladder and clash-fee ladder are rare. Keep them out of the
+            # main close paragraph (MonsterDeveloper fold). `honesty_line`
+            # stays the full string.
             fee_pressure_bits = [b for b in honesty_bits if "clash keep fees" in b]
-            core_bits = [b for b in honesty_bits if b not in fee_pressure_bits]
+            exit_euro_bits = [
+                b
+                for b in honesty_bits
+                if b.startswith("A exits €") and b not in fee_pressure_bits
+            ]
+            folded = {*fee_pressure_bits, *exit_euro_bits}
+            core_bits = [b for b in honesty_bits if b not in folded]
             honesty_core = " · ".join(core_bits)
+            exit_euro_line = " · ".join(exit_euro_bits)
             fee_pressure_line = " · ".join(fee_pressure_bits)
     parts = [
         f"Window {window}",
@@ -2216,6 +2225,7 @@ def build_promote_ab_glance(
         "summary_line": summary_line,
         "honesty_line": honesty_line,
         "honesty_core": honesty_core,
+        "exit_euro_line": exit_euro_line,
         "fee_pressure_line": fee_pressure_line,
         "window": window,
         "trading_days": days,

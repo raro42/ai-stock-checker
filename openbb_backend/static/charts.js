@@ -1666,14 +1666,36 @@
         "Warn only. The short line above is the Window A decision. Not a gate.";
       details.appendChild(note);
       var core = glance.honesty_core ? String(glance.honesty_core) : "";
+      var euros = glance.exit_euro_line ? String(glance.exit_euro_line) : "";
       var pressure = glance.fee_pressure_line
         ? String(glance.fee_pressure_line)
         : "";
-      if (core || !pressure) {
+      if (core || (!pressure && !euros)) {
         var weight = document.createElement("p");
         weight.className = "weight";
         weight.textContent = core || String(glance.honesty_line);
         details.appendChild(weight);
+      }
+      if (euros) {
+        var euroFold = document.createElement("details");
+        euroFold.className = "promote-honesty promote-exit-euros";
+        var euroSummary = document.createElement("summary");
+        euroSummary.appendChild(document.createTextNode("Exit euros "));
+        var euroMeta = document.createElement("span");
+        euroMeta.className = "meta";
+        euroMeta.textContent = "count ≠ €";
+        euroSummary.appendChild(euroMeta);
+        euroFold.appendChild(euroSummary);
+        var euroNote = document.createElement("p");
+        euroNote.className = "sub";
+        euroNote.textContent =
+          "Which close reason owns the euros. Warn only. Not a gate.";
+        euroFold.appendChild(euroNote);
+        var euroWeight = document.createElement("p");
+        euroWeight.className = "weight";
+        euroWeight.textContent = euros;
+        euroFold.appendChild(euroWeight);
+        details.appendChild(euroFold);
       }
       if (pressure) {
         var nested = document.createElement("details");

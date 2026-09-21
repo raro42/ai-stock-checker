@@ -2094,7 +2094,8 @@ a:active {
   margin: 0 0 0.4rem;
 }
 
-.promote-honesty .promote-fee-pressure {
+.promote-honesty .promote-fee-pressure,
+.promote-honesty .promote-exit-euros {
   margin-top: 0.45rem;
   border-top-style: dashed;
 }
