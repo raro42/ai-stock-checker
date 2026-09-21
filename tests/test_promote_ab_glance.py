@@ -8223,6 +8223,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit,
         window_a_sample_readiness,
     )
 
@@ -8271,6 +8272,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit(
+            None
+        )
+        == ""
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit(
             None
         )
         == ""
@@ -8396,6 +8403,18 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit"
         ]
         == ""
+    )
+    assert (
+        missing[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta"
+        ]
+        == ""
+    )
+    assert (
+        missing[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn"
+        ]
+        is False
     )
 
     # tp avg €16.67 vs sl avg €2.5 → 6.67× fat quiet; rest n=2 thin.
@@ -8982,6 +9001,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         ]
         == ""
     )
+    assert (
+        comfortable[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
+        ]
+        == ""
+    )
 
     fees_ok = _keep_fees(30.0)
     assert fees_ok["closes_exit_euro_size_sign_clash_keep_fees"] == "ok"
@@ -9171,6 +9196,13 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         )
         == gap_dir_sides_share_delta_better
     )
+    # Both leans are wide. Same story stays silent.
+    assert (
+        better[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
+        ]
+        == ""
+    )
     assert better["ready"] is True
 
     # Same calm mood: leftover comfortable and fees-ok comfortable stay silent.
@@ -9211,6 +9243,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert (
         same[
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit"
+        ]
+        == ""
+    )
+    assert (
+        same[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
         ]
         == ""
     )
@@ -9307,7 +9345,200 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     ] == (
         "A exits € size clash keep fees vs drag gap dir sides share Δ thin · −5.2pp"
     )
+    # Both leans are thin. Same story stays silent.
+    assert (
+        thin_gap[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
+        ]
+        == ""
+    )
     assert thin_gap["ready"] is True
+
+    # Mid × gap, wide share: leftover comfortable 0.01× vs fees-ok thin 0.50×.
+    # |0.01−0.50| = 0.49× is mid, but ownership is wide.
+    clash = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "fees": 0.5,
+            "realized_pnl": 1.0,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert clash["closes_exit_euro_size_sign_clash_keep_fees"] == "comfortable"
+    assert clash["fees_ok_severity"] == "thin"
+    assert clash["closes_exit_euro_size_sign_clash_keep_fees_vs"] == "worse"
+    assert (
+        clash["closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta"]
+        == ""
+    )
+    assert clash[
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta"
+    ] == "wide"
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta"
+        ]
+        == "clash"
+    )
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn"
+        ]
+        is True
+    )
+    clash_bit = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "clash · × mid · % wide"
+    )
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
+        ]
+        == clash_bit
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit(
+            clash
+        )
+        == clash_bit
+    )
+    assert clash["ready"] is True
+
+    # Thin × gap, mid share. Worse still warns.
+    clash_thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "fees": 38.5,
+            "realized_pnl": 75.075,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert clash_thin[
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta"
+    ] == "thin"
+    assert (
+        clash_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta"
+        ]
+        == ""
+    )
+    clash_thin_bit = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "clash · × thin · % mid"
+    )
+    assert (
+        clash_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
+        ]
+        == clash_thin_bit
+    )
+    assert (
+        clash_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn"
+        ]
+        is True
+    )
+    assert clash_thin["ready"] is True
+
+    # Hot leftover, calm book: same × mid / % wide clash, but better does not warn.
+    clash_better = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "fees": 47.5,
+            "realized_pnl": 194.75,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert clash_better["closes_exit_euro_size_sign_clash_keep_fees"] == "thin"
+    assert clash_better["fees_ok_severity"] == "comfortable"
+    assert clash_better["closes_exit_euro_size_sign_clash_keep_fees_vs"] == "better"
+    assert (
+        clash_better[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn"
+        ]
+        is False
+    )
+    assert (
+        clash_better[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit"
+        ]
+        == clash_bit
+    )
+    assert clash_better["ready"] is True
+
+    glance_clash = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "fees": 0.5,
+            "realized_pnl": 1.0,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert clash_bit in glance_clash["fee_pressure_line"]
+    assert clash_bit in glance_clash["honesty_line"]
+    assert "share vs Δ" not in glance_clash["honesty_core"]
+    assert glance_clash["tone"] == "warn"
+    assert glance_clash["b_ready"] is True
 
     knobs = {
         "promote_experiment_strategy": False,
@@ -9466,6 +9697,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert gap_dir_sides_share_delta_worse in glance_worse["honesty_line"]
     assert gap_dir_sides_share_delta_worse in glance_worse["fee_pressure_line"]
+    assert "share vs Δ" not in glance_worse["fee_pressure_line"]
     assert "clash keep fees" not in glance_worse["honesty_core"]
     assert "A exits €" not in glance_worse["honesty_core"]
     assert "A exits €" in glance_worse["exit_euro_line"]
