@@ -8241,6 +8241,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_bit,
         window_a_sample_readiness,
     )
 
@@ -8307,6 +8308,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit(
+            None
+        )
+        == ""
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_bit(
             None
         )
         == ""
@@ -9622,9 +9629,38 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         )
         == align_thin_size
     )
+    align_thin_lead = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align lead · %"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead"
+        ]
+        == "%"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_bit"
+        ]
+        == align_thin_lead
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_warn"
+        ]
+        is True
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_bit(
+            align_thin
+        )
+        == align_thin_lead
+    )
     assert align_thin["ready"] is True
 
     from stock_checker.promote_ab import (
+        _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead as _align_lead,
         _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size as _align_size,
     )
 
@@ -9636,6 +9672,24 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert silent_label == ""
     assert silent_bit == ""
     assert silent_warn is False
+    lead_pct, lead_pct_bit, lead_pct_warn = _align_lead("size", "worse", -0.09, -9.8)
+    assert lead_pct == "%"
+    assert lead_pct_warn is True
+    assert "align lead · %" in lead_pct_bit
+    lead_x, lead_x_bit, lead_x_warn = _align_lead("size", "better", -2.0, -10.0)
+    assert lead_x == "×"
+    assert lead_x_warn is False
+    assert "align lead · ×" in lead_x_bit
+    even_label, even_bit, even_warn = _align_lead("size", "worse", -2.0, -96.0)
+    assert even_label == ""
+    assert even_bit == ""
+    assert even_warn is False
+    clash_lead, clash_lead_bit, clash_lead_warn = _align_lead(
+        "clash", "worse", -0.09, -9.8
+    )
+    assert clash_lead == ""
+    assert clash_lead_bit == ""
+    assert clash_lead_warn is False
 
     # Mid × / wide % clash: align stays silent (not a same-lean confirm).
     assert (
@@ -9647,6 +9701,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert (
         clash[
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size"
+        ]
+        == ""
+    )
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead"
         ]
         == ""
     )
@@ -9874,6 +9934,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         ]
         == align_size_worse
     )
+    assert "align lead" not in glance_worse["fee_pressure_line"]
     assert "share vs Δ clash" not in glance_worse["fee_pressure_line"]
     assert "clash keep fees" not in glance_worse["honesty_core"]
     assert "A exits €" not in glance_worse["honesty_core"]
