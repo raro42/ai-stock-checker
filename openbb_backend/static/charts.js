@@ -1666,58 +1666,67 @@
         "Warn only. The short line above is the Window A decision. Not a gate.";
       details.appendChild(note);
       var core = glance.honesty_core ? String(glance.honesty_core) : "";
+      var kelly = glance.kelly_line ? String(glance.kelly_line) : "";
+      var streaks = glance.streak_line ? String(glance.streak_line) : "";
       var euros = glance.exit_euro_line ? String(glance.exit_euro_line) : "";
       var pressure = glance.fee_pressure_line
         ? String(glance.fee_pressure_line)
         : "";
-      if (core || (!pressure && !euros)) {
+      function appendHonestyFold(className, title, metaText, noteText, body) {
+        if (!body) return;
+        var fold = document.createElement("details");
+        fold.className = "promote-honesty " + className;
+        var foldSummary = document.createElement("summary");
+        foldSummary.appendChild(document.createTextNode(title + " "));
+        var foldMeta = document.createElement("span");
+        foldMeta.className = "meta";
+        foldMeta.textContent = metaText;
+        foldSummary.appendChild(foldMeta);
+        fold.appendChild(foldSummary);
+        var foldNote = document.createElement("p");
+        foldNote.className = "sub";
+        foldNote.textContent = noteText;
+        fold.appendChild(foldNote);
+        var foldWeight = document.createElement("p");
+        foldWeight.className = "weight";
+        foldWeight.textContent = body;
+        fold.appendChild(foldWeight);
+        details.appendChild(fold);
+      }
+      if (core || (!pressure && !euros && !kelly && !streaks)) {
         var weight = document.createElement("p");
         weight.className = "weight";
         weight.textContent = core || String(glance.honesty_line);
         details.appendChild(weight);
       }
-      if (euros) {
-        var euroFold = document.createElement("details");
-        euroFold.className = "promote-honesty promote-exit-euros";
-        var euroSummary = document.createElement("summary");
-        euroSummary.appendChild(document.createTextNode("Exit euros "));
-        var euroMeta = document.createElement("span");
-        euroMeta.className = "meta";
-        euroMeta.textContent = "count ≠ €";
-        euroSummary.appendChild(euroMeta);
-        euroFold.appendChild(euroSummary);
-        var euroNote = document.createElement("p");
-        euroNote.className = "sub";
-        euroNote.textContent =
-          "Which close reason owns the euros. Warn only. Not a gate.";
-        euroFold.appendChild(euroNote);
-        var euroWeight = document.createElement("p");
-        euroWeight.className = "weight";
-        euroWeight.textContent = euros;
-        euroFold.appendChild(euroWeight);
-        details.appendChild(euroFold);
-      }
-      if (pressure) {
-        var nested = document.createElement("details");
-        nested.className = "promote-honesty promote-fee-pressure";
-        var nestedSummary = document.createElement("summary");
-        nestedSummary.appendChild(document.createTextNode("Fee pressure "));
-        var nestedMeta = document.createElement("span");
-        nestedMeta.className = "meta";
-        nestedMeta.textContent = "leftover vs book";
-        nestedSummary.appendChild(nestedMeta);
-        nested.appendChild(nestedSummary);
-        var nestedNote = document.createElement("p");
-        nestedNote.className = "sub";
-        nestedNote.textContent =
-          "Clash leftover fees versus window fees. Warn only. Not a gate.";
-        nested.appendChild(nestedNote);
-        var nestedWeight = document.createElement("p");
-        nestedWeight.className = "weight";
-        nestedWeight.textContent = pressure;
-        nested.appendChild(nestedWeight);
-        details.appendChild(nested);
-      }
+      appendHonestyFold(
+        "promote-kelly",
+        "Kelly",
+        "size vs sizer",
+        "Full, half, and quarter Kelly versus the cash slice. Warn only. Not a gate.",
+        kelly
+      );
+      appendHonestyFold(
+        "promote-streaks",
+        "Streaks",
+        "win · loss runs",
+        "Newest and past close runs, plus flat sells. Warn only. Not a gate.",
+        streaks
+      );
+      appendHonestyFold(
+        "promote-exit-euros",
+        "Exit euros",
+        "count ≠ €",
+        "Which close reason owns the euros. Warn only. Not a gate.",
+        euros
+      );
+      appendHonestyFold(
+        "promote-fee-pressure",
+        "Fee pressure",
+        "leftover vs book",
+        "Clash leftover fees versus window fees. Warn only. Not a gate.",
+        pressure
+      );
       wrap.appendChild(details);
     }
     var sub = document.createElement("p");

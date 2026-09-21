@@ -110,3 +110,11 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     ).read_text(encoding="utf-8")
     assert "glance.summary_line || glance.line" in js
     assert 'details.className = "promote-honesty"' in js
+    assert "promote-kelly" in macro
+    assert "promote-streaks" in macro
+    assert "glance.kelly_line" in macro
+    assert "glance.streak_line" in macro
+    assert ".promote-kelly" in css
+    assert ".promote-streaks" in css
+    assert "promote-kelly" in js
+    assert "promote-streaks" in js

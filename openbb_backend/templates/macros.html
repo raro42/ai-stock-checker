@@ -248,8 +248,22 @@
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>
-    {% elif not glance.fee_pressure_line and not glance.exit_euro_line %}
+    {% elif not glance.fee_pressure_line and not glance.exit_euro_line and not glance.kelly_line and not glance.streak_line %}
     <p class="weight">{{ glance.honesty_line }}</p>
+    {% endif %}
+    {% if glance.kelly_line %}
+    <details class="promote-honesty promote-kelly">
+      <summary>Kelly <span class="meta">size vs sizer</span></summary>
+      <p class="sub">Full, half, and quarter Kelly versus the cash slice. Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.kelly_line }}</p>
+    </details>
+    {% endif %}
+    {% if glance.streak_line %}
+    <details class="promote-honesty promote-streaks">
+      <summary>Streaks <span class="meta">win · loss runs</span></summary>
+      <p class="sub">Newest and past close runs, plus flat sells. Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.streak_line }}</p>
+    </details>
     {% endif %}
     {% if glance.exit_euro_line %}
     <details class="promote-honesty promote-exit-euros">

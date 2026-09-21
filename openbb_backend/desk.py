@@ -2180,6 +2180,8 @@ def build_promote_ab_glance(
     honesty_bits = _honesty_bits()
     honesty_line = ""
     honesty_core = ""
+    kelly_line = ""
+    streak_line = ""
     exit_euro_line = ""
     fee_pressure_line = ""
     summary_status = status
@@ -2189,18 +2191,30 @@ def build_promote_ab_glance(
         if status.startswith(prefix):
             honesty_line = joined
             summary_status = status[len(prefix) :]
-            # Euro ladder and clash-fee ladder are rare. Keep them out of the
-            # main close paragraph (MonsterDeveloper fold). `honesty_line`
-            # stays the full string.
+            # Rare ladders stay out of the main close paragraph
+            # (MonsterDeveloper fold). `honesty_line` stays the full string.
             fee_pressure_bits = [b for b in honesty_bits if "clash keep fees" in b]
             exit_euro_bits = [
                 b
                 for b in honesty_bits
                 if b.startswith("A exits €") and b not in fee_pressure_bits
             ]
-            folded = {*fee_pressure_bits, *exit_euro_bits}
+            kelly_bits = [b for b in honesty_bits if "Kelly" in b]
+            streak_bits = [
+                b
+                for b in honesty_bits
+                if "streak" in b or b.startswith("A flats")
+            ]
+            folded = {
+                *fee_pressure_bits,
+                *exit_euro_bits,
+                *kelly_bits,
+                *streak_bits,
+            }
             core_bits = [b for b in honesty_bits if b not in folded]
             honesty_core = " · ".join(core_bits)
+            kelly_line = " · ".join(kelly_bits)
+            streak_line = " · ".join(streak_bits)
             exit_euro_line = " · ".join(exit_euro_bits)
             fee_pressure_line = " · ".join(fee_pressure_bits)
     parts = [
@@ -2225,6 +2239,8 @@ def build_promote_ab_glance(
         "summary_line": summary_line,
         "honesty_line": honesty_line,
         "honesty_core": honesty_core,
+        "kelly_line": kelly_line,
+        "streak_line": streak_line,
         "exit_euro_line": exit_euro_line,
         "fee_pressure_line": fee_pressure_line,
         "window": window,

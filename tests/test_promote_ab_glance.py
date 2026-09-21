@@ -50,6 +50,8 @@ def test_promote_ab_glance_running() -> None:
     assert "promote off" in g["line"]
     assert g["honesty_line"] == ""
     assert g["honesty_core"] == ""
+    assert g["kelly_line"] == ""
+    assert g["streak_line"] == ""
     assert g["exit_euro_line"] == ""
     assert g["fee_pressure_line"] == ""
     assert g["summary_line"] == g["line"]
@@ -2357,6 +2359,9 @@ def test_promote_ab_glance_closes_kelly_neg_warns_but_ready() -> None:
     assert g["closes_kelly_pct"] == -80.0
     assert g["closes_kelly_neg"] is True
     assert "A Kelly neg · −80%" in g["line"]
+    assert "A Kelly neg · −80%" in g["kelly_line"]
+    assert "Kelly" not in g["honesty_core"]
+    assert g["kelly_line"] in g["honesty_line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 
@@ -4994,6 +4999,9 @@ def test_promote_ab_glance_loss_streak_hot_warns_but_ready() -> None:
     assert g["closes_loss_streak"] == 2
     assert g["closes_loss_streak_hot"] is True
     assert "A loss streak hot · 2" in g["line"]
+    assert "A loss streak hot · 2" in g["streak_line"]
+    assert "streak" not in g["honesty_core"]
+    assert g["streak_line"] in g["honesty_line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 
@@ -5464,6 +5472,8 @@ def test_window_a_flat_closes_warn_but_ready() -> None:
     assert g["closes_flat"] == 2
     assert g["closes_flat_warn"] is True
     assert "A flats · 2" in g["line"]
+    assert "A flats · 2" in g["streak_line"]
+    assert "A flats" not in g["honesty_core"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 
