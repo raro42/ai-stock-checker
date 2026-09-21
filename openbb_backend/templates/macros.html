@@ -246,7 +246,18 @@
   <details class="promote-honesty" id="promote-honesty">
     <summary>Close honesty <span class="meta">fees · Kelly · streaks · exits</span></summary>
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
+    {% if glance.honesty_core %}
+    <p class="weight">{{ glance.honesty_core }}</p>
+    {% elif not glance.fee_pressure_line %}
     <p class="weight">{{ glance.honesty_line }}</p>
+    {% endif %}
+    {% if glance.fee_pressure_line %}
+    <details class="promote-honesty promote-fee-pressure">
+      <summary>Fee pressure <span class="meta">leftover vs book</span></summary>
+      <p class="sub">Clash leftover fees versus window fees. Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.fee_pressure_line }}</p>
+    </details>
+    {% endif %}
   </details>
   {% endif %}
   <p class="sub">{{ sub }}</p>

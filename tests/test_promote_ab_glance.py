@@ -49,6 +49,8 @@ def test_promote_ab_glance_running() -> None:
     assert "running" in g["line"]
     assert "promote off" in g["line"]
     assert g["honesty_line"] == ""
+    assert g["honesty_core"] == ""
+    assert g["fee_pressure_line"] == ""
     assert g["summary_line"] == g["line"]
     assert g["a_fill_progress_bit"] == ""
 
@@ -9452,6 +9454,9 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         "A exits € size clash keep fees vs drag gap dir sides share Δ wide · −96pp"
     )
     assert gap_dir_sides_share_delta_worse in glance_worse["honesty_line"]
+    assert gap_dir_sides_share_delta_worse in glance_worse["fee_pressure_line"]
+    assert "clash keep fees" not in glance_worse["honesty_core"]
+    assert "A exits" in glance_worse["honesty_core"]
     assert (
         glance_worse[
             "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit"

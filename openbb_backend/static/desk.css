@@ -2094,6 +2094,11 @@ a:active {
   margin: 0 0 0.4rem;
 }
 
+.promote-honesty .promote-fee-pressure {
+  margin-top: 0.45rem;
+  border-top-style: dashed;
+}
+
 /* Book: park screener/AI Group Matrix under details (MonsterDeveloper + xang1234). */
 .matrix-honesty {
   margin: 0.75rem 0 0.15rem;

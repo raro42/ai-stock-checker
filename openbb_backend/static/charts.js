@@ -1665,10 +1665,37 @@
       note.textContent =
         "Warn only. The short line above is the Window A decision. Not a gate.";
       details.appendChild(note);
-      var weight = document.createElement("p");
-      weight.className = "weight";
-      weight.textContent = String(glance.honesty_line);
-      details.appendChild(weight);
+      var core = glance.honesty_core ? String(glance.honesty_core) : "";
+      var pressure = glance.fee_pressure_line
+        ? String(glance.fee_pressure_line)
+        : "";
+      if (core || !pressure) {
+        var weight = document.createElement("p");
+        weight.className = "weight";
+        weight.textContent = core || String(glance.honesty_line);
+        details.appendChild(weight);
+      }
+      if (pressure) {
+        var nested = document.createElement("details");
+        nested.className = "promote-honesty promote-fee-pressure";
+        var nestedSummary = document.createElement("summary");
+        nestedSummary.appendChild(document.createTextNode("Fee pressure "));
+        var nestedMeta = document.createElement("span");
+        nestedMeta.className = "meta";
+        nestedMeta.textContent = "leftover vs book";
+        nestedSummary.appendChild(nestedMeta);
+        nested.appendChild(nestedSummary);
+        var nestedNote = document.createElement("p");
+        nestedNote.className = "sub";
+        nestedNote.textContent =
+          "Clash leftover fees versus window fees. Warn only. Not a gate.";
+        nested.appendChild(nestedNote);
+        var nestedWeight = document.createElement("p");
+        nestedWeight.className = "weight";
+        nestedWeight.textContent = pressure;
+        nested.appendChild(nestedWeight);
+        details.appendChild(nested);
+      }
       wrap.appendChild(details);
     }
     var sub = document.createElement("p");

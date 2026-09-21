@@ -2179,6 +2179,8 @@ def build_promote_ab_glance(
             status = "running"
     honesty_bits = _honesty_bits()
     honesty_line = ""
+    honesty_core = ""
+    fee_pressure_line = ""
     summary_status = status
     if honesty_bits:
         joined = " · ".join(honesty_bits)
@@ -2186,6 +2188,12 @@ def build_promote_ab_glance(
         if status.startswith(prefix):
             honesty_line = joined
             summary_status = status[len(prefix) :]
+            # Clash-fee ladder is rare. Keep it out of the main close paragraph
+            # (MonsterDeveloper fold). `honesty_line` stays the full string.
+            fee_pressure_bits = [b for b in honesty_bits if "clash keep fees" in b]
+            core_bits = [b for b in honesty_bits if b not in fee_pressure_bits]
+            honesty_core = " · ".join(core_bits)
+            fee_pressure_line = " · ".join(fee_pressure_bits)
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
@@ -2207,6 +2215,8 @@ def build_promote_ab_glance(
         "line": line,
         "summary_line": summary_line,
         "honesty_line": honesty_line,
+        "honesty_core": honesty_core,
+        "fee_pressure_line": fee_pressure_line,
         "window": window,
         "trading_days": days,
         "target_days": need,
