@@ -1657,7 +1657,20 @@
       summary.appendChild(document.createTextNode("Close honesty "));
       var meta = document.createElement("span");
       meta.className = "meta";
-      meta.textContent = "fees · polarity · edge · Kelly · streaks · exits";
+      var warns = Array.isArray(glance.honesty_warns)
+        ? glance.honesty_warns
+        : [];
+      if (warns.length) {
+        var warnWord = document.createElement("span");
+        warnWord.className = "warn";
+        warnWord.textContent = "warn";
+        meta.appendChild(warnWord);
+        meta.appendChild(
+          document.createTextNode(" · " + warns.join(" · "))
+        );
+      } else {
+        meta.textContent = "quiet";
+      }
       summary.appendChild(meta);
       details.appendChild(summary);
       var note = document.createElement("p");
@@ -1676,15 +1689,16 @@
         ? String(glance.fee_pressure_line)
         : "";
       var edge = glance.edge_line ? String(glance.edge_line) : "";
-      function appendHonestyFold(className, title, metaText, noteText, body) {
+      function appendHonestyFold(className, title, metaText, noteText, body, label) {
         if (!body) return;
+        var hot = warns.indexOf(label) !== -1;
         var fold = document.createElement("details");
-        fold.className = "promote-honesty " + className;
+        fold.className = "promote-honesty " + className + (hot ? " warn" : "");
         var foldSummary = document.createElement("summary");
         foldSummary.appendChild(document.createTextNode(title + " "));
         var foldMeta = document.createElement("span");
         foldMeta.className = "meta";
-        foldMeta.textContent = metaText;
+        foldMeta.textContent = hot ? metaText + " · warn" : metaText;
         foldSummary.appendChild(foldMeta);
         fold.appendChild(foldSummary);
         var foldNote = document.createElement("p");
@@ -1718,56 +1732,64 @@
         "Fees",
         "drag · comfortable",
         "Window fees versus realized. Warn only. Not a gate.",
-        fees
+        fees,
+        "fees"
       );
       appendHonestyFold(
         "promote-polarity",
         "Polarity",
         "wins · losses",
         "How the closes split. Warn only. Not a gate.",
-        polarity
+        polarity,
+        "polarity"
       );
       appendHonestyFold(
         "promote-edge",
         "Edge",
         "payoff · WR · PF",
         "Close quality after fees. Warn only. Not a gate.",
-        edge
+        edge,
+        "edge"
       );
       appendHonestyFold(
         "promote-kelly",
         "Kelly",
         "size vs sizer",
         "Full, half, and quarter Kelly versus the cash slice. Warn only. Not a gate.",
-        kelly
+        kelly,
+        "Kelly"
       );
       appendHonestyFold(
         "promote-streaks",
         "Streaks",
         "win · loss runs",
         "Newest and past close runs, plus flat sells. Warn only. Not a gate.",
-        streaks
+        streaks,
+        "streaks"
       );
       appendHonestyFold(
         "promote-exit-mix",
         "Exit mix",
         "tp · sl · rot · trim",
         "Which close reasons fired (counts, not euros). Warn only. Not a gate.",
-        exitMix
+        exitMix,
+        "exit mix"
       );
       appendHonestyFold(
         "promote-exit-euros",
         "Exit euros",
         "count ≠ €",
         "Which close reason owns the euros. Warn only. Not a gate.",
-        euros
+        euros,
+        "exit euros"
       );
       appendHonestyFold(
         "promote-fee-pressure",
         "Fee pressure",
         "leftover vs book",
         "Clash leftover fees versus window fees. Warn only. Not a gate.",
-        pressure
+        pressure,
+        "fee pressure"
       );
       wrap.appendChild(details);
     }

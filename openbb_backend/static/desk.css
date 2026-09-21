@@ -2084,6 +2084,11 @@ a:active {
   font-weight: 400;
 }
 
+.promote-honesty > summary .meta .warn,
+.promote-honesty.warn > summary {
+  color: var(--down);
+}
+
 .chop-honesty[open] > summary,
 .promote-honesty[open] > summary {
   margin-bottom: 0.25rem;

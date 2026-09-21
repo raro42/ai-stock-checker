@@ -2246,6 +2246,7 @@ def build_promote_ab_glance(
     exit_euro_line = ""
     fee_pressure_line = ""
     edge_line = ""
+    honesty_warns: list[str] = []
     summary_status = status
     if honesty_bits:
         joined = " · ".join(honesty_bits)
@@ -2319,6 +2320,91 @@ def build_promote_ab_glance(
             exit_euro_line = " · ".join(exit_euro_bits)
             fee_pressure_line = " · ".join(fee_pressure_bits)
             edge_line = " · ".join(edge_bits)
+            # Name hot folds on the summary (xang1234 severity). Quiet stays quiet.
+            if fees_line and (a_fee_drag_bit or fees_thin):
+                honesty_warns.append("fees")
+            if polarity_line and (closes_all_loss or closes_loss_lean):
+                honesty_warns.append("polarity")
+            if edge_line and (
+                closes_win_rate_thin
+                or closes_wr_below_be
+                or closes_wr_edge_thin
+                or closes_payoff_thin
+                or closes_expectancy_neg
+                or closes_expectancy_thin
+                or closes_net_expectancy_neg
+                or closes_net_expectancy_thin
+                or closes_net_expectancy_eats_edge
+                or closes_fee_take_thin
+                or closes_net_vs_fee_thin
+                or closes_profit_factor_thin
+                or closes_net_profit_factor_thin
+                or closes_net_profit_factor_eats_edge
+            ):
+                honesty_warns.append("edge")
+            if kelly_line and (
+                closes_kelly_neg
+                or closes_kelly_thin
+                or closes_half_kelly_under
+                or closes_half_kelly_slot_under
+                or closes_half_kelly_cap_under
+                or closes_quarter_kelly_under
+                or closes_quarter_kelly_slot_under
+                or closes_quarter_kelly_cap_under
+                or closes_practical_kelly_cut
+                or closes_kelly_sample_thin
+            ):
+                honesty_warns.append("Kelly")
+            if streak_line and (
+                closes_loss_streak_hot
+                or closes_loss_streak_max_hot
+                or closes_loss_streak_mean_hot
+                or closes_loss_streak_median_hot
+                or closes_loss_streak_min_hot
+                or closes_loss_streak_stdev_hot
+                or closes_loss_streak_cv_hot
+                or closes_flat_warn
+            ):
+                honesty_warns.append("streaks")
+            if exit_mix_line and (
+                closes_exit_mix_hot
+                or closes_exit_tp_share_thin
+                or closes_exit_sl_share_hot
+                or closes_exit_rot_share_hot
+                or closes_exit_trim_share_hot
+                or closes_exit_lead_hot
+                or closes_exit_unknown_warn
+            ):
+                honesty_warns.append("exit mix")
+            if exit_euro_line and (
+                closes_exit_euro_lead_hot
+                or closes_exit_euro_offset_hot
+                or closes_exit_euro_gap_hot
+                or closes_exit_euro_conc_hot
+                or closes_exit_euro_count_skew_hot
+                or closes_exit_euro_size_hot
+                or closes_exit_euro_size_n_thin
+                or closes_exit_euro_size_rest_n_thin
+                or closes_exit_euro_size_sign_loss
+                or closes_exit_euro_size_rest_sign_loss
+                or closes_exit_euro_size_sign_clash_loss
+                or closes_exit_euro_size_sign_clash_net_loss
+                or closes_exit_euro_size_sign_clash_keep_thin
+            ):
+                honesty_warns.append("exit euros")
+            if fee_pressure_line and (
+                closes_exit_euro_size_sign_clash_keep_fees_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_warn
+            ):
+                honesty_warns.append("fee pressure")
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
@@ -2349,6 +2435,7 @@ def build_promote_ab_glance(
         "exit_euro_line": exit_euro_line,
         "fee_pressure_line": fee_pressure_line,
         "edge_line": edge_line,
+        "honesty_warns": honesty_warns,
         "window": window,
         "trading_days": days,
         "target_days": need,

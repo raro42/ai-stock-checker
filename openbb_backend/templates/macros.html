@@ -243,8 +243,9 @@
     <a class="promote-ab-glance-link" href="{{ link_href }}">{{ link_label }}</a>
   </p>
   {% if glance.honesty_line %}
+  {% set warns = glance.honesty_warns if glance.honesty_warns else [] %}
   <details class="promote-honesty" id="promote-honesty">
-    <summary>Close honesty <span class="meta">fees · polarity · edge · Kelly · streaks · exits</span></summary>
+    <summary>Close honesty <span class="meta">{% if warns %}<span class="warn">warn</span> · {{ warns | join(' · ') }}{% else %}quiet{% endif %}</span></summary>
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>
@@ -252,57 +253,57 @@
     <p class="weight">{{ glance.honesty_line }}</p>
     {% endif %}
     {% if glance.fees_line %}
-    <details class="promote-honesty promote-fees">
-      <summary>Fees <span class="meta">drag · comfortable</span></summary>
+    <details class="promote-honesty promote-fees{% if 'fees' in warns %} warn{% endif %}">
+      <summary>Fees <span class="meta">drag · comfortable{% if 'fees' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Window fees versus realized. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.fees_line }}</p>
     </details>
     {% endif %}
     {% if glance.polarity_line %}
-    <details class="promote-honesty promote-polarity">
-      <summary>Polarity <span class="meta">wins · losses</span></summary>
+    <details class="promote-honesty promote-polarity{% if 'polarity' in warns %} warn{% endif %}">
+      <summary>Polarity <span class="meta">wins · losses{% if 'polarity' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">How the closes split. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.polarity_line }}</p>
     </details>
     {% endif %}
     {% if glance.edge_line %}
-    <details class="promote-honesty promote-edge">
-      <summary>Edge <span class="meta">payoff · WR · PF</span></summary>
+    <details class="promote-honesty promote-edge{% if 'edge' in warns %} warn{% endif %}">
+      <summary>Edge <span class="meta">payoff · WR · PF{% if 'edge' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Close quality after fees. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.edge_line }}</p>
     </details>
     {% endif %}
     {% if glance.kelly_line %}
-    <details class="promote-honesty promote-kelly">
-      <summary>Kelly <span class="meta">size vs sizer</span></summary>
+    <details class="promote-honesty promote-kelly{% if 'Kelly' in warns %} warn{% endif %}">
+      <summary>Kelly <span class="meta">size vs sizer{% if 'Kelly' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Full, half, and quarter Kelly versus the cash slice. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.kelly_line }}</p>
     </details>
     {% endif %}
     {% if glance.streak_line %}
-    <details class="promote-honesty promote-streaks">
-      <summary>Streaks <span class="meta">win · loss runs</span></summary>
+    <details class="promote-honesty promote-streaks{% if 'streaks' in warns %} warn{% endif %}">
+      <summary>Streaks <span class="meta">win · loss runs{% if 'streaks' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Newest and past close runs, plus flat sells. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.streak_line }}</p>
     </details>
     {% endif %}
     {% if glance.exit_mix_line %}
-    <details class="promote-honesty promote-exit-mix">
-      <summary>Exit mix <span class="meta">tp · sl · rot · trim</span></summary>
+    <details class="promote-honesty promote-exit-mix{% if 'exit mix' in warns %} warn{% endif %}">
+      <summary>Exit mix <span class="meta">tp · sl · rot · trim{% if 'exit mix' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Which close reasons fired (counts, not euros). Warn only. Not a gate.</p>
       <p class="weight">{{ glance.exit_mix_line }}</p>
     </details>
     {% endif %}
     {% if glance.exit_euro_line %}
-    <details class="promote-honesty promote-exit-euros">
-      <summary>Exit euros <span class="meta">count ≠ €</span></summary>
+    <details class="promote-honesty promote-exit-euros{% if 'exit euros' in warns %} warn{% endif %}">
+      <summary>Exit euros <span class="meta">count ≠ €{% if 'exit euros' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Which close reason owns the euros. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.exit_euro_line }}</p>
     </details>
     {% endif %}
     {% if glance.fee_pressure_line %}
-    <details class="promote-honesty promote-fee-pressure">
-      <summary>Fee pressure <span class="meta">leftover vs book</span></summary>
+    <details class="promote-honesty promote-fee-pressure{% if 'fee pressure' in warns %} warn{% endif %}">
+      <summary>Fee pressure <span class="meta">leftover vs book{% if 'fee pressure' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Clash leftover fees versus window fees. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.fee_pressure_line }}</p>
     </details>

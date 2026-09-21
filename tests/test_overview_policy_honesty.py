@@ -134,3 +134,6 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "promote-exit-mix" in js
     assert "promote-fees" in js
     assert "promote-polarity" in js
+    assert "glance.honesty_warns" in macro
+    assert "glance.honesty_warns" in js
+    assert ".promote-honesty.warn" in css

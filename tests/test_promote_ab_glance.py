@@ -58,6 +58,7 @@ def test_promote_ab_glance_running() -> None:
     assert g["exit_euro_line"] == ""
     assert g["fee_pressure_line"] == ""
     assert g["edge_line"] == ""
+    assert g["honesty_warns"] == []
     assert g["summary_line"] == g["line"]
     assert g["a_fill_progress_bit"] == ""
 
@@ -864,6 +865,7 @@ def test_promote_ab_glance_fees_thin_warns_but_ready_for_b() -> None:
     assert g["fees_ok_severity"] == "thin"
     assert g["sample_fresh_closes"] is True
     assert "A fees thin · net +€20 · fees 0.8×" in g["line"]
+    assert "fees" in g["honesty_warns"]
     assert "A fees ok" not in g["line"]
     assert "A fee drag" not in g["line"]
     assert "A fresh closes" in g["line"]
