@@ -8233,6 +8233,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit,
         window_a_sample_readiness,
     )
 
@@ -8287,6 +8288,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert (
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit(
+            None
+        )
+        == ""
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit(
             None
         )
         == ""
@@ -9508,6 +9515,82 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert clash_better["ready"] is True
 
+    # Both × and % thin: align speaks; clash stays silent. Worse warns.
+    align_thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 4,
+            "sells": 8,
+            "wins": 6,
+            "losses": 2,
+            "fees": 39.0,
+            "realized_pnl": 77.75,
+            "exit_tp": 6,
+            "exit_sl": 2,
+            "exit_rot": 0,
+            "exit_trim": 0,
+            "exit_pnl_tp": 100.0,
+            "exit_pnl_sl": -5.0,
+            "exit_pnl_rot": 0.0,
+            "exit_pnl_trim": 0.0,
+        }
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta"
+        ]
+        == "thin"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta"
+        ]
+        == "thin"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta"
+        ]
+        == ""
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align"
+        ]
+        == "align"
+    )
+    align_thin_bit = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align · thin"
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit"
+        ]
+        == align_thin_bit
+    )
+    assert (
+        align_thin[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_warn"
+        ]
+        is True
+    )
+    assert (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit(
+            align_thin
+        )
+        == align_thin_bit
+    )
+    assert align_thin["ready"] is True
+
+    # Mid × / wide % clash: align stays silent (not a same-lean confirm).
+    assert (
+        clash[
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align"
+        ]
+        == ""
+    )
+
     glance_clash = build_promote_ab_glance(
         {
             "promote_experiment_strategy": False,
@@ -9706,7 +9789,19 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     assert gap_dir_sides_share_delta_worse in glance_worse["honesty_line"]
     assert gap_dir_sides_share_delta_worse in glance_worse["fee_pressure_line"]
-    assert "share vs Δ" not in glance_worse["fee_pressure_line"]
+    align_worse = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align · wide"
+    )
+    assert align_worse in glance_worse["honesty_line"]
+    assert align_worse in glance_worse["fee_pressure_line"]
+    assert (
+        glance_worse[
+            "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit"
+        ]
+        == align_worse
+    )
+    assert "share vs Δ clash" not in glance_worse["fee_pressure_line"]
     assert "clash keep fees" not in glance_worse["honesty_core"]
     assert "A exits €" not in glance_worse["honesty_core"]
     assert "A exits €" in glance_worse["exit_euro_line"]
