@@ -818,6 +818,7 @@ def build_promote_ab_glance(
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit,
         format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit,
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit,
         format_window_a_closes_exit_unknown_bit,
         format_window_a_closes_flat_bit,
         format_window_a_closes_win_rate_bit,
@@ -1039,6 +1040,8 @@ def build_promote_ab_glance(
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn": False,
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align": "",
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_warn": False,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_neg": False,
         "closes_net_expectancy_severity": "",
@@ -1120,6 +1123,7 @@ def build_promote_ab_glance(
         "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit": "",
         "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit": "",
         "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit": "",
+        "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit": "",
         "a_closes_exit_unknown_bit": "",
         "a_closes_flat_bit": "",
         "a_closes_payoff_bit": "",
@@ -1521,6 +1525,21 @@ def build_promote_ab_glance(
             )
         )
     )
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size = (
+        str(
+            sample.get(
+                "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size"
+            )
+            or ""
+        )
+    )
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn = (
+        bool(
+            sample.get(
+                "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn"
+            )
+        )
+    )
     closes_net_expectancy = sample.get("closes_net_expectancy")
     closes_net_expectancy_neg = bool(sample.get("closes_net_expectancy_neg"))
     closes_net_expectancy_severity = str(
@@ -1828,6 +1847,13 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit = (
+        format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit(
+            sample
+        )
+        if window == "A"
+        else ""
+    )
     a_closes_exit_unknown_bit = (
         format_window_a_closes_exit_unknown_bit(sample) if window == "A" else ""
     )
@@ -1921,6 +1947,7 @@ def build_promote_ab_glance(
                 a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit,
                 a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit,
                 a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit,
+                a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit,
                 a_closes_exit_unknown_bit,
                 a_closes_flat_bit,
                 a_closes_payoff_bit,
@@ -1998,6 +2025,7 @@ def build_promote_ab_glance(
             or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_warn
             or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn
             or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_warn
+            or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn
             or closes_exit_unknown_warn
             or closes_payoff_thin
             or closes_expectancy_neg
@@ -2116,6 +2144,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit
                 or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit
                 or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit
+                or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -2218,6 +2247,7 @@ def build_promote_ab_glance(
                 or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_bit
                 or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_bit
                 or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit
+                or a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit
                 or a_closes_exit_unknown_bit
                 or a_closes_flat_bit
                 or a_closes_payoff_bit
@@ -2403,6 +2433,7 @@ def build_promote_ab_glance(
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_warn
+                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn
             ):
                 honesty_warns.append("fee pressure")
     parts = [
@@ -2957,6 +2988,16 @@ def build_promote_ab_glance(
             if window == "A"
             else False
         ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size
+            if window == "A"
+            else ""
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_warn
+            if window == "A"
+            else False
+        ),
         "closes_net_expectancy": closes_net_expectancy if window == "A" else None,
         "closes_net_expectancy_neg": (
             closes_net_expectancy_neg if window == "A" else False
@@ -3089,6 +3130,9 @@ def build_promote_ab_glance(
         ),
         "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit": (
             a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_bit
+        ),
+        "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit": (
+            a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit
         ),
         "a_closes_exit_unknown_bit": a_closes_exit_unknown_bit,
         "a_closes_flat_bit": a_closes_flat_bit,
