@@ -2753,6 +2753,7 @@ def build_promote_ab_glance(
     exit_euro_line = ""
     fee_pressure_line = ""
     align_nest_line = ""
+    align_deep_line = ""
     edge_line = ""
     honesty_warns: list[str] = []
     summary_status = status
@@ -2767,13 +2768,26 @@ def build_promote_ab_glance(
             fee_pressure_all = [b for b in honesty_bits if "clash keep fees" in b]
             # Nested align cascade after first share vs Δ align (MonsterDeveloper
             # declutter + xang1234 severity). First align stays on fee pressure.
-            align_nest_bits = [
+            # Deep = second cascade after nested share vs Δ align (Level C+).
+            _ALIGN_DEEP_MARK = (
+                "align lead size sides share vs Δ align size",
+                "align lead size sides share vs Δ align lead",
+            )
+            align_cascade_bits = [
                 b
                 for b in fee_pressure_all
                 if "share vs Δ align size" in b or "share vs Δ align lead" in b
             ]
+            align_deep_bits = [
+                b
+                for b in align_cascade_bits
+                if any(m in b for m in _ALIGN_DEEP_MARK)
+            ]
+            align_nest_bits = [
+                b for b in align_cascade_bits if b not in align_deep_bits
+            ]
             fee_pressure_bits = [
-                b for b in fee_pressure_all if b not in align_nest_bits
+                b for b in fee_pressure_all if b not in align_cascade_bits
             ]
             exit_euro_bits = [
                 b
@@ -2821,6 +2835,7 @@ def build_promote_ab_glance(
             folded = {
                 *fee_pressure_bits,
                 *align_nest_bits,
+                *align_deep_bits,
                 *exit_euro_bits,
                 *exit_mix_bits,
                 *kelly_bits,
@@ -2839,6 +2854,7 @@ def build_promote_ab_glance(
             exit_euro_line = " · ".join(exit_euro_bits)
             fee_pressure_line = " · ".join(fee_pressure_bits)
             align_nest_line = " · ".join(align_nest_bits)
+            align_deep_line = " · ".join(align_deep_bits)
             edge_line = " · ".join(edge_bits)
             # Name hot folds on the summary (xang1234 severity). Quiet stays quiet.
             if fees_line and (a_fee_drag_bit or fees_thin):
@@ -2935,7 +2951,10 @@ def build_promote_ab_glance(
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_delta_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_warn
-                or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_size_warn
+            ):
+                honesty_warns.append("align nest")
+            if align_deep_line and (
+                closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_size_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_warn
@@ -2945,7 +2964,7 @@ def build_promote_ab_glance(
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_warn
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_warn
             ):
-                honesty_warns.append("align nest")
+                honesty_warns.append("align deep")
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
@@ -2976,6 +2995,7 @@ def build_promote_ab_glance(
         "exit_euro_line": exit_euro_line,
         "fee_pressure_line": fee_pressure_line,
         "align_nest_line": align_nest_line,
+        "align_deep_line": align_deep_line,
         "edge_line": edge_line,
         "honesty_warns": honesty_warns,
         "window": window,

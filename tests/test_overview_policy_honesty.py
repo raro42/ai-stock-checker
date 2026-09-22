@@ -123,6 +123,7 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "glance.fees_line" in macro
     assert "glance.polarity_line" in macro
     assert "glance.align_nest_line" in macro
+    assert "glance.align_deep_line" in macro
     assert ".promote-kelly" in css
     assert ".promote-streaks" in css
     assert ".promote-edge" in css
@@ -130,6 +131,7 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert ".promote-fees" in css
     assert ".promote-polarity" in css
     assert ".promote-align-nest" in css
+    assert ".promote-align-deep" in css
     assert "promote-kelly" in js
     assert "promote-streaks" in js
     assert "promote-edge" in js
@@ -137,6 +139,7 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "promote-fees" in js
     assert "promote-polarity" in js
     assert "promote-align-nest" in js
+    assert "promote-align-deep" in js
     assert "glance.honesty_warns" in macro
     assert "glance.honesty_warns" in js
     assert "{% if warns %} open{% endif %}" in macro
@@ -145,5 +148,6 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "{% if 'fees' in warns %} open{% endif %}" in macro
     assert "{% if 'fee pressure' in warns %} open{% endif %}" in macro
     assert "{% if 'align nest' in warns %} open{% endif %}" in macro
+    assert "{% if 'align deep' in warns %} open{% endif %}" in macro
     assert "fold.open = hot" in js
     assert ".promote-honesty.warn" in css

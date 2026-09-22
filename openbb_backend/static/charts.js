@@ -1692,6 +1692,9 @@
       var alignNest = glance.align_nest_line
         ? String(glance.align_nest_line)
         : "";
+      var alignDeep = glance.align_deep_line
+        ? String(glance.align_deep_line)
+        : "";
       var edge = glance.edge_line ? String(glance.edge_line) : "";
       function appendHonestyFold(className, title, metaText, noteText, body, label) {
         if (!body) return;
@@ -1722,6 +1725,7 @@
           !polarity &&
           !pressure &&
           !alignNest &&
+          !alignDeep &&
           !euros &&
           !exitMix &&
           !kelly &&
@@ -1804,6 +1808,14 @@
         "Nested align cascade after first share vs Δ. Warn only. Not a gate.",
         alignNest,
         "align nest"
+      );
+      appendHonestyFold(
+        "promote-align-deep",
+        "Align deep",
+        "nested size · lead · share",
+        "Second nest after nested share vs Δ align. Warn only. Not a gate.",
+        alignDeep,
+        "align deep"
       );
       wrap.appendChild(details);
     }
