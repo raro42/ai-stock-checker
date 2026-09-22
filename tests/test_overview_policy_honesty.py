@@ -144,10 +144,11 @@ def test_promote_honesty_fold_in_macro_and_charts() -> None:
     assert "glance.honesty_warns" in js
     assert "|length }} hot" in macro
     assert "of {{ glance.honesty_fold_count }}" in macro
-    assert "quiet · {{ glance.honesty_fold_count }} folds" in macro
+    assert "quiet · {{ glance.honesty_fold_count }} folds · {{ glance.honesty_folds | join(' · ') }}" in macro
     assert "honesty_warn_count" in js
     assert "honesty_fold_count" in js
-    assert 'meta.textContent = "quiet · " + foldN + " folds"' in js
+    assert "honesty_folds" in js
+    assert '"quiet · " + folds.length + " folds · " + folds.join(" · ")' in js
     assert '" · " + hotN + " hot" + ofTotal + " · "' in js
     assert "{% if warns %} open{% endif %}" in macro
     assert "details.open = warns.length > 0" in js

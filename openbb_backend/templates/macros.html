@@ -245,7 +245,7 @@
   {% if glance.honesty_line %}
   {% set warns = glance.honesty_warns if glance.honesty_warns else [] %}
   <details class="promote-honesty" id="promote-honesty"{% if warns %} open{% endif %}>
-    <summary>Close honesty <span class="meta">{% if warns %}<span class="warn">warn</span> · {{ warns|length }} hot{% if glance.honesty_fold_count %} of {{ glance.honesty_fold_count }}{% endif %} · {{ warns | join(' · ') }}{% elif glance.honesty_fold_count %}quiet · {{ glance.honesty_fold_count }} folds{% else %}quiet{% endif %}</span></summary>
+    <summary>Close honesty <span class="meta">{% if warns %}<span class="warn">warn</span> · {{ warns|length }} hot{% if glance.honesty_fold_count %} of {{ glance.honesty_fold_count }}{% endif %} · {{ warns | join(' · ') }}{% elif glance.honesty_folds %}quiet · {{ glance.honesty_fold_count }} folds · {{ glance.honesty_folds | join(' · ') }}{% elif glance.honesty_fold_count %}quiet · {{ glance.honesty_fold_count }} folds{% else %}quiet{% endif %}</span></summary>
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>

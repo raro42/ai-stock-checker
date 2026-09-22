@@ -2965,6 +2965,23 @@ def build_promote_ab_glance(
                 or closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_warn
             ):
                 honesty_warns.append("align deep")
+    # Populated child-fold labels (same order as folds). Quiet summary names them.
+    honesty_folds = [
+        label
+        for label, line in (
+            ("fees", fees_line),
+            ("polarity", polarity_line),
+            ("edge", edge_line),
+            ("Kelly", kelly_line),
+            ("streaks", streak_line),
+            ("exit mix", exit_mix_line),
+            ("exit euros", exit_euro_line),
+            ("fee pressure", fee_pressure_line),
+            ("align nest", align_nest_line),
+            ("align deep", align_deep_line),
+        )
+        if (line or "").strip()
+    ]
     parts = [
         f"Window {window}",
         f"promote {promote_label}",
@@ -3002,23 +3019,10 @@ def build_promote_ab_glance(
         # every fold name (MonsterDeveloper declutter + xang1234 severity).
         "honesty_warn_count": len(honesty_warns),
         # Child-fold inventory (portfolio AI speak-both-sides + xang1234):
-        # quiet · N folds / warn · N hot of M. honesty_core is not a fold.
-        "honesty_fold_count": sum(
-            1
-            for line in (
-                fees_line,
-                polarity_line,
-                edge_line,
-                kelly_line,
-                streak_line,
-                exit_mix_line,
-                exit_euro_line,
-                fee_pressure_line,
-                align_nest_line,
-                align_deep_line,
-            )
-            if (line or "").strip()
-        ),
+        # quiet · N folds · fees · … / warn · N hot of M. honesty_core is not
+        # a fold. Quiet names populated folds so friends need not open each.
+        "honesty_folds": honesty_folds,
+        "honesty_fold_count": len(honesty_folds),
         "window": window,
         "trading_days": days,
         "target_days": need,

@@ -1664,6 +1664,9 @@
         typeof glance.honesty_fold_count === "number"
           ? glance.honesty_fold_count
           : 0;
+      var folds = Array.isArray(glance.honesty_folds)
+        ? glance.honesty_folds
+        : [];
       if (warns.length) {
         var warnWord = document.createElement("span");
         warnWord.className = "warn";
@@ -1679,6 +1682,9 @@
             " · " + hotN + " hot" + ofTotal + " · " + warns.join(" · ")
           )
         );
+      } else if (folds.length > 0) {
+        meta.textContent =
+          "quiet · " + folds.length + " folds · " + folds.join(" · ");
       } else if (foldN > 0) {
         meta.textContent = "quiet · " + foldN + " folds";
       } else {
