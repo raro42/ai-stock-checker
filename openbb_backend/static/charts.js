@@ -1677,9 +1677,22 @@
             ? glance.honesty_warn_count
             : warns.length;
         var ofTotal = foldN > 0 ? " of " + foldN : "";
+        var quietFolds = Array.isArray(glance.honesty_quiet_folds)
+          ? glance.honesty_quiet_folds
+          : [];
+        var quietTail =
+          quietFolds.length > 0
+            ? " · quiet · " + quietFolds.join(" · ")
+            : "";
         meta.appendChild(
           document.createTextNode(
-            " · " + hotN + " hot" + ofTotal + " · " + warns.join(" · ")
+            " · " +
+              hotN +
+              " hot" +
+              ofTotal +
+              " · " +
+              warns.join(" · ") +
+              quietTail
           )
         );
       } else if (folds.length > 0) {

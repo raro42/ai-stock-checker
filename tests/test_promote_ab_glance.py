@@ -64,6 +64,8 @@ def test_promote_ab_glance_running() -> None:
     assert g["honesty_warn_count"] == 0
     assert g["honesty_folds"] == []
     assert g["honesty_fold_count"] == 0
+    assert g["honesty_quiet_folds"] == []
+    assert g["honesty_quiet_fold_count"] == 0
     assert g["summary_line"] == g["line"]
     assert g["a_fill_progress_bit"] == ""
 
@@ -857,6 +859,9 @@ def test_promote_ab_glance_fees_comfortable_ready_for_b() -> None:
     assert len(g["honesty_folds"]) == g["honesty_fold_count"]
     assert "fees" in g["honesty_folds"]
     assert all(isinstance(name, str) and name for name in g["honesty_folds"])
+    # Fully calm: quiet folds == all populated folds.
+    assert g["honesty_quiet_folds"] == g["honesty_folds"]
+    assert g["honesty_quiet_fold_count"] == g["honesty_fold_count"]
     # Warn labels are a subset of populated fold labels when hot.
     assert set(g["honesty_warns"]).issubset(set(g["honesty_folds"]))
 
@@ -907,6 +912,12 @@ def test_promote_ab_glance_fees_thin_warns_but_ready_for_b() -> None:
     assert g["honesty_folds"]
     assert "fees" in g["honesty_folds"]
     assert set(g["honesty_warns"]).issubset(set(g["honesty_folds"]))
+    # Hot also names calm folds (speak-both-sides after quiet fold names).
+    assert "fees" not in g["honesty_quiet_folds"]
+    assert g["honesty_quiet_fold_count"] == len(g["honesty_quiet_folds"])
+    assert g["honesty_quiet_fold_count"] == g["honesty_fold_count"] - g["honesty_warn_count"]
+    assert set(g["honesty_quiet_folds"]).isdisjoint(set(g["honesty_warns"]))
+    assert set(g["honesty_quiet_folds"]) | set(g["honesty_warns"]) == set(g["honesty_folds"])
     assert "A fees ok" not in g["line"]
     assert "A fee drag" not in g["line"]
     assert "A fresh closes" in g["line"]
