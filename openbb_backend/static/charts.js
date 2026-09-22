@@ -1689,6 +1689,9 @@
       var pressure = glance.fee_pressure_line
         ? String(glance.fee_pressure_line)
         : "";
+      var alignNest = glance.align_nest_line
+        ? String(glance.align_nest_line)
+        : "";
       var edge = glance.edge_line ? String(glance.edge_line) : "";
       function appendHonestyFold(className, title, metaText, noteText, body, label) {
         if (!body) return;
@@ -1718,6 +1721,7 @@
         (!fees &&
           !polarity &&
           !pressure &&
+          !alignNest &&
           !euros &&
           !exitMix &&
           !kelly &&
@@ -1792,6 +1796,14 @@
         "Clash leftover fees versus window fees. Warn only. Not a gate.",
         pressure,
         "fee pressure"
+      );
+      appendHonestyFold(
+        "promote-align-nest",
+        "Align nest",
+        "size · lead · share",
+        "Nested align cascade after first share vs Δ. Warn only. Not a gate.",
+        alignNest,
+        "align nest"
       );
       wrap.appendChild(details);
     }

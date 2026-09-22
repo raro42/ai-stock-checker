@@ -57,6 +57,7 @@ def test_promote_ab_glance_running() -> None:
     assert g["exit_mix_line"] == ""
     assert g["exit_euro_line"] == ""
     assert g["fee_pressure_line"] == ""
+    assert g["align_nest_line"] == ""
     assert g["edge_line"] == ""
     assert g["honesty_warns"] == []
     assert g["summary_line"] == g["line"]
@@ -10455,15 +10456,16 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
             "last_sell": "2026-09-11T15:00:00+00:00",
         },
     )
-    assert align_thin_lead_size in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size in glance_lead_size["align_nest_line"]
+    assert align_thin_lead_size not in glance_lead_size["fee_pressure_line"]
     assert align_thin_lead_size in glance_lead_size["honesty_line"]
-    assert align_thin_lead_size_sides in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size_sides in glance_lead_size["align_nest_line"]
     assert align_thin_lead_size_sides in glance_lead_size["honesty_line"]
-    assert align_thin_lead_size_sides_share in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size_sides_share in glance_lead_size["align_nest_line"]
     assert align_thin_lead_size_sides_share in glance_lead_size["honesty_line"]
-    assert align_thin_lead_size_sides_share_delta in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size_sides_share_delta in glance_lead_size["align_nest_line"]
     assert align_thin_lead_size_sides_share_delta in glance_lead_size["honesty_line"]
-    assert align_thin_lead_size_sides_share_vs_delta in glance_lead_size["fee_pressure_line"]
+    assert align_thin_lead_size_sides_share_vs_delta in glance_lead_size["align_nest_line"]
     assert (
         glance_lead_size[
             "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_bit"
@@ -10510,12 +10512,13 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
             "last_sell": "2026-09-11T15:00:00+00:00",
         },
     )
-    assert align_wide_sides_delta in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_delta in glance_sides_delta["align_nest_line"]
+    assert align_wide_sides_delta not in glance_sides_delta["fee_pressure_line"]
     assert align_wide_sides_delta in glance_sides_delta["honesty_line"]
     assert align_wide_sides_delta not in glance_sides_delta["honesty_core"]
-    assert align_wide_sides_share in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share in glance_sides_delta["align_nest_line"]
     assert align_wide_sides_share in glance_sides_delta["honesty_line"]
-    assert align_wide_sides_share_delta in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share_delta in glance_sides_delta["align_nest_line"]
     assert align_wide_sides_share_delta in glance_sides_delta["honesty_line"]
     assert (
         glance_sides_delta[
@@ -10535,9 +10538,9 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         ]
         == align_wide_sides_share_delta
     )
-    assert align_wide_sides_share_vs_delta_align in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share_vs_delta_align in glance_sides_delta["align_nest_line"]
     assert align_wide_sides_share_vs_delta_align in glance_sides_delta["honesty_line"]
-    assert align_wide_sides_share_vs_delta_align_size in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share_vs_delta_align_size in glance_sides_delta["align_nest_line"]
     assert align_wide_sides_share_vs_delta_align_size in glance_sides_delta["honesty_line"]
     assert (
         glance_sides_delta[
@@ -10551,7 +10554,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         ]
         == align_wide_sides_share_vs_delta_align_size
     )
-    assert align_wide_sides_share_vs_delta_align_lead in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share_vs_delta_align_lead in glance_sides_delta["align_nest_line"]
     assert align_wide_sides_share_vs_delta_align_lead in glance_sides_delta["honesty_line"]
     assert (
         glance_sides_delta[
@@ -10559,7 +10562,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         ]
         == align_wide_sides_share_vs_delta_align_lead
     )
-    assert align_wide_sides_share_vs_delta_align_lead_size in glance_sides_delta["fee_pressure_line"]
+    assert align_wide_sides_share_vs_delta_align_lead_size in glance_sides_delta["align_nest_line"]
     assert align_wide_sides_share_vs_delta_align_lead_size in glance_sides_delta["honesty_line"]
     assert (
         glance_sides_delta[
@@ -10568,7 +10571,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         == align_wide_sides_share_vs_delta_align_lead_size
     )
     assert align_wide_sides_share_vs_delta_align_lead_size_sides in glance_sides_delta[
-        "fee_pressure_line"
+        "align_nest_line"
     ]
     assert align_wide_sides_share_vs_delta_align_lead_size_sides in glance_sides_delta[
         "honesty_line"
@@ -10580,7 +10583,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         == align_wide_sides_share_vs_delta_align_lead_size_sides
     )
     assert align_wide_sides_share_vs_delta_align_lead_size_sides_delta in glance_sides_delta[
-        "fee_pressure_line"
+        "align_nest_line"
     ]
     assert align_wide_sides_share_vs_delta_align_lead_size_sides_delta in glance_sides_delta[
         "honesty_line"
@@ -10592,7 +10595,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         == align_wide_sides_share_vs_delta_align_lead_size_sides_delta
     )
     assert align_wide_sides_share_vs_delta_align_lead_size_sides_share in glance_sides_delta[
-        "fee_pressure_line"
+        "align_nest_line"
     ]
     assert align_wide_sides_share_vs_delta_align_lead_size_sides_share in glance_sides_delta[
         "honesty_line"
@@ -10604,7 +10607,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         == align_wide_sides_share_vs_delta_align_lead_size_sides_share
     )
     assert align_wide_sides_share_vs_delta_align_lead_size_sides_share_delta in glance_sides_delta[
-        "fee_pressure_line"
+        "align_nest_line"
     ]
     assert align_wide_sides_share_vs_delta_align_lead_size_sides_share_delta in glance_sides_delta[
         "honesty_line"
@@ -10616,7 +10619,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         == align_wide_sides_share_vs_delta_align_lead_size_sides_share_delta
     )
     assert align_wide_nested_share_vs_delta_align in glance_sides_delta[
-        "fee_pressure_line"
+        "align_nest_line"
     ]
     assert align_wide_nested_share_vs_delta_align in glance_sides_delta[
         "honesty_line"
@@ -11330,14 +11333,17 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         "align size · −2× · −96pp"
     )
     assert align_size_worse in glance_worse["honesty_line"]
-    assert align_size_worse in glance_worse["fee_pressure_line"]
+    assert align_size_worse in glance_worse["align_nest_line"]
+    assert align_size_worse not in glance_worse["fee_pressure_line"]
     assert align_size_worse not in glance_worse["honesty_core"]
+    assert "align nest" in glance_worse["honesty_warns"]
     assert (
         glance_worse[
             "a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_size_bit"
         ]
         == align_size_worse
     )
+    assert "align size" not in glance_worse["fee_pressure_line"]
     assert "align lead" not in glance_worse["fee_pressure_line"]
     assert "align lead size" not in glance_worse["fee_pressure_line"]
     assert "align lead size sides" not in glance_worse["fee_pressure_line"]

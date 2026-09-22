@@ -249,7 +249,7 @@
     <p class="sub">Warn only. The short line above is the Window A decision. Not a gate.</p>
     {% if glance.honesty_core %}
     <p class="weight">{{ glance.honesty_core }}</p>
-    {% elif not glance.fees_line and not glance.polarity_line and not glance.fee_pressure_line and not glance.exit_euro_line and not glance.exit_mix_line and not glance.kelly_line and not glance.streak_line and not glance.edge_line %}
+    {% elif not glance.fees_line and not glance.polarity_line and not glance.fee_pressure_line and not glance.align_nest_line and not glance.exit_euro_line and not glance.exit_mix_line and not glance.kelly_line and not glance.streak_line and not glance.edge_line %}
     <p class="weight">{{ glance.honesty_line }}</p>
     {% endif %}
     {% if glance.fees_line %}
@@ -306,6 +306,13 @@
       <summary>Fee pressure <span class="meta">leftover vs book{% if 'fee pressure' in warns %} · warn{% endif %}</span></summary>
       <p class="sub">Clash leftover fees versus window fees. Warn only. Not a gate.</p>
       <p class="weight">{{ glance.fee_pressure_line }}</p>
+    </details>
+    {% endif %}
+    {% if glance.align_nest_line %}
+    <details class="promote-honesty promote-align-nest{% if 'align nest' in warns %} warn{% endif %}"{% if 'align nest' in warns %} open{% endif %}>
+      <summary>Align nest <span class="meta">size · lead · share{% if 'align nest' in warns %} · warn{% endif %}</span></summary>
+      <p class="sub">Nested align cascade after first share vs Δ. Warn only. Not a gate.</p>
+      <p class="weight">{{ glance.align_nest_line }}</p>
     </details>
     {% endif %}
   </details>
