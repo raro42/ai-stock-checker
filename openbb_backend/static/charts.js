@@ -1665,8 +1665,14 @@
         warnWord.className = "warn";
         warnWord.textContent = "warn";
         meta.appendChild(warnWord);
+        var hotN =
+          typeof glance.honesty_warn_count === "number"
+            ? glance.honesty_warn_count
+            : warns.length;
         meta.appendChild(
-          document.createTextNode(" · " + warns.join(" · "))
+          document.createTextNode(
+            " · " + hotN + " hot · " + warns.join(" · ")
+          )
         );
       } else {
         meta.textContent = "quiet";

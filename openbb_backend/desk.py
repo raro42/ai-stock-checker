@@ -2998,6 +2998,9 @@ def build_promote_ab_glance(
         "align_deep_line": align_deep_line,
         "edge_line": edge_line,
         "honesty_warns": honesty_warns,
+        # Count first so friends see how hot Close honesty is without scanning
+        # every fold name (MonsterDeveloper declutter + xang1234 severity).
+        "honesty_warn_count": len(honesty_warns),
         "window": window,
         "trading_days": days,
         "target_days": need,
