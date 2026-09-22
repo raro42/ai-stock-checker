@@ -364,6 +364,12 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # wide |Δ| ≥ WINDOW_A_FEES_THIN_RATIO. thin |Δ| < WINDOW_A_FEES_COMFORTABLE_RATIO.
 # Mid silent. Near-zero silent. Clash stays silent. worse warns only. Still
 # ready for B.
+# Exit € size clash keep fees vs drag gap dir sides share vs Δ align lead size sides share vs Δ align lead size sides share
+# (`closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share`):
+# louder% and quieter% of (louder + quieter) when nested sides already spoke
+# (portfolio AI + xang1234 €-conc share after absolute nested sides / Δ). Absolute
+# floor-units and additive Δ ≠ ownership of the loudness story. worse warns
+# only. Still ready for B.
 WINDOW_A_EXIT_CONC_SKEW_PP = (
     WINDOW_A_WIN_RATE_STRONG_PCT - WINDOW_A_WIN_RATE_THIN_PCT
 )
@@ -2045,6 +2051,42 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
     return lean, rounded, bit, vs == "worse"
 
 
+def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share(
+    sides_bit: str,
+    vs: str,
+    louder: float | None,
+    quieter: float | None,
+) -> tuple[float | None, float | None, str, bool]:
+    """Louder% and quieter% of floor-unit sum when nested align lead size sides spoke.
+
+    Nested sides speak absolute floor-units. Nested Δ speaks additive spread.
+    Share speaks ownership of that loudness pair (portfolio AI + xang1234
+    €-conc after absolute). Speak only when nested sides already spoke and
+    both loudnesses are > 0. ``worse`` warns only. Still ready for B.
+    """
+    if not (sides_bit or "").strip():
+        return None, None, "", False
+    if vs not in ("worse", "better"):
+        return None, None, "", False
+    if louder is None or quieter is None:
+        return None, None, "", False
+    loud = float(louder)
+    quiet = float(quieter)
+    if loud <= 0 or quiet <= 0:
+        return None, None, "", False
+    total = loud + quiet
+    if total < 1e-9:
+        return None, None, "", False
+    loud_pct = round(100.0 * loud / total, 1)
+    quiet_pct = round(100.0 - loud_pct, 1)
+    bit = (
+        "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
+        "align lead size sides share vs Δ align lead size sides share · "
+        f"louder {_fmt_share_pct(loud_pct)} · quieter {_fmt_share_pct(quiet_pct)}"
+    )
+    return loud_pct, quiet_pct, bit, vs == "worse"
+
+
 def _weekday_days_since(earlier: date, later: date) -> int:
     """Weekday trading days strictly after ``earlier`` through ``later``."""
     if later <= earlier:
@@ -2526,6 +2568,10 @@ def window_a_sample_readiness(
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_ratio": None,
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_bit": "",
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_warn": False,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct": None,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct": None,
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit": "",
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_warn": False,
         "closes_net_expectancy": None,
         "closes_net_expectancy_bit": "",
         "closes_net_expectancy_neg": False,
@@ -3454,6 +3500,18 @@ def window_a_sample_readiness(
         ""
     )
     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_warn = (
+        False
+    )
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct: (
+        float | None
+    ) = None
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct: (
+        float | None
+    ) = None
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit = (
+        ""
+    )
+    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_warn = (
         False
     )
     if closes_kelly_pct is not None:
@@ -4614,6 +4672,17 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_louder,
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_quieter,
                                 )
+                                (
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_warn,
+                                ) = _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share(
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_bit,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_louder,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_quieter,
+                                )
                 if n_unknown > 0:
                     closes_exit_unknown = n_unknown
                     closes_exit_unknown_bit = f"A exits unknown · {n_unknown}"
@@ -5353,6 +5422,18 @@ def window_a_sample_readiness(
         ),
         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_warn": (
             closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_warn
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit
+        ),
+        "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_warn": (
+            closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_warn
         ),
         "closes_net_expectancy": closes_net_expectancy,
         "closes_net_expectancy_bit": closes_net_expectancy_bit,
@@ -6280,6 +6361,21 @@ def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_
     bit = str(
         sample.get(
             "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_bit"
+        )
+        or ""
+    ).strip()
+    return bit
+
+
+def format_window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A nested align lead size sides share bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(
+        sample.get(
+            "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_bit"
         )
         or ""
     ).strip()
