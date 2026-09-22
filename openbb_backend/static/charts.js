@@ -1660,6 +1660,10 @@
       var warns = Array.isArray(glance.honesty_warns)
         ? glance.honesty_warns
         : [];
+      var foldN =
+        typeof glance.honesty_fold_count === "number"
+          ? glance.honesty_fold_count
+          : 0;
       if (warns.length) {
         var warnWord = document.createElement("span");
         warnWord.className = "warn";
@@ -1669,11 +1673,14 @@
           typeof glance.honesty_warn_count === "number"
             ? glance.honesty_warn_count
             : warns.length;
+        var ofTotal = foldN > 0 ? " of " + foldN : "";
         meta.appendChild(
           document.createTextNode(
-            " · " + hotN + " hot · " + warns.join(" · ")
+            " · " + hotN + " hot" + ofTotal + " · " + warns.join(" · ")
           )
         );
+      } else if (foldN > 0) {
+        meta.textContent = "quiet · " + foldN + " folds";
       } else {
         meta.textContent = "quiet";
       }

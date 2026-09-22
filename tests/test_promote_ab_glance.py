@@ -62,6 +62,7 @@ def test_promote_ab_glance_running() -> None:
     assert g["edge_line"] == ""
     assert g["honesty_warns"] == []
     assert g["honesty_warn_count"] == 0
+    assert g["honesty_fold_count"] == 0
     assert g["summary_line"] == g["line"]
     assert g["a_fill_progress_bit"] == ""
 
@@ -828,6 +829,28 @@ def test_promote_ab_glance_fees_comfortable_ready_for_b() -> None:
     assert "A fresh closes" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
+    # Quiet fold inventory (portfolio AI speak-both-sides + xang1234).
+    assert g["honesty_warns"] == []
+    assert g["honesty_warn_count"] == 0
+    assert g["fees_line"]
+    fold_lines = [
+        x
+        for x in (
+            g["fees_line"],
+            g["polarity_line"],
+            g["edge_line"],
+            g["kelly_line"],
+            g["streak_line"],
+            g["exit_mix_line"],
+            g["exit_euro_line"],
+            g["fee_pressure_line"],
+            g["align_nest_line"],
+            g["align_deep_line"],
+        )
+        if (x or "").strip()
+    ]
+    assert g["honesty_fold_count"] == len(fold_lines)
+    assert g["honesty_fold_count"] >= 1
 
 
 def test_promote_ab_glance_fees_thin_warns_but_ready_for_b() -> None:
@@ -871,6 +894,8 @@ def test_promote_ab_glance_fees_thin_warns_but_ready_for_b() -> None:
     assert "fees" in g["honesty_warns"]
     assert g["honesty_warn_count"] == len(g["honesty_warns"])
     assert g["honesty_warn_count"] >= 1
+    assert g["honesty_fold_count"] >= g["honesty_warn_count"]
+    assert g["honesty_fold_count"] >= 1
     assert "A fees ok" not in g["line"]
     assert "A fee drag" not in g["line"]
     assert "A fresh closes" in g["line"]

@@ -3001,6 +3001,24 @@ def build_promote_ab_glance(
         # Count first so friends see how hot Close honesty is without scanning
         # every fold name (MonsterDeveloper declutter + xang1234 severity).
         "honesty_warn_count": len(honesty_warns),
+        # Child-fold inventory (portfolio AI speak-both-sides + xang1234):
+        # quiet · N folds / warn · N hot of M. honesty_core is not a fold.
+        "honesty_fold_count": sum(
+            1
+            for line in (
+                fees_line,
+                polarity_line,
+                edge_line,
+                kelly_line,
+                streak_line,
+                exit_mix_line,
+                exit_euro_line,
+                fee_pressure_line,
+                align_nest_line,
+                align_deep_line,
+            )
+            if (line or "").strip()
+        ),
         "window": window,
         "trading_days": days,
         "target_days": need,
