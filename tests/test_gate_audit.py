@@ -13,6 +13,7 @@ from stock_checker.gate_audit import (
     log_soft_allow,
     recent_soft_allows,
     record_soft_allow,
+    soft_allow_event_key,
     soft_allow_is_expired,
 )
 
@@ -49,6 +50,28 @@ def test_soft_allow_cap(tmp_path: Path) -> None:
     events = load_soft_allows(tmp_path)
     assert len(events) == 3
     assert events[-1]["reason"] == "unknown #4"
+
+
+def test_soft_allow_rejects_duplicate_gate_reason(tmp_path: Path) -> None:
+    """tradermonty #447: same gate+reason refreshes stamp; no duplicate rows."""
+    assert soft_allow_event_key("Regime", "Unknown — no bars") == soft_allow_event_key(
+        "regime", "unknown — no bars"
+    )
+    record_soft_allow(tmp_path, "regime", "unknown — no bars")
+    record_soft_allow(tmp_path, "rs", "insufficient history")
+    first = load_soft_allows(tmp_path)
+    assert len(first) == 2
+    stamp0 = first[0]["at"]
+    record_soft_allow(tmp_path, "REGIME", "Unknown — no bars")
+    events = load_soft_allows(tmp_path)
+    assert len(events) == 2
+    assert events[0]["gate"] == "rs"
+    assert events[1]["gate"] == "REGIME"
+    assert events[1]["reason"] == "Unknown — no bars"
+    assert events[1]["at"] >= stamp0
+    # Distinct reason still accumulates under the same gate.
+    record_soft_allow(tmp_path, "regime", "unknown — empty Yahoo earnings window")
+    assert len(load_soft_allows(tmp_path)) == 3
 
 
 def test_log_soft_allow_persists(tmp_path: Path, capsys) -> None:

@@ -159,6 +159,17 @@ def format_expired_soft_allow_tally(
     return " · ".join(parts)
 
 
+def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:
+    """Identity for one soft-allow row (gate + reason, case-folded).
+
+    tradermonty #447 rejects duplicate hypothesis ids in multi-asset replay —
+    same idea here: one live fail-open key, refresh stamp instead of flooding.
+    """
+    g = str(gate or "").strip() or "?"
+    r = str(reason or "").strip()[:240]
+    return (g.casefold(), r.casefold())
+
+
 def record_soft_allow(
     data_dir: Path | str,
     gate: str,
@@ -166,16 +177,30 @@ def record_soft_allow(
     *,
     cap: int = SOFT_ALLOW_CAP,
 ) -> None:
-    """Append one soft-allow; keep the newest ``cap`` rows."""
+    """Append one soft-allow; keep the newest ``cap`` rows.
+
+    Replacing a prior row with the same gate+reason refreshes ``at`` and
+    drops the duplicate (tradermonty #447). Distinct reasons still accumulate.
+    """
     if not is_soft_allow_reason(reason):
         return
     path = soft_allow_path(data_dir)
-    events = load_soft_allows(data_dir)
+    gate_s = str(gate or "").strip() or "?"
+    reason_s = str(reason or "").strip()[:240]
+    key = soft_allow_event_key(gate_s, reason_s)
+    events = [
+        e
+        for e in load_soft_allows(data_dir)
+        if soft_allow_event_key(
+            str(e.get("gate") or ""), str(e.get("reason") or "")
+        )
+        != key
+    ]
     events.append(
         {
             "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "gate": str(gate or "").strip() or "?",
-            "reason": str(reason or "").strip()[:240],
+            "gate": gate_s,
+            "reason": reason_s,
         }
     )
     keep = max(1, int(cap))
