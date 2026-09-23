@@ -9,6 +9,7 @@ from stock_checker.gate_audit import (
     enrich_soft_allows,
     format_aging_soft_allow_tally,
     format_expired_soft_allow_tally,
+    format_fresh_soft_allow_tally,
     is_soft_allow_reason,
     load_soft_allows,
     log_soft_allow,
@@ -146,4 +147,23 @@ def test_soft_allow_aging_tally_consolidates() -> None:
     )
     assert all(r["freshness"] == "aging" for r in rows)
     assert format_aging_soft_allow_tally(rows) == "breadth×2 · rs×1"
+    assert format_expired_soft_allow_tally(rows) == ""
+
+
+def test_soft_allow_fresh_tally_consolidates() -> None:
+    """portfolio AI + xang1234: fresh gate tally completes the triad."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient b"},
+            {"at": fresh, "gate": "regime", "reason": "no SPY bars"},
+            {"at": aging, "gate": "breadth", "reason": "unknown scan"},
+        ],
+        now=now,
+    )
+    assert format_fresh_soft_allow_tally(rows) == "rs×2 · regime×1"
+    assert format_aging_soft_allow_tally(rows) == "breadth×1"
     assert format_expired_soft_allow_tally(rows) == ""

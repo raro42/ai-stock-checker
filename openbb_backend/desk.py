@@ -375,8 +375,8 @@ def build_soft_allow_glance(
     Shows only when the ring buffer has rows — links friends to Ops detail.
     Soft-allows use a fresh / aging / expired triad (xang1234 + RyanJHamby
     scan-age pattern): aging after ``aging_hours``, expired after
-    ``fresh_hours``. Speak aging + expired counts (+ gate tallies) so friends
-    see fail-opens cool off before Ops consolidates them.
+    ``fresh_hours``. Speak fresh + aging + expired counts (+ gate tallies)
+    so friends see live fail-opens beside rows that cool off.
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
@@ -384,6 +384,7 @@ def build_soft_allow_glance(
         enrich_soft_allows,
         format_aging_soft_allow_tally,
         format_expired_soft_allow_tally,
+        format_fresh_soft_allow_tally,
     )
 
     ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
@@ -399,6 +400,7 @@ def build_soft_allow_glance(
         "expired_count": 0,
         "fresh_hours": ttl,
         "aging_hours": aging_ttl,
+        "fresh_tally": "",
         "aging_tally": "",
         "expired_tally": "",
         "line": "",
@@ -421,15 +423,24 @@ def build_soft_allow_glance(
     # Unknown stamps count with fresh (fail-open — do not hide).
     unknown_n = n - expired_n - aging_n - fresh_n
     fresh_n += unknown_n
+    fresh_tally = format_fresh_soft_allow_tally(rows) if fresh_n else ""
     aging_tally = format_aging_soft_allow_tally(rows) if aging_n else ""
     expired_tally = format_expired_soft_allow_tally(rows) if expired_n else ""
     noun = "soft-allow" if n == 1 else "soft-allows"
+
+    def _append_band(
+        parts: list[str], label: str, count: int, tally: str
+    ) -> None:
+        if count <= 0:
+            return
+        parts.append(f"{count} {label}")
+        if tally:
+            parts.append(tally)
+
     if expired_n == 0 and aging_n == 0:
-        line = f"{n} recent {noun} · last [{gate}]"
-    elif expired_n == 0:
-        parts = [f"{n} {noun}", f"{aging_n} aging"]
-        if aging_tally:
-            parts.append(aging_tally)
+        parts = [f"{n} recent {noun}"]
+        if fresh_tally and (fresh_n > 1 or " · " in fresh_tally):
+            parts.append(fresh_tally)
         parts.append(f"last [{gate}]")
         line = " · ".join(parts)
     elif fresh_n == 0 and aging_n == 0:
@@ -439,13 +450,9 @@ def build_soft_allow_glance(
         line = f"{line} · last [{gate}]"
     else:
         parts = [f"{n} {noun}"]
-        if aging_n:
-            parts.append(f"{aging_n} aging")
-            if aging_tally:
-                parts.append(aging_tally)
-        parts.append(f"{expired_n} expired")
-        if expired_tally:
-            parts.append(expired_tally)
+        _append_band(parts, "fresh", fresh_n, fresh_tally)
+        _append_band(parts, "aging", aging_n, aging_tally)
+        _append_band(parts, "expired", expired_n, expired_tally)
         parts.append(f"last [{gate}]")
         line = " · ".join(parts)
     if reason_short:
@@ -459,6 +466,7 @@ def build_soft_allow_glance(
         "expired_count": expired_n,
         "fresh_hours": ttl,
         "aging_hours": aging_ttl,
+        "fresh_tally": fresh_tally,
         "aging_tally": aging_tally,
         "expired_tally": expired_tally,
         "line": line,

@@ -179,7 +179,8 @@ def soft_allow_band_tally(
     """Gate counts for one freshness band — sorted by count desc, then gate.
 
     ``band`` is ``fresh`` / ``aging`` / ``expired``. Expired also matches the
-    legacy ``expired`` bool when ``freshness`` is missing.
+    legacy ``expired`` bool when ``freshness`` is missing. Fresh also matches
+    ``unknown`` stamps (fail-open — same as glance ``fresh_count``).
     """
     want = str(band or "").strip().casefold()
     counts: dict[str, int] = {}
@@ -189,7 +190,10 @@ def soft_allow_band_tally(
         freshness = str(row.get("freshness") or "").strip().casefold()
         if not freshness and want == "expired" and row.get("expired"):
             freshness = "expired"
-        if freshness != want:
+        if want == "fresh":
+            if freshness not in ("fresh", "unknown"):
+                continue
+        elif freshness != want:
             continue
         gate = str(row.get("gate") or "?").strip() or "?"
         counts[gate] = counts.get(gate, 0) + 1
@@ -234,6 +238,20 @@ def format_aging_soft_allow_tally(
 ) -> str:
     """Compact ``breadth×1 · rs×1`` for aging soft-allows (portfolio AI + xang1234)."""
     return format_soft_allow_band_tally(events, band="aging")
+
+
+def fresh_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> list[tuple[str, int]]:
+    """Gate counts for fresh (+ unknown) rows — speak-both-sides with aging/expired."""
+    return soft_allow_band_tally(events, band="fresh")
+
+
+def format_fresh_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Compact ``rs×1 · regime×1`` for fresh soft-allows (portfolio AI + xang1234)."""
+    return format_soft_allow_band_tally(events, band="fresh")
 
 
 def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:
