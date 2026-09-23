@@ -1680,9 +1680,13 @@
         var quietFolds = Array.isArray(glance.honesty_quiet_folds)
           ? glance.honesty_quiet_folds
           : [];
+        var quietN =
+          typeof glance.honesty_quiet_fold_count === "number"
+            ? glance.honesty_quiet_fold_count
+            : quietFolds.length;
         var quietTail =
           quietFolds.length > 0
-            ? " · quiet · " + quietFolds.join(" · ")
+            ? " · quiet · " + quietN + " folds · " + quietFolds.join(" · ")
             : "";
         meta.appendChild(
           document.createTextNode(

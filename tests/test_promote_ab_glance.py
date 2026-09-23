@@ -912,10 +912,12 @@ def test_promote_ab_glance_fees_thin_warns_but_ready_for_b() -> None:
     assert g["honesty_folds"]
     assert "fees" in g["honesty_folds"]
     assert set(g["honesty_warns"]).issubset(set(g["honesty_folds"]))
-    # Hot also names calm folds (speak-both-sides after quiet fold names).
+    # Hot also names calm folds + calm count (speak-both-sides after quiet
+    # fold names; tradermonty preserve diagnostics when hot).
     assert "fees" not in g["honesty_quiet_folds"]
     assert g["honesty_quiet_fold_count"] == len(g["honesty_quiet_folds"])
     assert g["honesty_quiet_fold_count"] == g["honesty_fold_count"] - g["honesty_warn_count"]
+    assert g["honesty_quiet_fold_count"] >= 1
     assert set(g["honesty_quiet_folds"]).isdisjoint(set(g["honesty_warns"]))
     assert set(g["honesty_quiet_folds"]) | set(g["honesty_warns"]) == set(g["honesty_folds"])
     assert "A fees ok" not in g["line"]

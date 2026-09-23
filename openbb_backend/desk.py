@@ -2983,7 +2983,8 @@ def build_promote_ab_glance(
         if (line or "").strip()
     ]
     # Calm folds when hot (portfolio AI speak-both-sides): warn names heat;
-    # quiet names the rest so friends need not open every cold fold.
+    # quiet names the rest + count so friends need not open every cold fold
+    # (tradermonty preserve diagnostics).
     warn_set = set(honesty_warns)
     honesty_quiet_folds = [label for label in honesty_folds if label not in warn_set]
     parts = [
@@ -3023,9 +3024,10 @@ def build_promote_ab_glance(
         # every fold name (MonsterDeveloper declutter + xang1234 severity).
         "honesty_warn_count": len(honesty_warns),
         # Child-fold inventory (portfolio AI speak-both-sides + xang1234):
-        # quiet · N folds · fees · … / warn · N hot of M · quiet · edge · ….
+        # quiet · N folds · fees · … /
+        # warn · N hot of M · fees · … · quiet · K folds · edge · ….
         # honesty_core is not a fold. Quiet names populated folds; hot also
-        # names calm folds so friends need not open each.
+        # names calm folds + calm count (tradermonty preserve diagnostics).
         "honesty_folds": honesty_folds,
         "honesty_fold_count": len(honesty_folds),
         "honesty_quiet_folds": honesty_quiet_folds,
