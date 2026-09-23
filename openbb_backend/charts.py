@@ -1195,7 +1195,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         build_session_glance,
         build_soft_allow_glance,
     )
-    from stock_checker.gate_audit import recent_soft_allows
+    from stock_checker.gate_audit import enrich_soft_allows, recent_soft_allows
     from stock_checker.risk_halts import pretrade_status
 
     opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
@@ -1223,7 +1223,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "next_buy_glance": _next_buy_glance_from_portfolio(data_dir, portfolio),
         "soft_allow_glance": build_soft_allow_glance(
-            recent_soft_allows(data_dir, limit=12)
+            enrich_soft_allows(recent_soft_allows(data_dir, limit=12))
         ),
         "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),

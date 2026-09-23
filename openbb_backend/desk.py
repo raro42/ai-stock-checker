@@ -365,20 +365,37 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
 
 def build_soft_allow_glance(
     events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+    fresh_hours: float | None = None,
 ) -> dict[str, Any]:
     """Compact fail-open soft-allow memory (tradermonty; display only).
 
     Shows only when the ring buffer has rows — links friends to Ops detail.
+    Soft-allows older than ``fresh_hours`` are expired diagnostics
+    (tradermonty #437 consolidate): speak expired count + gate tally so
+    friends see stale fail-opens without opening every Ops row.
     """
+    from stock_checker.gate_audit import (
+        SOFT_ALLOW_FRESH_HOURS,
+        enrich_soft_allows,
+        format_expired_soft_allow_tally,
+    )
+
+    ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
     empty = {
         "ready": False,
         "tone": "flat",
         "count": 0,
+        "fresh_count": 0,
+        "expired_count": 0,
+        "fresh_hours": ttl,
+        "expired_tally": "",
         "line": "",
         "last_gate": "",
         "last_reason": "",
     }
-    rows = [e for e in (events or []) if isinstance(e, dict)]
+    rows = enrich_soft_allows(events, now=now, fresh_hours=ttl)
     if not rows:
         return empty
     last = rows[0]
@@ -386,14 +403,32 @@ def build_soft_allow_glance(
     reason = str(last.get("reason") or "").strip()
     reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
     n = len(rows)
+    expired_n = sum(1 for r in rows if r.get("expired"))
+    fresh_n = n - expired_n
+    tally = format_expired_soft_allow_tally(rows) if expired_n else ""
     noun = "soft-allow" if n == 1 else "soft-allows"
-    line = f"{n} recent {noun} · last [{gate}]"
+    if expired_n == 0:
+        line = f"{n} recent {noun} · last [{gate}]"
+    elif fresh_n == 0:
+        line = f"{n} expired {noun}"
+        if tally:
+            line = f"{line} · {tally}"
+        line = f"{line} · last [{gate}]"
+    else:
+        line = f"{n} {noun} · {expired_n} expired"
+        if tally:
+            line = f"{line} · {tally}"
+        line = f"{line} · last [{gate}]"
     if reason_short:
         line = f"{line} {reason_short}"
     return {
         "ready": True,
         "tone": "warn",
         "count": n,
+        "fresh_count": fresh_n,
+        "expired_count": expired_n,
+        "fresh_hours": ttl,
+        "expired_tally": tally,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,
@@ -9117,8 +9152,8 @@ def load_desk_snapshot(
         },
         {
             "title": "Soft-allow glance on Overview / Book",
-            "from": "tradermonty/claude-trading-skills (trader memory)",
-            "note": "One-line fail-open soft-allow count beside pretrade / risk — Ops keeps the full list; display only.",
+            "from": "tradermonty/claude-trading-skills (trader memory + #437 expired diagnostics)",
+            "note": "One-line fail-open soft-allow count beside pretrade / risk; expired (>24h) count + gate tally consolidated — Ops keeps the full list; display only.",
         },
         {
             "title": "Pretrade glance on Screener / Ideas / Book / Charts / Breadth",
@@ -9138,7 +9173,7 @@ def load_desk_snapshot(
         latest_ai_gated,
         recent_ai_debates,
     )
-    from stock_checker.gate_audit import recent_soft_allows
+    from stock_checker.gate_audit import enrich_soft_allows, recent_soft_allows
     from stock_checker.risk_halts import (
         book_risk_report,
         latest_stop_loss_sell,
@@ -9147,7 +9182,7 @@ def load_desk_snapshot(
         suggest_entry_notional,
     )
 
-    soft_allows = recent_soft_allows(data_dir, limit=12)
+    soft_allows = enrich_soft_allows(recent_soft_allows(data_dir, limit=12))
     ai_debates = recent_ai_debates(data_dir, limit=8)
     ai_actions = latest_ai_actions(data_dir)
     ai_confidences = latest_ai_confidences(data_dir)

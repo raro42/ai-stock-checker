@@ -440,12 +440,16 @@
 
   <section class="block soft-allows" aria-labelledby="soft-h">
     <h3 id="soft-h" class="subhead">Fail-open soft-allows</h3>
-    <p class="sub">When a gate passes because data is missing (unknown / no bars), the trader keeps a short memory here — not a block list.</p>
+    <p class="sub">When a gate passes because data is missing (unknown / no bars), the trader keeps a short memory here — not a block list. Rows older than 24h are expired diagnostics (consolidated on the glance).</p>
     {% if snap.soft_allows %}
+    {% if snap.soft_allow_glance.expired_count %}
+    <p class="sub soft-allow-expired-summary">Expired · {{ snap.soft_allow_glance.expired_count }}{% if snap.soft_allow_glance.expired_tally %} · {{ snap.soft_allow_glance.expired_tally }}{% endif %} · &gt;{{ snap.soft_allow_glance.fresh_hours | int }}h</p>
+    {% endif %}
     <ul class="soft-allow-list">
       {% for e in snap.soft_allows %}
-      <li>
+      <li{% if e.expired %} class="soft-allow-expired"{% endif %}>
         <span class="ops-mono">{{ e.at }}</span>
+        {% if e.expired %}<span class="meta soft-allow-expired-tag">expired</span>{% endif %}
         <span class="meta">[{{ e.gate }}]</span>
         <span class="why">{{ e.reason }}</span>
       </li>

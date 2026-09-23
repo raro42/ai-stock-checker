@@ -13,6 +13,8 @@ from typing import Any
 
 SOFT_ALLOW_FILE = "gate_soft_allows.json"
 SOFT_ALLOW_CAP = 40
+# tradermonty #437: soft-allows older than this are expired diagnostics.
+SOFT_ALLOW_FRESH_HOURS = 24.0
 _SOFT_MARKERS = (
     "unknown",
     "no bars",
@@ -58,6 +60,103 @@ def recent_soft_allows(
     lim = max(0, int(limit))
     events = load_soft_allows(data_dir)
     return list(reversed(events[-lim:])) if lim else []
+
+
+def parse_soft_allow_at(raw: Any) -> datetime | None:
+    """Parse a soft-allow ``at`` stamp (UTC). Unknown shapes → None."""
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        if raw.tzinfo is None:
+            return raw.replace(tzinfo=timezone.utc)
+        return raw.astimezone(timezone.utc)
+    text = str(raw).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        stamp = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        return stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
+
+
+def soft_allow_age_hours(
+    at: Any,
+    *,
+    now: datetime | None = None,
+) -> float | None:
+    """Hours since ``at``, or None when the stamp is missing/unparseable."""
+    stamp = parse_soft_allow_at(at)
+    if stamp is None:
+        return None
+    clock = now if now is not None else datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+    else:
+        clock = clock.astimezone(timezone.utc)
+    return max(0.0, (clock - stamp).total_seconds() / 3600.0)
+
+
+def soft_allow_is_expired(
+    at: Any,
+    *,
+    now: datetime | None = None,
+    fresh_hours: float = SOFT_ALLOW_FRESH_HOURS,
+) -> bool:
+    """True when age is known and older than ``fresh_hours``.
+
+    Missing/unparseable ``at`` stays fresh (fail-open — do not hide the row).
+    """
+    age = soft_allow_age_hours(at, now=now)
+    if age is None:
+        return False
+    return age > float(fresh_hours)
+
+
+def enrich_soft_allows(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+    fresh_hours: float = SOFT_ALLOW_FRESH_HOURS,
+) -> list[dict[str, Any]]:
+    """Copy rows with ``expired`` + ``age_hours`` for Ops / glance (display only)."""
+    out: list[dict[str, Any]] = []
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        copy = dict(row)
+        age = soft_allow_age_hours(copy.get("at"), now=now)
+        copy["age_hours"] = None if age is None else round(age, 2)
+        copy["expired"] = soft_allow_is_expired(
+            copy.get("at"), now=now, fresh_hours=fresh_hours
+        )
+        out.append(copy)
+    return out
+
+
+def expired_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> list[tuple[str, int]]:
+    """Gate counts for expired rows only — newest-first input; sorted by count desc."""
+    counts: dict[str, int] = {}
+    for row in events or []:
+        if not isinstance(row, dict) or not row.get("expired"):
+            continue
+        gate = str(row.get("gate") or "?").strip() or "?"
+        counts[gate] = counts.get(gate, 0) + 1
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+
+def format_expired_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Compact ``regime×2 · rs×1`` for expired soft-allows (tradermonty #437)."""
+    parts = [f"{gate}×{n}" for gate, n in expired_soft_allow_tally(events)]
+    return " · ".join(parts)
 
 
 def record_soft_allow(
