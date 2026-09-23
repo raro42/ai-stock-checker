@@ -15,6 +15,8 @@ SOFT_ALLOW_FILE = "gate_soft_allows.json"
 SOFT_ALLOW_CAP = 40
 # tradermonty #437: soft-allows older than this are expired diagnostics.
 SOFT_ALLOW_FRESH_HOURS = 24.0
+# xang1234 / RyanJHamby scan-age triad: aging before expired (display only).
+SOFT_ALLOW_AGING_HOURS = 12.0
 _SOFT_MARKERS = (
     "unknown",
     "no bars",
@@ -117,13 +119,39 @@ def soft_allow_is_expired(
     return age > float(fresh_hours)
 
 
+def soft_allow_freshness(
+    at: Any,
+    *,
+    now: datetime | None = None,
+    aging_hours: float = SOFT_ALLOW_AGING_HOURS,
+    fresh_hours: float = SOFT_ALLOW_FRESH_HOURS,
+) -> str:
+    """fresh / aging / expired / unknown — scan-age triad for fail-open rows.
+
+    Missing stamp → ``unknown`` (speak, do not hide). Not an entry gate.
+    """
+    age = soft_allow_age_hours(at, now=now)
+    if age is None:
+        return "unknown"
+    aging = float(aging_hours)
+    expire = float(fresh_hours)
+    if expire < aging:
+        expire = aging
+    if age > expire:
+        return "expired"
+    if age > aging:
+        return "aging"
+    return "fresh"
+
+
 def enrich_soft_allows(
     events: list[dict[str, Any]] | None,
     *,
     now: datetime | None = None,
     fresh_hours: float = SOFT_ALLOW_FRESH_HOURS,
+    aging_hours: float = SOFT_ALLOW_AGING_HOURS,
 ) -> list[dict[str, Any]]:
-    """Copy rows with ``expired`` + ``age_hours`` for Ops / glance (display only)."""
+    """Copy rows with freshness + ``expired`` + ``age_hours`` (display only)."""
     out: list[dict[str, Any]] = []
     for row in events or []:
         if not isinstance(row, dict):
@@ -131,9 +159,14 @@ def enrich_soft_allows(
         copy = dict(row)
         age = soft_allow_age_hours(copy.get("at"), now=now)
         copy["age_hours"] = None if age is None else round(age, 2)
-        copy["expired"] = soft_allow_is_expired(
-            copy.get("at"), now=now, fresh_hours=fresh_hours
+        band = soft_allow_freshness(
+            copy.get("at"),
+            now=now,
+            aging_hours=aging_hours,
+            fresh_hours=fresh_hours,
         )
+        copy["freshness"] = band
+        copy["expired"] = band == "expired"
         out.append(copy)
     return out
 

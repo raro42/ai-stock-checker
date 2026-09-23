@@ -14,6 +14,7 @@ from stock_checker.gate_audit import (
     recent_soft_allows,
     record_soft_allow,
     soft_allow_event_key,
+    soft_allow_freshness,
     soft_allow_is_expired,
 )
 
@@ -99,6 +100,31 @@ def test_soft_allow_expired_and_tally() -> None:
         now=now,
     )
     assert rows[0]["expired"] is False
+    assert rows[0]["freshness"] == "fresh"
     assert rows[1]["expired"] is True
+    assert rows[1]["freshness"] == "expired"
     assert rows[2]["expired"] is True
     assert format_expired_soft_allow_tally(rows) == "regime×2"
+
+
+def test_soft_allow_freshness_aging_band() -> None:
+    """xang1234 / RyanJHamby: aging between 12h and 24h before expired."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert soft_allow_freshness(fresh, now=now) == "fresh"
+    assert soft_allow_freshness(aging, now=now) == "aging"
+    assert soft_allow_freshness(stale, now=now) == "expired"
+    assert soft_allow_freshness("bad", now=now) == "unknown"
+    rows = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient"},
+            {"at": aging, "gate": "breadth", "reason": "unknown scan"},
+            {"at": stale, "gate": "regime", "reason": "unknown"},
+        ],
+        now=now,
+    )
+    assert [r["freshness"] for r in rows] == ["fresh", "aging", "expired"]
+    assert rows[1]["expired"] is False
+    assert rows[2]["expired"] is True

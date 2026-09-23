@@ -1430,6 +1430,16 @@ a:active {
   color: var(--muted);
 }
 
+.soft-allow-list li.soft-allow-aging,
+.soft-allow-list li.soft-allow-expired {
+  opacity: 0.78;
+}
+
+.soft-allow-aging-tag,
+.soft-allow-expired-tag {
+  color: var(--warn, var(--muted));
+}
+
 @media (max-width: 640px) {
   .soft-allow-list li {
     grid-template-columns: 1fr;
