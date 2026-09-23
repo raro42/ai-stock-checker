@@ -61,8 +61,11 @@ def test_soft_allow_glance_speaks_aging() -> None:
     assert g["fresh_count"] == 1
     assert g["aging_count"] == 1
     assert g["expired_count"] == 0
+    assert g["aging_tally"] == "breadth×1"
+    assert g["expired_tally"] == ""
     assert "2 soft-allows" in g["line"]
     assert "1 aging" in g["line"]
+    assert "breadth×1" in g["line"]
     assert "expired" not in g["line"]
     assert "[rs]" in g["line"]
 
@@ -87,12 +90,36 @@ def test_soft_allow_glance_consolidates_expired() -> None:
     assert g["fresh_count"] == 1
     assert g["aging_count"] == 1
     assert g["expired_count"] == 2
+    assert g["aging_tally"] == "breadth×1"
     assert g["expired_tally"] == "regime×2"
     assert "4 soft-allows" in g["line"]
     assert "1 aging" in g["line"]
+    assert "breadth×1" in g["line"]
     assert "2 expired" in g["line"]
     assert "regime×2" in g["line"]
     assert "[rs]" in g["line"]
+
+
+def test_soft_allow_glance_aging_tally_only() -> None:
+    """Aging-only ledger consolidates gates like the expired all-expired path."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": aging, "gate": "breadth", "reason": "unknown scan a"},
+            {"at": aging, "gate": "breadth", "reason": "unknown scan b"},
+            {"at": aging, "gate": "rs", "reason": "insufficient history"},
+        ],
+        now=now,
+    )
+    assert g["aging_count"] == 3
+    assert g["expired_count"] == 0
+    assert g["aging_tally"] == "breadth×2 · rs×1"
+    assert "3 soft-allows" in g["line"]
+    assert "3 aging" in g["line"]
+    assert "breadth×2" in g["line"]
+    assert "rs×1" in g["line"]
+    assert "expired" not in g["line"]
 
 
 def test_soft_allow_glance_all_expired() -> None:

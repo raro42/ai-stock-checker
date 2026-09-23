@@ -7,6 +7,7 @@ from pathlib import Path
 
 from stock_checker.gate_audit import (
     enrich_soft_allows,
+    format_aging_soft_allow_tally,
     format_expired_soft_allow_tally,
     is_soft_allow_reason,
     load_soft_allows,
@@ -128,3 +129,21 @@ def test_soft_allow_freshness_aging_band() -> None:
     assert [r["freshness"] for r in rows] == ["fresh", "aging", "expired"]
     assert rows[1]["expired"] is False
     assert rows[2]["expired"] is True
+    assert format_aging_soft_allow_tally(rows) == "breadth×1"
+
+
+def test_soft_allow_aging_tally_consolidates() -> None:
+    """portfolio AI + xang1234: aging gate tally mirrors expired speak-both-sides."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = enrich_soft_allows(
+        [
+            {"at": aging, "gate": "breadth", "reason": "unknown scan a"},
+            {"at": aging, "gate": "breadth", "reason": "unknown scan b"},
+            {"at": aging, "gate": "rs", "reason": "insufficient history"},
+        ],
+        now=now,
+    )
+    assert all(r["freshness"] == "aging" for r in rows)
+    assert format_aging_soft_allow_tally(rows) == "breadth×2 · rs×1"
+    assert format_expired_soft_allow_tally(rows) == ""

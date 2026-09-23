@@ -171,25 +171,69 @@ def enrich_soft_allows(
     return out
 
 
-def expired_soft_allow_tally(
+def soft_allow_band_tally(
     events: list[dict[str, Any]] | None,
+    *,
+    band: str,
 ) -> list[tuple[str, int]]:
-    """Gate counts for expired rows only — newest-first input; sorted by count desc."""
+    """Gate counts for one freshness band — sorted by count desc, then gate.
+
+    ``band`` is ``fresh`` / ``aging`` / ``expired``. Expired also matches the
+    legacy ``expired`` bool when ``freshness`` is missing.
+    """
+    want = str(band or "").strip().casefold()
     counts: dict[str, int] = {}
     for row in events or []:
-        if not isinstance(row, dict) or not row.get("expired"):
+        if not isinstance(row, dict):
+            continue
+        freshness = str(row.get("freshness") or "").strip().casefold()
+        if not freshness and want == "expired" and row.get("expired"):
+            freshness = "expired"
+        if freshness != want:
             continue
         gate = str(row.get("gate") or "?").strip() or "?"
         counts[gate] = counts.get(gate, 0) + 1
     return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
+def format_soft_allow_band_tally(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+) -> str:
+    """Compact ``regime×2 · rs×1`` for one freshness band."""
+    parts = [
+        f"{gate}×{n}" for gate, n in soft_allow_band_tally(events, band=band)
+    ]
+    return " · ".join(parts)
+
+
+def expired_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> list[tuple[str, int]]:
+    """Gate counts for expired rows only (tradermonty #437)."""
+    return soft_allow_band_tally(events, band="expired")
+
+
 def format_expired_soft_allow_tally(
     events: list[dict[str, Any]] | None,
 ) -> str:
     """Compact ``regime×2 · rs×1`` for expired soft-allows (tradermonty #437)."""
-    parts = [f"{gate}×{n}" for gate, n in expired_soft_allow_tally(events)]
-    return " · ".join(parts)
+    return format_soft_allow_band_tally(events, band="expired")
+
+
+def aging_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> list[tuple[str, int]]:
+    """Gate counts for aging rows only — speak-both-sides with expired tally."""
+    return soft_allow_band_tally(events, band="aging")
+
+
+def format_aging_soft_allow_tally(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Compact ``breadth×1 · rs×1`` for aging soft-allows (portfolio AI + xang1234)."""
+    return format_soft_allow_band_tally(events, band="aging")
 
 
 def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:

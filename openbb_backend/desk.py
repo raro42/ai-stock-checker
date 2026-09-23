@@ -375,13 +375,14 @@ def build_soft_allow_glance(
     Shows only when the ring buffer has rows — links friends to Ops detail.
     Soft-allows use a fresh / aging / expired triad (xang1234 + RyanJHamby
     scan-age pattern): aging after ``aging_hours``, expired after
-    ``fresh_hours``. Speak aging + expired counts (+ gate tally) so friends
+    ``fresh_hours``. Speak aging + expired counts (+ gate tallies) so friends
     see fail-opens cool off before Ops consolidates them.
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
         SOFT_ALLOW_FRESH_HOURS,
         enrich_soft_allows,
+        format_aging_soft_allow_tally,
         format_expired_soft_allow_tally,
     )
 
@@ -398,6 +399,7 @@ def build_soft_allow_glance(
         "expired_count": 0,
         "fresh_hours": ttl,
         "aging_hours": aging_ttl,
+        "aging_tally": "",
         "expired_tally": "",
         "line": "",
         "last_gate": "",
@@ -419,24 +421,31 @@ def build_soft_allow_glance(
     # Unknown stamps count with fresh (fail-open — do not hide).
     unknown_n = n - expired_n - aging_n - fresh_n
     fresh_n += unknown_n
-    tally = format_expired_soft_allow_tally(rows) if expired_n else ""
+    aging_tally = format_aging_soft_allow_tally(rows) if aging_n else ""
+    expired_tally = format_expired_soft_allow_tally(rows) if expired_n else ""
     noun = "soft-allow" if n == 1 else "soft-allows"
     if expired_n == 0 and aging_n == 0:
         line = f"{n} recent {noun} · last [{gate}]"
     elif expired_n == 0:
-        line = f"{n} {noun} · {aging_n} aging · last [{gate}]"
+        parts = [f"{n} {noun}", f"{aging_n} aging"]
+        if aging_tally:
+            parts.append(aging_tally)
+        parts.append(f"last [{gate}]")
+        line = " · ".join(parts)
     elif fresh_n == 0 and aging_n == 0:
         line = f"{n} expired {noun}"
-        if tally:
-            line = f"{line} · {tally}"
+        if expired_tally:
+            line = f"{line} · {expired_tally}"
         line = f"{line} · last [{gate}]"
     else:
         parts = [f"{n} {noun}"]
         if aging_n:
             parts.append(f"{aging_n} aging")
+            if aging_tally:
+                parts.append(aging_tally)
         parts.append(f"{expired_n} expired")
-        if tally:
-            parts.append(tally)
+        if expired_tally:
+            parts.append(expired_tally)
         parts.append(f"last [{gate}]")
         line = " · ".join(parts)
     if reason_short:
@@ -450,7 +459,8 @@ def build_soft_allow_glance(
         "expired_count": expired_n,
         "fresh_hours": ttl,
         "aging_hours": aging_ttl,
-        "expired_tally": tally,
+        "aging_tally": aging_tally,
+        "expired_tally": expired_tally,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,
@@ -9174,8 +9184,8 @@ def load_desk_snapshot(
         },
         {
             "title": "Soft-allow glance on Overview / Book",
-            "from": "tradermonty/claude-trading-skills (trader memory + #437 expired) + xang1234/RyanJHamby fresh·aging·expired triad",
-            "note": "One-line fail-open soft-allow count beside pretrade / risk; aging (>12h) + expired (>24h) counts + gate tally consolidated — Ops keeps the full list; display only.",
+            "from": "tradermonty/claude-trading-skills (trader memory + #437 expired) + xang1234/RyanJHamby fresh·aging·expired triad + portfolio AI speak-both-sides",
+            "note": "One-line fail-open soft-allow count beside pretrade / risk; aging (>12h) + expired (>24h) counts + gate tallies (aging + expired) consolidated — Ops keeps the full list; display only.",
         },
         {
             "title": "Pretrade glance on Screener / Ideas / Book / Charts / Breadth",
