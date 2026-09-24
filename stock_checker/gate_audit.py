@@ -327,18 +327,45 @@ def soft_allow_lead_margin(
     return gate, n, pct, margin, severity
 
 
+def soft_allow_lead_sides(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, int, float, int, str, str, int] | None:
+    """Lead margin plus runner-up gate×count (ahead ≠ who is #2).
+
+    Same speak rules as ``soft_allow_lead_margin``. Absolute +K does not
+    name the second gate — portfolio AI + xang1234 speak-both-sides after
+    margin. Display only.
+    """
+    margin = soft_allow_lead_margin(events, band=band, min_count=min_count)
+    if margin is None:
+        return None
+    gate, n, pct, gap, severity = margin
+    tally = soft_allow_band_tally(events, band=band)
+    if len(tally) < 2:
+        return None
+    runner_gate, runner_n = tally[1]
+    return gate, n, pct, gap, severity, str(runner_gate), int(runner_n)
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,
     band: str,
     min_count: int = 2,
 ) -> str:
-    """Compact ``rs leads · ×2 · 67% · ahead thin · +1`` (sole omits ahead)."""
-    margin = soft_allow_lead_margin(events, band=band, min_count=min_count)
-    if margin is not None:
-        gate, n, pct, gap, severity = margin
+    """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1``.
+
+    Sole-gate omits ahead and vs (no runner-up).
+    """
+    sides = soft_allow_lead_sides(events, band=band, min_count=min_count)
+    if sides is not None:
+        gate, n, pct, gap, severity, runner, runner_n = sides
         return (
-            f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · +{gap}"
+            f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
+            f"+{gap} · vs {runner} ×{runner_n}"
         )
     lead = soft_allow_lead_share(events, band=band, min_count=min_count)
     if lead is None:
