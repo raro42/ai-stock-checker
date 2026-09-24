@@ -228,3 +228,86 @@ def test_soft_allow_glance_cool_off_severity_triad() -> None:
     assert (hot["severity"], hot["tone"]) == ("hot", "warn")
     assert (cooling["severity"], cooling["tone"]) == ("aging", "flat")
     assert (cool["severity"], cool["tone"]) == ("cool", "flat")
+    assert hot["lead_bit"] == ""
+    assert cooling["lead_bit"] == ""
+    assert cool["lead_bit"] == ""
+
+
+def test_soft_allow_glance_lead_gate_hot() -> None:
+    """portfolio AI concentration: dominant fresh gate after severity."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient b"},
+            {"at": fresh, "gate": "breadth", "reason": "unknown scan"},
+        ],
+        now=now,
+    )
+    assert g["severity"] == "hot"
+    assert g["lead_gate"] == "rs"
+    assert g["lead_count"] == 2
+    assert g["lead_band"] == "fresh"
+    assert g["lead_bit"] == "rs leads · ×2"
+    assert g["line"].startswith("hot · rs leads · ×2 · ")
+    assert "rs×2" in g["line"]
+
+
+def test_soft_allow_glance_lead_gate_aging() -> None:
+    """Aging severity drives lead from the aging band (not expired)."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": aging, "gate": "breadth", "reason": "unknown scan a"},
+            {"at": aging, "gate": "breadth", "reason": "unknown scan b"},
+            {"at": aging, "gate": "rs", "reason": "insufficient history"},
+        ],
+        now=now,
+    )
+    assert g["severity"] == "aging"
+    assert g["lead_gate"] == "breadth"
+    assert g["lead_count"] == 2
+    assert g["lead_band"] == "aging"
+    assert g["lead_bit"] == "breadth leads · ×2"
+    assert g["line"].startswith("aging · breadth leads · ×2 · ")
+
+
+def test_soft_allow_glance_lead_gate_tie_silent() -> None:
+    """Tied top gates stay silent — no false concentration."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient b"},
+            {"at": fresh, "gate": "regime", "reason": "no SPY a"},
+            {"at": fresh, "gate": "regime", "reason": "no SPY b"},
+        ],
+        now=now,
+    )
+    assert g["fresh_tally"] == "regime×2 · rs×2"
+    assert g["lead_bit"] == ""
+    assert g["lead_gate"] == ""
+    assert "leads" not in g["line"]
+
+
+def test_soft_allow_glance_lead_gate_cool_expired() -> None:
+    """Cool severity drives lead from the expired band."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    stale = (now - timedelta(hours=48)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": stale, "gate": "regime", "reason": "no SPY bars"},
+            {"at": stale, "gate": "regime", "reason": "no BTC bars"},
+            {"at": stale, "gate": "promote", "reason": "ABC: skip_no_bars"},
+        ],
+        now=now,
+    )
+    assert g["severity"] == "cool"
+    assert g["lead_gate"] == "regime"
+    assert g["lead_count"] == 2
+    assert g["lead_band"] == "expired"
+    assert g["lead_bit"] == "regime leads · ×2"
+    assert g["line"].startswith("cool · regime leads · ×2 · ")

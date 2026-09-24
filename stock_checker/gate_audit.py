@@ -254,6 +254,42 @@ def format_fresh_soft_allow_tally(
     return format_soft_allow_band_tally(events, band="fresh")
 
 
+def soft_allow_lead_gate(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, int] | None:
+    """Dominant gate in one freshness band (portfolio AI concentration).
+
+    Speaks when the top gate reaches ``min_count`` and strictly leads #2
+    (ties stay silent). One soft-allow ≠ concentration. Display only.
+    """
+    tally = soft_allow_band_tally(events, band=band)
+    if not tally:
+        return None
+    gate, n = tally[0]
+    if n < int(min_count):
+        return None
+    if len(tally) > 1 and tally[1][1] >= n:
+        return None
+    return gate, n
+
+
+def format_soft_allow_lead_bit(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> str:
+    """Compact ``rs leads · ×2`` for the severity-driving freshness band."""
+    lead = soft_allow_lead_gate(events, band=band, min_count=min_count)
+    if lead is None:
+        return ""
+    gate, n = lead
+    return f"{gate} leads · ×{n}"
+
+
 def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:
     """Identity for one soft-allow row (gate + reason, case-folded).
 

@@ -10,6 +10,7 @@ from stock_checker.gate_audit import (
     format_aging_soft_allow_tally,
     format_expired_soft_allow_tally,
     format_fresh_soft_allow_tally,
+    format_soft_allow_lead_bit,
     is_soft_allow_reason,
     load_soft_allows,
     log_soft_allow,
@@ -18,6 +19,7 @@ from stock_checker.gate_audit import (
     soft_allow_event_key,
     soft_allow_freshness,
     soft_allow_is_expired,
+    soft_allow_lead_gate,
 )
 
 
@@ -167,3 +169,37 @@ def test_soft_allow_fresh_tally_consolidates() -> None:
     assert format_fresh_soft_allow_tally(rows) == "rs×2 · regime×1"
     assert format_aging_soft_allow_tally(rows) == "breadth×1"
     assert format_expired_soft_allow_tally(rows) == ""
+
+
+def test_soft_allow_lead_gate_concentration() -> None:
+    """portfolio AI + xang1234: dominant gate needs ≥2 and a clear lead."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient b"},
+            {"at": fresh, "gate": "regime", "reason": "no SPY bars"},
+        ],
+        now=now,
+    )
+    assert soft_allow_lead_gate(rows, band="fresh") == ("rs", 2)
+    assert format_soft_allow_lead_bit(rows, band="fresh") == "rs leads · ×2"
+    # Single row stays silent.
+    one = enrich_soft_allows(
+        [{"at": fresh, "gate": "rs", "reason": "insufficient"}],
+        now=now,
+    )
+    assert soft_allow_lead_gate(one, band="fresh") is None
+    assert format_soft_allow_lead_bit(one, band="fresh") == ""
+    # Tie stays silent.
+    tied = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "a"},
+            {"at": fresh, "gate": "rs", "reason": "b"},
+            {"at": fresh, "gate": "regime", "reason": "c"},
+            {"at": fresh, "gate": "regime", "reason": "d"},
+        ],
+        now=now,
+    )
+    assert soft_allow_lead_gate(tied, band="fresh") is None

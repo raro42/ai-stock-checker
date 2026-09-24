@@ -382,6 +382,11 @@ def build_soft_allow_glance(
     any fresh row remains (tone warn); ``aging`` when only aging cools
     (tone flat); ``cool`` when the ring is all expired (tone flat). Expired
     diagnostics stay visible — they are not a hot fail-open.
+
+    Lead gate (portfolio AI concentration + xang1234): when the
+    severity-driving band has a clear dominant gate (≥2 and strictly
+    ahead of #2), speak ``rs leads · ×N`` after severity — tally alone
+    does not name the concentration.
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
@@ -390,6 +395,8 @@ def build_soft_allow_glance(
         format_aging_soft_allow_tally,
         format_expired_soft_allow_tally,
         format_fresh_soft_allow_tally,
+        format_soft_allow_lead_bit,
+        soft_allow_lead_gate,
     )
 
     ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
@@ -409,6 +416,10 @@ def build_soft_allow_glance(
         "fresh_tally": "",
         "aging_tally": "",
         "expired_tally": "",
+        "lead_gate": "",
+        "lead_count": 0,
+        "lead_band": "",
+        "lead_bit": "",
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -464,13 +475,23 @@ def build_soft_allow_glance(
     if fresh_n > 0:
         severity = "hot"
         tone = "warn"
+        lead_band = "fresh"
     elif aging_n > 0:
         severity = "aging"
         tone = "flat"
+        lead_band = "aging"
     else:
         severity = "cool"
         tone = "flat"
-    line = f"{severity} · {line}"
+        lead_band = "expired"
+    lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
+    lead = soft_allow_lead_gate(rows, band=lead_band)
+    lead_gate = lead[0] if lead else ""
+    lead_count = lead[1] if lead else 0
+    if lead_bit:
+        line = f"{severity} · {lead_bit} · {line}"
+    else:
+        line = f"{severity} · {line}"
     if reason_short:
         line = f"{line} {reason_short}"
     return {
@@ -486,6 +507,10 @@ def build_soft_allow_glance(
         "fresh_tally": fresh_tally,
         "aging_tally": aging_tally,
         "expired_tally": expired_tally,
+        "lead_gate": lead_gate,
+        "lead_count": lead_count,
+        "lead_band": lead_band if lead else "",
+        "lead_bit": lead_bit,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,
@@ -9209,8 +9234,8 @@ def load_desk_snapshot(
         },
         {
             "title": "Soft-allow glance on Overview / Book",
-            "from": "tradermonty/claude-trading-skills (trader memory + #437 expired) + xang1234/RyanJHamby fresh·aging·expired triad + portfolio AI speak-both-sides",
-            "note": "One-line fail-open soft-allow count beside pretrade / risk; aging (>12h) + expired (>24h) counts + gate tallies (aging + expired) consolidated — Ops keeps the full list; display only.",
+            "from": "tradermonty/claude-trading-skills (trader memory + #437 expired) + xang1234/RyanJHamby fresh·aging·expired triad + portfolio AI speak-both-sides + concentration lead",
+            "note": "One-line fail-open soft-allow count beside pretrade / risk; hot|aging|cool severity; lead gate when one gate dominates the severity band (≥2, ties silent); aging (>12h) + expired (>24h) counts + gate tallies consolidated — Ops keeps the full list; display only.",
         },
         {
             "title": "Pretrade glance on Screener / Ideas / Book / Charts / Breadth",
