@@ -20,6 +20,7 @@ from stock_checker.gate_audit import (
     soft_allow_freshness,
     soft_allow_is_expired,
     soft_allow_lead_gate,
+    soft_allow_lead_margin,
     soft_allow_lead_share,
 )
 
@@ -186,7 +187,17 @@ def test_soft_allow_lead_gate_concentration() -> None:
     )
     assert soft_allow_lead_gate(rows, band="fresh") == ("rs", 2)
     assert soft_allow_lead_share(rows, band="fresh") == ("rs", 2, 66.7)
-    assert format_soft_allow_lead_bit(rows, band="fresh") == "rs leads · ×2 · 67%"
+    assert soft_allow_lead_margin(rows, band="fresh") == (
+        "rs",
+        2,
+        66.7,
+        1,
+        "thin",
+    )
+    assert (
+        format_soft_allow_lead_bit(rows, band="fresh")
+        == "rs leads · ×2 · 67% · ahead thin · +1"
+    )
     # Single row stays silent.
     one = enrich_soft_allows(
         [{"at": fresh, "gate": "rs", "reason": "insufficient"}],
@@ -194,6 +205,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     )
     assert soft_allow_lead_gate(one, band="fresh") is None
     assert soft_allow_lead_share(one, band="fresh") is None
+    assert soft_allow_lead_margin(one, band="fresh") is None
     assert format_soft_allow_lead_bit(one, band="fresh") == ""
     # Tie stays silent.
     tied = enrich_soft_allows(
@@ -207,7 +219,8 @@ def test_soft_allow_lead_gate_concentration() -> None:
     )
     assert soft_allow_lead_gate(tied, band="fresh") is None
     assert soft_allow_lead_share(tied, band="fresh") is None
-    # Sole-gate lead still speaks ownership (count ≠ share honesty).
+    assert soft_allow_lead_margin(tied, band="fresh") is None
+    # Sole-gate lead still speaks ownership; ahead stays silent (no #2).
     sole = enrich_soft_allows(
         [
             {"at": fresh, "gate": "rs", "reason": "a"},
@@ -216,4 +229,26 @@ def test_soft_allow_lead_gate_concentration() -> None:
         now=now,
     )
     assert soft_allow_lead_share(sole, band="fresh") == ("rs", 2, 100.0)
+    assert soft_allow_lead_margin(sole, band="fresh") is None
     assert format_soft_allow_lead_bit(sole, band="fresh") == "rs leads · ×2 · 100%"
+    # Wide margin when lead clears #2 by ≥2.
+    wide = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "a"},
+            {"at": fresh, "gate": "rs", "reason": "b"},
+            {"at": fresh, "gate": "rs", "reason": "c"},
+            {"at": fresh, "gate": "regime", "reason": "d"},
+        ],
+        now=now,
+    )
+    assert soft_allow_lead_margin(wide, band="fresh") == (
+        "rs",
+        3,
+        75.0,
+        2,
+        "wide",
+    )
+    assert (
+        format_soft_allow_lead_bit(wide, band="fresh")
+        == "rs leads · ×3 · 75% · ahead wide · +2"
+    )

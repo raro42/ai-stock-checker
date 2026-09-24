@@ -396,6 +396,7 @@ def build_soft_allow_glance(
         format_expired_soft_allow_tally,
         format_fresh_soft_allow_tally,
         format_soft_allow_lead_bit,
+        soft_allow_lead_margin,
         soft_allow_lead_share,
     )
 
@@ -419,6 +420,8 @@ def build_soft_allow_glance(
         "lead_gate": "",
         "lead_count": 0,
         "lead_share_pct": None,
+        "lead_margin": None,
+        "lead_margin_severity": "",
         "lead_band": "",
         "lead_bit": "",
         "line": "",
@@ -487,9 +490,12 @@ def build_soft_allow_glance(
         lead_band = "expired"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
     lead = soft_allow_lead_share(rows, band=lead_band)
+    margin = soft_allow_lead_margin(rows, band=lead_band)
     lead_gate = lead[0] if lead else ""
     lead_count = lead[1] if lead else 0
     lead_share_pct = lead[2] if lead else None
+    lead_margin = margin[3] if margin else None
+    lead_margin_severity = margin[4] if margin else ""
     if lead_bit:
         line = f"{severity} · {lead_bit} · {line}"
     else:
@@ -512,6 +518,8 @@ def build_soft_allow_glance(
         "lead_gate": lead_gate,
         "lead_count": lead_count,
         "lead_share_pct": lead_share_pct,
+        "lead_margin": lead_margin,
+        "lead_margin_severity": lead_margin_severity,
         "lead_band": lead_band if lead else "",
         "lead_bit": lead_bit,
         "line": line,

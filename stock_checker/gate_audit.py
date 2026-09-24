@@ -297,13 +297,49 @@ def soft_allow_lead_share(
     return gate, n, round(100.0 * n / total, 1)
 
 
+# Lead−#2 count gap: wide ≥2 · thin = 1 (sole-gate stays silent — no runner).
+SOFT_ALLOW_LEAD_MARGIN_WIDE = 2
+
+
+def soft_allow_lead_margin(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, int, float, int, str] | None:
+    """Lead share plus margin over #2 (share ≠ how far ahead).
+
+    Same speak rules as ``soft_allow_lead_share``. Margin speaks only when a
+    runner-up exists (sole 100% stays silent on ahead). Severity: ``wide`` when
+    margin ≥ ``SOFT_ALLOW_LEAD_MARGIN_WIDE``, else ``thin``. Display only.
+    """
+    lead = soft_allow_lead_share(events, band=band, min_count=min_count)
+    if lead is None:
+        return None
+    gate, n, pct = lead
+    tally = soft_allow_band_tally(events, band=band)
+    if len(tally) < 2:
+        return None
+    margin = int(n) - int(tally[1][1])
+    if margin < 1:
+        return None
+    severity = "wide" if margin >= SOFT_ALLOW_LEAD_MARGIN_WIDE else "thin"
+    return gate, n, pct, margin, severity
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,
     band: str,
     min_count: int = 2,
 ) -> str:
-    """Compact ``rs leads · ×2 · 67%`` for the severity-driving freshness band."""
+    """Compact ``rs leads · ×2 · 67% · ahead thin · +1`` (sole omits ahead)."""
+    margin = soft_allow_lead_margin(events, band=band, min_count=min_count)
+    if margin is not None:
+        gate, n, pct, gap, severity = margin
+        return (
+            f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · +{gap}"
+        )
     lead = soft_allow_lead_share(events, band=band, min_count=min_count)
     if lead is None:
         return ""
