@@ -572,3 +572,31 @@ def test_from_buy_short_crypto_uses_intraday_cache(tmp_path: Path, monkeypatch):
     btc = next(p for p in panels if p["symbol"] == "BTC-USD")
     assert btc["interval"] == "15m"
     assert len(btc["points"]) > 5
+
+
+def test_charts_js_escapes_tip_free_text() -> None:
+    """tradermonty #440 — tip.innerHTML must escape symbol/name/label."""
+    src = (Path(__file__).resolve().parents[1] / "openbb_backend" / "static" / "charts.js").read_text()
+    assert "function escapeHtml(s)" in src
+    assert "escapeHtml(d.label)" in src
+    assert "escapeHtml(panel.symbol)" in src
+    assert "escapeHtml(panel.name)" in src
+    # Relative tip must not concatenate raw panel fields into tip HTML.
+    assert 'panel.symbol +\n        "</strong>"' not in src
+    assert "panel.name + \"</span>\"" not in src
+    assert 'panel.name + "</span>"' not in src
+
+    def escape_html(s: object) -> str:
+        return (
+            str("" if s is None else s)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#39;")
+        )
+
+    assert escape_html('<img src=x onerror=alert(1)>') == (
+        "&lt;img src=x onerror=alert(1)&gt;"
+    )
+    assert escape_html("ACME & Co \"A\"") == "ACME &amp; Co &quot;A&quot;"

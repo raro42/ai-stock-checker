@@ -24,6 +24,16 @@
     return (v && v.trim()) || fallback;
   }
 
+  /** Escape free-text before tip.innerHTML (tradermonty #440). */
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   /** Where glance strips append (Charts policy-honesty details). */
   var glanceMount = null;
 
@@ -187,7 +197,7 @@
 
     function tipHtml(d) {
       var meta = formatDay(d.t);
-      if (d.label) meta += " · " + d.label;
+      if (d.label) meta += " · " + escapeHtml(d.label);
       var extra = "";
       if (d.cash != null && d.invested != null) {
         extra =
@@ -828,10 +838,12 @@
       tip.hidden = false;
       tip.innerHTML =
         "<strong>" +
-        panel.symbol +
+        escapeHtml(panel.symbol) +
         "</strong>" +
         (panel.name && panel.name !== panel.symbol
-          ? "<span class='chart-tip-name'>" + panel.name + "</span>"
+          ? "<span class='chart-tip-name'>" +
+            escapeHtml(panel.name) +
+            "</span>"
           : "") +
         "<span class='chart-tip-meta'>" +
         formatDay(new Date(pt.t)) +
