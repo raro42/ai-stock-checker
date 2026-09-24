@@ -377,6 +377,11 @@ def build_soft_allow_glance(
     scan-age pattern): aging after ``aging_hours``, expired after
     ``fresh_hours``. Speak fresh + aging + expired counts (+ gate tallies)
     so friends see live fail-opens beside rows that cool off.
+
+    Cool-off severity (portfolio AI quiet vs high + xang1234): ``hot`` when
+    any fresh row remains (tone warn); ``aging`` when only aging cools
+    (tone flat); ``cool`` when the ring is all expired (tone flat). Expired
+    diagnostics stay visible — they are not a hot fail-open.
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
@@ -394,6 +399,7 @@ def build_soft_allow_glance(
     empty = {
         "ready": False,
         "tone": "flat",
+        "severity": "",
         "count": 0,
         "fresh_count": 0,
         "aging_count": 0,
@@ -455,11 +461,22 @@ def build_soft_allow_glance(
         _append_band(parts, "expired", expired_n, expired_tally)
         parts.append(f"last [{gate}]")
         line = " · ".join(parts)
+    if fresh_n > 0:
+        severity = "hot"
+        tone = "warn"
+    elif aging_n > 0:
+        severity = "aging"
+        tone = "flat"
+    else:
+        severity = "cool"
+        tone = "flat"
+    line = f"{severity} · {line}"
     if reason_short:
         line = f"{line} {reason_short}"
     return {
         "ready": True,
-        "tone": "warn",
+        "tone": tone,
+        "severity": severity,
         "count": n,
         "fresh_count": fresh_n,
         "aging_count": aging_n,
