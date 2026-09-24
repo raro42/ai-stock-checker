@@ -248,9 +248,10 @@ def test_soft_allow_glance_lead_gate_hot() -> None:
     assert g["severity"] == "hot"
     assert g["lead_gate"] == "rs"
     assert g["lead_count"] == 2
+    assert g["lead_share_pct"] == 66.7
     assert g["lead_band"] == "fresh"
-    assert g["lead_bit"] == "rs leads · ×2"
-    assert g["line"].startswith("hot · rs leads · ×2 · ")
+    assert g["lead_bit"] == "rs leads · ×2 · 67%"
+    assert g["line"].startswith("hot · rs leads · ×2 · 67% · ")
     assert "rs×2" in g["line"]
 
 
@@ -269,9 +270,10 @@ def test_soft_allow_glance_lead_gate_aging() -> None:
     assert g["severity"] == "aging"
     assert g["lead_gate"] == "breadth"
     assert g["lead_count"] == 2
+    assert g["lead_share_pct"] == 66.7
     assert g["lead_band"] == "aging"
-    assert g["lead_bit"] == "breadth leads · ×2"
-    assert g["line"].startswith("aging · breadth leads · ×2 · ")
+    assert g["lead_bit"] == "breadth leads · ×2 · 67%"
+    assert g["line"].startswith("aging · breadth leads · ×2 · 67% · ")
 
 
 def test_soft_allow_glance_lead_gate_tie_silent() -> None:
@@ -290,6 +292,7 @@ def test_soft_allow_glance_lead_gate_tie_silent() -> None:
     assert g["fresh_tally"] == "regime×2 · rs×2"
     assert g["lead_bit"] == ""
     assert g["lead_gate"] == ""
+    assert g["lead_share_pct"] is None
     assert "leads" not in g["line"]
 
 
@@ -308,6 +311,7 @@ def test_soft_allow_glance_lead_gate_cool_expired() -> None:
     assert g["severity"] == "cool"
     assert g["lead_gate"] == "regime"
     assert g["lead_count"] == 2
+    assert g["lead_share_pct"] == 66.7
     assert g["lead_band"] == "expired"
-    assert g["lead_bit"] == "regime leads · ×2"
-    assert g["line"].startswith("cool · regime leads · ×2 · ")
+    assert g["lead_bit"] == "regime leads · ×2 · 67%"
+    assert g["line"].startswith("cool · regime leads · ×2 · 67% · ")

@@ -396,7 +396,7 @@ def build_soft_allow_glance(
         format_expired_soft_allow_tally,
         format_fresh_soft_allow_tally,
         format_soft_allow_lead_bit,
-        soft_allow_lead_gate,
+        soft_allow_lead_share,
     )
 
     ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
@@ -418,6 +418,7 @@ def build_soft_allow_glance(
         "expired_tally": "",
         "lead_gate": "",
         "lead_count": 0,
+        "lead_share_pct": None,
         "lead_band": "",
         "lead_bit": "",
         "line": "",
@@ -485,9 +486,10 @@ def build_soft_allow_glance(
         tone = "flat"
         lead_band = "expired"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
-    lead = soft_allow_lead_gate(rows, band=lead_band)
+    lead = soft_allow_lead_share(rows, band=lead_band)
     lead_gate = lead[0] if lead else ""
     lead_count = lead[1] if lead else 0
+    lead_share_pct = lead[2] if lead else None
     if lead_bit:
         line = f"{severity} · {lead_bit} · {line}"
     else:
@@ -509,6 +511,7 @@ def build_soft_allow_glance(
         "expired_tally": expired_tally,
         "lead_gate": lead_gate,
         "lead_count": lead_count,
+        "lead_share_pct": lead_share_pct,
         "lead_band": lead_band if lead else "",
         "lead_bit": lead_bit,
         "line": line,

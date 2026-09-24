@@ -276,18 +276,39 @@ def soft_allow_lead_gate(
     return gate, n
 
 
+def soft_allow_lead_share(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, int, float] | None:
+    """Lead gate plus band ownership % (count ≠ share).
+
+    Same speak rules as ``soft_allow_lead_gate``. Share is lead÷band total
+    (portfolio AI + xang1234 after exit-lead %). Display only.
+    """
+    lead = soft_allow_lead_gate(events, band=band, min_count=min_count)
+    if lead is None:
+        return None
+    gate, n = lead
+    total = sum(c for _, c in soft_allow_band_tally(events, band=band))
+    if total <= 0:
+        return None
+    return gate, n, round(100.0 * n / total, 1)
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,
     band: str,
     min_count: int = 2,
 ) -> str:
-    """Compact ``rs leads · ×2`` for the severity-driving freshness band."""
-    lead = soft_allow_lead_gate(events, band=band, min_count=min_count)
+    """Compact ``rs leads · ×2 · 67%`` for the severity-driving freshness band."""
+    lead = soft_allow_lead_share(events, band=band, min_count=min_count)
     if lead is None:
         return ""
-    gate, n = lead
-    return f"{gate} leads · ×{n}"
+    gate, n, pct = lead
+    return f"{gate} leads · ×{n} · {int(round(pct))}%"
 
 
 def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:
