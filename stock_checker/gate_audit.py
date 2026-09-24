@@ -350,22 +350,53 @@ def soft_allow_lead_sides(
     return gate, n, pct, gap, severity, str(runner_gate), int(runner_n)
 
 
+def soft_allow_lead_sides_share(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, int, float, int, str, str, int, float] | None:
+    """Lead sides plus runner band ownership % (×K ≠ share).
+
+    Same speak rules as ``soft_allow_lead_sides``. Runner share is
+    runner÷band total — portfolio AI + xang1234 after exit-€ sides share.
+    Not lead÷runner (that ratio stays deferred). Display only.
+    """
+    sides = soft_allow_lead_sides(events, band=band, min_count=min_count)
+    if sides is None:
+        return None
+    gate, n, pct, gap, severity, runner, runner_n = sides
+    total = sum(c for _, c in soft_allow_band_tally(events, band=band))
+    if total <= 0:
+        return None
+    return (
+        gate,
+        n,
+        pct,
+        gap,
+        severity,
+        runner,
+        runner_n,
+        round(100.0 * int(runner_n) / total, 1),
+    )
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,
     band: str,
     min_count: int = 2,
 ) -> str:
-    """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1``.
+    """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33%``.
 
     Sole-gate omits ahead and vs (no runner-up).
     """
-    sides = soft_allow_lead_sides(events, band=band, min_count=min_count)
+    sides = soft_allow_lead_sides_share(events, band=band, min_count=min_count)
     if sides is not None:
-        gate, n, pct, gap, severity, runner, runner_n = sides
+        gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
         return (
             f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
-            f"+{gap} · vs {runner} ×{runner_n}"
+            f"+{gap} · vs {runner} ×{runner_n} · {int(round(runner_pct))}%"
         )
     lead = soft_allow_lead_share(events, band=band, min_count=min_count)
     if lead is None:

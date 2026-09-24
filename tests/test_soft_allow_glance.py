@@ -132,11 +132,12 @@ def test_soft_allow_glance_aging_tally_only() -> None:
     assert g["aging_tally"] == "breadth×2 · rs×1"
     assert g["severity"] == "aging"
     assert g["tone"] == "flat"
-    assert g["lead_bit"] == "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1"
+    assert g["lead_bit"] == "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33%"
     assert g["lead_runner_gate"] == "rs"
     assert g["lead_runner_count"] == 1
+    assert g["lead_runner_share_pct"] == 33.3
     assert g["line"].startswith(
-        "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · "
+        "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · "
     )
     assert "3 soft-allows" in g["line"]
     assert "3 aging" in g["line"]
@@ -185,7 +186,7 @@ def test_soft_allow_glance_fresh_tally_multi_recent() -> None:
     assert g["expired_count"] == 0
     assert g["fresh_tally"] == "rs×2 · breadth×1"
     assert g["lead_bit"] == (
-        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1"
+        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33%"
     )
     assert g["lead_runner_gate"] == "breadth"
     assert g["lead_runner_count"] == 1
@@ -265,10 +266,10 @@ def test_soft_allow_glance_lead_gate_hot() -> None:
     assert g["lead_runner_count"] == 1
     assert g["lead_band"] == "fresh"
     assert g["lead_bit"] == (
-        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1"
+        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33%"
     )
     assert g["line"].startswith(
-        "hot · rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · "
+        "hot · rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33% · "
     )
     assert "rs×2" in g["line"]
 
@@ -294,9 +295,9 @@ def test_soft_allow_glance_lead_gate_aging() -> None:
     assert g["lead_runner_gate"] == "rs"
     assert g["lead_runner_count"] == 1
     assert g["lead_band"] == "aging"
-    assert g["lead_bit"] == "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1"
+    assert g["lead_bit"] == "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33%"
     assert g["line"].startswith(
-        "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · "
+        "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · "
     )
 
 
@@ -346,10 +347,10 @@ def test_soft_allow_glance_lead_gate_cool_expired() -> None:
     assert g["lead_runner_count"] == 1
     assert g["lead_band"] == "expired"
     assert g["lead_bit"] == (
-        "regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1"
+        "regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1 · 33%"
     )
     assert g["line"].startswith(
-        "cool · regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1 · "
+        "cool · regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1 · 33% · "
     )
 
 
@@ -370,11 +371,12 @@ def test_soft_allow_glance_lead_margin_wide() -> None:
     assert g["lead_margin_severity"] == "wide"
     assert g["lead_runner_gate"] == "breadth"
     assert g["lead_runner_count"] == 1
+    assert g["lead_runner_share_pct"] == 25.0
     assert g["lead_bit"] == (
-        "rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1"
+        "rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25%"
     )
     assert g["line"].startswith(
-        "hot · rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · "
+        "hot · rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25% · "
     )
 
 
@@ -397,3 +399,4 @@ def test_soft_allow_glance_lead_sole_no_ahead() -> None:
     assert g["lead_bit"] == "rs leads · ×2 · 100%"
     assert "ahead" not in g["lead_bit"]
     assert "vs " not in g["lead_bit"]
+    assert g["lead_runner_share_pct"] is None

@@ -385,9 +385,9 @@ def build_soft_allow_glance(
 
     Lead gate (portfolio AI concentration + xang1234): when the
     severity-driving band has a clear dominant gate (≥2 and strictly
-    ahead of #2), speak ``rs leads · ×N · M% · ahead … · vs gate ×K``
+    ahead of #2), speak ``rs leads · ×N · M% · ahead … · vs gate ×K · P%``
     after severity — tally alone does not name the concentration; ahead
-    margin ≠ who is runner-up.
+    margin ≠ who is runner-up; absolute ×K ≠ runner band ownership.
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
@@ -399,7 +399,7 @@ def build_soft_allow_glance(
         format_soft_allow_lead_bit,
         soft_allow_lead_margin,
         soft_allow_lead_share,
-        soft_allow_lead_sides,
+        soft_allow_lead_sides_share,
     )
 
     ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
@@ -426,6 +426,7 @@ def build_soft_allow_glance(
         "lead_margin_severity": "",
         "lead_runner_gate": "",
         "lead_runner_count": 0,
+        "lead_runner_share_pct": None,
         "lead_band": "",
         "lead_bit": "",
         "line": "",
@@ -495,7 +496,7 @@ def build_soft_allow_glance(
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
     lead = soft_allow_lead_share(rows, band=lead_band)
     margin = soft_allow_lead_margin(rows, band=lead_band)
-    sides = soft_allow_lead_sides(rows, band=lead_band)
+    sides = soft_allow_lead_sides_share(rows, band=lead_band)
     lead_gate = lead[0] if lead else ""
     lead_count = lead[1] if lead else 0
     lead_share_pct = lead[2] if lead else None
@@ -503,6 +504,7 @@ def build_soft_allow_glance(
     lead_margin_severity = margin[4] if margin else ""
     lead_runner_gate = sides[5] if sides else ""
     lead_runner_count = sides[6] if sides else 0
+    lead_runner_share_pct = sides[7] if sides else None
     if lead_bit:
         line = f"{severity} · {lead_bit} · {line}"
     else:
@@ -529,6 +531,7 @@ def build_soft_allow_glance(
         "lead_margin_severity": lead_margin_severity,
         "lead_runner_gate": lead_runner_gate,
         "lead_runner_count": lead_runner_count,
+        "lead_runner_share_pct": lead_runner_share_pct,
         "lead_band": lead_band if lead else "",
         "lead_bit": lead_bit,
         "line": line,
