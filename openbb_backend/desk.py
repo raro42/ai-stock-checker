@@ -393,7 +393,9 @@ def build_soft_allow_glance(
     margin ≠ who is runner-up; absolute ×K ≠ runner band ownership; two
     % ≠ the ownership spread (mid silent); count-ahead lean ≠
     ownership-Δ lean (clash when share mid; align when same lean;
-    different lean silent).
+    different lean silent). Ops lead inventory reuses the same share /
+    Δ / vs-Δ fields so ``Lead · gate ×N · band · M%`` shows ownership
+    (counts ≠ share) without parsing the glance line.
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
