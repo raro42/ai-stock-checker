@@ -24,6 +24,7 @@ from stock_checker.gate_audit import (
     soft_allow_lead_share,
     soft_allow_lead_sides,
     soft_allow_lead_sides_share,
+    soft_allow_lead_sides_share_delta,
 )
 
 
@@ -215,9 +216,21 @@ def test_soft_allow_lead_gate_concentration() -> None:
         1,
         33.3,
     )
+    assert soft_allow_lead_sides_share_delta(rows, band="fresh") == (
+        "rs",
+        2,
+        66.7,
+        1,
+        "thin",
+        "regime",
+        1,
+        33.3,
+        33.4,
+        "wide",
+    )
     assert (
         format_soft_allow_lead_bit(rows, band="fresh")
-        == "rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33%"
+        == "rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp"
     )
     # Single row stays silent.
     one = enrich_soft_allows(
@@ -229,6 +242,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_margin(one, band="fresh") is None
     assert soft_allow_lead_sides(one, band="fresh") is None
     assert soft_allow_lead_sides_share(one, band="fresh") is None
+    assert soft_allow_lead_sides_share_delta(one, band="fresh") is None
     assert format_soft_allow_lead_bit(one, band="fresh") == ""
     # Tie stays silent.
     tied = enrich_soft_allows(
@@ -245,6 +259,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_margin(tied, band="fresh") is None
     assert soft_allow_lead_sides(tied, band="fresh") is None
     assert soft_allow_lead_sides_share(tied, band="fresh") is None
+    assert soft_allow_lead_sides_share_delta(tied, band="fresh") is None
     # Sole-gate lead still speaks ownership; ahead stays silent (no #2).
     sole = enrich_soft_allows(
         [
@@ -257,6 +272,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_margin(sole, band="fresh") is None
     assert soft_allow_lead_sides(sole, band="fresh") is None
     assert soft_allow_lead_sides_share(sole, band="fresh") is None
+    assert soft_allow_lead_sides_share_delta(sole, band="fresh") is None
     assert format_soft_allow_lead_bit(sole, band="fresh") == "rs leads · ×2 · 100%"
     # Wide margin when lead clears #2 by ≥2.
     wide = enrich_soft_allows(
@@ -294,7 +310,85 @@ def test_soft_allow_lead_gate_concentration() -> None:
         1,
         25.0,
     )
+    assert soft_allow_lead_sides_share_delta(wide, band="fresh") == (
+        "rs",
+        3,
+        75.0,
+        2,
+        "wide",
+        "regime",
+        1,
+        25.0,
+        50.0,
+        "wide",
+    )
     assert (
         format_soft_allow_lead_bit(wide, band="fresh")
-        == "rs leads · ×3 · 75% · ahead wide · +2 · vs regime ×1 · 25%"
+        == "rs leads · ×3 · 75% · ahead wide · +2 · vs regime ×1 · 25% · share Δ wide · +50pp"
+    )
+    # Mid ownership spread stays silent (sides share still speaks).
+    mid = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "a"},
+            {"at": fresh, "gate": "rs", "reason": "b"},
+            {"at": fresh, "gate": "rs", "reason": "c"},
+            {"at": fresh, "gate": "rs", "reason": "d"},
+            {"at": fresh, "gate": "regime", "reason": "e"},
+            {"at": fresh, "gate": "regime", "reason": "f"},
+            {"at": fresh, "gate": "regime", "reason": "g"},
+        ],
+        now=now,
+    )
+    assert soft_allow_lead_sides_share(mid, band="fresh") == (
+        "rs",
+        4,
+        57.1,
+        1,
+        "thin",
+        "regime",
+        3,
+        42.9,
+    )
+    assert soft_allow_lead_sides_share_delta(mid, band="fresh") is None
+    assert (
+        format_soft_allow_lead_bit(mid, band="fresh")
+        == "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43%"
+    )
+    # Thin ownership spread speaks when |Δ| < 10pp.
+    thin_pp = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": f"a{i}"}
+            for i in range(6)
+        ]
+        + [
+            {"at": fresh, "gate": "regime", "reason": f"b{i}"}
+            for i in range(5)
+        ],
+        now=now,
+    )
+    assert soft_allow_lead_sides_share(thin_pp, band="fresh") == (
+        "rs",
+        6,
+        54.5,
+        1,
+        "thin",
+        "regime",
+        5,
+        45.5,
+    )
+    assert soft_allow_lead_sides_share_delta(thin_pp, band="fresh") == (
+        "rs",
+        6,
+        54.5,
+        1,
+        "thin",
+        "regime",
+        5,
+        45.5,
+        9.0,
+        "thin",
+    )
+    assert (
+        format_soft_allow_lead_bit(thin_pp, band="fresh")
+        == "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · share Δ thin · +9pp"
     )

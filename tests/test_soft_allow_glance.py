@@ -132,12 +132,17 @@ def test_soft_allow_glance_aging_tally_only() -> None:
     assert g["aging_tally"] == "breadth×2 · rs×1"
     assert g["severity"] == "aging"
     assert g["tone"] == "flat"
-    assert g["lead_bit"] == "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33%"
+    assert g["lead_bit"] == (
+        "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · share Δ wide · +33pp"
+    )
     assert g["lead_runner_gate"] == "rs"
     assert g["lead_runner_count"] == 1
     assert g["lead_runner_share_pct"] == 33.3
+    assert g["lead_share_delta_pp"] == 33.4
+    assert g["lead_share_delta_severity"] == "wide"
     assert g["line"].startswith(
         "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · "
+        "share Δ wide · +33pp · "
     )
     assert "3 soft-allows" in g["line"]
     assert "3 aging" in g["line"]
@@ -186,10 +191,13 @@ def test_soft_allow_glance_fresh_tally_multi_recent() -> None:
     assert g["expired_count"] == 0
     assert g["fresh_tally"] == "rs×2 · breadth×1"
     assert g["lead_bit"] == (
-        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33%"
+        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33% · "
+        "share Δ wide · +33pp"
     )
     assert g["lead_runner_gate"] == "breadth"
     assert g["lead_runner_count"] == 1
+    assert g["lead_share_delta_pp"] == 33.4
+    assert g["lead_share_delta_severity"] == "wide"
     assert "3 recent soft-allows" in g["line"]
     assert "rs×2" in g["line"]
     assert "breadth×1" in g["line"]
@@ -266,10 +274,13 @@ def test_soft_allow_glance_lead_gate_hot() -> None:
     assert g["lead_runner_count"] == 1
     assert g["lead_band"] == "fresh"
     assert g["lead_bit"] == (
-        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33%"
+        "rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33% · share Δ wide · +33pp"
     )
+    assert g["lead_share_delta_pp"] == 33.4
+    assert g["lead_share_delta_severity"] == "wide"
     assert g["line"].startswith(
         "hot · rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33% · "
+        "share Δ wide · +33pp · "
     )
     assert "rs×2" in g["line"]
 
@@ -295,9 +306,14 @@ def test_soft_allow_glance_lead_gate_aging() -> None:
     assert g["lead_runner_gate"] == "rs"
     assert g["lead_runner_count"] == 1
     assert g["lead_band"] == "aging"
-    assert g["lead_bit"] == "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33%"
+    assert g["lead_bit"] == (
+        "breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · share Δ wide · +33pp"
+    )
+    assert g["lead_share_delta_pp"] == 33.4
+    assert g["lead_share_delta_severity"] == "wide"
     assert g["line"].startswith(
         "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · "
+        "share Δ wide · +33pp · "
     )
 
 
@@ -322,6 +338,8 @@ def test_soft_allow_glance_lead_gate_tie_silent() -> None:
     assert g["lead_margin_severity"] == ""
     assert g["lead_runner_gate"] == ""
     assert g["lead_runner_count"] == 0
+    assert g["lead_share_delta_pp"] is None
+    assert g["lead_share_delta_severity"] == ""
     assert "leads" not in g["line"]
 
 
@@ -347,10 +365,14 @@ def test_soft_allow_glance_lead_gate_cool_expired() -> None:
     assert g["lead_runner_count"] == 1
     assert g["lead_band"] == "expired"
     assert g["lead_bit"] == (
-        "regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1 · 33%"
+        "regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1 · 33% · "
+        "share Δ wide · +33pp"
     )
+    assert g["lead_share_delta_pp"] == 33.4
+    assert g["lead_share_delta_severity"] == "wide"
     assert g["line"].startswith(
         "cool · regime leads · ×2 · 67% · ahead thin · +1 · vs promote ×1 · 33% · "
+        "share Δ wide · +33pp · "
     )
 
 
@@ -372,11 +394,15 @@ def test_soft_allow_glance_lead_margin_wide() -> None:
     assert g["lead_runner_gate"] == "breadth"
     assert g["lead_runner_count"] == 1
     assert g["lead_runner_share_pct"] == 25.0
+    assert g["lead_share_delta_pp"] == 50.0
+    assert g["lead_share_delta_severity"] == "wide"
     assert g["lead_bit"] == (
-        "rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25%"
+        "rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25% · "
+        "share Δ wide · +50pp"
     )
     assert g["line"].startswith(
         "hot · rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25% · "
+        "share Δ wide · +50pp · "
     )
 
 
@@ -400,3 +426,55 @@ def test_soft_allow_glance_lead_sole_no_ahead() -> None:
     assert "ahead" not in g["lead_bit"]
     assert "vs " not in g["lead_bit"]
     assert g["lead_runner_share_pct"] is None
+    assert g["lead_share_delta_pp"] is None
+    assert g["lead_share_delta_severity"] == ""
+    assert "share Δ" not in g["lead_bit"]
+
+
+def test_soft_allow_glance_lead_share_delta_mid_silent() -> None:
+    """Mid ownership spread stays quiet; sides share still speaks."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "rs", "reason": "a"},
+            {"at": fresh, "gate": "rs", "reason": "b"},
+            {"at": fresh, "gate": "rs", "reason": "c"},
+            {"at": fresh, "gate": "rs", "reason": "d"},
+            {"at": fresh, "gate": "regime", "reason": "e"},
+            {"at": fresh, "gate": "regime", "reason": "f"},
+            {"at": fresh, "gate": "regime", "reason": "g"},
+        ],
+        now=now,
+    )
+    assert g["lead_share_pct"] == 57.1
+    assert g["lead_runner_share_pct"] == 42.9
+    assert g["lead_share_delta_pp"] is None
+    assert g["lead_share_delta_severity"] == ""
+    assert g["lead_bit"] == (
+        "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43%"
+    )
+    assert "share Δ" not in g["lead_bit"]
+
+
+def test_soft_allow_glance_lead_share_delta_thin() -> None:
+    """Thin ownership spread speaks when |Δ| < 10pp."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "rs", "reason": f"a{i}"}
+            for i in range(6)
+        ]
+        + [
+            {"at": fresh, "gate": "regime", "reason": f"b{i}"}
+            for i in range(5)
+        ],
+        now=now,
+    )
+    assert g["lead_share_delta_pp"] == 9.0
+    assert g["lead_share_delta_severity"] == "thin"
+    assert g["lead_bit"] == (
+        "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
+        "share Δ thin · +9pp"
+    )

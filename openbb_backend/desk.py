@@ -385,9 +385,10 @@ def build_soft_allow_glance(
 
     Lead gate (portfolio AI concentration + xang1234): when the
     severity-driving band has a clear dominant gate (≥2 and strictly
-    ahead of #2), speak ``rs leads · ×N · M% · ahead … · vs gate ×K · P%``
-    after severity — tally alone does not name the concentration; ahead
-    margin ≠ who is runner-up; absolute ×K ≠ runner band ownership.
+    ahead of #2), speak ``rs leads · ×N · M% · ahead … · vs gate ×K · P%
+    · share Δ wide|thin · ±Npp`` after severity — tally alone does not
+    name the concentration; ahead margin ≠ who is runner-up; absolute ×K
+    ≠ runner band ownership; two % ≠ the ownership spread (mid silent).
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,
@@ -400,6 +401,7 @@ def build_soft_allow_glance(
         soft_allow_lead_margin,
         soft_allow_lead_share,
         soft_allow_lead_sides_share,
+        soft_allow_lead_sides_share_delta,
     )
 
     ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
@@ -427,6 +429,8 @@ def build_soft_allow_glance(
         "lead_runner_gate": "",
         "lead_runner_count": 0,
         "lead_runner_share_pct": None,
+        "lead_share_delta_pp": None,
+        "lead_share_delta_severity": "",
         "lead_band": "",
         "lead_bit": "",
         "line": "",
@@ -497,6 +501,7 @@ def build_soft_allow_glance(
     lead = soft_allow_lead_share(rows, band=lead_band)
     margin = soft_allow_lead_margin(rows, band=lead_band)
     sides = soft_allow_lead_sides_share(rows, band=lead_band)
+    share_delta = soft_allow_lead_sides_share_delta(rows, band=lead_band)
     lead_gate = lead[0] if lead else ""
     lead_count = lead[1] if lead else 0
     lead_share_pct = lead[2] if lead else None
@@ -505,6 +510,8 @@ def build_soft_allow_glance(
     lead_runner_gate = sides[5] if sides else ""
     lead_runner_count = sides[6] if sides else 0
     lead_runner_share_pct = sides[7] if sides else None
+    lead_share_delta_pp = share_delta[8] if share_delta else None
+    lead_share_delta_severity = share_delta[9] if share_delta else ""
     if lead_bit:
         line = f"{severity} · {lead_bit} · {line}"
     else:
@@ -532,6 +539,8 @@ def build_soft_allow_glance(
         "lead_runner_gate": lead_runner_gate,
         "lead_runner_count": lead_runner_count,
         "lead_runner_share_pct": lead_runner_share_pct,
+        "lead_share_delta_pp": lead_share_delta_pp,
+        "lead_share_delta_severity": lead_share_delta_severity,
         "lead_band": lead_band if lead else "",
         "lead_bit": lead_bit,
         "line": line,
@@ -9258,7 +9267,7 @@ def load_desk_snapshot(
         {
             "title": "Soft-allow glance on Overview / Book",
             "from": "tradermonty/claude-trading-skills (trader memory + #437 expired) + xang1234/RyanJHamby fresh·aging·expired triad + portfolio AI speak-both-sides + concentration lead",
-            "note": "One-line fail-open soft-allow count beside pretrade / risk; hot|aging|cool severity; lead gate when one gate dominates the severity band (≥2, ties silent) with share · ahead · vs runner-up; aging (>12h) + expired (>24h) counts + gate tallies consolidated — Ops keeps the full list; display only.",
+            "note": "One-line fail-open soft-allow count beside pretrade / risk; hot|aging|cool severity; lead gate when one gate dominates the severity band (≥2, ties silent) with share · ahead · vs runner-up · share Δ wide|thin (mid silent); aging (>12h) + expired (>24h) counts + gate tallies consolidated — Ops keeps the full list; display only.",
         },
         {
             "title": "Pretrade glance on Screener / Ideas / Book / Charts / Breadth",

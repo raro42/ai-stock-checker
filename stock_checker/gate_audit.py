@@ -381,16 +381,84 @@ def soft_allow_lead_sides_share(
     )
 
 
+# Lead% − runner% ownership spread (exit-€ share Δ bands): wide ≥20pp · thin <10pp.
+SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP = 20.0
+SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP = 10.0
+
+
+def soft_allow_lead_sides_share_delta(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, int, float, int, str, str, int, float, float, str] | None:
+    """Lead/runner shares plus ownership Δ pp (two % ≠ the spread).
+
+    Same speak rules as ``soft_allow_lead_sides_share``. Speaks only when
+    |lead% − runner%| is wide (≥``SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP``) or
+    thin (<``SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP``); mid stays silent —
+    portfolio AI + xang1234 after exit-€ share Δ. Display only.
+    """
+    sides = soft_allow_lead_sides_share(events, band=band, min_count=min_count)
+    if sides is None:
+        return None
+    gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
+    delta = float(pct) - float(runner_pct)
+    mag = abs(delta)
+    if mag < 1e-9:
+        return None
+    if mag >= SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP:
+        lean = "wide"
+    elif mag < SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP:
+        lean = "thin"
+    else:
+        return None
+    return (
+        gate,
+        n,
+        pct,
+        gap,
+        severity,
+        runner,
+        runner_n,
+        runner_pct,
+        round(delta, 1),
+        lean,
+    )
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,
     band: str,
     min_count: int = 2,
 ) -> str:
-    """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33%``.
+    """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp``.
 
-    Sole-gate omits ahead and vs (no runner-up).
+    Sole-gate omits ahead and vs (no runner-up). Share Δ omits mid spreads.
     """
+    delta = soft_allow_lead_sides_share_delta(
+        events, band=band, min_count=min_count
+    )
+    if delta is not None:
+        (
+            gate,
+            n,
+            pct,
+            gap,
+            severity,
+            runner,
+            runner_n,
+            runner_pct,
+            pp,
+            lean,
+        ) = delta
+        signed = int(round(pp))
+        return (
+            f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
+            f"+{gap} · vs {runner} ×{runner_n} · {int(round(runner_pct))}% · "
+            f"share Δ {lean} · {signed:+d}pp"
+        )
     sides = soft_allow_lead_sides_share(events, band=band, min_count=min_count)
     if sides is not None:
         gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
