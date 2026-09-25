@@ -495,13 +495,23 @@ def mark_soft_allow_lead_rows(
     lead_gate: str,
     lead_band: str,
 ) -> list[dict[str, Any]]:
-    """Set ``is_lead`` on each enriched soft-allow for Ops list tags."""
+    """Set ``is_lead`` + ``lead_band`` on each enriched soft-allow for Ops tags.
+
+    ``lead_band`` is the glance severity band that owns the lead (fresh /
+    aging / expired) — not the row's own cool-off stamp. xang1234 identity
+    clarity: list tag ≠ row aging/expired meta. Display only.
+    """
     rows = list(events or [])
+    band = str(lead_band or "").strip().casefold()
     for row in rows:
         if isinstance(row, dict):
-            row["is_lead"] = soft_allow_row_is_lead(
+            is_lead = soft_allow_row_is_lead(
                 row, lead_gate=lead_gate, lead_band=lead_band
             )
+            row["is_lead"] = is_lead
+            # Only lead rows carry the glance-band label (avoid confusing
+            # non-lead rows whose freshness already has aging/expired tags).
+            row["lead_band"] = band if is_lead and band else ""
     return rows
 
 

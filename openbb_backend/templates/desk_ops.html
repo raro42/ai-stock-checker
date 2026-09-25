@@ -440,16 +440,16 @@
 
   <section class="block soft-allows" aria-labelledby="soft-h">
     <h3 id="soft-h" class="subhead">Fail-open soft-allows</h3>
-    <p class="sub">When a gate passes because data is missing (unknown / no bars), the trader keeps a short memory here — not a block list. Rows age after {{ snap.soft_allow_glance.aging_hours | int }}h and expire after {{ snap.soft_allow_glance.fresh_hours | int }}h (consolidated on the glance).</p>
+    <p class="sub">When a gate passes because data is missing (unknown / no bars), the trader keeps a short memory here — not a block list. Rows age after {{ snap.soft_allow_glance.aging_hours | int }}h and expire after {{ snap.soft_allow_glance.fresh_hours | int }}h (consolidated on the glance). A <span class="meta">leads · band</span> tag is the glance severity-band concentration — not the same as a row's aging/expired cool-off stamp.</p>
     {% if snap.soft_allows %}
     {% if snap.soft_allow_glance.aging_count or snap.soft_allow_glance.expired_count %}
     <p class="sub soft-allow-expired-summary">{% if snap.soft_allow_glance.fresh_count %}Fresh · {{ snap.soft_allow_glance.fresh_count }}{% if snap.soft_allow_glance.fresh_tally %} · {{ snap.soft_allow_glance.fresh_tally }}{% endif %} · ≤{{ snap.soft_allow_glance.aging_hours | int }}h{% endif %}{% if snap.soft_allow_glance.fresh_count and snap.soft_allow_glance.aging_count %} · {% elif snap.soft_allow_glance.fresh_count and snap.soft_allow_glance.expired_count and not snap.soft_allow_glance.aging_count %} · {% endif %}{% if snap.soft_allow_glance.aging_count %}Aging · {{ snap.soft_allow_glance.aging_count }}{% if snap.soft_allow_glance.aging_tally %} · {{ snap.soft_allow_glance.aging_tally }}{% endif %} · &gt;{{ snap.soft_allow_glance.aging_hours | int }}h{% endif %}{% if snap.soft_allow_glance.aging_count and snap.soft_allow_glance.expired_count %} · {% endif %}{% if snap.soft_allow_glance.expired_count %}Expired · {{ snap.soft_allow_glance.expired_count }}{% if snap.soft_allow_glance.expired_tally %} · {{ snap.soft_allow_glance.expired_tally }}{% endif %} · &gt;{{ snap.soft_allow_glance.fresh_hours | int }}h{% endif %}</p>
     {% endif %}
     <ul class="soft-allow-list">
       {% for e in snap.soft_allows %}
-      <li{% if e.is_lead %} class="soft-allow-lead{% if e.expired %} soft-allow-expired{% elif e.freshness == 'aging' %} soft-allow-aging{% endif %}"{% elif e.expired %} class="soft-allow-expired"{% elif e.freshness == 'aging' %} class="soft-allow-aging"{% endif %}>
+      <li{% if e.is_lead %} class="soft-allow-lead{% if e.expired %} soft-allow-expired{% elif e.freshness == 'aging' %} soft-allow-aging{% endif %}"{% elif e.expired %} class="soft-allow-expired"{% elif e.freshness == 'aging' %} class="soft-allow-aging{% endif %}>
         <span class="ops-mono">{{ e.at }}</span>
-        {% if e.is_lead %}<span class="meta soft-allow-lead-tag">leads</span>{% endif %}
+        {% if e.is_lead %}<span class="meta soft-allow-lead-tag">leads · {{ e.lead_band }}</span>{% endif %}
         {% if e.expired %}<span class="meta soft-allow-expired-tag">expired</span>{% elif e.freshness == 'aging' %}<span class="meta soft-allow-aging-tag">aging</span>{% endif %}
         <span class="meta">[{{ e.gate }}]</span>
         <span class="why">{{ e.reason }}</span>

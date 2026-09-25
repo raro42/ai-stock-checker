@@ -9280,7 +9280,7 @@ def load_desk_snapshot(
         {
             "title": "Soft-allow glance on Overview / Book",
             "from": "tradermonty/claude-trading-skills (trader memory + #437 expired) + xang1234/RyanJHamby fresh·aging·expired triad + portfolio AI speak-both-sides + concentration lead",
-            "note": "One-line fail-open soft-allow count beside pretrade / risk; hot|aging|cool severity; lead gate when one gate dominates the severity band (≥2, ties silent) with share · ahead · vs runner-up · share Δ wide|thin (mid silent) · share vs Δ clash|align (count-ahead lean ≠ ownership-Δ lean); aging (>12h) + expired (>24h) counts + gate tallies consolidated — Ops keeps the full list; display only.",
+            "note": "One-line fail-open soft-allow count beside pretrade / risk; hot|aging|cool severity; lead gate when one gate dominates the severity band (≥2, ties silent) with share · ahead · vs runner-up · share Δ wide|thin (mid silent) · share vs Δ clash|align (count-ahead lean ≠ ownership-Δ lean); Ops list tags lead rows as leads · band (glance severity identity ≠ row aging/expired); aging (>12h) + expired (>24h) counts + gate tallies consolidated — Ops keeps the full list; display only.",
         },
         {
             "title": "Pretrade glance on Screener / Ideas / Book / Charts / Breadth",

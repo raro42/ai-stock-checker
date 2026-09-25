@@ -458,3 +458,11 @@ def test_soft_allow_row_is_lead_matches_band() -> None:
         False,
         True,
     ]
+    # xang1234 identity: lead_band is glance severity band, not row cool-off.
+    assert [r.get("lead_band") for r in marked] == [
+        "fresh",
+        "fresh",
+        "",
+        "",
+        "fresh",
+    ]
