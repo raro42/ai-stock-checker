@@ -9325,6 +9325,7 @@ def load_desk_snapshot(
         soft_allows,
         lead_gate=str(soft_allow_glance.get("lead_gate") or ""),
         lead_band=str(soft_allow_glance.get("lead_band") or ""),
+        runner_gate=str(soft_allow_glance.get("lead_runner_gate") or ""),
     )
     ai_debates = recent_ai_debates(data_dir, limit=8)
     ai_actions = latest_ai_actions(data_dir)

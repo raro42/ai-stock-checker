@@ -463,6 +463,32 @@ def soft_allow_lead_sides_share_vs_delta(
     return None
 
 
+def _soft_allow_row_in_band(
+    row: dict[str, Any] | None,
+    *,
+    gate: str,
+    band: str,
+) -> bool:
+    """True when row gate matches and freshness sits in the severity band.
+
+    Fresh also matches ``unknown`` stamps (same as band tally). Shared by
+    lead and runner list tags — portfolio AI + xang1234 band identity.
+    """
+    if not isinstance(row, dict):
+        return False
+    want = str(gate or "").strip()
+    band_s = str(band or "").strip().casefold()
+    if not want or band_s not in ("fresh", "aging", "expired"):
+        return False
+    row_gate = str(row.get("gate") or "").strip()
+    if row_gate.casefold() != want.casefold():
+        return False
+    freshness = str(row.get("freshness") or "").strip().casefold()
+    if band_s == "fresh":
+        return freshness in ("fresh", "unknown")
+    return freshness == band_s
+
+
 def soft_allow_row_is_lead(
     row: dict[str, Any] | None,
     *,
@@ -474,19 +500,21 @@ def soft_allow_row_is_lead(
     Fresh lead also matches ``unknown`` stamps (same as band tally). Display
     only — portfolio AI + xang1234 concentration on the list, not glance-only.
     """
-    if not isinstance(row, dict):
-        return False
-    gate = str(lead_gate or "").strip()
-    band = str(lead_band or "").strip().casefold()
-    if not gate or band not in ("fresh", "aging", "expired"):
-        return False
-    row_gate = str(row.get("gate") or "").strip()
-    if row_gate.casefold() != gate.casefold():
-        return False
-    freshness = str(row.get("freshness") or "").strip().casefold()
-    if band == "fresh":
-        return freshness in ("fresh", "unknown")
-    return freshness == band
+    return _soft_allow_row_in_band(row, gate=lead_gate, band=lead_band)
+
+
+def soft_allow_row_is_runner(
+    row: dict[str, Any] | None,
+    *,
+    runner_gate: str,
+    lead_band: str,
+) -> bool:
+    """True when this Ops list row is the glance runner-up gate×band.
+
+    Same band rules as lead (severity-driving band ≠ row cool-off). Speak-
+    both-sides after lead tags — portfolio AI + xang1234. Display only.
+    """
+    return _soft_allow_row_in_band(row, gate=runner_gate, band=lead_band)
 
 
 def mark_soft_allow_lead_rows(
@@ -494,12 +522,15 @@ def mark_soft_allow_lead_rows(
     *,
     lead_gate: str,
     lead_band: str,
+    runner_gate: str = "",
 ) -> list[dict[str, Any]]:
-    """Set ``is_lead`` + ``lead_band`` on each enriched soft-allow for Ops tags.
+    """Set lead/runner tags on each enriched soft-allow for Ops list.
 
-    ``lead_band`` is the glance severity band that owns the lead (fresh /
-    aging / expired) — not the row's own cool-off stamp. xang1234 identity
-    clarity: list tag ≠ row aging/expired meta. Display only.
+    ``lead_band`` is the glance severity band that owns concentration (fresh /
+    aging / expired) — not the row's own cool-off stamp. Runner tags reuse
+    that band when glance already spoke ``vs``. Lead wins if both match
+    (should not happen). xang1234 identity clarity: list tag ≠ row
+    aging/expired meta. Display only.
     """
     rows = list(events or [])
     band = str(lead_band or "").strip().casefold()
@@ -508,10 +539,18 @@ def mark_soft_allow_lead_rows(
             is_lead = soft_allow_row_is_lead(
                 row, lead_gate=lead_gate, lead_band=lead_band
             )
+            is_runner = (
+                (not is_lead)
+                and soft_allow_row_is_runner(
+                    row, runner_gate=runner_gate, lead_band=lead_band
+                )
+            )
             row["is_lead"] = is_lead
-            # Only lead rows carry the glance-band label (avoid confusing
-            # non-lead rows whose freshness already has aging/expired tags).
+            row["is_runner"] = is_runner
+            # Only tagged rows carry the glance-band label (avoid confusing
+            # non-lead/runner rows whose freshness already has aging/expired).
             row["lead_band"] = band if is_lead and band else ""
+            row["runner_band"] = band if is_runner and band else ""
     return rows
 
 

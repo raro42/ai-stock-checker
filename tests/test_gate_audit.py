@@ -423,6 +423,7 @@ def test_soft_allow_row_is_lead_matches_band() -> None:
     from stock_checker.gate_audit import (
         mark_soft_allow_lead_rows,
         soft_allow_row_is_lead,
+        soft_allow_row_is_runner,
     )
 
     now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
@@ -448,8 +449,17 @@ def test_soft_allow_row_is_lead_matches_band() -> None:
     )
     assert soft_allow_row_is_lead(rows[4], lead_gate="rs", lead_band="fresh")
     assert not soft_allow_row_is_lead(rows[0], lead_gate="", lead_band="fresh")
+    assert soft_allow_row_is_runner(
+        rows[2], runner_gate="regime", lead_band="fresh"
+    )
+    assert not soft_allow_row_is_runner(
+        rows[0], runner_gate="regime", lead_band="fresh"
+    )
     marked = mark_soft_allow_lead_rows(
-        rows, lead_gate="rs", lead_band="fresh"
+        rows,
+        lead_gate="rs",
+        lead_band="fresh",
+        runner_gate="regime",
     )
     assert [r["is_lead"] for r in marked] == [
         True,
@@ -458,11 +468,25 @@ def test_soft_allow_row_is_lead_matches_band() -> None:
         False,
         True,
     ]
-    # xang1234 identity: lead_band is glance severity band, not row cool-off.
+    assert [r["is_runner"] for r in marked] == [
+        False,
+        False,
+        True,
+        False,
+        False,
+    ]
+    # xang1234 identity: lead/runner band is glance severity, not row cool-off.
     assert [r.get("lead_band") for r in marked] == [
         "fresh",
         "fresh",
         "",
         "",
         "fresh",
+    ]
+    assert [r.get("runner_band") for r in marked] == [
+        "",
+        "",
+        "fresh",
+        "",
+        "",
     ]

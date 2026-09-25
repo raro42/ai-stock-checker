@@ -388,7 +388,7 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
 
 
 def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
-    """portfolio AI + xang1234: Ops list marks glance lead gate×band rows."""
+    """portfolio AI + xang1234: Ops list marks glance lead + runner gate×band."""
     _seed_portfolio(tmp_path)
     from stock_checker.gate_audit import record_soft_allow
 
@@ -408,6 +408,12 @@ def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
     assert ">leads · fresh<" in resp.text
     assert "leads · band" in resp.text
     assert resp.text.count("soft-allow-lead-tag") == 2
+    # Speak-both-sides: runner gate×band gets vs · band (not accent lead).
+    assert "soft-allow-runner" in resp.text
+    assert "soft-allow-runner-tag" in resp.text
+    assert ">vs · fresh<" in resp.text
+    assert "vs · band" in resp.text
+    assert resp.text.count("soft-allow-runner-tag") == 1
     # Ops inventory: counts + ownership % + ahead (+ share Δ when glance spoke).
     assert "soft-allow-lead-summary" in resp.text
     assert (
