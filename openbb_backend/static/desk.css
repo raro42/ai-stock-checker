@@ -1444,6 +1444,10 @@ a:active {
   color: var(--accent, var(--ink));
 }
 
+.soft-allow-lead-summary {
+  color: var(--accent, var(--ink));
+}
+
 @media (max-width: 640px) {
   .soft-allow-list li {
     grid-template-columns: 1fr;

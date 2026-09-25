@@ -394,7 +394,7 @@ def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
 
     record_soft_allow(tmp_path, "rs", "insufficient a")
     record_soft_allow(tmp_path, "rs", "insufficient b")
-    record_soft_allow(tmp_path, "regime", "no SPY bars")
+    record_soft_allow(tmp_path, "regime", "unknown — no SPY bars")
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")
     from starlette.testclient import TestClient
@@ -408,7 +408,31 @@ def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
     assert ">leads · fresh<" in resp.text
     assert "leads · band" in resp.text
     assert resp.text.count("soft-allow-lead-tag") == 2
+    # Ops inventory consolidates tagged lead rows (+ runner when ahead spoke).
+    assert "soft-allow-lead-summary" in resp.text
+    assert "Lead · rs ×2 · fresh · vs regime ×1" in resp.text
+    assert "Lead · gate ×N · band" in resp.text
 
+
+def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
+    """Sole-gate lead inventory omits vs (no runner-up)."""
+    _seed_portfolio(tmp_path)
+    from stock_checker.gate_audit import record_soft_allow
+
+    record_soft_allow(tmp_path, "rs", "insufficient a")
+    record_soft_allow(tmp_path, "rs", "insufficient b")
+    monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    from starlette.testclient import TestClient
+
+    client = TestClient(backend.app)
+    resp = client.get("/desk/ops")
+    assert resp.status_code == 200
+    assert "soft-allow-lead-summary" in resp.text
+    assert "Lead · rs ×2 · fresh" in resp.text
+    assert "vs " not in resp.text.split("soft-allow-lead-summary", 1)[1].split(
+        "</p>", 1
+    )[0]
 
 def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
