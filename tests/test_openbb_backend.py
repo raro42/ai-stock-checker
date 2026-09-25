@@ -408,17 +408,19 @@ def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
     assert ">leads · fresh<" in resp.text
     assert "leads · band" in resp.text
     assert resp.text.count("soft-allow-lead-tag") == 2
-    # Ops inventory: counts + ownership % (+ share Δ when glance spoke).
+    # Ops inventory: counts + ownership % + ahead (+ share Δ when glance spoke).
     assert "soft-allow-lead-summary" in resp.text
     assert (
-        "Lead · rs ×2 · fresh · 67% · vs regime ×1 · 33% · share Δ wide · +33pp"
+        "Lead · rs ×2 · fresh · 67% · ahead thin · +1 · vs regime ×1 · 33% · "
+        "share Δ wide · +33pp"
         in resp.text
     )
     assert "Lead · gate ×N · band · M%" in resp.text
+    assert "ahead · +K" in resp.text
 
 
 def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
-    """Sole-gate lead inventory speaks 100% ownership; omits vs (no runner-up)."""
+    """Sole-gate lead inventory speaks 100% ownership; omits ahead/vs (no runner)."""
     _seed_portfolio(tmp_path)
     from stock_checker.gate_audit import record_soft_allow
 
@@ -434,6 +436,7 @@ def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
     assert "soft-allow-lead-summary" in resp.text
     assert "Lead · rs ×2 · fresh · 100%" in resp.text
     summary = resp.text.split("soft-allow-lead-summary", 1)[1].split("</p>", 1)[0]
+    assert "ahead " not in summary
     assert "vs " not in summary
     assert "share Δ" not in summary
 
