@@ -9300,7 +9300,11 @@ def load_desk_snapshot(
         latest_ai_gated,
         recent_ai_debates,
     )
-    from stock_checker.gate_audit import enrich_soft_allows, recent_soft_allows
+    from stock_checker.gate_audit import (
+        enrich_soft_allows,
+        mark_soft_allow_lead_rows,
+        recent_soft_allows,
+    )
     from stock_checker.risk_halts import (
         book_risk_report,
         latest_stop_loss_sell,
@@ -9310,6 +9314,12 @@ def load_desk_snapshot(
     )
 
     soft_allows = enrich_soft_allows(recent_soft_allows(data_dir, limit=12))
+    soft_allow_glance = build_soft_allow_glance(soft_allows)
+    soft_allows = mark_soft_allow_lead_rows(
+        soft_allows,
+        lead_gate=str(soft_allow_glance.get("lead_gate") or ""),
+        lead_band=str(soft_allow_glance.get("lead_band") or ""),
+    )
     ai_debates = recent_ai_debates(data_dir, limit=8)
     ai_actions = latest_ai_actions(data_dir)
     ai_confidences = latest_ai_confidences(data_dir)
@@ -9472,7 +9482,7 @@ def load_desk_snapshot(
         "concentration_glance": build_concentration_glance(book_risk),
         "soft_allows": soft_allows,
         "ai_debates": ai_debates,
-        "soft_allow_glance": build_soft_allow_glance(soft_allows),
+        "soft_allow_glance": soft_allow_glance,
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(runtime),
         "promote_ab_glance": build_promote_ab_glance(

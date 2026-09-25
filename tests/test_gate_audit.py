@@ -416,3 +416,45 @@ def test_soft_allow_lead_gate_concentration() -> None:
         == "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
         "share Δ thin · +9pp · share vs Δ align · thin"
     )
+
+
+def test_soft_allow_row_is_lead_matches_band() -> None:
+    """Ops list lead tag: same gate×band as glance; fresh includes unknown."""
+    from stock_checker.gate_audit import (
+        mark_soft_allow_lead_rows,
+        soft_allow_row_is_lead,
+    )
+
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aging = (now - timedelta(hours=14)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = enrich_soft_allows(
+        [
+            {"at": fresh, "gate": "rs", "reason": "a"},
+            {"at": fresh, "gate": "rs", "reason": "b"},
+            {"at": fresh, "gate": "regime", "reason": "c"},
+            {"at": aging, "gate": "rs", "reason": "d"},
+            {"at": None, "gate": "rs", "reason": "e"},
+        ],
+        now=now,
+    )
+    assert soft_allow_row_is_lead(rows[0], lead_gate="rs", lead_band="fresh")
+    assert soft_allow_row_is_lead(rows[1], lead_gate="rs", lead_band="fresh")
+    assert not soft_allow_row_is_lead(
+        rows[2], lead_gate="rs", lead_band="fresh"
+    )
+    assert not soft_allow_row_is_lead(
+        rows[3], lead_gate="rs", lead_band="fresh"
+    )
+    assert soft_allow_row_is_lead(rows[4], lead_gate="rs", lead_band="fresh")
+    assert not soft_allow_row_is_lead(rows[0], lead_gate="", lead_band="fresh")
+    marked = mark_soft_allow_lead_rows(
+        rows, lead_gate="rs", lead_band="fresh"
+    )
+    assert [r["is_lead"] for r in marked] == [
+        True,
+        True,
+        False,
+        False,
+        True,
+    ]

@@ -463,6 +463,48 @@ def soft_allow_lead_sides_share_vs_delta(
     return None
 
 
+def soft_allow_row_is_lead(
+    row: dict[str, Any] | None,
+    *,
+    lead_gate: str,
+    lead_band: str,
+) -> bool:
+    """True when this Ops list row is in the glance lead gate×band.
+
+    Fresh lead also matches ``unknown`` stamps (same as band tally). Display
+    only — portfolio AI + xang1234 concentration on the list, not glance-only.
+    """
+    if not isinstance(row, dict):
+        return False
+    gate = str(lead_gate or "").strip()
+    band = str(lead_band or "").strip().casefold()
+    if not gate or band not in ("fresh", "aging", "expired"):
+        return False
+    row_gate = str(row.get("gate") or "").strip()
+    if row_gate.casefold() != gate.casefold():
+        return False
+    freshness = str(row.get("freshness") or "").strip().casefold()
+    if band == "fresh":
+        return freshness in ("fresh", "unknown")
+    return freshness == band
+
+
+def mark_soft_allow_lead_rows(
+    events: list[dict[str, Any]] | None,
+    *,
+    lead_gate: str,
+    lead_band: str,
+) -> list[dict[str, Any]]:
+    """Set ``is_lead`` on each enriched soft-allow for Ops list tags."""
+    rows = list(events or [])
+    for row in rows:
+        if isinstance(row, dict):
+            row["is_lead"] = soft_allow_row_is_lead(
+                row, lead_gate=lead_gate, lead_band=lead_band
+            )
+    return rows
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,

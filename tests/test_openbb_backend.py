@@ -387,6 +387,27 @@ def test_desk_ops_has_config_form(tmp_path: Path, monkeypatch):
     assert "book limits" in resp.text
 
 
+def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
+    """portfolio AI + xang1234: Ops list marks glance lead gate rows."""
+    _seed_portfolio(tmp_path)
+    from stock_checker.gate_audit import record_soft_allow
+
+    record_soft_allow(tmp_path, "rs", "insufficient a")
+    record_soft_allow(tmp_path, "rs", "insufficient b")
+    record_soft_allow(tmp_path, "regime", "no SPY bars")
+    monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    from starlette.testclient import TestClient
+
+    client = TestClient(backend.app)
+    resp = client.get("/desk/ops")
+    assert resp.status_code == 200
+    assert "soft-allow-lead" in resp.text
+    assert "soft-allow-lead-tag" in resp.text
+    assert ">leads<" in resp.text
+    assert resp.text.count("soft-allow-lead-tag") == 2
+
+
 def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
     from stock_checker.gate_audit import record_soft_allow

@@ -447,8 +447,9 @@
     {% endif %}
     <ul class="soft-allow-list">
       {% for e in snap.soft_allows %}
-      <li{% if e.expired %} class="soft-allow-expired"{% elif e.freshness == 'aging' %} class="soft-allow-aging"{% endif %}>
+      <li{% if e.is_lead %} class="soft-allow-lead{% if e.expired %} soft-allow-expired{% elif e.freshness == 'aging' %} soft-allow-aging{% endif %}"{% elif e.expired %} class="soft-allow-expired"{% elif e.freshness == 'aging' %} class="soft-allow-aging"{% endif %}>
         <span class="ops-mono">{{ e.at }}</span>
+        {% if e.is_lead %}<span class="meta soft-allow-lead-tag">leads</span>{% endif %}
         {% if e.expired %}<span class="meta soft-allow-expired-tag">expired</span>{% elif e.freshness == 'aging' %}<span class="meta soft-allow-aging-tag">aging</span>{% endif %}
         <span class="meta">[{{ e.gate }}]</span>
         <span class="why">{{ e.reason }}</span>
