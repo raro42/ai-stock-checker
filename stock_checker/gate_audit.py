@@ -515,16 +515,31 @@ def mark_soft_allow_lead_rows(
     return rows
 
 
+def _soft_allow_lead_prefix(gate: str, band: str) -> str:
+    """``rs leads · fresh`` — gate + severity-band identity (xang1234).
+
+    Band name matches Ops ``leads · fresh|aging|expired`` so friends do not
+    read concentration as whole-ring. Unknown band omits the label.
+    """
+    g = str(gate or "").strip() or "?"
+    band_s = str(band or "").strip().casefold()
+    if band_s in ("fresh", "aging", "expired"):
+        return f"{g} leads · {band_s}"
+    return f"{g} leads"
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,
     band: str,
     min_count: int = 2,
 ) -> str:
-    """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp``.
+    """Compact ``rs leads · fresh · ×2 · 67% · ahead thin · +1 · vs …``.
 
-    Sole-gate omits ahead and vs (no runner-up). Share Δ omits mid spreads.
-    Share vs Δ speaks clash (share mid) or align (same lean); different lean silent.
+    Band identity mirrors Ops ``leads · band`` (severity-driving band ≠ row
+    cool-off stamp). Sole-gate omits ahead and vs (no runner-up). Share Δ
+    omits mid spreads. Share vs Δ speaks clash (share mid) or align (same
+    lean); different lean silent.
     """
     vs = soft_allow_lead_sides_share_vs_delta(
         events, band=band, min_count=min_count
@@ -547,7 +562,8 @@ def format_soft_allow_lead_bit(
         ) = delta
         signed = int(round(pp))
         bit = (
-            f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
+            f"{_soft_allow_lead_prefix(gate, band)} · ×{n} · "
+            f"{int(round(pct))}% · ahead {severity} · "
             f"+{gap} · vs {runner} ×{runner_n} · {int(round(runner_pct))}% · "
             f"share Δ {lean} · {signed:+d}pp"
         )
@@ -558,7 +574,8 @@ def format_soft_allow_lead_bit(
     if sides is not None:
         gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
         bit = (
-            f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
+            f"{_soft_allow_lead_prefix(gate, band)} · ×{n} · "
+            f"{int(round(pct))}% · ahead {severity} · "
             f"+{gap} · vs {runner} ×{runner_n} · {int(round(runner_pct))}%"
         )
         if vs is not None and vs[0] == "clash":
@@ -570,8 +587,9 @@ def format_soft_allow_lead_bit(
     if lead is None:
         return ""
     gate, n, pct = lead
-    return f"{gate} leads · ×{n} · {int(round(pct))}%"
-
+    return (
+        f"{_soft_allow_lead_prefix(gate, band)} · ×{n} · {int(round(pct))}%"
+    )
 
 def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:
     """Identity for one soft-allow row (gate + reason, case-folded).

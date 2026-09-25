@@ -233,7 +233,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides_share_vs_delta(rows, band="fresh") is None
     assert (
         format_soft_allow_lead_bit(rows, band="fresh")
-        == "rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp"
+        == "rs leads · fresh · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp"
     )
     # Single row stays silent.
     one = enrich_soft_allows(
@@ -279,7 +279,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides_share(sole, band="fresh") is None
     assert soft_allow_lead_sides_share_delta(sole, band="fresh") is None
     assert soft_allow_lead_sides_share_vs_delta(sole, band="fresh") is None
-    assert format_soft_allow_lead_bit(sole, band="fresh") == "rs leads · ×2 · 100%"
+    assert format_soft_allow_lead_bit(sole, band="fresh") == "rs leads · fresh · ×2 · 100%"
     # Wide margin when lead clears #2 by ≥2.
     wide = enrich_soft_allows(
         [
@@ -335,7 +335,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     )
     assert (
         format_soft_allow_lead_bit(wide, band="fresh")
-        == "rs leads · ×3 · 75% · ahead wide · +2 · vs regime ×1 · 25% · "
+        == "rs leads · fresh · ×3 · 75% · ahead wide · +2 · vs regime ×1 · 25% · "
         "share Δ wide · +50pp · share vs Δ align · wide"
     )
     # Mid ownership spread → clash (ahead spoke · share mid).
@@ -369,7 +369,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     )
     assert (
         format_soft_allow_lead_bit(mid, band="fresh")
-        == "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43% · "
+        == "rs leads · fresh · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43% · "
         "share vs Δ clash · ahead thin · share mid"
     )
     # Thin ownership spread speaks when |Δ| < 10pp; align when ahead thin.
@@ -413,7 +413,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     )
     assert (
         format_soft_allow_lead_bit(thin_pp, band="fresh")
-        == "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
+        == "rs leads · fresh · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
         "share Δ thin · +9pp · share vs Δ align · thin"
     )
 
