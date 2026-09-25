@@ -140,6 +140,7 @@ def test_soft_allow_glance_aging_tally_only() -> None:
     assert g["lead_runner_share_pct"] == 33.3
     assert g["lead_share_delta_pp"] == 33.4
     assert g["lead_share_delta_severity"] == "wide"
+    assert g["lead_share_vs_delta"] == ""
     assert g["line"].startswith(
         "aging · breadth leads · ×2 · 67% · ahead thin · +1 · vs rs ×1 · 33% · "
         "share Δ wide · +33pp · "
@@ -278,6 +279,7 @@ def test_soft_allow_glance_lead_gate_hot() -> None:
     )
     assert g["lead_share_delta_pp"] == 33.4
     assert g["lead_share_delta_severity"] == "wide"
+    assert g["lead_share_vs_delta"] == ""
     assert g["line"].startswith(
         "hot · rs leads · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33% · "
         "share Δ wide · +33pp · "
@@ -396,13 +398,16 @@ def test_soft_allow_glance_lead_margin_wide() -> None:
     assert g["lead_runner_share_pct"] == 25.0
     assert g["lead_share_delta_pp"] == 50.0
     assert g["lead_share_delta_severity"] == "wide"
+    assert g["lead_share_vs_delta"] == "align"
+    assert g["lead_share_vs_delta_ahead"] == "wide"
+    assert g["lead_share_vs_delta_share"] == "wide"
     assert g["lead_bit"] == (
         "rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25% · "
-        "share Δ wide · +50pp"
+        "share Δ wide · +50pp · share vs Δ align · wide"
     )
     assert g["line"].startswith(
         "hot · rs leads · ×3 · 75% · ahead wide · +2 · vs breadth ×1 · 25% · "
-        "share Δ wide · +50pp · "
+        "share Δ wide · +50pp · share vs Δ align · wide · "
     )
 
 
@@ -428,11 +433,12 @@ def test_soft_allow_glance_lead_sole_no_ahead() -> None:
     assert g["lead_runner_share_pct"] is None
     assert g["lead_share_delta_pp"] is None
     assert g["lead_share_delta_severity"] == ""
+    assert g["lead_share_vs_delta"] == ""
     assert "share Δ" not in g["lead_bit"]
 
 
-def test_soft_allow_glance_lead_share_delta_mid_silent() -> None:
-    """Mid ownership spread stays quiet; sides share still speaks."""
+def test_soft_allow_glance_lead_share_delta_mid_clash() -> None:
+    """Mid ownership spread: share Δ silent; share vs Δ clash speaks."""
     now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
     fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     g = build_soft_allow_glance(
@@ -451,14 +457,18 @@ def test_soft_allow_glance_lead_share_delta_mid_silent() -> None:
     assert g["lead_runner_share_pct"] == 42.9
     assert g["lead_share_delta_pp"] is None
     assert g["lead_share_delta_severity"] == ""
+    assert g["lead_share_vs_delta"] == "clash"
+    assert g["lead_share_vs_delta_ahead"] == "thin"
+    assert g["lead_share_vs_delta_share"] == "mid"
     assert g["lead_bit"] == (
-        "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43%"
+        "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43% · "
+        "share vs Δ clash · ahead thin · share mid"
     )
     assert "share Δ" not in g["lead_bit"]
 
 
 def test_soft_allow_glance_lead_share_delta_thin() -> None:
-    """Thin ownership spread speaks when |Δ| < 10pp."""
+    """Thin ownership spread speaks when |Δ| < 10pp; align when ahead thin."""
     now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
     fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     g = build_soft_allow_glance(
@@ -474,7 +484,10 @@ def test_soft_allow_glance_lead_share_delta_thin() -> None:
     )
     assert g["lead_share_delta_pp"] == 9.0
     assert g["lead_share_delta_severity"] == "thin"
+    assert g["lead_share_vs_delta"] == "align"
+    assert g["lead_share_vs_delta_ahead"] == "thin"
+    assert g["lead_share_vs_delta_share"] == "thin"
     assert g["lead_bit"] == (
         "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
-        "share Δ thin · +9pp"
+        "share Δ thin · +9pp · share vs Δ align · thin"
     )

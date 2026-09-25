@@ -386,6 +386,19 @@ SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP = 20.0
 SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP = 10.0
 
 
+def _soft_allow_share_delta_lean(lead_pct: float, runner_pct: float) -> str | None:
+    """Ownership Δ lean: ``wide`` / ``thin`` / ``mid``, or None when near-zero."""
+    delta = float(lead_pct) - float(runner_pct)
+    mag = abs(delta)
+    if mag < 1e-9:
+        return None
+    if mag >= SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP:
+        return "wide"
+    if mag < SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP:
+        return "thin"
+    return "mid"
+
+
 def soft_allow_lead_sides_share_delta(
     events: list[dict[str, Any]] | None,
     *,
@@ -403,16 +416,10 @@ def soft_allow_lead_sides_share_delta(
     if sides is None:
         return None
     gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
-    delta = float(pct) - float(runner_pct)
-    mag = abs(delta)
-    if mag < 1e-9:
+    lean = _soft_allow_share_delta_lean(pct, runner_pct)
+    if lean not in ("wide", "thin"):
         return None
-    if mag >= SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP:
-        lean = "wide"
-    elif mag < SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP:
-        lean = "thin"
-    else:
-        return None
+    delta = round(float(pct) - float(runner_pct), 1)
     return (
         gate,
         n,
@@ -422,9 +429,38 @@ def soft_allow_lead_sides_share_delta(
         runner,
         runner_n,
         runner_pct,
-        round(delta, 1),
+        delta,
         lean,
     )
+
+
+def soft_allow_lead_sides_share_vs_delta(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    min_count: int = 2,
+) -> tuple[str, str, str] | None:
+    """Count-ahead lean vs ownership-Δ lean (exit-€ share vs Δ adapted).
+
+    Requires a runner-up (sides share). Ahead is always ``wide``/``thin`` when
+    sides spoke. Speak ``clash`` when share Δ is mid (exactly one lean spoke).
+    Speak ``align`` when both leanish and equal. Different lean stays silent —
+    portfolio AI + xang1234 after soft-allow share Δ. Display only.
+    """
+    sides = soft_allow_lead_sides_share(events, band=band, min_count=min_count)
+    if sides is None:
+        return None
+    _gate, _n, pct, _gap, ahead, _runner, _rn, runner_pct = sides
+    if ahead not in ("wide", "thin"):
+        return None
+    share = _soft_allow_share_delta_lean(pct, runner_pct)
+    if share is None:
+        return None
+    if share == "mid":
+        return "clash", ahead, "mid"
+    if share == ahead:
+        return "align", ahead, share
+    return None
 
 
 def format_soft_allow_lead_bit(
@@ -436,7 +472,11 @@ def format_soft_allow_lead_bit(
     """Compact ``rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp``.
 
     Sole-gate omits ahead and vs (no runner-up). Share Δ omits mid spreads.
+    Share vs Δ speaks clash (share mid) or align (same lean); different lean silent.
     """
+    vs = soft_allow_lead_sides_share_vs_delta(
+        events, band=band, min_count=min_count
+    )
     delta = soft_allow_lead_sides_share_delta(
         events, band=band, min_count=min_count
     )
@@ -454,18 +494,26 @@ def format_soft_allow_lead_bit(
             lean,
         ) = delta
         signed = int(round(pp))
-        return (
+        bit = (
             f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
             f"+{gap} · vs {runner} ×{runner_n} · {int(round(runner_pct))}% · "
             f"share Δ {lean} · {signed:+d}pp"
         )
+        if vs is not None and vs[0] == "align":
+            bit = f"{bit} · share vs Δ align · {vs[1]}"
+        return bit
     sides = soft_allow_lead_sides_share(events, band=band, min_count=min_count)
     if sides is not None:
         gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
-        return (
+        bit = (
             f"{gate} leads · ×{n} · {int(round(pct))}% · ahead {severity} · "
             f"+{gap} · vs {runner} ×{runner_n} · {int(round(runner_pct))}%"
         )
+        if vs is not None and vs[0] == "clash":
+            bit = (
+                f"{bit} · share vs Δ clash · ahead {vs[1]} · share {vs[2]}"
+            )
+        return bit
     lead = soft_allow_lead_share(events, band=band, min_count=min_count)
     if lead is None:
         return ""

@@ -25,6 +25,7 @@ from stock_checker.gate_audit import (
     soft_allow_lead_sides,
     soft_allow_lead_sides_share,
     soft_allow_lead_sides_share_delta,
+    soft_allow_lead_sides_share_vs_delta,
 )
 
 
@@ -228,6 +229,8 @@ def test_soft_allow_lead_gate_concentration() -> None:
         33.4,
         "wide",
     )
+    # ahead thin ≠ share wide → different lean silent on vs Δ
+    assert soft_allow_lead_sides_share_vs_delta(rows, band="fresh") is None
     assert (
         format_soft_allow_lead_bit(rows, band="fresh")
         == "rs leads · ×2 · 67% · ahead thin · +1 · vs regime ×1 · 33% · share Δ wide · +33pp"
@@ -243,6 +246,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides(one, band="fresh") is None
     assert soft_allow_lead_sides_share(one, band="fresh") is None
     assert soft_allow_lead_sides_share_delta(one, band="fresh") is None
+    assert soft_allow_lead_sides_share_vs_delta(one, band="fresh") is None
     assert format_soft_allow_lead_bit(one, band="fresh") == ""
     # Tie stays silent.
     tied = enrich_soft_allows(
@@ -260,6 +264,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides(tied, band="fresh") is None
     assert soft_allow_lead_sides_share(tied, band="fresh") is None
     assert soft_allow_lead_sides_share_delta(tied, band="fresh") is None
+    assert soft_allow_lead_sides_share_vs_delta(tied, band="fresh") is None
     # Sole-gate lead still speaks ownership; ahead stays silent (no #2).
     sole = enrich_soft_allows(
         [
@@ -273,6 +278,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides(sole, band="fresh") is None
     assert soft_allow_lead_sides_share(sole, band="fresh") is None
     assert soft_allow_lead_sides_share_delta(sole, band="fresh") is None
+    assert soft_allow_lead_sides_share_vs_delta(sole, band="fresh") is None
     assert format_soft_allow_lead_bit(sole, band="fresh") == "rs leads · ×2 · 100%"
     # Wide margin when lead clears #2 by ≥2.
     wide = enrich_soft_allows(
@@ -322,11 +328,17 @@ def test_soft_allow_lead_gate_concentration() -> None:
         50.0,
         "wide",
     )
+    assert soft_allow_lead_sides_share_vs_delta(wide, band="fresh") == (
+        "align",
+        "wide",
+        "wide",
+    )
     assert (
         format_soft_allow_lead_bit(wide, band="fresh")
-        == "rs leads · ×3 · 75% · ahead wide · +2 · vs regime ×1 · 25% · share Δ wide · +50pp"
+        == "rs leads · ×3 · 75% · ahead wide · +2 · vs regime ×1 · 25% · "
+        "share Δ wide · +50pp · share vs Δ align · wide"
     )
-    # Mid ownership spread stays silent (sides share still speaks).
+    # Mid ownership spread → clash (ahead spoke · share mid).
     mid = enrich_soft_allows(
         [
             {"at": fresh, "gate": "rs", "reason": "a"},
@@ -350,11 +362,17 @@ def test_soft_allow_lead_gate_concentration() -> None:
         42.9,
     )
     assert soft_allow_lead_sides_share_delta(mid, band="fresh") is None
+    assert soft_allow_lead_sides_share_vs_delta(mid, band="fresh") == (
+        "clash",
+        "thin",
+        "mid",
+    )
     assert (
         format_soft_allow_lead_bit(mid, band="fresh")
-        == "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43%"
+        == "rs leads · ×4 · 57% · ahead thin · +1 · vs regime ×3 · 43% · "
+        "share vs Δ clash · ahead thin · share mid"
     )
-    # Thin ownership spread speaks when |Δ| < 10pp.
+    # Thin ownership spread speaks when |Δ| < 10pp; align when ahead thin.
     thin_pp = enrich_soft_allows(
         [
             {"at": fresh, "gate": "rs", "reason": f"a{i}"}
@@ -388,7 +406,13 @@ def test_soft_allow_lead_gate_concentration() -> None:
         9.0,
         "thin",
     )
+    assert soft_allow_lead_sides_share_vs_delta(thin_pp, band="fresh") == (
+        "align",
+        "thin",
+        "thin",
+    )
     assert (
         format_soft_allow_lead_bit(thin_pp, band="fresh")
-        == "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · share Δ thin · +9pp"
+        == "rs leads · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
+        "share Δ thin · +9pp · share vs Δ align · thin"
     )

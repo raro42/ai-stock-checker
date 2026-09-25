@@ -1,69 +1,38 @@
-# GitHub idea watch — 2026-09-23T09:11:18Z
+# GitHub idea watch — 2026-09-24T21:26:03Z
 
 Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.
 
 - Repos watched: **15**
-- Checked this run: **10** · skipped (not due): **5**
-- Repos with new activity: **2**
-- Next loop sleep: **10799s** (cadence-aware)
+- Checked this run: **7** · skipped (not due): **8**
+- Repos with new activity: **0**
+- Next loop sleep: **10080s** (cadence-aware)
 
-## Highlights
-
-- tradermonty/claude-trading-skills: commit bc55156 — fix(replay): reject duplicate hypothesis ids in multi-asset replay (#420) (#447)
-- tradermonty/claude-trading-skills: commit b9ca9a4 — fix(ugs): preserve budget diagnostics and selection audit (#430)
-- tradermonty/claude-trading-skills: commit fae0599 — fix(security): consolidate expired exception diagnostics (#437)
-- tradermonty/claude-trading-skills: commit dd250f3 — docs(earnings-trade-analyzer): define empty-window semantics (#438)
-- tradermonty/claude-trading-skills: commit 7646ef5 — fix(replay): reject conflicting canonical path replacements (#419) (#439)
-- tradermonty/claude-trading-skills: commit c473c07 — fix(dashboard): escape HTML and Markdown in rendered metadata (#440)
-- tradermonty/claude-trading-skills: commit a8d1d27 — chore(deps): bump ruff from 0.16.7 to 0.16.8 (#442)
-- tradermonty/claude-trading-skills: commit c4eee7b — chore(deps): bump yfinance from 1.3.0 to 1.7.0 (#444)
-- RyanJHamby/stock-screener: commit a328b11 — chore: update fundamental cache and daily scan - 2026-09-22
+_No new commits/releases since last check._
 
 ## Per repo
 
-### [tradermonty/claude-trading-skills](https://github.com/tradermonty/claude-trading-skills)
-- Watch reason: Claude trading skills with real workflows — position sizer, pre-trade gate, trader memory, postmortem (borrow ideas only; no FMP/Alpaca install)
-- Claude Code skills for equity investors and traders — market analysis, technical charting, economic calendars, screeners, and trading strategy development.
-- Stars: 2880 · pushed: 2026-09-23T07:52:41Z · branch: `main`
-- Cadence: ~329.05 commits/day (avg gap 0.1h) · recheck every 3h · next 2026-09-23T12:11:11Z
-- Status: **updates since last run**
-- Commits:
-  - [`bc55156`](https://github.com/tradermonty/claude-trading-skills/commit/bc5515644c70abc90fbc20d15c838c47808ca893) 2026-09-23 — fix(replay): reject duplicate hypothesis ids in multi-asset replay (#420) (#447)
-  - [`b9ca9a4`](https://github.com/tradermonty/claude-trading-skills/commit/b9ca9a483139b2972b5cc5bb6722cf1cf8183691) 2026-09-23 — fix(ugs): preserve budget diagnostics and selection audit (#430)
-  - [`fae0599`](https://github.com/tradermonty/claude-trading-skills/commit/fae05996a13de42fe8c972cc9f7e1c4a37b3f1ad) 2026-09-23 — fix(security): consolidate expired exception diagnostics (#437)
-  - [`dd250f3`](https://github.com/tradermonty/claude-trading-skills/commit/dd250f3c707e8ba5c407c54efead675a42fe1777) 2026-09-23 — docs(earnings-trade-analyzer): define empty-window semantics (#438)
-  - [`7646ef5`](https://github.com/tradermonty/claude-trading-skills/commit/7646ef5b626d6006c6fc715a387dab22e3372f5b) 2026-09-23 — fix(replay): reject conflicting canonical path replacements (#419) (#439)
-  - [`c473c07`](https://github.com/tradermonty/claude-trading-skills/commit/c473c0751a7b1ab6e76408248266ad63f7b1d72b) 2026-09-23 — fix(dashboard): escape HTML and Markdown in rendered metadata (#440)
-  - [`a8d1d27`](https://github.com/tradermonty/claude-trading-skills/commit/a8d1d272f69da1afedc4b7e2e9dc8900aa1ec4b6) 2026-09-23 — chore(deps): bump ruff from 0.16.7 to 0.16.8 (#442)
-  - [`c4eee7b`](https://github.com/tradermonty/claude-trading-skills/commit/c4eee7b5bb47502d91bca14a348d713bfc671211) 2026-09-23 — chore(deps): bump yfinance from 1.3.0 to 1.7.0 (#444)
+### [tradermonty/claude-trading-skills](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
-### [staskh/trading_skills](https://github.com/staskh/trading_skills)
-- Watch reason: Trading skills + risk/portfolio report patterns (IBKR-heavy — ideas only, no live broker wiring)
-- Claude powered advisor system for option traders
-- Stars: 368 · pushed: 2026-09-17T13:58:22Z · branch: `main`
-- Cadence: ~3.00 commits/day (avg gap 8.0h) · recheck every 3h · next 2026-09-23T13:11:10Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+### [staskh/trading_skills](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
 ### [mphinance/alpha-skills](https://github.com/mphinance/alpha-skills)
 - Watch reason: Quant/alpha skill pack — backtest and strategy workflow ideas
 - AI-powered trading skills for Claude/Gemini agents. Backtesting, edge research, market analysis, strategy design, and more.
-- Stars: 24 · pushed: 2026-09-13T22:32:19Z · branch: `main`
-- Cadence: ~0.15 commits/day (avg gap 160.8h) · recheck every 80h · next 2026-09-24T09:16:04Z
+- Stars: 26 · pushed: 2026-09-13T22:32:19Z · branch: `main`
+- Cadence: ~0.15 commits/day (avg gap 160.8h) · recheck every 80h · next 2026-09-27T18:13:17Z
 - Status: **skipped** (not due yet)
 
-### [xang1234/stock-screener](https://github.com/xang1234/stock-screener)
-- Watch reason: Stock screener patterns and signals UX
-- Stock scanner with multiple fundamental and technical criteria. Features 80+ filters, AI chatbot (Groq/DeepSeek/Gemini),   theme discovery, and StockBee-style breadth indicators.
-- Stars: 318 · pushed: 2026-09-22T15:17:12Z · branch: `main`
-- Cadence: ~4.43 commits/day (avg gap 5.4h) · recheck every 3h · next 2026-09-23T12:11:11Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+### [xang1234/stock-screener](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
 ### [MonsterDeveloper/simple-stock-screener](https://github.com/MonsterDeveloper/simple-stock-screener)
 - Watch reason: Minimal screener — learn from simplicity
 - A super simple, modern, AI-powered stock screening tool with Notion-style UI.
 - Stars: 0 · pushed: 2025-02-21T11:43:57Z · branch: `main`
-- Cadence: ~0.47 commits/day (avg gap 51.0h) · recheck every 25h · next 2026-09-24T10:39:52Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Cadence: ~0.47 commits/day (avg gap 51.0h) · recheck every 25h · next 2026-09-25T12:08:33Z
+- Status: **skipped** (not due yet)
 
 ### [TheAIQuant/StockScreener_Streamlit](https://github.com/TheAIQuant/StockScreener_Streamlit)
 - Watch reason: Streamlit screener UI ideas for paper desk
@@ -86,53 +55,36 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 - Cadence: ~0.12 commits/day (avg gap 194.7h) · recheck every 97h · next 2026-09-25T02:13:01Z
 - Status: **skipped** (not due yet)
 
-### [shubham5027/Stock-Portfolio-AI](https://github.com/shubham5027/Stock-Portfolio-AI)
-- Watch reason: Portfolio AI assistant features
-- The platform provides comprehensive insights for making informed investment decisions through various data sources and machine learning models.
-- Stars: 1 · pushed: 2025-06-11T19:57:48Z · branch: `main`
-- Cadence: ~1.38 commits/day (avg gap 17.4h) · recheck every 8h · next 2026-09-23T17:53:14Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+### [shubham5027/Stock-Portfolio-AI](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
-### [d1l1x/stock-screener](https://github.com/d1l1x/stock-screener)
-- Watch reason: Screener implementation variants
-- A tool that helps scanning, filtering and ranking a list of stocks 
-- Stars: 0 · pushed: 2023-08-13T19:18:50Z · branch: `main`
-- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-09-23T12:11:11Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+### [d1l1x/stock-screener](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
-### [ba1int/stock_screener](https://github.com/ba1int/stock_screener)
-- Watch reason: Screener implementation variants
-- Stars: 37 · pushed: 2025-04-08T10:45:11Z · branch: `main`
-- Cadence: ~3.29 commits/day (avg gap 7.3h) · recheck every 3h · next 2026-09-23T12:49:53Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+### [ba1int/stock_screener](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
-### [simonchalder/Stock-Screener](https://github.com/simonchalder/Stock-Screener)
-- Watch reason: Screener implementation variants
-- Stock Screener compares company data against logical requirements to determine if a particular stock may be of interest to an investor.
-- Stars: 4 · pushed: 2021-03-21T12:59:47Z · branch: `main`
-- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-09-23T12:41:04Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+### [simonchalder/Stock-Screener](None)
+- **Error:** `<urlopen error [Errno 8] nodename nor servname provided, or not known>`
 
 ### [m-turnergane/stock-screener](https://github.com/m-turnergane/stock-screener)
 - Watch reason: Screener implementation variants
 - An advanced Stock Screener w/ comprehensive analysis and insights included.
 - Stars: 44 · pushed: 2025-10-26T18:11:54Z · branch: `main`
-- Cadence: ~0.54 commits/day (avg gap 44.6h) · recheck every 22h · next 2026-09-24T07:30:39Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Cadence: ~0.54 commits/day (avg gap 44.6h) · recheck every 22h · next 2026-09-25T07:13:28Z
+- Status: **skipped** (not due yet)
 
 ### [RyanJHamby/stock-screener](https://github.com/RyanJHamby/stock-screener)
 - Watch reason: Screener implementation variants
 - Automated stock screener scanning 3,800+ stocks daily for confirmed Stage 2 uptrends passing 8 strict criteria. Features: smart caching (74% fewer API calls), market regime filtering, automated stop-loss calculation, and GitHub Actions auto
-- Stars: 49 · pushed: 2026-09-22T17:48:14Z · branch: `main`
-- Cadence: ~0.64 commits/day (avg gap 37.8h) · recheck every 18h · next 2026-09-24T04:04:27Z
-- Status: **updates since last run**
-- Commits:
-  - [`a328b11`](https://github.com/RyanJHamby/stock-screener/commit/a328b113e871ebfe1f8e739b21cb87ea86b442e2) 2026-09-22 — chore: update fundamental cache and daily scan - 2026-09-22
+- Stars: 49 · pushed: 2026-09-23T17:44:06Z · branch: `main`
+- Cadence: ~0.78 commits/day (avg gap 30.7h) · recheck every 15h · next 2026-09-25T00:14:04Z
+- Status: **skipped** (not due yet)
 
 ### [vals-ai/finance-agent-v2](https://github.com/vals-ai/finance-agent-v2)
 - Watch reason: Finance agent v2 architecture / tools
-- Stars: 57 · pushed: 2026-09-21T04:46:54Z · branch: `main`
-- Cadence: ~0.20 commits/day (avg gap 117.5h) · recheck every 58h · next 2026-09-24T02:25:56Z
+- Stars: 58 · pushed: 2026-09-21T04:46:54Z · branch: `main`
+- Cadence: ~0.20 commits/day (avg gap 117.5h) · recheck every 58h · next 2026-09-26T19:39:48Z
 - Status: **skipped** (not due yet)
 
 ## How to use
