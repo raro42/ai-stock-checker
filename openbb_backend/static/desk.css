@@ -1452,6 +1452,10 @@ a:active {
   color: var(--accent, var(--ink));
 }
 
+.soft-allow-runner-summary {
+  color: var(--muted, var(--ink));
+}
+
 @media (max-width: 640px) {
   .soft-allow-list li {
     grid-template-columns: 1fr;

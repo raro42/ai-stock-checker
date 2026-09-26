@@ -414,19 +414,20 @@ def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
     assert ">vs · fresh<" in resp.text
     assert "vs · band" in resp.text
     assert resp.text.count("soft-allow-runner-tag") == 1
-    # Ops inventory: counts + ownership % + ahead (+ share Δ when glance spoke).
+    # Ops inventory: Lead owns concentration; Runner is its own speak-both-sides line.
     assert "soft-allow-lead-summary" in resp.text
-    assert (
-        "Lead · rs ×2 · fresh · 67% · ahead thin · +1 · vs regime ×1 · 33% · "
-        "share Δ wide · +33pp"
-        in resp.text
-    )
+    assert "Lead · rs ×2 · fresh · 67% · ahead thin · +1 · share Δ wide · +33pp" in resp.text
+    assert "soft-allow-runner-summary" in resp.text
+    assert "Runner · regime ×1 · fresh · 33%" in resp.text
+    lead_summary = resp.text.split("soft-allow-lead-summary", 1)[1].split("</p>", 1)[0]
+    assert "vs " not in lead_summary
     assert "Lead · gate ×N · band · M%" in resp.text
     assert "ahead · +K" in resp.text
+    assert "Runner · gate ×K · band · P%" in resp.text
 
 
 def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
-    """Sole-gate lead inventory speaks 100% ownership; omits ahead/vs (no runner)."""
+    """Sole-gate lead inventory speaks 100% ownership; omits ahead/runner (no runner)."""
     _seed_portfolio(tmp_path)
     from stock_checker.gate_audit import record_soft_allow
 
@@ -445,6 +446,9 @@ def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
     assert "ahead " not in summary
     assert "vs " not in summary
     assert "share Δ" not in summary
+    assert "soft-allow-runner-summary" not in resp.text
+    lead_only = resp.text.split("soft-allow-lead-summary", 1)[1].split("</p>", 1)[0]
+    assert "Runner ·" not in lead_only
 
 def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
