@@ -231,6 +231,72 @@ def build_scan_freshness(
     }
 
 
+def build_screener_opportunity_counts(
+    opportunities: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Scalar Screener list counts (xang1234 opportunity-summary-scalar-counts).
+
+    Integer lengths only — not bool casts. ``n_total`` is the sum of the three
+    list lengths (row slots). ``n_unique`` counts distinct symbols. Display only.
+    """
+    empty = {
+        "n_rec": 0,
+        "n_crypto": 0,
+        "n_brk": 0,
+        "n_total": 0,
+        "n_unique": 0,
+        "lists_populated": 0,
+        "overlap": False,
+        "weight": "row slots",
+    }
+    if not isinstance(opportunities, Mapping):
+        return empty
+
+    def _len(key: str) -> int:
+        raw = opportunities.get(key)
+        if not isinstance(raw, (list, tuple)):
+            return 0
+        return len(raw)
+
+    def _symbols(key: str) -> set[str]:
+        out: set[str] = set()
+        raw = opportunities.get(key)
+        if not isinstance(raw, (list, tuple)):
+            return out
+        for item in raw:
+            if isinstance(item, Mapping):
+                sym = str(item.get("symbol") or "").strip().upper()
+            else:
+                sym = str(item or "").strip().upper()
+            if sym:
+                out.add(sym)
+        return out
+
+    n_rec = _len("recommendations")
+    n_crypto = _len("crypto_leaders")
+    n_brk = _len("stock_breakouts")
+    n_total = n_rec + n_crypto + n_brk
+    unique = (
+        _symbols("recommendations")
+        | _symbols("crypto_leaders")
+        | _symbols("stock_breakouts")
+    )
+    n_unique = len(unique)
+    lists_populated = sum(1 for n in (n_rec, n_crypto, n_brk) if n > 0)
+    overlap = n_unique < n_total and n_total > 0
+    weight = f"{n_unique} unique" if overlap else "row slots"
+    return {
+        "n_rec": n_rec,
+        "n_crypto": n_crypto,
+        "n_brk": n_brk,
+        "n_total": n_total,
+        "n_unique": n_unique,
+        "lists_populated": lists_populated,
+        "overlap": overlap,
+        "weight": weight,
+    }
+
+
 def build_mark_coverage(
     rows: Sequence[Mapping[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -9335,6 +9401,11 @@ def load_desk_snapshot(
             "note": "One glance: recommendation / crypto / breakout counts + session hint.",
         },
         {
+            "title": "Screener opportunity scalar total",
+            "from": "xang1234/stock-screener (opportunity-summary-scalar-counts)",
+            "note": "Total = sum of three list lengths; weight shows unique when lists overlap — not bool casts.",
+        },
+        {
             "title": "SMA market-regime gate",
             "from": "RyanJHamby/stock-screener (regime filtering)",
             "note": "Soft block new buys when SPY is below SMA200 or BTC below SMA50; holds untouched.",
@@ -9713,6 +9784,13 @@ def load_desk_snapshot(
         "recommendations": recs,
         "crypto_leaders": crypto_leaders,
         "stock_breakouts": stock_breakouts,
+        "screener_counts": build_screener_opportunity_counts(
+            {
+                "recommendations": recs,
+                "crypto_leaders": crypto_leaders,
+                "stock_breakouts": stock_breakouts,
+            }
+        ),
         "scan_breadth": scan_breadth,
         "scan_breadth_history": scan_breadth_history,
         "breadth_glance": build_breadth_glance(
