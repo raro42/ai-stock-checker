@@ -17,6 +17,8 @@ def test_empty_and_non_mapping():
     assert empty["unique_vs_dup_warn"] is False
     assert empty["unique_vs_dup_delta_pp"] is None
     assert empty["unique_vs_dup_delta_severity"] == ""
+    assert empty["unique_vs_dup_lean_vs_delta"] == ""
+    assert empty["unique_vs_dup_lean_vs_delta_warn"] is False
     assert empty["tone"] == "flat"
     assert build_screener_opportunity_counts("bad")["n_total"] == 0
 
@@ -65,9 +67,11 @@ def test_overlap_speaks_unique_share_ok():
     assert c["unique_vs_dup_warn"] is False
     assert c["unique_vs_dup_delta_pp"] == 50.0
     assert c["unique_vs_dup_delta_severity"] == "wide"
+    assert c["unique_vs_dup_lean_vs_delta"] == "align · wide"
+    assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert (
         c["weight"]
-        == "3 unique · strong · 75% · 1 dup · quiet · 25% · unique vs dup align · strong|quiet · Δ wide · +50pp"
+        == "3 unique · strong · 75% · 1 dup · quiet · 25% · unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide"
     )
     assert c["tone"] == "flat"
     assert c["lists_populated"] == 3
@@ -93,9 +97,11 @@ def test_overlap_unique_share_thin_warns():
     assert c["unique_vs_dup_warn"] is False
     assert c["unique_vs_dup_delta_pp"] == -20.0
     assert c["unique_vs_dup_delta_severity"] == "wide"
+    assert c["unique_vs_dup_lean_vs_delta"] == "align · wide"
+    assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert (
         c["weight"]
-        == "2 unique · thin · 40% · 3 dup · hot · 60% · unique vs dup align · thin|hot · Δ wide · -20pp"
+        == "2 unique · thin · 40% · 3 dup · hot · 60% · unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide"
     )
     assert c["tone"] == "warn"
 
@@ -120,6 +126,8 @@ def test_overlap_unique_share_mid_ok():
     assert c["unique_vs_dup_warn"] is False
     assert c["unique_vs_dup_delta_pp"] is None
     assert c["unique_vs_dup_delta_severity"] == ""
+    assert c["unique_vs_dup_lean_vs_delta"] == ""
+    assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert c["weight"] == "3 unique · 60% · 2 dup · 40%"
     assert c["tone"] == "flat"
 
@@ -145,9 +153,11 @@ def test_overlap_unique_vs_dup_clash_at_half():
     assert c["unique_vs_dup_warn"] is True
     assert c["unique_vs_dup_delta_pp"] == 0.0
     assert c["unique_vs_dup_delta_severity"] == "thin"
+    assert c["unique_vs_dup_lean_vs_delta"] == "align · thin"
+    assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert (
         c["weight"]
-        == "2 unique · 50% · 2 dup · hot · 50% · unique vs dup clash · unique ok · dup hot · Δ thin · 0pp"
+        == "2 unique · 50% · 2 dup · hot · 50% · unique vs dup clash · unique ok · dup hot · Δ thin · 0pp · lean vs Δ align · thin"
     )
     assert c["tone"] == "warn"
 
@@ -211,8 +221,10 @@ def test_overlap_unique_vs_dup_delta_mid_silent():
     assert c["unique_vs_dup"] == "align · thin|hot"
     assert c["unique_vs_dup_delta_pp"] is None
     assert c["unique_vs_dup_delta_severity"] == ""
+    assert c["unique_vs_dup_lean_vs_delta"] == "clash · lean · Δ mid"
+    assert c["unique_vs_dup_lean_vs_delta_warn"] is True
     assert (
         c["weight"]
-        == "9 unique · thin · 45% · 11 dup · hot · 55% · unique vs dup align · thin|hot"
+        == "9 unique · thin · 45% · 11 dup · hot · 55% · unique vs dup align · thin|hot · lean vs Δ clash · lean · Δ mid"
     )
     assert c["tone"] == "warn"
