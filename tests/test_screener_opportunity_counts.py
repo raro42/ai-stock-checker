@@ -12,6 +12,7 @@ def test_empty_and_non_mapping():
     assert empty["weight"] == "row slots"
     assert empty["unique_share_pct"] is None
     assert empty["dup_share_pct"] is None
+    assert empty["dup_share_severity"] == ""
     assert empty["tone"] == "flat"
     assert build_screener_opportunity_counts("bad")["n_total"] == 0
 
@@ -34,6 +35,7 @@ def test_scalar_list_lengths():
     assert c["overlap"] is False
     assert c["unique_share_pct"] is None
     assert c["dup_share_pct"] is None
+    assert c["dup_share_severity"] == ""
     assert c["weight"] == "row slots"
     assert c["tone"] == "flat"
 
@@ -53,13 +55,14 @@ def test_overlap_speaks_unique_share_ok():
     assert c["unique_share_pct"] == 75.0
     assert c["dup_share_pct"] == 25.0
     assert c["unique_share_severity"] == "strong"
-    assert c["weight"] == "3 unique · strong · 75% · 1 dup · 25%"
+    assert c["dup_share_severity"] == "quiet"
+    assert c["weight"] == "3 unique · strong · 75% · 1 dup · quiet · 25%"
     assert c["tone"] == "flat"
     assert c["lists_populated"] == 3
 
 
 def test_overlap_unique_share_thin_warns():
-    # 2 unique across 5 slots → 40% thin
+    # 2 unique across 5 slots → 40% thin · 60% dup hot
     c = build_screener_opportunity_counts(
         {
             "recommendations": [{"symbol": "AAPL"}, {"symbol": "AAPL"}],
@@ -73,12 +76,13 @@ def test_overlap_unique_share_thin_warns():
     assert c["unique_share_pct"] == 40.0
     assert c["dup_share_pct"] == 60.0
     assert c["unique_share_severity"] == "thin"
-    assert c["weight"] == "2 unique · thin · 40% · 3 dup · 60%"
+    assert c["dup_share_severity"] == "hot"
+    assert c["weight"] == "2 unique · thin · 40% · 3 dup · hot · 60%"
     assert c["tone"] == "warn"
 
 
 def test_overlap_unique_share_mid_ok():
-    # 3 unique / 5 slots → 60% mid (ok, no lean word)
+    # 3 unique / 5 slots → 60% mid (ok) · 40% dup mid (ok, no lean word)
     c = build_screener_opportunity_counts(
         {
             "recommendations": [{"symbol": "A"}, {"symbol": "B"}, {"symbol": "C"}],
@@ -92,6 +96,7 @@ def test_overlap_unique_share_mid_ok():
     assert c["unique_share_pct"] == 60.0
     assert c["dup_share_pct"] == 40.0
     assert c["unique_share_severity"] == "ok"
+    assert c["dup_share_severity"] == "ok"
     assert c["weight"] == "3 unique · 60% · 2 dup · 40%"
     assert c["tone"] == "flat"
 
@@ -114,4 +119,6 @@ def test_string_symbols_and_bad_list_type():
     assert c["unique_share_pct"] == 66.7
     assert c["dup_share_pct"] == 33.3
     assert c["unique_share_severity"] == "ok"
+    assert c["dup_share_severity"] == "ok"
     assert c["weight"] == "2 unique · 66.7% · 1 dup · 33.3%"
+    assert c["tone"] == "flat"

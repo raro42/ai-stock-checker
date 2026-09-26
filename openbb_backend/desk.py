@@ -234,6 +234,9 @@ def build_scan_freshness(
 # Uniqueness share when lists overlap (unique÷total). Strong ≥75% · thin <50%.
 SCREENER_UNIQUE_SHARE_STRONG = 75.0
 SCREENER_UNIQUE_SHARE_THIN = 50.0
+# Dup waste share (dup÷total). Hot ≥50% · quiet ≤25% (mirrors unique thin/strong).
+SCREENER_DUP_SHARE_HOT = 50.0
+SCREENER_DUP_SHARE_QUIET = 25.0
 
 
 def build_screener_opportunity_counts(
@@ -244,7 +247,8 @@ def build_screener_opportunity_counts(
     Integer lengths only — not bool casts. ``n_total`` is the sum of the three
     list lengths (row slots). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with strong/thin
-    severity, then the waste side (``N dup · M%``) — unique% ≠ silent dups.
+    severity, then the waste side (``N dup · [hot|quiet] · M%``) — unique% ≠
+    silent dups; count ≠ severity.
     Display only.
     """
     empty = {
@@ -259,6 +263,7 @@ def build_screener_opportunity_counts(
         "unique_share_pct": None,
         "unique_share_severity": "",
         "dup_share_pct": None,
+        "dup_share_severity": "",
         "tone": "flat",
         "weight": "row slots",
     }
@@ -301,6 +306,7 @@ def build_screener_opportunity_counts(
     unique_share_pct: float | None = None
     unique_share_severity = ""
     dup_share_pct: float | None = None
+    dup_share_severity = ""
     tone = "flat"
     if overlap and n_total > 0:
         unique_share_pct = round(100.0 * n_unique / n_total, 1)
@@ -312,8 +318,21 @@ def build_screener_opportunity_counts(
             tone = "warn"
         else:
             unique_share_severity = "ok"
+        if dup_share_pct >= SCREENER_DUP_SHARE_HOT:
+            dup_share_severity = "hot"
+            tone = "warn"
+        elif dup_share_pct <= SCREENER_DUP_SHARE_QUIET:
+            dup_share_severity = "quiet"
+        else:
+            dup_share_severity = "ok"
         pct_bit = f"{unique_share_pct:g}%"
-        dup_bit = f"{n_dup} dup · {dup_share_pct:g}%"
+        dup_pct = f"{dup_share_pct:g}%"
+        if dup_share_severity == "hot":
+            dup_bit = f"{n_dup} dup · hot · {dup_pct}"
+        elif dup_share_severity == "quiet":
+            dup_bit = f"{n_dup} dup · quiet · {dup_pct}"
+        else:
+            dup_bit = f"{n_dup} dup · {dup_pct}"
         if unique_share_severity == "thin":
             weight = f"{n_unique} unique · thin · {pct_bit} · {dup_bit}"
         elif unique_share_severity == "strong":
@@ -334,6 +353,7 @@ def build_screener_opportunity_counts(
         "unique_share_pct": unique_share_pct,
         "unique_share_severity": unique_share_severity,
         "dup_share_pct": dup_share_pct,
+        "dup_share_severity": dup_share_severity,
         "tone": tone,
         "weight": weight,
     }
@@ -9456,6 +9476,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity dup share",
             "from": "xang1234/stock-screener + portfolio AI (speak-both-sides)",
             "note": "When lists overlap, Total weight also speaks N dup · M%; unique% ≠ silent waste.",
+        },
+        {
+            "title": "Screener opportunity dup share severity",
+            "from": "xang1234/stock-screener + portfolio AI (severity after dup %)",
+            "note": "When lists overlap, dup speaks hot ≥50% · quiet ≤25%; count+% ≠ severity; mid ok silent.",
         },
         {
             "title": "SMA market-regime gate",
