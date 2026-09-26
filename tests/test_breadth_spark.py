@@ -2686,3 +2686,79 @@ def test_breadth_crypto_advance_spark_down_tone():
     assert spark["delta_pct"] == -50.0
     assert spark["tone"] == "down"
     assert "is-down" in spark["svg"]
+
+
+def test_breadth_run_covers_day_match_mismatch_and_missing():
+    from openbb_backend.desk import breadth_run_covers_day
+
+    assert breadth_run_covers_day("2026-09-26", "2026-09-26T14:00:00Z") is True
+    assert breadth_run_covers_day("2026-09-26", "2026-09-25T23:30:00+00:00") is False
+    assert breadth_run_covers_day("2026-09-26", "") is None
+    assert breadth_run_covers_day("2026-09-26", None) is None
+    assert breadth_run_covers_day("bad", "2026-09-26T14:00:00Z") is None
+
+
+def test_build_breadth_day_meta_mismatch_empty_and_ok_legacy():
+    from openbb_backend.desk import build_breadth_day_meta
+
+    mismatch = build_breadth_day_meta(
+        {
+            "day": "2026-09-26",
+            "scan_time": "2026-09-25T12:00:00Z",
+            "crypto_n": 4,
+            "crypto_up": 2,
+            "stock_scan_n": 10,
+            "stock_scan_up": 5,
+        }
+    )
+    assert mismatch["severity"] == "mismatch"
+    assert mismatch["tone"] == "warn"
+    assert "meta mismatch" in mismatch["bit"]
+    assert mismatch["scan_day"] == "2026-09-25"
+    assert mismatch["run_covers_day"] is False
+
+    empty = build_breadth_day_meta(
+        {
+            "day": "2026-09-26",
+            "scan_time": "2026-09-26T12:00:00Z",
+            "crypto_n": 0,
+            "stock_scan_n": 0,
+        }
+    )
+    assert empty["severity"] == "empty"
+    assert empty["tone"] == "warn"
+    assert "pulse empty" in empty["bit"]
+    assert empty["run_covers_day"] is True
+
+    # Legacy row without scan_time but with A/D counts — silent ok.
+    legacy = build_breadth_day_meta(
+        {"day": "2026-09-26", "crypto_up": 1, "crypto_down": 1}
+    )
+    assert legacy["severity"] == "ok"
+    assert legacy["bit"] == ""
+    assert legacy["run_covers_day"] is None
+    assert legacy["priced"] == 2
+
+
+def test_annotate_scan_history_attaches_meta_bit(tmp_path: Path):
+    from openbb_backend.desk import _annotate_scan_history
+
+    rows = _annotate_scan_history(
+        tmp_path,
+        [
+            {
+                "day": "2026-09-26",
+                "scan_time": "2026-09-25T08:00:00Z",
+                "crypto_n": 2,
+                "crypto_up": 1,
+                "crypto_down": 1,
+                "crypto_big_movers": 0,
+                "stock_breakouts_n": 0,
+                "stock_within_5pct_high": 0,
+            }
+        ],
+    )
+    assert len(rows) == 1
+    assert rows[0]["meta_severity"] == "mismatch"
+    assert "meta mismatch" in rows[0]["meta_bit"]
+    assert rows[0]["run_covers_day"] is False

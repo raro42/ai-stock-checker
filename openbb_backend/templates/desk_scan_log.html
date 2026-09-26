@@ -8,6 +8,11 @@
     Latest trader opportunity report for this UTC day.
     These names feed the Recent days pulse counts.
   </p>
+  {% if day_meta.bit %}
+  <p class="sysline{% if day_meta.tone == 'warn' %} v down{% endif %}" id="scan-log-day-meta-h">
+    {{ day_meta.bit }}
+  </p>
+  {% endif %}
   {{ scan_freshness(snap) }}
   <p class="sysline">
     <a href="/desk/breadth">← Back to Breadth</a>

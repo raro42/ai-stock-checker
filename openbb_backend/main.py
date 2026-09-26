@@ -19,6 +19,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
+    build_breadth_day_meta,
     build_breadth_glance,
     build_ledger_health,
     find_day_scan_archive,
@@ -343,10 +344,12 @@ def desk_scan_log(request: Request, day: str):
         body = body[:200_000] + "\n\n… truncated …\n"
     snap = load_desk_snapshot(DATA_DIR)
     # Day-specific glance (not "latest") — StockBee-style drill-down, display only.
+    day_pulse = scan_breadth_pulse_for_day(DATA_DIR, day)
+    day_meta = build_breadth_day_meta(day_pulse)
     snap = {
         **snap,
         "breadth_glance": build_breadth_glance(
-            scan_breadth_pulse_for_day(DATA_DIR, day),
+            day_pulse,
             history=snap.get("scan_breadth_history")
             if isinstance(snap.get("scan_breadth_history"), list)
             else None,
@@ -360,6 +363,7 @@ def desk_scan_log(request: Request, day: str):
             "nav": _desk_nav(),
             "repo": load_repo_meta(),
             "day": day,
+            "day_meta": day_meta,
             "archive_file": path.name,
             "body": body,
             "page": {

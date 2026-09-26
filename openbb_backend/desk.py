@@ -6106,6 +6106,94 @@ def find_day_scan_archive(data_dir: Path, day: str) -> Optional[Path]:
     return files[-1] if files else None
 
 
+def breadth_run_covers_day(day: str, scan_time: Any) -> bool | None:
+    """True when ``scan_time`` UTC date equals ``day``.
+
+    ``None`` when ``scan_time`` is missing or unparseable (legacy fail-open).
+    xang1234 stale-run metadata repair: a run must cover the ranking date.
+    """
+    day_s = str(day or "").strip()
+    if len(day_s) != 10 or day_s[4] != "-" or day_s[7] != "-":
+        return None
+    dt = _parse_book_ts(scan_time)
+    if dt is None:
+        return None
+    return dt.strftime("%Y-%m-%d") == day_s
+
+
+def build_breadth_day_meta(
+    row: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Daily pulse metadata honesty (display only; not a gate).
+
+    xang1234: warn when ``scan_time`` falls on a different UTC day than ``day``.
+    tradermonty all-null caps adapted: warn when both sleeves have 0 priced names.
+    Missing ``scan_time`` stays silent (legacy rows).
+    """
+    empty = {
+        "ready": False,
+        "tone": "flat",
+        "severity": "",
+        "bit": "",
+        "line": "",
+        "run_covers_day": None,
+        "scan_day": "",
+        "priced": 0,
+    }
+    if not isinstance(row, Mapping):
+        return empty
+    day = str(row.get("day") or "").strip()
+    if not day:
+        return empty
+    scan_time = row.get("scan_time")
+    covers = breadth_run_covers_day(day, scan_time)
+    dt = _parse_book_ts(scan_time)
+    scan_day = dt.strftime("%Y-%m-%d") if dt is not None else ""
+    crypto_n = int(row.get("crypto_n") or 0)
+    if crypto_n <= 0:
+        crypto_n = int(row.get("crypto_up") or 0) + int(row.get("crypto_down") or 0)
+    stock_n = int(row.get("stock_scan_n") or 0)
+    if stock_n <= 0:
+        stock_n = int(row.get("stock_scan_up") or 0) + int(
+            row.get("stock_scan_down") or 0
+        )
+    priced = max(0, crypto_n) + max(0, stock_n)
+    if covers is False:
+        bit = f"meta mismatch · scan on {scan_day or '?'}"
+        return {
+            "ready": True,
+            "tone": "warn",
+            "severity": "mismatch",
+            "bit": bit,
+            "line": bit,
+            "run_covers_day": False,
+            "scan_day": scan_day,
+            "priced": priced,
+        }
+    if priced <= 0:
+        bit = "pulse empty · 0 priced"
+        return {
+            "ready": True,
+            "tone": "warn",
+            "severity": "empty",
+            "bit": bit,
+            "line": bit,
+            "run_covers_day": covers,
+            "scan_day": scan_day,
+            "priced": 0,
+        }
+    return {
+        "ready": True,
+        "tone": "ok",
+        "severity": "ok",
+        "bit": "",
+        "line": "",
+        "run_covers_day": covers,
+        "scan_day": scan_day,
+        "priced": priced,
+    }
+
+
 def scan_list_ratio_pct(part: int, whole: int) -> float | None:
     """Share of a scan-list count vs its denominator (StockBee-lite; display only)."""
     n = int(whole or 0)
@@ -7780,6 +7868,12 @@ def _annotate_scan_history(
         row["is_unconfirmed_thrust"] = bool(
             row["is_thrust"] and not row["is_dual_advance"]
         )
+        meta = build_breadth_day_meta(row)
+        row["meta_severity"] = str(meta.get("severity") or "")
+        row["meta_tone"] = str(meta.get("tone") or "flat")
+        row["meta_bit"] = str(meta.get("bit") or "")
+        row["run_covers_day"] = meta.get("run_covers_day")
+        row["meta_scan_day"] = str(meta.get("scan_day") or "")
         out.append(row)
     # Second pass: prior-day tape + flip (needs chronological neighbors).
     for i, row in enumerate(out):
@@ -7803,7 +7897,14 @@ def scan_breadth_pulse_for_day(
         return None
     for row in rows:
         if isinstance(row, dict) and str(row.get("day") or "") == want:
-            return row
+            out = dict(row)
+            meta = build_breadth_day_meta(out)
+            out["meta_severity"] = str(meta.get("severity") or "")
+            out["meta_tone"] = str(meta.get("tone") or "flat")
+            out["meta_bit"] = str(meta.get("bit") or "")
+            out["run_covers_day"] = meta.get("run_covers_day")
+            out["meta_scan_day"] = str(meta.get("scan_day") or "")
+            return out
     return None
 
 

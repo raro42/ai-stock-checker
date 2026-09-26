@@ -452,6 +452,53 @@ def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
     lead_only = resp.text.split("soft-allow-lead-summary", 1)[1].split("</p>", 1)[0]
     assert "Runner ·" not in lead_only
 
+
+def test_desk_breadth_day_meta_mismatch(tmp_path: Path, monkeypatch):
+    """xang1234: Recent days + scan-log warn when scan_time misses the UTC day."""
+    _seed_portfolio(tmp_path)
+    # Use a past UTC day so today's upsert does not replace the fixture row.
+    day = "2026-09-20"
+    arch = tmp_path / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / f"opportunities_{day.replace('-', '')}_120000.txt").write_text(
+        "TOP NAMES\nAAPL\n", encoding="utf-8"
+    )
+    (tmp_path / "scan_breadth_daily.json").write_text(
+        json.dumps(
+            [
+                {
+                    "day": day,
+                    "scan_time": "2026-09-19T12:00:00Z",
+                    "crypto_n": 2,
+                    "crypto_up": 1,
+                    "crypto_down": 1,
+                    "crypto_avg_chg": 0.5,
+                    "crypto_big_movers": 0,
+                    "stock_breakouts_n": 1,
+                    "stock_within_5pct_high": 0,
+                    "stock_scan_n": 4,
+                    "stock_scan_up": 2,
+                    "stock_scan_down": 2,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    from starlette.testclient import TestClient
+
+    client = TestClient(backend.app)
+    breadth = client.get("/desk/breadth")
+    assert breadth.status_code == 200
+    assert "meta mismatch · scan on 2026-09-19" in breadth.text
+    assert "scan_time must cover the day" in breadth.text
+    log_page = client.get(f"/desk/scan-log/{day}")
+    assert log_page.status_code == 200
+    assert "scan-log-day-meta-h" in log_page.text
+    assert "meta mismatch · scan on 2026-09-19" in log_page.text
+
+
 def test_desk_overview_soft_allow_glance(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
     from stock_checker.gate_audit import record_soft_allow

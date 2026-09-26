@@ -723,6 +723,9 @@
             {% else %}
             {{ d.day }}
             {% endif %}
+            {% if d.meta_bit %}
+            <span class="weight{% if d.meta_tone == 'warn' %} v down{% endif %}" title="Pulse metadata vs UTC day"> · {{ d.meta_bit }}</span>
+            {% endif %}
           </th>
           <td>
             {{ d.crypto_up }}/{{ d.crypto_down }}{% if d.crypto_advance_pct is not none %}
@@ -792,7 +795,8 @@
       <span class="k">near-high</span> stocks ≤5% from 52w high ·
       <span class="k">thrust</span> confirmed = risk-on · alone = without dual advance ·
       <span class="k">tape</span> risk-on (both adv ≥50%) · split (60/40) · risk-off (both ≤40%) ·
-      <span class="k">stock A/D</span> priced batch up/down · advance % of priced
+      <span class="k">stock A/D</span> priced batch up/down · advance % of priced ·
+      <span class="k">meta</span> scan_time must cover the day · empty = 0 priced
     </p>
   </div>
   {% endif %}
