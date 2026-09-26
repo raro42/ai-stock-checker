@@ -398,7 +398,8 @@ def build_soft_allow_glance(
     ahead … · +K`` shows ownership and how far ahead (counts ≠ share ≠
     margin) without parsing the glance line. Ops runner inventory speaks
     ``Runner · gate ×K · band · P%`` on its own line when ahead already
-    spoke (speak-both-sides; not buried in Lead).
+    spoke; when margin spoke it also shows ``behind … · −K`` (same K,
+    speak-both-sides; not a lead÷runner ratio; not buried in Lead).
     """
     from stock_checker.gate_audit import (
         SOFT_ALLOW_AGING_HOURS,

@@ -418,12 +418,14 @@ def test_desk_ops_soft_allow_lead_row_tag(tmp_path: Path, monkeypatch):
     assert "soft-allow-lead-summary" in resp.text
     assert "Lead · rs ×2 · fresh · 67% · ahead thin · +1 · share Δ wide · +33pp" in resp.text
     assert "soft-allow-runner-summary" in resp.text
-    assert "Runner · regime ×1 · fresh · 33%" in resp.text
+    assert "Runner · regime ×1 · fresh · 33% · behind thin · −1" in resp.text
     lead_summary = resp.text.split("soft-allow-lead-summary", 1)[1].split("</p>", 1)[0]
     assert "vs " not in lead_summary
+    assert "behind " not in lead_summary
     assert "Lead · gate ×N · band · M%" in resp.text
     assert "ahead · +K" in resp.text
     assert "Runner · gate ×K · band · P%" in resp.text
+    assert "behind · −K" in resp.text
 
 
 def test_desk_ops_soft_allow_lead_inventory_sole(tmp_path: Path, monkeypatch):
