@@ -237,6 +237,9 @@ SCREENER_UNIQUE_SHARE_THIN = 50.0
 # Dup waste share (dup÷total). Hot ≥50% · quiet ≤25% (mirrors unique thin/strong).
 SCREENER_DUP_SHARE_HOT = 50.0
 SCREENER_DUP_SHARE_QUIET = 25.0
+# Unique%−dup% spread after lean clash/align. Wide ≥20pp · thin <10pp (mid silent).
+SCREENER_UNIQUE_VS_DUP_DELTA_WIDE_PP = 20.0
+SCREENER_UNIQUE_VS_DUP_DELTA_THIN_PP = 10.0
 
 
 def build_screener_opportunity_counts(
@@ -248,8 +251,9 @@ def build_screener_opportunity_counts(
     list lengths (row slots). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with strong/thin
     severity, then the waste side (``N dup · [hot|quiet] · M%``), then unique
-    vs dup lean clash/align — unique% ≠ silent dups; count ≠ severity; two
-    leanish labels can still disagree at the 50/50 band.
+    vs dup lean clash/align, then unique−dup pp Δ when lean already spoke —
+    unique% ≠ silent dups; count ≠ severity; two leanish labels can still
+    disagree at the 50/50 band; lean labels ≠ how far the shares sit.
     Display only.
     """
     empty = {
@@ -267,6 +271,8 @@ def build_screener_opportunity_counts(
         "dup_share_severity": "",
         "unique_vs_dup": "",
         "unique_vs_dup_warn": False,
+        "unique_vs_dup_delta_pp": None,
+        "unique_vs_dup_delta_severity": "",
         "tone": "flat",
         "weight": "row slots",
     }
@@ -312,6 +318,8 @@ def build_screener_opportunity_counts(
     dup_share_severity = ""
     unique_vs_dup = ""
     unique_vs_dup_warn = False
+    unique_vs_dup_delta_pp: float | None = None
+    unique_vs_dup_delta_severity = ""
     tone = "flat"
     if overlap and n_total > 0:
         unique_share_pct = round(100.0 * n_unique / n_total, 1)
@@ -359,6 +367,16 @@ def build_screener_opportunity_counts(
             if unique_share_severity == "thin" or dup_share_severity == "hot":
                 unique_vs_dup_warn = True
                 tone = "warn"
+        if unique_vs_dup:
+            delta_pp = round(unique_share_pct - dup_share_pct, 1)
+            abs_delta = abs(delta_pp)
+            if abs_delta >= SCREENER_UNIQUE_VS_DUP_DELTA_WIDE_PP:
+                unique_vs_dup_delta_pp = delta_pp
+                unique_vs_dup_delta_severity = "wide"
+            elif abs_delta < SCREENER_UNIQUE_VS_DUP_DELTA_THIN_PP:
+                unique_vs_dup_delta_pp = delta_pp
+                unique_vs_dup_delta_severity = "thin"
+            # mid band stays silent (lean labels already spoke)
         pct_bit = f"{unique_share_pct:g}%"
         dup_pct = f"{dup_share_pct:g}%"
         if dup_share_severity == "hot":
@@ -375,6 +393,15 @@ def build_screener_opportunity_counts(
             weight = f"{n_unique} unique · {pct_bit} · {dup_bit}"
         if unique_vs_dup:
             weight = f"{weight} · unique vs dup {unique_vs_dup}"
+            if unique_vs_dup_delta_severity and unique_vs_dup_delta_pp is not None:
+                sign = (
+                    f"+{unique_vs_dup_delta_pp:g}"
+                    if unique_vs_dup_delta_pp > 0
+                    else f"{unique_vs_dup_delta_pp:g}"
+                )
+                weight = (
+                    f"{weight} · Δ {unique_vs_dup_delta_severity} · {sign}pp"
+                )
     else:
         weight = "row slots"
     return {
@@ -392,6 +419,8 @@ def build_screener_opportunity_counts(
         "dup_share_severity": dup_share_severity,
         "unique_vs_dup": unique_vs_dup,
         "unique_vs_dup_warn": unique_vs_dup_warn,
+        "unique_vs_dup_delta_pp": unique_vs_dup_delta_pp,
+        "unique_vs_dup_delta_severity": unique_vs_dup_delta_severity,
         "tone": tone,
         "weight": weight,
     }
@@ -9524,6 +9553,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity unique vs dup lean",
             "from": "xang1234/stock-screener + portfolio AI (share vs Δ clash/align)",
             "note": "When lists overlap, weight speaks unique vs dup align · strong|quiet / thin|hot, or clash when exactly one lean spoke (e.g. 50/50 ok+hot).",
+        },
+        {
+            "title": "Screener opportunity unique vs dup Δ",
+            "from": "xang1234/stock-screener + portfolio AI (share Δ after lean)",
+            "note": "When unique vs dup lean already spoke, weight also speaks Δ wide|thin · ±Npp (unique%−dup%; wide ≥20pp · thin <10pp; mid silent).",
         },
         {
             "title": "SMA market-regime gate",
