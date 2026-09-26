@@ -1596,6 +1596,10 @@ a:active {
   font-size: 0.78rem;
 }
 
+.strip .weight.warn {
+  color: var(--down);
+}
+
 .amt {
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;

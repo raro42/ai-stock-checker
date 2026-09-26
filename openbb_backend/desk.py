@@ -231,13 +231,20 @@ def build_scan_freshness(
     }
 
 
+# Uniqueness share when lists overlap (unique÷total). Strong ≥75% · thin <50%.
+SCREENER_UNIQUE_SHARE_STRONG = 75.0
+SCREENER_UNIQUE_SHARE_THIN = 50.0
+
+
 def build_screener_opportunity_counts(
     opportunities: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     """Scalar Screener list counts (xang1234 opportunity-summary-scalar-counts).
 
     Integer lengths only — not bool casts. ``n_total`` is the sum of the three
-    list lengths (row slots). ``n_unique`` counts distinct symbols. Display only.
+    list lengths (row slots). ``n_unique`` counts distinct symbols. When lists
+    overlap, weight also speaks uniqueness share (unique÷total) with
+    strong/thin severity — absolute unique count ≠ ownership. Display only.
     """
     empty = {
         "n_rec": 0,
@@ -245,8 +252,12 @@ def build_screener_opportunity_counts(
         "n_brk": 0,
         "n_total": 0,
         "n_unique": 0,
+        "n_dup": 0,
         "lists_populated": 0,
         "overlap": False,
+        "unique_share_pct": None,
+        "unique_share_severity": "",
+        "tone": "flat",
         "weight": "row slots",
     }
     if not isinstance(opportunities, Mapping):
@@ -282,17 +293,42 @@ def build_screener_opportunity_counts(
         | _symbols("stock_breakouts")
     )
     n_unique = len(unique)
+    n_dup = max(0, n_total - n_unique)
     lists_populated = sum(1 for n in (n_rec, n_crypto, n_brk) if n > 0)
     overlap = n_unique < n_total and n_total > 0
-    weight = f"{n_unique} unique" if overlap else "row slots"
+    unique_share_pct: float | None = None
+    unique_share_severity = ""
+    tone = "flat"
+    if overlap and n_total > 0:
+        unique_share_pct = round(100.0 * n_unique / n_total, 1)
+        if unique_share_pct >= SCREENER_UNIQUE_SHARE_STRONG:
+            unique_share_severity = "strong"
+        elif unique_share_pct < SCREENER_UNIQUE_SHARE_THIN:
+            unique_share_severity = "thin"
+            tone = "warn"
+        else:
+            unique_share_severity = "ok"
+        pct_bit = f"{unique_share_pct:g}%"
+        if unique_share_severity == "thin":
+            weight = f"{n_unique} unique · thin · {pct_bit}"
+        elif unique_share_severity == "strong":
+            weight = f"{n_unique} unique · strong · {pct_bit}"
+        else:
+            weight = f"{n_unique} unique · {pct_bit}"
+    else:
+        weight = "row slots"
     return {
         "n_rec": n_rec,
         "n_crypto": n_crypto,
         "n_brk": n_brk,
         "n_total": n_total,
         "n_unique": n_unique,
+        "n_dup": n_dup,
         "lists_populated": lists_populated,
         "overlap": overlap,
+        "unique_share_pct": unique_share_pct,
+        "unique_share_severity": unique_share_severity,
+        "tone": tone,
         "weight": weight,
     }
 
@@ -9404,6 +9440,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity scalar total",
             "from": "xang1234/stock-screener (opportunity-summary-scalar-counts)",
             "note": "Total = sum of three list lengths; weight shows unique when lists overlap — not bool casts.",
+        },
+        {
+            "title": "Screener opportunity uniqueness share",
+            "from": "xang1234/stock-screener + portfolio AI (count ≠ ownership)",
+            "note": "When lists overlap, Total weight speaks unique% (strong ≥75% · thin <50%); absolute unique ≠ share.",
         },
         {
             "title": "SMA market-regime gate",

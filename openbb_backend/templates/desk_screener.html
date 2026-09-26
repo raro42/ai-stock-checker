@@ -32,7 +32,7 @@
   <div>
     <span class="k">Total</span>
     <span class="v">{{ n_total }}</span>
-    <span class="weight">{{ sc.weight|default("row slots") }}</span>
+    <span class="weight{% if sc.tone|default('flat') == 'warn' %} warn{% endif %}">{{ sc.weight|default("row slots") }}</span>
   </div>
   <div>
     <span class="k">Lists</span>
