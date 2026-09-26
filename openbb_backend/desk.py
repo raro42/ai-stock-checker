@@ -247,8 +247,9 @@ def build_screener_opportunity_counts(
     Integer lengths only — not bool casts. ``n_total`` is the sum of the three
     list lengths (row slots). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with strong/thin
-    severity, then the waste side (``N dup · [hot|quiet] · M%``) — unique% ≠
-    silent dups; count ≠ severity.
+    severity, then the waste side (``N dup · [hot|quiet] · M%``), then unique
+    vs dup lean clash/align — unique% ≠ silent dups; count ≠ severity; two
+    leanish labels can still disagree at the 50/50 band.
     Display only.
     """
     empty = {
@@ -264,6 +265,8 @@ def build_screener_opportunity_counts(
         "unique_share_severity": "",
         "dup_share_pct": None,
         "dup_share_severity": "",
+        "unique_vs_dup": "",
+        "unique_vs_dup_warn": False,
         "tone": "flat",
         "weight": "row slots",
     }
@@ -307,6 +310,8 @@ def build_screener_opportunity_counts(
     unique_share_severity = ""
     dup_share_pct: float | None = None
     dup_share_severity = ""
+    unique_vs_dup = ""
+    unique_vs_dup_warn = False
     tone = "flat"
     if overlap and n_total > 0:
         unique_share_pct = round(100.0 * n_unique / n_total, 1)
@@ -325,6 +330,35 @@ def build_screener_opportunity_counts(
             dup_share_severity = "quiet"
         else:
             dup_share_severity = "ok"
+        unique_lean = unique_share_severity in {"strong", "thin"}
+        dup_lean = dup_share_severity in {"hot", "quiet"}
+        if unique_lean and dup_lean:
+            matched = (
+                unique_share_severity == "strong"
+                and dup_share_severity == "quiet"
+            ) or (
+                unique_share_severity == "thin"
+                and dup_share_severity == "hot"
+            )
+            if matched:
+                unique_vs_dup = (
+                    f"align · {unique_share_severity}|{dup_share_severity}"
+                )
+            else:
+                unique_vs_dup = (
+                    f"clash · unique {unique_share_severity} · "
+                    f"dup {dup_share_severity}"
+                )
+                unique_vs_dup_warn = True
+                tone = "warn"
+        elif unique_lean != dup_lean:
+            unique_vs_dup = (
+                f"clash · unique {unique_share_severity} · "
+                f"dup {dup_share_severity}"
+            )
+            if unique_share_severity == "thin" or dup_share_severity == "hot":
+                unique_vs_dup_warn = True
+                tone = "warn"
         pct_bit = f"{unique_share_pct:g}%"
         dup_pct = f"{dup_share_pct:g}%"
         if dup_share_severity == "hot":
@@ -339,6 +373,8 @@ def build_screener_opportunity_counts(
             weight = f"{n_unique} unique · strong · {pct_bit} · {dup_bit}"
         else:
             weight = f"{n_unique} unique · {pct_bit} · {dup_bit}"
+        if unique_vs_dup:
+            weight = f"{weight} · unique vs dup {unique_vs_dup}"
     else:
         weight = "row slots"
     return {
@@ -354,6 +390,8 @@ def build_screener_opportunity_counts(
         "unique_share_severity": unique_share_severity,
         "dup_share_pct": dup_share_pct,
         "dup_share_severity": dup_share_severity,
+        "unique_vs_dup": unique_vs_dup,
+        "unique_vs_dup_warn": unique_vs_dup_warn,
         "tone": tone,
         "weight": weight,
     }
@@ -9481,6 +9519,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity dup share severity",
             "from": "xang1234/stock-screener + portfolio AI (severity after dup %)",
             "note": "When lists overlap, dup speaks hot ≥50% · quiet ≤25%; count+% ≠ severity; mid ok silent.",
+        },
+        {
+            "title": "Screener opportunity unique vs dup lean",
+            "from": "xang1234/stock-screener + portfolio AI (share vs Δ clash/align)",
+            "note": "When lists overlap, weight speaks unique vs dup align · strong|quiet / thin|hot, or clash when exactly one lean spoke (e.g. 50/50 ok+hot).",
         },
         {
             "title": "SMA market-regime gate",
