@@ -243,8 +243,9 @@ def build_screener_opportunity_counts(
 
     Integer lengths only — not bool casts. ``n_total`` is the sum of the three
     list lengths (row slots). ``n_unique`` counts distinct symbols. When lists
-    overlap, weight also speaks uniqueness share (unique÷total) with
-    strong/thin severity — absolute unique count ≠ ownership. Display only.
+    overlap, weight speaks uniqueness share (unique÷total) with strong/thin
+    severity, then the waste side (``N dup · M%``) — unique% ≠ silent dups.
+    Display only.
     """
     empty = {
         "n_rec": 0,
@@ -257,6 +258,7 @@ def build_screener_opportunity_counts(
         "overlap": False,
         "unique_share_pct": None,
         "unique_share_severity": "",
+        "dup_share_pct": None,
         "tone": "flat",
         "weight": "row slots",
     }
@@ -298,9 +300,11 @@ def build_screener_opportunity_counts(
     overlap = n_unique < n_total and n_total > 0
     unique_share_pct: float | None = None
     unique_share_severity = ""
+    dup_share_pct: float | None = None
     tone = "flat"
     if overlap and n_total > 0:
         unique_share_pct = round(100.0 * n_unique / n_total, 1)
+        dup_share_pct = round(100.0 * n_dup / n_total, 1)
         if unique_share_pct >= SCREENER_UNIQUE_SHARE_STRONG:
             unique_share_severity = "strong"
         elif unique_share_pct < SCREENER_UNIQUE_SHARE_THIN:
@@ -309,12 +313,13 @@ def build_screener_opportunity_counts(
         else:
             unique_share_severity = "ok"
         pct_bit = f"{unique_share_pct:g}%"
+        dup_bit = f"{n_dup} dup · {dup_share_pct:g}%"
         if unique_share_severity == "thin":
-            weight = f"{n_unique} unique · thin · {pct_bit}"
+            weight = f"{n_unique} unique · thin · {pct_bit} · {dup_bit}"
         elif unique_share_severity == "strong":
-            weight = f"{n_unique} unique · strong · {pct_bit}"
+            weight = f"{n_unique} unique · strong · {pct_bit} · {dup_bit}"
         else:
-            weight = f"{n_unique} unique · {pct_bit}"
+            weight = f"{n_unique} unique · {pct_bit} · {dup_bit}"
     else:
         weight = "row slots"
     return {
@@ -328,6 +333,7 @@ def build_screener_opportunity_counts(
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
         "unique_share_severity": unique_share_severity,
+        "dup_share_pct": dup_share_pct,
         "tone": tone,
         "weight": weight,
     }
@@ -9445,6 +9451,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity uniqueness share",
             "from": "xang1234/stock-screener + portfolio AI (count ≠ ownership)",
             "note": "When lists overlap, Total weight speaks unique% (strong ≥75% · thin <50%); absolute unique ≠ share.",
+        },
+        {
+            "title": "Screener opportunity dup share",
+            "from": "xang1234/stock-screener + portfolio AI (speak-both-sides)",
+            "note": "When lists overlap, Total weight also speaks N dup · M%; unique% ≠ silent waste.",
         },
         {
             "title": "SMA market-regime gate",
