@@ -2071,6 +2071,47 @@ def test_breadth_glance_empty_when_no_scan():
     assert build_breadth_glance({"crypto_n": 0, "stock_scan_n": 0})["ready"] is False
 
 
+def test_breadth_glance_speaks_day_meta_mismatch_and_empty():
+    """Parity: meta mismatch / pulse empty on glance, not only Recent days."""
+    mismatch = build_breadth_glance(
+        {
+            "day": "2026-09-26",
+            "scan_time": "2026-09-25T12:00:00Z",
+            "crypto_n": 4,
+            "crypto_up": 3,
+            "crypto_down": 1,
+            "stock_scan_n": 10,
+            "stock_scan_up": 6,
+            "stock_scan_down": 4,
+        }
+    )
+    assert mismatch["ready"] is True
+    assert mismatch["tone"] == "warn"
+    assert mismatch["meta_severity"] == "mismatch"
+    assert "meta mismatch" in mismatch["meta_bit"]
+    assert "meta mismatch" in mismatch["line"]
+    assert mismatch["run_covers_day"] is False
+    assert mismatch["meta_scan_day"] == "2026-09-25"
+    assert "crypto 3/1" in mismatch["line"]
+    assert "estimate · not full-universe" in mismatch["line"]
+
+    empty = build_breadth_glance(
+        {
+            "day": "2026-09-26",
+            "scan_time": "2026-09-26T12:00:00Z",
+            "crypto_n": 0,
+            "stock_scan_n": 0,
+        }
+    )
+    assert empty["ready"] is True
+    assert empty["tone"] == "warn"
+    assert empty["meta_severity"] == "empty"
+    assert "pulse empty" in empty["line"]
+    assert "estimate · not full-universe" in empty["line"]
+    assert empty["crypto_net"] == 0
+    assert empty["stock_net"] == 0
+
+
 def test_breadth_glance_infers_n_from_up_down():
     g = build_breadth_glance(
         {

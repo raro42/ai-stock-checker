@@ -7919,6 +7919,11 @@ def build_breadth_glance(
     label the pulse as a scan-list **estimate**, never full-universe A/D.
     Optional ``history`` adds StockBee thrust/risk-on/risk-off/split streak and
     days-since when the ending day is quiet.
+
+    Day-run meta (xang1234 stale-run coverage + tradermonty all-null): when
+    ``scan_time`` misses the pulse UTC day or both sleeves are 0 priced, speak
+    the same ``meta mismatch`` / ``pulse empty`` bit on every screen — not only
+    Breadth Recent days / scan-log. Meta warn overrides A/D tone.
     """
     empty = {
         "ready": False,
@@ -7987,9 +7992,18 @@ def build_breadth_glance(
         "crypto_advance_pct": None,
         "estimate": True,
         "full_universe": False,
+        "meta_severity": "",
+        "meta_bit": "",
+        "run_covers_day": None,
+        "meta_scan_day": "",
     }
     if not isinstance(pulse, dict):
         return empty
+    meta = build_breadth_day_meta(pulse)
+    meta_bit = str(meta.get("bit") or "")
+    meta_severity = str(meta.get("severity") or "")
+    meta_scan_day = str(meta.get("scan_day") or "")
+    run_covers_day = meta.get("run_covers_day")
     crypto_up = int(pulse.get("crypto_up") or 0)
     crypto_down = int(pulse.get("crypto_down") or 0)
     stock_up = int(pulse.get("stock_scan_up") or 0)
@@ -8017,7 +8031,21 @@ def build_breadth_glance(
     tape = breadth_tape_label(advance_pct, crypto_adv_pct)
     mixed = tape == "mixed"
     if crypto_n <= 0 and stock_n <= 0 and breakouts_n <= 0:
-        return empty
+        # Zero-priced / mismatch still speak on Overview etc. (parity with
+        # Recent days). No day → stay silent (legacy empty pulse).
+        if not meta_bit:
+            return empty
+        coverage = "estimate · not full-universe"
+        return {
+            **empty,
+            "ready": True,
+            "tone": "warn",
+            "line": f"{meta_bit} · {coverage}",
+            "meta_severity": meta_severity,
+            "meta_bit": meta_bit,
+            "run_covers_day": run_covers_day,
+            "meta_scan_day": meta_scan_day,
+        }
 
     crypto_net = crypto_up - crypto_down
     stock_net = stock_up - stock_down
@@ -8209,6 +8237,9 @@ def build_breadth_glance(
     flip = is_tape_flip(prev_tape, tape)
     parts: list[str] = []
     score = 0
+    # Meta warn first so truncation keeps coverage + leaves the honesty bit.
+    if meta_bit:
+        parts.append(meta_bit)
     if crypto_n > 0:
         if crypto_adv_pct is not None:
             parts.append(
@@ -8343,7 +8374,9 @@ def build_breadth_glance(
             line = coverage if len(coverage) <= max_len else coverage[: max_len - 1] + "…"
         else:
             line = core[:budget].rstrip(" ·") + keep
-    if score > 0:
+    if meta.get("tone") == "warn":
+        tone = "warn"
+    elif score > 0:
         tone = "up"
     elif score < 0:
         tone = "down"
@@ -8416,6 +8449,10 @@ def build_breadth_glance(
         "crypto_advance_pct": crypto_adv_pct if crypto_n > 0 else None,
         "estimate": True,
         "full_universe": False,
+        "meta_severity": meta_severity,
+        "meta_bit": meta_bit,
+        "run_covers_day": run_covers_day,
+        "meta_scan_day": meta_scan_day,
     }
 
 

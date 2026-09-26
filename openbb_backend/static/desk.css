@@ -530,6 +530,10 @@ a:active {
   color: var(--muted);
 }
 
+.breadth-glance-tone.warn {
+  color: var(--accent);
+}
+
 .breadth-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
