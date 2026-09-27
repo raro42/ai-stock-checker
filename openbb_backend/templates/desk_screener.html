@@ -32,7 +32,13 @@
   <div>
     <span class="k">Total</span>
     <span class="v">{{ n_total }}</span>
-    <span class="weight{% if sc.tone|default('flat') == 'warn' %} warn{% endif %}">{{ sc.weight|default("row slots") }}</span>
+    <span class="weight{% if sc.tone|default('flat') == 'warn' %} warn{% endif %}">{{ sc.weight_core|default(sc.weight|default("row slots")) }}</span>
+    {% if sc.weight_lean %}
+    <details class="screener-weight-lean{% if sc.tone|default('flat') == 'warn' %} warn{% endif %}"{% if sc.tone|default('flat') == 'warn' %} open{% endif %}>
+      <summary>unique vs dup <span class="meta">lean cascade</span></summary>
+      <p class="weight{% if sc.tone|default('flat') == 'warn' %} warn{% endif %}">{{ sc.weight_lean }}</p>
+    </details>
+    {% endif %}
   </div>
   <div>
     <span class="k">Lists</span>

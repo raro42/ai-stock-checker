@@ -260,7 +260,9 @@ def build_screener_opportunity_counts(
     disagree at the 50/50 band; lean labels ≠ how far the shares sit; lean
     spoke ≠ Δ mid silent; ±sign ≠ which side owns the spread; lead name ≠
     how many times louder owns quieter; ratio ≠ the two role-labeled %.
-    Display only.
+    Strip shows ``weight_core`` (unique/dup shares); lean cascade sits in
+    ``weight_lean`` under a MonsterDeveloper fold. ``weight`` stays the full
+    joined string for tests. Display only.
     """
     empty = {
         "n_rec": 0,
@@ -287,6 +289,8 @@ def build_screener_opportunity_counts(
         "unique_vs_dup_delta_lead_size_quieter_pct": None,
         "tone": "flat",
         "weight": "row slots",
+        "weight_core": "row slots",
+        "weight_lean": "",
     }
     if not isinstance(opportunities, Mapping):
         return empty
@@ -428,42 +432,48 @@ def build_screener_opportunity_counts(
         else:
             dup_bit = f"{n_dup} dup · {dup_pct}"
         if unique_share_severity == "thin":
-            weight = f"{n_unique} unique · thin · {pct_bit} · {dup_bit}"
+            weight_core = f"{n_unique} unique · thin · {pct_bit} · {dup_bit}"
         elif unique_share_severity == "strong":
-            weight = f"{n_unique} unique · strong · {pct_bit} · {dup_bit}"
+            weight_core = f"{n_unique} unique · strong · {pct_bit} · {dup_bit}"
         else:
-            weight = f"{n_unique} unique · {pct_bit} · {dup_bit}"
+            weight_core = f"{n_unique} unique · {pct_bit} · {dup_bit}"
+        lean_bits: list[str] = []
         if unique_vs_dup:
-            weight = f"{weight} · unique vs dup {unique_vs_dup}"
+            lean_bits.append(f"unique vs dup {unique_vs_dup}")
             if unique_vs_dup_delta_severity and unique_vs_dup_delta_pp is not None:
                 sign = (
                     f"+{unique_vs_dup_delta_pp:g}"
                     if unique_vs_dup_delta_pp > 0
                     else f"{unique_vs_dup_delta_pp:g}"
                 )
-                weight = (
-                    f"{weight} · Δ {unique_vs_dup_delta_severity} · {sign}pp"
+                lean_bits.append(
+                    f"Δ {unique_vs_dup_delta_severity} · {sign}pp"
                 )
             if unique_vs_dup_lean_vs_delta:
-                weight = f"{weight} · lean vs Δ {unique_vs_dup_lean_vs_delta}"
+                lean_bits.append(f"lean vs Δ {unique_vs_dup_lean_vs_delta}")
             if unique_vs_dup_delta_lead:
-                weight = f"{weight} · Δ lead · {unique_vs_dup_delta_lead}"
+                lean_bits.append(f"Δ lead · {unique_vs_dup_delta_lead}")
             if unique_vs_dup_delta_lead_size is not None:
-                weight = (
-                    f"{weight} · Δ lead size · "
-                    f"{unique_vs_dup_delta_lead_size:g}×"
+                lean_bits.append(
+                    f"Δ lead size · {unique_vs_dup_delta_lead_size:g}×"
                 )
             if (
                 unique_vs_dup_delta_lead_size_louder_pct is not None
                 and unique_vs_dup_delta_lead_size_quieter_pct is not None
             ):
-                weight = (
-                    f"{weight} · Δ lead size sides · louder "
+                lean_bits.append(
+                    "Δ lead size sides · louder "
                     f"{unique_vs_dup_delta_lead_size_louder_pct:g}% · quieter "
                     f"{unique_vs_dup_delta_lead_size_quieter_pct:g}%"
                 )
+        weight_lean = " · ".join(lean_bits)
+        weight = (
+            f"{weight_core} · {weight_lean}" if weight_lean else weight_core
+        )
     else:
         weight = "row slots"
+        weight_core = "row slots"
+        weight_lean = ""
     return {
         "n_rec": n_rec,
         "n_crypto": n_crypto,
@@ -493,6 +503,8 @@ def build_screener_opportunity_counts(
         ),
         "tone": tone,
         "weight": weight,
+        "weight_core": weight_core,
+        "weight_lean": weight_lean,
     }
 
 
@@ -9648,6 +9660,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity unique vs dup Δ lead size sides",
             "from": "xang1234/stock-screener + portfolio AI (align lead size sides)",
             "note": "When Δ lead size already spoke: Δ lead size sides · louder N% · quieter M% — ratio ≠ the two role-labeled shares.",
+        },
+        {
+            "title": "Screener Total weight lean fold",
+            "from": "MonsterDeveloper + xang1234 (declutter after lean cascade)",
+            "note": "Strip shows weight_core (unique/dup shares); lean/Δ/lead/size/sides sit under screener-weight-lean details; weight stays full join for tests; warn opens the fold.",
         },
         {
             "title": "SMA market-regime gate",

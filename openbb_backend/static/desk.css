@@ -1600,6 +1600,44 @@ a:active {
   color: var(--down);
 }
 
+/* Screener Total lean cascade fold (MonsterDeveloper declutter). */
+.strip .screener-weight-lean {
+  margin-top: 0.35rem;
+  padding: 0;
+  border: 0;
+}
+
+.strip .screener-weight-lean > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-family: var(--font-body, system-ui, sans-serif);
+  font-size: 0.78rem;
+  list-style: none;
+}
+
+.strip .screener-weight-lean > summary::-webkit-details-marker {
+  display: none;
+}
+
+.strip .screener-weight-lean > summary .meta {
+  margin-left: 0.25rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.strip .screener-weight-lean.warn > summary,
+.strip .screener-weight-lean.warn > summary .meta {
+  color: var(--down);
+}
+
+.strip .screener-weight-lean[open] > summary {
+  margin-bottom: 0.15rem;
+}
+
+.strip .screener-weight-lean > .weight {
+  margin-top: 0;
+}
+
 .amt {
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
