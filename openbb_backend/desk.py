@@ -253,10 +253,12 @@ def build_screener_opportunity_counts(
     severity, then the waste side (``N dup · [hot|quiet] · M%``), then unique
     vs dup lean clash/align, then unique−dup pp Δ when lean already spoke,
     then lean vs Δ clash/align (Δ mid while lean spoke → clash; both spoke →
-    align · wide|thin), then Δ lead · unique|dup when Δ spoke and ±pp ≠ 0 —
+    align · wide|thin), then Δ lead · unique|dup when Δ spoke and ±pp ≠ 0,
+    then Δ lead size · N× (louder%÷quieter%) when lead already spoke —
     unique% ≠ silent dups; count ≠ severity; two leanish labels can still
     disagree at the 50/50 band; lean labels ≠ how far the shares sit; lean
-    spoke ≠ Δ mid silent; ±sign ≠ which side owns the spread.
+    spoke ≠ Δ mid silent; ±sign ≠ which side owns the spread; lead name ≠
+    how many times louder owns quieter.
     Display only.
     """
     empty = {
@@ -279,6 +281,7 @@ def build_screener_opportunity_counts(
         "unique_vs_dup_lean_vs_delta": "",
         "unique_vs_dup_lean_vs_delta_warn": False,
         "unique_vs_dup_delta_lead": "",
+        "unique_vs_dup_delta_lead_size": None,
         "tone": "flat",
         "weight": "row slots",
     }
@@ -329,6 +332,7 @@ def build_screener_opportunity_counts(
     unique_vs_dup_lean_vs_delta = ""
     unique_vs_dup_lean_vs_delta_warn = False
     unique_vs_dup_delta_lead = ""
+    unique_vs_dup_delta_lead_size: float | None = None
     tone = "flat"
     if overlap and n_total > 0:
         unique_share_pct = round(100.0 * n_unique / n_total, 1)
@@ -395,6 +399,15 @@ def build_screener_opportunity_counts(
                         unique_vs_dup_delta_lead = "unique"
                     elif unique_vs_dup_delta_pp < 0:
                         unique_vs_dup_delta_lead = "dup"
+                if (
+                    unique_vs_dup_delta_lead
+                    and unique_share_pct is not None
+                    and dup_share_pct is not None
+                ):
+                    louder = max(unique_share_pct, dup_share_pct)
+                    quieter = min(unique_share_pct, dup_share_pct)
+                    if quieter > 0:
+                        unique_vs_dup_delta_lead_size = round(louder / quieter, 2)
             else:
                 unique_vs_dup_lean_vs_delta = "clash · lean · Δ mid"
                 unique_vs_dup_lean_vs_delta_warn = True
@@ -428,6 +441,11 @@ def build_screener_opportunity_counts(
                 weight = f"{weight} · lean vs Δ {unique_vs_dup_lean_vs_delta}"
             if unique_vs_dup_delta_lead:
                 weight = f"{weight} · Δ lead · {unique_vs_dup_delta_lead}"
+            if unique_vs_dup_delta_lead_size is not None:
+                weight = (
+                    f"{weight} · Δ lead size · "
+                    f"{unique_vs_dup_delta_lead_size:g}×"
+                )
     else:
         weight = "row slots"
     return {
@@ -450,6 +468,7 @@ def build_screener_opportunity_counts(
         "unique_vs_dup_lean_vs_delta": unique_vs_dup_lean_vs_delta,
         "unique_vs_dup_lean_vs_delta_warn": unique_vs_dup_lean_vs_delta_warn,
         "unique_vs_dup_delta_lead": unique_vs_dup_delta_lead,
+        "unique_vs_dup_delta_lead_size": unique_vs_dup_delta_lead_size,
         "tone": tone,
         "weight": weight,
     }
@@ -9597,6 +9616,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity unique vs dup Δ lead",
             "from": "xang1234/stock-screener + portfolio AI (Δ dir / ahead side)",
             "note": "When lean vs Δ align already spoke and ±pp ≠ 0: Δ lead · unique|dup — sign ≠ which side owns the share spread; 0pp stays silent.",
+        },
+        {
+            "title": "Screener opportunity unique vs dup Δ lead size",
+            "from": "xang1234/stock-screener + portfolio AI (align lead size)",
+            "note": "When Δ lead already spoke: Δ lead size · N× (louder%÷quieter%) — lead name ≠ how many times louder owns quieter.",
         },
         {
             "title": "SMA market-regime gate",
