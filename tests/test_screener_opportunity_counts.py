@@ -21,6 +21,8 @@ def test_empty_and_non_mapping():
     assert empty["unique_vs_dup_lean_vs_delta_warn"] is False
     assert empty["unique_vs_dup_delta_lead"] == ""
     assert empty["unique_vs_dup_delta_lead_size"] is None
+    assert empty["unique_vs_dup_delta_lead_size_louder_pct"] is None
+    assert empty["unique_vs_dup_delta_lead_size_quieter_pct"] is None
     assert empty["tone"] == "flat"
     assert build_screener_opportunity_counts("bad")["n_total"] == 0
 
@@ -73,9 +75,11 @@ def test_overlap_speaks_unique_share_ok():
     assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert c["unique_vs_dup_delta_lead"] == "unique"
     assert c["unique_vs_dup_delta_lead_size"] == 3.0
+    assert c["unique_vs_dup_delta_lead_size_louder_pct"] == 75.0
+    assert c["unique_vs_dup_delta_lead_size_quieter_pct"] == 25.0
     assert (
         c["weight"]
-        == "3 unique · strong · 75% · 1 dup · quiet · 25% · unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide · Δ lead · unique · Δ lead size · 3×"
+        == "3 unique · strong · 75% · 1 dup · quiet · 25% · unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide · Δ lead · unique · Δ lead size · 3× · Δ lead size sides · louder 75% · quieter 25%"
     )
     assert c["tone"] == "flat"
     assert c["lists_populated"] == 3
@@ -105,9 +109,11 @@ def test_overlap_unique_share_thin_warns():
     assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert c["unique_vs_dup_delta_lead"] == "dup"
     assert c["unique_vs_dup_delta_lead_size"] == 1.5
+    assert c["unique_vs_dup_delta_lead_size_louder_pct"] == 60.0
+    assert c["unique_vs_dup_delta_lead_size_quieter_pct"] == 40.0
     assert (
         c["weight"]
-        == "2 unique · thin · 40% · 3 dup · hot · 60% · unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide · Δ lead · dup · Δ lead size · 1.5×"
+        == "2 unique · thin · 40% · 3 dup · hot · 60% · unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide · Δ lead · dup · Δ lead size · 1.5× · Δ lead size sides · louder 60% · quieter 40%"
     )
     assert c["tone"] == "warn"
 
@@ -136,6 +142,8 @@ def test_overlap_unique_share_mid_ok():
     assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert c["unique_vs_dup_delta_lead"] == ""
     assert c["unique_vs_dup_delta_lead_size"] is None
+    assert c["unique_vs_dup_delta_lead_size_louder_pct"] is None
+    assert c["unique_vs_dup_delta_lead_size_quieter_pct"] is None
     assert c["weight"] == "3 unique · 60% · 2 dup · 40%"
     assert c["tone"] == "flat"
 
@@ -166,6 +174,8 @@ def test_overlap_unique_vs_dup_clash_at_half():
     assert c["unique_vs_dup_lean_vs_delta_warn"] is False
     assert c["unique_vs_dup_delta_lead"] == ""
     assert c["unique_vs_dup_delta_lead_size"] is None
+    assert c["unique_vs_dup_delta_lead_size_louder_pct"] is None
+    assert c["unique_vs_dup_delta_lead_size_quieter_pct"] is None
     assert (
         c["weight"]
         == "2 unique · 50% · 2 dup · hot · 50% · unique vs dup clash · unique ok · dup hot · Δ thin · 0pp · lean vs Δ align · thin"
@@ -236,6 +246,8 @@ def test_overlap_unique_vs_dup_delta_mid_silent():
     assert c["unique_vs_dup_lean_vs_delta_warn"] is True
     assert c["unique_vs_dup_delta_lead"] == ""
     assert c["unique_vs_dup_delta_lead_size"] is None
+    assert c["unique_vs_dup_delta_lead_size_louder_pct"] is None
+    assert c["unique_vs_dup_delta_lead_size_quieter_pct"] is None
     assert (
         c["weight"]
         == "9 unique · thin · 45% · 11 dup · hot · 55% · unique vs dup align · thin|hot · lean vs Δ clash · lean · Δ mid"

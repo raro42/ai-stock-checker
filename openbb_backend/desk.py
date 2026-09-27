@@ -254,11 +254,12 @@ def build_screener_opportunity_counts(
     vs dup lean clash/align, then unique−dup pp Δ when lean already spoke,
     then lean vs Δ clash/align (Δ mid while lean spoke → clash; both spoke →
     align · wide|thin), then Δ lead · unique|dup when Δ spoke and ±pp ≠ 0,
-    then Δ lead size · N× (louder%÷quieter%) when lead already spoke —
+    then Δ lead size · N× (louder%÷quieter%) when lead already spoke, then
+    Δ lead size sides · louder N% · quieter M% when size already spoke —
     unique% ≠ silent dups; count ≠ severity; two leanish labels can still
     disagree at the 50/50 band; lean labels ≠ how far the shares sit; lean
     spoke ≠ Δ mid silent; ±sign ≠ which side owns the spread; lead name ≠
-    how many times louder owns quieter.
+    how many times louder owns quieter; ratio ≠ the two role-labeled %.
     Display only.
     """
     empty = {
@@ -282,6 +283,8 @@ def build_screener_opportunity_counts(
         "unique_vs_dup_lean_vs_delta_warn": False,
         "unique_vs_dup_delta_lead": "",
         "unique_vs_dup_delta_lead_size": None,
+        "unique_vs_dup_delta_lead_size_louder_pct": None,
+        "unique_vs_dup_delta_lead_size_quieter_pct": None,
         "tone": "flat",
         "weight": "row slots",
     }
@@ -333,6 +336,8 @@ def build_screener_opportunity_counts(
     unique_vs_dup_lean_vs_delta_warn = False
     unique_vs_dup_delta_lead = ""
     unique_vs_dup_delta_lead_size: float | None = None
+    unique_vs_dup_delta_lead_size_louder_pct: float | None = None
+    unique_vs_dup_delta_lead_size_quieter_pct: float | None = None
     tone = "flat"
     if overlap and n_total > 0:
         unique_share_pct = round(100.0 * n_unique / n_total, 1)
@@ -408,6 +413,8 @@ def build_screener_opportunity_counts(
                     quieter = min(unique_share_pct, dup_share_pct)
                     if quieter > 0:
                         unique_vs_dup_delta_lead_size = round(louder / quieter, 2)
+                        unique_vs_dup_delta_lead_size_louder_pct = louder
+                        unique_vs_dup_delta_lead_size_quieter_pct = quieter
             else:
                 unique_vs_dup_lean_vs_delta = "clash · lean · Δ mid"
                 unique_vs_dup_lean_vs_delta_warn = True
@@ -446,6 +453,15 @@ def build_screener_opportunity_counts(
                     f"{weight} · Δ lead size · "
                     f"{unique_vs_dup_delta_lead_size:g}×"
                 )
+            if (
+                unique_vs_dup_delta_lead_size_louder_pct is not None
+                and unique_vs_dup_delta_lead_size_quieter_pct is not None
+            ):
+                weight = (
+                    f"{weight} · Δ lead size sides · louder "
+                    f"{unique_vs_dup_delta_lead_size_louder_pct:g}% · quieter "
+                    f"{unique_vs_dup_delta_lead_size_quieter_pct:g}%"
+                )
     else:
         weight = "row slots"
     return {
@@ -469,6 +485,12 @@ def build_screener_opportunity_counts(
         "unique_vs_dup_lean_vs_delta_warn": unique_vs_dup_lean_vs_delta_warn,
         "unique_vs_dup_delta_lead": unique_vs_dup_delta_lead,
         "unique_vs_dup_delta_lead_size": unique_vs_dup_delta_lead_size,
+        "unique_vs_dup_delta_lead_size_louder_pct": (
+            unique_vs_dup_delta_lead_size_louder_pct
+        ),
+        "unique_vs_dup_delta_lead_size_quieter_pct": (
+            unique_vs_dup_delta_lead_size_quieter_pct
+        ),
         "tone": tone,
         "weight": weight,
     }
@@ -9621,6 +9643,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity unique vs dup Δ lead size",
             "from": "xang1234/stock-screener + portfolio AI (align lead size)",
             "note": "When Δ lead already spoke: Δ lead size · N× (louder%÷quieter%) — lead name ≠ how many times louder owns quieter.",
+        },
+        {
+            "title": "Screener opportunity unique vs dup Δ lead size sides",
+            "from": "xang1234/stock-screener + portfolio AI (align lead size sides)",
+            "note": "When Δ lead size already spoke: Δ lead size sides · louder N% · quieter M% — ratio ≠ the two role-labeled shares.",
         },
         {
             "title": "SMA market-regime gate",
