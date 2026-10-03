@@ -16,8 +16,9 @@ services:
   # Primary service: market scan + paper trading with persistence
   intelligent-trader:
     build: .
-    platform: linux/arm64
     container_name: intelligent-trader
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./stock_checker:/app/stock_checker
       - ./data:/data
@@ -55,7 +56,9 @@ services:
     build: .
     container_name: openbb-backend
     ports:
-      - "7779:7779"
+      - "127.0.0.1:7779:7779"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./openbb_backend:/app/openbb_backend
       - ./stock_checker:/app/stock_checker
