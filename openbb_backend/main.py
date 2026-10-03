@@ -12,7 +12,14 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -203,14 +210,8 @@ def _load_trades(limit: int = 50) -> List[Dict]:
 
 @app.get("/")
 def root():
-    return {
-        "info": "AI Stock Checker OpenBB backend",
-        "data_dir": str(DATA_DIR),
-        "auth_required": bool(API_KEY),
-        "desk": "/desk",
-        "desk_screens": list(_DESK_SCREENS),
-        "desk_api": "/desk/api",
-    }
+    """Browser home is the desk. Widget discovery stays on /widgets.json."""
+    return RedirectResponse(url="/desk", status_code=302)
 
 
 @app.get("/desk/api")

@@ -153,8 +153,9 @@ def test_portfolio_endpoints_direct(tmp_path: Path, monkeypatch):
     trades = backend.trades_table(limit=10)
     assert trades[0]["symbol"] == "AAPL"
     assert backend.health()["ok"] is True
-    assert backend.root()["desk"] == "/desk"
-    assert "screener" in backend.root()["desk_screens"]
+    home = backend.root()
+    assert home.status_code == 302
+    assert home.headers["location"] == "/desk"
     widgets = json.loads((Path(backend.__file__).parent / "widgets.json").read_text())
     assert "portfolio_markdown" in widgets
 
