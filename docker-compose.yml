@@ -83,6 +83,8 @@ services:
       python3 -m uvicorn openbb_backend.main:app
       --host 0.0.0.0
       --port 7779
+      --proxy-headers
+      --forwarded-allow-ips 127.0.0.1
       --reload
       --reload-dir /app/openbb_backend
 

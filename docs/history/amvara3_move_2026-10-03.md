@@ -31,9 +31,8 @@ Then open `http://127.0.0.1:7779/desk`.
 
 On 2026-10-03 certbot issued `stock.zeitfenster.de` (standalone HTTP-01, ECDSA). It expires on 2027-01-01. The combined PEM is `/home/amvara/projects/certs-ssl/stock.zeitfenster.de.pem`. The name is in the deploy hook, so the 03:00 renewal job keeps it.
 
-## Public site (not done)
+## Public site
 
-The certificate is on HAProxy. The desk is not routed yet. Do these before a public open:
+HAProxy sends `stock.zeitfenster.de` to `127.0.0.1:7779`. Open the desk at `https://stock.zeitfenster.de/desk`.
 
-1. Set `OPENBB_BACKEND_API_KEY` in the server `.env`. The Ops config route can change the trader when the key is empty.
-2. Add a HAProxy host ACL for `stock.zeitfenster.de` and a backend to `127.0.0.1:7779`. Reload HAProxy only after a config check. A bad reload breaks Cometa and Redmine.
+The OpenBB widget routes use `OPENBB_BACKEND_API_KEY` when that value is set. The desk pages, including Ops save, do not use that key.
