@@ -4762,11 +4762,15 @@ def build_universe_discovery_glance(
 
     last_raw = ""
     last_added: int | None = None
+    yahoo_status = ""
     if data_dir is not None:
         uni = _load_json(Path(data_dir) / "stock_universe.json", {})
         meta = uni.get("meta") if isinstance(uni, dict) else None
         if isinstance(meta, dict):
             last_raw = str(meta.get("last_yahoo_discovery") or "").strip()
+            yahoo_status = str(
+                meta.get("last_yahoo_discovery_status") or ""
+            ).strip().lower()
             try:
                 last_added = int(meta.get("last_yahoo_added"))
             except (TypeError, ValueError):
@@ -4796,7 +4800,15 @@ def build_universe_discovery_glance(
             else:
                 tone = "stale"
 
-    line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
+    yahoo_failed = yahoo_status == "failed"
+    if yahoo_failed:
+        tone = "warn"
+        line = (
+            f"US+DE · Yahoo ≤{per} · cache {age_label} · "
+            "Yahoo fail · reuse seed"
+        )
+    else:
+        line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
@@ -4811,6 +4823,8 @@ def build_universe_discovery_glance(
         "age_label": age_label,
         "last_yahoo_discovery": last_raw,
         "last_yahoo_added": last_added,
+        "last_yahoo_discovery_status": yahoo_status or "unknown",
+        "yahoo_failed": yahoo_failed,
     }
 
 

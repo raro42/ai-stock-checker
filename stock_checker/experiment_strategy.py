@@ -11,7 +11,6 @@ Export generate_signals(bars_by_symbol, index, portfolio) -> {symbol: 'BUY'|'SEL
 from __future__ import annotations
 
 from typing import Dict, List
-import math
 
 
 # idea: Increasing the Medium SMA reference period from 50 to 60. This makes the structural stack (S>M) and the associated trend confirmation significantly slower and more stable, filtering out short-term noise in favor of deeper, longer-term structural alignment.

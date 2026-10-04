@@ -1105,7 +1105,8 @@ a:active {
 }
 
 .universe-discovery-glance-tone.stale,
-.universe-discovery-glance-tone.unknown {
+.universe-discovery-glance-tone.unknown,
+.universe-discovery-glance-tone.warn {
   color: var(--down);
 }
 

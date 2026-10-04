@@ -17,6 +17,12 @@ DEFAULT_MOVER_COUNT = 25
 # Re-pull Yahoo movers when last discovery is older than this (desk shows age).
 DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS = 24
 DEFAULT_SCREENS: tuple[str, ...] = ("day_gainers", "day_losers", "most_actives")
+# xang1234: a mostly empty snapshot is a failed fetch, not a quiet day.
+EMPTY_SCREEN_FRACTION = 0.2
+
+
+class YahooScreenEmptyError(Exception):
+    """Yahoo screen returned nothing usable (block / empty payload)."""
 
 
 def _quotes_from_screen_payload(payload: Any) -> list[dict[str, Any]]:
@@ -25,6 +31,16 @@ def _quotes_from_screen_payload(payload: Any) -> list[dict[str, Any]]:
         if isinstance(quotes, list):
             return [q for q in quotes if isinstance(q, dict)]
     return []
+
+
+def screen_payload_failed(payload: Any, *, expected: int) -> bool:
+    """True when the screen looks blocked or mostly empty (do not stamp cache)."""
+    quotes = _quotes_from_screen_payload(payload)
+    if not quotes:
+        return True
+    want = max(1, int(expected))
+    floor = max(1, int(want * EMPTY_SCREEN_FRACTION))
+    return len(quotes) < floor
 
 
 def fetch_yahoo_screen_symbols(
@@ -39,7 +55,10 @@ def fetch_yahoo_screen_symbols(
     """
     import yfinance as yf
 
-    payload = yf.screen(screen, count=max(1, min(100, int(count))))
+    want = max(1, min(100, int(count)))
+    payload = yf.screen(screen, count=want)
+    if screen_payload_failed(payload, expected=want):
+        raise YahooScreenEmptyError(screen)
     out: list[str] = []
     seen: set[str] = set()
     for q in _quotes_from_screen_payload(payload):
@@ -56,18 +75,22 @@ def fetch_yahoo_screen_symbols(
     return out
 
 
-def discover_yahoo_mover_symbols(
+def discover_yahoo_mover_report(
     *,
     screens: Sequence[str] = DEFAULT_SCREENS,
     per_screen: int = DEFAULT_MOVER_COUNT,
-) -> List[str]:
-    """Union of symbols across screens, stable order, de-duplicated."""
+) -> tuple[List[str], int, int]:
+    """Symbols plus how many screens succeeded vs failed (empty/blocked)."""
     out: list[str] = []
     seen: set[str] = set()
+    ok = 0
+    failed = 0
     for name in screens:
         try:
             batch = fetch_yahoo_screen_symbols(name, count=per_screen)
+            ok += 1
         except Exception:
+            failed += 1
             continue
         for sym in batch:
             if sym in seen:
@@ -76,7 +99,19 @@ def discover_yahoo_mover_symbols(
                 continue
             seen.add(sym)
             out.append(sym)
-    return out
+    return out, ok, failed
+
+
+def discover_yahoo_mover_symbols(
+    *,
+    screens: Sequence[str] = DEFAULT_SCREENS,
+    per_screen: int = DEFAULT_MOVER_COUNT,
+) -> List[str]:
+    """Union of symbols across screens, stable order, de-duplicated."""
+    symbols, _ok, _failed = discover_yahoo_mover_report(
+        screens=screens, per_screen=per_screen
+    )
+    return symbols
 
 
 def sector_hint_from_quote(quote: dict[str, Any] | None) -> str:

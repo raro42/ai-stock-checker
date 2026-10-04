@@ -19,6 +19,7 @@ Versioning follows [SemVer](https://semver.org/) — see [RELEASES.md](RELEASES.
 ### Fixed
 
 - Overnight experiments build the local `ai-stock-checker` image when the tag is missing. They do not pull that name from Docker Hub.
+- Empty or blocked Yahoo movers screens no longer stamp the universe cache as fresh. The desk keeps the last good seed age and says `Yahoo fail · reuse seed`.
 
 ## [v0.2.2] - 2026-08-29
 

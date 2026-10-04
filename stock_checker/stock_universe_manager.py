@@ -335,12 +335,33 @@ class StockUniverseManager:
 
         Does not buy anything. Caps new adds per call to avoid universe bloat.
         """
-        from stock_checker.yahoo_universe_discovery import discover_yahoo_mover_symbols
+        from stock_checker.yahoo_universe_discovery import discover_yahoo_mover_report
+
+        meta = self.universe.setdefault("meta", {})
+        if not isinstance(meta, dict):
+            meta = {}
+            self.universe["meta"] = meta
 
         try:
-            symbols = discover_yahoo_mover_symbols(per_screen=per_screen)
+            symbols, screens_ok, screens_failed = discover_yahoo_mover_report(
+                per_screen=per_screen
+            )
         except Exception as e:
             print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
+            meta["last_yahoo_discovery_status"] = "failed"
+            meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            self._save_universe()
+            return 0
+
+        if screens_ok == 0:
+            # xang1234: failed fetch → reuse seed; do not stamp cache fresh.
+            meta["last_yahoo_discovery_status"] = "failed"
+            meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            self._save_universe()
+            print(
+                "   ⚠️ Yahoo movers empty/blocked "
+                f"({screens_failed} screens) — reuse curated seed; cache age kept"
+            )
             return 0
 
         added = 0
@@ -349,11 +370,8 @@ class StockUniverseManager:
                 break
             if self.add_stock(sym, sector="yahoo_mover", exchange="US"):
                 added += 1
-        meta = self.universe.setdefault("meta", {})
-        if not isinstance(meta, dict):
-            meta = {}
-            self.universe["meta"] = meta
         meta["last_yahoo_discovery"] = datetime.now().isoformat()
+        meta["last_yahoo_discovery_status"] = "ok"
         meta["last_yahoo_added"] = added
         self._save_universe()
         if added:
