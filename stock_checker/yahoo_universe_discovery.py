@@ -43,6 +43,20 @@ def screen_payload_failed(payload: Any, *, expected: int) -> bool:
     return len(quotes) < floor
 
 
+def screens_bundle_failed(ok: int, failed: int) -> bool:
+    """True when the mover bundle is blocked or majority-failed.
+
+    xang1234: a 403 / empty Finviz snapshot must not raise, and a mostly
+    dead refresh is a failed fetch — do not stamp cache fresh or mix in
+    leftover quotes from the one screen that still answered.
+    """
+    ok_n = max(0, int(ok))
+    fail_n = max(0, int(failed))
+    if ok_n <= 0:
+        return True
+    return fail_n > ok_n
+
+
 def fetch_yahoo_screen_symbols(
     screen: str,
     *,
@@ -56,7 +70,12 @@ def fetch_yahoo_screen_symbols(
     import yfinance as yf
 
     want = max(1, min(100, int(count)))
-    payload = yf.screen(screen, count=want)
+    try:
+        payload = yf.screen(screen, count=want)
+    except Exception as e:
+        # xang1234 008f0ca: HTTP 403 / soft block → failed screen, not a raise
+        # out of universe refresh.
+        raise YahooScreenEmptyError(screen) from e
     if screen_payload_failed(payload, expected=want):
         raise YahooScreenEmptyError(screen)
     out: list[str] = []

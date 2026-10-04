@@ -6,6 +6,7 @@ from stock_checker.yahoo_universe_discovery import (
     discover_yahoo_mover_report,
     discover_yahoo_mover_symbols,
     screen_payload_failed,
+    screens_bundle_failed,
 )
 
 
@@ -56,3 +57,26 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
     assert symbols == []
     assert ok == 0
     assert failed == 2
+    assert screens_bundle_failed(ok, failed) is True
+
+
+def test_screens_bundle_failed_majority_or_empty():
+    assert screens_bundle_failed(0, 3) is True
+    assert screens_bundle_failed(1, 2) is True
+    assert screens_bundle_failed(2, 1) is False
+    assert screens_bundle_failed(3, 0) is False
+
+
+def test_fetch_yahoo_screen_403_is_empty_error(monkeypatch):
+    import pytest
+
+    from stock_checker.yahoo_universe_discovery import fetch_yahoo_screen_symbols
+
+    class _YF:
+        @staticmethod
+        def screen(screen, count=25):
+            raise RuntimeError("HTTP Error 403: Forbidden")
+
+    monkeypatch.setitem(__import__("sys").modules, "yfinance", _YF)
+    with pytest.raises(YahooScreenEmptyError):
+        fetch_yahoo_screen_symbols("day_gainers", count=5)

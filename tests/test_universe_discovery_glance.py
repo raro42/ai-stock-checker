@@ -92,6 +92,32 @@ def test_universe_discovery_glance_yahoo_fail_reuses_seed(tmp_path) -> None:
     assert "reuse seed" in g["line"]
     assert "discovery-only" not in g["line"]
     assert g["last_yahoo_added"] == 2
+    assert g["screens_bit"] == ""
+
+
+def test_universe_discovery_glance_yahoo_fail_shows_screen_fraction(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 2,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_screens_ok": 1,
+                    "last_yahoo_screens_failed": 2,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["tone"] == "warn"
+    assert g["screens_bit"] == "1/3"
+    assert "Yahoo fail · 1/3" in g["line"]
+    assert "reuse seed" in g["line"]
 
 
 

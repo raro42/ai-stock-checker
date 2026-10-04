@@ -335,13 +335,18 @@ class StockUniverseManager:
 
         Does not buy anything. Caps new adds per call to avoid universe bloat.
         """
-        from stock_checker.yahoo_universe_discovery import discover_yahoo_mover_report
+        from stock_checker.yahoo_universe_discovery import (
+            discover_yahoo_mover_report,
+            screens_bundle_failed,
+        )
 
         meta = self.universe.setdefault("meta", {})
         if not isinstance(meta, dict):
             meta = {}
             self.universe["meta"] = meta
 
+        screens_ok = 0
+        screens_failed = 0
         try:
             symbols, screens_ok, screens_failed = discover_yahoo_mover_report(
                 per_screen=per_screen
@@ -350,17 +355,25 @@ class StockUniverseManager:
             print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
             meta["last_yahoo_discovery_status"] = "failed"
             meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            meta["last_yahoo_screens_ok"] = 0
+            meta["last_yahoo_screens_failed"] = 0
+            self.ensure_curated_seed()
             self._save_universe()
             return 0
 
-        if screens_ok == 0:
-            # xang1234: failed fetch → reuse seed; do not stamp cache fresh.
+        meta["last_yahoo_screens_ok"] = int(screens_ok)
+        meta["last_yahoo_screens_failed"] = int(screens_failed)
+        if screens_bundle_failed(screens_ok, screens_failed):
+            # xang1234: failed / majority-blocked fetch → reuse seed; do not
+            # stamp cache fresh; discard leftover quotes from a thin screen.
             meta["last_yahoo_discovery_status"] = "failed"
             meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            self.ensure_curated_seed()
             self._save_universe()
             print(
                 "   ⚠️ Yahoo movers empty/blocked "
-                f"({screens_failed} screens) — reuse curated seed; cache age kept"
+                f"({screens_ok}/{screens_ok + screens_failed} screens) "
+                "— reuse curated seed; cache age kept"
             )
             return 0
 

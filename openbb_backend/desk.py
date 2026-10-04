@@ -4763,6 +4763,8 @@ def build_universe_discovery_glance(
     last_raw = ""
     last_added: int | None = None
     yahoo_status = ""
+    screens_ok: int | None = None
+    screens_failed: int | None = None
     if data_dir is not None:
         uni = _load_json(Path(data_dir) / "stock_universe.json", {})
         meta = uni.get("meta") if isinstance(uni, dict) else None
@@ -4775,6 +4777,14 @@ def build_universe_discovery_glance(
                 last_added = int(meta.get("last_yahoo_added"))
             except (TypeError, ValueError):
                 last_added = None
+            try:
+                screens_ok = int(meta.get("last_yahoo_screens_ok"))
+            except (TypeError, ValueError):
+                screens_ok = None
+            try:
+                screens_failed = int(meta.get("last_yahoo_screens_failed"))
+            except (TypeError, ValueError):
+                screens_failed = None
 
     tone = "unknown"
     age_sec: int | None = None
@@ -4801,11 +4811,18 @@ def build_universe_discovery_glance(
                 tone = "stale"
 
     yahoo_failed = yahoo_status == "failed"
+    screens_bit = ""
+    screens_n: int | None = None
+    if screens_ok is not None and screens_failed is not None:
+        screens_n = max(0, screens_ok) + max(0, screens_failed)
+        if screens_n > 0:
+            screens_bit = f"{screens_ok}/{screens_n}"
     if yahoo_failed:
         tone = "warn"
+        frac = f" · {screens_bit}" if screens_bit else ""
         line = (
             f"US+DE · Yahoo ≤{per} · cache {age_label} · "
-            "Yahoo fail · reuse seed"
+            f"Yahoo fail{frac} · reuse seed"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
@@ -4825,6 +4842,9 @@ def build_universe_discovery_glance(
         "last_yahoo_added": last_added,
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
+        "last_yahoo_screens_ok": screens_ok,
+        "last_yahoo_screens_failed": screens_failed,
+        "screens_bit": screens_bit,
     }
 
 
