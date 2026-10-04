@@ -25,7 +25,7 @@ ssh -L 7779:127.0.0.1:7779 amvara3
 Then open `http://127.0.0.1:7779/desk`.
 
 - `AI_MODE=off` on the server. The host has no Ollama. Do not turn validate mode on until a model is reachable.
-- The Mac containers stop after the server desk answers `/health`, so two loops do not trade the same book.
+- The Mac loops are removed. The LaunchAgent plist is gone, and the Mac `intelligent-trader` and `openbb-backend` containers are removed. The mac-stats overnight harness stays.
 
 ## Certificate
 
