@@ -26,6 +26,7 @@ Then open `http://127.0.0.1:7779/desk`.
 
 - `AI_MODE=off` on the server. The host has no Ollama. Do not turn validate mode on until a model is reachable.
 - The Mac loops are removed. The LaunchAgent plist is gone, and the Mac `intelligent-trader` and `openbb-backend` containers are removed. The mac-stats overnight harness stays.
+- **2026-10-04:** Linux keep-alive is the systemd timer `ai-stock-checker-overnight-loops` (`./scripts/install_overnight_keepalive.sh`). It brings loops back after reboot. Ollama is still not on this host; the Ollama research loop is skipped while `:11434` is down.
 
 ## Certificate
 

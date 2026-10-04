@@ -16,10 +16,12 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 
 While the human sleeps:
 
-- **Durable keep-alive:** macOS LaunchAgent `com.raro42.ai-stock-checker.overnight-loops` runs `./scripts/ensure_overnight_loops.sh` every **15 minutes** (install: `./scripts/install_overnight_launchagent.sh`). Re-starts dead shell loops after crashes / closed terminals.
-- **Limit:** LaunchAgents do **not** fire while the Mac is fully asleep. Leave the machine awake (or power adapter + prevent sleep) for overnight ticks.
+- **Durable keep-alive:** `./scripts/ensure_overnight_loops.sh` every **15 minutes** (install: `./scripts/install_overnight_keepalive.sh`).
+  - **Linux:** systemd timer `ai-stock-checker-overnight-loops.timer` (`OnBootSec` + 15m). Survives reboot without a login.
+  - **macOS:** LaunchAgent `com.raro42.ai-stock-checker.overnight-loops` at login. Re-starts dead shell loops after crashes / closed terminals.
+- **Limit (Mac):** LaunchAgents do **not** fire while the Mac is fully asleep. Leave the machine awake (or power adapter + prevent sleep) for overnight ticks. Linux timers run as long as the host is up.
 - Keep **Ollama autoresearch** looping **night-only** (default 23:00–05:00 in the **machine local** timezone via `ASC_LOCAL_TZ` / `OLLAMA_AUTOSEARCH_TZ` / system; strategy keep/revert + push keeps when `OLLAMA_AUTOSEARCH_PUSH=1`). Process may stay up daytime but must idle.
-- Keep **product improve** looping hourly (`./scripts/run_improve_loop.sh`). With `ASC_CURSOR_IMPROVE=1` (LaunchAgent default), each tick runs `cursor agent -p -f` via `./scripts/run_cursor_improve_once.sh` — logs in `data/run_cursor_improve.log`. Ticks are no longer “print only.” Lock uses a portable `mkdir` lockdir (macOS has no `flock`).
+- Keep **product improve** looping hourly (`./scripts/run_improve_loop.sh`). With `ASC_CURSOR_IMPROVE=1` (keep-alive default), each tick runs `cursor agent -p -f` via `./scripts/run_cursor_improve_once.sh` — logs in `data/run_cursor_improve.log`. Ticks are no longer “print only.” Lock uses a portable `mkdir` lockdir (macOS has no `flock`).
 - Keep paper stack up: `docker compose up -d intelligent-trader openbb-backend`.
 - Keep **GitHub idea watch** looping (`./scripts/run_github_watch_loop.sh`) so external screener/agent repos surface transferable ideas.
 - If git lock / loop crash / container unhealthy → fix and restart; commit+push the fix.
@@ -29,10 +31,11 @@ While the human sleeps:
 
 | Piece | Durable? |
 |-------|----------|
-| Docker trader / desk | Yes (`restart: unless-stopped`) |
-| Shell loops via LaunchAgent ensure | Yes while Mac is awake / logged in |
-| Ollama autoresearch worker | Yes if loop process up + night window |
-| Cursor improve CLI ticks | Yes if `ASC_CURSOR_IMPROVE=1` + `cursor` on PATH + Mac awake |
+| Docker trader / desk | Yes (`restart: unless-stopped`; Docker daemon enabled) |
+| Shell loops via Linux systemd timer | Yes after reboot (host up) |
+| Shell loops via macOS LaunchAgent | Yes while Mac is awake / logged in |
+| Ollama autoresearch worker | Yes if Ollama reachable + loop process up + night window; skipped when Ollama is down |
+| Cursor improve CLI ticks | Yes if `ASC_CURSOR_IMPROVE=1` + `cursor` on PATH + keep-alive up |
 | Improve while Mac sleeps | **No** — OS suspends LaunchAgent timers |
 ## Parallel loops (do not collide)
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=AI Stock Checker overnight loop ensure every 15m + boot
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

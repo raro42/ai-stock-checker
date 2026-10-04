@@ -9,6 +9,7 @@ Versioning follows [SemVer](https://semver.org/) — see [RELEASES.md](RELEASES.
 
 ### Added
 
+- Linux overnight keep-alive: systemd timer `ai-stock-checker-overnight-loops` every 15m + boot (`./scripts/install_overnight_keepalive.sh`). Ollama loop/watchdog stay optional when `AI_MODE=off`.
 - Paper scan includes a short ETF and metal ETC list: `VWCE.DE`, `SXR8.DE`, `SPY`, `4GLD.DE`, `XAD6.DE`, `GLD`, `SLV`. No leveraged funds. These names skip the earnings blackout. Metal notes: [docs/history/metals_invest_2026-09-20.md](docs/history/metals_invest_2026-09-20.md).
 
 ### Changed

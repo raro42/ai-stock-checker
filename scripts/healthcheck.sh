@@ -40,8 +40,17 @@ else
   bad "openbb HTTP :7779 — ./scripts/openbb_connection_check.sh"
 fi
 
+ai_mode="$(
+  if [[ -n "${AI_MODE:-}" ]]; then
+    printf '%s' "$AI_MODE"
+  elif [[ -f .env ]]; then
+    grep -E '^AI_MODE=' .env | tail -1 | cut -d= -f2- | tr -d "\"'"
+  fi
+)"
 if curl -sf --max-time 3 http://127.0.0.1:11434/api/tags >/dev/null; then
   ok "ollama :11434"
+elif [[ "${ai_mode}" == "off" ]]; then
+  echo "WARN ollama not reachable (AI_MODE=off — optional)"
 else
   bad "ollama not reachable — ollama serve"
 fi
@@ -53,7 +62,9 @@ if pgrep -f 'run_ollama_autoresearch_loop.sh' >/dev/null 2>&1; then
     ok "ollama autoresearch loop (day idle; night window = local TZ 23:00-05:00)"
   fi
 else
-  if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
+  if [[ "${ai_mode}" == "off" ]]; then
+    echo "WARN ollama autoresearch loop not running (AI_MODE=off)"
+  elif [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
     bad "ollama autoresearch loop not running"
   else
     echo "WARN ollama autoresearch loop not running (optional overnight)"
@@ -82,13 +93,21 @@ fi
 
 LABEL="com.raro42.ai-stock-checker.overnight-loops"
 UID_NUM="$(id -u)"
-if launchctl print "gui/${UID_NUM}/${LABEL}" >/dev/null 2>&1; then
+UNIT="ai-stock-checker-overnight-loops.timer"
+keepalive_ok=0
+if command -v launchctl >/dev/null 2>&1 && launchctl print "gui/${UID_NUM}/${LABEL}" >/dev/null 2>&1; then
   ok "LaunchAgent $LABEL loaded"
-else
+  keepalive_ok=1
+fi
+if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled --quiet "$UNIT" 2>/dev/null && systemctl is-active --quiet "$UNIT" 2>/dev/null; then
+  ok "systemd timer $UNIT"
+  keepalive_ok=1
+fi
+if [[ "$keepalive_ok" -eq 0 ]]; then
   if [[ "${REQUIRE_OVERNIGHT_LOOPS:-0}" == "1" ]]; then
-    bad "LaunchAgent missing — ./scripts/install_overnight_launchagent.sh"
+    bad "overnight keep-alive missing — ./scripts/install_overnight_keepalive.sh"
   else
-    echo "WARN LaunchAgent $LABEL not loaded — ./scripts/install_overnight_launchagent.sh"
+    echo "WARN overnight keep-alive not loaded — ./scripts/install_overnight_keepalive.sh"
   fi
 fi
 

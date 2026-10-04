@@ -1,0 +1,20 @@
+[Unit]
+Description=AI Stock Checker overnight loop ensure
+After=docker.service network-online.target
+Wants=docker.service
+
+[Service]
+Type=oneshot
+# Only kill the ensure script — nohup loop children must survive.
+KillMode=process
+WorkingDirectory=/home/amvara/projects/ai-stock-checker
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/bin
+Environment=ASC_CURSOR_IMPROVE=1
+Environment=OLLAMA_AUTOSEARCH_PUSH=1
+Environment=OLLAMA_AUTOSEARCH_TZ=Europe/Berlin
+Environment=OLLAMA_AUTOSEARCH_NIGHT_START=23
+Environment=OLLAMA_AUTOSEARCH_NIGHT_END=5
+ExecStart=/bin/bash /home/amvara/projects/ai-stock-checker/scripts/ensure_overnight_loops.sh
+StandardOutput=append:/home/amvara/projects/ai-stock-checker/data/systemd_overnight_loops.log
+StandardError=append:/home/amvara/projects/ai-stock-checker/data/systemd_overnight_loops.log

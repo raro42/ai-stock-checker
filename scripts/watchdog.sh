@@ -59,12 +59,26 @@ check_trader_tracebacks() {
   fi
 }
 
+ai_mode() {
+  if [[ -n "${AI_MODE:-}" ]]; then
+    printf '%s' "$AI_MODE"
+    return
+  fi
+  if [[ -f "$ROOT/.env" ]]; then
+    grep -E '^AI_MODE=' "$ROOT/.env" | tail -1 | cut -d= -f2- | tr -d "\"'"
+  fi
+}
+
 check_ollama() {
   if curl -sf --max-time 3 "http://127.0.0.1:11434/api/tags" >/dev/null; then
     log "OK: ollama reachable"
-  else
-    mark_agent "ollama not reachable at 127.0.0.1:11434 — start ollama serve"
+    return
   fi
+  if [[ "$(ai_mode)" == "off" ]]; then
+    log "WARN: ollama not reachable (AI_MODE=off — skip)"
+    return
+  fi
+  mark_agent "ollama not reachable at 127.0.0.1:11434 — start ollama serve"
 }
 
 check_openbb_http() {
@@ -85,6 +99,10 @@ check_openbb_http() {
 ensure_ollama_loop() {
   # Keep the supervisor process up 24/7; the loop itself sleeps outside
   # 23:00–05:00 Europe/Berlin and will not run experiments during the day.
+  if ! curl -sf --max-time 2 "http://127.0.0.1:11434/api/tags" >/dev/null; then
+    log "SKIP: ollama autoresearch loop (ollama not reachable)"
+    return
+  fi
   if pgrep -f 'run_ollama_autoresearch_loop.sh' >/dev/null 2>&1; then
     win="$(python3 -m stock_checker.autoresearch_schedule in_window 2>/dev/null || echo 0)"
     if [[ "$win" == "1" ]]; then

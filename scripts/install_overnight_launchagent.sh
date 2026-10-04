@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Install LaunchAgent: re-ensure overnight loops every 15 minutes + at login.
 # Survives terminal close. Does NOT run while the Mac is fully asleep.
+# Linux: ./scripts/install_overnight_systemd.sh (or install_overnight_keepalive.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LABEL="com.raro42.ai-stock-checker.overnight-loops"
