@@ -8,6 +8,7 @@ fees gates.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, List, Sequence
 
 from stock_checker.symbol_filters import is_tradeable_symbol
@@ -79,6 +80,40 @@ def yahoo_cache_freshness(
     if age < 2 * limit:
         return "aging"
     return "stale"
+
+
+def _naive_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def yahoo_discovery_due_from_meta(
+    meta: Any,
+    *,
+    now: datetime | None = None,
+    max_age_hours: int = DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+) -> bool:
+    """True when movers have never succeeded or last success is older than max_age.
+
+    xang1234: a failed fetch does not inherit the success-age throttle.
+    """
+    if not isinstance(meta, dict):
+        return True
+    status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
+    if status == "failed":
+        return True
+    last = str(meta.get("last_yahoo_discovery") or "").strip()
+    if not last:
+        return True
+    try:
+        then = datetime.fromisoformat(last.replace("Z", "+00:00"))
+        then = _naive_utc(then)
+        clock = _naive_utc(now) if now is not None else datetime.now()
+        age_h = (clock - then).total_seconds() / 3600.0
+        return age_h >= float(max(1, int(max_age_hours)))
+    except (TypeError, ValueError):
+        return True
 
 
 def fetch_yahoo_screen_symbols(

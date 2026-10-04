@@ -4751,6 +4751,7 @@ def build_universe_discovery_glance(
         DEFAULT_MOVER_COUNT,
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         yahoo_cache_freshness,
+        yahoo_discovery_due_from_meta,
     )
 
     per = int(DEFAULT_MOVER_COUNT)
@@ -4765,10 +4766,12 @@ def build_universe_discovery_glance(
     yahoo_status = ""
     screens_ok: int | None = None
     screens_failed: int | None = None
+    uni_meta: dict[str, Any] | None = None
     if data_dir is not None:
         uni = _load_json(Path(data_dir) / "stock_universe.json", {})
         meta = uni.get("meta") if isinstance(uni, dict) else None
         if isinstance(meta, dict):
+            uni_meta = meta
             last_raw = str(meta.get("last_yahoo_discovery") or "").strip()
             yahoo_status = str(
                 meta.get("last_yahoo_discovery_status") or ""
@@ -4812,6 +4815,11 @@ def build_universe_discovery_glance(
             tone = seed_freshness if seed_freshness != "never" else "stale"
 
     yahoo_failed = yahoo_status == "failed"
+    retry_due = yahoo_discovery_due_from_meta(
+        uni_meta,
+        now=now,
+        max_age_hours=age_limit_h,
+    )
     screens_bit = ""
     screens_n: int | None = None
     if screens_ok is not None and screens_failed is not None:
@@ -4821,9 +4829,10 @@ def build_universe_discovery_glance(
     if yahoo_failed:
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
+        retry = " · retry due" if retry_due else ""
         line = (
-            f"US+DE · Yahoo ≤{per} · cache {age_label} · "
-            f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}"
+            f"US+DE · Yahoo ≤{per} · "
+            f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}{retry}"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
@@ -4843,6 +4852,7 @@ def build_universe_discovery_glance(
         "last_yahoo_added": last_added,
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
+        "yahoo_retry_due": retry_due,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "screens_bit": screens_bit,

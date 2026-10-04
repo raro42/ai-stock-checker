@@ -2549,7 +2549,7 @@
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =
-      "Universe discovery beside charts — Yahoo movers cache age vs 24h; empty/blocked Yahoo reuses seed; not auto-buy.";
+      "Universe discovery beside charts — Yahoo movers cache age vs 24h; empty/blocked Yahoo reuses seed and retries next scan; not auto-buy.";
     wrap.appendChild(sub);
     appendGlance(wrap);
   }

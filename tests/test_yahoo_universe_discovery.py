@@ -77,6 +77,27 @@ def test_yahoo_cache_freshness_seed_age_bands():
     assert yahoo_cache_freshness(50 * 3600) == "stale"
 
 
+def test_yahoo_discovery_due_from_meta_failed_skips_throttle():
+    from datetime import datetime, timezone
+
+    from stock_checker.yahoo_universe_discovery import yahoo_discovery_due_from_meta
+
+    now = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+    fresh = "2026-10-04T06:00:00"
+    assert yahoo_discovery_due_from_meta(
+        {"last_yahoo_discovery": fresh, "last_yahoo_discovery_status": "ok"},
+        now=now,
+        max_age_hours=24,
+    ) is False
+    assert yahoo_discovery_due_from_meta(
+        {"last_yahoo_discovery": fresh, "last_yahoo_discovery_status": "failed"},
+        now=now,
+        max_age_hours=24,
+    ) is True
+    assert yahoo_discovery_due_from_meta(None, now=now) is True
+    assert yahoo_discovery_due_from_meta({}, now=now) is True
+
+
 def test_fetch_yahoo_screen_403_is_empty_error(monkeypatch):
     import pytest
 

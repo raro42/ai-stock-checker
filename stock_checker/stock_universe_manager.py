@@ -311,6 +311,7 @@ class StockUniverseManager:
         """
         from stock_checker.yahoo_universe_discovery import (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+            yahoo_discovery_due_from_meta,
         )
 
         age_limit = (
@@ -318,23 +319,10 @@ class StockUniverseManager:
             if max_age_hours is None
             else int(max_age_hours)
         )
-        meta = self.universe.get("meta")
-        if not isinstance(meta, dict):
-            return True
-        status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
-        if status == "failed":
-            return True
-        last = str(meta.get("last_yahoo_discovery") or "").strip()
-        if not last:
-            return True
-        try:
-            then = datetime.fromisoformat(last.replace("Z", "+00:00"))
-            if then.tzinfo is not None:
-                then = then.replace(tzinfo=None)
-            age_h = (datetime.now() - then).total_seconds() / 3600.0
-            return age_h >= float(age_limit)
-        except (TypeError, ValueError):
-            return True
+        return yahoo_discovery_due_from_meta(
+            self.universe.get("meta"),
+            max_age_hours=age_limit,
+        )
 
     def discover_yahoo_movers(self, *, per_screen: int = 25, max_new: int = 40) -> int:
         """

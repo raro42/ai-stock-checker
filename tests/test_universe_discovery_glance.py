@@ -44,8 +44,10 @@ def test_universe_discovery_glance_fresh_cache(tmp_path) -> None:
     assert g["tone"] == "fresh"
     assert g["last_yahoo_added"] == 2
     assert g["age_sec"] == 6 * 3600
+    assert g["yahoo_retry_due"] is False
     assert "cache 6h ago" in g["line"]
     assert "fresh" in g["line"]
+    assert "retry due" not in g["line"]
 
 
 def test_universe_discovery_glance_aging_and_stale(tmp_path) -> None:
@@ -88,11 +90,13 @@ def test_universe_discovery_glance_yahoo_fail_reuses_seed(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["tone"] == "warn"
     assert g["yahoo_failed"] is True
+    assert g["yahoo_retry_due"] is True
     assert g["age_label"]
     assert g["seed_freshness"] == "fresh"
     assert "Yahoo fail" in g["line"]
     assert "reuse seed" in g["line"]
     assert "seed fresh" in g["line"]
+    assert "retry due" in g["line"]
     assert "discovery-only" not in g["line"]
     assert g["last_yahoo_added"] == 2
     assert g["screens_bit"] == ""
@@ -123,6 +127,8 @@ def test_universe_discovery_glance_yahoo_fail_shows_screen_fraction(tmp_path) ->
     assert "Yahoo fail · 1/3" in g["line"]
     assert "reuse seed" in g["line"]
     assert "seed fresh" in g["line"]
+    assert "retry due" in g["line"]
+    assert g["yahoo_retry_due"] is True
 
 
 def test_universe_discovery_glance_yahoo_fail_stale_seed(tmp_path) -> None:
@@ -143,7 +149,9 @@ def test_universe_discovery_glance_yahoo_fail_stale_seed(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["tone"] == "warn"
     assert g["seed_freshness"] == "stale"
+    assert g["yahoo_retry_due"] is True
     assert "reuse seed · seed stale" in g["line"]
+    assert "retry due" in g["line"]
 
 
 def test_universe_discovery_glance_in_snapshot(tmp_path) -> None:
