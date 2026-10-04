@@ -4745,6 +4745,7 @@ def build_universe_discovery_glance(
     Equity scan list is curated US + German Xetra (.DE). Yahoo day
     gainers/losers/actives only grow that list — not an auto-buy firehose.
     Shows last Yahoo discovery age vs the 24h throttle (fresh / aging / stale).
+    A failed fetch also names last-fail age (fail fresh / aging / stale).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4762,6 +4763,7 @@ def build_universe_discovery_glance(
     )
 
     last_raw = ""
+    fail_raw = ""
     last_added: int | None = None
     yahoo_status = ""
     screens_ok: int | None = None
@@ -4773,6 +4775,7 @@ def build_universe_discovery_glance(
         if isinstance(meta, dict):
             uni_meta = meta
             last_raw = str(meta.get("last_yahoo_discovery") or "").strip()
+            fail_raw = str(meta.get("last_yahoo_discovery_fail") or "").strip()
             yahoo_status = str(
                 meta.get("last_yahoo_discovery_status") or ""
             ).strip().lower()
@@ -4814,6 +4817,21 @@ def build_universe_discovery_glance(
             )
             tone = seed_freshness if seed_freshness != "never" else "stale"
 
+    fail_age_sec: int | None = None
+    fail_freshness = "never"
+    if fail_raw:
+        fail_when = _parse_book_ts(fail_raw)
+        if fail_when is None:
+            fail_freshness = "unknown"
+        else:
+            clock = now or datetime.now(timezone.utc)
+            if clock.tzinfo is None:
+                clock = clock.replace(tzinfo=timezone.utc)
+            fail_age_sec = max(0, int((clock - fail_when).total_seconds()))
+            fail_freshness = yahoo_cache_freshness(
+                float(fail_age_sec), max_age_hours=age_limit_h
+            )
+
     yahoo_failed = yahoo_status == "failed"
     retry_due = yahoo_discovery_due_from_meta(
         uni_meta,
@@ -4830,9 +4848,14 @@ def build_universe_discovery_glance(
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
         retry = " · retry due" if retry_due else ""
+        fail_bit = (
+            f" · fail {fail_freshness}"
+            if fail_freshness in ("fresh", "aging", "stale")
+            else ""
+        )
         line = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}{retry}"
+            f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}{fail_bit}{retry}"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
@@ -4853,6 +4876,9 @@ def build_universe_discovery_glance(
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
         "yahoo_retry_due": retry_due,
+        "last_yahoo_discovery_fail": fail_raw,
+        "fail_age_sec": fail_age_sec,
+        "fail_freshness": fail_freshness,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "screens_bit": screens_bit,

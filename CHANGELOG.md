@@ -19,7 +19,7 @@ Versioning follows [SemVer](https://semver.org/) — see [RELEASES.md](RELEASES.
 ### Fixed
 
 - Overnight experiments build the local `ai-stock-checker` image when the tag is missing. They do not pull that name from Docker Hub.
-- Empty or blocked Yahoo movers screens no longer stamp the universe cache as fresh. A majority-failed screen bundle is the same (leftover quotes discarded). The desk keeps the last good seed age and says `Yahoo fail · N/M · reuse seed · seed fresh|aging|stale · retry due`. A Yahoo 403 does not raise out of universe refresh. A failed fetch does not inherit the 24h success throttle.
+- Empty or blocked Yahoo movers screens no longer stamp the universe cache as fresh. A majority-failed screen bundle is the same (leftover quotes discarded). The desk keeps the last good seed age and says `Yahoo fail · N/M · reuse seed · seed fresh|aging|stale · fail fresh|aging|stale · retry due`. Seed age is last success; fail age is last fail stamp. A Yahoo 403 does not raise out of universe refresh. A failed fetch does not inherit the 24h success throttle.
 
 ## [v0.2.2] - 2026-08-29
 

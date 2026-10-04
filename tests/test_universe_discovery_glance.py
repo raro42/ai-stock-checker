@@ -152,6 +152,51 @@ def test_universe_discovery_glance_yahoo_fail_stale_seed(tmp_path) -> None:
     assert g["yahoo_retry_due"] is True
     assert "reuse seed · seed stale" in g["line"]
     assert "retry due" in g["line"]
+    assert g["fail_freshness"] == "never"
+    assert "fail fresh" not in g["line"]
+    assert "fail aging" not in g["line"]
+    assert "fail stale" not in g["line"]
+
+
+def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    seed = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+
+    def _write(fail_hours: float) -> None:
+        fail = (now - timedelta(hours=fail_hours)).replace(tzinfo=None).isoformat()
+        (tmp_path / "stock_universe.json").write_text(
+            json.dumps(
+                {
+                    "stocks": {"AAPL": {}},
+                    "meta": {
+                        "last_yahoo_discovery": seed,
+                        "last_yahoo_discovery_status": "failed",
+                        "last_yahoo_discovery_fail": fail,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    _write(6)
+    fresh = build_universe_discovery_glance(tmp_path, now=now)
+    assert fresh["fail_freshness"] == "fresh"
+    assert fresh["fail_age_sec"] == 6 * 3600
+    assert "fail fresh" in fresh["line"]
+    assert "seed fresh" in fresh["line"]
+    assert "retry due" in fresh["line"]
+
+    _write(30)
+    aging = build_universe_discovery_glance(tmp_path, now=now)
+    assert aging["fail_freshness"] == "aging"
+    assert "fail aging" in aging["line"]
+    assert aging["tone"] == "warn"
+
+    _write(50)
+    stale = build_universe_discovery_glance(tmp_path, now=now)
+    assert stale["fail_freshness"] == "stale"
+    assert "fail stale" in stale["line"]
+    assert "seed fresh" in stale["line"]
 
 
 def test_universe_discovery_glance_in_snapshot(tmp_path) -> None:
