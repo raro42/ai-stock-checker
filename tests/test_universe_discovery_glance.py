@@ -94,8 +94,7 @@ def test_universe_discovery_glance_yahoo_fail_reuses_seed(tmp_path) -> None:
     assert g["age_label"]
     assert g["seed_freshness"] == "fresh"
     assert "Yahoo fail" in g["line"]
-    assert "reuse seed" in g["line"]
-    assert "seed fresh" in g["line"]
+    assert "seed 6h ago · fresh" in g["line"]
     assert "retry due" in g["line"]
     assert "discovery-only" not in g["line"]
     assert g["last_yahoo_added"] == 2
@@ -125,8 +124,7 @@ def test_universe_discovery_glance_yahoo_fail_shows_screen_fraction(tmp_path) ->
     assert g["screens_bit"] == "1/3"
     assert g["seed_freshness"] == "fresh"
     assert "Yahoo fail · 1/3" in g["line"]
-    assert "reuse seed" in g["line"]
-    assert "seed fresh" in g["line"]
+    assert "seed 6h ago · fresh" in g["line"]
     assert "retry due" in g["line"]
     assert g["yahoo_retry_due"] is True
 
@@ -150,7 +148,7 @@ def test_universe_discovery_glance_yahoo_fail_stale_seed(tmp_path) -> None:
     assert g["tone"] == "warn"
     assert g["seed_freshness"] == "stale"
     assert g["yahoo_retry_due"] is True
-    assert "reuse seed · seed stale" in g["line"]
+    assert "seed 2d ago · stale" in g["line"]
     assert "retry due" in g["line"]
     assert g["fail_freshness"] == "never"
     assert "fail fresh" not in g["line"]
@@ -184,7 +182,7 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert fresh["fail_age_sec"] == 6 * 3600
     assert fresh["fail_age_label"] == "6h ago"
     assert "fail 6h ago · fresh" in fresh["line"]
-    assert "seed fresh" in fresh["line"]
+    assert "seed 6h ago · fresh" in fresh["line"]
     assert "retry due" in fresh["line"]
 
     _write(30)
@@ -192,6 +190,7 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert aging["fail_freshness"] == "aging"
     assert aging["fail_age_label"] == "30h ago"
     assert "fail 30h ago · aging" in aging["line"]
+    assert "seed 6h ago · fresh" in aging["line"]
     assert aging["tone"] == "warn"
 
     _write(50)
@@ -199,7 +198,7 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert stale["fail_freshness"] == "stale"
     assert stale["fail_age_label"] == "2d ago"
     assert "fail 2d ago · stale" in stale["line"]
-    assert "seed fresh" in stale["line"]
+    assert "seed 6h ago · fresh" in stale["line"]
 
 
 def test_universe_discovery_glance_in_snapshot(tmp_path) -> None:

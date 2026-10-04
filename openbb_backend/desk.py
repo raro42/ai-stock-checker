@@ -4745,8 +4745,9 @@ def build_universe_discovery_glance(
     Equity scan list is curated US + German Xetra (.DE). Yahoo day
     gainers/losers/actives only grow that list — not an auto-buy firehose.
     Shows last Yahoo discovery age vs the 24h throttle (fresh / aging / stale).
-    A failed fetch also names last-fail clock age + band
-    (``fail 6h ago · fresh`` / aging / stale) — seed cache age parity.
+    A failed fetch names seed clock age + band (``seed 6h ago · fresh``)
+    and last-fail clock age + band (``fail 6h ago · fresh``) — success-path
+    ``cache Nh ago`` parity so friends see how old the reused list is.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4851,8 +4852,18 @@ def build_universe_discovery_glance(
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
         retry = " · retry due" if retry_due else ""
-        # RyanJHamby/xang1234: seed speaks cache age; fail should too —
-        # band alone hides how long Yahoo has been dead.
+        # RyanJHamby/xang1234: success path says ``cache Nh ago · band``;
+        # fail reuse-seed should too — band alone hides how old the list is.
+        # Clock-age seed bit implies reuse; keep ``reuse seed`` for never/unknown.
+        if seed_freshness in ("fresh", "aging", "stale") and age_label not in (
+            "",
+            "never",
+            "unknown",
+        ):
+            seed_bit = f"seed {age_label} · {seed_freshness}"
+        else:
+            seed_bit = f"reuse seed · seed {seed_freshness}"
+        # Fail stamp speaks clock age + band (parity with seed above).
         if fail_freshness in ("fresh", "aging", "stale") and fail_age_label:
             fail_bit = f" · fail {fail_age_label} · {fail_freshness}"
         elif fail_freshness in ("fresh", "aging", "stale"):
@@ -4861,7 +4872,7 @@ def build_universe_discovery_glance(
             fail_bit = ""
         line = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}{fail_bit}{retry}"
+            f"Yahoo fail{frac} · {seed_bit}{fail_bit}{retry}"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
