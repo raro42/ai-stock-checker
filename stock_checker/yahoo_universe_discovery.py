@@ -57,6 +57,30 @@ def screens_bundle_failed(ok: int, failed: int) -> bool:
     return fail_n > ok_n
 
 
+def yahoo_cache_freshness(
+    age_sec: float | None,
+    *,
+    max_age_hours: int = DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+    parsed: bool = True,
+) -> str:
+    """Bound a reused seed by last-good discovery age (xang1234 317b6bb).
+
+    ``never`` = no stamp. ``unknown`` = stamp present but unparsed.
+    Otherwise fresh < max_age, aging < 2×, else stale.
+    """
+    if not parsed:
+        return "unknown"
+    if age_sec is None:
+        return "never"
+    limit = max(1, int(max_age_hours)) * 3600.0
+    age = max(0.0, float(age_sec))
+    if age < limit:
+        return "fresh"
+    if age < 2 * limit:
+        return "aging"
+    return "stale"
+
+
 def fetch_yahoo_screen_symbols(
     screen: str,
     *,

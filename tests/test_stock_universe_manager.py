@@ -1,5 +1,6 @@
 """Offline tests for curated universe seed merge."""
 
+from datetime import datetime
 from pathlib import Path
 
 from stock_checker.stock_universe_manager import StockUniverseManager
@@ -104,4 +105,14 @@ def test_discover_yahoo_movers_403_does_not_raise(tmp_path: Path, monkeypatch):
     assert added == 0
     assert mgr.universe["meta"]["last_yahoo_discovery"] == prior
     assert mgr.universe["meta"]["last_yahoo_discovery_status"] == "failed"
+
+
+def test_yahoo_discovery_due_failed_skips_success_age_throttle(tmp_path: Path):
+    mgr = StockUniverseManager(data_dir=str(tmp_path))
+    mgr.universe.setdefault("meta", {})
+    mgr.universe["meta"]["last_yahoo_discovery"] = datetime.now().isoformat()
+    mgr.universe["meta"]["last_yahoo_discovery_status"] = "ok"
+    assert mgr.yahoo_discovery_due(max_age_hours=24) is False
+    mgr.universe["meta"]["last_yahoo_discovery_status"] = "failed"
+    assert mgr.yahoo_discovery_due(max_age_hours=24) is True
 

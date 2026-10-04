@@ -4750,6 +4750,7 @@ def build_universe_discovery_glance(
     from stock_checker.yahoo_universe_discovery import (
         DEFAULT_MOVER_COUNT,
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+        yahoo_cache_freshness,
     )
 
     per = int(DEFAULT_MOVER_COUNT)
@@ -4758,7 +4759,6 @@ def build_universe_discovery_glance(
         if max_age_hours is None
         else max(1, int(max_age_hours))
     )
-    age_limit_sec = float(age_limit_h) * 3600.0
 
     last_raw = ""
     last_added: int | None = None
@@ -4789,26 +4789,27 @@ def build_universe_discovery_glance(
     tone = "unknown"
     age_sec: int | None = None
     age_label = ""
+    seed_freshness = "never"
     if not last_raw:
         tone = "stale"
         age_label = "never"
+        seed_freshness = "never"
     else:
         when = _parse_book_ts(last_raw)
         if when is None:
             tone = "unknown"
             age_label = "unknown"
+            seed_freshness = "unknown"
         else:
             clock = now or datetime.now(timezone.utc)
             if clock.tzinfo is None:
                 clock = clock.replace(tzinfo=timezone.utc)
             age_sec = max(0, int((clock - when).total_seconds()))
             age_label = _format_age_short(float(age_sec))
-            if age_sec < age_limit_sec:
-                tone = "fresh"
-            elif age_sec < 2 * age_limit_sec:
-                tone = "aging"
-            else:
-                tone = "stale"
+            seed_freshness = yahoo_cache_freshness(
+                float(age_sec), max_age_hours=age_limit_h
+            )
+            tone = seed_freshness if seed_freshness != "never" else "stale"
 
     yahoo_failed = yahoo_status == "failed"
     screens_bit = ""
@@ -4822,7 +4823,7 @@ def build_universe_discovery_glance(
         frac = f" · {screens_bit}" if screens_bit else ""
         line = (
             f"US+DE · Yahoo ≤{per} · cache {age_label} · "
-            f"Yahoo fail{frac} · reuse seed"
+            f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
@@ -4845,6 +4846,7 @@ def build_universe_discovery_glance(
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "screens_bit": screens_bit,
+        "seed_freshness": seed_freshness,
     }
 
 

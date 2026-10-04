@@ -67,6 +67,16 @@ def test_screens_bundle_failed_majority_or_empty():
     assert screens_bundle_failed(3, 0) is False
 
 
+def test_yahoo_cache_freshness_seed_age_bands():
+    from stock_checker.yahoo_universe_discovery import yahoo_cache_freshness
+
+    assert yahoo_cache_freshness(None) == "never"
+    assert yahoo_cache_freshness(0, parsed=False) == "unknown"
+    assert yahoo_cache_freshness(6 * 3600) == "fresh"
+    assert yahoo_cache_freshness(30 * 3600) == "aging"
+    assert yahoo_cache_freshness(50 * 3600) == "stale"
+
+
 def test_fetch_yahoo_screen_403_is_empty_error(monkeypatch):
     import pytest
 

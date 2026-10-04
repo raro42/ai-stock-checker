@@ -687,7 +687,7 @@
   heading_id='universe-discovery-glance-h',
   link_href='/desk/screener',
   link_label='Screener →',
-  sub='Yahoo movers grow the curated US+DE scan list only. Empty/blocked Yahoo keeps the last good cache age (reuse seed). Buys still need gates. Display only — not a new gate.'
+  sub='Yahoo movers grow the curated US+DE scan list only. Empty/blocked Yahoo keeps the last good cache age (reuse seed · seed fresh|aging|stale) and retries — it does not inherit the 24h success throttle. Buys still need gates. Display only — not a new gate.'
 ) -%}
 {% set glance = snap.universe_discovery_glance if snap.universe_discovery_glance is mapping else {} %}
 {% if glance.ready %}

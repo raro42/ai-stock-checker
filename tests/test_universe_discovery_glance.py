@@ -17,6 +17,7 @@ def test_universe_discovery_glance_never_run(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path)
     assert g["ready"] is True
     assert g["tone"] == "stale"
+    assert g["seed_freshness"] == "never"
     assert g["discovery_only"] is True
     assert g["auto_buy"] is False
     assert g["mover_count"] == int(DEFAULT_MOVER_COUNT)
@@ -88,8 +89,10 @@ def test_universe_discovery_glance_yahoo_fail_reuses_seed(tmp_path) -> None:
     assert g["tone"] == "warn"
     assert g["yahoo_failed"] is True
     assert g["age_label"]
+    assert g["seed_freshness"] == "fresh"
     assert "Yahoo fail" in g["line"]
     assert "reuse seed" in g["line"]
+    assert "seed fresh" in g["line"]
     assert "discovery-only" not in g["line"]
     assert g["last_yahoo_added"] == 2
     assert g["screens_bit"] == ""
@@ -116,9 +119,31 @@ def test_universe_discovery_glance_yahoo_fail_shows_screen_fraction(tmp_path) ->
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["tone"] == "warn"
     assert g["screens_bit"] == "1/3"
+    assert g["seed_freshness"] == "fresh"
     assert "Yahoo fail · 1/3" in g["line"]
     assert "reuse seed" in g["line"]
+    assert "seed fresh" in g["line"]
 
+
+def test_universe_discovery_glance_yahoo_fail_stale_seed(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=50)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_discovery_status": "failed",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["tone"] == "warn"
+    assert g["seed_freshness"] == "stale"
+    assert "reuse seed · seed stale" in g["line"]
 
 
 def test_universe_discovery_glance_in_snapshot(tmp_path) -> None:

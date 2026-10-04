@@ -304,7 +304,11 @@ class StockUniverseManager:
         return added
 
     def yahoo_discovery_due(self, *, max_age_hours: int | None = None) -> bool:
-        """True when Yahoo movers have never run or last run is older than max_age."""
+        """True when Yahoo movers have never run or last *success* is older than max_age.
+
+        xang1234: a failed fetch does not inherit the success-age throttle.
+        Reused seed age is still shown on the desk; retry is due immediately.
+        """
         from stock_checker.yahoo_universe_discovery import (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         )
@@ -316,6 +320,9 @@ class StockUniverseManager:
         )
         meta = self.universe.get("meta")
         if not isinstance(meta, dict):
+            return True
+        status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
+        if status == "failed":
             return True
         last = str(meta.get("last_yahoo_discovery") or "").strip()
         if not last:
