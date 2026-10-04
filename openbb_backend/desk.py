@@ -4745,7 +4745,8 @@ def build_universe_discovery_glance(
     Equity scan list is curated US + German Xetra (.DE). Yahoo day
     gainers/losers/actives only grow that list — not an auto-buy firehose.
     Shows last Yahoo discovery age vs the 24h throttle (fresh / aging / stale).
-    A failed fetch also names last-fail age (fail fresh / aging / stale).
+    A failed fetch also names last-fail clock age + band
+    (``fail 6h ago · fresh`` / aging / stale) — seed cache age parity.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4818,6 +4819,7 @@ def build_universe_discovery_glance(
             tone = seed_freshness if seed_freshness != "never" else "stale"
 
     fail_age_sec: int | None = None
+    fail_age_label = ""
     fail_freshness = "never"
     if fail_raw:
         fail_when = _parse_book_ts(fail_raw)
@@ -4828,6 +4830,7 @@ def build_universe_discovery_glance(
             if clock.tzinfo is None:
                 clock = clock.replace(tzinfo=timezone.utc)
             fail_age_sec = max(0, int((clock - fail_when).total_seconds()))
+            fail_age_label = _format_age_short(float(fail_age_sec))
             fail_freshness = yahoo_cache_freshness(
                 float(fail_age_sec), max_age_hours=age_limit_h
             )
@@ -4848,11 +4851,14 @@ def build_universe_discovery_glance(
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
         retry = " · retry due" if retry_due else ""
-        fail_bit = (
-            f" · fail {fail_freshness}"
-            if fail_freshness in ("fresh", "aging", "stale")
-            else ""
-        )
+        # RyanJHamby/xang1234: seed speaks cache age; fail should too —
+        # band alone hides how long Yahoo has been dead.
+        if fail_freshness in ("fresh", "aging", "stale") and fail_age_label:
+            fail_bit = f" · fail {fail_age_label} · {fail_freshness}"
+        elif fail_freshness in ("fresh", "aging", "stale"):
+            fail_bit = f" · fail {fail_freshness}"
+        else:
+            fail_bit = ""
         line = (
             f"US+DE · Yahoo ≤{per} · "
             f"Yahoo fail{frac} · reuse seed · seed {seed_freshness}{fail_bit}{retry}"
@@ -4878,6 +4884,7 @@ def build_universe_discovery_glance(
         "yahoo_retry_due": retry_due,
         "last_yahoo_discovery_fail": fail_raw,
         "fail_age_sec": fail_age_sec,
+        "fail_age_label": fail_age_label,
         "fail_freshness": fail_freshness,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
