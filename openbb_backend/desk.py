@@ -6649,10 +6649,11 @@ def _trader_runtime_view() -> dict[str, Any]:
     """Read-only + editable trader/desk knobs for Ops — never include API keys."""
     from stock_checker import __version__
     from stock_checker.runtime_pin import runtime_pin_status
-    from stock_checker.trader_config import load_trader_config
+    from stock_checker.trader_config import config_precedence_status, load_trader_config
 
     data_dir = Path(os.getenv("DATA_DIR", "/data"))
     cfg = load_trader_config(data_dir)
+    cfg_prec = config_precedence_status(data_dir)
     py_pin = runtime_pin_status()
 
     ai_mode = str(cfg.get("ai_mode") or "off")
@@ -6748,9 +6749,11 @@ def _trader_runtime_view() -> dict[str, Any]:
             "Compose promote default unlocks after 30 calm UTC days "
             "(promote on, book ≤ max, quiet fees)."
         ),
-        "config_source": "file"
-        if (data_dir / "trader_config.json").is_file()
-        else "env",
+        "config_source": str(cfg_prec.get("source") or "env"),
+        "config_precedence_line": str(cfg_prec.get("line") or ""),
+        "config_precedence_tone": str(cfg_prec.get("tone") or "env"),
+        "config_override_n": int(cfg_prec.get("override_n") or 0),
+        "config_env_fallback_n": int(cfg_prec.get("env_fallback_n") or 0),
         "ollama_host": (os.getenv("OLLAMA_HOST") or "").strip() or "—",
     }
 

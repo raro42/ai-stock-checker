@@ -1,28 +1,30 @@
-# GitHub idea watch — 2026-10-05T03:40:29Z
+# GitHub idea watch — 2026-10-05T17:52:01Z
 
 Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.
 
 - Repos watched: **15**
-- Checked this run: **1** · skipped (not due): **14**
-- Repos with new activity: **0**
-- Next loop sleep: **1956s** (cadence-aware)
+- Checked this run: **4** · skipped (not due): **11**
+- Repos with new activity: **1**
+- Next loop sleep: **2851s** (cadence-aware)
 
-_No new commits/releases since last check._
+## Highlights
+
+- xang1234/stock-screener: commit 7ec7dfe — Merge pull request #394 from markusdauner1974-droid/fix/config-reader-precedence
 
 ## Per repo
 
 ### [tradermonty/claude-trading-skills](https://github.com/tradermonty/claude-trading-skills)
 - Watch reason: Claude trading skills with real workflows — position sizer, pre-trade gate, trader memory, postmortem (borrow ideas only; no FMP/Alpaca install)
 - Claude Code skills for equity investors and traders — market analysis, technical charting, economic calendars, screeners, and trading strategy development.
-- Stars: 2944 · pushed: 2026-10-04T21:34:03Z · branch: `main`
-- Cadence: ~1.43 commits/day (avg gap 16.8h) · recheck every 8h · next 2026-10-05T08:10:21Z
+- Stars: 2946 · pushed: 2026-10-05T15:14:00Z · branch: `main`
+- Cadence: ~13.75 commits/day (avg gap 1.8h) · recheck every 3h · next 2026-10-05T20:36:56Z
 - Status: **skipped** (not due yet)
 
 ### [staskh/trading_skills](https://github.com/staskh/trading_skills)
 - Watch reason: Trading skills + risk/portfolio report patterns (IBKR-heavy — ideas only, no live broker wiring)
 - Claude powered advisor system for option traders
 - Stars: 373 · pushed: 2026-09-28T20:05:48Z · branch: `main`
-- Cadence: ~0.57 commits/day (avg gap 41.9h) · recheck every 20h · next 2026-10-05T14:06:54Z
+- Cadence: ~0.57 commits/day (avg gap 41.9h) · recheck every 20h · next 2026-10-06T11:03:01Z
 - Status: **skipped** (not due yet)
 
 ### [mphinance/alpha-skills](https://github.com/mphinance/alpha-skills)
@@ -35,9 +37,11 @@ _No new commits/releases since last check._
 ### [xang1234/stock-screener](https://github.com/xang1234/stock-screener)
 - Watch reason: Stock screener patterns and signals UX
 - Stock scanner with multiple fundamental and technical criteria. Features 80+ filters, AI chatbot (Groq/DeepSeek/Gemini),   theme discovery, and StockBee-style breadth indicators.
-- Stars: 340 · pushed: 2026-10-05T01:52:09Z · branch: `main`
-- Cadence: ~92.07 commits/day (avg gap 0.3h) · recheck every 3h · next 2026-10-05T05:22:52Z
-- Status: **skipped** (not due yet)
+- Stars: 341 · pushed: 2026-10-05T15:30:07Z · branch: `main`
+- Cadence: ~24.23 commits/day (avg gap 1.0h) · recheck every 3h · next 2026-10-05T20:51:58Z
+- Status: **updates since last run**
+- Commits:
+  - [`7ec7dfe`](https://github.com/xang1234/stock-screener/commit/7ec7dfe117d3524564a3fd35030f61d28330a987) 2026-10-05 — Merge pull request #394 from markusdauner1974-droid/fix/config-reader-precedence
 
 ### [MonsterDeveloper/simple-stock-screener](https://github.com/MonsterDeveloper/simple-stock-screener)
 - Watch reason: Minimal screener — learn from simplicity
@@ -57,8 +61,8 @@ _No new commits/releases since last check._
 - Watch reason: FinRobot multi-agent finance research
 - FinRobot: An Open-Source AI Agent Platform for Financial Applications using Large Language Models
 - Stars: 8140 · pushed: 2026-09-28T11:24:54Z · branch: `master`
-- Cadence: ~44.81 commits/day (avg gap 0.5h) · recheck every 3h · next 2026-10-05T05:22:52Z
-- Status: **skipped** (not due yet)
+- Cadence: ~44.81 commits/day (avg gap 0.5h) · recheck every 3h · next 2026-10-05T20:51:58Z
+- Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [nicdun/value-investing-ai-agent](https://github.com/nicdun/value-investing-ai-agent)
 - Watch reason: Value-investing agent prompts / workflow
@@ -71,41 +75,41 @@ _No new commits/releases since last check._
 - Watch reason: Portfolio AI assistant features
 - The platform provides comprehensive insights for making informed investment decisions through various data sources and machine learning models.
 - Stars: 1 · pushed: 2025-06-11T19:57:48Z · branch: `main`
-- Cadence: ~1.38 commits/day (avg gap 17.4h) · recheck every 8h · next 2026-10-05T10:49:54Z
+- Cadence: ~1.38 commits/day (avg gap 17.4h) · recheck every 8h · next 2026-10-05T19:37:20Z
 - Status: **skipped** (not due yet)
 
 ### [d1l1x/stock-screener](https://github.com/d1l1x/stock-screener)
 - Watch reason: Screener implementation variants
 - A tool that helps scanning, filtering and ranking a list of stocks 
 - Stars: 0 · pushed: 2023-08-13T19:18:50Z · branch: `main`
-- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-10-05T05:22:52Z
-- Status: **skipped** (not due yet)
+- Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-10-05T20:51:58Z
+- Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [ba1int/stock_screener](https://github.com/ba1int/stock_screener)
 - Watch reason: Screener implementation variants
 - Stars: 37 · pushed: 2025-04-08T10:45:11Z · branch: `main`
-- Cadence: ~3.29 commits/day (avg gap 7.3h) · recheck every 3h · next 2026-10-05T04:13:06Z
+- Cadence: ~3.29 commits/day (avg gap 7.3h) · recheck every 3h · next 2026-10-05T19:24:01Z
 - Status: **skipped** (not due yet)
 
 ### [simonchalder/Stock-Screener](https://github.com/simonchalder/Stock-Screener)
 - Watch reason: Screener implementation variants
 - Stock Screener compares company data against logical requirements to determine if a particular stock may be of interest to an investor.
 - Stars: 4 · pushed: 2021-03-21T12:59:47Z · branch: `main`
-- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-10-05T07:10:22Z
+- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-10-05T21:21:51Z
 - Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [m-turnergane/stock-screener](https://github.com/m-turnergane/stock-screener)
 - Watch reason: Screener implementation variants
 - An advanced Stock Screener w/ comprehensive analysis and insights included.
 - Stars: 44 · pushed: 2025-10-26T18:11:54Z · branch: `main`
-- Cadence: ~0.54 commits/day (avg gap 44.6h) · recheck every 22h · next 2026-10-05T15:30:17Z
+- Cadence: ~0.54 commits/day (avg gap 44.6h) · recheck every 22h · next 2026-10-06T13:49:46Z
 - Status: **skipped** (not due yet)
 
 ### [RyanJHamby/stock-screener](https://github.com/RyanJHamby/stock-screener)
 - Watch reason: Screener implementation variants
 - Automated stock screener scanning 3,800+ stocks daily for confirmed Stage 2 uptrends passing 8 strict criteria. Features: smart caching (74% fewer API calls), market regime filtering, automated stop-loss calculation, and GitHub Actions auto
-- Stars: 54 · pushed: 2026-10-02T18:49:09Z · branch: `main`
-- Cadence: ~0.77 commits/day (avg gap 31.0h) · recheck every 15h · next 2026-10-05T08:41:10Z
+- Stars: 54 · pushed: 2026-10-04T18:18:43Z · branch: `main`
+- Cadence: ~0.78 commits/day (avg gap 30.9h) · recheck every 15h · next 2026-10-06T00:18:29Z
 - Status: **skipped** (not due yet)
 
 ### [vals-ai/finance-agent-v2](https://github.com/vals-ai/finance-agent-v2)

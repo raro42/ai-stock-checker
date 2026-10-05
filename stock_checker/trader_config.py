@@ -208,6 +208,133 @@ def load_trader_config(data_dir: Path | str) -> dict[str, Any]:
     return normalize_config(raw if isinstance(raw, dict) else {}, base=base)
 
 
+# Knobs compared for Ops precedence honesty (xang1234 saved-row > env).
+PRECEDENCE_KEYS: tuple[str, ...] = (
+    "ai_mode",
+    "ai_model",
+    "ai_multi_role",
+    "regime_gate",
+    "rs_gate",
+    "breadth_gate",
+    "fee_preset",
+    "max_positions",
+    "min_hold_hours",
+    "promote_experiment_strategy",
+)
+
+_PRECEDENCE_SHORT: dict[str, str] = {
+    "ai_mode": "AI",
+    "ai_model": "model",
+    "ai_multi_role": "multi-role",
+    "regime_gate": "regime",
+    "rs_gate": "RS",
+    "breadth_gate": "breadth",
+    "fee_preset": "fees",
+    "max_positions": "max pos",
+    "min_hold_hours": "hold",
+    "promote_experiment_strategy": "promote",
+}
+
+
+def _values_differ(a: Any, b: Any) -> bool:
+    if isinstance(a, bool) or isinstance(b, bool):
+        return bool(a) != bool(b)
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(float(a) - float(b)) > 1e-9
+    return str(a).strip() != str(b).strip()
+
+
+def _format_key_list(keys: list[str], *, limit: int = 4) -> str:
+    short = [_PRECEDENCE_SHORT.get(k, k) for k in keys[:limit]]
+    bits = " · ".join(short)
+    extra = len(keys) - len(short)
+    if extra > 0:
+        bits = f"{bits} +{extra}" if bits else f"+{extra}"
+    return bits
+
+
+def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
+    """Report Ops file vs env/compose precedence (display / API honesty).
+
+    Resolve order matches load_trader_config:
+      1. saved trader_config.json keys (Ops)
+      2. process environment / compose
+      3. DEFAULTS
+
+    Adapted from xang1234/stock-screener #394 (saved row over environment).
+    Not a gate — friends see whether a redeploy's env can still shadow knobs
+    missing from a partial Ops file.
+    """
+    path = config_path(data_dir)
+    env = _env_defaults()
+    if not path.is_file():
+        line = "env · no Ops file"
+        return {
+            "source": "env",
+            "overrides": [],
+            "env_fallbacks": list(PRECEDENCE_KEYS),
+            "override_n": 0,
+            "env_fallback_n": len(PRECEDENCE_KEYS),
+            "tone": "env",
+            "line": line,
+            "ready": True,
+        }
+
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        line = "env · Ops file unreadable"
+        return {
+            "source": "env",
+            "overrides": [],
+            "env_fallbacks": list(PRECEDENCE_KEYS),
+            "override_n": 0,
+            "env_fallback_n": len(PRECEDENCE_KEYS),
+            "tone": "warn",
+            "line": line,
+            "ready": True,
+        }
+
+    if not isinstance(raw, dict):
+        raw = {}
+
+    effective = normalize_config(raw, base=env)
+    overrides: list[str] = []
+    env_fallbacks: list[str] = []
+    for key in PRECEDENCE_KEYS:
+        if key not in raw:
+            env_fallbacks.append(key)
+            continue
+        if _values_differ(effective.get(key), env.get(key)):
+            overrides.append(key)
+
+    if overrides:
+        bits = _format_key_list(overrides)
+        line = f"file · Ops wins · {bits}"
+        tone = "override"
+    elif env_fallbacks:
+        bits = _format_key_list(env_fallbacks, limit=3)
+        line = f"file · partial · env for {bits}"
+        tone = "partial"
+    else:
+        line = "file · Ops wins · matches env"
+        tone = "file"
+
+    if len(line) > 96:
+        line = line[:95] + "…"
+
+    return {
+        "source": "file",
+        "overrides": overrides,
+        "env_fallbacks": env_fallbacks,
+        "override_n": len(overrides),
+        "env_fallback_n": len(env_fallbacks),
+        "tone": tone,
+        "line": line,
+        "ready": True,
+    }
+
+
 def save_trader_config(data_dir: Path | str, updates: dict[str, Any]) -> dict[str, Any]:
     """Validate, merge with current, write JSON. Returns the saved config."""
     current = load_trader_config(data_dir)

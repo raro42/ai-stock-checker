@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from stock_checker.trader_config import (
+    config_precedence_status,
     load_trader_config,
     normalize_config,
     save_trader_config,
@@ -115,3 +116,50 @@ def test_book_limits_clamp(tmp_path: Path):
     )
     assert saved2["max_positions"] == 4
     assert saved2["min_hold_hours"] == 48.0
+
+
+def test_saved_row_beats_env(tmp_path: Path, monkeypatch):
+    """xang1234 #394: Ops file wins over process environment when both set."""
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("RS_GATE", "1")
+    monkeypatch.setenv("BREADTH_GATE", "1")
+    save_trader_config(
+        tmp_path, {"ai_mode": "validate", "rs_gate": False, "breadth_gate": False}
+    )
+    cfg = load_trader_config(tmp_path)
+    assert cfg["ai_mode"] == "validate"
+    assert cfg["rs_gate"] is False
+    assert cfg["breadth_gate"] is False
+    st = config_precedence_status(tmp_path)
+    assert st["source"] == "file"
+    assert st["tone"] == "override"
+    assert "ai_mode" in st["overrides"]
+    assert "rs_gate" in st["overrides"]
+    assert "Ops wins" in st["line"]
+
+
+def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("AI_MODE", raising=False)
+    st = config_precedence_status(tmp_path)
+    assert st["source"] == "env"
+    assert st["tone"] == "env"
+    assert "no Ops file" in st["line"]
+    assert st["env_fallback_n"] > 0
+
+
+def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("RS_GATE", "0")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"rs_gate": False}) + "\n"
+    )
+    cfg = load_trader_config(tmp_path)
+    assert cfg["rs_gate"] is False
+    assert cfg["ai_mode"] == "full"  # missing from file → env
+    st = config_precedence_status(tmp_path)
+    assert st["source"] == "file"
+    assert "ai_mode" in st["env_fallbacks"]
+    assert "rs_gate" not in st["env_fallbacks"]
+    # rs_gate matches env (both false) → not an override; partial speaks env gaps
+    assert st["tone"] in {"partial", "file"}
+    assert "partial" in st["line"] or "matches env" in st["line"]

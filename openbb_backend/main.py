@@ -223,15 +223,21 @@ def paper_desk_api():
 @app.get("/desk/api/config")
 def desk_config_get():
     """Editable trader knobs (no secrets)."""
-    from stock_checker.trader_config import load_trader_config
+    from stock_checker.trader_config import config_precedence_status, load_trader_config
 
     cfg = load_trader_config(DATA_DIR)
+    prec = config_precedence_status(DATA_DIR)
     return {
         **cfg,
-        "source": "file"
-        if (DATA_DIR / "trader_config.json").is_file()
-        else "env",
-        "note": "Saved to data/trader_config.json; intelligent-trader hot-reloads each loop.",
+        "source": str(prec.get("source") or "env"),
+        "precedence": prec.get("line") or "",
+        "precedence_tone": prec.get("tone") or "env",
+        "overrides": list(prec.get("overrides") or []),
+        "env_fallbacks": list(prec.get("env_fallbacks") or []),
+        "note": (
+            "Saved Ops row wins over compose/env for keys present in "
+            "data/trader_config.json; intelligent-trader hot-reloads each loop."
+        ),
     }
 
 
