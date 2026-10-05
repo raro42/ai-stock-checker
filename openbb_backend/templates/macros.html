@@ -39,6 +39,10 @@
   <span class="pretrade-sep" aria-hidden="true">·</span>
   <span class="scan-fresh-prov{% if fresh.provenance != 'live' %} warn{% endif %}">{{ fresh.provenance_bit }}</span>
   {% endif %}
+  {% if fresh.scan_vs_cash_clash %}
+  <span class="pretrade-sep" aria-hidden="true">·</span>
+  <span class="scan-fresh-clash warn">{{ fresh.scan_vs_cash_clash }}</span>
+  {% endif %}
   {% if fresh.scan_time and fresh.age_label %}
   <span class="pretrade-sep" aria-hidden="true">·</span>
   <span class="scan-fresh-when">{{ fresh.scan_time }}</span>

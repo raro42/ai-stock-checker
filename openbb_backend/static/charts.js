@@ -1238,6 +1238,17 @@
       prov.textContent = String(fresh.provenance_bit);
       p.appendChild(prov);
     }
+    if (fresh.scan_vs_cash_clash) {
+      var sepC = document.createElement("span");
+      sepC.className = "pretrade-sep";
+      sepC.setAttribute("aria-hidden", "true");
+      sepC.textContent = "·";
+      p.appendChild(sepC);
+      var clash = document.createElement("span");
+      clash.className = "scan-fresh-clash warn";
+      clash.textContent = String(fresh.scan_vs_cash_clash);
+      p.appendChild(clash);
+    }
     if (fresh.scan_time && fresh.age_label) {
       var sep2 = document.createElement("span");
       sep2.className = "pretrade-sep";

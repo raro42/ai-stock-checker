@@ -221,8 +221,10 @@ def _scan_last_published_provenance(
     extra: dict[str, Any] = {
         "cash_print_us_age_sec": None,
         "cash_print_us_freshness": "",
+        "cash_print_us_last_published": False,
         "cash_print_xetra_age_sec": None,
         "cash_print_xetra_freshness": "",
+        "cash_print_xetra_last_published": False,
     }
 
     def _print_bits(close_at: datetime) -> tuple[str, str, int]:
@@ -243,6 +245,8 @@ def _scan_last_published_provenance(
     extra["cash_print_xetra_age_sec"] = xetra_age
     extra["cash_print_xetra_freshness"] = xetra_band
     if utc.weekday() >= 5:
+        extra["cash_print_us_last_published"] = True
+        extra["cash_print_xetra_last_published"] = True
         return (
             "last_published",
             "last published · stocks paused · "
@@ -251,6 +255,8 @@ def _scan_last_published_provenance(
         )
     us_closed = bool(is_us_cash_session_closed(now=clock))
     xetra_closed = bool(is_xetra_session_closed(now=clock))
+    extra["cash_print_us_last_published"] = us_closed
+    extra["cash_print_xetra_last_published"] = xetra_closed
     if not us_closed and not xetra_closed:
         return "live", "", extra
     if us_closed and xetra_closed:
@@ -267,6 +273,37 @@ def _scan_last_published_provenance(
     return "mixed", f"compile mixed · {us_line} · {xetra_line} · crypto live", extra
 
 
+_CASH_PRINT_RANK = {"fresh": 0, "aging": 1, "stale": 2}
+
+
+def _scan_vs_cash_print_clash(
+    tone: str, meta: Mapping[str, Any]
+) -> tuple[str, str]:
+    """xang1234 compile clock vs pinned print (display only).
+
+    A fresh 10m scan archive is the crypto/composite clock, not a live cash
+    print. Speak when that archive tone disagrees with the worst last-published
+    sleeve. Same band stays silent. Live cash stays silent.
+    """
+    if tone not in _CASH_PRINT_RANK:
+        return "", ""
+    bands: list[str] = []
+    if meta.get("cash_print_us_last_published"):
+        us_band = str(meta.get("cash_print_us_freshness") or "")
+        if us_band in _CASH_PRINT_RANK:
+            bands.append(us_band)
+    if meta.get("cash_print_xetra_last_published"):
+        xetra_band = str(meta.get("cash_print_xetra_freshness") or "")
+        if xetra_band in _CASH_PRINT_RANK:
+            bands.append(xetra_band)
+    if not bands:
+        return "", ""
+    cash = max(bands, key=lambda band: _CASH_PRINT_RANK[band])
+    if tone == cash:
+        return "", cash
+    return f"scan vs cash clash · scan {tone} · cash {cash}", cash
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
@@ -279,7 +316,9 @@ def build_scan_freshness(
     add last-published provenance; mixed hours speak compile-path per sleeve
     plus crypto live (xang1234 market pointer). Last-published sleeves also
     name hours since that venue's cash close plus a freshness band
-    (RyanJHamby triad; hours ≠ weekend vs same-evening). Not an entry gate.
+    (RyanJHamby triad; hours ≠ weekend vs same-evening). When the scan-archive
+    tone disagrees with the worst pinned cash print, speak
+    ``scan vs cash clash`` (compile clock ≠ snapshot age). Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -292,8 +331,12 @@ def build_scan_freshness(
         "provenance_bit": "",
         "cash_print_us_age_sec": None,
         "cash_print_us_freshness": "",
+        "cash_print_us_last_published": False,
         "cash_print_xetra_age_sec": None,
         "cash_print_xetra_freshness": "",
+        "cash_print_xetra_last_published": False,
+        "scan_vs_cash_clash": "",
+        "scan_vs_cash_print": "",
     }
     raw = str(scan_time or "").strip()
     if not raw:
@@ -320,9 +363,12 @@ def build_scan_freshness(
         tone = "stale"
     age_label = _format_age_short(age_sec)
     provenance, provenance_bit, print_meta = _scan_last_published_provenance(clock)
+    clash, cash_worst = _scan_vs_cash_print_clash(tone, print_meta)
     line = f"Scan {age_label} · {tone}"
     if provenance_bit:
         line = f"{line} · {provenance_bit}"
+    if clash:
+        line = f"{line} · {clash}"
     return {
         "ready": True,
         "tone": tone,
@@ -332,6 +378,8 @@ def build_scan_freshness(
         "scan_time": raw,
         "provenance": provenance,
         "provenance_bit": provenance_bit,
+        "scan_vs_cash_clash": clash,
+        "scan_vs_cash_print": cash_worst,
         **print_meta,
     }
 
