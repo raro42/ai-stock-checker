@@ -297,6 +297,41 @@ def test_universe_discovery_glance_yahoo_fail_retry_backoff(tmp_path) -> None:
     assert "retry due" not in g["line"]
     assert "seed 6h ago · fresh" in g["line"]
     assert "fail 15m ago · fresh" in g["line"]
+    # Retry before seed ages — thrash-calm bit is not last.
+    assert g["line"].index("retry in 45m") < g["line"].index("seed 6h ago")
+
+
+def test_universe_discovery_glance_yahoo_fail_retry_survives_long_lag(
+    tmp_path,
+) -> None:
+    """Long seed/fail lag must not clip retry due (xang1234 never-partial)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    seed = (now - timedelta(hours=23)).replace(tzinfo=None).isoformat()
+    fail = (now - timedelta(hours=40)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": seed,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": fail,
+                    "last_yahoo_screens_ok": 1,
+                    "last_yahoo_screens_failed": 2,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["yahoo_failed"] is True
+    assert g["yahoo_retry_due"] is True
+    assert "retry due" in g["line"]
+    assert not g["line"].endswith("…")
+    assert "Yahoo fail · 1/3 · retry due" in g["line"]
+    # Lag still speaks when the fail-path budget fits.
+    assert "lean vs Δ clash · mid · 17h" in g["line"]
+    assert g["line"].index("retry due") < g["line"].index("fail lags")
 
 
 def test_universe_discovery_glance_yahoo_fail_lag_delta_thin_mid(tmp_path) -> None:

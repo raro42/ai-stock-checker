@@ -4760,6 +4760,8 @@ def build_universe_discovery_glance(
     hours so the mid story is not partial).
     After a Yahoo fail, desk speaks ``retry due`` or ``retry in Nh`` for the
     fail backoff (xang1234 dfb6a86 — do not refetch empty slices every scan).
+    Retry sits before seed/fail lag so the 128-char clip cannot hide backoff
+    (xang1234 never-partial / 4d995f8 row-cap honesty adapted).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4955,15 +4957,25 @@ def build_universe_discovery_glance(
                 else ""
             )
             lag += f" · lean vs Δ clash · mid{mid_gap}"
-        line = (
+        # Retry before lag: clip must not hide backoff (xang1234 never-partial).
+        # Fail path allows 160 chars (seed/fail ages + lag); success stays 128.
+        _fail_line_max = 160
+        core = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{frac} · {seed_bit}{fail_bit}{lag}{retry}"
+            f"Yahoo fail{frac}{retry} · {seed_bit}{fail_bit}"
         )
+        line = core + lag
+        if len(line) > _fail_line_max:
+            # Prefer dropping lag over clipping retry / seed / fail ages.
+            line = (
+                core
+                if len(core) <= _fail_line_max
+                else (core[: _fail_line_max - 1] + "…")
+            )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
-    # Fail path can add seed/fail ages + lag + Δ; keep the honesty bits.
-    if len(line) > 128:
-        line = line[:127] + "…"
+        if len(line) > 128:
+            line = line[:127] + "…"
     return {
         "ready": True,
         "tone": tone,
