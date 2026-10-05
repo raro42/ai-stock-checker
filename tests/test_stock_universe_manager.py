@@ -3,7 +3,10 @@
 from datetime import datetime
 from pathlib import Path
 
-from stock_checker.stock_universe_manager import StockUniverseManager
+from stock_checker.stock_universe_manager import (
+    StockUniverseManager,
+    listing_venue,
+)
 
 
 def test_ensure_curated_seed_adds_missing_and_drops_pxd(tmp_path: Path):
@@ -141,7 +144,29 @@ def test_discover_yahoo_movers_prunes_dropped_movers(tmp_path: Path, monkeypatch
     assert "AAPL" in mgr.universe["stocks"]
     assert mgr.universe["stocks"]["AAPL"]["sector"] != "yahoo_mover"
     assert mgr.universe["meta"]["last_yahoo_dropped"] == 1
+    assert mgr.universe["meta"]["last_yahoo_dropped_venue"] == "US"
     assert mgr.universe["meta"]["last_yahoo_discovery_status"] == "ok"
+
+
+def test_listing_venue_mic_lite_us_vs_xetra():
+    assert listing_venue("AAPL", "NASDAQ") == "US"
+    assert listing_venue("IBM", "NYSE") == "US"
+    assert listing_venue("ZZZZ", "US") == "US"
+    assert listing_venue("SAP.DE", "US") == "XETR"
+    assert listing_venue("VWCE.DE", "XETRA") == "XETR"
+    assert listing_venue("FOO", "LSE") == "LSE"
+
+
+def test_prune_dropped_yahoo_movers_scopes_us_baseline(tmp_path: Path):
+    mgr = StockUniverseManager(data_dir=str(tmp_path))
+    assert mgr.add_stock("ZZZZOLD", sector="yahoo_mover", exchange="US")
+    assert mgr.add_stock("ZZZZ.DE", sector="yahoo_mover", exchange="US")
+    assert mgr.add_stock("KEEPUS", sector="yahoo_mover", exchange="NASDAQ")
+    dropped = mgr.prune_dropped_yahoo_movers(["KEEPUS"], venue="US")
+    assert dropped == 1
+    assert "ZZZZOLD" not in mgr.universe["stocks"]
+    assert "ZZZZ.DE" in mgr.universe["stocks"]
+    assert "KEEPUS" in mgr.universe["stocks"]
 
 
 def test_discover_yahoo_movers_empty_does_not_prune_movers(

@@ -12,6 +12,42 @@ from pathlib import Path
 from stock_checker.german_universe import GERMAN_XETRA_SEED
 from stock_checker.listed_funds import LISTED_FUND_SEED
 
+# Yahoo US screens are not a Xetra listing file. Compare prune baselines
+# as MIC-lite venues (xang1234 ae9c507), not raw NYSE vs "US" strings.
+_US_VENUE_EXCHANGES = frozenset(
+    {
+        "US",
+        "NASDAQ",
+        "NYSE",
+        "AMEX",
+        "ARCA",
+        "BATS",
+        "NYSEARCA",
+        "XNYS",
+        "XNAS",
+        "ARCX",
+    }
+)
+_XETR_VENUE_EXCHANGES = frozenset({"XETRA", "XETR", "FRA", "GER", "DE"})
+YAHOO_MOVER_SNAPSHOT_VENUE = "US"
+
+
+def listing_venue(symbol: str, exchange: str = "") -> str:
+    """Normalize listing to US / XETR / other (MIC-lite).
+
+    ``.DE`` suffix wins over a stamped US tag so a Yahoo US snapshot cannot
+    deactivate a Xetra row. Unknown exchanges stay distinct from US.
+    """
+    sym = str(symbol or "").strip().upper()
+    if sym.endswith(".DE"):
+        return "XETR"
+    ex = str(exchange or "").strip().upper()
+    if ex in _XETR_VENUE_EXCHANGES:
+        return "XETR"
+    if not ex or ex in _US_VENUE_EXCHANGES:
+        return "US"
+    return ex
+
 
 class StockUniverseManager:
     """Manage dynamic stock universe with disk persistence."""
@@ -371,14 +407,19 @@ class StockUniverseManager:
         for sym in symbols:
             if added >= max_new:
                 break
-            if self.add_stock(sym, sector="yahoo_mover", exchange="US"):
+            venue = listing_venue(sym)
+            exchange = "XETRA" if venue == "XETR" else "US"
+            if self.add_stock(sym, sector="yahoo_mover", exchange=exchange):
                 added += 1
         # Complete snapshot only: empty/majority-fail returned above.
-        dropped = self.prune_dropped_yahoo_movers(symbols)
+        dropped = self.prune_dropped_yahoo_movers(
+            symbols, venue=YAHOO_MOVER_SNAPSHOT_VENUE
+        )
         meta["last_yahoo_discovery"] = datetime.now().isoformat()
         meta["last_yahoo_discovery_status"] = "ok"
         meta["last_yahoo_added"] = added
         meta["last_yahoo_dropped"] = dropped
+        meta["last_yahoo_dropped_venue"] = YAHOO_MOVER_SNAPSHOT_VENUE
         self._save_universe()
         if added or dropped:
             print(
@@ -402,14 +443,21 @@ class StockUniverseManager:
                     idx[key] = [s for s in syms if s != symbol]
         return True
 
-    def prune_dropped_yahoo_movers(self, live_symbols: List[str]) -> int:
+    def prune_dropped_yahoo_movers(
+        self,
+        live_symbols: List[str],
+        *,
+        venue: str = YAHOO_MOVER_SNAPSHOT_VENUE,
+    ) -> int:
         """Drop yahoo_mover names absent from a complete movers snapshot.
 
         xang1234 weekly-US-stale-seed: deactivate symbols the source dropped.
         Incomplete/empty fetches must not call this (empty ≠ drop-all).
         Curated seed names stay even if they were never movers.
+        Baseline is scoped to the snapshot venue (US Yahoo screens ≠ Xetra).
         """
         live = {str(s).strip().upper() for s in live_symbols if str(s).strip()}
+        want = str(venue or YAHOO_MOVER_SNAPSHOT_VENUE).strip().upper() or "US"
         dropped = 0
         stocks = self.universe.get("stocks")
         if not isinstance(stocks, dict):
@@ -418,6 +466,9 @@ class StockUniverseManager:
             if not isinstance(info, dict):
                 continue
             if str(info.get("sector") or "") != "yahoo_mover":
+                continue
+            row_venue = listing_venue(symbol, str(info.get("exchange") or ""))
+            if row_venue != want:
                 continue
             if str(symbol).strip().upper() in live:
                 continue

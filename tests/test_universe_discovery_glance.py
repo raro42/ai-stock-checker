@@ -441,8 +441,32 @@ def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_dropped"] == 4
-    assert "dropped 4" in g["line"]
+    assert g["last_yahoo_dropped_venue"] is None
+    assert "dropped 4 · US" in g["line"]
     assert g["tone"] == "fresh"
+
+
+def test_universe_discovery_glance_dropped_movers_speaks_venue(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_dropped": 2,
+                    "last_yahoo_dropped_venue": "US",
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_dropped_venue"] == "US"
+    assert "dropped 2 · US" in g["line"]
 
 
 def test_universe_discovery_glance_fail_path_hides_dropped(tmp_path) -> None:
