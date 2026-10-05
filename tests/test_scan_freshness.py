@@ -82,8 +82,23 @@ def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
     )
     assert g["tone"] == "fresh"
     assert g["provenance"] == "mixed"
-    assert "US closed" in g["provenance_bit"]
-    assert "Xetra closed" not in g["provenance_bit"]
+    assert "compile mixed" in g["provenance_bit"]
+    assert "US last-published" in g["provenance_bit"]
+    assert "Xetra live" in g["provenance_bit"]
+    assert "Xetra last-published" not in g["provenance_bit"]
+
+
+def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
+    now = pytz.timezone("US/Eastern").localize(datetime(2026, 9, 9, 15, 0))
+    g = build_scan_freshness(
+        "2026-09-09T18:55:00+00:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["tone"] == "fresh"
+    assert g["provenance"] == "mixed"
+    assert "US live" in g["provenance_bit"]
+    assert "Xetra last-published" in g["provenance_bit"]
 
 
 def test_scan_freshness_live_when_both_cash_open() -> None:

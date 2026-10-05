@@ -186,9 +186,10 @@ def _scan_last_published_provenance(
 
     Composite scan age is not a per-market live quote. When US or Xetra cash
     is closed (or weekend stocks paused), speak last-published so a fresh
-    crypto tick is not treated as a live equity snapshot. Both sleeves open
-    stays silent. Not an entry gate; we do not store separate per-market
-    scan files.
+    crypto tick is not treated as a live equity snapshot. Mixed sessions
+    name each sleeve live vs last-published (xang1234 compile-path). Both
+    sleeves open stays silent. Not an entry gate; we do not store separate
+    per-market scan files.
     """
     from stock_checker.market_hours import (
         is_us_cash_session_closed,
@@ -202,13 +203,11 @@ def _scan_last_published_provenance(
     xetra_closed = bool(is_xetra_session_closed(now=clock))
     if not us_closed and not xetra_closed:
         return "live", ""
-    closed: list[str] = []
-    if us_closed:
-        closed.append("US closed")
-    if xetra_closed:
-        closed.append("Xetra closed")
-    bit = "last published · " + " · ".join(closed)
-    return ("last_published" if us_closed and xetra_closed else "mixed"), bit
+    if us_closed and xetra_closed:
+        return "last_published", "last published · US closed · Xetra closed"
+    us_bit = "US last-published" if us_closed else "US live"
+    xetra_bit = "Xetra last-published" if xetra_closed else "Xetra live"
+    return "mixed", f"compile mixed · {us_bit} · {xetra_bit}"
 
 
 def build_scan_freshness(
@@ -220,7 +219,8 @@ def build_scan_freshness(
     """Scan archive age honesty (RyanJHamby cache-freshness pattern; display only).
 
     fresh < 2× scan interval · aging < 8× · else stale. Closed cash sessions
-    add last-published provenance (xang1234 market pointer). Not an entry gate.
+    add last-published provenance; mixed hours speak compile-path per sleeve
+    (xang1234 market pointer). Not an entry gate.
     """
     empty = {
         "ready": False,
