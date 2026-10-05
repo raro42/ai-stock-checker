@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytz
 
-from openbb_backend.desk import build_scan_freshness
+from openbb_backend.desk import build_scan_freshness, cash_print_freshness
 
 
 def test_scan_freshness_empty() -> None:
@@ -75,6 +75,9 @@ def test_scan_freshness_last_published_when_cash_closed() -> None:
     assert g["age_label"] == "10m ago"
     assert "10m ago" not in g["provenance_bit"]
     assert "h ago" in g["provenance_bit"]
+    assert g["cash_print_us_freshness"] == "fresh"
+    assert g["cash_print_xetra_freshness"] == "fresh"
+    assert "fresh" in g["provenance_bit"]
 
 
 def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
@@ -92,6 +95,8 @@ def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
     assert "crypto live" in g["provenance_bit"]
     assert "Xetra last-published" not in g["provenance_bit"]
     assert "h ago" in g["provenance_bit"] or "d ago" in g["provenance_bit"]
+    assert g["cash_print_us_freshness"] in ("fresh", "aging", "stale")
+    assert g["cash_print_us_freshness"] in g["provenance_bit"]
 
 
 def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
@@ -107,6 +112,8 @@ def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
     assert "Xetra last-published" in g["provenance_bit"]
     assert "crypto live" in g["provenance_bit"]
     assert "h ago" in g["provenance_bit"] or "d ago" in g["provenance_bit"]
+    assert g["cash_print_xetra_freshness"] in ("fresh", "aging", "stale")
+    assert g["cash_print_xetra_freshness"] in g["provenance_bit"]
 
 
 def test_scan_freshness_live_when_both_cash_open() -> None:
@@ -136,3 +143,29 @@ def test_scan_freshness_weekend_stocks_paused() -> None:
     assert "US " in g["provenance_bit"]
     assert "Xetra " in g["provenance_bit"]
     assert "ago" in g["provenance_bit"]
+    assert g["cash_print_us_freshness"] == "aging"
+    assert g["cash_print_xetra_freshness"] == "aging"
+    assert "aging" in g["provenance_bit"]
+
+
+def test_cash_print_freshness_bands() -> None:
+    assert cash_print_freshness(0) == "fresh"
+    assert cash_print_freshness(11 * 3600) == "fresh"
+    assert cash_print_freshness(12 * 3600) == "aging"
+    assert cash_print_freshness(35 * 3600) == "aging"
+    assert cash_print_freshness(36 * 3600) == "stale"
+
+
+def test_scan_freshness_weekend_sunday_cash_print_stale() -> None:
+    """RyanJHamby: Friday close is a stale print by Sunday, not just 'Nd ago'."""
+    now = pytz.timezone("US/Eastern").localize(datetime(2026, 9, 13, 12, 0))
+    g = build_scan_freshness(
+        "2026-09-13T15:50:00+00:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["provenance"] == "last_published"
+    assert g["cash_print_us_freshness"] == "stale"
+    assert g["cash_print_xetra_freshness"] == "stale"
+    assert "stale" in g["provenance_bit"]
+    assert "stocks paused" in g["provenance_bit"]

@@ -179,9 +179,25 @@ def _format_age_short(age_sec: float) -> str:
     return f"{sec // 86400}d ago"
 
 
+# Last cash close vs now (display only). Fresh <12h same-evening print;
+# aging <36h through next session / Saturday; else weekend/missed-session stale.
+CASH_PRINT_FRESH_HOURS = 12
+CASH_PRINT_AGING_HOURS = 36
+
+
+def cash_print_freshness(age_sec: float) -> str:
+    """RyanJHamby fresh/aging/stale for a pinned cash print (display only)."""
+    age = max(0.0, float(age_sec))
+    if age < CASH_PRINT_FRESH_HOURS * 3600:
+        return "fresh"
+    if age < CASH_PRINT_AGING_HOURS * 3600:
+        return "aging"
+    return "stale"
+
+
 def _scan_last_published_provenance(
     clock: datetime,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict[str, Any]]:
     """xang1234 last-published / market-pointer honesty (display only).
 
     Composite scan age is not a per-market live quote. When US or Xetra cash
@@ -190,9 +206,10 @@ def _scan_last_published_provenance(
     name each sleeve live vs last-published (xang1234 compile-path). Crypto
     is 24/7, so a pinned cash compile still has a live crypto sleeve — name
     it when cash is not fully open. Closed sleeves also speak hours since
-    that venue's last cash close (pinned print age ≠ scan archive age).
-    Both cash sleeves open stays silent. Not an entry gate; we do not store
-    separate per-market scan files.
+    that venue's last cash close plus a freshness band (pinned print age ≠
+    scan archive age; hours alone hid weekend vs same-evening). Both cash
+    sleeves open stays silent. Not an entry gate; we do not store separate
+    per-market scan files.
     """
     from stock_checker.market_hours import (
         is_us_cash_session_closed,
@@ -201,32 +218,53 @@ def _scan_last_published_provenance(
         last_xetra_session_close,
     )
 
-    def _print_age(close_at: datetime) -> str:
+    extra: dict[str, Any] = {
+        "cash_print_us_age_sec": None,
+        "cash_print_us_freshness": "",
+        "cash_print_xetra_age_sec": None,
+        "cash_print_xetra_freshness": "",
+    }
+
+    def _print_bits(close_at: datetime) -> tuple[str, str, int]:
         utc_now = clock.astimezone(timezone.utc)
         closed = close_at.astimezone(timezone.utc)
-        return _format_age_short(max(0.0, (utc_now - closed).total_seconds()))
+        age_sec = max(0, int((utc_now - closed).total_seconds()))
+        band = cash_print_freshness(float(age_sec))
+        label = _format_age_short(float(age_sec))
+        return f"{label} · {band}", band, age_sec
 
     utc = clock.astimezone(timezone.utc)
-    us_age = _print_age(last_us_cash_session_close(now=clock))
-    xetra_age = _print_age(last_xetra_session_close(now=clock))
+    us_bit, us_band, us_age = _print_bits(last_us_cash_session_close(now=clock))
+    xetra_bit, xetra_band, xetra_age = _print_bits(
+        last_xetra_session_close(now=clock)
+    )
+    extra["cash_print_us_age_sec"] = us_age
+    extra["cash_print_us_freshness"] = us_band
+    extra["cash_print_xetra_age_sec"] = xetra_age
+    extra["cash_print_xetra_freshness"] = xetra_band
     if utc.weekday() >= 5:
         return (
             "last_published",
-            f"last published · stocks paused · US {us_age} · Xetra {xetra_age} · crypto live",
+            "last published · stocks paused · "
+            f"US {us_bit} · Xetra {xetra_bit} · crypto live",
+            extra,
         )
     us_closed = bool(is_us_cash_session_closed(now=clock))
     xetra_closed = bool(is_xetra_session_closed(now=clock))
     if not us_closed and not xetra_closed:
-        return "live", ""
+        return "live", "", extra
     if us_closed and xetra_closed:
         return (
             "last_published",
             "last published · US closed · "
-            f"{us_age} · Xetra closed · {xetra_age} · crypto live",
+            f"{us_bit} · Xetra closed · {xetra_bit} · crypto live",
+            extra,
         )
-    us_bit = f"US last-published · {us_age}" if us_closed else "US live"
-    xetra_bit = f"Xetra last-published · {xetra_age}" if xetra_closed else "Xetra live"
-    return "mixed", f"compile mixed · {us_bit} · {xetra_bit} · crypto live"
+    us_line = f"US last-published · {us_bit}" if us_closed else "US live"
+    xetra_line = (
+        f"Xetra last-published · {xetra_bit}" if xetra_closed else "Xetra live"
+    )
+    return "mixed", f"compile mixed · {us_line} · {xetra_line} · crypto live", extra
 
 
 def build_scan_freshness(
@@ -240,7 +278,8 @@ def build_scan_freshness(
     fresh < 2× scan interval · aging < 8× · else stale.     Closed cash sessions
     add last-published provenance; mixed hours speak compile-path per sleeve
     plus crypto live (xang1234 market pointer). Last-published sleeves also
-    name hours since that venue's cash close. Not an entry gate.
+    name hours since that venue's cash close plus a freshness band
+    (RyanJHamby triad; hours ≠ weekend vs same-evening). Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -251,6 +290,10 @@ def build_scan_freshness(
         "scan_time": "",
         "provenance": "",
         "provenance_bit": "",
+        "cash_print_us_age_sec": None,
+        "cash_print_us_freshness": "",
+        "cash_print_xetra_age_sec": None,
+        "cash_print_xetra_freshness": "",
     }
     raw = str(scan_time or "").strip()
     if not raw:
@@ -276,7 +319,7 @@ def build_scan_freshness(
     else:
         tone = "stale"
     age_label = _format_age_short(age_sec)
-    provenance, provenance_bit = _scan_last_published_provenance(clock)
+    provenance, provenance_bit, print_meta = _scan_last_published_provenance(clock)
     line = f"Scan {age_label} · {tone}"
     if provenance_bit:
         line = f"{line} · {provenance_bit}"
@@ -289,6 +332,7 @@ def build_scan_freshness(
         "scan_time": raw,
         "provenance": provenance,
         "provenance_bit": provenance_bit,
+        **print_meta,
     }
 
 
