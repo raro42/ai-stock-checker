@@ -72,6 +72,9 @@ def test_scan_freshness_last_published_when_cash_closed() -> None:
     assert "US closed" in g["provenance_bit"]
     assert "Xetra closed" in g["provenance_bit"]
     assert "crypto live" in g["provenance_bit"]
+    assert g["age_label"] == "10m ago"
+    assert "10m ago" not in g["provenance_bit"]
+    assert "h ago" in g["provenance_bit"]
 
 
 def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
@@ -88,6 +91,7 @@ def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
     assert "Xetra live" in g["provenance_bit"]
     assert "crypto live" in g["provenance_bit"]
     assert "Xetra last-published" not in g["provenance_bit"]
+    assert "h ago" in g["provenance_bit"] or "d ago" in g["provenance_bit"]
 
 
 def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
@@ -102,6 +106,7 @@ def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
     assert "US live" in g["provenance_bit"]
     assert "Xetra last-published" in g["provenance_bit"]
     assert "crypto live" in g["provenance_bit"]
+    assert "h ago" in g["provenance_bit"] or "d ago" in g["provenance_bit"]
 
 
 def test_scan_freshness_live_when_both_cash_open() -> None:
@@ -128,3 +133,6 @@ def test_scan_freshness_weekend_stocks_paused() -> None:
     assert g["provenance"] == "last_published"
     assert "stocks paused" in g["provenance_bit"]
     assert "crypto live" in g["provenance_bit"]
+    assert "US " in g["provenance_bit"]
+    assert "Xetra " in g["provenance_bit"]
+    assert "ago" in g["provenance_bit"]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for market hours helpers (no network)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytz
@@ -12,6 +12,8 @@ from stock_checker.market_hours import (
     is_german_equity,
     is_us_cash_session_closed,
     is_xetra_session_closed,
+    last_us_cash_session_close,
+    last_xetra_session_close,
 )
 from stock_checker.market_scanner import MarketScanner
 from stock_checker.stock_universe_manager import StockUniverseManager
@@ -42,6 +44,34 @@ def test_xetra_closed_us_open():
     assert is_xetra_session_closed(now=now) is True
     assert is_equity_session_closed("AAPL", now=now) is False
     assert is_equity_session_closed("SIE.DE", now=now) is True
+
+
+def test_last_session_close_after_hours():
+    et = pytz.timezone("US/Eastern")
+    now = et.localize(datetime(2026, 9, 8, 21, 30))
+    got = last_us_cash_session_close(now=now)
+    want = et.localize(datetime(2026, 9, 8, 16, 0)).astimezone(timezone.utc)
+    assert got == want
+
+
+def test_last_session_close_before_open_uses_prior_weekday():
+    berlin = pytz.timezone("Europe/Berlin")
+    now = berlin.localize(datetime(2026, 9, 9, 10, 0))
+    got = last_us_cash_session_close(now=now)
+    et = pytz.timezone("US/Eastern")
+    want = et.localize(datetime(2026, 9, 8, 16, 0)).astimezone(timezone.utc)
+    assert got == want
+    xetra = last_xetra_session_close(now=now)
+    want_x = berlin.localize(datetime(2026, 9, 8, 17, 30)).astimezone(timezone.utc)
+    assert xetra == want_x
+
+
+def test_last_session_close_weekend_is_friday():
+    et = pytz.timezone("US/Eastern")
+    sat = et.localize(datetime(2026, 9, 12, 12, 0))
+    got = last_us_cash_session_close(now=sat)
+    want = et.localize(datetime(2026, 9, 11, 16, 0)).astimezone(timezone.utc)
+    assert got == want
 
 
 def test_crypto_never_session_closed():

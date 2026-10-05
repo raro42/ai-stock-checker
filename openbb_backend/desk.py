@@ -189,17 +189,31 @@ def _scan_last_published_provenance(
     crypto tick is not treated as a live equity snapshot. Mixed sessions
     name each sleeve live vs last-published (xang1234 compile-path). Crypto
     is 24/7, so a pinned cash compile still has a live crypto sleeve — name
-    it when cash is not fully open. Both cash sleeves open stays silent.
-    Not an entry gate; we do not store separate per-market scan files.
+    it when cash is not fully open. Closed sleeves also speak hours since
+    that venue's last cash close (pinned print age ≠ scan archive age).
+    Both cash sleeves open stays silent. Not an entry gate; we do not store
+    separate per-market scan files.
     """
     from stock_checker.market_hours import (
         is_us_cash_session_closed,
         is_xetra_session_closed,
+        last_us_cash_session_close,
+        last_xetra_session_close,
     )
 
+    def _print_age(close_at: datetime) -> str:
+        utc_now = clock.astimezone(timezone.utc)
+        closed = close_at.astimezone(timezone.utc)
+        return _format_age_short(max(0.0, (utc_now - closed).total_seconds()))
+
     utc = clock.astimezone(timezone.utc)
+    us_age = _print_age(last_us_cash_session_close(now=clock))
+    xetra_age = _print_age(last_xetra_session_close(now=clock))
     if utc.weekday() >= 5:
-        return "last_published", "last published · stocks paused · crypto live"
+        return (
+            "last_published",
+            f"last published · stocks paused · US {us_age} · Xetra {xetra_age} · crypto live",
+        )
     us_closed = bool(is_us_cash_session_closed(now=clock))
     xetra_closed = bool(is_xetra_session_closed(now=clock))
     if not us_closed and not xetra_closed:
@@ -207,10 +221,11 @@ def _scan_last_published_provenance(
     if us_closed and xetra_closed:
         return (
             "last_published",
-            "last published · US closed · Xetra closed · crypto live",
+            "last published · US closed · "
+            f"{us_age} · Xetra closed · {xetra_age} · crypto live",
         )
-    us_bit = "US last-published" if us_closed else "US live"
-    xetra_bit = "Xetra last-published" if xetra_closed else "Xetra live"
+    us_bit = f"US last-published · {us_age}" if us_closed else "US live"
+    xetra_bit = f"Xetra last-published · {xetra_age}" if xetra_closed else "Xetra live"
     return "mixed", f"compile mixed · {us_bit} · {xetra_bit} · crypto live"
 
 
@@ -224,7 +239,8 @@ def build_scan_freshness(
 
     fresh < 2× scan interval · aging < 8× · else stale.     Closed cash sessions
     add last-published provenance; mixed hours speak compile-path per sleeve
-    plus crypto live (xang1234 market pointer). Not an entry gate.
+    plus crypto live (xang1234 market pointer). Last-published sleeves also
+    name hours since that venue's cash close. Not an entry gate.
     """
     empty = {
         "ready": False,

@@ -5,7 +5,7 @@ Crypto is 24/7 and is not gated here.
 
 from __future__ import annotations
 
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta, timezone
 from typing import Optional
 
 import pytz
@@ -51,6 +51,40 @@ def _session_closed(
         return True
     t = local.time()
     return t < open_t or t >= close_t
+
+
+def last_session_close_at(
+    *,
+    tz_name: str,
+    close_t: dt_time,
+    now: Optional[datetime] = None,
+) -> datetime:
+    """Most recent weekday cash close at or before ``now`` (UTC).
+
+    Display/ops honesty for last-published scan provenance — not a gate.
+    Holidays are ignored, same as ``_session_closed``.
+    """
+    tz = pytz.timezone(tz_name)
+    local = _to_local(tz_name, now)
+    for delta in range(0, 10):
+        day = (local - timedelta(days=delta)).date()
+        close_dt = tz.localize(datetime.combine(day, close_t))
+        if close_dt.weekday() >= 5:
+            continue
+        if close_dt <= local:
+            return close_dt.astimezone(timezone.utc)
+    friday = local - timedelta(days=(local.weekday() - 4) % 7)
+    return tz.localize(datetime.combine(friday.date(), close_t)).astimezone(
+        timezone.utc
+    )
+
+
+def last_us_cash_session_close(*, now: Optional[datetime] = None) -> datetime:
+    return last_session_close_at(tz_name=US_TZ, close_t=US_CLOSE, now=now)
+
+
+def last_xetra_session_close(*, now: Optional[datetime] = None) -> datetime:
+    return last_session_close_at(tz_name=XETRA_TZ, close_t=XETRA_CLOSE, now=now)
 
 
 def is_us_cash_session_closed(*, now: Optional[datetime] = None) -> bool:
