@@ -4753,6 +4753,10 @@ def build_universe_discovery_glance(
     When lag already spoke, also speak clock-gap severity
     ``Δ [wide|thin] · Nh`` (|seed−fail|; wide ≥ throttle · thin < ½;
     mid silent) — band lean ≠ how far the clocks sit.
+    When lag already spoke, also speak lean vs Δ:
+    ``align`` when Δ spoke, or ``lean vs Δ clash · mid`` when the gap
+    is mid-silent (xang1234 cross-slice / share-vs-Δ honesty — lean
+    named a lag that the clock gap will not severity-band).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4888,6 +4892,13 @@ def build_universe_discovery_glance(
         elif gap_h < thin_h:
             seed_vs_fail_delta_severity = "thin"
         # mid (½ ≤ gap < throttle) stays silent — lean already named the lag
+    # portfolio AI + xang1234: lean spoke ≠ Δ mid silent; confirm when both spoke.
+    seed_vs_fail_lean_vs_delta = ""
+    if seed_vs_fail and age_sec is not None and fail_age_sec is not None:
+        if seed_vs_fail_delta_severity:
+            seed_vs_fail_lean_vs_delta = "align"
+        else:
+            seed_vs_fail_lean_vs_delta = "clash"
     if yahoo_failed:
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
@@ -4916,6 +4927,10 @@ def build_universe_discovery_glance(
                 f" · Δ {seed_vs_fail_delta_severity} · "
                 f"{seed_vs_fail_delta_label}"
             )
+            if seed_vs_fail_lean_vs_delta == "align":
+                lag += " · align"
+        elif seed_vs_fail_lean_vs_delta == "clash":
+            lag += " · lean vs Δ clash · mid"
         line = (
             f"US+DE · Yahoo ≤{per} · "
             f"Yahoo fail{frac} · {seed_bit}{fail_bit}{lag}{retry}"
@@ -4948,6 +4963,7 @@ def build_universe_discovery_glance(
         "seed_vs_fail_delta_sec": seed_vs_fail_delta_sec,
         "seed_vs_fail_delta_label": seed_vs_fail_delta_label,
         "seed_vs_fail_delta_severity": seed_vs_fail_delta_severity,
+        "seed_vs_fail_lean_vs_delta": seed_vs_fail_lean_vs_delta,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "screens_bit": screens_bit,
