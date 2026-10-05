@@ -1,6 +1,8 @@
 # AI Stock Checker
 
-**We scan stocks, a short ETF and metal list, and crypto on your machine, paper-trade them with realistic fees and anti-churn rules, and show the book in a local browser desk — so friends can test strategies honestly before risking real money.**
+**We scan stocks, a short ETF and metal list, and crypto on your machine, paper-trade them with realistic fees and anti-churn rules, and show the book in a browser desk — so friends can test strategies honestly before risking real money.**
+
+Friends’ live paper desk: **[https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)**
 
 Docker-first scanning, fee-aware paper fills, optional Ollama AI, and a quiet editorial UI — not dashboard theater.
 
@@ -46,7 +48,7 @@ Seven screens. One chrome. Local D3 — no CDN roulette.
 | **Ideas** | Scanner picks + open research watch |
 | **Ops** | Runtime knobs, gates, watchdog honesty, live logs from `data/` |
 
-Open locally after compose: **[http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk)**
+Shared desk (this host): **[https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)** · Local after compose: **[http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk)**
 
 <details>
 <summary>Still frames</summary>
@@ -78,11 +80,13 @@ cp .env.example .env   # AI_MODE=off by default; add cloud keys only if you want
 docker compose up -d --build intelligent-trader openbb-backend
 ```
 
-Then open the desk:
+Then open the desk (local self-host):
 
 ```text
 http://127.0.0.1:7779/desk
 ```
+
+Friends on this deployment can use the shared desk instead: **[https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)**.
 
 Paper state lives in `./data/` (gitignored). Friends’ short path: [`FRIENDS.md`](FRIENDS.md).
 

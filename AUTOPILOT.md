@@ -9,7 +9,7 @@ You are on **full autopilot** for this repo. The human should not need to re-ask
 3. **Restart as needed**: Docker services (`intelligent-trader`, `openbb-backend`), Ollama autoresearch loop, improve/docs loops — if a process dies, hangs, or code that requires a reload shipped, restart it. Do not wait to be asked. `openbb-backend` runs uvicorn with `--reload` on the mounted package; still run `./scripts/smoke_desk_http.sh` after desk changes.
 4. Prefer Docker for tests/runs. Never install on the host. Never commit `.env` / `data/` / `results.tsv`.
 5. Do not invent performance claims — require backtest/benchmark artifacts. **Anti-churn packaging ≠ edge.** Offline `val_score` and calm streaks do not prove live expectancy.
-6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), **ship at least one idea**: read GitHub watch digests + IMPROVEMENT.md **external review assimilation** section top-down, implement the best small slice, verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
+6. When a wake loop fires (`AGENT_LOOP_TICK_improve`), **ship at least one idea**: (0) **open GitHub issues first** (`gh issue list --state open`) — human-filed bugs/docs beat glance polish; (1) read GitHub watch digests + IMPROVEMENT.md **external review assimilation** section top-down; implement the best small slice, verify, document, commit, push, restart what the change needs — then stop the turn. Do not ask permission.
 7. **No new entry gates** until IMPROVEMENT A4–A5 and A14 are addressed (gate thinning / fail-open / regime↔RS overlap).
 
 ## Overnight (CEST)

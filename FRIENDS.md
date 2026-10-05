@@ -4,6 +4,10 @@ Short path to share signals and paper-trade together.
 
 Repo: https://github.com/raro42/ai-stock-checker
 
+**Shared paper desk (no install):** [https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)
+
+Self-host below if you want your own book on your machine.
+
 ## 1. Install
 
 - Docker Desktop
@@ -36,7 +40,7 @@ docker compose logs -f --tail 50 intelligent-trader openbb-backend
 Defaults avoid fee-burn: 15m scans, 5m checks, **4h minimum hold**.
 Paper fees default to **Revolut-like 0.25%/side · €1 min** (change on Ops).
 
-Paper desk UI: [http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk) (Overview / Charts / Screener / Breadth / Book / Ideas / Ops) · Design: [DESIGN.md](DESIGN.md) · OpenBB widgets: same host — see [OPENBB.md](OPENBB.md).
+Paper desk UI: shared [https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk) · local [http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk) (Overview / Charts / Screener / Breadth / Book / Ideas / Ops) · Design: [DESIGN.md](DESIGN.md) · OpenBB widgets: same host — see [OPENBB.md](OPENBB.md).
 
 ## 4. Useful commands
 

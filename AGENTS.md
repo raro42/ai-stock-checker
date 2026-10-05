@@ -79,7 +79,7 @@ Follow `autoresearch/program.md` (Karpathy-style keep/revert):
 
 ### General product backlog
 
-When improving the product (not an autoresearch experiment), work from `IMPROVEMENT.md` in priority order.
+When improving the product (not an autoresearch experiment), work from `IMPROVEMENT.md` in priority order. **Open GitHub issues** (`gh issue list --state open`) outrank glance/watch polish — ship human-filed items first.
 
 ## Commits & push (default: after every change)
 

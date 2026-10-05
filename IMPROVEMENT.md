@@ -98,6 +98,8 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 
 ## Next (priority — autopilot order)
 
+- [x] **GitHub #1 (2026-10-05):** Document shared desk `https://stock.zeitfenster.de/desk` in README + FRIENDS; improve loop now checks open `gh issue`s before watch-digest polish (AUTOPILOT / `run_improve_loop.sh`)
+
 ### Phase A — Prove
 - [x] Buy-and-hold benchmark script + Docker runner (`scripts/benchmark_buy_hold.py`)
 - [x] Record `autoresearch/benchmark_latest.txt` and note verdict in IMPROVEMENT when run
