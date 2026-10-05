@@ -2,6 +2,8 @@
 
 AI is **optional**. Rules-only paper trading (`AI_MODE=off`) needs no LLM at all.
 
+Optional **LAYA/JEV** typed System-1 advisory (pass/hold/reject) can sit beside validate — fail-open, not a buy gate. See [docs/LAYA.md](docs/LAYA.md).
+
 ## Paths by budget
 
 | Budget | Setup | Notes |

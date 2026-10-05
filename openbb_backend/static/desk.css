@@ -902,6 +902,7 @@ a:active {
 .earnings-blackout-glance,
 .ai-mode-glance,
 .ai-roles-glance,
+.laya-glance,
 .ai-debate-glance,
 .ai-validate-scope-glance,
 .session-glance,
@@ -932,6 +933,7 @@ a:active {
 .earnings-blackout-glance-line,
 .ai-mode-glance-line,
 .ai-roles-glance-line,
+.laya-glance-line,
 .ai-debate-glance-line,
 .ai-validate-scope-glance-line,
 .session-glance-line,
@@ -963,6 +965,7 @@ a:active {
 .earnings-blackout-glance-tone,
 .ai-mode-glance-tone,
 .ai-roles-glance-tone,
+.laya-glance-tone,
 .ai-debate-glance-tone,
 .ai-validate-scope-glance-tone,
 .session-glance-tone,
@@ -1008,6 +1011,9 @@ a:active {
 .ai-mode-glance-tone.flat,
 .ai-roles-glance-tone.roles,
 .ai-roles-glance-tone.flat,
+.laya-glance-tone.off,
+.laya-glance-tone.ready,
+.laya-glance-tone.flat,
 .ai-debate-glance-tone.flat,
 .ai-debate-glance-tone.empty,
 .ai-validate-scope-glance-tone.off,
@@ -1088,7 +1094,8 @@ a:active {
 }
 
 .ai-debate-glance-tone.buy,
-.ai-debate-glance-tone.fresh {
+.ai-debate-glance-tone.fresh,
+.laya-glance-tone.advisory {
   color: var(--up);
 }
 
@@ -1123,6 +1130,7 @@ a:active {
 .earnings-blackout-glance-body,
 .ai-mode-glance-body,
 .ai-roles-glance-body,
+.laya-glance-body,
 .ai-debate-glance-body,
 .ai-validate-scope-glance-body,
 .session-glance-body,
@@ -1156,6 +1164,7 @@ a:active {
 .earnings-blackout-glance-link,
 .ai-mode-glance-link,
 .ai-roles-glance-link,
+.laya-glance-link,
 .ai-debate-glance-link,
 .ai-validate-scope-glance-link,
 .session-glance-link,
@@ -1184,6 +1193,7 @@ a:active {
 .earnings-blackout-glance .sub,
 .ai-mode-glance .sub,
 .ai-roles-glance .sub,
+.laya-glance .sub,
 .ai-debate-glance .sub,
 .ai-validate-scope-glance .sub,
 .session-glance .sub,

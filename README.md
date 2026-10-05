@@ -180,6 +180,7 @@ We cut tagged releases when the desk or trader meaningfully changes — screensh
 | [AUTOPILOT.md](AUTOPILOT.md) | Continuous improvement |
 | [IMPROVEMENT.md](IMPROVEMENT.md) | Backlog |
 | [MODELS.md](MODELS.md) | Ollama **or** cheap cloud LLMs (Groq / OpenRouter / DeepSeek) |
+| [docs/LAYA.md](docs/LAYA.md) | Optional LAYA/JEV System-1 typed advisory (fail-open; not a gate) |
 | [GIT.md](GIT.md) | Commit / push ASAP |
 
 ---

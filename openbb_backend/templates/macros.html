@@ -463,6 +463,31 @@
 {%- endmacro %}
 
 
+{# LAYA / JEV System-1 typed advisory (display only — not a gate). #}
+{% macro laya_glance(
+  snap,
+  heading_id='laya-glance-h',
+  link_href='/desk/ops#ops-ai-mode',
+  link_label='Ops AI →',
+  sub='Optional LAYA/JEV typed pass/hold/reject beside Ollama validate. Fail-open; not a buy gate. See docs/LAYA.md.'
+) -%}
+{% set glance = snap.laya_glance if snap.laya_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="laya-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">LAYA System-1 advisory</h2>
+  <p class="laya-glance-line">
+    <span class="laya-glance-tone {{ glance.tone }}">LAYA</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="laya-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="laya-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# FinRobot validate debate memory counts (display only). #}
 {% macro ai_debate_glance(
   snap,

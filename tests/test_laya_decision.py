@@ -1,0 +1,200 @@
+"""Offline tests for LAYA / JEV System-1 advisory (fail-open, not a gate)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from openbb_backend.desk import build_laya_glance
+from stock_checker.laya_decision import (
+    PAPER_ENTRY_QUESTIONS,
+    build_paper_entry_state,
+    evaluate_paper_entry,
+    laya_advisory_enabled,
+    laya_configured,
+    maybe_advise_paper_entry,
+    parse_system_one_answers,
+    record_laya_decision,
+    summarize_laya_decisions,
+)
+
+
+def test_paper_entry_questions_shape() -> None:
+    assert PAPER_ENTRY_QUESTIONS["entry"]["type"] == "choice"
+    assert set(PAPER_ENTRY_QUESTIONS["entry"]["criteria"]) == {
+        "pass",
+        "hold",
+        "reject",
+    }
+    assert PAPER_ENTRY_QUESTIONS["edge"]["type"] == "score"
+    assert PAPER_ENTRY_QUESTIONS["fee_churn"]["type"] == "noul"
+
+
+def test_build_state_includes_symbol() -> None:
+    text = build_paper_entry_state(
+        {
+            "symbol": "AAPL",
+            "name": "Apple",
+            "current_price": 200,
+            "previous_close": 198,
+            "strategy": "breakout",
+        }
+    )
+    assert "AAPL" in text
+    assert "breakout" in text
+    assert "anti-churn" in text or "min hold" in text.lower() or "24h" in text
+
+
+def test_parse_system_one_answers() -> None:
+    parsed = parse_system_one_answers(
+        {
+            "answers": {
+                "entry": {
+                    "choice": "pass",
+                    "probabilities": {"pass": 0.7, "hold": 0.2, "reject": 0.1},
+                },
+                "edge": {"score": 2.1},
+                "fee_churn": {"noul": 0.15},
+            }
+        }
+    )
+    assert parsed["entry"] == "pass"
+    assert parsed["probabilities"]["pass"] == 0.7
+    assert parsed["edge_score"] == 2.1
+    assert parsed["fee_churn"] == 0.15
+
+
+def test_evaluate_fail_open_when_not_configured(monkeypatch) -> None:
+    monkeypatch.delenv("LAYA_BASE_URL", raising=False)
+    monkeypatch.delenv("JEV_BASE_URL", raising=False)
+    monkeypatch.delenv("LAYA_ADVISORY", raising=False)
+    assert not laya_configured()
+    res = evaluate_paper_entry({"symbol": "MSFT"})
+    assert res["fail_open"] is True
+    assert res["ok"] is False
+    assert res["reason"] == "not_configured"
+
+
+def test_evaluate_advisory_off_when_url_set(monkeypatch) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("LAYA_ADVISORY", "0")
+    assert laya_configured()
+    assert not laya_advisory_enabled()
+    res = evaluate_paper_entry({"symbol": "MSFT"})
+    assert res["reason"] == "advisory_off"
+    assert res["fail_open"] is True
+
+
+def test_evaluate_with_transport(monkeypatch) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+
+    def fake_transport(url, body, headers, timeout):
+        assert url.endswith("/v1/systemone")
+        assert "questions" in body
+        assert body["questions"]["entry"]["type"] == "choice"
+        return {
+            "answers": {
+                "entry": {
+                    "choice": "hold",
+                    "probabilities": {"pass": 0.2, "hold": 0.7, "reject": 0.1},
+                },
+                "edge": {"score": 1.0},
+                "fee_churn": {"noul": 0.4},
+            }
+        }
+
+    res = evaluate_paper_entry(
+        {"symbol": "SAP.DE", "current_price": 100, "previous_close": 99},
+        transport=fake_transport,
+    )
+    assert res["ok"] is True
+    assert res["fail_open"] is False
+    assert res["entry"] == "hold"
+    assert res["latency_ms"] is not None
+
+
+def test_evaluate_transport_error_fail_open(monkeypatch) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+
+    def boom(*_a, **_k):
+        raise TimeoutError("slow")
+
+    res = evaluate_paper_entry({"symbol": "X"}, transport=boom)
+    assert res["ok"] is False
+    assert res["fail_open"] is True
+    assert "provider_error" in res["reason"]
+
+
+def test_record_and_summarize(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+
+    def ok_transport(*_a, **_k):
+        return {
+            "answers": {
+                "entry": {"choice": "pass", "probabilities": {"pass": 0.9}},
+                "edge": {"score": 2.5},
+                "fee_churn": {"noul": 0.05},
+            }
+        }
+
+    res = maybe_advise_paper_entry(
+        {"symbol": "BTC-USD"}, tmp_path, transport=ok_transport
+    )
+    assert res is not None
+    assert res["entry"] == "pass"
+    stats = summarize_laya_decisions(tmp_path)
+    assert stats["count"] == 1
+    assert stats["pass"] == 1
+    assert stats["newest"]["symbol"] == "BTC-USD"
+
+
+def test_laya_glance_off(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("LAYA_BASE_URL", raising=False)
+    monkeypatch.delenv("JEV_BASE_URL", raising=False)
+    monkeypatch.delenv("LAYA_ADVISORY", raising=False)
+    g = build_laya_glance(tmp_path)
+    assert g["ready"] is True
+    assert g["tone"] == "off"
+    assert "not a gate" in g["line"]
+
+
+def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    record_laya_decision(
+        tmp_path,
+        {
+            "ok": True,
+            "fail_open": False,
+            "reason": "ok",
+            "entry": "reject",
+            "edge_score": 0.5,
+            "fee_churn": 0.8,
+            "latency_ms": 40,
+            "model": "systemone",
+        },
+        symbol="NVDA",
+    )
+    g = build_laya_glance(tmp_path)
+    assert g["advisory"] is True
+    assert g["tone"] == "advisory"
+    assert "NVDA" in g["line"]
+    assert "reject" in g["line"]
+
+
+def test_laya_glance_in_snapshot(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("LAYA_BASE_URL", raising=False)
+    monkeypatch.delenv("JEV_BASE_URL", raising=False)
+    from openbb_backend.desk import load_desk_snapshot
+
+    (tmp_path / "portfolio.json").write_text(
+        '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '
+        '"total_fees_paid": 0}',
+        encoding="utf-8",
+    )
+    (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
+    snap = load_desk_snapshot(tmp_path, live_marks=False)
+    assert "laya_glance" in snap
+    assert snap["laya_glance"]["ready"] is True

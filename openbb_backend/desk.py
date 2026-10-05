@@ -5562,6 +5562,69 @@ def build_ai_roles_glance() -> dict[str, Any]:
     }
 
 
+def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
+    """LAYA / JEV System-1 advisory honesty (display only; not a gate).
+
+    QuantDinger-style typed pass/hold/reject + fail-open. Off until
+    ``LAYA_BASE_URL``/``JEV_BASE_URL`` + ``LAYA_ADVISORY=1``. See docs/LAYA.md.
+    """
+    from stock_checker.laya_decision import laya_status
+
+    root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
+    st = laya_status(root)
+    stats = st.get("stats") if isinstance(st.get("stats"), dict) else {}
+    newest = stats.get("newest") if isinstance(stats.get("newest"), dict) else None
+
+    if not st.get("configured"):
+        line = "off · no LAYA/JEV URL · advisory not a gate"
+        tone = "off"
+    elif not st.get("advisory"):
+        model = str(st.get("model") or "systemone")
+        if len(model) > 20:
+            model = model[:19] + "…"
+        line = f"URL set · advisory off · {model} · fail-open"
+        tone = "ready"
+    else:
+        model = str(st.get("model") or "systemone")
+        if len(model) > 16:
+            model = model[:15] + "…"
+        n_pass = int(stats.get("pass") or 0)
+        n_hold = int(stats.get("hold") or 0)
+        n_rej = int(stats.get("reject") or 0)
+        n_fo = int(stats.get("fail_open") or 0)
+        bits = [
+            "advisory on",
+            model,
+            f"{n_pass}p/{n_hold}h/{n_rej}r",
+        ]
+        if n_fo:
+            bits.append(f"{n_fo} fail-open")
+        if newest:
+            sym = str(newest.get("symbol") or "").strip()
+            entry = str(newest.get("entry") or "").strip().lower()
+            if newest.get("fail_open") or not newest.get("ok"):
+                last = f"last {sym or '?'} fail-open" if sym else "last fail-open"
+            elif entry:
+                last = f"last {sym or '?'} {entry}" if sym else f"last {entry}"
+            else:
+                last = ""
+            if last:
+                bits.append(last)
+        bits.append("not a gate")
+        line = " · ".join(bits)
+        tone = "advisory"
+
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "configured": bool(st.get("configured")),
+        "advisory": bool(st.get("advisory")),
+    }
+
+
 def build_ai_debate_glance(
     data_dir: Path | str | None = None,
     *,
@@ -10408,6 +10471,7 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
+        "laya_glance": build_laya_glance(data_dir),
         "ai_debate_glance": build_ai_debate_glance(
             data_dir, scan_interval_sec=scan_interval_sec
         ),

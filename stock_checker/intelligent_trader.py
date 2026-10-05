@@ -700,6 +700,31 @@ class IntelligentTrader:
                         symbol=symbol,
                         kept=True,
                     )
+                    # Optional LAYA/JEV System-1 advisory (fail-open; not a gate).
+                    try:
+                        from stock_checker.laya_decision import maybe_advise_paper_entry
+
+                        laya_stock = dict(stock_data)
+                        laya_stock["strategy"] = strategy
+                        laya_res = maybe_advise_paper_entry(
+                            laya_stock, self.persistence.data_dir
+                        )
+                        if laya_res is not None:
+                            opp["laya_entry"] = laya_res.get("entry")
+                            opp["laya_fail_open"] = bool(laya_res.get("fail_open"))
+                            if laya_res.get("ok"):
+                                print(
+                                    f"   LAYA advisory: {symbol} → "
+                                    f"{laya_res.get('entry')}"
+                                )
+                            else:
+                                print(
+                                    f"   LAYA fail-open: {symbol} · "
+                                    f"{laya_res.get('reason')}"
+                                )
+                            sys.stdout.flush()
+                    except Exception:
+                        pass
 
                 elif self.ai_mode == "full":
                     # In full mode: Use AI score heavily
