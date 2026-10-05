@@ -4936,6 +4936,7 @@ def build_universe_discovery_glance(
     last_raw = ""
     fail_raw = ""
     last_added: int | None = None
+    last_dropped: int | None = None
     yahoo_status = ""
     screens_ok: int | None = None
     screens_failed: int | None = None
@@ -4954,6 +4955,10 @@ def build_universe_discovery_glance(
                 last_added = int(meta.get("last_yahoo_added"))
             except (TypeError, ValueError):
                 last_added = None
+            try:
+                last_dropped = int(meta.get("last_yahoo_dropped"))
+            except (TypeError, ValueError):
+                last_dropped = None
             try:
                 screens_ok = int(meta.get("last_yahoo_screens_ok"))
             except (TypeError, ValueError):
@@ -5126,7 +5131,13 @@ def build_universe_discovery_glance(
                 else (core[: _fail_line_max - 1] + "…")
             )
     else:
-        line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
+        drop_bit = ""
+        if last_dropped is not None and last_dropped > 0:
+            drop_bit = f" · dropped {last_dropped}"
+        line = (
+            f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone}"
+            f"{drop_bit} · discovery-only"
+        )
         if len(line) > 128:
             line = line[:127] + "…"
     return {
@@ -5141,6 +5152,7 @@ def build_universe_discovery_glance(
         "age_label": age_label,
         "last_yahoo_discovery": last_raw,
         "last_yahoo_added": last_added,
+        "last_yahoo_dropped": last_dropped,
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
         "yahoo_retry_due": retry_due,

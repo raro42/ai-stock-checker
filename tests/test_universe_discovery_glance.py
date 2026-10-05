@@ -43,6 +43,8 @@ def test_universe_discovery_glance_fresh_cache(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["tone"] == "fresh"
     assert g["last_yahoo_added"] == 2
+    assert g["last_yahoo_dropped"] is None
+    assert "dropped" not in g["line"]
     assert g["age_sec"] == 6 * 3600
     assert g["yahoo_retry_due"] is False
     assert "cache 6h ago" in g["line"]
@@ -418,3 +420,50 @@ def test_universe_discovery_glance_in_chart_payload(tmp_path) -> None:
     assert g["ready"] is True
     assert g["tone"] == "stale"
     assert "cache never" in g["line"]
+
+
+def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_dropped": 4,
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_dropped"] == 4
+    assert "dropped 4" in g["line"]
+    assert g["tone"] == "fresh"
+
+
+def test_universe_discovery_glance_fail_path_hides_dropped(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": last,
+                    "last_yahoo_dropped": 4,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["yahoo_failed"] is True
+    assert g["last_yahoo_dropped"] == 4
+    assert "dropped 4" not in g["line"]
+    assert "Yahoo fail" in g["line"]

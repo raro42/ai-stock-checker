@@ -253,15 +253,8 @@ class StockUniverseManager:
         before = len(self.universe.get("stocks") or {})
         removed = False
         for dead in ("PXD",):
-            if dead in self.universe.get("stocks", {}):
-                del self.universe["stocks"][dead]
+            if self._drop_stock(dead):
                 removed = True
-                for idx in (self.universe.get("sectors"), self.universe.get("exchanges")):
-                    if not isinstance(idx, dict):
-                        continue
-                    for key, syms in list(idx.items()):
-                        if isinstance(syms, list) and dead in syms:
-                            idx[key] = [s for s in syms if s != dead]
 
         # Large-cap refresh + liquid US names + German Xetra (same as seed).
         extras = {
@@ -380,15 +373,57 @@ class StockUniverseManager:
                 break
             if self.add_stock(sym, sector="yahoo_mover", exchange="US"):
                 added += 1
+        # Complete snapshot only: empty/majority-fail returned above.
+        dropped = self.prune_dropped_yahoo_movers(symbols)
         meta["last_yahoo_discovery"] = datetime.now().isoformat()
         meta["last_yahoo_discovery_status"] = "ok"
         meta["last_yahoo_added"] = added
+        meta["last_yahoo_dropped"] = dropped
         self._save_universe()
-        if added:
-            print(f"   📡 Yahoo movers → universe: +{added} (cap {max_new})")
+        if added or dropped:
+            print(
+                f"   📡 Yahoo movers → universe: +{added} −{dropped} (cap {max_new})"
+            )
         else:
             print("   📡 Yahoo movers → universe: no new names")
         return added
+
+    def _drop_stock(self, symbol: str) -> bool:
+        """Remove a symbol from stocks plus sector/exchange indexes."""
+        stocks = self.universe.get("stocks")
+        if not isinstance(stocks, dict) or symbol not in stocks:
+            return False
+        del stocks[symbol]
+        for idx in (self.universe.get("sectors"), self.universe.get("exchanges")):
+            if not isinstance(idx, dict):
+                continue
+            for key, syms in list(idx.items()):
+                if isinstance(syms, list) and symbol in syms:
+                    idx[key] = [s for s in syms if s != symbol]
+        return True
+
+    def prune_dropped_yahoo_movers(self, live_symbols: List[str]) -> int:
+        """Drop yahoo_mover names absent from a complete movers snapshot.
+
+        xang1234 weekly-US-stale-seed: deactivate symbols the source dropped.
+        Incomplete/empty fetches must not call this (empty ≠ drop-all).
+        Curated seed names stay even if they were never movers.
+        """
+        live = {str(s).strip().upper() for s in live_symbols if str(s).strip()}
+        dropped = 0
+        stocks = self.universe.get("stocks")
+        if not isinstance(stocks, dict):
+            return 0
+        for symbol, info in list(stocks.items()):
+            if not isinstance(info, dict):
+                continue
+            if str(info.get("sector") or "") != "yahoo_mover":
+                continue
+            if str(symbol).strip().upper() in live:
+                continue
+            if self._drop_stock(symbol):
+                dropped += 1
+        return dropped
 
     def add_stock(self, symbol: str, sector: str = "unknown", exchange: str = "unknown"):
         """Add a stock to the universe."""

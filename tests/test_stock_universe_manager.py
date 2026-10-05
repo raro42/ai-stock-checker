@@ -120,3 +120,46 @@ def test_yahoo_discovery_due_failed_skips_success_age_throttle(tmp_path: Path):
     mgr.universe["meta"]["last_yahoo_discovery_fail"] = datetime.now().isoformat()
     assert mgr.yahoo_discovery_due(max_age_hours=24) is False
 
+
+def test_discover_yahoo_movers_prunes_dropped_movers(tmp_path: Path, monkeypatch):
+    mgr = StockUniverseManager(data_dir=str(tmp_path))
+    assert mgr.add_stock("ZZZZOLD", sector="yahoo_mover", exchange="US")
+    assert mgr.add_stock("YYYYKEEP", sector="yahoo_mover", exchange="US")
+    mgr._save_universe()
+
+    def ok_report(*, per_screen: int = 25):
+        return ["YYYYKEEP", "AAPL"], 3, 0
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.discover_yahoo_mover_report",
+        ok_report,
+    )
+    added = mgr.discover_yahoo_movers()
+    assert added == 0
+    assert "ZZZZOLD" not in mgr.universe["stocks"]
+    assert "YYYYKEEP" in mgr.universe["stocks"]
+    assert "AAPL" in mgr.universe["stocks"]
+    assert mgr.universe["stocks"]["AAPL"]["sector"] != "yahoo_mover"
+    assert mgr.universe["meta"]["last_yahoo_dropped"] == 1
+    assert mgr.universe["meta"]["last_yahoo_discovery_status"] == "ok"
+
+
+def test_discover_yahoo_movers_empty_does_not_prune_movers(
+    tmp_path: Path, monkeypatch
+):
+    mgr = StockUniverseManager(data_dir=str(tmp_path))
+    assert mgr.add_stock("ZZZZOLD", sector="yahoo_mover", exchange="US")
+    mgr._save_universe()
+
+    def empty_report(*, per_screen: int = 25):
+        return [], 0, 3
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.discover_yahoo_mover_report",
+        empty_report,
+    )
+    added = mgr.discover_yahoo_movers()
+    assert added == 0
+    assert "ZZZZOLD" in mgr.universe["stocks"]
+    assert mgr.universe["meta"].get("last_yahoo_dropped") is None
+
