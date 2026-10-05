@@ -163,3 +163,22 @@ def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
     # rs_gate matches env (both false) → not an override; partial speaks env gaps
     assert st["tone"] in {"partial", "file"}
     assert "partial" in st["line"] or "matches env" in st["line"]
+
+
+def test_config_precedence_override_speaks_env_gaps(tmp_path: Path, monkeypatch):
+    """Partial Ops file: overrides + missing keys both speak (portfolio AI both-sides)."""
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("RS_GATE", "1")
+    monkeypatch.setenv("BREADTH_GATE", "1")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"ai_mode": "validate"}) + "\n"
+    )
+    cfg = load_trader_config(tmp_path)
+    assert cfg["ai_mode"] == "validate"
+    assert cfg["rs_gate"] is True  # missing → env
+    st = config_precedence_status(tmp_path)
+    assert st["tone"] == "override"
+    assert "ai_mode" in st["overrides"]
+    assert "rs_gate" in st["env_fallbacks"]
+    assert "Ops wins" in st["line"]
+    assert "env for" in st["line"]

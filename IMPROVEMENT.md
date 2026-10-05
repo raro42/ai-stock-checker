@@ -100,6 +100,7 @@ Source reviews (2026-08-12): (A) trading-logic review, (B) maintainability asses
 
 - [x] **GitHub #1 (2026-10-05):** Document shared desk `https://stock.zeitfenster.de/desk` in README + FRIENDS; improve loop now checks open `gh issue`s before watch-digest polish (AUTOPILOT / `run_improve_loop.sh`)
 - [x] **xang1234 config-reader precedence (2026-10-05 improve):** Ops + `/desk/api/config` speak saved-row > env order (`config_precedence_status` / `file · Ops wins · …` / partial env fallbacks) — watch #394 / 7ec7dfe; display/ops honesty only; not a new gate; do not start B / flip compose (A3)
+- [x] **xang1234 + portfolio AI config precedence both-sides (2026-10-05 improve):** when Ops overrides some knobs and a partial file leaves others to env, Ops line speaks `Ops wins · … · env for …` (not override-only silence) — watch #394 after saved-row + speak-both-sides; display/ops honesty only; not a new gate; do not start B / flip compose (A3)
 
 ### Phase A — Prove
 - [x] Buy-and-hold benchmark script + Docker runner (`scripts/benchmark_buy_hold.py`)

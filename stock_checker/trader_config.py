@@ -263,7 +263,8 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
 
     Adapted from xang1234/stock-screener #394 (saved row over environment).
     Not a gate — friends see whether a redeploy's env can still shadow knobs
-    missing from a partial Ops file.
+    missing from a partial Ops file. When Ops overrides some keys and leaves
+    others to env, the line speaks both sides (override keys + env gaps).
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -311,6 +312,11 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     if overrides:
         bits = _format_key_list(overrides)
         line = f"file · Ops wins · {bits}"
+        # Speak-both-sides: Ops override keys ≠ silent env gaps on a partial file
+        # (portfolio AI + xang1234 #394 after saved-row precedence).
+        if env_fallbacks:
+            gap = _format_key_list(env_fallbacks, limit=2)
+            line = f"{line} · env for {gap}"
         tone = "override"
     elif env_fallbacks:
         bits = _format_key_list(env_fallbacks, limit=3)
