@@ -151,9 +151,12 @@ def test_universe_discovery_glance_yahoo_fail_stale_seed(tmp_path) -> None:
     assert "seed 2d ago · stale" in g["line"]
     assert "retry due" in g["line"]
     assert g["fail_freshness"] == "never"
+    assert g["seed_vs_fail"] == ""
     assert "fail fresh" not in g["line"]
     assert "fail aging" not in g["line"]
     assert "fail stale" not in g["line"]
+    assert "seed lags" not in g["line"]
+    assert "fail lags" not in g["line"]
 
 
 def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
@@ -191,6 +194,8 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert aging["fail_age_label"] == "30h ago"
     assert "fail 30h ago · aging" in aging["line"]
     assert "seed 6h ago · fresh" in aging["line"]
+    assert aging["seed_vs_fail"] == "fail lags"
+    assert "fail lags" in aging["line"]
     assert aging["tone"] == "warn"
 
     _write(50)
@@ -199,6 +204,45 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert stale["fail_age_label"] == "2d ago"
     assert "fail 2d ago · stale" in stale["line"]
     assert "seed 6h ago · fresh" in stale["line"]
+    # seed fresh + fail stale → fail is the older band
+    assert stale["seed_vs_fail"] == "fail lags"
+    assert "fail lags" in stale["line"]
+    assert "seed lags" not in stale["line"]
+
+    _write(6)
+    aligned = build_universe_discovery_glance(tmp_path, now=now)
+    assert aligned["seed_vs_fail"] == ""
+    assert "seed lags" not in aligned["line"]
+    assert "fail lags" not in aligned["line"]
+
+
+def test_universe_discovery_glance_yahoo_fail_seed_lags(tmp_path) -> None:
+    """Seed older than fail → seed lags (speak-both-sides; display only)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    seed = (now - timedelta(hours=50)).replace(tzinfo=None).isoformat()
+    fail = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": seed,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": fail,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["seed_freshness"] == "stale"
+    assert g["fail_freshness"] == "fresh"
+    assert g["seed_vs_fail"] == "seed lags"
+    assert "seed 2d ago · stale" in g["line"]
+    assert "fail 6h ago · fresh" in g["line"]
+    assert "seed lags" in g["line"]
+    assert "fail lags" not in g["line"]
+    assert "retry due" in g["line"]
 
 
 def test_universe_discovery_glance_in_snapshot(tmp_path) -> None:

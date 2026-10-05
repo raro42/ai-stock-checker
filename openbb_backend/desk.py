@@ -4748,6 +4748,8 @@ def build_universe_discovery_glance(
     A failed fetch names seed clock age + band (``seed 6h ago · fresh``)
     and last-fail clock age + band (``fail 6h ago · fresh``) — success-path
     ``cache Nh ago`` parity so friends see how old the reused list is.
+    When both bands speak and disagree, append ``seed lags`` / ``fail lags``
+    (portfolio AI + xang1234 speak-both-sides: clock ages ≠ same freshness).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4848,6 +4850,14 @@ def build_universe_discovery_glance(
         screens_n = max(0, screens_ok) + max(0, screens_failed)
         if screens_n > 0:
             screens_bit = f"{screens_ok}/{screens_n}"
+    # portfolio AI + xang1234: two age bands can still disagree — speak which
+    # side is older (same band stays silent; missing fail stamp stays silent).
+    _band_rank = {"fresh": 0, "aging": 1, "stale": 2}
+    seed_vs_fail = ""
+    seed_rank = _band_rank.get(seed_freshness)
+    fail_rank = _band_rank.get(fail_freshness)
+    if seed_rank is not None and fail_rank is not None and seed_rank != fail_rank:
+        seed_vs_fail = "seed lags" if seed_rank > fail_rank else "fail lags"
     if yahoo_failed:
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
@@ -4870,14 +4880,15 @@ def build_universe_discovery_glance(
             fail_bit = f" · fail {fail_freshness}"
         else:
             fail_bit = ""
+        lag = f" · {seed_vs_fail}" if seed_vs_fail else ""
         line = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{frac} · {seed_bit}{fail_bit}{retry}"
+            f"Yahoo fail{frac} · {seed_bit}{fail_bit}{lag}{retry}"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    if len(line) > 112:
+        line = line[:111] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -4897,6 +4908,7 @@ def build_universe_discovery_glance(
         "fail_age_sec": fail_age_sec,
         "fail_age_label": fail_age_label,
         "fail_freshness": fail_freshness,
+        "seed_vs_fail": seed_vs_fail,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "screens_bit": screens_bit,

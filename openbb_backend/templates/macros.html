@@ -687,7 +687,7 @@
   heading_id='universe-discovery-glance-h',
   link_href='/desk/screener',
   link_label='Screener →',
-  sub='Yahoo movers grow the curated US+DE scan list only. Empty/blocked Yahoo keeps the last good seed age (reuse seed · seed fresh|aging|stale) and speaks fail fresh|aging|stale from the last fail stamp plus retry due — it does not inherit the 24h success throttle. Buys still need gates. Display only — not a new gate.'
+  sub='Yahoo movers grow the curated US+DE scan list only. Empty/blocked Yahoo keeps the last good seed clock age (seed Nh ago · fresh|aging|stale), speaks fail Nh ago · band from the last fail stamp, seed lags / fail lags when those bands disagree, plus retry due — it does not inherit the 24h success throttle. Buys still need gates. Display only — not a new gate.'
 ) -%}
 {% set glance = snap.universe_discovery_glance if snap.universe_discovery_glance is mapping else {} %}
 {% if glance.ready %}
