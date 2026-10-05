@@ -284,24 +284,35 @@ def _scan_vs_cash_print_clash(
     A fresh 10m scan archive is the crypto/composite clock, not a live cash
     print. Speak when that archive tone disagrees with the worst last-published
     sleeve. Same band stays silent. Live cash stays silent.
+
+    When sleeves disagree on band (or only one is pinned), name the market
+    that owns the worst print — xang1234 #531 market-pointer over a nameless
+    global ``cash`` label. Both sleeves on the same worst band stay ``cash``.
     """
     if tone not in _CASH_PRINT_RANK:
         return "", ""
-    bands: list[str] = []
+    sleeves: list[tuple[str, str]] = []
     if meta.get("cash_print_us_last_published"):
         us_band = str(meta.get("cash_print_us_freshness") or "")
         if us_band in _CASH_PRINT_RANK:
-            bands.append(us_band)
+            sleeves.append(("US", us_band))
     if meta.get("cash_print_xetra_last_published"):
         xetra_band = str(meta.get("cash_print_xetra_freshness") or "")
         if xetra_band in _CASH_PRINT_RANK:
-            bands.append(xetra_band)
-    if not bands:
+            sleeves.append(("Xetra", xetra_band))
+    if not sleeves:
         return "", ""
-    cash = max(bands, key=lambda band: _CASH_PRINT_RANK[band])
+    cash = max((band for _, band in sleeves), key=lambda band: _CASH_PRINT_RANK[band])
     if tone == cash:
         return "", cash
-    return f"scan vs cash clash · scan {tone} · cash {cash}", cash
+    owners = [
+        name for name, band in sleeves if _CASH_PRINT_RANK[band] == _CASH_PRINT_RANK[cash]
+    ]
+    if len(owners) == 1:
+        cash_bit = f"{owners[0]} cash {cash}"
+    else:
+        cash_bit = f"cash {cash}"
+    return f"scan vs cash clash · scan {tone} · {cash_bit}", cash
 
 
 def _scan_vs_cash_clash_delta(tone: str, cash: str) -> str:
@@ -335,7 +346,8 @@ def build_scan_freshness(
     (RyanJHamby triad; hours ≠ weekend vs same-evening). When the scan-archive
     tone disagrees with the worst pinned cash print, speak
     ``scan vs cash clash`` (compile clock ≠ snapshot age) plus ``Δ wide|thin``
-    (fresh↔stale vs adjacent). Not an entry gate.
+    (fresh↔stale vs adjacent). When only one market owns the worst print,
+    name that sleeve (xang1234 #531 market-pointer). Not an entry gate.
     """
     empty = {
         "ready": False,

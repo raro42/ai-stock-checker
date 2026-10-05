@@ -10,6 +10,7 @@ from openbb_backend.desk import (
     build_scan_freshness,
     cash_print_freshness,
     _scan_vs_cash_clash_delta,
+    _scan_vs_cash_print_clash,
 )
 
 
@@ -105,6 +106,7 @@ def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
     assert g["cash_print_us_freshness"] in g["provenance_bit"]
     if g["cash_print_us_freshness"] != g["tone"]:
         assert "scan vs cash clash" in g["scan_vs_cash_clash"]
+        assert f"US cash {g['cash_print_us_freshness']}" in g["scan_vs_cash_clash"]
         assert g["scan_vs_cash_print"] == g["cash_print_us_freshness"]
         assert g["scan_vs_cash_clash_delta"] in ("wide", "thin")
         assert f"Δ {g['scan_vs_cash_clash_delta']}" in g["scan_vs_cash_clash"]
@@ -130,6 +132,9 @@ def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
     assert g["cash_print_xetra_freshness"] in g["provenance_bit"]
     if g["cash_print_xetra_freshness"] != g["tone"]:
         assert "scan vs cash clash" in g["scan_vs_cash_clash"]
+        assert (
+            f"Xetra cash {g['cash_print_xetra_freshness']}" in g["scan_vs_cash_clash"]
+        )
         assert g["scan_vs_cash_print"] == g["cash_print_xetra_freshness"]
         assert g["scan_vs_cash_clash_delta"] in ("wide", "thin")
         assert f"Δ {g['scan_vs_cash_clash_delta']}" in g["scan_vs_cash_clash"]
@@ -216,3 +221,42 @@ def test_scan_vs_cash_clash_delta_bands() -> None:
     assert _scan_vs_cash_clash_delta("stale", "fresh") == "wide"
     assert _scan_vs_cash_clash_delta("fresh", "fresh") == ""
     assert _scan_vs_cash_clash_delta("fresh", "") == ""
+
+
+def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
+    """xang1234 #531: worst sleeve owns the clash label, not a nameless cash."""
+    clash, cash = _scan_vs_cash_print_clash(
+        "fresh",
+        {
+            "cash_print_us_last_published": True,
+            "cash_print_us_freshness": "stale",
+            "cash_print_xetra_last_published": True,
+            "cash_print_xetra_freshness": "aging",
+        },
+    )
+    assert cash == "stale"
+    assert clash == "scan vs cash clash · scan fresh · US cash stale"
+
+    clash_both, cash_both = _scan_vs_cash_print_clash(
+        "fresh",
+        {
+            "cash_print_us_last_published": True,
+            "cash_print_us_freshness": "stale",
+            "cash_print_xetra_last_published": True,
+            "cash_print_xetra_freshness": "stale",
+        },
+    )
+    assert cash_both == "stale"
+    assert clash_both == "scan vs cash clash · scan fresh · cash stale"
+
+    clash_xetra, cash_xetra = _scan_vs_cash_print_clash(
+        "fresh",
+        {
+            "cash_print_us_last_published": False,
+            "cash_print_us_freshness": "",
+            "cash_print_xetra_last_published": True,
+            "cash_print_xetra_freshness": "aging",
+        },
+    )
+    assert cash_xetra == "aging"
+    assert clash_xetra == "scan vs cash clash · scan fresh · Xetra cash aging"
