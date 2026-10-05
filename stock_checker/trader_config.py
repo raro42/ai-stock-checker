@@ -265,35 +265,36 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     Not a gate — friends see whether a redeploy's env can still shadow knobs
     missing from a partial Ops file. When Ops overrides some keys and leaves
     others to env, the line speaks both sides (override keys + env gaps).
+    Keys present in the Ops file that still match env speak as confirms
+    (portfolio AI speak-both-sides — override ≠ silent agreement).
     """
     path = config_path(data_dir)
     env = _env_defaults()
+    empty = {
+        "overrides": [],
+        "confirms": [],
+        "env_fallbacks": list(PRECEDENCE_KEYS),
+        "override_n": 0,
+        "confirm_n": 0,
+        "env_fallback_n": len(PRECEDENCE_KEYS),
+        "ready": True,
+    }
     if not path.is_file():
-        line = "env · no Ops file"
         return {
+            **empty,
             "source": "env",
-            "overrides": [],
-            "env_fallbacks": list(PRECEDENCE_KEYS),
-            "override_n": 0,
-            "env_fallback_n": len(PRECEDENCE_KEYS),
             "tone": "env",
-            "line": line,
-            "ready": True,
+            "line": "env · no Ops file",
         }
 
     try:
         raw = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
-        line = "env · Ops file unreadable"
         return {
+            **empty,
             "source": "env",
-            "overrides": [],
-            "env_fallbacks": list(PRECEDENCE_KEYS),
-            "override_n": 0,
-            "env_fallback_n": len(PRECEDENCE_KEYS),
             "tone": "warn",
-            "line": line,
-            "ready": True,
+            "line": "env · Ops file unreadable",
         }
 
     if not isinstance(raw, dict):
@@ -301,6 +302,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
 
     effective = normalize_config(raw, base=env)
     overrides: list[str] = []
+    confirms: list[str] = []
     env_fallbacks: list[str] = []
     for key in PRECEDENCE_KEYS:
         if key not in raw:
@@ -308,12 +310,17 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
             continue
         if _values_differ(effective.get(key), env.get(key)):
             overrides.append(key)
+        else:
+            confirms.append(key)
 
     if overrides:
         bits = _format_key_list(overrides)
         line = f"file · Ops wins · {bits}"
-        # Speak-both-sides: Ops override keys ≠ silent env gaps on a partial file
+        # Speak-both-sides: Ops override ≠ silent confirms / env gaps
         # (portfolio AI + xang1234 #394 after saved-row precedence).
+        if confirms:
+            conf = _format_key_list(confirms, limit=2)
+            line = f"{line} · confirms {conf}"
         if env_fallbacks:
             gap = _format_key_list(env_fallbacks, limit=2)
             line = f"{line} · env for {gap}"
@@ -321,6 +328,9 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     elif env_fallbacks:
         bits = _format_key_list(env_fallbacks, limit=3)
         line = f"file · partial · env for {bits}"
+        if confirms:
+            conf = _format_key_list(confirms, limit=2)
+            line = f"{line} · confirms {conf}"
         tone = "partial"
     else:
         line = "file · Ops wins · matches env"
@@ -332,8 +342,10 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     return {
         "source": "file",
         "overrides": overrides,
+        "confirms": confirms,
         "env_fallbacks": env_fallbacks,
         "override_n": len(overrides),
+        "confirm_n": len(confirms),
         "env_fallback_n": len(env_fallbacks),
         "tone": tone,
         "line": line,

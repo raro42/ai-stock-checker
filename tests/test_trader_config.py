@@ -182,3 +182,30 @@ def test_config_precedence_override_speaks_env_gaps(tmp_path: Path, monkeypatch)
     assert "rs_gate" in st["env_fallbacks"]
     assert "Ops wins" in st["line"]
     assert "env for" in st["line"]
+
+
+def test_config_precedence_override_speaks_confirms(tmp_path: Path, monkeypatch):
+    """Ops keys that match env speak as confirms (not silent agreement)."""
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("RS_GATE", "1")
+    monkeypatch.setenv("BREADTH_GATE", "1")
+    monkeypatch.setenv("MIN_HOLD_HOURS", "24")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps(
+            {
+                "ai_mode": "validate",
+                "rs_gate": True,
+                "min_hold_hours": 24,
+            }
+        )
+        + "\n"
+    )
+    st = config_precedence_status(tmp_path)
+    assert st["tone"] == "override"
+    assert "ai_mode" in st["overrides"]
+    assert "rs_gate" in st["confirms"]
+    assert "min_hold_hours" in st["confirms"]
+    assert "breadth_gate" in st["env_fallbacks"]
+    assert "Ops wins" in st["line"]
+    assert "confirms" in st["line"]
+    assert "env for" in st["line"]
