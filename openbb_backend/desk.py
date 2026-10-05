@@ -304,6 +304,22 @@ def _scan_vs_cash_print_clash(
     return f"scan vs cash clash · scan {tone} · cash {cash}", cash
 
 
+def _scan_vs_cash_clash_delta(tone: str, cash: str) -> str:
+    """xang1234 share-Δ severity after clash (display only).
+
+    Adjacent bands (fresh↔aging, aging↔stale) are Δ thin. Fresh↔stale is
+    Δ wide. Same band is silent. Naming the clash alone hid Saturday vs Sunday.
+    """
+    if tone not in _CASH_PRINT_RANK or cash not in _CASH_PRINT_RANK:
+        return ""
+    gap = abs(_CASH_PRINT_RANK[tone] - _CASH_PRINT_RANK[cash])
+    if gap >= 2:
+        return "wide"
+    if gap == 1:
+        return "thin"
+    return ""
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
@@ -318,7 +334,8 @@ def build_scan_freshness(
     name hours since that venue's cash close plus a freshness band
     (RyanJHamby triad; hours ≠ weekend vs same-evening). When the scan-archive
     tone disagrees with the worst pinned cash print, speak
-    ``scan vs cash clash`` (compile clock ≠ snapshot age). Not an entry gate.
+    ``scan vs cash clash`` (compile clock ≠ snapshot age) plus ``Δ wide|thin``
+    (fresh↔stale vs adjacent). Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -337,6 +354,7 @@ def build_scan_freshness(
         "cash_print_xetra_last_published": False,
         "scan_vs_cash_clash": "",
         "scan_vs_cash_print": "",
+        "scan_vs_cash_clash_delta": "",
     }
     raw = str(scan_time or "").strip()
     if not raw:
@@ -364,6 +382,9 @@ def build_scan_freshness(
     age_label = _format_age_short(age_sec)
     provenance, provenance_bit, print_meta = _scan_last_published_provenance(clock)
     clash, cash_worst = _scan_vs_cash_print_clash(tone, print_meta)
+    clash_delta = _scan_vs_cash_clash_delta(tone, cash_worst) if clash else ""
+    if clash and clash_delta:
+        clash = f"{clash} · Δ {clash_delta}"
     line = f"Scan {age_label} · {tone}"
     if provenance_bit:
         line = f"{line} · {provenance_bit}"
@@ -380,6 +401,7 @@ def build_scan_freshness(
         "provenance_bit": provenance_bit,
         "scan_vs_cash_clash": clash,
         "scan_vs_cash_print": cash_worst,
+        "scan_vs_cash_clash_delta": clash_delta,
         **print_meta,
     }
 

@@ -6,7 +6,11 @@ from datetime import datetime, timezone
 
 import pytz
 
-from openbb_backend.desk import build_scan_freshness, cash_print_freshness
+from openbb_backend.desk import (
+    build_scan_freshness,
+    cash_print_freshness,
+    _scan_vs_cash_clash_delta,
+)
 
 
 def test_scan_freshness_empty() -> None:
@@ -79,6 +83,7 @@ def test_scan_freshness_last_published_when_cash_closed() -> None:
     assert g["cash_print_xetra_freshness"] == "fresh"
     assert "fresh" in g["provenance_bit"]
     assert g["scan_vs_cash_clash"] == ""
+    assert g["scan_vs_cash_clash_delta"] == ""
 
 
 def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
@@ -101,8 +106,11 @@ def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
     if g["cash_print_us_freshness"] != g["tone"]:
         assert "scan vs cash clash" in g["scan_vs_cash_clash"]
         assert g["scan_vs_cash_print"] == g["cash_print_us_freshness"]
+        assert g["scan_vs_cash_clash_delta"] in ("wide", "thin")
+        assert f"Δ {g['scan_vs_cash_clash_delta']}" in g["scan_vs_cash_clash"]
     else:
         assert g["scan_vs_cash_clash"] == ""
+        assert g["scan_vs_cash_clash_delta"] == ""
 
 
 def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
@@ -123,8 +131,11 @@ def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
     if g["cash_print_xetra_freshness"] != g["tone"]:
         assert "scan vs cash clash" in g["scan_vs_cash_clash"]
         assert g["scan_vs_cash_print"] == g["cash_print_xetra_freshness"]
+        assert g["scan_vs_cash_clash_delta"] in ("wide", "thin")
+        assert f"Δ {g['scan_vs_cash_clash_delta']}" in g["scan_vs_cash_clash"]
     else:
         assert g["scan_vs_cash_clash"] == ""
+        assert g["scan_vs_cash_clash_delta"] == ""
 
 
 def test_scan_freshness_live_when_both_cash_open() -> None:
@@ -140,6 +151,7 @@ def test_scan_freshness_live_when_both_cash_open() -> None:
     assert "last published" not in g["line"]
     assert "crypto live" not in g["line"]
     assert g["scan_vs_cash_clash"] == ""
+    assert g["scan_vs_cash_clash_delta"] == ""
 
 
 def test_scan_freshness_weekend_stocks_paused() -> None:
@@ -158,9 +170,13 @@ def test_scan_freshness_weekend_stocks_paused() -> None:
     assert g["cash_print_us_freshness"] == "aging"
     assert g["cash_print_xetra_freshness"] == "aging"
     assert "aging" in g["provenance_bit"]
-    assert g["scan_vs_cash_clash"] == "scan vs cash clash · scan fresh · cash aging"
+    assert g["scan_vs_cash_clash"] == (
+        "scan vs cash clash · scan fresh · cash aging · Δ thin"
+    )
     assert g["scan_vs_cash_print"] == "aging"
+    assert g["scan_vs_cash_clash_delta"] == "thin"
     assert "scan vs cash clash" in g["line"]
+    assert "Δ thin" in g["line"]
 
 
 def test_cash_print_freshness_bands() -> None:
@@ -184,6 +200,19 @@ def test_scan_freshness_weekend_sunday_cash_print_stale() -> None:
     assert g["cash_print_xetra_freshness"] == "stale"
     assert "stale" in g["provenance_bit"]
     assert "stocks paused" in g["provenance_bit"]
-    assert g["scan_vs_cash_clash"] == "scan vs cash clash · scan fresh · cash stale"
+    assert g["scan_vs_cash_clash"] == (
+        "scan vs cash clash · scan fresh · cash stale · Δ wide"
+    )
     assert g["scan_vs_cash_print"] == "stale"
+    assert g["scan_vs_cash_clash_delta"] == "wide"
     assert "scan vs cash clash" in g["line"]
+    assert "Δ wide" in g["line"]
+
+
+def test_scan_vs_cash_clash_delta_bands() -> None:
+    assert _scan_vs_cash_clash_delta("fresh", "aging") == "thin"
+    assert _scan_vs_cash_clash_delta("aging", "stale") == "thin"
+    assert _scan_vs_cash_clash_delta("fresh", "stale") == "wide"
+    assert _scan_vs_cash_clash_delta("stale", "fresh") == "wide"
+    assert _scan_vs_cash_clash_delta("fresh", "fresh") == ""
+    assert _scan_vs_cash_clash_delta("fresh", "") == ""
