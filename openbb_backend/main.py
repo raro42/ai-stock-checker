@@ -232,7 +232,9 @@ def desk_config_get():
         "source": str(prec.get("source") or "env"),
         "precedence": prec.get("line") or "",
         "precedence_tone": prec.get("tone") or "env",
+        "precedence_meter": prec.get("meter") or "",
         "overrides": list(prec.get("overrides") or []),
+        "confirms": list(prec.get("confirms") or []),
         "env_fallbacks": list(prec.get("env_fallbacks") or []),
         "note": (
             "Saved Ops row wins over compose/env for keys present in "

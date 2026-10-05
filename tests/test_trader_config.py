@@ -145,6 +145,8 @@ def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     assert st["tone"] == "env"
     assert "no Ops file" in st["line"]
     assert st["env_fallback_n"] > 0
+    assert st["meter"] == f"0 win · 0 ok · {st['env_fallback_n']} env"
+    assert st["meter"] in st["line"]
 
 
 def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
@@ -163,6 +165,7 @@ def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
     # rs_gate matches env (both false) → not an override; partial speaks env gaps
     assert st["tone"] in {"partial", "file"}
     assert "partial" in st["line"] or "matches env" in st["line"]
+    assert st["meter"] in st["line"]
 
 
 def test_config_precedence_override_speaks_env_gaps(tmp_path: Path, monkeypatch):
@@ -182,6 +185,9 @@ def test_config_precedence_override_speaks_env_gaps(tmp_path: Path, monkeypatch)
     assert "rs_gate" in st["env_fallbacks"]
     assert "Ops wins" in st["line"]
     assert "env for" in st["line"]
+    assert st["override_n"] == 1
+    assert st["meter"].startswith("1 win ·")
+    assert st["meter"] in st["line"]
 
 
 def test_config_precedence_override_speaks_confirms(tmp_path: Path, monkeypatch):
@@ -209,3 +215,48 @@ def test_config_precedence_override_speaks_confirms(tmp_path: Path, monkeypatch)
     assert "Ops wins" in st["line"]
     assert "confirms" in st["line"]
     assert "env for" in st["line"]
+    assert st["override_n"] == 1
+    assert st["confirm_n"] == 2
+    assert st["meter"] == f"1 win · 2 ok · {st['env_fallback_n']} env"
+    assert st["meter"] in st["line"]
+    # Meter sits before key names so a long line still keeps the triad.
+    assert st["line"].index(st["meter"]) < st["line"].index("confirms")
+
+
+def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
+    """Multi-meter stays ahead of key names when the line hits 96 chars."""
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("AI_MODEL", "gemma4:latest")
+    monkeypatch.setenv("AI_MULTI_ROLE", "1")
+    monkeypatch.setenv("REGIME_GATE", "1")
+    monkeypatch.setenv("RS_GATE", "1")
+    monkeypatch.setenv("BREADTH_GATE", "1")
+    monkeypatch.setenv("FEE_PRESET", "revolut_standard")
+    monkeypatch.setenv("MAX_POSITIONS", "5")
+    monkeypatch.setenv("MIN_HOLD_HOURS", "24")
+    monkeypatch.setenv("PROMOTE_EXPERIMENT_STRATEGY", "0")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps(
+            {
+                "ai_mode": "validate",
+                "ai_model": "qwen3.5:9b",
+                "ai_multi_role": False,
+                "regime_gate": False,
+                "rs_gate": False,
+                "breadth_gate": False,
+                "fee_preset": "revolut_ultra",
+                "max_positions": 3,
+                "min_hold_hours": 48,
+                "promote_experiment_strategy": True,
+            }
+        )
+        + "\n"
+    )
+    st = config_precedence_status(tmp_path)
+    assert st["tone"] == "override"
+    assert st["override_n"] == 10
+    assert st["confirm_n"] == 0
+    assert st["env_fallback_n"] == 0
+    assert st["meter"] == "10 win · 0 ok · 0 env"
+    assert st["meter"] in st["line"]
+    assert len(st["line"]) <= 96

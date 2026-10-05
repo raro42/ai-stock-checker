@@ -253,6 +253,11 @@ def _format_key_list(keys: list[str], *, limit: int = 4) -> str:
     return bits
 
 
+def _precedence_meter(override_n: int, confirm_n: int, env_n: int) -> str:
+    """Compact win/ok/env counts (xang1234 multi-meter + portfolio AI)."""
+    return f"{override_n} win · {confirm_n} ok · {env_n} env"
+
+
 def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     """Report Ops file vs env/compose precedence (display / API honesty).
 
@@ -267,16 +272,20 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     others to env, the line speaks both sides (override keys + env gaps).
     Keys present in the Ops file that still match env speak as confirms
     (portfolio AI speak-both-sides — override ≠ silent agreement).
+    A multi-meter (N win · N ok · N env) speaks early so counts survive the
+    96-char truncate when key names are long (xang1234 + portfolio AI meter).
     """
     path = config_path(data_dir)
     env = _env_defaults()
+    n_keys = len(PRECEDENCE_KEYS)
     empty = {
         "overrides": [],
         "confirms": [],
         "env_fallbacks": list(PRECEDENCE_KEYS),
         "override_n": 0,
         "confirm_n": 0,
-        "env_fallback_n": len(PRECEDENCE_KEYS),
+        "env_fallback_n": n_keys,
+        "meter": _precedence_meter(0, 0, n_keys),
         "ready": True,
     }
     if not path.is_file():
@@ -284,7 +293,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
             **empty,
             "source": "env",
             "tone": "env",
-            "line": "env · no Ops file",
+            "line": f"env · no Ops file · {_precedence_meter(0, 0, n_keys)}",
         }
 
     try:
@@ -294,7 +303,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
             **empty,
             "source": "env",
             "tone": "warn",
-            "line": "env · Ops file unreadable",
+            "line": f"env · Ops file unreadable · {_precedence_meter(0, 0, n_keys)}",
         }
 
     if not isinstance(raw, dict):
@@ -313,9 +322,11 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         else:
             confirms.append(key)
 
+    meter = _precedence_meter(len(overrides), len(confirms), len(env_fallbacks))
     if overrides:
         bits = _format_key_list(overrides)
-        line = f"file · Ops wins · {bits}"
+        # Meter before key names so truncate keeps the triad (Window A style).
+        line = f"file · Ops wins · {meter} · {bits}"
         # Speak-both-sides: Ops override ≠ silent confirms / env gaps
         # (portfolio AI + xang1234 #394 after saved-row precedence).
         if confirms:
@@ -327,13 +338,13 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         tone = "override"
     elif env_fallbacks:
         bits = _format_key_list(env_fallbacks, limit=3)
-        line = f"file · partial · env for {bits}"
+        line = f"file · partial · {meter} · env for {bits}"
         if confirms:
             conf = _format_key_list(confirms, limit=2)
             line = f"{line} · confirms {conf}"
         tone = "partial"
     else:
-        line = "file · Ops wins · matches env"
+        line = f"file · Ops wins · {meter} · matches env"
         tone = "file"
 
     if len(line) > 96:
@@ -347,6 +358,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "override_n": len(overrides),
         "confirm_n": len(confirms),
         "env_fallback_n": len(env_fallbacks),
+        "meter": meter,
         "tone": tone,
         "line": line,
         "ready": True,
