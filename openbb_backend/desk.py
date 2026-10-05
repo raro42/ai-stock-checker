@@ -288,6 +288,9 @@ def _scan_vs_cash_print_clash(
     When sleeves disagree on band (or only one is pinned), name the market
     that owns the worst print — xang1234 #531 market-pointer over a nameless
     global ``cash`` label. Both sleeves on the same worst band stay ``cash``.
+    When a market-pointer owns the worst print and the other pinned sleeve is
+    calmer, also speak that runner band (portfolio AI speak-both-sides) so
+    friends see US stale · Xetra aging, not a lone worst label.
     """
     if tone not in _CASH_PRINT_RANK:
         return "", ""
@@ -310,6 +313,12 @@ def _scan_vs_cash_print_clash(
     ]
     if len(owners) == 1:
         cash_bit = f"{owners[0]} cash {cash}"
+        runners = [
+            (name, band) for name, band in sleeves if name not in owners
+        ]
+        if len(runners) == 1:
+            r_name, r_band = runners[0]
+            cash_bit = f"{cash_bit} · {r_name} {r_band}"
     else:
         cash_bit = f"cash {cash}"
     return f"scan vs cash clash · scan {tone} · {cash_bit}", cash
@@ -347,7 +356,9 @@ def build_scan_freshness(
     tone disagrees with the worst pinned cash print, speak
     ``scan vs cash clash`` (compile clock ≠ snapshot age) plus ``Δ wide|thin``
     (fresh↔stale vs adjacent). When only one market owns the worst print,
-    name that sleeve (xang1234 #531 market-pointer). Not an entry gate.
+    name that sleeve (xang1234 #531 market-pointer) and the calmer runner
+    sleeve when both are pinned (portfolio AI speak-both-sides). Not an entry
+    gate.
     """
     empty = {
         "ready": False,

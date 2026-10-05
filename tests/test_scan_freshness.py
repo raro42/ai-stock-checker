@@ -235,7 +235,9 @@ def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
         },
     )
     assert cash == "stale"
-    assert clash == "scan vs cash clash · scan fresh · US cash stale"
+    assert clash == (
+        "scan vs cash clash · scan fresh · US cash stale · Xetra aging"
+    )
 
     clash_both, cash_both = _scan_vs_cash_print_clash(
         "fresh",
@@ -260,3 +262,20 @@ def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
     )
     assert cash_xetra == "aging"
     assert clash_xetra == "scan vs cash clash · scan fresh · Xetra cash aging"
+
+
+def test_scan_vs_cash_clash_speaks_runner_sleeve() -> None:
+    """portfolio AI: market-pointer worst + calmer runner, not a lone label."""
+    clash, cash = _scan_vs_cash_print_clash(
+        "fresh",
+        {
+            "cash_print_us_last_published": True,
+            "cash_print_us_freshness": "aging",
+            "cash_print_xetra_last_published": True,
+            "cash_print_xetra_freshness": "stale",
+        },
+    )
+    assert cash == "stale"
+    assert clash == (
+        "scan vs cash clash · scan fresh · Xetra cash stale · US aging"
+    )
