@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytz
+
 from openbb_backend.desk import build_scan_freshness
 
 
@@ -52,3 +54,57 @@ def test_scan_freshness_unparsed() -> None:
     assert g["ready"] is True
     assert g["tone"] == "unknown"
     assert "age unknown" in g["line"]
+    assert g["provenance"] == ""
+    assert g["provenance_bit"] == ""
+
+
+def test_scan_freshness_last_published_when_cash_closed() -> None:
+    """xang1234: fresh scan clock ≠ live US/Xetra quotes after hours."""
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    g = build_scan_freshness(
+        "2026-09-08T01:20:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["tone"] == "fresh"
+    assert g["provenance"] == "last_published"
+    assert "last published" in g["line"]
+    assert "US closed" in g["provenance_bit"]
+    assert "Xetra closed" in g["provenance_bit"]
+
+
+def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
+    now = pytz.timezone("Europe/Berlin").localize(datetime(2026, 9, 9, 10, 0))
+    g = build_scan_freshness(
+        "2026-09-09T07:55:00+00:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["tone"] == "fresh"
+    assert g["provenance"] == "mixed"
+    assert "US closed" in g["provenance_bit"]
+    assert "Xetra closed" not in g["provenance_bit"]
+
+
+def test_scan_freshness_live_when_both_cash_open() -> None:
+    now = pytz.timezone("US/Eastern").localize(datetime(2026, 9, 9, 10, 0))
+    g = build_scan_freshness(
+        "2026-09-09T13:55:00+00:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["tone"] == "fresh"
+    assert g["provenance"] == "live"
+    assert g["provenance_bit"] == ""
+    assert "last published" not in g["line"]
+
+
+def test_scan_freshness_weekend_stocks_paused() -> None:
+    now = pytz.timezone("US/Eastern").localize(datetime(2026, 9, 12, 12, 0))
+    g = build_scan_freshness(
+        "2026-09-12T15:50:00+00:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["provenance"] == "last_published"
+    assert "stocks paused" in g["provenance_bit"]

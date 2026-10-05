@@ -575,6 +575,10 @@ a:active {
   color: var(--ink);
 }
 
+.scan-fresh-prov.warn {
+  color: var(--down);
+}
+
 .scan-fresh-when {
   color: var(--muted);
 }

@@ -1226,6 +1226,18 @@
     body.className = "scan-fresh-body";
     body.textContent = String(fresh.age_label || fresh.line || "");
     p.appendChild(body);
+    if (fresh.provenance_bit) {
+      var sepP = document.createElement("span");
+      sepP.className = "pretrade-sep";
+      sepP.setAttribute("aria-hidden", "true");
+      sepP.textContent = "·";
+      p.appendChild(sepP);
+      var prov = document.createElement("span");
+      prov.className =
+        "scan-fresh-prov" + (fresh.provenance !== "live" ? " warn" : "");
+      prov.textContent = String(fresh.provenance_bit);
+      p.appendChild(prov);
+    }
     if (fresh.scan_time && fresh.age_label) {
       var sep2 = document.createElement("span");
       sep2.className = "pretrade-sep";

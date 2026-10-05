@@ -35,6 +35,10 @@
   <span class="scan-fresh-tone">{{ fresh.tone }}</span>
   <span class="pretrade-sep" aria-hidden="true">·</span>
   <span class="scan-fresh-body">{{ fresh.age_label or fresh.line }}</span>
+  {% if fresh.provenance_bit %}
+  <span class="pretrade-sep" aria-hidden="true">·</span>
+  <span class="scan-fresh-prov{% if fresh.provenance != 'live' %} warn{% endif %}">{{ fresh.provenance_bit }}</span>
+  {% endif %}
   {% if fresh.scan_time and fresh.age_label %}
   <span class="pretrade-sep" aria-hidden="true">·</span>
   <span class="scan-fresh-when">{{ fresh.scan_time }}</span>

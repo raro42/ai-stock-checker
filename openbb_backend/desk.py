@@ -179,6 +179,38 @@ def _format_age_short(age_sec: float) -> str:
     return f"{sec // 86400}d ago"
 
 
+def _scan_last_published_provenance(
+    clock: datetime,
+) -> tuple[str, str]:
+    """xang1234 last-published / market-pointer honesty (display only).
+
+    Composite scan age is not a per-market live quote. When US or Xetra cash
+    is closed (or weekend stocks paused), speak last-published so a fresh
+    crypto tick is not treated as a live equity snapshot. Both sleeves open
+    stays silent. Not an entry gate; we do not store separate per-market
+    scan files.
+    """
+    from stock_checker.market_hours import (
+        is_us_cash_session_closed,
+        is_xetra_session_closed,
+    )
+
+    utc = clock.astimezone(timezone.utc)
+    if utc.weekday() >= 5:
+        return "last_published", "last published · stocks paused"
+    us_closed = bool(is_us_cash_session_closed(now=clock))
+    xetra_closed = bool(is_xetra_session_closed(now=clock))
+    if not us_closed and not xetra_closed:
+        return "live", ""
+    closed: list[str] = []
+    if us_closed:
+        closed.append("US closed")
+    if xetra_closed:
+        closed.append("Xetra closed")
+    bit = "last published · " + " · ".join(closed)
+    return ("last_published" if us_closed and xetra_closed else "mixed"), bit
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
@@ -187,7 +219,8 @@ def build_scan_freshness(
 ) -> dict[str, Any]:
     """Scan archive age honesty (RyanJHamby cache-freshness pattern; display only).
 
-    fresh < 2× scan interval · aging < 8× · else stale. Not an entry gate.
+    fresh < 2× scan interval · aging < 8× · else stale. Closed cash sessions
+    add last-published provenance (xang1234 market pointer). Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -196,6 +229,8 @@ def build_scan_freshness(
         "age_label": "",
         "line": "",
         "scan_time": "",
+        "provenance": "",
+        "provenance_bit": "",
     }
     raw = str(scan_time or "").strip()
     if not raw:
@@ -221,13 +256,19 @@ def build_scan_freshness(
     else:
         tone = "stale"
     age_label = _format_age_short(age_sec)
+    provenance, provenance_bit = _scan_last_published_provenance(clock)
+    line = f"Scan {age_label} · {tone}"
+    if provenance_bit:
+        line = f"{line} · {provenance_bit}"
     return {
         "ready": True,
         "tone": tone,
         "age_sec": int(age_sec),
         "age_label": age_label,
-        "line": f"Scan {age_label} · {tone}",
+        "line": line,
         "scan_time": raw,
+        "provenance": provenance,
+        "provenance_bit": provenance_bit,
     }
 
 
