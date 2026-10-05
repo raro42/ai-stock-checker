@@ -4754,9 +4754,10 @@ def build_universe_discovery_glance(
     ``Δ [wide|thin] · Nh`` (|seed−fail|; wide ≥ throttle · thin < ½;
     mid silent) — band lean ≠ how far the clocks sit.
     When lag already spoke, also speak lean vs Δ:
-    ``align`` when Δ spoke, or ``lean vs Δ clash · mid`` when the gap
-    is mid-silent (xang1234 cross-slice / share-vs-Δ honesty — lean
-    named a lag that the clock gap will not severity-band).
+    ``align`` when Δ spoke, or ``lean vs Δ clash · mid · Nh`` when the gap
+    is mid-silent (xang1234 never-partial / cross-slice honesty — lean
+    named a lag that severity will not band; still speak the clock gap
+    hours so the mid story is not partial).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4930,7 +4931,13 @@ def build_universe_discovery_glance(
             if seed_vs_fail_lean_vs_delta == "align":
                 lag += " · align"
         elif seed_vs_fail_lean_vs_delta == "clash":
-            lag += " · lean vs Δ clash · mid"
+            # never-partial: mid severity stays silent, but still name the gap
+            mid_gap = (
+                f" · {seed_vs_fail_delta_label}"
+                if seed_vs_fail_delta_label
+                else ""
+            )
+            lag += f" · lean vs Δ clash · mid{mid_gap}"
         line = (
             f"US+DE · Yahoo ≤{per} · "
             f"Yahoo fail{frac} · {seed_bit}{fail_bit}{lag}{retry}"

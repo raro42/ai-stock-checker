@@ -307,6 +307,7 @@ def test_universe_discovery_glance_yahoo_fail_lag_delta_thin_mid(tmp_path) -> No
     assert "lean vs Δ clash" not in thin["line"]
 
     # seed 23h fresh · fail 40h aging → lag · gap 17h mid → lean vs Δ clash
+    # (still speak 17h — never-partial mid gap; severity stays silent)
     mid = _write(23, 40)
     assert mid["seed_freshness"] == "fresh"
     assert mid["fail_freshness"] == "aging"
@@ -316,7 +317,7 @@ def test_universe_discovery_glance_yahoo_fail_lag_delta_thin_mid(tmp_path) -> No
     assert mid["seed_vs_fail_delta_severity"] == ""
     assert mid["seed_vs_fail_lean_vs_delta"] == "clash"
     assert "fail lags" in mid["line"]
-    assert "lean vs Δ clash · mid" in mid["line"]
+    assert "lean vs Δ clash · mid · 17h" in mid["line"]
     assert "Δ wide" not in mid["line"]
     assert "Δ thin" not in mid["line"]
     assert " · align" not in mid["line"]
