@@ -187,9 +187,10 @@ def _scan_last_published_provenance(
     Composite scan age is not a per-market live quote. When US or Xetra cash
     is closed (or weekend stocks paused), speak last-published so a fresh
     crypto tick is not treated as a live equity snapshot. Mixed sessions
-    name each sleeve live vs last-published (xang1234 compile-path). Both
-    sleeves open stays silent. Not an entry gate; we do not store separate
-    per-market scan files.
+    name each sleeve live vs last-published (xang1234 compile-path). Crypto
+    is 24/7, so a pinned cash compile still has a live crypto sleeve — name
+    it when cash is not fully open. Both cash sleeves open stays silent.
+    Not an entry gate; we do not store separate per-market scan files.
     """
     from stock_checker.market_hours import (
         is_us_cash_session_closed,
@@ -198,16 +199,19 @@ def _scan_last_published_provenance(
 
     utc = clock.astimezone(timezone.utc)
     if utc.weekday() >= 5:
-        return "last_published", "last published · stocks paused"
+        return "last_published", "last published · stocks paused · crypto live"
     us_closed = bool(is_us_cash_session_closed(now=clock))
     xetra_closed = bool(is_xetra_session_closed(now=clock))
     if not us_closed and not xetra_closed:
         return "live", ""
     if us_closed and xetra_closed:
-        return "last_published", "last published · US closed · Xetra closed"
+        return (
+            "last_published",
+            "last published · US closed · Xetra closed · crypto live",
+        )
     us_bit = "US last-published" if us_closed else "US live"
     xetra_bit = "Xetra last-published" if xetra_closed else "Xetra live"
-    return "mixed", f"compile mixed · {us_bit} · {xetra_bit}"
+    return "mixed", f"compile mixed · {us_bit} · {xetra_bit} · crypto live"
 
 
 def build_scan_freshness(
@@ -218,9 +222,9 @@ def build_scan_freshness(
 ) -> dict[str, Any]:
     """Scan archive age honesty (RyanJHamby cache-freshness pattern; display only).
 
-    fresh < 2× scan interval · aging < 8× · else stale. Closed cash sessions
+    fresh < 2× scan interval · aging < 8× · else stale.     Closed cash sessions
     add last-published provenance; mixed hours speak compile-path per sleeve
-    (xang1234 market pointer). Not an entry gate.
+    plus crypto live (xang1234 market pointer). Not an entry gate.
     """
     empty = {
         "ready": False,
