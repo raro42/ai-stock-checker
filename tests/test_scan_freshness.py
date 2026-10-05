@@ -85,6 +85,8 @@ def test_scan_freshness_last_published_when_cash_closed() -> None:
     assert "fresh" in g["provenance_bit"]
     assert g["scan_vs_cash_clash"] == ""
     assert g["scan_vs_cash_clash_delta"] == ""
+    assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+    assert g["scan_vs_cash_clash_runner"] == ""
 
 
 def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
@@ -110,9 +112,13 @@ def test_scan_freshness_mixed_when_us_closed_xetra_open() -> None:
         assert g["scan_vs_cash_print"] == g["cash_print_us_freshness"]
         assert g["scan_vs_cash_clash_delta"] in ("wide", "thin")
         assert f"Δ {g['scan_vs_cash_clash_delta']}" in g["scan_vs_cash_clash"]
+        assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+        assert g["scan_vs_cash_clash_runner"] == ""
     else:
         assert g["scan_vs_cash_clash"] == ""
         assert g["scan_vs_cash_clash_delta"] == ""
+        assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+        assert g["scan_vs_cash_clash_runner"] == ""
 
 
 def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
@@ -138,9 +144,13 @@ def test_scan_freshness_mixed_when_us_open_xetra_closed() -> None:
         assert g["scan_vs_cash_print"] == g["cash_print_xetra_freshness"]
         assert g["scan_vs_cash_clash_delta"] in ("wide", "thin")
         assert f"Δ {g['scan_vs_cash_clash_delta']}" in g["scan_vs_cash_clash"]
+        assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+        assert g["scan_vs_cash_clash_runner"] == ""
     else:
         assert g["scan_vs_cash_clash"] == ""
         assert g["scan_vs_cash_clash_delta"] == ""
+        assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+        assert g["scan_vs_cash_clash_runner"] == ""
 
 
 def test_scan_freshness_live_when_both_cash_open() -> None:
@@ -157,6 +167,8 @@ def test_scan_freshness_live_when_both_cash_open() -> None:
     assert "crypto live" not in g["line"]
     assert g["scan_vs_cash_clash"] == ""
     assert g["scan_vs_cash_clash_delta"] == ""
+    assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+    assert g["scan_vs_cash_clash_runner"] == ""
 
 
 def test_scan_freshness_weekend_stocks_paused() -> None:
@@ -180,6 +192,8 @@ def test_scan_freshness_weekend_stocks_paused() -> None:
     )
     assert g["scan_vs_cash_print"] == "aging"
     assert g["scan_vs_cash_clash_delta"] == "thin"
+    assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+    assert g["scan_vs_cash_clash_runner"] == ""
     assert "scan vs cash clash" in g["line"]
     assert "Δ thin" in g["line"]
 
@@ -210,6 +224,8 @@ def test_scan_freshness_weekend_sunday_cash_print_stale() -> None:
     )
     assert g["scan_vs_cash_print"] == "stale"
     assert g["scan_vs_cash_clash_delta"] == "wide"
+    assert g["scan_vs_cash_clash_sleeve_delta"] == ""
+    assert g["scan_vs_cash_clash_runner"] == ""
     assert "scan vs cash clash" in g["line"]
     assert "Δ wide" in g["line"]
 
@@ -225,7 +241,7 @@ def test_scan_vs_cash_clash_delta_bands() -> None:
 
 def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
     """xang1234 #531: worst sleeve owns the clash label, not a nameless cash."""
-    clash, cash = _scan_vs_cash_print_clash(
+    clash, cash, runner = _scan_vs_cash_print_clash(
         "fresh",
         {
             "cash_print_us_last_published": True,
@@ -235,11 +251,12 @@ def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
         },
     )
     assert cash == "stale"
+    assert runner == "aging"
     assert clash == (
         "scan vs cash clash · scan fresh · US cash stale · Xetra aging"
     )
 
-    clash_both, cash_both = _scan_vs_cash_print_clash(
+    clash_both, cash_both, runner_both = _scan_vs_cash_print_clash(
         "fresh",
         {
             "cash_print_us_last_published": True,
@@ -249,9 +266,10 @@ def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
         },
     )
     assert cash_both == "stale"
+    assert runner_both == ""
     assert clash_both == "scan vs cash clash · scan fresh · cash stale"
 
-    clash_xetra, cash_xetra = _scan_vs_cash_print_clash(
+    clash_xetra, cash_xetra, runner_xetra = _scan_vs_cash_print_clash(
         "fresh",
         {
             "cash_print_us_last_published": False,
@@ -261,12 +279,13 @@ def test_scan_vs_cash_clash_names_market_pointer_when_sleeves_differ() -> None:
         },
     )
     assert cash_xetra == "aging"
+    assert runner_xetra == ""
     assert clash_xetra == "scan vs cash clash · scan fresh · Xetra cash aging"
 
 
 def test_scan_vs_cash_clash_speaks_runner_sleeve() -> None:
     """portfolio AI: market-pointer worst + calmer runner, not a lone label."""
-    clash, cash = _scan_vs_cash_print_clash(
+    clash, cash, runner = _scan_vs_cash_print_clash(
         "fresh",
         {
             "cash_print_us_last_published": True,
@@ -276,6 +295,50 @@ def test_scan_vs_cash_clash_speaks_runner_sleeve() -> None:
         },
     )
     assert cash == "stale"
+    assert runner == "aging"
     assert clash == (
         "scan vs cash clash · scan fresh · Xetra cash stale · US aging"
     )
+
+
+def test_scan_vs_cash_clash_sleeve_delta_after_runner() -> None:
+    """xang1234 share-Δ: worst↔runner gap is not the scan↔cash Δ."""
+    clash, cash, runner = _scan_vs_cash_print_clash(
+        "fresh",
+        {
+            "cash_print_us_last_published": True,
+            "cash_print_us_freshness": "fresh",
+            "cash_print_xetra_last_published": True,
+            "cash_print_xetra_freshness": "stale",
+        },
+    )
+    assert cash == "stale"
+    assert runner == "fresh"
+    assert _scan_vs_cash_clash_delta("fresh", cash) == "wide"
+    assert _scan_vs_cash_clash_delta(cash, runner) == "wide"
+    assert clash == (
+        "scan vs cash clash · scan fresh · Xetra cash stale · US fresh"
+    )
+
+
+def test_scan_freshness_weekend_morning_sleeve_delta() -> None:
+    """Saturday morning: Xetra aging vs US still-fresh Friday close."""
+    now = datetime(2026, 9, 12, 5, 0, tzinfo=timezone.utc)
+    g = build_scan_freshness(
+        "2026-09-12T04:50:00+00:00",
+        now=now,
+        scan_interval_sec=900,
+    )
+    assert g["provenance"] == "last_published"
+    assert g["tone"] == "fresh"
+    assert g["cash_print_us_freshness"] == "fresh"
+    assert g["cash_print_xetra_freshness"] == "aging"
+    assert g["scan_vs_cash_print"] == "aging"
+    assert g["scan_vs_cash_clash_runner"] == "fresh"
+    assert g["scan_vs_cash_clash_delta"] == "thin"
+    assert g["scan_vs_cash_clash_sleeve_delta"] == "thin"
+    assert g["scan_vs_cash_clash"] == (
+        "scan vs cash clash · scan fresh · Xetra cash aging · US fresh"
+        " · Δ thin · sleeve Δ thin"
+    )
+    assert "sleeve Δ thin" in g["line"]

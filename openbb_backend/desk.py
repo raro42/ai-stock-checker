@@ -278,7 +278,7 @@ _CASH_PRINT_RANK = {"fresh": 0, "aging": 1, "stale": 2}
 
 def _scan_vs_cash_print_clash(
     tone: str, meta: Mapping[str, Any]
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     """xang1234 compile clock vs pinned print (display only).
 
     A fresh 10m scan archive is the crypto/composite clock, not a live cash
@@ -290,10 +290,12 @@ def _scan_vs_cash_print_clash(
     global ``cash`` label. Both sleeves on the same worst band stay ``cash``.
     When a market-pointer owns the worst print and the other pinned sleeve is
     calmer, also speak that runner band (portfolio AI speak-both-sides) so
-    friends see US stale · Xetra aging, not a lone worst label.
+    friends see US stale · Xetra aging, not a lone worst label. Naming both
+    bands is not the gap: return the runner band so the desk can speak
+    ``sleeve Δ wide|thin`` (xang1234 share-Δ after speak-both-sides).
     """
     if tone not in _CASH_PRINT_RANK:
-        return "", ""
+        return "", "", ""
     sleeves: list[tuple[str, str]] = []
     if meta.get("cash_print_us_last_published"):
         us_band = str(meta.get("cash_print_us_freshness") or "")
@@ -304,13 +306,14 @@ def _scan_vs_cash_print_clash(
         if xetra_band in _CASH_PRINT_RANK:
             sleeves.append(("Xetra", xetra_band))
     if not sleeves:
-        return "", ""
+        return "", "", ""
     cash = max((band for _, band in sleeves), key=lambda band: _CASH_PRINT_RANK[band])
     if tone == cash:
-        return "", cash
+        return "", cash, ""
     owners = [
         name for name, band in sleeves if _CASH_PRINT_RANK[band] == _CASH_PRINT_RANK[cash]
     ]
+    runner_band = ""
     if len(owners) == 1:
         cash_bit = f"{owners[0]} cash {cash}"
         runners = [
@@ -319,9 +322,10 @@ def _scan_vs_cash_print_clash(
         if len(runners) == 1:
             r_name, r_band = runners[0]
             cash_bit = f"{cash_bit} · {r_name} {r_band}"
+            runner_band = r_band
     else:
         cash_bit = f"cash {cash}"
-    return f"scan vs cash clash · scan {tone} · {cash_bit}", cash
+    return f"scan vs cash clash · scan {tone} · {cash_bit}", cash, runner_band
 
 
 def _scan_vs_cash_clash_delta(tone: str, cash: str) -> str:
@@ -357,8 +361,9 @@ def build_scan_freshness(
     ``scan vs cash clash`` (compile clock ≠ snapshot age) plus ``Δ wide|thin``
     (fresh↔stale vs adjacent). When only one market owns the worst print,
     name that sleeve (xang1234 #531 market-pointer) and the calmer runner
-    sleeve when both are pinned (portfolio AI speak-both-sides). Not an entry
-    gate.
+    sleeve when both are pinned (portfolio AI speak-both-sides), plus
+    ``sleeve Δ wide|thin`` for the worst↔runner gap (share-Δ after naming).
+    Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -378,6 +383,8 @@ def build_scan_freshness(
         "scan_vs_cash_clash": "",
         "scan_vs_cash_print": "",
         "scan_vs_cash_clash_delta": "",
+        "scan_vs_cash_clash_sleeve_delta": "",
+        "scan_vs_cash_clash_runner": "",
     }
     raw = str(scan_time or "").strip()
     if not raw:
@@ -404,10 +411,17 @@ def build_scan_freshness(
         tone = "stale"
     age_label = _format_age_short(age_sec)
     provenance, provenance_bit, print_meta = _scan_last_published_provenance(clock)
-    clash, cash_worst = _scan_vs_cash_print_clash(tone, print_meta)
+    clash, cash_worst, runner_band = _scan_vs_cash_print_clash(tone, print_meta)
     clash_delta = _scan_vs_cash_clash_delta(tone, cash_worst) if clash else ""
+    sleeve_delta = (
+        _scan_vs_cash_clash_delta(cash_worst, runner_band)
+        if clash and runner_band
+        else ""
+    )
     if clash and clash_delta:
         clash = f"{clash} · Δ {clash_delta}"
+    if clash and sleeve_delta:
+        clash = f"{clash} · sleeve Δ {sleeve_delta}"
     line = f"Scan {age_label} · {tone}"
     if provenance_bit:
         line = f"{line} · {provenance_bit}"
@@ -425,6 +439,8 @@ def build_scan_freshness(
         "scan_vs_cash_clash": clash,
         "scan_vs_cash_print": cash_worst,
         "scan_vs_cash_clash_delta": clash_delta,
+        "scan_vs_cash_clash_sleeve_delta": sleeve_delta,
+        "scan_vs_cash_clash_runner": runner_band,
         **print_meta,
     }
 
