@@ -196,6 +196,11 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert "seed 6h ago · fresh" in aging["line"]
     assert aging["seed_vs_fail"] == "fail lags"
     assert "fail lags" in aging["line"]
+    # |30h−6h| = 24h → wide (≥ throttle)
+    assert aging["seed_vs_fail_delta_sec"] == 24 * 3600
+    assert aging["seed_vs_fail_delta_label"] == "24h"
+    assert aging["seed_vs_fail_delta_severity"] == "wide"
+    assert "Δ wide · 24h" in aging["line"]
     assert aging["tone"] == "warn"
 
     _write(50)
@@ -208,12 +213,20 @@ def test_universe_discovery_glance_yahoo_fail_age_bands(tmp_path) -> None:
     assert stale["seed_vs_fail"] == "fail lags"
     assert "fail lags" in stale["line"]
     assert "seed lags" not in stale["line"]
+    # |50h−6h| = 44h → wide · 1d
+    assert stale["seed_vs_fail_delta_sec"] == 44 * 3600
+    assert stale["seed_vs_fail_delta_label"] == "1d"
+    assert stale["seed_vs_fail_delta_severity"] == "wide"
+    assert "Δ wide · 1d" in stale["line"]
 
     _write(6)
     aligned = build_universe_discovery_glance(tmp_path, now=now)
     assert aligned["seed_vs_fail"] == ""
+    assert aligned["seed_vs_fail_delta_severity"] == ""
     assert "seed lags" not in aligned["line"]
     assert "fail lags" not in aligned["line"]
+    assert "Δ wide" not in aligned["line"]
+    assert "Δ thin" not in aligned["line"]
 
 
 def test_universe_discovery_glance_yahoo_fail_seed_lags(tmp_path) -> None:
@@ -242,7 +255,56 @@ def test_universe_discovery_glance_yahoo_fail_seed_lags(tmp_path) -> None:
     assert "fail 6h ago · fresh" in g["line"]
     assert "seed lags" in g["line"]
     assert "fail lags" not in g["line"]
+    assert g["seed_vs_fail_delta_severity"] == "wide"
+    assert g["seed_vs_fail_delta_label"] == "1d"
+    assert "Δ wide · 1d" in g["line"]
     assert "retry due" in g["line"]
+
+
+def test_universe_discovery_glance_yahoo_fail_lag_delta_thin_mid(tmp_path) -> None:
+    """Lag Δ thin near band edge; mid gap stays silent (display only)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+
+    def _write(seed_h: float, fail_h: float) -> dict:
+        seed = (now - timedelta(hours=seed_h)).replace(tzinfo=None).isoformat()
+        fail = (now - timedelta(hours=fail_h)).replace(tzinfo=None).isoformat()
+        (tmp_path / "stock_universe.json").write_text(
+            json.dumps(
+                {
+                    "stocks": {"AAPL": {}},
+                    "meta": {
+                        "last_yahoo_discovery": seed,
+                        "last_yahoo_discovery_status": "failed",
+                        "last_yahoo_discovery_fail": fail,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return build_universe_discovery_glance(tmp_path, now=now)
+
+    # seed 23h fresh · fail 25h aging → lag · Δ thin · 2h (< ½ throttle)
+    thin = _write(23, 25)
+    assert thin["seed_freshness"] == "fresh"
+    assert thin["fail_freshness"] == "aging"
+    assert thin["seed_vs_fail"] == "fail lags"
+    assert thin["seed_vs_fail_delta_sec"] == 2 * 3600
+    assert thin["seed_vs_fail_delta_label"] == "2h"
+    assert thin["seed_vs_fail_delta_severity"] == "thin"
+    assert "fail lags" in thin["line"]
+    assert "Δ thin · 2h" in thin["line"]
+
+    # seed 23h fresh · fail 40h aging → lag · gap 17h mid silent
+    mid = _write(23, 40)
+    assert mid["seed_freshness"] == "fresh"
+    assert mid["fail_freshness"] == "aging"
+    assert mid["seed_vs_fail"] == "fail lags"
+    assert mid["seed_vs_fail_delta_sec"] == 17 * 3600
+    assert mid["seed_vs_fail_delta_label"] == "17h"
+    assert mid["seed_vs_fail_delta_severity"] == ""
+    assert "fail lags" in mid["line"]
+    assert "Δ wide" not in mid["line"]
+    assert "Δ thin" not in mid["line"]
 
 
 def test_universe_discovery_glance_in_snapshot(tmp_path) -> None:

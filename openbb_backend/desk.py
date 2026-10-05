@@ -4750,6 +4750,9 @@ def build_universe_discovery_glance(
     ``cache Nh ago`` parity so friends see how old the reused list is.
     When both bands speak and disagree, append ``seed lags`` / ``fail lags``
     (portfolio AI + xang1234 speak-both-sides: clock ages ≠ same freshness).
+    When lag already spoke, also speak clock-gap severity
+    ``Δ [wide|thin] · Nh`` (|seed−fail|; wide ≥ throttle · thin < ½;
+    mid silent) — band lean ≠ how far the clocks sit.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -4858,6 +4861,33 @@ def build_universe_discovery_glance(
     fail_rank = _band_rank.get(fail_freshness)
     if seed_rank is not None and fail_rank is not None and seed_rank != fail_rank:
         seed_vs_fail = "seed lags" if seed_rank > fail_rank else "fail lags"
+    # Band lean ≠ clock gap: when lag spoke, severity vs throttle bands.
+    seed_vs_fail_delta_sec: int | None = None
+    seed_vs_fail_delta_label = ""
+    seed_vs_fail_delta_severity = ""
+    if (
+        seed_vs_fail
+        and age_sec is not None
+        and fail_age_sec is not None
+    ):
+        gap_sec = abs(int(age_sec) - int(fail_age_sec))
+        seed_vs_fail_delta_sec = gap_sec
+        if gap_sec < 60:
+            seed_vs_fail_delta_label = "<1m"
+        elif gap_sec < 3600:
+            seed_vs_fail_delta_label = f"{gap_sec // 60}m"
+        elif gap_sec < 36 * 3600:
+            seed_vs_fail_delta_label = f"{gap_sec // 3600}h"
+        else:
+            seed_vs_fail_delta_label = f"{gap_sec // 86400}d"
+        gap_h = gap_sec / 3600.0
+        wide_h = float(age_limit_h)
+        thin_h = wide_h / 2.0
+        if gap_h >= wide_h:
+            seed_vs_fail_delta_severity = "wide"
+        elif gap_h < thin_h:
+            seed_vs_fail_delta_severity = "thin"
+        # mid (½ ≤ gap < throttle) stays silent — lean already named the lag
     if yahoo_failed:
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
@@ -4881,14 +4911,20 @@ def build_universe_discovery_glance(
         else:
             fail_bit = ""
         lag = f" · {seed_vs_fail}" if seed_vs_fail else ""
+        if seed_vs_fail_delta_severity and seed_vs_fail_delta_label:
+            lag += (
+                f" · Δ {seed_vs_fail_delta_severity} · "
+                f"{seed_vs_fail_delta_label}"
+            )
         line = (
             f"US+DE · Yahoo ≤{per} · "
             f"Yahoo fail{frac} · {seed_bit}{fail_bit}{lag}{retry}"
         )
     else:
         line = f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone} · discovery-only"
-    if len(line) > 112:
-        line = line[:111] + "…"
+    # Fail path can add seed/fail ages + lag + Δ; keep the honesty bits.
+    if len(line) > 128:
+        line = line[:127] + "…"
     return {
         "ready": True,
         "tone": tone,
@@ -4909,6 +4945,9 @@ def build_universe_discovery_glance(
         "fail_age_label": fail_age_label,
         "fail_freshness": fail_freshness,
         "seed_vs_fail": seed_vs_fail,
+        "seed_vs_fail_delta_sec": seed_vs_fail_delta_sec,
+        "seed_vs_fail_delta_label": seed_vs_fail_delta_label,
+        "seed_vs_fail_delta_severity": seed_vs_fail_delta_severity,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "screens_bit": screens_bit,
