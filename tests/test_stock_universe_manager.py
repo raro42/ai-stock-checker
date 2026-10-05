@@ -113,6 +113,10 @@ def test_yahoo_discovery_due_failed_skips_success_age_throttle(tmp_path: Path):
     mgr.universe["meta"]["last_yahoo_discovery"] = datetime.now().isoformat()
     mgr.universe["meta"]["last_yahoo_discovery_status"] = "ok"
     assert mgr.yahoo_discovery_due(max_age_hours=24) is False
+    # Failed without fail stamp → retry immediately.
     mgr.universe["meta"]["last_yahoo_discovery_status"] = "failed"
     assert mgr.yahoo_discovery_due(max_age_hours=24) is True
+    # Fresh fail stamp → cool down inside 1h backoff.
+    mgr.universe["meta"]["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+    assert mgr.yahoo_discovery_due(max_age_hours=24) is False
 

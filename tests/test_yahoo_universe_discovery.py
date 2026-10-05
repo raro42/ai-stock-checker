@@ -80,7 +80,10 @@ def test_yahoo_cache_freshness_seed_age_bands():
 def test_yahoo_discovery_due_from_meta_failed_skips_throttle():
     from datetime import datetime, timezone
 
-    from stock_checker.yahoo_universe_discovery import yahoo_discovery_due_from_meta
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_due_from_meta,
+        yahoo_fail_retry_remaining_sec,
+    )
 
     now = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
     fresh = "2026-10-04T06:00:00"
@@ -89,13 +92,50 @@ def test_yahoo_discovery_due_from_meta_failed_skips_throttle():
         now=now,
         max_age_hours=24,
     ) is False
+    # Failed without fail stamp → retry immediately (cannot apply backoff).
     assert yahoo_discovery_due_from_meta(
         {"last_yahoo_discovery": fresh, "last_yahoo_discovery_status": "failed"},
         now=now,
         max_age_hours=24,
     ) is True
+    assert yahoo_fail_retry_remaining_sec(
+        {"last_yahoo_discovery_status": "failed"},
+        now=now,
+    ) is None
     assert yahoo_discovery_due_from_meta(None, now=now) is True
     assert yahoo_discovery_due_from_meta({}, now=now) is True
+
+
+def test_yahoo_discovery_due_from_meta_fail_backoff():
+    """xang1234 dfb6a86: do not refetch empty/dead Yahoo every scan."""
+    from datetime import datetime, timezone
+
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_due_from_meta,
+        yahoo_fail_retry_remaining_sec,
+    )
+
+    now = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+    seed = "2026-10-04T06:00:00"
+    # Fail 15m ago → still inside 1h backoff.
+    recent_fail = "2026-10-04T11:45:00"
+    meta_cooling = {
+        "last_yahoo_discovery": seed,
+        "last_yahoo_discovery_status": "failed",
+        "last_yahoo_discovery_fail": recent_fail,
+    }
+    assert yahoo_discovery_due_from_meta(meta_cooling, now=now) is False
+    remain = yahoo_fail_retry_remaining_sec(meta_cooling, now=now)
+    assert remain == 45 * 60
+    # Fail 90m ago → backoff elapsed → retry due.
+    old_fail = "2026-10-04T10:30:00"
+    meta_due = {
+        "last_yahoo_discovery": seed,
+        "last_yahoo_discovery_status": "failed",
+        "last_yahoo_discovery_fail": old_fail,
+    }
+    assert yahoo_discovery_due_from_meta(meta_due, now=now) is True
+    assert yahoo_fail_retry_remaining_sec(meta_due, now=now) == 0
 
 
 def test_fetch_yahoo_screen_403_is_empty_error(monkeypatch):

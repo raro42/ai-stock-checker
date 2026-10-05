@@ -4758,13 +4758,17 @@ def build_universe_discovery_glance(
     is mid-silent (xang1234 never-partial / cross-slice honesty — lean
     named a lag that severity will not band; still speak the clock gap
     hours so the mid story is not partial).
+    After a Yahoo fail, desk speaks ``retry due`` or ``retry in Nh`` for the
+    fail backoff (xang1234 dfb6a86 — do not refetch empty slices every scan).
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
         DEFAULT_MOVER_COUNT,
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+        DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
         yahoo_discovery_due_from_meta,
+        yahoo_fail_retry_remaining_sec,
     )
 
     per = int(DEFAULT_MOVER_COUNT)
@@ -4852,6 +4856,7 @@ def build_universe_discovery_glance(
         now=now,
         max_age_hours=age_limit_h,
     )
+    retry_remain_sec = yahoo_fail_retry_remaining_sec(uni_meta, now=now)
     screens_bit = ""
     screens_n: int | None = None
     if screens_ok is not None and screens_failed is not None:
@@ -4903,7 +4908,19 @@ def build_universe_discovery_glance(
     if yahoo_failed:
         tone = "warn"
         frac = f" · {screens_bit}" if screens_bit else ""
-        retry = " · retry due" if retry_due else ""
+        if retry_due:
+            retry = " · retry due"
+        elif retry_remain_sec is not None and retry_remain_sec > 0:
+            # Speak remaining backoff (not age) — thrash calm honesty.
+            rem = int(retry_remain_sec)
+            if rem < 60:
+                retry = " · retry in <1m"
+            elif rem < 3600:
+                retry = f" · retry in {rem // 60}m"
+            else:
+                retry = f" · retry in {rem // 3600}h"
+        else:
+            retry = ""
         # RyanJHamby/xang1234: success path says ``cache Nh ago · band``;
         # fail reuse-seed should too — band alone hides how old the list is.
         # Clock-age seed bit implies reuse; keep ``reuse seed`` for never/unknown.
@@ -4962,6 +4979,8 @@ def build_universe_discovery_glance(
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
         "yahoo_retry_due": retry_due,
+        "yahoo_retry_remain_sec": retry_remain_sec,
+        "yahoo_fail_backoff_hours": int(DEFAULT_YAHOO_FAIL_BACKOFF_HOURS),
         "last_yahoo_discovery_fail": fail_raw,
         "fail_age_sec": fail_age_sec,
         "fail_age_label": fail_age_label,

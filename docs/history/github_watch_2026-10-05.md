@@ -1,22 +1,13 @@
-# GitHub idea watch — 2026-10-05T02:22:54Z
+# GitHub idea watch — 2026-10-05T03:40:29Z
 
 Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.
 
 - Repos watched: **15**
-- Checked this run: **3** · skipped (not due): **12**
-- Repos with new activity: **1**
-- Next loop sleep: **4655s** (cadence-aware)
+- Checked this run: **1** · skipped (not due): **14**
+- Repos with new activity: **0**
+- Next loop sleep: **1956s** (cadence-aware)
 
-## Highlights
-
-- xang1234/stock-screener: commit 4d995f8 — Merge pull request #532 from xang1234/fix/finviz-1000-row-cap
-- xang1234/stock-screener: commit dfb6a86 — perf(cache): stop refetching page 1 of an empty Finviz slice
-- xang1234/stock-screener: commit 68544f3 — fix(cache): read every Finviz pass to its natural end
-- xang1234/stock-screener: commit 4a205c2 — fix(cache): catch Finviz rows priced exactly on a split boundary
-- xang1234/stock-screener: commit 4c1b5e2 — fix(cache): keep a page of overlap in every two-ended Finviz read
-- xang1234/stock-screener: commit 6ddd082 — fix(cache): reject Finviz pages without a row total and cross-slice gaps
-- xang1234/stock-screener: commit d50a685 — Merge pull request #510 from markusdauner1974-droid/fix/reasoning-model-token-budget
-- xang1234/stock-screener: commit dd548f7 — fix(cache): never hand back a partial Finviz universe
+_No new commits/releases since last check._
 
 ## Per repo
 
@@ -46,16 +37,7 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 - Stock scanner with multiple fundamental and technical criteria. Features 80+ filters, AI chatbot (Groq/DeepSeek/Gemini),   theme discovery, and StockBee-style breadth indicators.
 - Stars: 340 · pushed: 2026-10-05T01:52:09Z · branch: `main`
 - Cadence: ~92.07 commits/day (avg gap 0.3h) · recheck every 3h · next 2026-10-05T05:22:52Z
-- Status: **updates since last run**
-- Commits:
-  - [`4d995f8`](https://github.com/xang1234/stock-screener/commit/4d995f896558ef9dd2f84f26676fc393cfc5ced3) 2026-10-05 — Merge pull request #532 from xang1234/fix/finviz-1000-row-cap
-  - [`dfb6a86`](https://github.com/xang1234/stock-screener/commit/dfb6a86b61f397239e0d08ad1f96f049d63a7aca) 2026-10-05 — perf(cache): stop refetching page 1 of an empty Finviz slice
-  - [`68544f3`](https://github.com/xang1234/stock-screener/commit/68544f399c1d89f1a5e477763bdf9081684d1266) 2026-10-05 — fix(cache): read every Finviz pass to its natural end
-  - [`4a205c2`](https://github.com/xang1234/stock-screener/commit/4a205c2b046652a8b84a766ecb17d2185c15f9e7) 2026-10-05 — fix(cache): catch Finviz rows priced exactly on a split boundary
-  - [`4c1b5e2`](https://github.com/xang1234/stock-screener/commit/4c1b5e22d8e42cccc8094268b1f81a04a02370fd) 2026-10-05 — fix(cache): keep a page of overlap in every two-ended Finviz read
-  - [`6ddd082`](https://github.com/xang1234/stock-screener/commit/6ddd082061ca65e3d921acca5ea03c1986eb7b31) 2026-10-05 — fix(cache): reject Finviz pages without a row total and cross-slice gaps
-  - [`d50a685`](https://github.com/xang1234/stock-screener/commit/d50a685360a92a237d5f5c2212eef7d8bdd7640e) 2026-10-05 — Merge pull request #510 from markusdauner1974-droid/fix/reasoning-model-token-budget
-  - [`dd548f7`](https://github.com/xang1234/stock-screener/commit/dd548f7b7770e9cac75d500cad45c12f8f642b23) 2026-10-05 — fix(cache): never hand back a partial Finviz universe
+- Status: **skipped** (not due yet)
 
 ### [MonsterDeveloper/simple-stock-screener](https://github.com/MonsterDeveloper/simple-stock-screener)
 - Watch reason: Minimal screener — learn from simplicity
@@ -76,7 +58,7 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 - FinRobot: An Open-Source AI Agent Platform for Financial Applications using Large Language Models
 - Stars: 8140 · pushed: 2026-09-28T11:24:54Z · branch: `master`
 - Cadence: ~44.81 commits/day (avg gap 0.5h) · recheck every 3h · next 2026-10-05T05:22:52Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Status: **skipped** (not due yet)
 
 ### [nicdun/value-investing-ai-agent](https://github.com/nicdun/value-investing-ai-agent)
 - Watch reason: Value-investing agent prompts / workflow
@@ -97,7 +79,7 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 - A tool that helps scanning, filtering and ranking a list of stocks 
 - Stars: 0 · pushed: 2023-08-13T19:18:50Z · branch: `main`
 - Cadence: ~17.44 commits/day (avg gap 1.4h) · recheck every 3h · next 2026-10-05T05:22:52Z
-- Status: due but `pushed_at` unchanged — no deep fetch
+- Status: **skipped** (not due yet)
 
 ### [ba1int/stock_screener](https://github.com/ba1int/stock_screener)
 - Watch reason: Screener implementation variants
@@ -109,8 +91,8 @@ Curated external repos. Adapt **one** transferable pattern at a time; re-benchma
 - Watch reason: Screener implementation variants
 - Stock Screener compares company data against logical requirements to determine if a particular stock may be of interest to an investor.
 - Stars: 4 · pushed: 2021-03-21T12:59:47Z · branch: `main`
-- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-10-05T03:40:28Z
-- Status: **skipped** (not due yet)
+- Cadence: ~3.43 commits/day (avg gap 7.0h) · recheck every 3h · next 2026-10-05T07:10:22Z
+- Status: due but `pushed_at` unchanged — no deep fetch
 
 ### [m-turnergane/stock-screener](https://github.com/m-turnergane/stock-screener)
 - Watch reason: Screener implementation variants

@@ -17,6 +17,10 @@ from stock_checker.symbol_filters import is_tradeable_symbol
 DEFAULT_MOVER_COUNT = 25
 # Re-pull Yahoo movers when last discovery is older than this (desk shows age).
 DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS = 24
+# xang1234 dfb6a86: do not refetch an empty/dead slice every scan cycle.
+# Failed Yahoo still retries sooner than the 24h success throttle, but not
+# on every 15m scan — calm the thrash when movers stay blocked.
+DEFAULT_YAHOO_FAIL_BACKOFF_HOURS = 1
 DEFAULT_SCREENS: tuple[str, ...] = ("day_gainers", "day_losers", "most_actives")
 # xang1234: a mostly empty snapshot is a failed fetch, not a quiet day.
 EMPTY_SCREEN_FRACTION = 0.2
@@ -88,21 +92,60 @@ def _naive_utc(dt: datetime) -> datetime:
     return dt
 
 
+def yahoo_fail_retry_remaining_sec(
+    meta: Any,
+    *,
+    now: datetime | None = None,
+    fail_backoff_hours: int = DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
+) -> int | None:
+    """Seconds left on the fail backoff, or ``0`` when retry is due.
+
+    ``None`` when status is not failed or the fail stamp is missing/unparsed
+    (caller should treat missing stamp as retry-due immediately).
+    """
+    if not isinstance(meta, dict):
+        return None
+    status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
+    if status != "failed":
+        return None
+    fail_raw = str(meta.get("last_yahoo_discovery_fail") or "").strip()
+    if not fail_raw:
+        return None
+    try:
+        then = datetime.fromisoformat(fail_raw.replace("Z", "+00:00"))
+        then = _naive_utc(then)
+        clock = _naive_utc(now) if now is not None else datetime.now()
+        age_sec = max(0.0, (clock - then).total_seconds())
+        limit = max(0, int(fail_backoff_hours)) * 3600.0
+        return max(0, int(limit - age_sec))
+    except (TypeError, ValueError):
+        return None
+
+
 def yahoo_discovery_due_from_meta(
     meta: Any,
     *,
     now: datetime | None = None,
     max_age_hours: int = DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+    fail_backoff_hours: int = DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
 ) -> bool:
     """True when movers have never succeeded or last success is older than max_age.
 
     xang1234: a failed fetch does not inherit the success-age throttle.
+    xang1234 dfb6a86: after a failed fetch, wait ``fail_backoff_hours`` before
+    retrying (missing fail stamp → retry immediately).
     """
     if not isinstance(meta, dict):
         return True
     status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
     if status == "failed":
-        return True
+        remain = yahoo_fail_retry_remaining_sec(
+            meta, now=now, fail_backoff_hours=fail_backoff_hours
+        )
+        # No / bad fail stamp → try again (cannot apply backoff).
+        if remain is None:
+            return True
+        return remain <= 0
     last = str(meta.get("last_yahoo_discovery") or "").strip()
     if not last:
         return True

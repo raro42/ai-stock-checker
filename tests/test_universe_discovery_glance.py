@@ -270,6 +270,35 @@ def test_universe_discovery_glance_yahoo_fail_seed_lags(tmp_path) -> None:
     assert "retry due" in g["line"]
 
 
+def test_universe_discovery_glance_yahoo_fail_retry_backoff(tmp_path) -> None:
+    """Fail backoff: speak retry in Nm while cooling (xang1234 dfb6a86)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    seed = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    fail = (now - timedelta(minutes=15)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": seed,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": fail,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["yahoo_failed"] is True
+    assert g["yahoo_retry_due"] is False
+    assert g["yahoo_retry_remain_sec"] == 45 * 60
+    assert g["yahoo_fail_backoff_hours"] == 1
+    assert "retry in 45m" in g["line"]
+    assert "retry due" not in g["line"]
+    assert "seed 6h ago · fresh" in g["line"]
+    assert "fail 15m ago · fresh" in g["line"]
+
+
 def test_universe_discovery_glance_yahoo_fail_lag_delta_thin_mid(tmp_path) -> None:
     """Lag Δ thin near band edge; mid gap speaks lean vs Δ clash (display only)."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)

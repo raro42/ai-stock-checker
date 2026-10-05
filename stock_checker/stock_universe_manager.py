@@ -307,7 +307,9 @@ class StockUniverseManager:
         """True when Yahoo movers have never run or last *success* is older than max_age.
 
         xang1234: a failed fetch does not inherit the success-age throttle.
-        Reused seed age is still shown on the desk; retry is due immediately.
+        Reused seed age is still shown on the desk. After a fail, retry waits
+        the fail backoff (default 1h) so empty/blocked slices are not refetched
+        every scan cycle (xang1234 dfb6a86).
         """
         from stock_checker.yahoo_universe_discovery import (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
