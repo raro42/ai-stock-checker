@@ -11,7 +11,7 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | Question schema `pass` / `hold` / `reject` + edge score + fee-churn noul | Yes — `stock_checker/laya_decision.py` |
 | HTTP `POST {BASE}/v1/systemone` client | Yes — fail-open on timeout/parse/missing URL |
 | Validate-path **advisory** record (`data/laya_decisions.json`) | Yes when `LAYA_ADVISORY=1` |
-| Ops + Overview glance | Yes — display only |
+| Ops + Overview glance | Yes — pass/hold/reject counts + last row + scan-cadence age |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 
 Rules, soft gates, and `exit_policy` stay authoritative. Provider outage must never trap a position (QuantDinger fail-open pattern).

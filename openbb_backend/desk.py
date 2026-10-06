@@ -5562,11 +5562,18 @@ def build_ai_roles_glance() -> dict[str, Any]:
     }
 
 
-def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
+def build_laya_glance(
+    data_dir: Path | str | None = None,
+    *,
+    now: Optional[datetime] = None,
+    scan_interval_sec: int = 900,
+) -> dict[str, Any]:
     """LAYA / JEV System-1 advisory honesty (display only; not a gate).
 
     QuantDinger-style typed pass/hold/reject + fail-open. Off until
-    ``LAYA_BASE_URL``/``JEV_BASE_URL`` + ``LAYA_ADVISORY=1``. See docs/LAYA.md.
+    ``LAYA_BASE_URL``/``JEV_BASE_URL`` + ``LAYA_ADVISORY=1``. Newest row
+    age uses RyanJHamby/xang1234 scan-cadence fresh/aging/stale (a last
+    reject is not a live print). See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5574,6 +5581,22 @@ def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
     st = laya_status(root)
     stats = st.get("stats") if isinstance(st.get("stats"), dict) else {}
     newest = stats.get("newest") if isinstance(stats.get("newest"), dict) else None
+    latest_at = str((newest or {}).get("at") or "").strip()
+    age_label = ""
+    freshness = ""
+    age_sec: Any = None
+    if latest_at:
+        fresh = build_scan_freshness(
+            latest_at, now=now, scan_interval_sec=scan_interval_sec
+        )
+        age_label = str(fresh.get("age_label") or "")
+        freshness = str(fresh.get("tone") or "")
+        age_sec = fresh.get("age_sec")
+    age_bit = ""
+    if age_label and freshness and freshness != "unknown":
+        age_bit = f"{age_label} {freshness}"
+    elif age_label:
+        age_bit = age_label
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -5582,8 +5605,12 @@ def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
         model = str(st.get("model") or "systemone")
         if len(model) > 20:
             model = model[:19] + "…"
-        line = f"URL set · advisory off · {model} · fail-open"
-        tone = "ready"
+        bits = ["URL set", "advisory off", model]
+        if age_bit:
+            bits.append(age_bit)
+        bits.append("fail-open")
+        line = " · ".join(bits)
+        tone = "stale" if freshness == "stale" else "ready"
     else:
         model = str(st.get("model") or "systemone")
         if len(model) > 16:
@@ -5592,13 +5619,16 @@ def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
         n_hold = int(stats.get("hold") or 0)
         n_rej = int(stats.get("reject") or 0)
         n_fo = int(stats.get("fail_open") or 0)
-        bits = [
-            "advisory on",
-            model,
-            f"{n_pass}p/{n_hold}h/{n_rej}r",
-        ]
-        if n_fo:
-            bits.append(f"{n_fo} fail-open")
+        bits = ["advisory on", model]
+        if age_bit:
+            bits.append(age_bit)
+        n_decided = n_pass + n_hold + n_rej
+        if n_decided == 0 and n_fo == 0:
+            bits.append("no sample")
+        else:
+            bits.append(f"{n_pass}p/{n_hold}h/{n_rej}r")
+            if n_fo:
+                bits.append(f"{n_fo} fail-open")
         if newest:
             sym = str(newest.get("symbol") or "").strip()
             entry = str(newest.get("entry") or "").strip().lower()
@@ -5612,7 +5642,12 @@ def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
                 bits.append(last)
         bits.append("not a gate")
         line = " · ".join(bits)
-        tone = "advisory"
+        if freshness == "stale":
+            tone = "stale"
+        elif freshness == "aging":
+            tone = "aging"
+        else:
+            tone = "advisory"
 
     if len(line) > 96:
         line = line[:95] + "…"
@@ -5622,6 +5657,10 @@ def build_laya_glance(data_dir: Path | str | None = None) -> dict[str, Any]:
         "line": line,
         "configured": bool(st.get("configured")),
         "advisory": bool(st.get("advisory")),
+        "age_sec": age_sec,
+        "age_label": age_label,
+        "freshness": freshness,
+        "latest_at": latest_at,
     }
 
 
@@ -10487,7 +10526,9 @@ def load_desk_snapshot(
         "earnings_blackout_glance": build_earnings_blackout_glance(),
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
-        "laya_glance": build_laya_glance(data_dir),
+        "laya_glance": build_laya_glance(
+            data_dir, scan_interval_sec=scan_interval_sec
+        ),
         "ai_debate_glance": build_ai_debate_glance(
             data_dir, scan_interval_sec=scan_interval_sec
         ),

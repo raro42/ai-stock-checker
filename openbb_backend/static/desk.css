@@ -1099,11 +1099,13 @@ a:active {
   color: var(--up);
 }
 
-.ai-debate-glance-tone.aging {
+.ai-debate-glance-tone.aging,
+.laya-glance-tone.aging {
   color: var(--accent);
 }
 
-.ai-debate-glance-tone.stale {
+.ai-debate-glance-tone.stale,
+.laya-glance-tone.stale {
   color: var(--down);
 }
 

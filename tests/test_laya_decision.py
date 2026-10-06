@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from openbb_backend.desk import build_laya_glance
@@ -180,8 +182,51 @@ def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     g = build_laya_glance(tmp_path)
     assert g["advisory"] is True
     assert g["tone"] == "advisory"
+    assert g["freshness"] == "fresh"
     assert "NVDA" in g["line"]
     assert "reject" in g["line"]
+    assert "fresh" in g["line"]
+    assert g["line"].index("fresh") < g["line"].index("NVDA")
+
+
+def test_laya_glance_stale_last_row(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    stale_at = (datetime.now(timezone.utc) - timedelta(hours=10)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(tmp_path, scan_interval_sec=900)
+    assert g["freshness"] == "stale"
+    assert g["tone"] == "stale"
+    assert "stale" in g["line"]
+    assert "MSFT" in g["line"]
+
+
+def test_laya_glance_no_sample(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    g = build_laya_glance(tmp_path)
+    assert "no sample" in g["line"]
+    assert g["tone"] == "advisory"
+    assert g["freshness"] == ""
 
 
 def test_laya_glance_in_snapshot(tmp_path: Path, monkeypatch) -> None:
