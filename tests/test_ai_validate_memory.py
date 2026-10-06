@@ -622,7 +622,9 @@ def test_build_ai_debate_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> Non
     align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert align["edge_vs_conf"] == "edge/conf align · thin · lo"
     assert align["edge_vs_conf_warn"] is False
-    assert "edge/conf align · thin · lo" in align["line"]
+    # Quiet+lo fee clash warn is ordered first; edge align may clip.
+    assert "fee/conf clash" in align["line"]
+    assert align["fee_vs_conf"] == "fee/conf clash · quiet · lo"
 
     _laya(2.1)
     _debate("MEDIUM")
@@ -633,6 +635,94 @@ def test_build_ai_debate_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> Non
     _debate("HIGH", symbol="MSFT")
     cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert cross["edge_vs_conf"] == ""
+
+
+def test_build_ai_debate_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
+    """Same-ticker LAYA fee vs debate conf clash/align (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(fee_churn: float, symbol: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": "pass",
+                            "edge_score": 2.1,
+                            "fee_churn": fee_churn,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _debate(confidence: str, symbol: str = "MSFT") -> None:
+        # Replace memory each case so glance length stays single-row.
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "action": "BUY",
+                            "confidence": confidence,
+                            "score": 40,
+                            "reasons": ["tape"],
+                            "kept": True,
+                            "gated": False,
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _laya(0.8)
+    _debate("HIGH")
+    clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert clash["fee_vs_conf"] == "fee/conf clash · hot · hi"
+    assert clash["fee_vs_conf_warn"] is True
+    assert "fee/conf clash · hot · hi" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya(0.1)
+    _debate("HIGH")
+    align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert align["fee_vs_conf"] == "fee/conf align · quiet · hi"
+    assert align["fee_vs_conf_warn"] is False
+    # Dual align bits often clip after edge/conf; field carries the full bit.
+    assert "fee/" in align["line"]
+
+    _laya(0.1)
+    _debate("LOW")
+    quiet_lo = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert quiet_lo["fee_vs_conf"] == "fee/conf clash · quiet · lo"
+    assert quiet_lo["fee_vs_conf_warn"] is True
+    assert "fee/conf clash · quiet · lo" in quiet_lo["line"]
+    assert quiet_lo["tone"] == "aging"
+
+    _laya(0.35)
+    _debate("MEDIUM")
+    mid = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert mid["fee_vs_conf"] == ""
+
+    _laya(0.8, symbol="NVDA")
+    _debate("HIGH", symbol="MSFT")
+    cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert cross["fee_vs_conf"] == ""
 
 
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:

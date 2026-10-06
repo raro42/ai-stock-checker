@@ -18,6 +18,7 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | Last-row vs last-debate name/verb | Yes — same ticker + same polarity (`pass`↔`BUY`) or same literal verb speaks `agree`; same ticker + hold/fail-open vs directional speaks `mixed · vs BUY`; cross-ticker mixed / same-side speak `mixed · vs NVDA BUY` / `align · vs NVDA BUY`; bare `vs` keeps bull↔bear |
 | Bull↔bear verb oppose tone | Yes — `reject` vs `BUY` / `pass` vs `SELL` paints `aging` (hold silent; not calm advisory) |
 | Last-row edge + fee-churn | Yes — `edge none/thin/ok/strong` + `fee quiet/ok/hot` when typed scores present; thin/none or fee hot paints `aging` (pass alone ≠ strong edge) |
+| Edge/fee vs debate conf | Yes — same ticker: edge/conf and fee/conf clash or align on extremes (`hot·hi` / `quiet·lo` clash; mid silent; clash paints `aging`) |
 | Desk parity (Screener/Book/Ideas/Breadth/scan-log/Charts) | Yes — display only |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 
