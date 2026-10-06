@@ -341,8 +341,29 @@ def _precedence_lead_sides(override_n: int, confirm_n: int, env_n: int) -> str:
     return f"vs {runner_name} · {runner_n}"
 
 
+def _precedence_lead_sides_share(override_n: int, confirm_n: int, env_n: int) -> str:
+    """Runner ownership % when vs already spoke (absolute N ≠ share).
+
+    Soft-allow lead sides share + xang1234 / portfolio AI after precedence
+    lead sides. Speaks ``N%`` (runner÷total). Silent when sides is silent.
+    """
+    sides = _precedence_lead_sides(override_n, confirm_n, env_n)
+    if not sides:
+        return ""
+    total = override_n + confirm_n + env_n
+    if total <= 0:
+        return ""
+    # ``vs ok · 2`` → runner count is the last token
+    try:
+        runner_n = int(sides.rsplit(" · ", 1)[-1])
+    except ValueError:
+        return ""
+    pct = int(round(100.0 * runner_n / total))
+    return f"{pct}%"
+
+
 def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
-    """Meter + optional lead (+ share + ahead + vs) ahead of key names."""
+    """Meter + optional lead (+ share + ahead + vs + runner %) ahead of names."""
     meter = _precedence_meter(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
@@ -354,7 +375,12 @@ def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, 
         bit = f"{bit} · {ahead}"
         sides = _precedence_lead_sides(override_n, confirm_n, env_n)
         if sides:
-            bit = f"{bit} · {sides}"
+            runner_share = _precedence_lead_sides_share(override_n, confirm_n, env_n)
+            bit = (
+                f"{bit} · {sides} · {runner_share}"
+                if runner_share
+                else f"{bit} · {sides}"
+            )
     return meter, f"{meter} · {bit}"
 
 
@@ -379,7 +405,8 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     (lead÷total; sole-bucket still speaks 100%), then ``ahead wide|thin · +K``
     when a runner-up bucket exists (share ≠ margin; sole-bucket omits ahead),
     then ``vs ok|env|win · N`` naming the clear runner (ahead ≠ who is #2;
-    tied runners silent).
+    tied runners silent), then runner ownership ``N%`` (absolute count ≠
+    share of the meter).
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -389,6 +416,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     share0 = _precedence_lead_share(0, 0, n_keys)
     margin0 = _precedence_lead_margin(0, 0, n_keys)
     sides0 = _precedence_lead_sides(0, 0, n_keys)
+    sides_share0 = _precedence_lead_sides_share(0, 0, n_keys)
     empty = {
         "overrides": [],
         "confirms": [],
@@ -401,6 +429,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_share": share0,
         "lead_margin": margin0,
         "lead_sides": sides0,
+        "lead_sides_share": sides_share0,
         "ready": True,
     }
     if not path.is_file():
@@ -443,9 +472,10 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     lead_share = _precedence_lead_share(o_n, c_n, e_n)
     lead_margin = _precedence_lead_margin(o_n, c_n, e_n)
     lead_sides = _precedence_lead_sides(o_n, c_n, e_n)
+    lead_sides_share = _precedence_lead_sides_share(o_n, c_n, e_n)
     if overrides:
         bits = _format_key_list(overrides)
-        # Meter (+ lead + share + ahead + vs) before key names so truncate keeps triad.
+        # Meter (+ lead + share + ahead + vs + runner %) before key names.
         line = f"file · Ops wins · {core} · {bits}"
         # Speak-both-sides: Ops override ≠ silent confirms / env gaps
         # (portfolio AI + xang1234 #394 after saved-row precedence).
@@ -483,6 +513,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_share": lead_share,
         "lead_margin": lead_margin,
         "lead_sides": lead_sides,
+        "lead_sides_share": lead_sides_share,
         "tone": tone,
         "line": line,
         "ready": True,
