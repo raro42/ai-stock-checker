@@ -335,6 +335,50 @@ def test_build_ai_debate_glance_laya_clash(monkeypatch, tmp_path: Path) -> None:
     assert both["scan_vs_debate_clash"] == "clash · scan fresh · laya fresh"
 
 
+def test_build_ai_debate_glance_laya_name_clash(monkeypatch, tmp_path: Path) -> None:
+    """Last-debate ticker/verb ≠ LAYA last-row → vs NVDA hold (display only)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    events[-1]["at"] = at
+    (tmp_path / "ai_validate_memory.json").write_text(
+        json.dumps({"updated_at": at, "events": events}) + "\n"
+    )
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": at,
+                        "symbol": "NVDA",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert g["scan_vs_debate_clash"] == ""
+    assert g["memory_name_clash"] == "vs NVDA hold"
+    assert "vs NVDA hold" in g["line"]
+    assert g["line"].index("vs NVDA") < g["line"].index("last MSFT")
+
+
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     record_ai_validate(
         tmp_path,

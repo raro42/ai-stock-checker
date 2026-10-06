@@ -15,6 +15,7 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | Last-row vs scan-clock clash | Yes — `clash · scan fresh` when bands disagree (same band silent) |
 | Last-row vs last-debate clash | Yes — append `debate fresh` when validate memory band disagrees |
 | Clash vs staler clock tone | Yes — fresh last-row vs stale/aging scan paints `stale`/`aging`, not calm advisory |
+| Last-row vs last-debate name/verb | Yes — `vs NVDA BUY` / `vs BUY` when ticker or verb disagrees (same name+verb silent) |
 | Desk parity (Screener/Book/Ideas/Breadth/scan-log/Charts) | Yes — display only |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 

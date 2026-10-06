@@ -5610,6 +5610,41 @@ def _clock_clash(memory_tone: str, **others: str) -> str:
     return "clash · " + " · ".join(bits)
 
 
+def _memory_name_clash(
+    own_sym: str, own_verb: str, other_sym: str, other_verb: str
+) -> str:
+    """Last memory name/verb ≠ other last name/verb (display only).
+
+    FinRobot last-debate vs JEV last-reject + portfolio AI speak-both-sides:
+    clock bands can match while the two memories name different tickers, or
+    the same ticker with a different verb. Same name+verb / missing silent.
+    Compact ``vs BUY`` when the ticker already matches. No Δ nest.
+    """
+    a = (own_sym or "").strip().upper()
+    b = (other_sym or "").strip().upper()
+    va = (own_verb or "").strip()
+    vb = (other_verb or "").strip()
+    if not a or not b:
+        return ""
+    same_name = a == b
+    same_verb = bool(va and vb) and va.lower() == vb.lower()
+    if same_name and (same_verb or not vb):
+        return ""
+    if same_name:
+        return f"vs {vb}"
+    if vb:
+        return f"vs {b} {vb}"
+    return f"vs {b}"
+
+
+def _laya_row_verb(newest: dict[str, Any] | None) -> str:
+    if not isinstance(newest, dict):
+        return ""
+    if newest.get("fail_open") or not newest.get("ok"):
+        return "fail-open"
+    return str(newest.get("entry") or "").strip().lower()
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -5625,8 +5660,9 @@ def build_laya_glance(
     reject is not a live print). When the scan archive band disagrees
     with last-row age, speak ``clash · scan fresh|aging|stale``. When the
     newest validate-debate band also disagrees, append ``debate {tone}``
-    (FinRobot last-debate ≠ JEV last-reject). Clash vs a staler
-    scan/debate escalates glance tone. See docs/LAYA.md.
+    (FinRobot last-debate ≠ JEV last-reject). When last-row ticker/verb
+    also disagrees with last-validate, append ``vs NVDA BUY`` / ``vs BUY``.
+    Clash vs a staler scan/debate escalates glance tone. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5659,16 +5695,25 @@ def build_laya_glance(
     debate_freshness = ""
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
-    debate_at = str(summarize_ai_debates(root).get("latest_at") or "").strip()
+    debate_sum = summarize_ai_debates(root)
+    debate_at = str(debate_sum.get("latest_at") or "").strip()
+    debate_sym = str(debate_sum.get("latest_symbol") or "").strip()
+    debate_action = str(debate_sum.get("latest_action") or "").strip()
     if debate_at:
         debate_pack = build_scan_freshness(
             debate_at, now=now, scan_interval_sec=scan_interval_sec
         )
         debate_freshness = str(debate_pack.get("tone") or "")
     clash = ""
+    name_clash = ""
+    own_sym = str((newest or {}).get("symbol") or "").strip()
+    own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
         clash = _clock_clash(
             freshness, scan=scan_freshness, debate=debate_freshness
+        )
+        name_clash = _memory_name_clash(
+            own_sym, own_verb, debate_sym, debate_action
         )
 
     if not st.get("configured"):
@@ -5697,6 +5742,8 @@ def build_laya_glance(
             bits.append(age_bit)
         if clash:
             bits.append(clash)
+        if name_clash:
+            bits.append(name_clash)
         n_decided = n_pass + n_hold + n_rej
         if n_decided == 0 and n_fo == 0:
             bits.append("no sample")
@@ -5741,6 +5788,7 @@ def build_laya_glance(
         "scan_freshness": scan_freshness,
         "debate_freshness": debate_freshness,
         "scan_vs_laya_clash": clash,
+        "memory_name_clash": name_clash,
         "latest_at": latest_at,
     }
 
@@ -5760,9 +5808,10 @@ def build_ai_debate_glance(
     debate (fresh/aging/stale vs scan cadence). When the scan archive band
     disagrees with last-debate age, speak ``clash · scan fresh|aging|stale``.
     When LAYA last-row band also disagrees, append ``laya {tone}`` (JEV
-    last-reject ≠ last BUY). Clash vs a staler scan/LAYA escalates glance
-    tone (fresh last BUY ≠ live print). Not a research score and not a new
-    gate.
+    last-reject ≠ last BUY). When last-debate ticker/verb also disagrees
+    with LAYA last-row, append ``vs MSFT hold`` / ``vs hold``. Clash vs a
+    staler scan/LAYA escalates glance tone (fresh last BUY ≠ live print).
+    Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -5776,6 +5825,7 @@ def build_ai_debate_glance(
         "scan_freshness": "",
         "laya_freshness": "",
         "scan_vs_debate_clash": "",
+        "memory_name_clash": "",
         "latest_at": "",
     }
     if count <= 0:
@@ -5831,8 +5881,13 @@ def build_ai_debate_glance(
         )
         laya_freshness = str(laya_pack.get("tone") or "")
     clash = ""
+    name_clash = ""
+    laya_sym = str((newest_row or {}).get("symbol") or "").strip()
+    laya_verb = _laya_row_verb(newest_row)
     if age_label:
         clash = _clock_clash(freshness, scan=scan_freshness, laya=laya_freshness)
+        if laya_st.get("advisory"):
+            name_clash = _memory_name_clash(sym, action, laya_sym, laya_verb)
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
     if gated:
         bits.append(f"{gated} gated")
@@ -5842,6 +5897,8 @@ def build_ai_debate_glance(
         bits.append(age_label)
     if clash:
         bits.append(clash)
+    if name_clash:
+        bits.append(name_clash)
     if sym:
         bits.append(f"last {sym} {action}")
     line = " · ".join(bits)
@@ -5879,6 +5936,7 @@ def build_ai_debate_glance(
         "scan_freshness": scan_freshness,
         "laya_freshness": laya_freshness,
         "scan_vs_debate_clash": clash,
+        "memory_name_clash": name_clash,
         "latest_at": latest_at,
     }
 

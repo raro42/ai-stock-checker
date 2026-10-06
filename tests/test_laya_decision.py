@@ -378,6 +378,66 @@ def test_laya_glance_debate_clash(monkeypatch, tmp_path: Path) -> None:
     assert same["scan_vs_laya_clash"] == "clash · debate fresh"
 
 
+def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
+    """Last-row ticker/verb ≠ last-debate → vs NVDA BUY (display only)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write(laya_sym: str, laya_entry: str, debate_sym: str, debate_act: str) -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": laya_sym,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": laya_entry,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {"at": at, "symbol": debate_sym, "action": debate_act}
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _write("MSFT", "hold", "NVDA", "BUY")
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert g["scan_vs_laya_clash"] == ""
+    assert g["memory_name_clash"] == "vs NVDA BUY"
+    assert "vs NVDA BUY" in g["line"]
+    assert g["line"].index("fresh") < g["line"].index("vs NVDA")
+    _write("MSFT", "hold", "MSFT", "BUY")
+    verb = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert verb["memory_name_clash"] == "vs BUY"
+    _write("MSFT", "hold", "MSFT", "HOLD")
+    same = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert same["memory_name_clash"] == ""
+    assert "vs " not in same["line"]
+
+
 def test_desk_templates_include_laya_glance() -> None:
     roots = Path("openbb_backend/templates")
     for name in (
