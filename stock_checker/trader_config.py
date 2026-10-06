@@ -375,6 +375,31 @@ def _parse_precedence_pct(bit: str) -> int | None:
         return None
 
 
+def _precedence_share_delta_parts(
+    override_n: int, confirm_n: int, env_n: int
+) -> tuple[str, int] | None:
+    """Lean + signed pp for lead% − runner%; None when runner share is silent."""
+    lead_pct = _parse_precedence_pct(
+        _precedence_lead_share(override_n, confirm_n, env_n)
+    )
+    runner_pct = _parse_precedence_pct(
+        _precedence_lead_sides_share(override_n, confirm_n, env_n)
+    )
+    if lead_pct is None or runner_pct is None:
+        return None
+    delta = int(lead_pct) - int(runner_pct)
+    mag = abs(delta)
+    if mag < 1:
+        return None
+    if mag >= PRECEDENCE_LEAD_SHARE_DELTA_WIDE_PP:
+        sev = "wide"
+    elif mag < PRECEDENCE_LEAD_SHARE_DELTA_THIN_PP:
+        sev = "thin"
+    else:
+        sev = "mid"
+    return sev, delta
+
+
 def _precedence_lead_sides_share_delta(
     override_n: int, confirm_n: int, env_n: int
 ) -> str:
@@ -384,23 +409,11 @@ def _precedence_lead_sides_share_delta(
     Speaks ``share Δ wide|thin · ±Npp`` (wide ≥20pp · thin <10pp; mid silent).
     Silent when runner share is silent.
     """
-    lead_pct = _parse_precedence_pct(
-        _precedence_lead_share(override_n, confirm_n, env_n)
-    )
-    runner_pct = _parse_precedence_pct(
-        _precedence_lead_sides_share(override_n, confirm_n, env_n)
-    )
-    if lead_pct is None or runner_pct is None:
+    parts = _precedence_share_delta_parts(override_n, confirm_n, env_n)
+    if parts is None:
         return ""
-    delta = int(lead_pct) - int(runner_pct)
-    mag = abs(delta)
-    if mag < 1:
-        return ""
-    if mag >= PRECEDENCE_LEAD_SHARE_DELTA_WIDE_PP:
-        sev = "wide"
-    elif mag < PRECEDENCE_LEAD_SHARE_DELTA_THIN_PP:
-        sev = "thin"
-    else:
+    sev, delta = parts
+    if sev == "mid":
         return ""
     sign = f"+{delta}" if delta > 0 else str(delta)
     return f"share Δ {sev} · {sign}pp"
@@ -419,8 +432,59 @@ def _precedence_lead_sides_share_delta_line(
     return f"Δ{sign}"
 
 
+def _precedence_ahead_lean(override_n: int, confirm_n: int, env_n: int) -> str:
+    """``wide``/``thin`` from ahead, else empty (ahead always leanish when it spoke)."""
+    ahead = _precedence_lead_margin(override_n, confirm_n, env_n)
+    if not ahead.startswith("ahead "):
+        return ""
+    sev = ahead.split(" · ", 1)[0].removeprefix("ahead ").strip()
+    if sev not in ("wide", "thin"):
+        return ""
+    return sev
+
+
+def _precedence_lead_sides_share_vs_delta(
+    override_n: int, confirm_n: int, env_n: int
+) -> str:
+    """Count-ahead lean vs ownership-Δ lean (soft-allow share vs Δ).
+
+    Ahead is always wide/thin when vs spoke. Clash when Δ is mid (exactly one
+    lean spoke). Align when both leanish and equal. Different leans stay
+    silent — xang1234 + portfolio AI after precedence share Δ. Display only.
+    """
+    ahead = _precedence_ahead_lean(override_n, confirm_n, env_n)
+    if ahead not in ("wide", "thin"):
+        return ""
+    parts = _precedence_share_delta_parts(override_n, confirm_n, env_n)
+    if parts is None:
+        return ""
+    share, _delta = parts
+    if share == "mid":
+        return f"share vs Δ clash · ×{ahead} · %mid"
+    if share == ahead:
+        return f"share vs Δ align · {ahead}"
+    return ""
+
+
+def _precedence_lead_sides_share_vs_delta_line(
+    override_n: int, confirm_n: int, env_n: int
+) -> str:
+    """Compact ``=W``/``=T`` (align) or ``×T/%m`` (clash) for the 96-char line."""
+    bit = _precedence_lead_sides_share_vs_delta(override_n, confirm_n, env_n)
+    if bit.startswith("share vs Δ clash · ×") and bit.endswith(" · %mid"):
+        ahead = bit.removeprefix("share vs Δ clash · ×").split(" · ", 1)[0]
+        if ahead in ("wide", "thin"):
+            return f"×{ahead[0].upper()}/%m"
+        return ""
+    if bit.startswith("share vs Δ align · "):
+        sev = bit.rsplit(" · ", 1)[-1]
+        if sev in ("wide", "thin"):
+            return f"={sev[0].upper()}"
+    return ""
+
+
 def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
-    """Meter + optional lead (+ share + ahead + vs + runner % or Δ) ahead of names."""
+    """Meter + optional lead (+ share + ahead + vs + runner % or Δ[+align])."""
     meter = _precedence_meter(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
@@ -436,9 +500,20 @@ def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, 
             delta_line = _precedence_lead_sides_share_delta_line(
                 override_n, confirm_n, env_n
             )
+            vs_delta = _precedence_lead_sides_share_vs_delta_line(
+                override_n, confirm_n, env_n
+            )
             if delta_line:
-                # Spread replaces runner % on the clipped line (API keeps both).
-                bit = f"{bit} · {sides} · {delta_line}"
+                # Spread replaces runner %. Align: Δ+20pp → Δ+20=W (same width).
+                if vs_delta.startswith("=") and delta_line.endswith("pp"):
+                    bit = f"{bit} · {sides} · {delta_line[:-2]}{vs_delta}"
+                elif vs_delta.startswith("="):
+                    bit = f"{bit} · {sides} · {delta_line}{vs_delta}"
+                else:
+                    bit = f"{bit} · {sides} · {delta_line}"
+            elif vs_delta.startswith("×"):
+                # Clash replaces runner % (mid Δ is silent; count-ahead spoke).
+                bit = f"{bit} · {sides} · {vs_delta}"
             elif runner_share:
                 bit = f"{bit} · {sides} · {runner_share}"
             else:
@@ -469,9 +544,12 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     then ``vs ok|env|win · N`` naming the clear runner (ahead ≠ who is #2;
     tied runners silent), then runner ownership ``N%`` (absolute count ≠
     share of the meter), then ``share Δ wide|thin · ±Npp`` (lead% − runner%;
-    wide ≥20pp · thin <10pp; mid silent — two % ≠ the spread). The Ops line
-    speaks compact ``Δ±Npp`` in place of runner % when Δ is not mid so the
-    96-char clip keeps the spread.
+    wide ≥20pp · thin <10pp; mid silent — two % ≠ the spread), then
+    ``share vs Δ clash · ×sev · %mid`` when Δ is mid (count-ahead spoke,
+    ownership spread did not) or ``share vs Δ align · sev`` when both
+    leanish match (mismatch stays silent). The Ops line speaks compact
+    ``Δ±N=W``/``=T`` (align, same width as ``Δ±Npp``) or ``×T/%m``/``×W/%m``
+    (clash in place of runner %) so the 96-char clip keeps the vs-Δ bit.
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -483,6 +561,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     sides0 = _precedence_lead_sides(0, 0, n_keys)
     sides_share0 = _precedence_lead_sides_share(0, 0, n_keys)
     sides_delta0 = _precedence_lead_sides_share_delta(0, 0, n_keys)
+    sides_vs_delta0 = _precedence_lead_sides_share_vs_delta(0, 0, n_keys)
     empty = {
         "overrides": [],
         "confirms": [],
@@ -497,6 +576,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_sides": sides0,
         "lead_sides_share": sides_share0,
         "lead_sides_share_delta": sides_delta0,
+        "lead_sides_share_vs_delta": sides_vs_delta0,
         "ready": True,
     }
     if not path.is_file():
@@ -541,9 +621,10 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     lead_sides = _precedence_lead_sides(o_n, c_n, e_n)
     lead_sides_share = _precedence_lead_sides_share(o_n, c_n, e_n)
     lead_sides_share_delta = _precedence_lead_sides_share_delta(o_n, c_n, e_n)
+    lead_sides_share_vs_delta = _precedence_lead_sides_share_vs_delta(o_n, c_n, e_n)
     if overrides:
         bits = _format_key_list(overrides)
-        # Meter (+ lead + share + ahead + vs + runner % + Δ) before key names.
+        # Meter (+ lead + share + ahead + vs + runner % + Δ + vs-Δ) before names.
         line = f"file · Ops wins · {core} · {bits}"
         # Speak-both-sides: Ops override ≠ silent confirms / env gaps
         # (portfolio AI + xang1234 #394 after saved-row precedence).
@@ -583,6 +664,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_sides": lead_sides,
         "lead_sides_share": lead_sides_share,
         "lead_sides_share_delta": lead_sides_share_delta,
+        "lead_sides_share_vs_delta": lead_sides_share_vs_delta,
         "tone": tone,
         "line": line,
         "ready": True,

@@ -240,6 +240,10 @@ def desk_config_get():
         "precedence_lead_sides_share": prec.get("lead_sides_share") or "",
         "precedence_lead_sides_share_delta": prec.get("lead_sides_share_delta")
         or "",
+        "precedence_lead_sides_share_vs_delta": prec.get(
+            "lead_sides_share_vs_delta"
+        )
+        or "",
         "overrides": list(prec.get("overrides") or []),
         "confirms": list(prec.get("confirms") or []),
         "env_fallbacks": list(prec.get("env_fallbacks") or []),
