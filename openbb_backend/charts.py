@@ -1235,7 +1235,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "ai_mode_glance": _ai_mode_glance_from_config(data_dir),
         "ai_roles_glance": build_ai_roles_glance(),
         "laya_glance": build_laya_glance(data_dir, scan_time=scan_time),
-        "ai_debate_glance": build_ai_debate_glance(data_dir),
+        "ai_debate_glance": build_ai_debate_glance(data_dir, scan_time=scan_time),
         "ai_validate_scope_glance": _ai_validate_scope_glance_from_config(data_dir),
         "session_glance": build_session_glance(),
         "equity_hours_glance": build_equity_hours_glance(),

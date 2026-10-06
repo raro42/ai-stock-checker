@@ -5562,18 +5562,19 @@ def build_ai_roles_glance() -> dict[str, Any]:
     }
 
 
-_LAYA_FRESH_RANK = {"fresh": 0, "aging": 1, "stale": 2}
+_CLOCK_FRESH_RANK = {"fresh": 0, "aging": 1, "stale": 2}
 
 
-def _scan_vs_laya_clash(laya_tone: str, scan_tone: str) -> str:
-    """Scan archive clock ≠ last advisory clock (display only).
+def _scan_vs_clock_clash(memory_tone: str, scan_tone: str) -> str:
+    """Scan archive clock ≠ last memory clock (display only).
 
     xang1234 scan-vs-cash clash + FinRobot debate-age: a fresh scan does
-    not make a stale last-reject live. Same band stays silent. No Δ nest.
+    not make a stale last-reject or last-debate live. Same band stays
+    silent. No Δ nest.
     """
-    if laya_tone not in _LAYA_FRESH_RANK or scan_tone not in _LAYA_FRESH_RANK:
+    if memory_tone not in _CLOCK_FRESH_RANK or scan_tone not in _CLOCK_FRESH_RANK:
         return ""
-    if laya_tone == scan_tone:
+    if memory_tone == scan_tone:
         return ""
     return f"clash · scan {scan_tone}"
 
@@ -5623,7 +5624,7 @@ def build_laya_glance(
         scan_freshness = str(scan_pack.get("tone") or "")
     clash = ""
     if st.get("advisory") and age_bit:
-        clash = _scan_vs_laya_clash(freshness, scan_freshness)
+        clash = _scan_vs_clock_clash(freshness, scan_freshness)
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -5700,14 +5701,17 @@ def build_ai_debate_glance(
     *,
     now: Optional[datetime] = None,
     scan_interval_sec: int = 900,
+    scan_time: Any = None,
 ) -> dict[str, Any]:
     """FinRobot validate debate memory strip (display only).
 
     One-line BUY/HOLD/SELL + multi-role gated counts from
     ``ai_validate_memory`` so Overview/Ops/Charts see research memory without
     opening Ideas. Includes RyanJHamby/xang1234 ``as of`` age on the newest
-    debate (fresh/aging/stale vs scan cadence). Not a research score and not
-    a new gate.
+    debate (fresh/aging/stale vs scan cadence). When the scan archive band
+    disagrees with last-debate age, speak ``clash · scan fresh|aging|stale``
+    (LAYA vs scan clash + xang1234 scan-vs-cash). Not a research score and
+    not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -5718,6 +5722,8 @@ def build_ai_debate_glance(
         "age_sec": None,
         "age_label": "",
         "freshness": "",
+        "scan_freshness": "",
+        "scan_vs_debate_clash": "",
         "latest_at": "",
     }
     if count <= 0:
@@ -5748,15 +5754,26 @@ def build_ai_debate_glance(
     age_label = str(fresh.get("age_label") or "")
     freshness = str(fresh.get("tone") or "")
     age_sec = fresh.get("age_sec")
+    scan_freshness = ""
+    if scan_time:
+        scan_pack = build_scan_freshness(
+            scan_time, now=now, scan_interval_sec=scan_interval_sec
+        )
+        scan_freshness = str(scan_pack.get("tone") or "")
+    clash = ""
+    if age_label:
+        clash = _scan_vs_clock_clash(freshness, scan_freshness)
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
     if gated:
         bits.append(f"{gated} gated")
-    if sym:
-        bits.append(f"last {sym} {action}")
     if age_label and freshness and freshness != "unknown":
         bits.append(f"{age_label} · {freshness}")
     elif age_label:
         bits.append(age_label)
+    if clash:
+        bits.append(clash)
+    if sym:
+        bits.append(f"last {sym} {action}")
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -5786,6 +5803,8 @@ def build_ai_debate_glance(
         "age_sec": age_sec,
         "age_label": age_label,
         "freshness": freshness,
+        "scan_freshness": scan_freshness,
+        "scan_vs_debate_clash": clash,
         "latest_at": latest_at,
     }
 
@@ -10563,7 +10582,9 @@ def load_desk_snapshot(
             scan_time=scan_time_raw,
         ),
         "ai_debate_glance": build_ai_debate_glance(
-            data_dir, scan_interval_sec=scan_interval_sec
+            data_dir,
+            scan_interval_sec=scan_interval_sec,
+            scan_time=scan_time_raw,
         ),
         "ai_validate_scope_glance": build_ai_validate_scope_glance(runtime),
         "session_glance": build_session_glance(weekend=weekend),

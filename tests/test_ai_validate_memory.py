@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from openbb_backend.desk import build_ai_debate_glance, load_desk_snapshot
@@ -218,6 +218,37 @@ def test_build_ai_debate_glance_freshness_stale(tmp_path: Path) -> None:
     assert g["tone"] == "stale"
     assert "ago" in g["line"]
     assert "stale" in g["line"]
+
+
+def test_build_ai_debate_glance_scan_clash(tmp_path: Path) -> None:
+    """Last-debate band ≠ scan archive band → clash · scan {tone} (display only)."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    scan_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = stale_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": stale_at, "events": events}) + "\n")
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=scan_at
+    )
+    assert g["freshness"] == "stale"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_vs_debate_clash"] == "clash · scan fresh"
+    assert "clash" in g["line"]
+    assert g["line"].index("stale") < g["line"].index("clash")
+    assert g["line"].index("clash") < g["line"].index("MSFT")
+    same = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_at
+    )
+    assert same["scan_vs_debate_clash"] == ""
+    assert "clash" not in same["line"]
 
 
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
