@@ -5649,8 +5649,11 @@ def _memory_name_clash(
     (pass↔BUY / reject↔SELL) or same literal verb speaks ``agree`` —
     silent agreement hides confirm. Same ticker + hold/fail-open vs a
     directional verb speaks ``mixed · vs BUY`` (neutral ≠ polarity clash;
-    no tone escalate). Compact ``vs BUY`` when both sides are directional
-    and disagree. Missing silent. No Δ nest.
+    no tone escalate). Cross-ticker: neutral vs directional speaks
+    ``mixed · vs NVDA BUY``; same polarity speaks ``align · vs NVDA BUY``
+    (name clash ≠ polarity oppose); bull↔bear keeps bare ``vs``. Compact
+    ``vs BUY`` when both sides are directional and disagree on the same
+    name. Missing silent. No Δ nest.
     """
     a = (own_sym or "").strip().upper()
     b = (other_sym or "").strip().upper()
@@ -5664,17 +5667,22 @@ def _memory_name_clash(
         return "agree"
     if same_name and not vb:
         return ""
+    own_side = _MEMORY_VERB_SIDE.get(va.lower()) if va else None
+    other_side = _MEMORY_VERB_SIDE.get(vb.lower()) if vb else None
+    mixed = (_memory_verb_neutral(va) and other_side) or (
+        _memory_verb_neutral(vb) and own_side
+    )
     if same_name:
-        own_side = _MEMORY_VERB_SIDE.get(va.lower()) if va else None
-        other_side = _MEMORY_VERB_SIDE.get(vb.lower()) if vb else None
-        if (_memory_verb_neutral(va) and other_side) or (
-            _memory_verb_neutral(vb) and own_side
-        ):
+        if mixed:
             return f"mixed · vs {vb}"
         return f"vs {vb}"
-    if vb:
-        return f"vs {b} {vb}"
-    return f"vs {b}"
+    if not vb:
+        return f"vs {b}"
+    if mixed:
+        return f"mixed · vs {b} {vb}"
+    if _memory_verb_agree(va, vb):
+        return f"align · vs {b} {vb}"
+    return f"vs {b} {vb}"
 
 
 def _memory_verb_oppose(own_verb: str, other_verb: str) -> bool:
@@ -5718,9 +5726,11 @@ def build_laya_glance(
     Same ticker + same polarity (pass↔BUY / reject↔SELL) or same literal
     verb speaks ``agree`` (portfolio AI confirm; not silent). Same ticker
     + hold/fail-open vs directional speaks ``mixed · vs BUY`` (neutral ≠
-    polarity; no tone escalate). Clash vs a staler scan/debate escalates
-    glance tone. Bull↔bear verb oppose (reject vs BUY / pass vs SELL) also
-    escalates to aging — name label ≠ polarity severity. See docs/LAYA.md.
+    polarity; no tone escalate). Cross-ticker mixed / same-side speak
+    ``mixed · vs NVDA BUY`` / ``align · vs NVDA BUY`` (bare ``vs`` keeps
+    bull↔bear). Clash vs a staler scan/debate escalates glance tone.
+    Bull↔bear verb oppose (reject vs BUY / pass vs SELL) also escalates
+    to aging — name label ≠ polarity severity. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5875,11 +5885,12 @@ def build_ai_debate_glance(
     with LAYA last-row, append ``vs MSFT hold`` / ``vs hold``. Same ticker
     + same polarity (BUY↔pass / SELL↔reject) or same literal verb speaks
     ``agree``. Same ticker + hold/fail-open vs directional speaks
-    ``mixed · vs hold`` (neutral ≠ polarity; no tone escalate). Clash vs a
-    staler scan/LAYA escalates glance tone (fresh last BUY ≠ live print).
-    Bull↔bear verb oppose (BUY vs reject / SELL vs pass) also escalates to
-    aging — name label ≠ polarity severity. Not a research score and not a
-    new gate.
+    ``mixed · vs hold`` (neutral ≠ polarity; no tone escalate). Cross-ticker
+    mixed / same-side speak ``mixed · vs NVDA hold`` / ``align · vs NVDA
+    pass`` (bare ``vs`` keeps bull↔bear). Clash vs a staler scan/LAYA
+    escalates glance tone (fresh last BUY ≠ live print). Bull↔bear verb
+    oppose (BUY vs reject / SELL vs pass) also escalates to aging — name
+    label ≠ polarity severity. Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 

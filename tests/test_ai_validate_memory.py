@@ -336,7 +336,7 @@ def test_build_ai_debate_glance_laya_clash(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_build_ai_debate_glance_laya_name_clash(monkeypatch, tmp_path: Path) -> None:
-    """Last-debate ticker/verb ≠ LAYA last-row → vs NVDA hold (display only)."""
+    """Last-debate ticker/verb ≠ LAYA last-row → mixed/align/vs (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
     now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
@@ -374,10 +374,35 @@ def test_build_ai_debate_glance_laya_name_clash(monkeypatch, tmp_path: Path) -> 
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
     assert g["scan_vs_debate_clash"] == ""
-    assert g["memory_name_clash"] == "vs NVDA hold"
+    assert g["memory_name_clash"] == "mixed · vs NVDA hold"
     assert g["memory_verb_oppose"] is False
-    assert "vs NVDA hold" in g["line"]
+    assert "mixed · vs NVDA hold" in g["line"]
     assert g["line"].index("vs NVDA") < g["line"].index("last MSFT")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": at,
+                        "symbol": "NVDA",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "pass",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    align = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert align["memory_name_clash"] == "align · vs NVDA pass"
+    assert align["memory_verb_oppose"] is False
+    assert "align · vs NVDA pass" in align["line"]
+    assert align["tone"] == "buy"
 
 
 def test_build_ai_debate_glance_laya_verb_oppose(monkeypatch, tmp_path: Path) -> None:

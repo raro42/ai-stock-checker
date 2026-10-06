@@ -379,7 +379,7 @@ def test_laya_glance_debate_clash(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
-    """Last-row ticker/verb ≠ last-debate → vs NVDA BUY (display only)."""
+    """Last-row ticker/verb ≠ last-debate → mixed/align/vs (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
     now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
@@ -422,11 +422,19 @@ def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
     assert g["scan_vs_laya_clash"] == ""
-    assert g["memory_name_clash"] == "vs NVDA BUY"
+    assert g["memory_name_clash"] == "mixed · vs NVDA BUY"
     assert g["memory_verb_oppose"] is False
-    assert "vs NVDA BUY" in g["line"]
+    assert "mixed · vs NVDA BUY" in g["line"]
     assert g["line"].index("fresh") < g["line"].index("vs NVDA")
     assert g["tone"] == "advisory"
+    _write("MSFT", "pass", "NVDA", "BUY")
+    align = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert align["memory_name_clash"] == "align · vs NVDA BUY"
+    assert align["memory_verb_oppose"] is False
+    assert "align · vs NVDA BUY" in align["line"]
+    assert align["tone"] == "advisory"
     _write("MSFT", "hold", "MSFT", "BUY")
     verb = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
