@@ -244,6 +244,9 @@ def desk_config_get():
             "lead_sides_share_vs_delta"
         )
         or "",
+        "file_freshness": prec.get("file_freshness") or "",
+        "file_age_label": prec.get("file_age_label") or "",
+        "file_age_bit": prec.get("file_age_bit") or "",
         "overrides": list(prec.get("overrides") or []),
         "confirms": list(prec.get("confirms") or []),
         "env_fallbacks": list(prec.get("env_fallbacks") or []),

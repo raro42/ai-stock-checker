@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -296,6 +297,10 @@ PRECEDENCE_LEAD_MARGIN_WIDE = 2
 # Ownership spread (lead% − runner%) — same bands as soft-allow share Δ.
 PRECEDENCE_LEAD_SHARE_DELTA_WIDE_PP = 20
 PRECEDENCE_LEAD_SHARE_DELTA_THIN_PP = 10
+# Ops saved-row mtime (RyanJHamby triad + xang1234 seed-age). Display only.
+# Fresh <24h · aging <7d · else stale. File exists ≠ recently intended.
+PRECEDENCE_FILE_FRESH_HOURS = 24
+PRECEDENCE_FILE_AGING_HOURS = 168
 
 
 def _precedence_lead_margin(override_n: int, confirm_n: int, env_n: int) -> str:
@@ -483,6 +488,66 @@ def _precedence_lead_sides_share_vs_delta_line(
     return ""
 
 
+def _config_age_label(age_sec: float) -> str:
+    """Short wall age for Ops file mtime (same steps as scan freshness)."""
+    sec = max(0, int(age_sec))
+    if sec < 60:
+        return "just now"
+    if sec < 3600:
+        return f"{sec // 60}m ago"
+    if sec < 36 * 3600:
+        return f"{sec // 3600}h ago"
+    return f"{sec // 86400}d ago"
+
+
+def _ops_file_age(
+    path: Path, *, now: datetime | None = None
+) -> dict[str, Any]:
+    """Fresh/aging/stale for trader_config.json mtime (display only)."""
+    empty = {
+        "file_age_hours": None,
+        "file_freshness": "",
+        "file_age_label": "",
+        "file_age_bit": "",
+        "file_age_line": "",
+    }
+    try:
+        mtime = float(path.stat().st_mtime)
+    except OSError:
+        return empty
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+    when = datetime.fromtimestamp(mtime, tz=timezone.utc)
+    age_sec = max(0.0, (clock - when).total_seconds())
+    hours = age_sec / 3600.0
+    if hours < PRECEDENCE_FILE_FRESH_HOURS:
+        freshness = "fresh"
+    elif hours < PRECEDENCE_FILE_AGING_HOURS:
+        freshness = "aging"
+    else:
+        freshness = "stale"
+    label = _config_age_label(age_sec)
+    short = "now" if label == "just now" else label.removesuffix(" ago")
+    return {
+        "file_age_hours": round(hours, 2),
+        "file_freshness": freshness,
+        "file_age_label": label,
+        "file_age_bit": f"saved {label} · {freshness}",
+        "file_age_line": f"{short} {freshness}",
+    }
+
+
+def _with_saved_age(line: str, age_bit: str) -> str:
+    """Put compact saved-age early so the clip keeps it (before meter)."""
+    if not age_bit:
+        return line
+    for needle in ("file · Ops wins · ", "file · partial · "):
+        if line.startswith(needle):
+            return f"{needle}{age_bit} · {line[len(needle):]}"
+    return line
+
+
 def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
     """Meter + optional lead (+ share + ahead + vs + runner % or Δ[+align])."""
     meter = _precedence_meter(override_n, confirm_n, env_n)
@@ -521,7 +586,9 @@ def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, 
     return meter, f"{meter} · {bit}"
 
 
-def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
+def config_precedence_status(
+    data_dir: Path | str, *, now: datetime | None = None
+) -> dict[str, Any]:
     """Report Ops file vs env/compose precedence (display / API honesty).
 
     Resolve order matches load_trader_config:
@@ -550,6 +617,12 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     leanish match (mismatch stays silent). The Ops line speaks compact
     ``Δ±N=W``/``=T`` (align, same width as ``Δ±Npp``) or ``×T/%m``/``×W/%m``
     (clash in place of runner %) so the 96-char clip keeps the vs-Δ bit.
+    When a saved file exists, also speak ``saved {age} · fresh|aging|stale``
+    from mtime (RyanJHamby triad + xang1234 seed-age; fresh <24h · aging <7d).
+    File exists ≠ recently intended. Age sits before the meter so truncate
+    keeps it (compact ``6h fresh`` / ``2d aging`` / ``10d stale`` on the Ops
+    line; API keeps the full ``saved {age} · band``). No file stays silent
+    on age. Line clip is 120 chars so age + meter still leave room for lead.
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -577,6 +650,11 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_sides_share": sides_share0,
         "lead_sides_share_delta": sides_delta0,
         "lead_sides_share_vs_delta": sides_vs_delta0,
+        "file_age_hours": None,
+        "file_freshness": "",
+        "file_age_label": "",
+        "file_age_bit": "",
+        "file_age_line": "",
         "ready": True,
     }
     if not path.is_file():
@@ -646,8 +724,10 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         line = f"file · Ops wins · {core} · matches env"
         tone = "file"
 
-    if len(line) > 96:
-        line = line[:95] + "…"
+    age = _ops_file_age(path, now=now)
+    line = _with_saved_age(line, str(age.get("file_age_line") or ""))
+    if len(line) > 120:
+        line = line[:119] + "…"
 
     return {
         "source": "file",
@@ -665,6 +745,11 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_sides_share": lead_sides_share,
         "lead_sides_share_delta": lead_sides_share_delta,
         "lead_sides_share_vs_delta": lead_sides_share_vs_delta,
+        "file_age_hours": age.get("file_age_hours"),
+        "file_freshness": age.get("file_freshness") or "",
+        "file_age_label": age.get("file_age_label") or "",
+        "file_age_bit": age.get("file_age_bit") or "",
+        "file_age_line": age.get("file_age_line") or "",
         "tone": tone,
         "line": line,
         "ready": True,

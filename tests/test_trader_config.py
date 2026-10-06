@@ -1,6 +1,8 @@
 """Offline tests for Ops trader_config persistence."""
 
 import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from stock_checker.trader_config import (
@@ -157,6 +159,8 @@ def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
     assert "share Δ" not in st["line"]
+    assert st["file_freshness"] == ""
+    assert "saved " not in st["line"]
 
 
 def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
@@ -253,7 +257,7 @@ def test_config_precedence_override_speaks_confirms(tmp_path: Path, monkeypatch)
 
 
 def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
-    """Multi-meter stays ahead of key names when the line hits 96 chars."""
+    """Multi-meter stays ahead of key names when the line hits 120 chars."""
     monkeypatch.setenv("AI_MODE", "full")
     monkeypatch.setenv("AI_MODEL", "gemma4:latest")
     monkeypatch.setenv("AI_MULTI_ROLE", "1")
@@ -301,7 +305,7 @@ def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
     assert "share Δ" not in st["line"]
     assert st["line"].index(st["meter"]) < st["line"].index("lead win")
     assert st["line"].index("lead win") < st["line"].index("100%")
-    assert len(st["line"]) <= 96
+    assert len(st["line"]) <= 120
 
 
 def test_config_precedence_lead_silent_on_tie(tmp_path: Path, monkeypatch):
@@ -606,3 +610,56 @@ def test_config_precedence_lead_sides_share_delta_mid_silent(
     assert st["lead_sides_share_vs_delta"] == "share vs Δ clash · ×thin · %mid"
     assert "share Δ" not in st["line"]
     assert "×T/%m" in st["line"]
+
+
+def _stamp_config_mtime(path: Path, clock: datetime, age_sec: float) -> None:
+    ts = clock.timestamp() - age_sec
+    os.utime(path, (ts, ts))
+
+
+def test_config_precedence_saved_age_fresh(tmp_path: Path, monkeypatch):
+    """Ops file mtime fresh <24h (RyanJHamby triad + xang1234 seed-age)."""
+    monkeypatch.setenv("AI_MODE", "full")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"ai_mode": "validate"}) + "\n"
+    )
+    now = datetime(2026, 10, 6, 8, 0, tzinfo=timezone.utc)
+    _stamp_config_mtime(tmp_path / "trader_config.json", now, 6 * 3600)
+    st = config_precedence_status(tmp_path, now=now)
+    assert st["file_freshness"] == "fresh"
+    assert st["file_age_label"] == "6h ago"
+    assert st["file_age_bit"] == "saved 6h ago · fresh"
+    assert st["file_age_line"] == "6h fresh"
+    assert "6h fresh" in st["line"]
+    assert st["line"].index("6h fresh") < st["line"].index(st["meter"])
+    assert st["meter"] in st["line"]
+
+
+def test_config_precedence_saved_age_aging(tmp_path: Path, monkeypatch):
+    """Ops file mtime aging between 24h and 7d."""
+    monkeypatch.setenv("AI_MODE", "full")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"ai_mode": "validate"}) + "\n"
+    )
+    now = datetime(2026, 10, 6, 8, 0, tzinfo=timezone.utc)
+    _stamp_config_mtime(tmp_path / "trader_config.json", now, 48 * 3600)
+    st = config_precedence_status(tmp_path, now=now)
+    assert st["file_freshness"] == "aging"
+    assert st["file_age_label"] == "2d ago"
+    assert "2d aging" in st["line"]
+
+
+def test_config_precedence_saved_age_stale(tmp_path: Path, monkeypatch):
+    """Ops file mtime stale ≥7d — file exists ≠ recently intended."""
+    monkeypatch.setenv("AI_MODE", "full")
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps({"ai_mode": "validate"}) + "\n"
+    )
+    now = datetime(2026, 10, 6, 8, 0, tzinfo=timezone.utc)
+    _stamp_config_mtime(tmp_path / "trader_config.json", now, 10 * 86400)
+    st = config_precedence_status(tmp_path, now=now)
+    assert st["file_freshness"] == "stale"
+    assert st["file_age_label"] == "10d ago"
+    assert "10d stale" in st["line"]
+    assert st["meter"] in st["line"]
+    assert len(st["line"]) <= 120

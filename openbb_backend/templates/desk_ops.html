@@ -502,7 +502,7 @@
     </div>
     <div>
       <dt>Config source</dt>
-      <dd title="Ops saved row wins over compose/env; meter = N win · N ok · N env; lead = strictly largest bucket; lead share = ownership % of lead; ahead = lead−#2 (wide ≥2 · thin =1; sole-bucket silent); vs = clear runner bucket · count · runner % of meter (tied runners silent; absolute count ≠ share); when ownership spread is wide/thin the line speaks compact Δ±Npp instead of runner % (wide ≥20pp · thin &lt;10pp; mid silent; API keeps share Δ); Δ±N=W/T = share vs Δ align with count-ahead (same width as Δ±Npp); ×T/%m = clash (ahead spoke, Δ mid); confirms = file matches env; env for = missing from Ops file">{{ snap.runtime.config_precedence_line or snap.runtime.config_source }}</dd>
+      <dd title="Ops saved row wins over compose/env; compact 6h fresh / 2d aging / 10d stale = trader_config.json mtime (fresh &lt;24h · aging &lt;7d · else stale; file exists ≠ recently intended); meter = N win · N ok · N env; lead = strictly largest bucket; lead share = ownership % of lead; ahead = lead−#2 (wide ≥2 · thin =1; sole-bucket silent); vs = clear runner bucket · count · runner % of meter (tied runners silent; absolute count ≠ share); when ownership spread is wide/thin the line speaks compact Δ±Npp instead of runner % (wide ≥20pp · thin &lt;10pp; mid silent; API keeps share Δ); Δ±N=W/T = share vs Δ align with count-ahead (same width as Δ±Npp); ×T/%m = clash (ahead spoke, Δ mid); confirms = file matches env; env for = missing from Ops file">{{ snap.runtime.config_precedence_line or snap.runtime.config_source }}</dd>
     </div>
     <div>
       <dt>Max positions</dt>
