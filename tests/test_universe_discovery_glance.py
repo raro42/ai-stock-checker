@@ -469,6 +469,34 @@ def test_universe_discovery_glance_dropped_movers_speaks_venue(tmp_path) -> None
     assert "dropped 2 · US" in g["line"]
 
 
+def test_universe_discovery_glance_partial_skip_prune(tmp_path) -> None:
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_dropped": 0,
+                    "last_yahoo_prune_skipped": True,
+                    "last_yahoo_screens_ok": 2,
+                    "last_yahoo_screens_failed": 1,
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_prune_skipped"] is True
+    assert g["tone"] == "fresh"
+    assert "partial · skip prune" in g["line"]
+    assert "dropped" not in g["line"]
+    assert "discovery-only" in g["line"]
+
+
 def test_universe_discovery_glance_fail_path_hides_dropped(tmp_path) -> None:
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
     last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()

@@ -364,6 +364,7 @@ class StockUniverseManager:
         from stock_checker.yahoo_universe_discovery import (
             discover_yahoo_mover_report,
             screens_bundle_failed,
+            screens_bundle_partial,
         )
 
         meta = self.universe.setdefault("meta", {})
@@ -383,6 +384,7 @@ class StockUniverseManager:
             meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
             meta["last_yahoo_screens_ok"] = 0
             meta["last_yahoo_screens_failed"] = 0
+            meta["last_yahoo_prune_skipped"] = False
             self.ensure_curated_seed()
             self._save_universe()
             return 0
@@ -394,6 +396,7 @@ class StockUniverseManager:
             # stamp cache fresh; discard leftover quotes from a thin screen.
             meta["last_yahoo_discovery_status"] = "failed"
             meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            meta["last_yahoo_prune_skipped"] = False
             self.ensure_curated_seed()
             self._save_universe()
             print(
@@ -412,16 +415,28 @@ class StockUniverseManager:
             if self.add_stock(sym, sector="yahoo_mover", exchange=exchange):
                 added += 1
         # Complete snapshot only: empty/majority-fail returned above.
-        dropped = self.prune_dropped_yahoo_movers(
-            symbols, venue=YAHOO_MOVER_SNAPSHOT_VENUE
-        )
+        # xang1234 7e0df1e: a minority-failed bundle is still addable, but
+        # missing names are not a drop list — skip prune.
+        prune_skipped = screens_bundle_partial(screens_ok, screens_failed)
+        if prune_skipped:
+            dropped = 0
+        else:
+            dropped = self.prune_dropped_yahoo_movers(
+                symbols, venue=YAHOO_MOVER_SNAPSHOT_VENUE
+            )
         meta["last_yahoo_discovery"] = datetime.now().isoformat()
         meta["last_yahoo_discovery_status"] = "ok"
         meta["last_yahoo_added"] = added
         meta["last_yahoo_dropped"] = dropped
         meta["last_yahoo_dropped_venue"] = YAHOO_MOVER_SNAPSHOT_VENUE
+        meta["last_yahoo_prune_skipped"] = prune_skipped
         self._save_universe()
-        if added or dropped:
+        if prune_skipped:
+            print(
+                f"   📡 Yahoo movers → universe: +{added} "
+                f"(partial {screens_ok}/{screens_ok + screens_failed} · skip prune)"
+            )
+        elif added or dropped:
             print(
                 f"   📡 Yahoo movers → universe: +{added} −{dropped} (cap {max_new})"
             )
@@ -452,7 +467,8 @@ class StockUniverseManager:
         """Drop yahoo_mover names absent from a complete movers snapshot.
 
         xang1234 weekly-US-stale-seed: deactivate symbols the source dropped.
-        Incomplete/empty fetches must not call this (empty ≠ drop-all).
+        Incomplete/empty/partly-failed fetches must not call this
+        (empty ≠ drop-all; a minority-failed bundle is not a drop list).
         Curated seed names stay even if they were never movers.
         Baseline is scoped to the snapshot venue (US Yahoo screens ≠ Xetra).
         """

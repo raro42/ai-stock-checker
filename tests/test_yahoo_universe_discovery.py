@@ -67,6 +67,15 @@ def test_screens_bundle_failed_majority_or_empty():
     assert screens_bundle_failed(3, 0) is False
 
 
+def test_screens_bundle_partial_minority_fail():
+    from stock_checker.yahoo_universe_discovery import screens_bundle_partial
+
+    assert screens_bundle_partial(2, 1) is True
+    assert screens_bundle_partial(3, 0) is False
+    assert screens_bundle_partial(1, 2) is False
+    assert screens_bundle_partial(0, 3) is False
+
+
 def test_yahoo_cache_freshness_seed_age_bands():
     from stock_checker.yahoo_universe_discovery import yahoo_cache_freshness
 

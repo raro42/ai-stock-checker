@@ -146,6 +146,32 @@ def test_discover_yahoo_movers_prunes_dropped_movers(tmp_path: Path, monkeypatch
     assert mgr.universe["meta"]["last_yahoo_dropped"] == 1
     assert mgr.universe["meta"]["last_yahoo_dropped_venue"] == "US"
     assert mgr.universe["meta"]["last_yahoo_discovery_status"] == "ok"
+    assert mgr.universe["meta"]["last_yahoo_prune_skipped"] is False
+
+
+def test_discover_yahoo_movers_partial_skips_prune(tmp_path: Path, monkeypatch):
+    """Minority-failed screens still add names; do not drop missing movers."""
+    mgr = StockUniverseManager(data_dir=str(tmp_path))
+    assert mgr.add_stock("ZZZZOLD", sector="yahoo_mover", exchange="US")
+    mgr._save_universe()
+
+    def partial_report(*, per_screen: int = 25):
+        return ["NEWFAKE"], 2, 1
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.discover_yahoo_mover_report",
+        partial_report,
+    )
+    added = mgr.discover_yahoo_movers()
+    assert added == 1
+    assert "NEWFAKE" in mgr.universe["stocks"]
+    assert "ZZZZOLD" in mgr.universe["stocks"]
+    meta = mgr.universe["meta"]
+    assert meta["last_yahoo_discovery_status"] == "ok"
+    assert meta["last_yahoo_dropped"] == 0
+    assert meta["last_yahoo_prune_skipped"] is True
+    assert meta["last_yahoo_screens_ok"] == 2
+    assert meta["last_yahoo_screens_failed"] == 1
 
 
 def test_listing_venue_mic_lite_us_vs_xetra():

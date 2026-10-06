@@ -4999,6 +4999,7 @@ def build_universe_discovery_glance(
     last_added: int | None = None
     last_dropped: int | None = None
     last_dropped_venue = ""
+    prune_skipped = False
     yahoo_status = ""
     screens_ok: int | None = None
     screens_failed: int | None = None
@@ -5024,6 +5025,7 @@ def build_universe_discovery_glance(
             last_dropped_venue = str(
                 meta.get("last_yahoo_dropped_venue") or ""
             ).strip().upper()
+            prune_skipped = bool(meta.get("last_yahoo_prune_skipped"))
             try:
                 screens_ok = int(meta.get("last_yahoo_screens_ok"))
             except (TypeError, ValueError):
@@ -5197,7 +5199,9 @@ def build_universe_discovery_glance(
             )
     else:
         drop_bit = ""
-        if last_dropped is not None and last_dropped > 0:
+        if prune_skipped:
+            drop_bit = " · partial · skip prune"
+        elif last_dropped is not None and last_dropped > 0:
             # Yahoo US screens are the prune baseline (MIC-lite US, not Xetra).
             drop_venue = last_dropped_venue or "US"
             drop_bit = f" · dropped {last_dropped} · {drop_venue}"
@@ -5221,6 +5225,7 @@ def build_universe_discovery_glance(
         "last_yahoo_added": last_added,
         "last_yahoo_dropped": last_dropped,
         "last_yahoo_dropped_venue": last_dropped_venue or None,
+        "last_yahoo_prune_skipped": prune_skipped,
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
         "yahoo_retry_due": retry_due,

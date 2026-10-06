@@ -62,6 +62,18 @@ def screens_bundle_failed(ok: int, failed: int) -> bool:
     return fail_n > ok_n
 
 
+def screens_bundle_partial(ok: int, failed: int) -> bool:
+    """True when some screens answered and some failed (not majority-dead).
+
+    xang1234 7e0df1e: skip prune baselines for partly failed fetches — leftover
+    quotes from the live screens are still addable, but missing names are not
+    a complete drop list.
+    """
+    if screens_bundle_failed(ok, failed):
+        return False
+    return max(0, int(failed)) > 0
+
+
 def yahoo_cache_freshness(
     age_sec: float | None,
     *,
