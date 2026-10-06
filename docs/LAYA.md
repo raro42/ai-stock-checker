@@ -12,6 +12,8 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | HTTP `POST {BASE}/v1/systemone` client | Yes — fail-open on timeout/parse/missing URL |
 | Validate-path **advisory** record (`data/laya_decisions.json`) | Yes when `LAYA_ADVISORY=1` |
 | Ops + Overview glance | Yes — pass/hold/reject counts + last row + scan-cadence age |
+| Last-row vs scan-clock clash | Yes — `clash · scan fresh` when bands disagree (same band silent) |
+| Desk parity (Screener/Book/Ideas/Breadth/scan-log/Charts) | Yes — display only |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 
 Rules, soft gates, and `exit_policy` stay authoritative. Provider outage must never trap a position (QuantDinger fail-open pattern).
@@ -37,7 +39,6 @@ This stack does **not** vendor torch/ONNX Laya weights into Docker. Run Laya/Jev
 ## Not yet
 
 - Using `reject` to filter paper buys (would be a new entry gate — wait for promote A/B honesty + calm evidence)
-- Desk parity glances on every screen
 - Fine-tuned paper-desk checkpoint
 
 See [IMPROVEMENT.md](../IMPROVEMENT.md) for the deferral checkbox.

@@ -2124,6 +2124,51 @@
     appendGlance(wrap);
   }
 
+  function renderLayaGlance(payload) {
+    var glance = payload && payload.laya_glance;
+    if (!glance || !glance.ready || !glance.line) return;
+    var wrap = document.createElement("section");
+    wrap.className = "laya-glance";
+    wrap.setAttribute("aria-labelledby", "charts-laya-h");
+    var h = document.createElement("h2");
+    h.id = "charts-laya-h";
+    h.className = "visually-hidden";
+    h.textContent = "LAYA System-1 advisory";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "laya-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "laya-glance-tone " + (glance.tone || "off");
+    tone.textContent = "LAYA";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "laya-glance-body";
+    body.textContent = String(glance.line);
+    line.appendChild(body);
+    var sep2 = document.createElement("span");
+    sep2.className = "pretrade-sep";
+    sep2.setAttribute("aria-hidden", "true");
+    sep2.textContent = "·";
+    line.appendChild(sep2);
+    var link = document.createElement("a");
+    link.className = "laya-glance-link";
+    link.href = "/desk/ops#ops-ai-mode";
+    link.textContent = "Ops AI →";
+    line.appendChild(link);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Optional LAYA/JEV beside charts — last row vs scan clock; clash when they disagree. Fail-open; not a buy gate.";
+    wrap.appendChild(sub);
+    appendGlance(wrap);
+  }
+
   function renderAiDebateGlance(payload) {
     var glance = payload && payload.ai_debate_glance;
     if (!glance || !glance.ready || !glance.line) return;
@@ -3383,6 +3428,7 @@
     renderEarningsBlackoutGlance(payload);
     renderAiModeGlance(payload);
     renderAiRolesGlance(payload);
+    renderLayaGlance(payload);
     renderAiDebateGlance(payload);
     renderAiValidateScopeGlance(payload);
     renderSessionGlance(payload);

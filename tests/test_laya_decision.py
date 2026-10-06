@@ -220,6 +220,62 @@ def test_laya_glance_stale_last_row(monkeypatch, tmp_path: Path) -> None:
     assert "MSFT" in g["line"]
 
 
+def test_laya_glance_scan_clash(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    scan_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=scan_at
+    )
+    assert g["freshness"] == "stale"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_vs_laya_clash"] == "clash · scan fresh"
+    assert "clash" in g["line"]
+    assert g["line"].index("stale") < g["line"].index("clash")
+    same = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_at
+    )
+    assert same["scan_vs_laya_clash"] == ""
+    assert "clash" not in same["line"]
+
+
+def test_desk_templates_include_laya_glance() -> None:
+    roots = Path("openbb_backend/templates")
+    for name in (
+        "desk_overview.html",
+        "desk_ops.html",
+        "desk_ideas.html",
+        "desk_screener.html",
+        "desk_book.html",
+        "desk_breadth.html",
+        "desk_scan_log.html",
+    ):
+        text = (roots / name).read_text()
+        assert "laya_glance" in text, name
+    assert "laya_glance" in Path("openbb_backend/templates/macros.html").read_text()
+    assert "renderLayaGlance" in Path("openbb_backend/static/charts.js").read_text()
+
+
 def test_laya_glance_no_sample(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")

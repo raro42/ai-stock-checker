@@ -5562,18 +5562,36 @@ def build_ai_roles_glance() -> dict[str, Any]:
     }
 
 
+_LAYA_FRESH_RANK = {"fresh": 0, "aging": 1, "stale": 2}
+
+
+def _scan_vs_laya_clash(laya_tone: str, scan_tone: str) -> str:
+    """Scan archive clock ≠ last advisory clock (display only).
+
+    xang1234 scan-vs-cash clash + FinRobot debate-age: a fresh scan does
+    not make a stale last-reject live. Same band stays silent. No Δ nest.
+    """
+    if laya_tone not in _LAYA_FRESH_RANK or scan_tone not in _LAYA_FRESH_RANK:
+        return ""
+    if laya_tone == scan_tone:
+        return ""
+    return f"clash · scan {scan_tone}"
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
     now: Optional[datetime] = None,
     scan_interval_sec: int = 900,
+    scan_time: Any = None,
 ) -> dict[str, Any]:
     """LAYA / JEV System-1 advisory honesty (display only; not a gate).
 
     QuantDinger-style typed pass/hold/reject + fail-open. Off until
     ``LAYA_BASE_URL``/``JEV_BASE_URL`` + ``LAYA_ADVISORY=1``. Newest row
     age uses RyanJHamby/xang1234 scan-cadence fresh/aging/stale (a last
-    reject is not a live print). See docs/LAYA.md.
+    reject is not a live print). When the scan archive band disagrees
+    with last-row age, speak ``clash · scan fresh|aging|stale``. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5597,6 +5615,15 @@ def build_laya_glance(
         age_bit = f"{age_label} {freshness}"
     elif age_label:
         age_bit = age_label
+    scan_freshness = ""
+    if scan_time:
+        scan_pack = build_scan_freshness(
+            scan_time, now=now, scan_interval_sec=scan_interval_sec
+        )
+        scan_freshness = str(scan_pack.get("tone") or "")
+    clash = ""
+    if st.get("advisory") and age_bit:
+        clash = _scan_vs_laya_clash(freshness, scan_freshness)
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -5622,6 +5649,8 @@ def build_laya_glance(
         bits = ["advisory on", model]
         if age_bit:
             bits.append(age_bit)
+        if clash:
+            bits.append(clash)
         n_decided = n_pass + n_hold + n_rej
         if n_decided == 0 and n_fo == 0:
             bits.append("no sample")
@@ -5660,6 +5689,8 @@ def build_laya_glance(
         "age_sec": age_sec,
         "age_label": age_label,
         "freshness": freshness,
+        "scan_freshness": scan_freshness,
+        "scan_vs_laya_clash": clash,
         "latest_at": latest_at,
     }
 
@@ -10527,7 +10558,9 @@ def load_desk_snapshot(
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
         "laya_glance": build_laya_glance(
-            data_dir, scan_interval_sec=scan_interval_sec
+            data_dir,
+            scan_interval_sec=scan_interval_sec,
+            scan_time=scan_time_raw,
         ),
         "ai_debate_glance": build_ai_debate_glance(
             data_dir, scan_interval_sec=scan_interval_sec
