@@ -14,6 +14,7 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | Ops + Overview glance | Yes — pass/hold/reject counts + last row + scan-cadence age |
 | Last-row vs scan-clock clash | Yes — `clash · scan fresh` when bands disagree (same band silent) |
 | Last-row vs last-debate clash | Yes — append `debate fresh` when validate memory band disagrees |
+| Clash vs staler clock tone | Yes — fresh last-row vs stale/aging scan paints `stale`/`aging`, not calm advisory |
 | Desk parity (Screener/Book/Ideas/Breadth/scan-log/Charts) | Yes — display only |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 

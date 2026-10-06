@@ -15,7 +15,7 @@ Versioning follows [SemVer](https://semver.org/) — see [RELEASES.md](RELEASES.
 ### Changed
 
 - Book risk Group Matrix labels show cluster size (`×N` names that feed each since-buy mark %).
-- Desk LAYA / AI-debate glances name a clash when last-advisory age and last-validate age sit in different fresh/aging/stale bands (`clash · debate fresh` / `clash · laya stale`). Same band stays silent. Not a gate.
+- Desk LAYA / AI-debate glances name a clash when last-advisory age and last-validate age sit in different fresh/aging/stale bands (`clash · debate fresh` / `clash · laya stale`). Same band stays silent. Clash vs a staler scan/debate/LAYA clock also escalates glance color (fresh last BUY vs stale scan is not buy-calm). Not a gate.
 
 ### Fixed
 

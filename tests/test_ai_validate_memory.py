@@ -251,6 +251,41 @@ def test_build_ai_debate_glance_scan_clash(tmp_path: Path) -> None:
     assert "clash" not in same["line"]
 
 
+def test_build_ai_debate_glance_scan_clash_escalates_tone(tmp_path: Path) -> None:
+    """Fresh last BUY vs stale scan → clash warn, not buy-calm."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_scan = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aging_scan = (now - timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = fresh_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": fresh_at, "events": events}) + "\n")
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_scan
+    )
+    assert g["freshness"] == "fresh"
+    assert g["scan_freshness"] == "stale"
+    assert g["scan_vs_debate_clash"] == "clash · scan stale"
+    assert g["tone"] == "stale"
+    aging = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=aging_scan
+    )
+    assert aging["scan_freshness"] == "aging"
+    assert aging["tone"] == "aging"
+    calm = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert calm["scan_vs_debate_clash"] == ""
+    assert calm["tone"] == "buy"
+
+
 def test_build_ai_debate_glance_laya_clash(monkeypatch, tmp_path: Path) -> None:
     """Last-debate band ≠ LAYA last-row band → clash · laya {tone}."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")

@@ -5570,6 +5570,27 @@ def build_ai_roles_glance() -> dict[str, Any]:
 _CLOCK_FRESH_RANK = {"fresh": 0, "aging": 1, "stale": 2}
 
 
+def _clock_clash_tone(own_freshness: str, clash: str, **others: str) -> str:
+    """Worst disagreeing clock band for glance color (display only).
+
+    Age label ≠ severity: saved-row stale warn + scan-vs-cash clash warn.
+    A fresh last-reject / last BUY vs a stale scan must not paint calm.
+    Same band or a calmer other clock stays silent (empty string).
+    No Δ nest.
+    """
+    if not clash:
+        return ""
+    own_rank = _CLOCK_FRESH_RANK.get(own_freshness, -1)
+    worst = ""
+    worst_rank = own_rank
+    for tone in others.values():
+        rank = _CLOCK_FRESH_RANK.get(tone, -1)
+        if rank > worst_rank:
+            worst_rank = rank
+            worst = tone
+    return worst if worst in ("aging", "stale") else ""
+
+
 def _clock_clash(memory_tone: str, **others: str) -> str:
     """Last memory clock ≠ named other clocks (display only).
 
@@ -5604,7 +5625,8 @@ def build_laya_glance(
     reject is not a live print). When the scan archive band disagrees
     with last-row age, speak ``clash · scan fresh|aging|stale``. When the
     newest validate-debate band also disagrees, append ``debate {tone}``
-    (FinRobot last-debate ≠ JEV last-reject). See docs/LAYA.md.
+    (FinRobot last-debate ≠ JEV last-reject). Clash vs a staler
+    scan/debate escalates glance tone. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5695,9 +5717,12 @@ def build_laya_glance(
                 bits.append(last)
         bits.append("not a gate")
         line = " · ".join(bits)
-        if freshness == "stale":
+        clash_tone = _clock_clash_tone(
+            freshness, clash, scan=scan_freshness, debate=debate_freshness
+        )
+        if freshness == "stale" or clash_tone == "stale":
             tone = "stale"
-        elif freshness == "aging":
+        elif freshness == "aging" or clash_tone == "aging":
             tone = "aging"
         else:
             tone = "advisory"
@@ -5735,7 +5760,9 @@ def build_ai_debate_glance(
     debate (fresh/aging/stale vs scan cadence). When the scan archive band
     disagrees with last-debate age, speak ``clash · scan fresh|aging|stale``.
     When LAYA last-row band also disagrees, append ``laya {tone}`` (JEV
-    last-reject ≠ last BUY). Not a research score and not a new gate.
+    last-reject ≠ last BUY). Clash vs a staler scan/LAYA escalates glance
+    tone (fresh last BUY ≠ live print). Not a research score and not a new
+    gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -5820,14 +5847,17 @@ def build_ai_debate_glance(
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
-    if freshness == "stale":
+    clash_tone = _clock_clash_tone(
+        freshness, clash, scan=scan_freshness, laya=laya_freshness
+    )
+    if freshness == "stale" or clash_tone == "stale":
         tone = "stale"
     elif gated > 0 and gated >= max(1, count // 2):
         tone = "gated"
+    elif freshness == "aging" or clash_tone == "aging":
+        tone = "aging"
     elif buy > hold and buy > sell:
         tone = "buy"
-    elif freshness == "aging":
-        tone = "aging"
     elif freshness == "fresh":
         tone = "fresh"
     else:

@@ -259,6 +259,52 @@ def test_laya_glance_scan_clash(monkeypatch, tmp_path: Path) -> None:
     assert "clash" not in same["line"]
 
 
+def test_laya_glance_scan_clash_escalates_tone(monkeypatch, tmp_path: Path) -> None:
+    """Fresh last-row vs stale scan → clash warn tone (age label ≠ severity)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_scan = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    aging_scan = (now - timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "symbol": "NVDA",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "pass",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_scan
+    )
+    assert g["freshness"] == "fresh"
+    assert g["scan_freshness"] == "stale"
+    assert g["scan_vs_laya_clash"] == "clash · scan stale"
+    assert g["tone"] == "stale"
+    aging = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=aging_scan
+    )
+    assert aging["scan_freshness"] == "aging"
+    assert aging["scan_vs_laya_clash"] == "clash · scan aging"
+    assert aging["tone"] == "aging"
+    calm = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert calm["scan_vs_laya_clash"] == ""
+    assert calm["tone"] == "advisory"
+
+
 def test_laya_glance_debate_clash(monkeypatch, tmp_path: Path) -> None:
     """Last-row band ≠ last-debate band → clash · debate {tone} (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
