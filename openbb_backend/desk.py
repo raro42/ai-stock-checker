@@ -5637,6 +5637,28 @@ def _memory_name_clash(
     return f"vs {b}"
 
 
+# pass/BUY vs reject/SELL is polarity; hold / fail-open stay neutral.
+_MEMORY_VERB_SIDE = {
+    "pass": "bull",
+    "buy": "bull",
+    "reject": "bear",
+    "sell": "bear",
+}
+
+
+def _memory_verb_oppose(own_verb: str, other_verb: str) -> bool:
+    """True when last memory verbs are bull↔bear (display only).
+
+    Name clash can be ticker-only (MSFT hold vs NVDA hold) — that is not
+    polarity. reject vs BUY / pass vs SELL must not paint calm advisory/buy.
+    hold / fail-open / missing stay silent. RyanJHamby severity + FinRobot
+    last-debate vs JEV last-reject. No Δ nest.
+    """
+    a = _MEMORY_VERB_SIDE.get((own_verb or "").strip().lower())
+    b = _MEMORY_VERB_SIDE.get((other_verb or "").strip().lower())
+    return bool(a and b and a != b)
+
+
 def _laya_row_verb(newest: dict[str, Any] | None) -> str:
     if not isinstance(newest, dict):
         return ""
@@ -5662,7 +5684,9 @@ def build_laya_glance(
     newest validate-debate band also disagrees, append ``debate {tone}``
     (FinRobot last-debate ≠ JEV last-reject). When last-row ticker/verb
     also disagrees with last-validate, append ``vs NVDA BUY`` / ``vs BUY``.
-    Clash vs a staler scan/debate escalates glance tone. See docs/LAYA.md.
+    Clash vs a staler scan/debate escalates glance tone. Bull↔bear verb
+    oppose (reject vs BUY / pass vs SELL) also escalates to aging — name
+    label ≠ polarity severity. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5706,6 +5730,7 @@ def build_laya_glance(
         debate_freshness = str(debate_pack.get("tone") or "")
     clash = ""
     name_clash = ""
+    verb_oppose = False
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -5714,6 +5739,9 @@ def build_laya_glance(
         )
         name_clash = _memory_name_clash(
             own_sym, own_verb, debate_sym, debate_action
+        )
+        verb_oppose = bool(name_clash) and _memory_verb_oppose(
+            own_verb, debate_action
         )
 
     if not st.get("configured"):
@@ -5769,7 +5797,7 @@ def build_laya_glance(
         )
         if freshness == "stale" or clash_tone == "stale":
             tone = "stale"
-        elif freshness == "aging" or clash_tone == "aging":
+        elif freshness == "aging" or clash_tone == "aging" or verb_oppose:
             tone = "aging"
         else:
             tone = "advisory"
@@ -5789,6 +5817,7 @@ def build_laya_glance(
         "debate_freshness": debate_freshness,
         "scan_vs_laya_clash": clash,
         "memory_name_clash": name_clash,
+        "memory_verb_oppose": verb_oppose,
         "latest_at": latest_at,
     }
 
@@ -5811,7 +5840,9 @@ def build_ai_debate_glance(
     last-reject ≠ last BUY). When last-debate ticker/verb also disagrees
     with LAYA last-row, append ``vs MSFT hold`` / ``vs hold``. Clash vs a
     staler scan/LAYA escalates glance tone (fresh last BUY ≠ live print).
-    Not a research score and not a new gate.
+    Bull↔bear verb oppose (BUY vs reject / SELL vs pass) also escalates
+    to aging — name label ≠ polarity severity. Not a research score and
+    not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -5826,6 +5857,7 @@ def build_ai_debate_glance(
         "laya_freshness": "",
         "scan_vs_debate_clash": "",
         "memory_name_clash": "",
+        "memory_verb_oppose": False,
         "latest_at": "",
     }
     if count <= 0:
@@ -5882,12 +5914,16 @@ def build_ai_debate_glance(
         laya_freshness = str(laya_pack.get("tone") or "")
     clash = ""
     name_clash = ""
+    verb_oppose = False
     laya_sym = str((newest_row or {}).get("symbol") or "").strip()
     laya_verb = _laya_row_verb(newest_row)
     if age_label:
         clash = _clock_clash(freshness, scan=scan_freshness, laya=laya_freshness)
         if laya_st.get("advisory"):
             name_clash = _memory_name_clash(sym, action, laya_sym, laya_verb)
+            verb_oppose = bool(name_clash) and _memory_verb_oppose(
+                action, laya_verb
+            )
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
     if gated:
         bits.append(f"{gated} gated")
@@ -5911,7 +5947,7 @@ def build_ai_debate_glance(
         tone = "stale"
     elif gated > 0 and gated >= max(1, count // 2):
         tone = "gated"
-    elif freshness == "aging" or clash_tone == "aging":
+    elif freshness == "aging" or clash_tone == "aging" or verb_oppose:
         tone = "aging"
     elif buy > hold and buy > sell:
         tone = "buy"
@@ -5937,6 +5973,7 @@ def build_ai_debate_glance(
         "laya_freshness": laya_freshness,
         "scan_vs_debate_clash": clash,
         "memory_name_clash": name_clash,
+        "memory_verb_oppose": verb_oppose,
         "latest_at": latest_at,
     }
 

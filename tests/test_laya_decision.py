@@ -423,19 +423,91 @@ def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
     )
     assert g["scan_vs_laya_clash"] == ""
     assert g["memory_name_clash"] == "vs NVDA BUY"
+    assert g["memory_verb_oppose"] is False
     assert "vs NVDA BUY" in g["line"]
     assert g["line"].index("fresh") < g["line"].index("vs NVDA")
+    assert g["tone"] == "advisory"
     _write("MSFT", "hold", "MSFT", "BUY")
     verb = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
     assert verb["memory_name_clash"] == "vs BUY"
+    assert verb["memory_verb_oppose"] is False
     _write("MSFT", "hold", "MSFT", "HOLD")
     same = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
     assert same["memory_name_clash"] == ""
+    assert same["memory_verb_oppose"] is False
     assert "vs " not in same["line"]
+
+
+def test_laya_glance_debate_verb_oppose(monkeypatch, tmp_path: Path) -> None:
+    """reject vs BUY escalates tone; ticker-only clash stays advisory."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write(laya_entry: str, debate_act: str, *, laya_sym: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": laya_sym,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": laya_entry,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {"at": at, "symbol": "MSFT", "action": debate_act}
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _write("reject", "BUY")
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert g["memory_name_clash"] == "vs BUY"
+    assert g["memory_verb_oppose"] is True
+    assert g["tone"] == "aging"
+    _write("pass", "SELL")
+    pass_sell = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert pass_sell["memory_verb_oppose"] is True
+    assert pass_sell["tone"] == "aging"
+    _write("reject", "BUY", laya_sym="NVDA")
+    ticker = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert ticker["memory_name_clash"] == "vs MSFT BUY"
+    assert ticker["memory_verb_oppose"] is True
+    assert ticker["tone"] == "aging"
+    _write("hold", "BUY")
+    hold = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert hold["memory_name_clash"] == "vs BUY"
+    assert hold["memory_verb_oppose"] is False
+    assert hold["tone"] == "advisory"
 
 
 def test_desk_templates_include_laya_glance() -> None:
