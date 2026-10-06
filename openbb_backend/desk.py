@@ -5941,6 +5941,24 @@ def build_laya_glance(
     }
 
 
+def _debate_confidence_bits(confidence: str) -> tuple[str, bool]:
+    """Last-debate confidence honesty (display only).
+
+    Validate memory stores HIGH/MEDIUM/LOW but a bare BUY hid conviction.
+    Speak ``conf hi|med|lo`` when present (FinRobot typed answers + portfolio
+    AI speak-both-sides after LAYA edge/fee). LOW escalates glance tone —
+    BUY alone ≠ high conviction. Not a gate.
+    """
+    conf = str(confidence or "").strip().upper()
+    if conf == "HIGH":
+        return "conf hi", False
+    if conf == "MEDIUM":
+        return "conf med", False
+    if conf == "LOW":
+        return "conf lo", True
+    return "", False
+
+
 def build_ai_debate_glance(
     data_dir: Path | str | None = None,
     *,
@@ -5965,7 +5983,9 @@ def build_ai_debate_glance(
     pass`` (bare ``vs`` keeps bull↔bear). Clash vs a staler scan/LAYA
     escalates glance tone (fresh last BUY ≠ live print). Bull↔bear verb
     oppose (BUY vs reject / SELL vs pass) also escalates to aging — name
-    label ≠ polarity severity. Not a research score and not a new gate.
+    label ≠ polarity severity. Last-row ``conf hi|med|lo`` speaks when
+    typed confidence is present (BUY alone ≠ high conviction); ``conf lo``
+    escalates to aging. Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -5981,6 +6001,9 @@ def build_ai_debate_glance(
         "scan_vs_debate_clash": "",
         "memory_name_clash": "",
         "memory_verb_oppose": False,
+        "confidence_bits": "",
+        "confidence_warn": False,
+        "latest_confidence": "",
         "latest_at": "",
     }
     if count <= 0:
@@ -6038,6 +6061,10 @@ def build_ai_debate_glance(
     clash = ""
     name_clash = ""
     verb_oppose = False
+    latest_confidence = str(stats.get("latest_confidence") or "").strip().upper()
+    if latest_confidence not in {"HIGH", "MEDIUM", "LOW"}:
+        latest_confidence = ""
+    confidence_bits, confidence_warn = _debate_confidence_bits(latest_confidence)
     laya_sym = str((newest_row or {}).get("symbol") or "").strip()
     laya_verb = _laya_row_verb(newest_row)
     if age_label:
@@ -6060,6 +6087,8 @@ def build_ai_debate_glance(
         bits.append(name_clash)
     if sym:
         bits.append(f"last {sym} {action}")
+    if confidence_bits:
+        bits.append(confidence_bits)
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -6070,7 +6099,12 @@ def build_ai_debate_glance(
         tone = "stale"
     elif gated > 0 and gated >= max(1, count // 2):
         tone = "gated"
-    elif freshness == "aging" or clash_tone == "aging" or verb_oppose:
+    elif (
+        freshness == "aging"
+        or clash_tone == "aging"
+        or verb_oppose
+        or confidence_warn
+    ):
         tone = "aging"
     elif buy > hold and buy > sell:
         tone = "buy"
@@ -6097,6 +6131,9 @@ def build_ai_debate_glance(
         "scan_vs_debate_clash": clash,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
+        "confidence_bits": confidence_bits,
+        "confidence_warn": confidence_warn,
+        "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }
 

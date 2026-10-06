@@ -140,7 +140,8 @@ def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
     """Compact counts from the validate ring buffer (display only).
 
     FinRobot-style research memory: BUY/HOLD/SELL mix + multi-role gated
-    count + newest symbol. Not a research score and not an entry gate.
+    count + newest symbol/action/confidence. Not a research score and not
+    an entry gate.
     """
     events = load_ai_validate_memory(data_dir)
     empty: dict[str, Any] = {
@@ -153,6 +154,7 @@ def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
         "dropped": 0,
         "latest_symbol": "",
         "latest_action": "",
+        "latest_confidence": "",
         "latest_at": "",
     }
     if not events:
@@ -177,6 +179,9 @@ def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
             dropped += 1
 
     latest = events[-1] if isinstance(events[-1], dict) else {}
+    conf = str(latest.get("confidence") or "").upper()
+    if conf not in {"HIGH", "MEDIUM", "LOW"}:
+        conf = ""
     return {
         "count": len(events),
         "buy": buy,
@@ -187,6 +192,7 @@ def summarize_ai_debates(data_dir: Path | str) -> dict[str, Any]:
         "dropped": dropped,
         "latest_symbol": str(latest.get("symbol") or "").strip().upper(),
         "latest_action": str(latest.get("action") or "HOLD").upper(),
+        "latest_confidence": conf,
         "latest_at": str(latest.get("at") or "").strip(),
     }
 

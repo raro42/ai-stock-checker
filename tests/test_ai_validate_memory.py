@@ -73,6 +73,7 @@ def test_record_and_recent_ai_debates(tmp_path: Path) -> None:
     assert stats["dropped"] == 1
     assert stats["latest_symbol"] == "XYZ"
     assert stats["latest_action"] == "SELL"
+    assert stats["latest_confidence"] == "HIGH"
     assert stats["latest_at"]
 
 
@@ -499,10 +500,72 @@ def test_build_ai_debate_glance_laya_verb_oppose(monkeypatch, tmp_path: Path) ->
     assert "vs " not in agree["line"]
 
 
+def test_build_ai_debate_glance_confidence_bits(tmp_path: Path) -> None:
+    """Last-debate conf hi|med|lo speaks; lo escalates tone (not a gate)."""
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write(confidence: str) -> None:
+        record_ai_validate(
+            tmp_path,
+            {
+                "action": "BUY",
+                "confidence": confidence,
+                "score": 40,
+                "reasons": ["tape"],
+            },
+            symbol="MSFT",
+            kept=True,
+        )
+        events = load_ai_validate_memory(tmp_path)
+        events[-1]["at"] = at
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps({"updated_at": at, "events": events}) + "\n"
+        )
+
+    _write("HIGH")
+    g = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert g["confidence_bits"] == "conf hi"
+    assert g["confidence_warn"] is False
+    assert g["latest_confidence"] == "HIGH"
+    assert "conf hi" in g["line"]
+    assert g["line"].index("last MSFT BUY") < g["line"].index("conf hi")
+    assert g["tone"] == "buy"
+
+    _write("MEDIUM")
+    med = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert med["confidence_bits"] == "conf med"
+    assert med["confidence_warn"] is False
+    assert med["tone"] == "buy"
+
+    _write("LOW")
+    lo = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert lo["confidence_bits"] == "conf lo"
+    assert lo["confidence_warn"] is True
+    assert lo["tone"] == "aging"
+
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    events[-1]["at"] = at
+    (tmp_path / "ai_validate_memory.json").write_text(
+        json.dumps({"updated_at": at, "events": events}) + "\n"
+    )
+    silent = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert silent["confidence_bits"] == ""
+    assert silent["confidence_warn"] is False
+    assert "conf " not in silent["line"]
+    assert silent["tone"] == "buy"
+
+
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     record_ai_validate(
         tmp_path,
-        {"action": "HOLD", "confidence": "LOW", "score": 0, "reasons": ["wait"]},
+        {"action": "HOLD", "confidence": "MEDIUM", "score": 0, "reasons": ["wait"]},
         symbol="IBM",
         kept=False,
     )
@@ -511,6 +574,7 @@ def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     assert g["freshness"] == "fresh"
     assert g["tone"] in {"fresh", "flat", "buy", "gated"}
     assert "ago" in g["line"] or "just now" in g["line"]
+    assert g["confidence_bits"] == "conf med"
 
 
 def test_ideas_template_has_ai_debates_section() -> None:
