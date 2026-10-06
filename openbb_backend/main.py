@@ -234,6 +234,7 @@ def desk_config_get():
         "precedence_tone": prec.get("tone") or "env",
         "precedence_meter": prec.get("meter") or "",
         "precedence_lead": prec.get("lead") or "",
+        "precedence_lead_share": prec.get("lead_share") or "",
         "overrides": list(prec.get("overrides") or []),
         "confirms": list(prec.get("confirms") or []),
         "env_fallbacks": list(prec.get("env_fallbacks") or []),

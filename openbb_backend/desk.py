@@ -6817,6 +6817,7 @@ def _trader_runtime_view() -> dict[str, Any]:
         "config_precedence_tone": str(cfg_prec.get("tone") or "env"),
         "config_precedence_meter": str(cfg_prec.get("meter") or ""),
         "config_precedence_lead": str(cfg_prec.get("lead") or ""),
+        "config_precedence_lead_share": str(cfg_prec.get("lead_share") or ""),
         "config_override_n": int(cfg_prec.get("override_n") or 0),
         "config_confirm_n": int(cfg_prec.get("confirm_n") or 0),
         "config_env_fallback_n": int(cfg_prec.get("env_fallback_n") or 0),
