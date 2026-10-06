@@ -437,9 +437,24 @@ def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
     same = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
-    assert same["memory_name_clash"] == ""
+    assert same["memory_name_clash"] == "agree"
     assert same["memory_verb_oppose"] is False
+    assert "agree" in same["line"]
     assert "vs " not in same["line"]
+    _write("MSFT", "pass", "MSFT", "BUY")
+    bull = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert bull["memory_name_clash"] == "agree"
+    assert bull["memory_verb_oppose"] is False
+    assert bull["tone"] == "advisory"
+    _write("MSFT", "reject", "MSFT", "SELL")
+    bear = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert bear["memory_name_clash"] == "agree"
+    assert bear["memory_verb_oppose"] is False
+    assert bear["tone"] == "advisory"
 
 
 def test_laya_glance_debate_verb_oppose(monkeypatch, tmp_path: Path) -> None:

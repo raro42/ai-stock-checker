@@ -5610,15 +5610,37 @@ def _clock_clash(memory_tone: str, **others: str) -> str:
     return "clash · " + " · ".join(bits)
 
 
+# pass/BUY vs reject/SELL is polarity; hold / fail-open stay neutral.
+_MEMORY_VERB_SIDE = {
+    "pass": "bull",
+    "buy": "bull",
+    "reject": "bear",
+    "sell": "bear",
+}
+
+
+def _memory_verb_agree(own_verb: str, other_verb: str) -> bool:
+    """True when last memory verbs share bull or bear side (display only).
+
+    Cross-vocab pass↔BUY / reject↔SELL is agreement, not a ``vs`` clash.
+    hold / fail-open / missing stay out (use literal same-verb for hold).
+    """
+    a = _MEMORY_VERB_SIDE.get((own_verb or "").strip().lower())
+    b = _MEMORY_VERB_SIDE.get((other_verb or "").strip().lower())
+    return bool(a and b and a == b)
+
+
 def _memory_name_clash(
     own_sym: str, own_verb: str, other_sym: str, other_verb: str
 ) -> str:
-    """Last memory name/verb ≠ other last name/verb (display only).
+    """Last memory name/verb vs other last name/verb (display only).
 
     FinRobot last-debate vs JEV last-reject + portfolio AI speak-both-sides:
     clock bands can match while the two memories name different tickers, or
-    the same ticker with a different verb. Same name+verb / missing silent.
-    Compact ``vs BUY`` when the ticker already matches. No Δ nest.
+    the same ticker with a different verb. Same ticker + same polarity
+    (pass↔BUY / reject↔SELL) or same literal verb speaks ``agree`` —
+    silent agreement hides confirm. Compact ``vs BUY`` when the ticker
+    matches but polarity/hold disagrees. Missing silent. No Δ nest.
     """
     a = (own_sym or "").strip().upper()
     b = (other_sym or "").strip().upper()
@@ -5628,22 +5650,15 @@ def _memory_name_clash(
         return ""
     same_name = a == b
     same_verb = bool(va and vb) and va.lower() == vb.lower()
-    if same_name and (same_verb or not vb):
+    if same_name and (same_verb or _memory_verb_agree(va, vb)):
+        return "agree"
+    if same_name and not vb:
         return ""
     if same_name:
         return f"vs {vb}"
     if vb:
         return f"vs {b} {vb}"
     return f"vs {b}"
-
-
-# pass/BUY vs reject/SELL is polarity; hold / fail-open stay neutral.
-_MEMORY_VERB_SIDE = {
-    "pass": "bull",
-    "buy": "bull",
-    "reject": "bear",
-    "sell": "bear",
-}
 
 
 def _memory_verb_oppose(own_verb: str, other_verb: str) -> bool:
@@ -5684,9 +5699,11 @@ def build_laya_glance(
     newest validate-debate band also disagrees, append ``debate {tone}``
     (FinRobot last-debate ≠ JEV last-reject). When last-row ticker/verb
     also disagrees with last-validate, append ``vs NVDA BUY`` / ``vs BUY``.
-    Clash vs a staler scan/debate escalates glance tone. Bull↔bear verb
-    oppose (reject vs BUY / pass vs SELL) also escalates to aging — name
-    label ≠ polarity severity. See docs/LAYA.md.
+    Same ticker + same polarity (pass↔BUY / reject↔SELL) or same literal
+    verb speaks ``agree`` (portfolio AI confirm; not silent). Clash vs a
+    staler scan/debate escalates glance tone. Bull↔bear verb oppose
+    (reject vs BUY / pass vs SELL) also escalates to aging — name label ≠
+    polarity severity. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5838,11 +5855,12 @@ def build_ai_debate_glance(
     disagrees with last-debate age, speak ``clash · scan fresh|aging|stale``.
     When LAYA last-row band also disagrees, append ``laya {tone}`` (JEV
     last-reject ≠ last BUY). When last-debate ticker/verb also disagrees
-    with LAYA last-row, append ``vs MSFT hold`` / ``vs hold``. Clash vs a
-    staler scan/LAYA escalates glance tone (fresh last BUY ≠ live print).
-    Bull↔bear verb oppose (BUY vs reject / SELL vs pass) also escalates
-    to aging — name label ≠ polarity severity. Not a research score and
-    not a new gate.
+    with LAYA last-row, append ``vs MSFT hold`` / ``vs hold``. Same ticker
+    + same polarity (BUY↔pass / SELL↔reject) or same literal verb speaks
+    ``agree``. Clash vs a staler scan/LAYA escalates glance tone (fresh
+    last BUY ≠ live print). Bull↔bear verb oppose (BUY vs reject / SELL
+    vs pass) also escalates to aging — name label ≠ polarity severity.
+    Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 

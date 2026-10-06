@@ -445,6 +445,32 @@ def test_build_ai_debate_glance_laya_verb_oppose(monkeypatch, tmp_path: Path) ->
     assert hold["memory_name_clash"] == "vs hold"
     assert hold["memory_verb_oppose"] is False
     assert hold["tone"] == "buy"
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "pass",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    agree = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert agree["memory_name_clash"] == "agree"
+    assert agree["memory_verb_oppose"] is False
+    assert agree["tone"] == "buy"
+    assert "agree" in agree["line"]
+    assert "vs " not in agree["line"]
 
 
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
