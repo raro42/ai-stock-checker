@@ -633,6 +633,8 @@ def test_config_precedence_saved_age_fresh(tmp_path: Path, monkeypatch):
     assert "6h fresh" in st["line"]
     assert st["line"].index("6h fresh") < st["line"].index(st["meter"])
     assert st["meter"] in st["line"]
+    assert st["tone"] == "override"
+    assert st["source"] == "file"
 
 
 def test_config_precedence_saved_age_aging(tmp_path: Path, monkeypatch):
@@ -647,6 +649,8 @@ def test_config_precedence_saved_age_aging(tmp_path: Path, monkeypatch):
     assert st["file_freshness"] == "aging"
     assert st["file_age_label"] == "2d ago"
     assert "2d aging" in st["line"]
+    assert st["tone"] == "override"  # aging keeps source tone
+    assert st["source"] == "file"
 
 
 def test_config_precedence_saved_age_stale(tmp_path: Path, monkeypatch):
@@ -663,3 +667,5 @@ def test_config_precedence_saved_age_stale(tmp_path: Path, monkeypatch):
     assert "10d stale" in st["line"]
     assert st["meter"] in st["line"]
     assert len(st["line"]) <= 120
+    assert st["source"] == "file"
+    assert st["tone"] == "warn"  # age label ≠ warn; stale escalates

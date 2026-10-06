@@ -621,8 +621,11 @@ def config_precedence_status(
     from mtime (RyanJHamby triad + xang1234 seed-age; fresh <24h · aging <7d).
     File exists ≠ recently intended. Age sits before the meter so truncate
     keeps it (compact ``6h fresh`` / ``2d aging`` / ``10d stale`` on the Ops
-    line; API keeps the full ``saved {age} · band``). No file stays silent
-    on age. Line clip is 120 chars so age + meter still leave room for lead.
+    line; API keeps the full ``saved {age} · band``). Stale (≥7d) escalates
+    ``tone`` to ``warn`` — a long age label on an override line is not a
+    warn (RyanJHamby scan-fresh tone + xang1234 seed-age). Aging stays the
+    source tone. No file stays silent on age. Line clip is 120 chars so
+    age + meter still leave room for lead.
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -728,6 +731,9 @@ def config_precedence_status(
     line = _with_saved_age(line, str(age.get("file_age_line") or ""))
     if len(line) > 120:
         line = line[:119] + "…"
+    # Age spoke ≠ severity: stale saved row is a warn, not a quiet override.
+    if age.get("file_freshness") == "stale" and tone != "warn":
+        tone = "warn"
 
     return {
         "source": "file",
