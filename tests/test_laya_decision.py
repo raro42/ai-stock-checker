@@ -431,8 +431,10 @@ def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
     verb = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
-    assert verb["memory_name_clash"] == "vs BUY"
+    assert verb["memory_name_clash"] == "mixed · vs BUY"
     assert verb["memory_verb_oppose"] is False
+    assert "mixed · vs BUY" in verb["line"]
+    assert verb["tone"] == "advisory"
     _write("MSFT", "hold", "MSFT", "HOLD")
     same = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
@@ -520,9 +522,52 @@ def test_laya_glance_debate_verb_oppose(monkeypatch, tmp_path: Path) -> None:
     hold = build_laya_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
-    assert hold["memory_name_clash"] == "vs BUY"
+    assert hold["memory_name_clash"] == "mixed · vs BUY"
     assert hold["memory_verb_oppose"] is False
     assert hold["tone"] == "advisory"
+
+
+def test_laya_glance_debate_mixed_fail_open(monkeypatch, tmp_path: Path) -> None:
+    """fail-open vs BUY on same ticker speaks mixed (not polarity oppose)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": at,
+                        "symbol": "MSFT",
+                        "ok": False,
+                        "fail_open": True,
+                        "reason": "timeout",
+                        "entry": "",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "ai_validate_memory.json").write_text(
+        json.dumps(
+            {
+                "updated_at": at,
+                "events": [{"at": at, "symbol": "MSFT", "action": "BUY"}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert g["memory_name_clash"] == "mixed · vs BUY"
+    assert g["memory_verb_oppose"] is False
+    assert g["tone"] == "advisory"
+    assert "mixed · vs BUY" in g["line"]
 
 
 def test_desk_templates_include_laya_glance() -> None:

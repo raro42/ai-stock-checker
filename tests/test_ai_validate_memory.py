@@ -442,9 +442,10 @@ def test_build_ai_debate_glance_laya_verb_oppose(monkeypatch, tmp_path: Path) ->
     hold = build_ai_debate_glance(
         tmp_path, now=now, scan_interval_sec=900, scan_time=at
     )
-    assert hold["memory_name_clash"] == "vs hold"
+    assert hold["memory_name_clash"] == "mixed · vs hold"
     assert hold["memory_verb_oppose"] is False
     assert hold["tone"] == "buy"
+    assert "mixed · vs hold" in hold["line"]
     (tmp_path / "laya_decisions.json").write_text(
         json.dumps(
             {
