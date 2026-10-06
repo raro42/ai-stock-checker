@@ -6823,6 +6823,9 @@ def _trader_runtime_view() -> dict[str, Any]:
         "config_precedence_lead_sides_share": str(
             cfg_prec.get("lead_sides_share") or ""
         ),
+        "config_precedence_lead_sides_share_delta": str(
+            cfg_prec.get("lead_sides_share_delta") or ""
+        ),
         "config_override_n": int(cfg_prec.get("override_n") or 0),
         "config_confirm_n": int(cfg_prec.get("confirm_n") or 0),
         "config_env_fallback_n": int(cfg_prec.get("env_fallback_n") or 0),

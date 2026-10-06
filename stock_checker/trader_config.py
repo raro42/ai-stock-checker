@@ -293,6 +293,9 @@ def _precedence_lead_share(override_n: int, confirm_n: int, env_n: int) -> str:
 
 # Soft-allow lead margin bands adapted for win/ok/env counts (display only).
 PRECEDENCE_LEAD_MARGIN_WIDE = 2
+# Ownership spread (lead% − runner%) — same bands as soft-allow share Δ.
+PRECEDENCE_LEAD_SHARE_DELTA_WIDE_PP = 20
+PRECEDENCE_LEAD_SHARE_DELTA_THIN_PP = 10
 
 
 def _precedence_lead_margin(override_n: int, confirm_n: int, env_n: int) -> str:
@@ -362,8 +365,62 @@ def _precedence_lead_sides_share(override_n: int, confirm_n: int, env_n: int) ->
     return f"{pct}%"
 
 
+def _parse_precedence_pct(bit: str) -> int | None:
+    raw = str(bit or "").strip().rstrip("%")
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _precedence_lead_sides_share_delta(
+    override_n: int, confirm_n: int, env_n: int
+) -> str:
+    """Lead% − runner% when both shares already spoke (two % ≠ the spread).
+
+    Soft-allow share Δ + xang1234 / portfolio AI after precedence runner %.
+    Speaks ``share Δ wide|thin · ±Npp`` (wide ≥20pp · thin <10pp; mid silent).
+    Silent when runner share is silent.
+    """
+    lead_pct = _parse_precedence_pct(
+        _precedence_lead_share(override_n, confirm_n, env_n)
+    )
+    runner_pct = _parse_precedence_pct(
+        _precedence_lead_sides_share(override_n, confirm_n, env_n)
+    )
+    if lead_pct is None or runner_pct is None:
+        return ""
+    delta = int(lead_pct) - int(runner_pct)
+    mag = abs(delta)
+    if mag < 1:
+        return ""
+    if mag >= PRECEDENCE_LEAD_SHARE_DELTA_WIDE_PP:
+        sev = "wide"
+    elif mag < PRECEDENCE_LEAD_SHARE_DELTA_THIN_PP:
+        sev = "thin"
+    else:
+        return ""
+    sign = f"+{delta}" if delta > 0 else str(delta)
+    return f"share Δ {sev} · {sign}pp"
+
+
+def _precedence_lead_sides_share_delta_line(
+    override_n: int, confirm_n: int, env_n: int
+) -> str:
+    """Compact Δ±Npp for the 96-char Ops line (severity stays on the field)."""
+    bit = _precedence_lead_sides_share_delta(override_n, confirm_n, env_n)
+    if not bit:
+        return ""
+    sign = bit.rsplit(" · ", 1)[-1]
+    if not sign.endswith("pp"):
+        return ""
+    return f"Δ{sign}"
+
+
 def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
-    """Meter + optional lead (+ share + ahead + vs + runner %) ahead of names."""
+    """Meter + optional lead (+ share + ahead + vs + runner % or Δ) ahead of names."""
     meter = _precedence_meter(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
@@ -376,11 +433,16 @@ def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, 
         sides = _precedence_lead_sides(override_n, confirm_n, env_n)
         if sides:
             runner_share = _precedence_lead_sides_share(override_n, confirm_n, env_n)
-            bit = (
-                f"{bit} · {sides} · {runner_share}"
-                if runner_share
-                else f"{bit} · {sides}"
+            delta_line = _precedence_lead_sides_share_delta_line(
+                override_n, confirm_n, env_n
             )
+            if delta_line:
+                # Spread replaces runner % on the clipped line (API keeps both).
+                bit = f"{bit} · {sides} · {delta_line}"
+            elif runner_share:
+                bit = f"{bit} · {sides} · {runner_share}"
+            else:
+                bit = f"{bit} · {sides}"
     return meter, f"{meter} · {bit}"
 
 
@@ -406,7 +468,10 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     when a runner-up bucket exists (share ≠ margin; sole-bucket omits ahead),
     then ``vs ok|env|win · N`` naming the clear runner (ahead ≠ who is #2;
     tied runners silent), then runner ownership ``N%`` (absolute count ≠
-    share of the meter).
+    share of the meter), then ``share Δ wide|thin · ±Npp`` (lead% − runner%;
+    wide ≥20pp · thin <10pp; mid silent — two % ≠ the spread). The Ops line
+    speaks compact ``Δ±Npp`` in place of runner % when Δ is not mid so the
+    96-char clip keeps the spread.
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -417,6 +482,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     margin0 = _precedence_lead_margin(0, 0, n_keys)
     sides0 = _precedence_lead_sides(0, 0, n_keys)
     sides_share0 = _precedence_lead_sides_share(0, 0, n_keys)
+    sides_delta0 = _precedence_lead_sides_share_delta(0, 0, n_keys)
     empty = {
         "overrides": [],
         "confirms": [],
@@ -430,6 +496,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_margin": margin0,
         "lead_sides": sides0,
         "lead_sides_share": sides_share0,
+        "lead_sides_share_delta": sides_delta0,
         "ready": True,
     }
     if not path.is_file():
@@ -473,9 +540,10 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     lead_margin = _precedence_lead_margin(o_n, c_n, e_n)
     lead_sides = _precedence_lead_sides(o_n, c_n, e_n)
     lead_sides_share = _precedence_lead_sides_share(o_n, c_n, e_n)
+    lead_sides_share_delta = _precedence_lead_sides_share_delta(o_n, c_n, e_n)
     if overrides:
         bits = _format_key_list(overrides)
-        # Meter (+ lead + share + ahead + vs + runner %) before key names.
+        # Meter (+ lead + share + ahead + vs + runner % + Δ) before key names.
         line = f"file · Ops wins · {core} · {bits}"
         # Speak-both-sides: Ops override ≠ silent confirms / env gaps
         # (portfolio AI + xang1234 #394 after saved-row precedence).
@@ -514,6 +582,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "lead_margin": lead_margin,
         "lead_sides": lead_sides,
         "lead_sides_share": lead_sides_share,
+        "lead_sides_share_delta": lead_sides_share_delta,
         "tone": tone,
         "line": line,
         "ready": True,

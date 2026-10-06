@@ -152,9 +152,11 @@ def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     assert st["lead_margin"] == ""  # sole-bucket: share ≠ ahead
     assert st["lead_sides"] == ""  # sole-bucket: ahead ≠ vs
     assert st["lead_sides_share"] == ""  # no vs → no runner %
+    assert st["lead_sides_share_delta"] == ""  # no runner % → no share Δ
     assert "lead env · 100%" in st["line"]
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
+    assert "share Δ" not in st["line"]
 
 
 def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
@@ -202,7 +204,8 @@ def test_config_precedence_override_speaks_env_gaps(tmp_path: Path, monkeypatch)
     assert "lead env" in st["line"]
     assert st["lead_sides"] == "vs win · 1"
     assert st["lead_sides_share"] == "10%"  # 1÷10
-    assert "vs win · 1 · 10%" in st["line"]
+    assert st["lead_sides_share_delta"] == "share Δ wide · +80pp"  # 90−10
+    assert "vs win · 1 · Δ+80pp" in st["line"]
     assert st["line"].index(st["meter"]) < st["line"].index("lead env")
 
 
@@ -240,11 +243,12 @@ def test_config_precedence_override_speaks_confirms(tmp_path: Path, monkeypatch)
     assert st["lead_margin"] == "ahead wide · +5"  # 7 − 2
     assert st["lead_sides"] == "vs ok · 2"  # ahead ≠ who is #2
     assert st["lead_sides_share"] == "20%"  # 2÷10; absolute ≠ ownership
+    assert st["lead_sides_share_delta"] == "share Δ wide · +50pp"  # 70−20
     assert "lead env" in st["line"]
     assert "ahead wide · +5" in st["line"]
-    assert "vs ok · 2 · 20%" in st["line"]
+    assert "vs ok · 2 · Δ+50pp" in st["line"]
     assert st["line"].index("ahead wide") < st["line"].index("vs ok")
-    assert st["line"].index("vs ok") < st["line"].index("20%")
+    assert st["line"].index("vs ok") < st["line"].index("Δ+50pp")
     assert st["line"].index(st["meter"]) < st["line"].index("vs ok")
 
 
@@ -289,10 +293,12 @@ def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
     assert st["lead_margin"] == ""  # sole-bucket omits ahead
     assert st["lead_sides"] == ""
     assert st["lead_sides_share"] == ""
+    assert st["lead_sides_share_delta"] == ""
     assert "lead win" in st["line"]
     assert "100%" in st["line"]
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
+    assert "share Δ" not in st["line"]
     assert st["line"].index(st["meter"]) < st["line"].index("lead win")
     assert st["line"].index("lead win") < st["line"].index("100%")
     assert len(st["line"]) <= 96
@@ -337,9 +343,11 @@ def test_config_precedence_lead_silent_on_tie(tmp_path: Path, monkeypatch):
     assert st["lead_margin"] == ""
     assert st["lead_sides"] == ""
     assert st["lead_sides_share"] == ""
+    assert st["lead_sides_share_delta"] == ""
     assert "lead " not in st["line"]
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
+    assert "share Δ" not in st["line"]
     assert st["meter"] in st["line"]
 
 
@@ -381,10 +389,11 @@ def test_config_precedence_lead_ok(tmp_path: Path, monkeypatch):
     assert st["lead_margin"] == "ahead wide · +8"  # 9 − 1
     assert st["lead_sides"] == "vs env · 1"
     assert st["lead_sides_share"] == "10%"  # 1÷10
+    assert st["lead_sides_share_delta"] == "share Δ wide · +80pp"  # 90−10
     assert "lead ok" in st["line"]
     assert "90%" in st["line"]
     assert "ahead wide · +8" in st["line"]
-    assert "vs env · 1 · 10%" in st["line"]
+    assert "vs env · 1 · Δ+80pp" in st["line"]
     assert st["tone"] == "partial"
 
 
@@ -423,13 +432,14 @@ def test_config_precedence_lead_share_partial_win(tmp_path: Path, monkeypatch):
     assert st["lead_margin"] == "ahead wide · +2"  # 6 − 4
     assert st["lead_sides"] == "vs env · 4"
     assert st["lead_sides_share"] == "40%"  # 4÷10
+    assert st["lead_sides_share_delta"] == "share Δ wide · +20pp"  # 60−40
     assert "lead win · 60%" in st["line"]
     assert "ahead wide · +2" in st["line"]
-    assert "vs env · 4 · 40%" in st["line"]
+    assert "vs env · 4 · Δ+20pp" in st["line"]
     assert st["line"].index("lead win") < st["line"].index("60%")
     assert st["line"].index("60%") < st["line"].index("ahead wide")
     assert st["line"].index("ahead wide") < st["line"].index("vs env")
-    assert st["line"].index("vs env") < st["line"].index("40%")
+    assert st["line"].index("vs env") < st["line"].index("Δ+20pp")
 
 
 def test_config_precedence_lead_margin_thin(tmp_path: Path, monkeypatch):
@@ -467,8 +477,10 @@ def test_config_precedence_lead_margin_thin(tmp_path: Path, monkeypatch):
     assert st["lead_margin"] == "ahead thin · +1"  # 5 − 4
     assert st["lead_sides"] == "vs env · 4"
     assert st["lead_sides_share"] == "40%"  # 4÷10
+    assert st["lead_sides_share_delta"] == ""  # 50−40 = 10pp mid silent
     assert "ahead thin · +1" in st["line"]
     assert "vs env · 4 · 40%" in st["line"]
+    assert "share Δ" not in st["line"]
 
 
 def test_config_precedence_lead_sides_tied_runner_silent(tmp_path: Path, monkeypatch):
@@ -507,8 +519,10 @@ def test_config_precedence_lead_sides_tied_runner_silent(tmp_path: Path, monkeyp
     assert st["lead_margin"] == "ahead wide · +4"  # 6 − 2
     assert st["lead_sides"] == ""
     assert st["lead_sides_share"] == ""  # no vs → no runner %
+    assert st["lead_sides_share_delta"] == ""
     assert "ahead wide · +4" in st["line"]
     assert "vs " not in st["line"]
+    assert "share Δ" not in st["line"]
 
 
 def test_config_precedence_lead_sides_share(tmp_path: Path, monkeypatch):
@@ -523,7 +537,7 @@ def test_config_precedence_lead_sides_share(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("MAX_POSITIONS", "5")
     monkeypatch.setenv("MIN_HOLD_HOURS", "24")
     monkeypatch.setenv("PROMOTE_EXPERIMENT_STRATEGY", "0")
-    # 7 win + 0 ok + 3 env → vs env · 3 · 30%
+    # 7 win + 0 ok + 3 env → vs env · 3 · Δ+40pp
     (tmp_path / "trader_config.json").write_text(
         json.dumps(
             {
@@ -545,5 +559,41 @@ def test_config_precedence_lead_sides_share(tmp_path: Path, monkeypatch):
     assert st["lead"] == "lead win"
     assert st["lead_sides"] == "vs env · 3"
     assert st["lead_sides_share"] == "30%"
-    assert "vs env · 3 · 30%" in st["line"]
-    assert st["line"].index("vs env") < st["line"].index("30%")
+    assert st["lead_sides_share_delta"] == "share Δ wide · +40pp"  # 70−30
+    assert "vs env · 3 · Δ+40pp" in st["line"]
+    assert st["line"].index("vs env") < st["line"].index("Δ+40pp")
+
+
+def test_config_precedence_lead_sides_share_delta_mid_silent(
+    tmp_path: Path, monkeypatch
+):
+    """10pp ownership spread stays silent (mid band; count ahead ≠ pp)."""
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("AI_MODEL", "gemma4:latest")
+    monkeypatch.setenv("AI_MULTI_ROLE", "1")
+    monkeypatch.setenv("REGIME_GATE", "1")
+    monkeypatch.setenv("RS_GATE", "1")
+    monkeypatch.setenv("BREADTH_GATE", "1")
+    monkeypatch.setenv("FEE_PRESET", "revolut_standard")
+    monkeypatch.setenv("MAX_POSITIONS", "5")
+    monkeypatch.setenv("MIN_HOLD_HOURS", "24")
+    monkeypatch.setenv("PROMOTE_EXPERIMENT_STRATEGY", "0")
+    # 5 win + 1 ok + 4 env → 50% vs 40% = 10pp mid
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps(
+            {
+                "ai_mode": "validate",
+                "ai_model": "qwen3.5:9b",
+                "ai_multi_role": False,
+                "regime_gate": False,
+                "rs_gate": False,
+                "breadth_gate": True,
+            }
+        )
+        + "\n"
+    )
+    st = config_precedence_status(tmp_path)
+    assert st["lead_share"] == "50%"
+    assert st["lead_sides_share"] == "40%"
+    assert st["lead_sides_share_delta"] == ""
+    assert "share Δ" not in st["line"]
