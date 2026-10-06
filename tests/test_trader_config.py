@@ -149,7 +149,9 @@ def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     assert st["meter"] in st["line"]
     assert st["lead"] == "lead env"
     assert st["lead_share"] == "100%"
+    assert st["lead_margin"] == ""  # sole-bucket: share ≠ ahead
     assert "lead env · 100%" in st["line"]
+    assert "ahead " not in st["line"]
 
 
 def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
@@ -222,15 +224,19 @@ def test_config_precedence_override_speaks_confirms(tmp_path: Path, monkeypatch)
     assert "breadth_gate" in st["env_fallbacks"]
     assert "Ops wins" in st["line"]
     assert "confirms" in st["line"]
-    assert "env for" in st["line"]
     assert st["override_n"] == 1
     assert st["confirm_n"] == 2
+    assert st["env_fallback_n"] == 7
+    assert "breadth_gate" in st["env_fallbacks"]  # may truncate off the line
     assert st["meter"] == f"1 win · 2 ok · {st['env_fallback_n']} env"
     assert st["meter"] in st["line"]
-    # Meter sits before key names so a long line still keeps the triad.
+    # Meter (+ lead + ahead) sits before key names so truncate keeps the triad.
     assert st["line"].index(st["meter"]) < st["line"].index("confirms")
     assert st["lead"] == "lead env"
+    assert st["lead_share"] == "70%"
+    assert st["lead_margin"] == "ahead wide · +5"  # 7 − 2
     assert "lead env" in st["line"]
+    assert "ahead wide · +5" in st["line"]
 
 
 def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
@@ -271,8 +277,10 @@ def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
     assert st["meter"] in st["line"]
     assert st["lead"] == "lead win"
     assert st["lead_share"] == "100%"
+    assert st["lead_margin"] == ""  # sole-bucket omits ahead
     assert "lead win" in st["line"]
     assert "100%" in st["line"]
+    assert "ahead " not in st["line"]
     assert st["line"].index(st["meter"]) < st["line"].index("lead win")
     assert st["line"].index("lead win") < st["line"].index("100%")
     assert len(st["line"]) <= 96
@@ -314,12 +322,14 @@ def test_config_precedence_lead_silent_on_tie(tmp_path: Path, monkeypatch):
     assert st["env_fallback_n"] == 0
     assert st["lead"] == ""
     assert st["lead_share"] == ""
+    assert st["lead_margin"] == ""
     assert "lead " not in st["line"]
+    assert "ahead " not in st["line"]
     assert st["meter"] in st["line"]
 
 
 def test_config_precedence_lead_ok(tmp_path: Path, monkeypatch):
-    """Confirms strictly ahead → lead ok + ownership %."""
+    """Confirms strictly ahead → lead ok + ownership % + ahead margin."""
     monkeypatch.setenv("AI_MODE", "validate")
     monkeypatch.setenv("AI_MODEL", "gemma4:latest")
     monkeypatch.setenv("AI_MULTI_ROLE", "1")
@@ -353,13 +363,15 @@ def test_config_precedence_lead_ok(tmp_path: Path, monkeypatch):
     assert st["env_fallback_n"] == 1
     assert st["lead"] == "lead ok"
     assert st["lead_share"] == "90%"
+    assert st["lead_margin"] == "ahead wide · +8"  # 9 − 1
     assert "lead ok" in st["line"]
     assert "90%" in st["line"]
+    assert "ahead wide · +8" in st["line"]
     assert st["tone"] == "partial"
 
 
 def test_config_precedence_lead_share_partial_win(tmp_path: Path, monkeypatch):
-    """Lead win with env gaps speaks ownership under 100%."""
+    """Lead win with env gaps speaks ownership + ahead margin under 100%."""
     monkeypatch.setenv("AI_MODE", "full")
     monkeypatch.setenv("AI_MODEL", "gemma4:latest")
     monkeypatch.setenv("AI_MULTI_ROLE", "1")
@@ -370,7 +382,7 @@ def test_config_precedence_lead_share_partial_win(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("MAX_POSITIONS", "5")
     monkeypatch.setenv("MIN_HOLD_HOURS", "24")
     monkeypatch.setenv("PROMOTE_EXPERIMENT_STRATEGY", "0")
-    # 6 overrides + 0 confirms + 4 env → lead win · 60%
+    # 6 overrides + 0 confirms + 4 env → lead win · 60% · ahead wide · +2
     (tmp_path / "trader_config.json").write_text(
         json.dumps(
             {
@@ -390,5 +402,44 @@ def test_config_precedence_lead_share_partial_win(tmp_path: Path, monkeypatch):
     assert st["env_fallback_n"] == 4
     assert st["lead"] == "lead win"
     assert st["lead_share"] == "60%"
+    assert st["lead_margin"] == "ahead wide · +2"  # 6 − 4
     assert "lead win · 60%" in st["line"]
+    assert "ahead wide · +2" in st["line"]
     assert st["line"].index("lead win") < st["line"].index("60%")
+    assert st["line"].index("60%") < st["line"].index("ahead wide")
+
+
+def test_config_precedence_lead_margin_thin(tmp_path: Path, monkeypatch):
+    """Lead−runner = 1 → ahead thin · +1 (not wide)."""
+    monkeypatch.setenv("AI_MODE", "full")
+    monkeypatch.setenv("AI_MODEL", "gemma4:latest")
+    monkeypatch.setenv("AI_MULTI_ROLE", "1")
+    monkeypatch.setenv("REGIME_GATE", "1")
+    monkeypatch.setenv("RS_GATE", "1")
+    monkeypatch.setenv("BREADTH_GATE", "1")
+    monkeypatch.setenv("FEE_PRESET", "revolut_standard")
+    monkeypatch.setenv("MAX_POSITIONS", "5")
+    monkeypatch.setenv("MIN_HOLD_HOURS", "24")
+    monkeypatch.setenv("PROMOTE_EXPERIMENT_STRATEGY", "0")
+    # 5 win + 1 ok + 4 env → lead win · 50% · ahead thin · +1
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps(
+            {
+                "ai_mode": "validate",
+                "ai_model": "qwen3.5:9b",
+                "ai_multi_role": False,
+                "regime_gate": False,
+                "rs_gate": False,
+                "breadth_gate": True,  # confirm
+            }
+        )
+        + "\n"
+    )
+    st = config_precedence_status(tmp_path)
+    assert st["override_n"] == 5
+    assert st["confirm_n"] == 1
+    assert st["env_fallback_n"] == 4
+    assert st["lead"] == "lead win"
+    assert st["lead_share"] == "50%"
+    assert st["lead_margin"] == "ahead thin · +1"  # 5 − 4
+    assert "ahead thin · +1" in st["line"]

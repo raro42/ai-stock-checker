@@ -291,15 +291,44 @@ def _precedence_lead_share(override_n: int, confirm_n: int, env_n: int) -> str:
     return f"{pct}%"
 
 
+# Soft-allow lead margin bands adapted for win/ok/env counts (display only).
+PRECEDENCE_LEAD_MARGIN_WIDE = 2
+
+
+def _precedence_lead_margin(override_n: int, confirm_n: int, env_n: int) -> str:
+    """Lead−#2 margin when a runner exists; sole-bucket stays silent.
+
+    Ownership % ≠ how far ahead of the next bucket (soft-allow lead margin +
+    xang1234 / portfolio AI after precedence lead share). Speaks
+    ``ahead wide|thin · +K`` (wide ≥2 · thin =1).
+    """
+    lead = _precedence_lead(override_n, confirm_n, env_n)
+    if not lead:
+        return ""
+    counts = sorted((override_n, confirm_n, env_n), reverse=True)
+    top, runner = counts[0], counts[1]
+    if runner <= 0:
+        return ""
+    gap = int(top) - int(runner)
+    if gap < 1:
+        return ""
+    sev = "wide" if gap >= PRECEDENCE_LEAD_MARGIN_WIDE else "thin"
+    return f"ahead {sev} · +{gap}"
+
+
 def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
-    """Meter + optional lead (+ share) ahead of key names for truncate safety."""
+    """Meter + optional lead (+ share + ahead) ahead of key names for truncate safety."""
     meter = _precedence_meter(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
         return meter, meter
     share = _precedence_lead_share(override_n, confirm_n, env_n)
     bit = f"{lead} · {share}" if share else lead
+    ahead = _precedence_lead_margin(override_n, confirm_n, env_n)
+    if ahead:
+        bit = f"{bit} · {ahead}"
     return meter, f"{meter} · {bit}"
+
 
 def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     """Report Ops file vs env/compose precedence (display / API honesty).
@@ -319,7 +348,8 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     96-char truncate when key names are long (xang1234 + portfolio AI meter).
     When one meter bucket is strictly largest, speak ``lead win|ok|env``
     right after the meter (ties stay silent), then ownership ``N%``
-    (lead÷total; sole-bucket still speaks 100%).
+    (lead÷total; sole-bucket still speaks 100%), then ``ahead wide|thin · +K``
+    when a runner-up bucket exists (share ≠ margin; sole-bucket omits ahead).
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -327,6 +357,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     meter0, core0 = _precedence_core(0, 0, n_keys)
     lead0 = _precedence_lead(0, 0, n_keys)
     share0 = _precedence_lead_share(0, 0, n_keys)
+    margin0 = _precedence_lead_margin(0, 0, n_keys)
     empty = {
         "overrides": [],
         "confirms": [],
@@ -337,6 +368,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "meter": meter0,
         "lead": lead0,
         "lead_share": share0,
+        "lead_margin": margin0,
         "ready": True,
     }
     if not path.is_file():
@@ -378,9 +410,12 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
     lead_share = _precedence_lead_share(
         len(overrides), len(confirms), len(env_fallbacks)
     )
+    lead_margin = _precedence_lead_margin(
+        len(overrides), len(confirms), len(env_fallbacks)
+    )
     if overrides:
         bits = _format_key_list(overrides)
-        # Meter (+ lead + share) before key names so truncate keeps the triad.
+        # Meter (+ lead + share + ahead) before key names so truncate keeps triad.
         line = f"file · Ops wins · {core} · {bits}"
         # Speak-both-sides: Ops override ≠ silent confirms / env gaps
         # (portfolio AI + xang1234 #394 after saved-row precedence).
@@ -416,6 +451,7 @@ def config_precedence_status(data_dir: Path | str) -> dict[str, Any]:
         "meter": meter,
         "lead": lead,
         "lead_share": lead_share,
+        "lead_margin": lead_margin,
         "tone": tone,
         "line": line,
         "ready": True,
