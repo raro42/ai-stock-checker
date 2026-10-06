@@ -5706,6 +5706,65 @@ def _laya_row_verb(newest: dict[str, Any] | None) -> str:
     return str(newest.get("entry") or "").strip().lower()
 
 
+# Laya edge score criteria: none / thin / ok / strong (PAPER_ENTRY_QUESTIONS).
+_LAYA_EDGE_THIN = 1.5
+_LAYA_EDGE_STRONG = 2.5
+# Fee-churn noul: quiet <0.25 · ok mid · hot ≥0.5 (portfolio AI quiet vs high).
+_LAYA_FEE_QUIET = 0.25
+_LAYA_FEE_HOT = 0.5
+
+
+def _laya_edge_fee_bits(
+    newest: dict[str, Any] | None,
+) -> tuple[str, bool]:
+    """Last-row edge + fee-churn honesty (display only).
+
+    Typed System-1 stores ``edge_score`` + ``fee_churn`` but a bare
+    pass/hold/reject hid strength and churn risk. Speak ``edge none|thin|ok|strong``
+    and ``fee quiet|ok|hot`` when present (FinRobot typed answers + portfolio AI
+    speak-both-sides). Thin/none edge or hot fee escalate glance tone — not a gate.
+    """
+    if not isinstance(newest, dict):
+        return "", False
+    if newest.get("fail_open") or not newest.get("ok"):
+        return "", False
+    edge_bit = ""
+    fee_bit = ""
+    warn = False
+    raw_edge = newest.get("edge_score")
+    try:
+        edge_f = float(raw_edge) if raw_edge is not None else None
+    except (TypeError, ValueError):
+        edge_f = None
+    if edge_f is not None:
+        if edge_f < 0.5:
+            band = "none"
+            warn = True
+        elif edge_f < _LAYA_EDGE_THIN:
+            band = "thin"
+            warn = True
+        elif edge_f < _LAYA_EDGE_STRONG:
+            band = "ok"
+        else:
+            band = "strong"
+        edge_bit = f"edge {band}"
+    raw_fee = newest.get("fee_churn")
+    try:
+        fee_f = float(raw_fee) if raw_fee is not None else None
+    except (TypeError, ValueError):
+        fee_f = None
+    if fee_f is not None:
+        if fee_f >= _LAYA_FEE_HOT:
+            fee_bit = "fee hot"
+            warn = True
+        elif fee_f < _LAYA_FEE_QUIET:
+            fee_bit = "fee quiet"
+        else:
+            fee_bit = "fee ok"
+    bits = " · ".join(b for b in (edge_bit, fee_bit) if b)
+    return bits, warn
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -5730,7 +5789,10 @@ def build_laya_glance(
     ``mixed · vs NVDA BUY`` / ``align · vs NVDA BUY`` (bare ``vs`` keeps
     bull↔bear). Clash vs a staler scan/debate escalates glance tone.
     Bull↔bear verb oppose (reject vs BUY / pass vs SELL) also escalates
-    to aging — name label ≠ polarity severity. See docs/LAYA.md.
+    to aging — name label ≠ polarity severity. Last-row typed
+    ``edge none|thin|ok|strong`` + ``fee quiet|ok|hot`` speak when
+    present (pass alone ≠ strong edge); thin/none or fee hot escalate
+    to aging. See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5775,6 +5837,8 @@ def build_laya_glance(
     clash = ""
     name_clash = ""
     verb_oppose = False
+    edge_fee_bits = ""
+    edge_fee_warn = False
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -5787,6 +5851,8 @@ def build_laya_glance(
         verb_oppose = bool(name_clash) and _memory_verb_oppose(
             own_verb, debate_action
         )
+    if st.get("advisory") and newest:
+        edge_fee_bits, edge_fee_warn = _laya_edge_fee_bits(newest)
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -5834,6 +5900,8 @@ def build_laya_glance(
                 last = ""
             if last:
                 bits.append(last)
+        if edge_fee_bits:
+            bits.append(edge_fee_bits)
         bits.append("not a gate")
         line = " · ".join(bits)
         clash_tone = _clock_clash_tone(
@@ -5841,7 +5909,12 @@ def build_laya_glance(
         )
         if freshness == "stale" or clash_tone == "stale":
             tone = "stale"
-        elif freshness == "aging" or clash_tone == "aging" or verb_oppose:
+        elif (
+            freshness == "aging"
+            or clash_tone == "aging"
+            or verb_oppose
+            or edge_fee_warn
+        ):
             tone = "aging"
         else:
             tone = "advisory"
@@ -5862,6 +5935,8 @@ def build_laya_glance(
         "scan_vs_laya_clash": clash,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
+        "edge_fee_bits": edge_fee_bits,
+        "edge_fee_warn": edge_fee_warn,
         "latest_at": latest_at,
     }
 

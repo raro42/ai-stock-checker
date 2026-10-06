@@ -181,7 +181,9 @@ def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     )
     g = build_laya_glance(tmp_path)
     assert g["advisory"] is True
-    assert g["tone"] == "advisory"
+    # edge thin (0.5) + fee hot (0.8) escalate tone — pass/reject alone ≠ calm
+    assert g["tone"] == "aging"
+    assert g["edge_fee_bits"] == "edge thin · fee hot"
     assert g["freshness"] == "fresh"
     assert "NVDA" in g["line"]
     assert "reject" in g["line"]
@@ -576,6 +578,63 @@ def test_laya_glance_debate_mixed_fail_open(monkeypatch, tmp_path: Path) -> None
     assert g["memory_verb_oppose"] is False
     assert g["tone"] == "advisory"
     assert "mixed · vs BUY" in g["line"]
+
+
+def test_laya_glance_edge_fee_bits(monkeypatch, tmp_path: Path) -> None:
+    """Last-row edge + fee-churn speak; thin/hot escalate tone (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write(
+        *,
+        entry: str = "pass",
+        edge_score: float | None = 2.1,
+        fee_churn: float | None = 0.15,
+    ) -> None:
+        row: dict = {
+            "at": at,
+            "symbol": "MSFT",
+            "ok": True,
+            "fail_open": False,
+            "reason": "ok",
+            "entry": entry,
+        }
+        if edge_score is not None:
+            row["edge_score"] = edge_score
+        if fee_churn is not None:
+            row["fee_churn"] = fee_churn
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps({"events": [row]}) + "\n", encoding="utf-8"
+        )
+
+    _write()
+    g = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert g["edge_fee_bits"] == "edge ok · fee quiet"
+    assert g["edge_fee_warn"] is False
+    assert "edge ok · fee quiet" in g["line"]
+    assert g["line"].index("last MSFT pass") < g["line"].index("edge ok")
+    assert g["tone"] == "advisory"
+
+    _write(edge_score=1.0, fee_churn=0.15)
+    thin = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert thin["edge_fee_bits"] == "edge thin · fee quiet"
+    assert thin["edge_fee_warn"] is True
+    assert thin["tone"] == "aging"
+
+    _write(edge_score=2.8, fee_churn=0.6)
+    hot = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert hot["edge_fee_bits"] == "edge strong · fee hot"
+    assert hot["edge_fee_warn"] is True
+    assert hot["tone"] == "aging"
+
+    _write(edge_score=None, fee_churn=None)
+    silent = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert silent["edge_fee_bits"] == ""
+    assert silent["edge_fee_warn"] is False
+    assert "edge " not in silent["line"]
+    assert silent["tone"] == "advisory"
 
 
 def test_desk_templates_include_laya_glance() -> None:
