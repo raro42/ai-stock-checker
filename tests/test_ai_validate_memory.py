@@ -251,6 +251,55 @@ def test_build_ai_debate_glance_scan_clash(tmp_path: Path) -> None:
     assert "clash" not in same["line"]
 
 
+def test_build_ai_debate_glance_laya_clash(monkeypatch, tmp_path: Path) -> None:
+    """Last-debate band ≠ LAYA last-row band → clash · laya {tone}."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = stale_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": stale_at, "events": events}) + "\n")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "symbol": "NVDA",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_at
+    )
+    assert g["freshness"] == "stale"
+    assert g["scan_freshness"] == "stale"
+    assert g["laya_freshness"] == "fresh"
+    assert g["scan_vs_debate_clash"] == "clash · laya fresh"
+    assert "laya" in g["line"]
+    both = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert both["scan_vs_debate_clash"] == "clash · scan fresh · laya fresh"
+
+
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     record_ai_validate(
         tmp_path,

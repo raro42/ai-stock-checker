@@ -5570,18 +5570,23 @@ def build_ai_roles_glance() -> dict[str, Any]:
 _CLOCK_FRESH_RANK = {"fresh": 0, "aging": 1, "stale": 2}
 
 
-def _scan_vs_clock_clash(memory_tone: str, scan_tone: str) -> str:
-    """Scan archive clock ≠ last memory clock (display only).
+def _clock_clash(memory_tone: str, **others: str) -> str:
+    """Last memory clock ≠ named other clocks (display only).
 
-    xang1234 scan-vs-cash clash + FinRobot debate-age: a fresh scan does
-    not make a stale last-reject or last-debate live. Same band stays
-    silent. No Δ nest.
+    xang1234 scan-vs-cash + FinRobot debate-age: a fresh scan or debate
+    does not make a stale last-reject live. Same band stays silent.
+    Callers pass insertion-ordered names (scan then debate/laya). No Δ nest.
     """
-    if memory_tone not in _CLOCK_FRESH_RANK or scan_tone not in _CLOCK_FRESH_RANK:
+    if memory_tone not in _CLOCK_FRESH_RANK:
         return ""
-    if memory_tone == scan_tone:
+    bits: list[str] = []
+    for name, tone in others.items():
+        if tone not in _CLOCK_FRESH_RANK or tone == memory_tone:
+            continue
+        bits.append(f"{name.replace('_', ' ')} {tone}")
+    if not bits:
         return ""
-    return f"clash · scan {scan_tone}"
+    return "clash · " + " · ".join(bits)
 
 
 def build_laya_glance(
@@ -5597,7 +5602,9 @@ def build_laya_glance(
     ``LAYA_BASE_URL``/``JEV_BASE_URL`` + ``LAYA_ADVISORY=1``. Newest row
     age uses RyanJHamby/xang1234 scan-cadence fresh/aging/stale (a last
     reject is not a live print). When the scan archive band disagrees
-    with last-row age, speak ``clash · scan fresh|aging|stale``. See docs/LAYA.md.
+    with last-row age, speak ``clash · scan fresh|aging|stale``. When the
+    newest validate-debate band also disagrees, append ``debate {tone}``
+    (FinRobot last-debate ≠ JEV last-reject). See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5627,9 +5634,20 @@ def build_laya_glance(
             scan_time, now=now, scan_interval_sec=scan_interval_sec
         )
         scan_freshness = str(scan_pack.get("tone") or "")
+    debate_freshness = ""
+    from stock_checker.ai_validate_memory import summarize_ai_debates
+
+    debate_at = str(summarize_ai_debates(root).get("latest_at") or "").strip()
+    if debate_at:
+        debate_pack = build_scan_freshness(
+            debate_at, now=now, scan_interval_sec=scan_interval_sec
+        )
+        debate_freshness = str(debate_pack.get("tone") or "")
     clash = ""
     if st.get("advisory") and age_bit:
-        clash = _scan_vs_clock_clash(freshness, scan_freshness)
+        clash = _clock_clash(
+            freshness, scan=scan_freshness, debate=debate_freshness
+        )
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -5696,6 +5714,7 @@ def build_laya_glance(
         "age_label": age_label,
         "freshness": freshness,
         "scan_freshness": scan_freshness,
+        "debate_freshness": debate_freshness,
         "scan_vs_laya_clash": clash,
         "latest_at": latest_at,
     }
@@ -5714,9 +5733,9 @@ def build_ai_debate_glance(
     ``ai_validate_memory`` so Overview/Ops/Charts see research memory without
     opening Ideas. Includes RyanJHamby/xang1234 ``as of`` age on the newest
     debate (fresh/aging/stale vs scan cadence). When the scan archive band
-    disagrees with last-debate age, speak ``clash · scan fresh|aging|stale``
-    (LAYA vs scan clash + xang1234 scan-vs-cash). Not a research score and
-    not a new gate.
+    disagrees with last-debate age, speak ``clash · scan fresh|aging|stale``.
+    When LAYA last-row band also disagrees, append ``laya {tone}`` (JEV
+    last-reject ≠ last BUY). Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -5728,6 +5747,7 @@ def build_ai_debate_glance(
         "age_label": "",
         "freshness": "",
         "scan_freshness": "",
+        "laya_freshness": "",
         "scan_vs_debate_clash": "",
         "latest_at": "",
     }
@@ -5765,9 +5785,27 @@ def build_ai_debate_glance(
             scan_time, now=now, scan_interval_sec=scan_interval_sec
         )
         scan_freshness = str(scan_pack.get("tone") or "")
+    laya_freshness = ""
+    from stock_checker.laya_decision import laya_status
+
+    laya_st = laya_status(root)
+    newest_laya = (
+        laya_st.get("stats") if isinstance(laya_st.get("stats"), dict) else {}
+    )
+    newest_row = (
+        newest_laya.get("newest")
+        if isinstance(newest_laya.get("newest"), dict)
+        else None
+    )
+    laya_at = str((newest_row or {}).get("at") or "").strip()
+    if laya_st.get("advisory") and laya_at:
+        laya_pack = build_scan_freshness(
+            laya_at, now=now, scan_interval_sec=scan_interval_sec
+        )
+        laya_freshness = str(laya_pack.get("tone") or "")
     clash = ""
     if age_label:
-        clash = _scan_vs_clock_clash(freshness, scan_freshness)
+        clash = _clock_clash(freshness, scan=scan_freshness, laya=laya_freshness)
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
     if gated:
         bits.append(f"{gated} gated")
@@ -5809,6 +5847,7 @@ def build_ai_debate_glance(
         "age_label": age_label,
         "freshness": freshness,
         "scan_freshness": scan_freshness,
+        "laya_freshness": laya_freshness,
         "scan_vs_debate_clash": clash,
         "latest_at": latest_at,
     }

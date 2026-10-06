@@ -259,6 +259,79 @@ def test_laya_glance_scan_clash(monkeypatch, tmp_path: Path) -> None:
     assert "clash" not in same["line"]
 
 
+def test_laya_glance_debate_clash(monkeypatch, tmp_path: Path) -> None:
+    """Last-row band ≠ last-debate band → clash · debate {tone} (display only)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "ai_validate_memory.json").write_text(
+        json.dumps(
+            {
+                "updated_at": fresh_at,
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "symbol": "NVDA",
+                        "action": "BUY",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_at
+    )
+    assert g["freshness"] == "stale"
+    assert g["scan_freshness"] == "stale"
+    assert g["debate_freshness"] == "fresh"
+    assert g["scan_vs_laya_clash"] == "clash · debate fresh"
+    assert "clash" in g["line"]
+    both = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert both["scan_vs_laya_clash"] == "clash · scan fresh · debate fresh"
+    same = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_at
+    )
+    (tmp_path / "ai_validate_memory.json").write_text(
+        json.dumps(
+            {
+                "updated_at": stale_at,
+                "events": [{"at": stale_at, "symbol": "NVDA", "action": "HOLD"}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    quiet = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=stale_at
+    )
+    assert quiet["scan_vs_laya_clash"] == ""
+    assert same["scan_vs_laya_clash"] == "clash · debate fresh"
+
+
 def test_desk_templates_include_laya_glance() -> None:
     roots = Path("openbb_backend/templates")
     for name in (
