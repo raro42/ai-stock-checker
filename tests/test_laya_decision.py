@@ -637,6 +637,85 @@ def test_laya_glance_edge_fee_bits(monkeypatch, tmp_path: Path) -> None:
     assert silent["tone"] == "advisory"
 
 
+def test_laya_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
+    """Same-ticker edge vs debate conf clash/align (not a gate)."""
+    from stock_checker.ai_validate_memory import record_ai_validate
+
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(edge_score: float, symbol: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": "pass",
+                            "edge_score": edge_score,
+                            "fee_churn": 0.15,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _debate(confidence: str, symbol: str = "MSFT") -> None:
+        record_ai_validate(
+            tmp_path,
+            {
+                "action": "BUY",
+                "confidence": confidence,
+                "score": 40,
+                "reasons": ["tape"],
+            },
+            symbol=symbol,
+            kept=True,
+        )
+        events = json.loads(
+            (tmp_path / "ai_validate_memory.json").read_text(encoding="utf-8")
+        )["events"]
+        events[-1]["at"] = at
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps({"updated_at": at, "events": events}) + "\n",
+            encoding="utf-8",
+        )
+
+    _laya(1.0)
+    _debate("HIGH")
+    clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert clash["edge_vs_conf"] == "edge/conf clash · thin · hi"
+    assert clash["edge_vs_conf_warn"] is True
+    assert "edge/conf clash · thin · hi" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya(2.8)
+    _debate("HIGH")
+    align = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert align["edge_vs_conf"] == "edge/conf align · strong · hi"
+    assert align["edge_vs_conf_warn"] is False
+    assert "edge/conf align · strong · hi" in align["line"]
+
+    _laya(2.1)
+    _debate("MEDIUM")
+    mid = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert mid["edge_vs_conf"] == ""
+    assert "edge/conf " not in mid["line"]
+
+    _laya(2.8, symbol="MSFT")
+    _debate("LOW", symbol="NVDA")
+    cross = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert cross["edge_vs_conf"] == ""
+
+
 def test_desk_templates_include_laya_glance() -> None:
     roots = Path("openbb_backend/templates")
     for name in (

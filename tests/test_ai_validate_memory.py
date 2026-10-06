@@ -562,6 +562,79 @@ def test_build_ai_debate_glance_confidence_bits(tmp_path: Path) -> None:
     assert silent["tone"] == "buy"
 
 
+def test_build_ai_debate_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
+    """Same-ticker LAYA edge vs debate conf clash/align (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(edge_score: float, symbol: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": "pass",
+                            "edge_score": edge_score,
+                            "fee_churn": 0.15,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _debate(confidence: str, symbol: str = "MSFT") -> None:
+        record_ai_validate(
+            tmp_path,
+            {
+                "action": "BUY",
+                "confidence": confidence,
+                "score": 40,
+                "reasons": ["tape"],
+            },
+            symbol=symbol,
+            kept=True,
+        )
+        events = load_ai_validate_memory(tmp_path)
+        events[-1]["at"] = at
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps({"updated_at": at, "events": events}) + "\n"
+        )
+
+    _laya(2.8)
+    _debate("LOW")
+    clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert clash["edge_vs_conf"] == "edge/conf clash · strong · lo"
+    assert clash["edge_vs_conf_warn"] is True
+    assert "edge/conf clash · strong · lo" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya(1.0)
+    _debate("LOW")
+    align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert align["edge_vs_conf"] == "edge/conf align · thin · lo"
+    assert align["edge_vs_conf_warn"] is False
+    assert "edge/conf align · thin · lo" in align["line"]
+
+    _laya(2.1)
+    _debate("MEDIUM")
+    mid = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert mid["edge_vs_conf"] == ""
+
+    _laya(1.0, symbol="NVDA")
+    _debate("HIGH", symbol="MSFT")
+    cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert cross["edge_vs_conf"] == ""
+
+
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     record_ai_validate(
         tmp_path,
