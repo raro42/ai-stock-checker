@@ -1042,7 +1042,7 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
-    """Decided sample (≥2) speaks strict lead · N% + ahead margin (display only)."""
+    """Decided sample (≥2) speaks lead · N% + ahead + vs runner (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1073,9 +1073,10 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert thin["sample_lead"] == ""
     assert thin["sample_lead_share"] is None
     assert thin["sample_lead_margin"] == ""
+    assert thin["sample_lead_sides"] == ""
     assert "lead " not in thin["line"]
 
-    # Strict reject lead · 67% + ahead thin · +1 (2 reject + 1 pass).
+    # Strict reject lead · 67% + ahead thin · +1 · vs pass · 1 (2 reject + 1 pass).
     _write([_row("pass", "AAPL"), _row("reject", "MSFT"), _row("reject", "NVDA")])
     lead = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert lead["sample_lead"] == "lead reject · 67%"
@@ -1083,21 +1084,30 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert lead["sample_lead_share"] == 67
     assert lead["sample_lead_margin"] == "ahead thin · +1"
     assert lead["sample_lead_margin_gap"] == 1
+    assert lead["sample_lead_sides"] == "vs pass · 1"
+    assert lead["sample_lead_sides_name"] == "pass"
+    assert lead["sample_lead_sides_n"] == 1
     assert "1p/0h/2r" in lead["line"]
     assert "lead reject · 67%" in lead["line"]
     assert "ahead thin · +1" in lead["line"]
     # Meter before lead so the 96-char clip keeps ownership after counts.
     assert lead["line"].index("1p/0h/2r") < lead["line"].index("lead reject")
     assert lead["line"].index("lead reject") < lead["line"].index("ahead thin")
+    # Runner bit may truncate after ahead (age + meter already fill the 96).
+    assert "vs pass · 1" in lead["line"] or lead["line"].endswith("vs …")
 
-    # Sole-bucket lead omits ahead (ownership % ≠ margin).
+    # Sole-bucket lead omits ahead + vs (ownership % ≠ margin ≠ who is #2).
     _write([_row("reject", "AAPL"), _row("reject", "MSFT")])
     sole = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert sole["sample_lead"] == "lead reject · 100%"
     assert sole["sample_lead_margin"] == ""
+    assert sole["sample_lead_sides"] == ""
     assert "ahead " not in sole["line"]
+    assert "vs pass" not in sole["line"]
+    assert "vs hold" not in sole["line"]
+    assert "vs reject" not in sole["line"]
 
-    # Wide margin (≥2) when lead is further ahead.
+    # Wide margin (≥2) when lead is further ahead; clear runner still speaks.
     _write(
         [
             _row("pass", "AAPL"),
@@ -1109,13 +1119,36 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     wide = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert wide["sample_lead_margin"] == "ahead wide · +2"
     assert wide["sample_lead_margin_gap"] == 2
+    assert wide["sample_lead_sides"] == "vs pass · 1"
     assert "ahead wide · +2" in wide["line"]
+    assert "vs pass · 1" in wide["line"] or wide["line"].endswith("vs …")
+
+    # Tied runners: ahead speaks, vs silent (ahead ≠ who is #2).
+    _write(
+        [
+            _row("reject", "AAPL"),
+            _row("reject", "MSFT"),
+            _row("reject", "NVDA"),
+            _row("pass", "TSLA"),
+            _row("hold", "AMD"),
+        ]
+    )
+    tied_runners = build_laya_glance(
+        tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
+    )
+    assert tied_runners["sample_lead"] == "lead reject · 60%"
+    assert tied_runners["sample_lead_margin"] == "ahead wide · +2"
+    assert tied_runners["sample_lead_sides"] == ""
+    assert "ahead wide · +2" in tied_runners["line"]
+    assert "vs pass" not in tied_runners["line"]
+    assert "vs hold" not in tied_runners["line"]
 
     # Tie stays silent.
     _write([_row("pass", "AAPL"), _row("reject", "MSFT")])
     tied = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert tied["sample_lead"] == ""
     assert tied["sample_lead_margin"] == ""
+    assert tied["sample_lead_sides"] == ""
     assert "lead " not in tied["line"]
 
 

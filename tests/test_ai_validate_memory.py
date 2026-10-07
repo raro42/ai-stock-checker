@@ -967,7 +967,7 @@ def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
 
 
 def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
-    """Decided sample (≥2) speaks strict lead · N% + ahead margin (display only)."""
+    """Decided sample (≥2) speaks lead · N% + ahead + vs runner (display only)."""
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _write(events: list[dict]) -> None:
@@ -993,6 +993,7 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert thin["sample_lead"] == ""
     assert thin["sample_lead_share"] is None
     assert thin["sample_lead_margin"] == ""
+    assert thin["sample_lead_sides"] == ""
 
     _write([_row("BUY", "AAPL"), _row("BUY", "MSFT"), _row("HOLD", "NVDA")])
     lead = build_ai_debate_glance(
@@ -1003,11 +1004,16 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert lead["sample_lead_share"] == 67
     assert lead["sample_lead_margin"] == "ahead thin · +1"
     assert lead["sample_lead_margin_gap"] == 1
+    assert lead["sample_lead_sides"] == "vs HOLD · 1"
+    assert lead["sample_lead_sides_name"] == "HOLD"
+    assert lead["sample_lead_sides_n"] == 1
     assert "2 BUY" in lead["line"]
     assert "lead BUY · 67%" in lead["line"]
     assert "ahead thin · +1" in lead["line"]
+    assert "vs HOLD · 1" in lead["line"]
     assert lead["line"].index("2 BUY") < lead["line"].index("lead BUY")
     assert lead["line"].index("lead BUY") < lead["line"].index("ahead thin")
+    assert lead["line"].index("ahead thin") < lead["line"].index("vs HOLD")
 
     _write([_row("BUY", "AAPL"), _row("BUY", "MSFT")])
     sole = build_ai_debate_glance(
@@ -1015,6 +1021,7 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     )
     assert sole["sample_lead"] == "lead BUY · 100%"
     assert sole["sample_lead_margin"] == ""
+    assert sole["sample_lead_sides"] == ""
     assert "ahead " not in sole["line"]
 
     _write(
@@ -1030,6 +1037,26 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     )
     assert wide["sample_lead_margin"] == "ahead wide · +2"
     assert wide["sample_lead_margin_gap"] == 2
+    assert wide["sample_lead_sides"] == "vs HOLD · 1"
+
+    # Tied runners: ahead speaks, vs silent.
+    _write(
+        [
+            _row("BUY", "AAPL"),
+            _row("BUY", "MSFT"),
+            _row("BUY", "NVDA"),
+            _row("HOLD", "TSLA"),
+            _row("SELL", "AMD"),
+        ]
+    )
+    tied_runners = build_ai_debate_glance(
+        tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
+    )
+    assert tied_runners["sample_lead"] == "lead BUY · 60%"
+    assert tied_runners["sample_lead_margin"] == "ahead wide · +2"
+    assert tied_runners["sample_lead_sides"] == ""
+    assert "vs HOLD" not in tied_runners["line"]
+    assert "vs SELL" not in tied_runners["line"]
 
     _write([_row("BUY", "AAPL"), _row("SELL", "MSFT")])
     tied = build_ai_debate_glance(
@@ -1037,6 +1064,7 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     )
     assert tied["sample_lead"] == ""
     assert tied["sample_lead_margin"] == ""
+    assert tied["sample_lead_sides"] == ""
     assert "lead " not in tied["line"]
 
 
