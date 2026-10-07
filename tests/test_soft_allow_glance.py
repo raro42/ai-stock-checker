@@ -5,6 +5,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from openbb_backend.desk import build_soft_allow_glance
+from stock_checker.gate_audit import soft_allow_last_vs_lead
+
+
+def test_soft_allow_last_vs_lead_helper() -> None:
+    assert soft_allow_last_vs_lead("rs", "breadth") == "last vs lead · breadth"
+    assert soft_allow_last_vs_lead("rs", "RS") == ""
+    assert soft_allow_last_vs_lead("", "breadth") == ""
+    assert soft_allow_last_vs_lead("rs", "") == ""
 
 
 def test_soft_allow_glance_empty() -> None:
@@ -491,3 +499,49 @@ def test_soft_allow_glance_lead_share_delta_thin() -> None:
         "rs leads · fresh · ×6 · 54% · ahead thin · +1 · vs regime ×5 · 46% · "
         "share Δ thin · +9pp · share vs Δ align · thin"
     )
+
+
+def test_soft_allow_glance_last_vs_lead() -> None:
+    """Newest gate vs band lead — FinRobot last ≠ ring tilt (LAYA parity)."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    fresh = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Newest print is breadth; fresh band still led by rs.
+    clash = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "breadth", "reason": "unknown scan"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient b"},
+        ],
+        now=now,
+    )
+    assert clash["lead_gate"] == "rs"
+    assert clash["last_gate"] == "breadth"
+    assert clash["last_vs_lead"] == "last vs lead · breadth"
+    assert "last vs lead · breadth" in clash["line"]
+    assert clash["line"].startswith(
+        "hot · rs leads · fresh · ×2 · 67% · ahead thin · +1 · vs breadth ×1 · 33% · "
+        "share Δ wide · +33pp · last vs lead · breadth · "
+    )
+
+    # Newest matches lead — silent.
+    match = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "rs", "reason": "insufficient b"},
+            {"at": fresh, "gate": "breadth", "reason": "unknown scan"},
+        ],
+        now=now,
+    )
+    assert match["lead_gate"] == "rs"
+    assert match["last_gate"] == "rs"
+    assert match["last_vs_lead"] == ""
+    assert "last vs lead" not in match["line"]
+
+    # No lead (thin / ties) — silent even when last exists.
+    thin = build_soft_allow_glance(
+        [{"at": fresh, "gate": "breadth", "reason": "unknown scan"}],
+        now=now,
+    )
+    assert thin["lead_gate"] == ""
+    assert thin["last_vs_lead"] == ""
+    assert "last vs lead" not in thin["line"]

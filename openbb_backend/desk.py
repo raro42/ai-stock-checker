@@ -884,10 +884,13 @@ def build_soft_allow_glance(
     margin ≠ who is runner-up; absolute ×K ≠ runner band ownership; two
     % ≠ the ownership spread (mid silent); count-ahead lean ≠
     ownership-Δ lean (clash when share mid; align when same lean;
-    different lean silent).     Ops lead inventory reuses the same share /
-    ahead margin / Δ / vs-Δ fields so ``Lead · gate ×N · band · M% ·
-    ahead … · +K`` shows ownership and how far ahead (counts ≠ share ≠
-    margin) without parsing the glance line. Ops runner inventory speaks
+    different lean silent). When lead already spoke and newest row gate
+    disagrees, speak ``last vs lead · breadth`` right after the lead bit
+    (same gate silent; FinRobot last ≠ ring tilt + LAYA/debate parity).
+    Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
+    fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
+    ownership and how far ahead (counts ≠ share ≠ margin) without
+    parsing the glance line. Ops runner inventory speaks
     ``Runner · gate ×K · band · P%`` on its own line when ahead already
     spoke; when margin spoke it also shows ``behind … · −K`` (same K,
     speak-both-sides; not a lead÷runner ratio; not buried in Lead).
@@ -900,6 +903,7 @@ def build_soft_allow_glance(
         format_expired_soft_allow_tally,
         format_fresh_soft_allow_tally,
         format_soft_allow_lead_bit,
+        soft_allow_last_vs_lead,
         soft_allow_lead_margin,
         soft_allow_lead_share,
         soft_allow_lead_sides_share,
@@ -939,6 +943,7 @@ def build_soft_allow_glance(
         "lead_share_vs_delta_share": "",
         "lead_band": "",
         "lead_bit": "",
+        "last_vs_lead": "",
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1022,8 +1027,12 @@ def build_soft_allow_glance(
     lead_share_vs_delta = share_vs[0] if share_vs else ""
     lead_share_vs_delta_ahead = share_vs[1] if share_vs else ""
     lead_share_vs_delta_share = share_vs[2] if share_vs else ""
+    last_vs_lead = (
+        soft_allow_last_vs_lead(lead_gate, gate) if lead_gate else ""
+    )
     if lead_bit:
-        line = f"{severity} · {lead_bit} · {line}"
+        mid = f"{lead_bit} · {last_vs_lead}" if last_vs_lead else lead_bit
+        line = f"{severity} · {mid} · {line}"
     else:
         line = f"{severity} · {line}"
     if reason_short:
@@ -1056,6 +1065,7 @@ def build_soft_allow_glance(
         "lead_share_vs_delta_share": lead_share_vs_delta_share,
         "lead_band": lead_band if lead else "",
         "lead_bit": lead_bit,
+        "last_vs_lead": last_vs_lead,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,
