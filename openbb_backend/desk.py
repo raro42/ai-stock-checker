@@ -884,10 +884,15 @@ def build_soft_allow_glance(
     margin ≠ who is runner-up; absolute ×K ≠ runner band ownership; two
     % ≠ the ownership spread (mid silent); count-ahead lean ≠
     ownership-Δ lean (clash when share mid; align when same lean;
-    different lean silent). When lead already spoke, newest row gate
+    different lean silent).     When lead already spoke, newest row gate
     speaks ``agree`` (match) or ``last vs lead · breadth`` (clash) right
     after the lead bit — FinRobot last ≠ ring tilt + portfolio AI
     speak-both-sides (silent confirm hid match; LAYA/debate parity).
+    When no lead, 1 band row speaks ``n=1``; ≥2 with no strict lead
+    speaks ``tied`` (``soft_allow_sample_gap``; empty still ready=false;
+    lead cases stay silent on gap; not cool-off ``aging``) — Window A
+    Kelly sample thin + xang1234 sample honesty + LAYA/debate
+    ``_decision_sample_gap`` parity.
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -910,6 +915,7 @@ def build_soft_allow_glance(
         soft_allow_lead_sides_share,
         soft_allow_lead_sides_share_delta,
         soft_allow_lead_sides_share_vs_delta,
+        soft_allow_sample_gap,
     )
 
     ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
@@ -945,6 +951,7 @@ def build_soft_allow_glance(
         "lead_band": "",
         "lead_bit": "",
         "last_vs_lead": "",
+        "sample_gap": "",
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1031,9 +1038,14 @@ def build_soft_allow_glance(
     last_vs_lead = (
         soft_allow_last_vs_lead(lead_gate, gate) if lead_gate else ""
     )
+    sample_gap = soft_allow_sample_gap(
+        rows, band=lead_band, lead_gate=lead_gate
+    )
     if lead_bit:
         mid = f"{lead_bit} · {last_vs_lead}" if last_vs_lead else lead_bit
         line = f"{severity} · {mid} · {line}"
+    elif sample_gap:
+        line = f"{severity} · {sample_gap} · {line}"
     else:
         line = f"{severity} · {line}"
     if reason_short:
@@ -1067,6 +1079,7 @@ def build_soft_allow_glance(
         "lead_band": lead_band if lead else "",
         "lead_bit": lead_bit,
         "last_vs_lead": last_vs_lead,
+        "sample_gap": sample_gap,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,

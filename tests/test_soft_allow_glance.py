@@ -538,12 +538,34 @@ def test_soft_allow_glance_last_vs_lead() -> None:
     assert " · agree · " in match["line"]
     assert "last vs lead" not in match["line"]
 
-    # No lead (thin / ties) — silent even when last exists.
+    # No lead (thin) — speak n=1 (last-row ≠ ring tilt; LAYA sample-gap parity).
     thin = build_soft_allow_glance(
         [{"at": fresh, "gate": "breadth", "reason": "unknown scan"}],
         now=now,
     )
     assert thin["lead_gate"] == ""
     assert thin["last_vs_lead"] == ""
+    assert thin["sample_gap"] == "n=1"
+    assert "n=1" in thin["line"]
+    assert thin["line"].startswith("hot · n=1 · ")
     assert "last vs lead" not in thin["line"]
     assert "agree" not in thin["line"]
+
+    # No lead (ties) — speak tied (≥2 in band, no strict winner).
+    tied = build_soft_allow_glance(
+        [
+            {"at": fresh, "gate": "rs", "reason": "insufficient a"},
+            {"at": fresh, "gate": "breadth", "reason": "unknown scan"},
+        ],
+        now=now,
+    )
+    assert tied["lead_gate"] == ""
+    assert tied["sample_gap"] == "tied"
+    assert "tied" in tied["line"]
+    assert tied["line"].startswith("hot · tied · ")
+    assert "leads" not in tied["line"]
+
+    # Lead cases stay silent on sample_gap.
+    assert match["sample_gap"] == ""
+    assert "n=1" not in match["line"]
+    assert "tied" not in match["line"]

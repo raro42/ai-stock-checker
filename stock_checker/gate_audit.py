@@ -587,6 +587,30 @@ def soft_allow_last_vs_lead(lead_gate: str, last_gate: str) -> str:
     return f"last vs lead · {last}"
 
 
+def soft_allow_sample_gap(
+    events: list[dict[str, Any]] | None,
+    *,
+    band: str,
+    lead_gate: str = "",
+) -> str:
+    """Speak thin/tied when a severity-band lead would overclaim (display only).
+
+    Empty ring stays on the caller. A single row in the severity-driving
+    band is compact ``n=1`` (last-row ≠ ring tilt; not cool-off ``aging``).
+    Two-plus with no strict lead is ``tied`` (counts without a winner).
+    Lead cases stay silent. Window A Kelly sample thin + xang1234 sample
+    honesty + LAYA/debate ``_decision_sample_gap`` parity. Not a gate.
+    """
+    if str(lead_gate or "").strip():
+        return ""
+    total = sum(c for _, c in soft_allow_band_tally(events, band=band))
+    if total <= 0:
+        return ""
+    if total < 2:
+        return "n=1"
+    return "tied"
+
+
 def format_soft_allow_lead_bit(
     events: list[dict[str, Any]] | None,
     *,

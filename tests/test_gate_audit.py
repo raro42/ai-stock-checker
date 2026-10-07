@@ -26,6 +26,7 @@ from stock_checker.gate_audit import (
     soft_allow_lead_sides_share,
     soft_allow_lead_sides_share_delta,
     soft_allow_lead_sides_share_vs_delta,
+    soft_allow_sample_gap,
 )
 
 
@@ -248,7 +249,9 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides_share_delta(one, band="fresh") is None
     assert soft_allow_lead_sides_share_vs_delta(one, band="fresh") is None
     assert format_soft_allow_lead_bit(one, band="fresh") == ""
-    # Tie stays silent.
+    assert soft_allow_sample_gap(one, band="fresh") == "n=1"
+    assert soft_allow_sample_gap(one, band="fresh", lead_gate="rs") == ""
+    # Tie stays silent on lead; sample gap speaks tied.
     tied = enrich_soft_allows(
         [
             {"at": fresh, "gate": "rs", "reason": "a"},
@@ -265,6 +268,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
     assert soft_allow_lead_sides_share(tied, band="fresh") is None
     assert soft_allow_lead_sides_share_delta(tied, band="fresh") is None
     assert soft_allow_lead_sides_share_vs_delta(tied, band="fresh") is None
+    assert soft_allow_sample_gap(tied, band="fresh") == "tied"
     # Sole-gate lead still speaks ownership; ahead stays silent (no #2).
     sole = enrich_soft_allows(
         [
@@ -274,6 +278,7 @@ def test_soft_allow_lead_gate_concentration() -> None:
         now=now,
     )
     assert soft_allow_lead_share(sole, band="fresh") == ("rs", 2, 100.0)
+    assert soft_allow_sample_gap(sole, band="fresh", lead_gate="rs") == ""
     assert soft_allow_lead_margin(sole, band="fresh") is None
     assert soft_allow_lead_sides(sole, band="fresh") is None
     assert soft_allow_lead_sides_share(sole, band="fresh") is None
