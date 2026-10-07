@@ -52,13 +52,23 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["n_unique"] == 3
     assert c["n_dup"] == 0
     assert c["n_junk"] == 5
-    # 3 object + 5 junk = 8 slots → 62.5% hot · vs 3 ok · 37.5%
+    # 3 object + 5 junk = 8 slots → 62.5% hot · vs 3 ok · thin · 37.5%
     assert c["junk_share_pct"] == 62.5
     assert c["junk_share_severity"] == "hot"
     assert c["ok_share_pct"] == 37.5
+    assert c["ok_share_severity"] == "thin"
+    assert c["junk_vs_ok"] == "align · hot|thin"
+    assert c["junk_vs_ok_warn"] is False
     assert c["lists_populated"] == 2
-    assert c["weight"] == "row slots · 5 junk · hot · 62.5% · vs 3 ok · 37.5%"
-    assert c["weight_core"] == "row slots · 5 junk · hot · 62.5% · vs 3 ok · 37.5%"
+    assert (
+        c["weight_core"]
+        == "row slots · 5 junk · hot · 62.5% · vs 3 ok · thin · 37.5%"
+    )
+    assert c["weight_lean"] == "junk vs ok align · hot|thin"
+    assert (
+        c["weight"]
+        == "row slots · 5 junk · hot · 62.5% · vs 3 ok · thin · 37.5% · junk vs ok align · hot|thin"
+    )
     assert c["tone"] == "warn"
 
 
@@ -71,6 +81,9 @@ def test_empty_and_non_mapping():
     assert empty["junk_share_pct"] is None
     assert empty["junk_share_severity"] == ""
     assert empty["ok_share_pct"] is None
+    assert empty["ok_share_severity"] == ""
+    assert empty["junk_vs_ok"] == ""
+    assert empty["junk_vs_ok_warn"] is False
     assert empty["lists_populated"] == 0
     assert empty["weight"] == "row slots"
     assert empty["unique_share_pct"] is None
@@ -110,13 +123,18 @@ def test_junk_appends_on_overlap_weight():
     assert c["n_unique"] == 2
     assert c["n_dup"] == 2
     assert c["n_junk"] == 2
-    # 4 object + 2 junk = 6 slots → 33.3% mid (ok) · vs 4 ok · 66.7%
+    # 4 object + 2 junk = 6 slots → 33.3% mid (ok) · vs 4 ok · 66.7% mid — no lean
     assert c["junk_share_pct"] == 33.3
     assert c["junk_share_severity"] == "ok"
     assert c["ok_share_pct"] == 66.7
+    assert c["ok_share_severity"] == "ok"
+    assert c["junk_vs_ok"] == ""
+    assert c["junk_vs_ok_warn"] is False
     assert c["overlap"] is True
     assert c["weight_core"].endswith(" · 2 junk · 33.3% · vs 4 ok · 66.7%")
-    assert c["weight"].endswith(" · 2 junk · 33.3% · vs 4 ok · 66.7%")
+    # junk sits on weight_core; unique/dup lean cascade stays after core
+    assert " · 2 junk · 33.3% · vs 4 ok · 66.7% · unique vs dup" in c["weight"]
+    assert "junk vs ok" not in c["weight_lean"]
     assert c["tone"] == "warn"
 
 
@@ -311,16 +329,24 @@ def test_string_symbols_and_bad_list_type():
     assert c["n_unique"] == 1
     assert c["n_dup"] == 0
     assert c["n_junk"] == 2  # two string slots; wrong-container crypto = 0
-    # 1 object + 2 junk = 3 slots → 66.7% hot · vs 1 ok · 33.3%
+    # 1 object + 2 junk = 3 slots → 66.7% hot · vs 1 ok · thin · 33.3%
     assert c["junk_share_pct"] == 66.7
     assert c["junk_share_severity"] == "hot"
     assert c["ok_share_pct"] == 33.3
+    assert c["ok_share_severity"] == "thin"
+    assert c["junk_vs_ok"] == "align · hot|thin"
     assert c["overlap"] is False
     assert c["unique_share_pct"] is None
     assert c["dup_share_pct"] is None
-    assert c["weight"] == "row slots · 2 junk · hot · 66.7% · vs 1 ok · 33.3%"
-    assert c["weight_core"] == "row slots · 2 junk · hot · 66.7% · vs 1 ok · 33.3%"
-    assert c["weight_lean"] == ""
+    assert (
+        c["weight_core"]
+        == "row slots · 2 junk · hot · 66.7% · vs 1 ok · thin · 33.3%"
+    )
+    assert c["weight_lean"] == "junk vs ok align · hot|thin"
+    assert (
+        c["weight"]
+        == "row slots · 2 junk · hot · 66.7% · vs 1 ok · thin · 33.3% · junk vs ok align · hot|thin"
+    )
     assert c["tone"] == "warn"
 
 
@@ -336,11 +362,22 @@ def test_junk_share_quiet_band():
     )
     assert c["n_total"] == 7
     assert c["n_junk"] == 1
-    # 7 + 1 = 8 slots → 12.5% quiet · vs 7 ok · 87.5%
+    # 7 + 1 = 8 slots → 12.5% quiet · vs 7 ok · strong · 87.5%
     assert c["junk_share_pct"] == 12.5
     assert c["junk_share_severity"] == "quiet"
     assert c["ok_share_pct"] == 87.5
-    assert c["weight"] == "row slots · 1 junk · quiet · 12.5% · vs 7 ok · 87.5%"
+    assert c["ok_share_severity"] == "strong"
+    assert c["junk_vs_ok"] == "align · quiet|strong"
+    assert c["junk_vs_ok_warn"] is False
+    assert (
+        c["weight_core"]
+        == "row slots · 1 junk · quiet · 12.5% · vs 7 ok · strong · 87.5%"
+    )
+    assert c["weight_lean"] == "junk vs ok align · quiet|strong"
+    assert (
+        c["weight"]
+        == "row slots · 1 junk · quiet · 12.5% · vs 7 ok · strong · 87.5% · junk vs ok align · quiet|strong"
+    )
     assert c["tone"] == "warn"
 
 
@@ -358,7 +395,46 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["junk_share_pct"] == 100.0
     assert c["junk_share_severity"] == "hot"
     assert c["ok_share_pct"] == 0.0
-    assert c["weight"] == "row slots · 3 junk · hot · 100% · vs 0 ok · 0%"
+    assert c["ok_share_severity"] == "thin"
+    assert c["junk_vs_ok"] == "align · hot|thin"
+    assert (
+        c["weight_core"]
+        == "row slots · 3 junk · hot · 100% · vs 0 ok · thin · 0%"
+    )
+    assert c["weight_lean"] == "junk vs ok align · hot|thin"
+    assert (
+        c["weight"]
+        == "row slots · 3 junk · hot · 100% · vs 0 ok · thin · 0% · junk vs ok align · hot|thin"
+    )
+    assert c["tone"] == "warn"
+
+
+def test_junk_vs_ok_clash_at_half():
+    """50/50: junk hot + ok mid → exactly one lean (unique/dup half clash)."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": [{"symbol": "AAPL"}, "junk"],
+            "crypto_leaders": [],
+            "stock_breakouts": [],
+        }
+    )
+    assert c["n_total"] == 1
+    assert c["n_junk"] == 1
+    assert c["junk_share_pct"] == 50.0
+    assert c["junk_share_severity"] == "hot"
+    assert c["ok_share_pct"] == 50.0
+    assert c["ok_share_severity"] == "ok"
+    assert c["junk_vs_ok"] == "clash · junk hot · ok ok"
+    assert c["junk_vs_ok_warn"] is True
+    assert (
+        c["weight_core"]
+        == "row slots · 1 junk · hot · 50% · vs 1 ok · 50%"
+    )
+    assert c["weight_lean"] == "junk vs ok clash · junk hot · ok ok"
+    assert (
+        c["weight"]
+        == "row slots · 1 junk · hot · 50% · vs 1 ok · 50% · junk vs ok clash · junk hot · ok ok"
+    )
     assert c["tone"] == "warn"
 
 

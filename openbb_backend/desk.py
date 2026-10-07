@@ -462,6 +462,9 @@ SCREENER_DUP_SHARE_QUIET = 25.0
 # Junk ownership of raw slots (object+junk). Same hot/quiet bands as dup waste.
 SCREENER_JUNK_SHARE_HOT = 50.0
 SCREENER_JUNK_SHARE_QUIET = 25.0
+# Ok ownership of raw slots (object÷(object+junk)). Same strong/thin as unique share.
+SCREENER_OK_SHARE_STRONG = 75.0
+SCREENER_OK_SHARE_THIN = 50.0
 # Unique%−dup% spread after lean clash/align. Wide ≥20pp · thin <10pp (mid silent).
 SCREENER_UNIQUE_VS_DUP_DELTA_WIDE_PP = 20.0
 SCREENER_UNIQUE_VS_DUP_DELTA_THIN_PP = 10.0
@@ -505,24 +508,28 @@ def build_screener_opportunity_counts(
     hot ≥50% · quiet ≤25% (count ≠ share; mid shows % only) — xang1234
     #540 damaged-artifact visibility + portfolio AI count≠share. When junk
     share already spoke, also name remaining object slots
-    (``vs N ok · P%``) so junk% ≠ silent empty Total — portfolio AI
-    speak-both-sides after junk share (unique/dup sides parity).
-    ``n_total`` is the sum of the three list lengths (object rows).
-    ``n_unique`` counts distinct symbols. When lists overlap, weight speaks
-    uniqueness share (unique÷total) with strong/thin severity, then the
-    waste side (``N dup · [hot|quiet] · M%``), then unique vs dup lean
-    clash/align, then unique−dup pp Δ when lean already spoke, then lean
-    vs Δ clash/align (Δ mid while lean spoke → clash; both spoke →
-    align · wide|thin), then Δ lead · unique|dup when Δ spoke and ±pp ≠ 0,
-    then Δ lead size · N× (louder%÷quieter%) when lead already spoke, then
-    Δ lead size sides · louder N% · quieter M% when size already spoke —
-    unique% ≠ silent dups; count ≠ severity; two leanish labels can still
-    disagree at the 50/50 band; lean labels ≠ how far the shares sit; lean
-    spoke ≠ Δ mid silent; ±sign ≠ which side owns the spread; lead name ≠
-    how many times louder owns quieter; ratio ≠ the two role-labeled %.
-    Strip shows ``weight_core`` (unique/dup shares); lean cascade sits in
-    ``weight_lean`` under a MonsterDeveloper fold. ``weight`` stays the full
-    joined string for tests. Display only.
+    (``vs N ok · [strong|thin] · P%``) so junk% ≠ silent empty Total —
+    portfolio AI speak-both-sides after junk share (unique/dup sides
+    parity). When junk+ok sides already spoke, also lean clash/align
+    (``junk vs ok align · hot|thin`` / ``quiet|strong``, or clash when
+    exactly one lean spoke at 50/50) — unique/dup lean parity; junk vs ok
+    share Δ still deferred. ``n_total`` is the sum of the three list
+    lengths (object rows). ``n_unique`` counts distinct symbols. When lists
+    overlap, weight speaks uniqueness share (unique÷total) with
+    strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
+    M%``), then unique vs dup lean clash/align, then unique−dup pp Δ when
+    lean already spoke, then lean vs Δ clash/align (Δ mid while lean spoke
+    → clash; both spoke → align · wide|thin), then Δ lead · unique|dup
+    when Δ spoke and ±pp ≠ 0, then Δ lead size · N× (louder%÷quieter%)
+    when lead already spoke, then Δ lead size sides · louder N% · quieter
+    M% when size already spoke — unique% ≠ silent dups; count ≠ severity;
+    two leanish labels can still disagree at the 50/50 band; lean labels ≠
+    how far the shares sit; lean spoke ≠ Δ mid silent; ±sign ≠ which side
+    owns the spread; lead name ≠ how many times louder owns quieter;
+    ratio ≠ the two role-labeled %. Strip shows ``weight_core``
+    (unique/dup/junk shares); lean cascade sits in ``weight_lean`` under a
+    MonsterDeveloper fold. ``weight`` stays the full joined string for
+    tests. Display only.
     """
     empty = {
         "n_rec": 0,
@@ -535,6 +542,9 @@ def build_screener_opportunity_counts(
         "junk_share_pct": None,
         "junk_share_severity": "",
         "ok_share_pct": None,
+        "ok_share_severity": "",
+        "junk_vs_ok": "",
+        "junk_vs_ok_warn": False,
         "lists_populated": 0,
         "overlap": False,
         "unique_share_pct": None,
@@ -737,11 +747,22 @@ def build_screener_opportunity_counts(
     junk_share_pct: float | None = None
     junk_share_severity = ""
     ok_share_pct: float | None = None
+    ok_share_severity = ""
+    junk_vs_ok = ""
+    junk_vs_ok_warn = False
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
         ok_share_pct = round(100.0 * n_total / n_slots, 1)
-        ok_bit = f"vs {n_total} ok · {ok_share_pct:g}%"
+        if ok_share_pct >= SCREENER_OK_SHARE_STRONG:
+            ok_share_severity = "strong"
+            ok_bit = f"vs {n_total} ok · strong · {ok_share_pct:g}%"
+        elif ok_share_pct < SCREENER_OK_SHARE_THIN:
+            ok_share_severity = "thin"
+            ok_bit = f"vs {n_total} ok · thin · {ok_share_pct:g}%"
+        else:
+            ok_share_severity = "ok"
+            ok_bit = f"vs {n_total} ok · {ok_share_pct:g}%"
         if junk_share_pct >= SCREENER_JUNK_SHARE_HOT:
             junk_share_severity = "hot"
             junk_bit = f"{n_junk} junk · hot · {junk_share_pct:g}% · {ok_bit}"
@@ -751,8 +772,40 @@ def build_screener_opportunity_counts(
         else:
             junk_share_severity = "ok"
             junk_bit = f"{n_junk} junk · {junk_share_pct:g}% · {ok_bit}"
+        junk_lean = junk_share_severity in {"hot", "quiet"}
+        ok_lean = ok_share_severity in {"strong", "thin"}
+        if junk_lean and ok_lean:
+            matched = (
+                junk_share_severity == "hot" and ok_share_severity == "thin"
+            ) or (
+                junk_share_severity == "quiet" and ok_share_severity == "strong"
+            )
+            if matched:
+                junk_vs_ok = (
+                    f"align · {junk_share_severity}|{ok_share_severity}"
+                )
+            else:
+                junk_vs_ok = (
+                    f"clash · junk {junk_share_severity} · "
+                    f"ok {ok_share_severity}"
+                )
+                junk_vs_ok_warn = True
+        elif junk_lean != ok_lean:
+            junk_vs_ok = (
+                f"clash · junk {junk_share_severity} · "
+                f"ok {ok_share_severity}"
+            )
+            if junk_share_severity == "hot" or ok_share_severity == "thin":
+                junk_vs_ok_warn = True
         weight_core = f"{weight_core} · {junk_bit}"
-        weight = f"{weight} · {junk_bit}"
+        if junk_vs_ok:
+            lean_extra = f"junk vs ok {junk_vs_ok}"
+            weight_lean = (
+                f"{weight_lean} · {lean_extra}" if weight_lean else lean_extra
+            )
+        weight = (
+            f"{weight_core} · {weight_lean}" if weight_lean else weight_core
+        )
         tone = "warn"
     return {
         "n_rec": n_rec,
@@ -765,6 +818,9 @@ def build_screener_opportunity_counts(
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
         "ok_share_pct": ok_share_pct,
+        "ok_share_severity": ok_share_severity,
+        "junk_vs_ok": junk_vs_ok,
+        "junk_vs_ok_warn": junk_vs_ok_warn,
         "lists_populated": lists_populated,
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
@@ -11230,6 +11286,16 @@ def load_desk_snapshot(
             "note": "When junk spoke, weight also speaks junk÷(object+junk) with hot ≥50% · quiet ≤25%; absolute N ≠ how much of the list is damaged.",
         },
         {
+            "title": "Screener junk vs ok sides",
+            "from": "xang1234/stock-screener #498/#540 + portfolio AI (speak-both-sides)",
+            "note": "When junk share already spoke, weight also speaks vs N ok · [strong|thin] · P% (ok strong ≥75% · thin <50%); junk% ≠ silent empty Total.",
+        },
+        {
+            "title": "Screener junk vs ok lean",
+            "from": "xang1234/stock-screener + portfolio AI (unique/dup lean parity)",
+            "note": "When junk+ok sides already spoke, weight_lean speaks junk vs ok align · hot|thin / quiet|strong, or clash when exactly one lean spoke (50/50); share Δ still deferred.",
+        },
+        {
             "title": "Screener opportunity uniqueness share",
             "from": "xang1234/stock-screener + portfolio AI (count ≠ ownership)",
             "note": "When lists overlap, Total weight speaks unique% (strong ≥75% · thin <50%); absolute unique ≠ share.",
@@ -11277,7 +11343,7 @@ def load_desk_snapshot(
         {
             "title": "Screener Total weight lean fold",
             "from": "MonsterDeveloper + xang1234 (declutter after lean cascade)",
-            "note": "Strip shows weight_core (unique/dup shares); lean/Δ/lead/size/sides sit under screener-weight-lean details; weight stays full join for tests; warn opens the fold.",
+            "note": "Strip shows weight_core (unique/dup/junk shares); unique-vs-dup + junk-vs-ok lean sit under screener-weight-lean details; weight stays full join for tests; warn opens the fold.",
         },
         {
             "title": "SMA market-regime gate",
