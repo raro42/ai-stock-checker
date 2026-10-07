@@ -1243,6 +1243,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         build_scan_freshness,
         build_session_glance,
         build_soft_allow_glance,
+        scan_list_rows,
     )
     from stock_checker.gate_audit import enrich_soft_allows, recent_soft_allows
     from stock_checker.risk_halts import pretrade_status
@@ -1294,9 +1295,13 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(data_dir),
         "atr_display_glance": build_atr_display_glance(
-            list(opp.get("crypto_leaders") or [])
-            + list(opp.get("stock_breakouts") or [])
-            + list(opp.get("recommendations") or [])
+            (
+                scan_list_rows(opp.get("crypto_leaders"))
+                + scan_list_rows(opp.get("stock_breakouts"))
+                + scan_list_rows(opp.get("recommendations"))
+            )
+            if isinstance(opp, dict)
+            else []
         ),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": _promote_contract_glance_from_config(data_dir),

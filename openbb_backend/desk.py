@@ -464,17 +464,31 @@ SCREENER_UNIQUE_VS_DUP_DELTA_WIDE_PP = 20.0
 SCREENER_UNIQUE_VS_DUP_DELTA_THIN_PP = 10.0
 
 
+def scan_list_rows(raw: Any) -> list[Mapping[str, Any]]:
+    """Keep only object rows from a scan list (display / pulse honesty).
+
+    xang1234 #498 / b13a710: listed scan chunks and chart refs must be
+    objects — a string/null/truncated slot is not a usable row. Presence of
+    a list length ≠ usable leaders/breakouts/recommendations. Not a gate.
+    """
+    if not isinstance(raw, (list, tuple)):
+        return []
+    return [item for item in raw if isinstance(item, Mapping)]
+
+
 def build_screener_opportunity_counts(
     opportunities: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     """Scalar Screener list counts (xang1234 opportunity-summary-scalar-counts).
 
-    Integer lengths only — not bool casts. ``n_total`` is the sum of the three
-    list lengths (row slots). ``n_unique`` counts distinct symbols. When lists
-    overlap, weight speaks uniqueness share (unique÷total) with strong/thin
-    severity, then the waste side (``N dup · [hot|quiet] · M%``), then unique
-    vs dup lean clash/align, then unique−dup pp Δ when lean already spoke,
-    then lean vs Δ clash/align (Δ mid while lean spoke → clash; both spoke →
+    Integer lengths only — not bool casts. Counts object rows only
+    (``scan_list_rows``); junk string/null slots do not inflate Total.
+    ``n_total`` is the sum of the three list lengths (row slots).
+    ``n_unique`` counts distinct symbols. When lists overlap, weight speaks
+    uniqueness share (unique÷total) with strong/thin severity, then the
+    waste side (``N dup · [hot|quiet] · M%``), then unique vs dup lean
+    clash/align, then unique−dup pp Δ when lean already spoke, then lean
+    vs Δ clash/align (Δ mid while lean spoke → clash; both spoke →
     align · wide|thin), then Δ lead · unique|dup when Δ spoke and ±pp ≠ 0,
     then Δ lead size · N× (louder%÷quieter%) when lead already spoke, then
     Δ lead size sides · louder N% · quieter M% when size already spoke —
@@ -517,29 +531,20 @@ def build_screener_opportunity_counts(
     if not isinstance(opportunities, Mapping):
         return empty
 
-    def _len(key: str) -> int:
-        raw = opportunities.get(key)
-        if not isinstance(raw, (list, tuple)):
-            return 0
-        return len(raw)
+    def _rows(key: str) -> list[Mapping[str, Any]]:
+        return scan_list_rows(opportunities.get(key))
 
     def _symbols(key: str) -> set[str]:
         out: set[str] = set()
-        raw = opportunities.get(key)
-        if not isinstance(raw, (list, tuple)):
-            return out
-        for item in raw:
-            if isinstance(item, Mapping):
-                sym = str(item.get("symbol") or "").strip().upper()
-            else:
-                sym = str(item or "").strip().upper()
+        for item in _rows(key):
+            sym = str(item.get("symbol") or "").strip().upper()
             if sym:
                 out.add(sym)
         return out
 
-    n_rec = _len("recommendations")
-    n_crypto = _len("crypto_leaders")
-    n_brk = _len("stock_breakouts")
+    n_rec = len(_rows("recommendations"))
+    n_crypto = len(_rows("crypto_leaders"))
+    n_brk = len(_rows("stock_breakouts"))
     n_total = n_rec + n_crypto + n_brk
     unique = (
         _symbols("recommendations")
@@ -10584,7 +10589,7 @@ def _fmt_hold(seconds: float) -> str:
 def _prices_from_scan(opp: dict[str, Any]) -> dict[str, float]:
     prices: dict[str, float] = {}
     for key in ("crypto_leaders", "stock_breakouts"):
-        for row in opp.get(key) or []:
+        for row in scan_list_rows(opp.get(key)):
             sym = row.get("symbol")
             px = row.get("price")
             if sym is not None and px is not None:
@@ -10810,9 +10815,10 @@ def load_desk_snapshot(
     buys = [t for t in trades if t.get("type") == "BUY"]
     realized = sum(float(t.get("profit_loss") or 0) for t in sells)
 
-    recs_raw = (opportunities.get("recommendations") or [])[:8]
-    crypto_raw_all = list(opportunities.get("crypto_leaders") or [])
-    stock_raw_all = list(opportunities.get("stock_breakouts") or [])
+    # Object rows only — string/null slots ≠ usable scan chunks (xang1234 #498).
+    recs_raw = scan_list_rows(opportunities.get("recommendations"))[:8]
+    crypto_raw_all = scan_list_rows(opportunities.get("crypto_leaders"))
+    stock_raw_all = scan_list_rows(opportunities.get("stock_breakouts"))
     crypto_raw = crypto_raw_all[:6]
     stock_raw = stock_raw_all[:6]
 

@@ -1,6 +1,43 @@
 """Offline tests for Screener scalar opportunity counts (display only)."""
 
-from openbb_backend.desk import build_screener_opportunity_counts
+from openbb_backend.desk import (
+    build_screener_opportunity_counts,
+    scan_list_rows,
+)
+
+
+def test_scan_list_rows_keeps_objects_only():
+    rows = scan_list_rows(
+        [{"symbol": "AAPL"}, "MSFT", None, 3, {"symbol": "NVDA"}, []]
+    )
+    assert [r.get("symbol") for r in rows] == ["AAPL", "NVDA"]
+    assert scan_list_rows(None) == []
+    assert scan_list_rows({"symbol": "X"}) == []
+    assert scan_list_rows("bad") == []
+
+
+def test_junk_slots_do_not_inflate_counts():
+    """xang1234 #498 — list length ≠ object rows (truncated/junk slots)."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": [
+                {"symbol": "AAPL"},
+                "MSFT",
+                None,
+                {"symbol": "MSFT"},
+            ],
+            "crypto_leaders": ["BTC-USD", {"symbol": "BTC-USD"}],
+            "stock_breakouts": [None, "NVDA"],
+        }
+    )
+    assert c["n_rec"] == 2
+    assert c["n_crypto"] == 1
+    assert c["n_brk"] == 0
+    assert c["n_total"] == 3
+    assert c["n_unique"] == 3
+    assert c["n_dup"] == 0
+    assert c["lists_populated"] == 2
+    assert c["weight"] == "row slots"
 
 
 def test_empty_and_non_mapping():
@@ -205,6 +242,7 @@ def test_overlap_unique_vs_dup_clash_at_half():
 
 
 def test_string_symbols_and_bad_list_type():
+    """Bare strings are junk slots — only Mapping rows count (xang1234 #498)."""
     c = build_screener_opportunity_counts(
         {
             "recommendations": ["aapl", "msft"],
@@ -212,21 +250,17 @@ def test_string_symbols_and_bad_list_type():
             "stock_breakouts": [{"symbol": "AAPL"}],
         }
     )
-    assert c["n_rec"] == 2
+    assert c["n_rec"] == 0
     assert c["n_crypto"] == 0
     assert c["n_brk"] == 1
-    assert c["n_total"] == 3
-    assert c["n_unique"] == 2
-    assert c["n_dup"] == 1
-    assert c["overlap"] is True
-    assert c["unique_share_pct"] == 66.7
-    assert c["dup_share_pct"] == 33.3
-    assert c["unique_share_severity"] == "ok"
-    assert c["dup_share_severity"] == "ok"
-    assert c["unique_vs_dup"] == ""
-    assert c["unique_vs_dup_delta_pp"] is None
-    assert c["weight"] == "2 unique · 66.7% · 1 dup · 33.3%"
-    assert c["weight_core"] == "2 unique · 66.7% · 1 dup · 33.3%"
+    assert c["n_total"] == 1
+    assert c["n_unique"] == 1
+    assert c["n_dup"] == 0
+    assert c["overlap"] is False
+    assert c["unique_share_pct"] is None
+    assert c["dup_share_pct"] is None
+    assert c["weight"] == "row slots"
+    assert c["weight_core"] == "row slots"
     assert c["weight_lean"] == ""
     assert c["tone"] == "flat"
 
