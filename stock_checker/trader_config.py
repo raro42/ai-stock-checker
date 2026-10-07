@@ -263,7 +263,8 @@ def _precedence_lead(override_n: int, confirm_n: int, env_n: int) -> str:
     """Name the strictly largest meter bucket; ties stay silent.
 
     Counts alone hide which side owns the Ops/env story (xang1234 multi-meter
-    lead + portfolio AI speak-both-sides after win/ok/env).
+    lead + portfolio AI speak-both-sides after win/ok/env). Thin/tied samples
+    use ``_precedence_sample_gap`` instead of a fake lead.
     """
     buckets = (("win", override_n), ("ok", confirm_n), ("env", env_n))
     name, top = max(buckets, key=lambda item: item[1])
@@ -272,6 +273,25 @@ def _precedence_lead(override_n: int, confirm_n: int, env_n: int) -> str:
     if sum(1 for _, n in buckets if n == top) > 1:
         return ""
     return f"lead {name}"
+
+
+def _precedence_sample_gap(override_n: int, confirm_n: int, env_n: int) -> str:
+    """Speak thin/tied when a meter lead would overclaim (display only).
+
+    Empty total stays silent. A single key is compact ``n=1`` (meter ≠ tilt;
+    not a mid-band share Δ). Two-plus with no strict lead is ``tied`` (counts
+    without a winner). Lead cases stay silent. Soft-allow / LAYA
+    ``sample_gap`` parity + xang1234 sample honesty + portfolio AI
+    speak-both-sides after precedence share vs Δ. Not a gate.
+    """
+    if _precedence_lead(override_n, confirm_n, env_n):
+        return ""
+    total = int(override_n) + int(confirm_n) + int(env_n)
+    if total <= 0:
+        return ""
+    if total < 2:
+        return "n=1"
+    return "tied"
 
 
 def _precedence_lead_share(override_n: int, confirm_n: int, env_n: int) -> str:
@@ -549,10 +569,18 @@ def _with_saved_age(line: str, age_bit: str) -> str:
 
 
 def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
-    """Meter + optional lead (+ share + ahead + vs + runner % or Δ[+align])."""
+    """Meter + optional lead (+ share + ahead + vs + runner % or Δ[+align]).
+
+    When no lead, thin/tied samples speak ``n=1`` / ``tied`` after the meter
+    (soft-allow / LAYA sample_gap parity — silent gap hid that counts are
+    not a tilt).
+    """
     meter = _precedence_meter(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
+        gap = _precedence_sample_gap(override_n, confirm_n, env_n)
+        if gap:
+            return meter, f"{meter} · {gap}"
         return meter, meter
     share = _precedence_lead_share(override_n, confirm_n, env_n)
     bit = f"{lead} · {share}" if share else lead
@@ -605,10 +633,10 @@ def config_precedence_status(
     A multi-meter (N win · N ok · N env) speaks early so counts survive the
     96-char truncate when key names are long (xang1234 + portfolio AI meter).
     When one meter bucket is strictly largest, speak ``lead win|ok|env``
-    right after the meter (ties stay silent), then ownership ``N%``
-    (lead÷total; sole-bucket still speaks 100%), then ``ahead wide|thin · +K``
-    when a runner-up bucket exists (share ≠ margin; sole-bucket omits ahead),
-    then ``vs ok|env|win · N`` naming the clear runner (ahead ≠ who is #2;
+    right after the meter, then ownership ``N%`` (lead÷total; sole-bucket
+    still speaks 100%), then ``ahead wide|thin · +K`` when a runner-up
+    bucket exists (share ≠ margin; sole-bucket omits ahead), then
+    ``vs ok|env|win · N`` naming the clear runner (ahead ≠ who is #2;
     tied runners silent), then runner ownership ``N%`` (absolute count ≠
     share of the meter), then ``share Δ wide|thin · ±Npp`` (lead% − runner%;
     wide ≥20pp · thin <10pp; mid silent — two % ≠ the spread), then
@@ -617,6 +645,10 @@ def config_precedence_status(
     leanish match (mismatch stays silent). The Ops line speaks compact
     ``Δ±N=W``/``=T`` (align, same width as ``Δ±Npp``) or ``×T/%m``/``×W/%m``
     (clash in place of runner %) so the 96-char clip keeps the vs-Δ bit.
+    When no lead: 1 key speaks compact ``n=1``; ≥2 with no strict lead
+    speaks ``tied`` after the meter (``sample_gap``; lead cases stay silent
+    on gap) — soft-allow / LAYA sample honesty parity; silent gap hid that
+    the meter is not a tilt.
     When a saved file exists, also speak ``saved {age} · fresh|aging|stale``
     from mtime (RyanJHamby triad + xang1234 seed-age; fresh <24h · aging <7d).
     File exists ≠ recently intended. Age sits before the meter so truncate
@@ -638,6 +670,7 @@ def config_precedence_status(
     sides_share0 = _precedence_lead_sides_share(0, 0, n_keys)
     sides_delta0 = _precedence_lead_sides_share_delta(0, 0, n_keys)
     sides_vs_delta0 = _precedence_lead_sides_share_vs_delta(0, 0, n_keys)
+    gap0 = _precedence_sample_gap(0, 0, n_keys)
     empty = {
         "overrides": [],
         "confirms": [],
@@ -653,6 +686,7 @@ def config_precedence_status(
         "lead_sides_share": sides_share0,
         "lead_sides_share_delta": sides_delta0,
         "lead_sides_share_vs_delta": sides_vs_delta0,
+        "sample_gap": gap0,
         "file_age_hours": None,
         "file_freshness": "",
         "file_age_label": "",
@@ -703,6 +737,7 @@ def config_precedence_status(
     lead_sides_share = _precedence_lead_sides_share(o_n, c_n, e_n)
     lead_sides_share_delta = _precedence_lead_sides_share_delta(o_n, c_n, e_n)
     lead_sides_share_vs_delta = _precedence_lead_sides_share_vs_delta(o_n, c_n, e_n)
+    sample_gap = _precedence_sample_gap(o_n, c_n, e_n)
     if overrides:
         bits = _format_key_list(overrides)
         # Meter (+ lead + share + ahead + vs + runner % + Δ + vs-Δ) before names.
@@ -751,6 +786,7 @@ def config_precedence_status(
         "lead_sides_share": lead_sides_share,
         "lead_sides_share_delta": lead_sides_share_delta,
         "lead_sides_share_vs_delta": lead_sides_share_vs_delta,
+        "sample_gap": sample_gap,
         "file_age_hours": age.get("file_age_hours"),
         "file_freshness": age.get("file_freshness") or "",
         "file_age_label": age.get("file_age_label") or "",

@@ -7850,6 +7850,7 @@ def _trader_runtime_view() -> dict[str, Any]:
         "config_precedence_lead_sides_share_vs_delta": str(
             cfg_prec.get("lead_sides_share_vs_delta") or ""
         ),
+        "config_precedence_sample_gap": str(cfg_prec.get("sample_gap") or ""),
         "config_file_freshness": str(cfg_prec.get("file_freshness") or ""),
         "config_file_age_label": str(cfg_prec.get("file_age_label") or ""),
         "config_file_age_bit": str(cfg_prec.get("file_age_bit") or ""),

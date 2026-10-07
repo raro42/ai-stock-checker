@@ -155,10 +155,12 @@ def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     assert st["lead_sides"] == ""  # sole-bucket: ahead ≠ vs
     assert st["lead_sides_share"] == ""  # no vs → no runner %
     assert st["lead_sides_share_delta"] == ""  # no runner % → no share Δ
+    assert st["sample_gap"] == ""  # lead present → gap silent
     assert "lead env · 100%" in st["line"]
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
     assert "share Δ" not in st["line"]
+    assert "tied" not in st["line"]
     assert st["file_freshness"] == ""
     assert "saved " not in st["line"]
 
@@ -298,18 +300,34 @@ def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
     assert st["lead_sides"] == ""
     assert st["lead_sides_share"] == ""
     assert st["lead_sides_share_delta"] == ""
+    assert st["sample_gap"] == ""
     assert "lead win" in st["line"]
     assert "100%" in st["line"]
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
     assert "share Δ" not in st["line"]
+    assert "tied" not in st["line"]
     assert st["line"].index(st["meter"]) < st["line"].index("lead win")
     assert st["line"].index("lead win") < st["line"].index("100%")
     assert len(st["line"]) <= 120
 
 
+def test_config_precedence_sample_gap_helper():
+    from stock_checker.trader_config import _precedence_sample_gap
+
+    # Sole bucket always leads → gap silent (unlike soft-allow min_count=2).
+    assert _precedence_sample_gap(0, 0, 1) == ""
+    assert _precedence_sample_gap(3, 0, 0) == ""
+    assert _precedence_sample_gap(0, 0, 0) == ""
+    # ≥2 with no strict lead → tied (soft-allow / LAYA sample_gap parity).
+    assert _precedence_sample_gap(2, 2, 0) == "tied"
+    assert _precedence_sample_gap(1, 1, 1) == "tied"
+    # Thin branch kept for API parity (unreachable while sole buckets lead).
+    assert _precedence_sample_gap(0, 0, 0) == ""
+
+
 def test_config_precedence_lead_silent_on_tie(tmp_path: Path, monkeypatch):
-    """Equal top buckets stay silent (no ambiguous lead)."""
+    """Equal top buckets speak tied (no ambiguous lead)."""
     monkeypatch.setenv("AI_MODE", "full")
     monkeypatch.setenv("AI_MODEL", "gemma4:latest")
     monkeypatch.setenv("AI_MULTI_ROLE", "1")
@@ -320,7 +338,7 @@ def test_config_precedence_lead_silent_on_tie(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("MAX_POSITIONS", "5")
     monkeypatch.setenv("MIN_HOLD_HOURS", "24")
     monkeypatch.setenv("PROMOTE_EXPERIMENT_STRATEGY", "0")
-    # 5 overrides + 5 confirms + 0 env → tie win/ok → lead silent.
+    # 5 overrides + 5 confirms + 0 env → tie win/ok → lead silent · tied.
     (tmp_path / "trader_config.json").write_text(
         json.dumps(
             {
@@ -348,11 +366,14 @@ def test_config_precedence_lead_silent_on_tie(tmp_path: Path, monkeypatch):
     assert st["lead_sides"] == ""
     assert st["lead_sides_share"] == ""
     assert st["lead_sides_share_delta"] == ""
+    assert st["sample_gap"] == "tied"
     assert "lead " not in st["line"]
     assert "ahead " not in st["line"]
     assert "vs " not in st["line"]
     assert "share Δ" not in st["line"]
     assert st["meter"] in st["line"]
+    assert " · tied" in st["line"]
+    assert st["line"].index(st["meter"]) < st["line"].index("tied")
 
 
 def test_config_precedence_lead_ok(tmp_path: Path, monkeypatch):
