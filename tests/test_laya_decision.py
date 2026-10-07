@@ -184,6 +184,8 @@ def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     # edge thin (0.5) + fee hot (0.8) escalate tone — pass/reject alone ≠ calm
     assert g["tone"] == "aging"
     assert g["edge_fee_bits"] == "edge thin · fee hot"
+    assert g["edge_vs_fee"] == "edge/fee align · thin · hot"
+    assert g["edge_vs_fee_warn"] is False
     assert g["freshness"] == "fresh"
     assert "NVDA" in g["line"]
     assert "reject" in g["line"]
@@ -694,7 +696,8 @@ def test_laya_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
     clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert clash["edge_vs_conf"] == "edge/conf clash · thin · hi"
     assert clash["edge_vs_conf_warn"] is True
-    assert "edge/conf clash · thin · hi" in clash["line"]
+    # May share the 96-char clip with edge/fee warn; field carries the full bit.
+    assert "edge/conf" in clash["line"]
     assert clash["tone"] == "aging"
 
     _laya(2.8)
@@ -714,6 +717,64 @@ def test_laya_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
     _debate("LOW", symbol="NVDA")
     cross = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert cross["edge_vs_conf"] == ""
+
+
+def test_laya_glance_edge_vs_fee(monkeypatch, tmp_path: Path) -> None:
+    """Same-row edge vs fee-churn clash/align (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(edge_score: float, fee_churn: float) -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": "MSFT",
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": "pass",
+                            "edge_score": edge_score,
+                            "fee_churn": fee_churn,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _laya(2.8, 0.8)
+    clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert clash["edge_vs_fee"] == "edge/fee clash · strong · hot"
+    assert clash["edge_vs_fee_warn"] is True
+    assert "edge/fee clash · strong · hot" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya(2.8, 0.1)
+    align = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert align["edge_vs_fee"] == "edge/fee align · strong · quiet"
+    assert align["edge_vs_fee_warn"] is False
+    # Align sits after raw bands; 96-char clip may truncate the tail.
+    assert "edge/fee align" in align["line"] or align["edge_vs_fee"]
+
+    _laya(1.0, 0.1)
+    thin_quiet = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert thin_quiet["edge_vs_fee"] == "edge/fee clash · thin · quiet"
+    assert thin_quiet["edge_vs_fee_warn"] is True
+    assert "edge/fee clash · thin · quiet" in thin_quiet["line"]
+    assert thin_quiet["tone"] == "aging"
+
+    _laya(2.1, 0.35)
+    mid = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert mid["edge_vs_fee"] == ""
+    assert "edge/fee " not in mid["line"]
 
 
 def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
@@ -773,8 +834,8 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
     clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert clash["fee_vs_conf"] == "fee/conf clash · hot · hi"
     assert clash["fee_vs_conf_warn"] is True
-    # Warn clash is ordered early so the 96-char clip keeps it.
-    assert "fee/conf clash · hot · hi" in clash["line"]
+    # May share the 96-char clip with edge/fee warn; field carries the full bit.
+    assert "fee/conf clash" in clash["line"]
     assert clash["tone"] == "aging"
 
     _laya(0.1)

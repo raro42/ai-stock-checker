@@ -614,7 +614,8 @@ def test_build_ai_debate_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> Non
     clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert clash["edge_vs_conf"] == "edge/conf clash · strong · lo"
     assert clash["edge_vs_conf_warn"] is True
-    assert "edge/conf clash · strong · lo" in clash["line"]
+    # May share the clip with edge/fee warn; field carries the full bit.
+    assert "edge/conf clash" in clash["line"]
     assert clash["tone"] == "aging"
 
     _laya(1.0)
@@ -622,9 +623,9 @@ def test_build_ai_debate_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> Non
     align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert align["edge_vs_conf"] == "edge/conf align · thin · lo"
     assert align["edge_vs_conf_warn"] is False
-    # Quiet+lo fee clash warn is ordered first; edge align may clip.
-    assert "fee/conf clash" in align["line"]
+    # edge/fee thin·quiet warn is early; fee/conf may clip — field is source of truth.
     assert align["fee_vs_conf"] == "fee/conf clash · quiet · lo"
+    assert align["fee_vs_conf_warn"] is True
 
     _laya(2.1)
     _debate("MEDIUM")
@@ -695,7 +696,8 @@ def test_build_ai_debate_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None
     clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert clash["fee_vs_conf"] == "fee/conf clash · hot · hi"
     assert clash["fee_vs_conf_warn"] is True
-    assert "fee/conf clash · hot · hi" in clash["line"]
+    # May share the clip with edge/fee warn; field carries the full bit.
+    assert "fee/" in clash["line"]
     assert clash["tone"] == "aging"
 
     _laya(0.1)
@@ -723,6 +725,79 @@ def test_build_ai_debate_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None
     _debate("HIGH", symbol="MSFT")
     cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert cross["fee_vs_conf"] == ""
+
+
+def test_ai_debate_glance_edge_vs_fee(monkeypatch, tmp_path: Path) -> None:
+    """Same-ticker LAYA edge vs fee on debate glance (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(edge_score: float, fee_churn: float, symbol: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": "pass",
+                            "edge_score": edge_score,
+                            "fee_churn": fee_churn,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _debate(symbol: str = "MSFT") -> None:
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "action": "BUY",
+                            "confidence": "HIGH",
+                            "score": 40,
+                            "reasons": ["tape"],
+                            "kept": True,
+                            "gated": False,
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _laya(2.8, 0.8)
+    _debate()
+    clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert clash["edge_vs_fee"] == "edge/fee clash · strong · hot"
+    assert clash["edge_vs_fee_warn"] is True
+    # Warn is ordered early; full bit may share the clip with fee/conf.
+    assert "edge/fee clash" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya(2.8, 0.1)
+    _debate()
+    align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert align["edge_vs_fee"] == "edge/fee align · strong · quiet"
+    assert align["edge_vs_fee_warn"] is False
+
+    _laya(2.8, 0.8, symbol="NVDA")
+    _debate(symbol="MSFT")
+    cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert cross["edge_vs_fee"] == ""
 
 
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:

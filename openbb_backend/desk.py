@@ -5873,6 +5873,35 @@ def _fee_vs_conf_bits(fee_band: str, conf_short: str) -> tuple[str, bool]:
     return "", False
 
 
+def _edge_vs_fee_bits(edge_band: str, fee_band: str) -> tuple[str, bool]:
+    """Same-row LAYA edge vs fee-churn (display only).
+
+    Side-by-side bands hid relationship: strong edge + hot fee (or thin
+    edge + quiet fee) speaks ``edge/fee clash · strong · hot`` and
+    escalates tone. Matching extremes speak ``edge/fee align · strong ·
+    quiet`` / ``thin · hot`` (confirm, no escalate). Mid ``ok`` fee stays
+    silent. Fee polarity inverted vs edge. FinRobot typed answers +
+    portfolio AI speak-both-sides after fee/conf. Not a gate.
+    """
+    edge = str(edge_band or "").strip().lower()
+    fee = str(fee_band or "").strip().lower()
+    if edge not in {"none", "thin", "ok", "strong"} or fee not in {
+        "quiet",
+        "ok",
+        "hot",
+    }:
+        return "", False
+    weak_edge = edge in {"none", "thin"}
+    good_edge = edge in {"ok", "strong"}
+    hot_fee = fee == "hot"
+    quiet_fee = fee == "quiet"
+    if (good_edge and hot_fee) or (weak_edge and quiet_fee):
+        return f"edge/fee clash · {edge} · {fee}", True
+    if (good_edge and quiet_fee) or (weak_edge and hot_fee):
+        return f"edge/fee align · {edge} · {fee}", False
+    return "", False
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -5904,8 +5933,11 @@ def build_laya_glance(
     when strength extremes disagree or match (thin+hi clash; strong+hi
     align; mid silent). Same ticker + typed fee band: ``fee/conf
     clash|align`` when churn vs conviction extremes disagree or match
-    (hot+hi clash; quiet+hi align; mid silent; early on the line so the
-    96-char clip keeps it). See docs/LAYA.md.
+    (hot+hi clash; quiet+hi align; mid silent). Same-row typed edge +
+    fee: ``edge/fee clash|align`` when strength vs churn extremes
+    disagree or match (strong+hot clash; strong+quiet align; mid fee
+    silent; early on the line so the 96-char clip keeps it). See
+    docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -5957,6 +5989,8 @@ def build_laya_glance(
     edge_vs_conf_warn = False
     fee_vs_conf = ""
     fee_vs_conf_warn = False
+    edge_vs_fee = ""
+    edge_vs_fee_warn = False
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -5971,14 +6005,15 @@ def build_laya_glance(
         )
     if st.get("advisory") and newest:
         edge_fee_bits, edge_fee_warn = _laya_edge_fee_bits(newest)
+        edge_band = _laya_edge_band(newest)
+        fee_band = _laya_fee_band(newest)
+        edge_vs_fee, edge_vs_fee_warn = _edge_vs_fee_bits(edge_band, fee_band)
         if own_sym and debate_sym and own_sym.casefold() == debate_sym.casefold():
             conf_s = _conf_short(debate_conf)
             edge_vs_conf, edge_vs_conf_warn = _edge_vs_conf_bits(
-                _laya_edge_band(newest), conf_s
+                edge_band, conf_s
             )
-            fee_vs_conf, fee_vs_conf_warn = _fee_vs_conf_bits(
-                _laya_fee_band(newest), conf_s
-            )
+            fee_vs_conf, fee_vs_conf_warn = _fee_vs_conf_bits(fee_band, conf_s)
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -6009,7 +6044,9 @@ def build_laya_glance(
         if name_clash:
             bits.append(name_clash)
         # Warn clashes first so the 96-char clip keeps adverse honesty.
+        # Same-row edge/fee warn before conf pairs; calm align after bands.
         for bit, warn in (
+            (edge_vs_fee, edge_vs_fee_warn),
             (edge_vs_conf, edge_vs_conf_warn),
             (fee_vs_conf, fee_vs_conf_warn),
         ):
@@ -6041,6 +6078,8 @@ def build_laya_glance(
                 bits.append(last)
         if edge_fee_bits:
             bits.append(edge_fee_bits)
+        if edge_vs_fee and not edge_vs_fee_warn:
+            bits.append(edge_vs_fee)
         bits.append("not a gate")
         line = " · ".join(bits)
         clash_tone = _clock_clash_tone(
@@ -6055,6 +6094,7 @@ def build_laya_glance(
             or edge_fee_warn
             or edge_vs_conf_warn
             or fee_vs_conf_warn
+            or edge_vs_fee_warn
         ):
             tone = "aging"
         else:
@@ -6082,6 +6122,8 @@ def build_laya_glance(
         "edge_vs_conf_warn": edge_vs_conf_warn,
         "fee_vs_conf": fee_vs_conf,
         "fee_vs_conf_warn": fee_vs_conf_warn,
+        "edge_vs_fee": edge_vs_fee,
+        "edge_vs_fee_warn": edge_vs_fee_warn,
         "latest_at": latest_at,
     }
 
@@ -6133,8 +6175,10 @@ def build_ai_debate_glance(
     escalates to aging. Same ticker + typed LAYA edge: ``edge/conf
     clash|align`` when strength extremes disagree or match. Same ticker
     + typed LAYA fee: ``fee/conf clash|align`` when churn vs conviction
-    extremes disagree or match (early on the line so the 96-char clip
-    keeps it). Not a research score and not a new gate.
+    extremes disagree or match. Same ticker + typed LAYA edge vs fee:
+    ``edge/fee clash|align`` when strength vs churn extremes disagree or
+    match (early on the line so the 96-char clip keeps it). Not a
+    research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -6156,6 +6200,8 @@ def build_ai_debate_glance(
         "edge_vs_conf_warn": False,
         "fee_vs_conf": "",
         "fee_vs_conf_warn": False,
+        "edge_vs_fee": "",
+        "edge_vs_fee_warn": False,
         "latest_confidence": "",
         "latest_at": "",
     }
@@ -6218,6 +6264,8 @@ def build_ai_debate_glance(
     edge_vs_conf_warn = False
     fee_vs_conf = ""
     fee_vs_conf_warn = False
+    edge_vs_fee = ""
+    edge_vs_fee_warn = False
     latest_confidence = str(stats.get("latest_confidence") or "").strip().upper()
     if latest_confidence not in {"HIGH", "MEDIUM", "LOW"}:
         latest_confidence = ""
@@ -6233,11 +6281,16 @@ def build_ai_debate_glance(
             )
             if sym and laya_sym and sym.casefold() == laya_sym.casefold():
                 conf_s = _conf_short(latest_confidence)
+                edge_band = _laya_edge_band(newest_row)
+                fee_band = _laya_fee_band(newest_row)
                 edge_vs_conf, edge_vs_conf_warn = _edge_vs_conf_bits(
-                    _laya_edge_band(newest_row), conf_s
+                    edge_band, conf_s
                 )
                 fee_vs_conf, fee_vs_conf_warn = _fee_vs_conf_bits(
-                    _laya_fee_band(newest_row), conf_s
+                    fee_band, conf_s
+                )
+                edge_vs_fee, edge_vs_fee_warn = _edge_vs_fee_bits(
+                    edge_band, fee_band
                 )
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
     if gated:
@@ -6251,7 +6304,9 @@ def build_ai_debate_glance(
     if name_clash:
         bits.append(name_clash)
     # Warn clashes first so the 96-char clip keeps adverse honesty.
+    # Prefer edge/fee warn before fee/conf when both speak (same-row first).
     for bit, warn in (
+        (edge_vs_fee, edge_vs_fee_warn),
         (edge_vs_conf, edge_vs_conf_warn),
         (fee_vs_conf, fee_vs_conf_warn),
     ):
@@ -6267,6 +6322,8 @@ def build_ai_debate_glance(
         bits.append(f"last {sym} {action}")
     if confidence_bits:
         bits.append(confidence_bits)
+    if edge_vs_fee and not edge_vs_fee_warn:
+        bits.append(edge_vs_fee)
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -6284,6 +6341,7 @@ def build_ai_debate_glance(
         or confidence_warn
         or edge_vs_conf_warn
         or fee_vs_conf_warn
+        or edge_vs_fee_warn
     ):
         tone = "aging"
     elif buy > hold and buy > sell:
@@ -6317,6 +6375,8 @@ def build_ai_debate_glance(
         "edge_vs_conf_warn": edge_vs_conf_warn,
         "fee_vs_conf": fee_vs_conf,
         "fee_vs_conf_warn": fee_vs_conf_warn,
+        "edge_vs_fee": edge_vs_fee,
+        "edge_vs_fee_warn": edge_vs_fee_warn,
         "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }
