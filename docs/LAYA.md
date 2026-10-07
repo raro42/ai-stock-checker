@@ -20,6 +20,7 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | Last-row edge + fee-churn | Yes — `edge none/thin/ok/strong` + `fee quiet/ok/hot` when typed scores present; thin/none or fee hot paints `aging` (pass alone ≠ strong edge) |
 | Edge/fee vs debate conf | Yes — same ticker: edge/conf and fee/conf clash or align on extremes (`hot·hi` / `quiet·lo` clash; mid silent; clash paints `aging`) |
 | Edge vs fee (same row) | Yes — `edge/fee clash · strong · hot` / `align · strong · quiet` (fee polarity inverted; mid fee silent; clash paints `aging`) |
+| Decision vs edge | Yes — `pass/edge clash · thin` / `reject/edge clash · strong` (and debate `BUY`/`SELL`); extremes only; mid `ok` silent; clash paints `aging` |
 | Desk parity (Screener/Book/Ideas/Breadth/scan-log/Charts) | Yes — display only |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 

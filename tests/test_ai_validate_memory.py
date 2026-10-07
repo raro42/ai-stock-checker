@@ -800,6 +800,91 @@ def test_ai_debate_glance_edge_vs_fee(monkeypatch, tmp_path: Path) -> None:
     assert cross["edge_vs_fee"] == ""
 
 
+def test_ai_debate_glance_decision_vs_edge(monkeypatch, tmp_path: Path) -> None:
+    """Same-ticker BUY/SELL vs LAYA edge clash/align (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(edge_score: float, symbol: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": "pass",
+                            "edge_score": edge_score,
+                            "fee_churn": 0.35,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _debate(action: str, symbol: str = "MSFT") -> None:
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "action": action,
+                            "confidence": "MEDIUM",
+                            "score": 40,
+                            "reasons": ["tape"],
+                            "kept": True,
+                            "gated": False,
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _laya(1.0)
+    _debate("BUY")
+    clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert clash["decision_vs_edge"] == "BUY/edge clash · thin"
+    assert clash["decision_vs_edge_warn"] is True
+    assert "BUY/edge clash" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya(2.8)
+    _debate("BUY")
+    align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert align["decision_vs_edge"] == "BUY/edge align · strong"
+    assert align["decision_vs_edge_warn"] is False
+
+    _laya(2.8)
+    _debate("SELL")
+    sell_clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert sell_clash["decision_vs_edge"] == "SELL/edge clash · strong"
+    assert sell_clash["decision_vs_edge_warn"] is True
+    assert "SELL/edge clash · strong" in sell_clash["line"]
+    assert sell_clash["tone"] == "aging"
+
+    _laya(2.1)
+    _debate("BUY")
+    mid = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert mid["decision_vs_edge"] == ""
+
+    _laya(1.0, symbol="NVDA")
+    _debate("BUY", symbol="MSFT")
+    cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert cross["decision_vs_edge"] == ""
+
+
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     record_ai_validate(
         tmp_path,

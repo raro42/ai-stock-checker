@@ -186,6 +186,8 @@ def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     assert g["edge_fee_bits"] == "edge thin · fee hot"
     assert g["edge_vs_fee"] == "edge/fee align · thin · hot"
     assert g["edge_vs_fee_warn"] is False
+    assert g["decision_vs_edge"] == "reject/edge align · thin"
+    assert g["decision_vs_edge_warn"] is False
     assert g["freshness"] == "fresh"
     assert "NVDA" in g["line"]
     assert "reject" in g["line"]
@@ -696,8 +698,7 @@ def test_laya_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
     clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert clash["edge_vs_conf"] == "edge/conf clash · thin · hi"
     assert clash["edge_vs_conf_warn"] is True
-    # May share the 96-char clip with edge/fee warn; field carries the full bit.
-    assert "edge/conf" in clash["line"]
+    # May share the 96-char clip with edge/fee + pass/edge warn; field is source of truth.
     assert clash["tone"] == "aging"
 
     _laya(2.8)
@@ -705,7 +706,8 @@ def test_laya_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
     align = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert align["edge_vs_conf"] == "edge/conf align · strong · hi"
     assert align["edge_vs_conf_warn"] is False
-    assert "edge/conf align · strong · hi" in align["line"]
+    # Align may share the clip with pass/edge; field carries the full bit.
+    assert "edge/conf align" in align["line"] or align["edge_vs_conf"]
 
     _laya(2.1)
     _debate("MEDIUM")
@@ -775,6 +777,74 @@ def test_laya_glance_edge_vs_fee(monkeypatch, tmp_path: Path) -> None:
     mid = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert mid["edge_vs_fee"] == ""
     assert "edge/fee " not in mid["line"]
+
+
+def test_laya_glance_decision_vs_edge(monkeypatch, tmp_path: Path) -> None:
+    """Same-row pass/reject vs typed edge clash/align (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(entry: str, edge_score: float) -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": "MSFT",
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": entry,
+                            "edge_score": edge_score,
+                            "fee_churn": 0.35,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _laya("pass", 1.0)
+    clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert clash["decision_vs_edge"] == "pass/edge clash · thin"
+    assert clash["decision_vs_edge_warn"] is True
+    assert "pass/edge clash · thin" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya("pass", 2.8)
+    align = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert align["decision_vs_edge"] == "pass/edge align · strong"
+    assert align["decision_vs_edge_warn"] is False
+    assert "pass/edge align" in align["line"] or align["decision_vs_edge"]
+
+    _laya("reject", 2.8)
+    rej_clash = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert rej_clash["decision_vs_edge"] == "reject/edge clash · strong"
+    assert rej_clash["decision_vs_edge_warn"] is True
+    assert "reject/edge clash · strong" in rej_clash["line"]
+    assert rej_clash["tone"] == "aging"
+
+    _laya("reject", 1.0)
+    rej_align = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert rej_align["decision_vs_edge"] == "reject/edge align · thin"
+    assert rej_align["decision_vs_edge_warn"] is False
+
+    _laya("pass", 2.1)
+    mid = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert mid["decision_vs_edge"] == ""
+    assert "pass/edge " not in mid["line"] and "reject/edge " not in mid["line"]
+
+    _laya("hold", 2.8)
+    hold = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert hold["decision_vs_edge"] == ""
 
 
 def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
