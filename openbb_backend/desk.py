@@ -5957,20 +5957,26 @@ def _decision_vs_conf_bits(decision: str, conf_short: str) -> tuple[str, bool]:
     return f"{label}/conf align · hi", False
 
 
+SAMPLE_LEAD_MARGIN_WIDE = 2
+
+
 def _decision_sample_lead(
     buckets: list[tuple[str, int]],
-) -> tuple[str, str, int | None]:
-    """Strict sample lead + ownership % (display only).
+) -> tuple[str, str, int | None, str, int | None]:
+    """Strict sample lead + ownership % + margin (display only).
 
     Compact ``Np/Nh/Nr`` / ``N BUY · N HOLD · N SELL`` hid which verb owns
     the ring. When one bucket is strictly largest and the decided sample
     has ≥2 rows, speak ``lead pass · N%`` / ``lead BUY · N%`` (ties and
-    thin samples silent). Last-row verb ≠ sample tilt. xang1234 multi-meter
-    lead + portfolio AI count≠share after decision vs conf. Not a gate.
+    thin samples silent). When a runner-up bucket exists, also speak
+    ``ahead wide|thin · +K`` (wide ≥2 · thin =1; sole-bucket omits).
+    Ownership % ≠ how far ahead. Last-row verb ≠ sample tilt. xang1234
+    multi-meter lead margin + portfolio AI after sample lead share.
+    Not a gate.
     """
     total = sum(max(0, int(n or 0)) for _, n in buckets)
     if total < 2:
-        return "", "", None
+        return "", "", None, "", None
     ranked = sorted(
         ((str(name), max(0, int(n or 0))) for name, n in buckets),
         key=lambda x: x[1],
@@ -5978,11 +5984,27 @@ def _decision_sample_lead(
     )
     lead_name, lead_n = ranked[0]
     if lead_n <= 0:
-        return "", "", None
+        return "", "", None, "", None
     if len(ranked) > 1 and ranked[1][1] == lead_n:
-        return "", "", None
+        return "", "", None, "", None
     share = int(round(100.0 * lead_n / total))
-    return f"lead {lead_name} · {share}%", lead_name, share
+    margin = ""
+    margin_gap: int | None = None
+    if len(ranked) > 1:
+        runner_n = ranked[1][1]
+        if runner_n > 0:
+            gap = int(lead_n) - int(runner_n)
+            if gap >= 1:
+                margin_gap = gap
+                sev = "wide" if gap >= SAMPLE_LEAD_MARGIN_WIDE else "thin"
+                margin = f"ahead {sev} · +{gap}"
+    return (
+        f"lead {lead_name} · {share}%",
+        lead_name,
+        share,
+        margin,
+        margin_gap,
+    )
 
 
 def build_laya_glance(
@@ -6026,7 +6048,8 @@ def build_laya_glance(
     ``reject/conf align · hi`` (conviction model; mid med silent;
     clash paints ``aging``). Decided sample (≥2) with a strict lead
     speaks ``lead pass · N%`` after ``Np/Nh/Nr`` (ties / thin silent;
-    last-row ≠ sample tilt). See docs/LAYA.md.
+    last-row ≠ sample tilt); runner present also speaks
+    ``ahead wide|thin · +K`` (ownership % ≠ margin). See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -6087,6 +6110,8 @@ def build_laya_glance(
     sample_lead = ""
     sample_lead_name = ""
     sample_lead_share: int | None = None
+    sample_lead_margin = ""
+    sample_lead_margin_gap: int | None = None
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -6168,11 +6193,19 @@ def build_laya_glance(
             bits.append("no sample")
         else:
             bits.append(f"{n_pass}p/{n_hold}h/{n_rej}r")
-            sample_lead, sample_lead_name, sample_lead_share = _decision_sample_lead(
+            (
+                sample_lead,
+                sample_lead_name,
+                sample_lead_share,
+                sample_lead_margin,
+                sample_lead_margin_gap,
+            ) = _decision_sample_lead(
                 [("pass", n_pass), ("hold", n_hold), ("reject", n_rej)]
             )
             if sample_lead:
                 bits.append(sample_lead)
+            if sample_lead_margin:
+                bits.append(sample_lead_margin)
             if n_fo:
                 bits.append(f"{n_fo} fail-open")
         if newest:
@@ -6246,6 +6279,8 @@ def build_laya_glance(
         "sample_lead": sample_lead,
         "sample_lead_name": sample_lead_name,
         "sample_lead_share": sample_lead_share,
+        "sample_lead_margin": sample_lead_margin,
+        "sample_lead_margin_gap": sample_lead_margin_gap,
         "latest_at": latest_at,
     }
 
@@ -6306,8 +6341,9 @@ def build_ai_debate_glance(
     ``SELL/conf align · hi`` (conviction model; mid med silent; clash
     paints ``aging``). Decided sample (≥2, gated out) with a strict lead
     speaks ``lead BUY · N%`` after the BUY/HOLD/SELL counts (ties / thin
-    silent; last BUY ≠ sample tilt). Not a research score and not a new
-    gate.
+    silent; last BUY ≠ sample tilt); runner present also speaks
+    ``ahead wide|thin · +K`` (ownership % ≠ margin). Not a research
+    score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -6338,6 +6374,8 @@ def build_ai_debate_glance(
         "sample_lead": "",
         "sample_lead_name": "",
         "sample_lead_share": None,
+        "sample_lead_margin": "",
+        "sample_lead_margin_gap": None,
         "latest_confidence": "",
         "latest_at": "",
     }
@@ -6437,11 +6475,19 @@ def build_ai_debate_glance(
                     action, edge_band
                 )
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
-    sample_lead, sample_lead_name, sample_lead_share = _decision_sample_lead(
+    (
+        sample_lead,
+        sample_lead_name,
+        sample_lead_share,
+        sample_lead_margin,
+        sample_lead_margin_gap,
+    ) = _decision_sample_lead(
         [("BUY", buy), ("HOLD", hold), ("SELL", sell)]
     )
     if sample_lead:
         bits.append(sample_lead)
+    if sample_lead_margin:
+        bits.append(sample_lead_margin)
     if gated:
         bits.append(f"{gated} gated")
     if age_label and freshness and freshness != "unknown":
@@ -6541,6 +6587,8 @@ def build_ai_debate_glance(
         "sample_lead": sample_lead,
         "sample_lead_name": sample_lead_name,
         "sample_lead_share": sample_lead_share,
+        "sample_lead_margin": sample_lead_margin,
+        "sample_lead_margin_gap": sample_lead_margin_gap,
         "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }

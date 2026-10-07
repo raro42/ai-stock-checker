@@ -967,7 +967,7 @@ def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
 
 
 def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
-    """Decided sample (≥2) speaks strict lead BUY|HOLD|SELL · N% (display only)."""
+    """Decided sample (≥2) speaks strict lead · N% + ahead margin (display only)."""
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _write(events: list[dict]) -> None:
@@ -992,6 +992,7 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     thin = build_ai_debate_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert thin["sample_lead"] == ""
     assert thin["sample_lead_share"] is None
+    assert thin["sample_lead_margin"] == ""
 
     _write([_row("BUY", "AAPL"), _row("BUY", "MSFT"), _row("HOLD", "NVDA")])
     lead = build_ai_debate_glance(
@@ -1000,15 +1001,42 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert lead["sample_lead"] == "lead BUY · 67%"
     assert lead["sample_lead_name"] == "BUY"
     assert lead["sample_lead_share"] == 67
+    assert lead["sample_lead_margin"] == "ahead thin · +1"
+    assert lead["sample_lead_margin_gap"] == 1
     assert "2 BUY" in lead["line"]
     assert "lead BUY · 67%" in lead["line"]
+    assert "ahead thin · +1" in lead["line"]
     assert lead["line"].index("2 BUY") < lead["line"].index("lead BUY")
+    assert lead["line"].index("lead BUY") < lead["line"].index("ahead thin")
+
+    _write([_row("BUY", "AAPL"), _row("BUY", "MSFT")])
+    sole = build_ai_debate_glance(
+        tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
+    )
+    assert sole["sample_lead"] == "lead BUY · 100%"
+    assert sole["sample_lead_margin"] == ""
+    assert "ahead " not in sole["line"]
+
+    _write(
+        [
+            _row("BUY", "AAPL"),
+            _row("BUY", "MSFT"),
+            _row("BUY", "NVDA"),
+            _row("HOLD", "TSLA"),
+        ]
+    )
+    wide = build_ai_debate_glance(
+        tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
+    )
+    assert wide["sample_lead_margin"] == "ahead wide · +2"
+    assert wide["sample_lead_margin_gap"] == 2
 
     _write([_row("BUY", "AAPL"), _row("SELL", "MSFT")])
     tied = build_ai_debate_glance(
         tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
     )
     assert tied["sample_lead"] == ""
+    assert tied["sample_lead_margin"] == ""
     assert "lead " not in tied["line"]
 
 

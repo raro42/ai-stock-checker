@@ -1042,7 +1042,7 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
-    """Decided sample (≥2) speaks strict lead · N% after Np/Nh/Nr (display only)."""
+    """Decided sample (≥2) speaks strict lead · N% + ahead margin (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1072,23 +1072,50 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     thin = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert thin["sample_lead"] == ""
     assert thin["sample_lead_share"] is None
+    assert thin["sample_lead_margin"] == ""
     assert "lead " not in thin["line"]
 
-    # Strict reject lead · 67% (2 reject + 1 pass).
+    # Strict reject lead · 67% + ahead thin · +1 (2 reject + 1 pass).
     _write([_row("pass", "AAPL"), _row("reject", "MSFT"), _row("reject", "NVDA")])
     lead = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert lead["sample_lead"] == "lead reject · 67%"
     assert lead["sample_lead_name"] == "reject"
     assert lead["sample_lead_share"] == 67
+    assert lead["sample_lead_margin"] == "ahead thin · +1"
+    assert lead["sample_lead_margin_gap"] == 1
     assert "1p/0h/2r" in lead["line"]
     assert "lead reject · 67%" in lead["line"]
+    assert "ahead thin · +1" in lead["line"]
     # Meter before lead so the 96-char clip keeps ownership after counts.
     assert lead["line"].index("1p/0h/2r") < lead["line"].index("lead reject")
+    assert lead["line"].index("lead reject") < lead["line"].index("ahead thin")
+
+    # Sole-bucket lead omits ahead (ownership % ≠ margin).
+    _write([_row("reject", "AAPL"), _row("reject", "MSFT")])
+    sole = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert sole["sample_lead"] == "lead reject · 100%"
+    assert sole["sample_lead_margin"] == ""
+    assert "ahead " not in sole["line"]
+
+    # Wide margin (≥2) when lead is further ahead.
+    _write(
+        [
+            _row("pass", "AAPL"),
+            _row("reject", "MSFT"),
+            _row("reject", "NVDA"),
+            _row("reject", "TSLA"),
+        ]
+    )
+    wide = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert wide["sample_lead_margin"] == "ahead wide · +2"
+    assert wide["sample_lead_margin_gap"] == 2
+    assert "ahead wide · +2" in wide["line"]
 
     # Tie stays silent.
     _write([_row("pass", "AAPL"), _row("reject", "MSFT")])
     tied = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert tied["sample_lead"] == ""
+    assert tied["sample_lead_margin"] == ""
     assert "lead " not in tied["line"]
 
 
