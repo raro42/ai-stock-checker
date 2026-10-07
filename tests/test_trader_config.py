@@ -165,6 +165,51 @@ def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     assert "saved " not in st["line"]
 
 
+def test_config_precedence_ops_file_unreadable(tmp_path: Path):
+    """Broken JSON → env lean with warn (not a silent partial)."""
+    (tmp_path / "trader_config.json").write_text("{not json\n")
+    st = config_precedence_status(tmp_path)
+    assert st["source"] == "env"
+    assert st["tone"] == "warn"
+    assert "Ops file unreadable" in st["line"]
+    assert "partial" not in st["line"]
+    assert st["lead"] == "lead env"
+    assert load_trader_config(tmp_path)["ai_mode"] in {"off", "validate", "full"}
+
+
+def test_config_precedence_ops_file_lean_non_object(tmp_path: Path):
+    """xang1234 #540: non-object Ops JSON falls back with warn, not quiet partial."""
+    (tmp_path / "trader_config.json").write_text("[]\n")
+    st = config_precedence_status(tmp_path)
+    assert st["source"] == "env"
+    assert st["tone"] == "warn"
+    assert "Ops file lean" in st["line"]
+    assert "partial" not in st["line"]
+    assert st["env_fallback_n"] == len(st["env_fallbacks"])
+    assert st["lead"] == "lead env"
+    # load still fail-opens to env (same as empty dict merge).
+    cfg = load_trader_config(tmp_path)
+    assert isinstance(cfg, dict)
+    assert "ai_mode" in cfg
+
+    (tmp_path / "trader_config.json").write_text("null\n")
+    st2 = config_precedence_status(tmp_path)
+    assert st2["tone"] == "warn"
+    assert "Ops file lean" in st2["line"]
+
+    (tmp_path / "trader_config.json").write_text('"oops"\n')
+    st3 = config_precedence_status(tmp_path)
+    assert "Ops file lean" in st3["line"]
+
+    # Empty object stays a real (quiet) partial — not lean.
+    (tmp_path / "trader_config.json").write_text("{}\n")
+    st4 = config_precedence_status(tmp_path)
+    assert st4["source"] == "file"
+    assert st4["tone"] == "partial"
+    assert "Ops file lean" not in st4["line"]
+    assert "partial" in st4["line"]
+
+
 def test_config_precedence_partial_file(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("AI_MODE", "full")
     monkeypatch.setenv("RS_GATE", "0")

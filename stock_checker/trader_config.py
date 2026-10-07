@@ -658,6 +658,10 @@ def config_precedence_status(
     warn (RyanJHamby scan-fresh tone + xang1234 seed-age). Aging stays the
     source tone. No file stays silent on age. Line clip is 120 chars so
     age + meter still leave room for lead.
+    Unreadable JSON speaks ``Ops file unreadable`` (warn · env lean). A
+    parseable non-object (list/string/null) speaks ``Ops file lean`` the
+    same way — xang1234 #540 / #498 damaged-section fall-back; do not
+    disguise it as a quiet partial Ops row. Empty ``{}`` stays partial.
     """
     path = config_path(data_dir)
     env = _env_defaults()
@@ -712,8 +716,15 @@ def config_precedence_status(
             "line": f"env · Ops file unreadable · {core0}",
         }
 
+    # xang1234 #540 lean-fallback: non-object sections fall back with a warn —
+    # do not pretend a list/string/null is a quiet partial Ops row.
     if not isinstance(raw, dict):
-        raw = {}
+        return {
+            **empty,
+            "source": "env",
+            "tone": "warn",
+            "line": f"env · Ops file lean · {core0}",
+        }
 
     effective = normalize_config(raw, base=env)
     overrides: list[str] = []
