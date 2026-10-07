@@ -1009,13 +1009,20 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert lead["sample_lead_sides_name"] == "HOLD"
     assert lead["sample_lead_sides_n"] == 1
     assert lead["sample_lead_sides_share"] == 33
+    # Newest HOLD ≠ BUY tilt — speak last vs lead (no tone escalate).
+    assert lead["last_vs_sample_lead"] == "last vs lead · HOLD"
     assert "2 BUY" in lead["line"]
     assert "lead BUY · 67%" in lead["line"]
-    assert "ahead thin · +1" in lead["line"]
-    assert "vs HOLD · 1 · 33%" in lead["line"]
+    assert "last vs lead · HOLD" in lead["line"]
     assert lead["line"].index("2 BUY") < lead["line"].index("lead BUY")
-    assert lead["line"].index("lead BUY") < lead["line"].index("ahead thin")
-    assert lead["line"].index("ahead thin") < lead["line"].index("vs HOLD")
+    assert lead["line"].index("lead BUY") < lead["line"].index("last vs lead · HOLD")
+    # Margin/sides may truncate after last-vs (counts + lead fill the 96).
+    if "ahead thin" in lead["line"]:
+        assert lead["line"].index("last vs lead · HOLD") < lead["line"].index(
+            "ahead thin"
+        )
+    # Structured fields still hold runner honesty when the line clips.
+    assert lead["sample_lead_sides"] == "vs HOLD · 1 · 33%"
 
     _write([_row("BUY", "AAPL"), _row("BUY", "MSFT")])
     sole = build_ai_debate_glance(
@@ -1025,7 +1032,9 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert sole["sample_lead_margin"] == ""
     assert sole["sample_lead_sides"] == ""
     assert sole["sample_lead_sides_share"] is None
+    assert sole["last_vs_sample_lead"] == ""
     assert "ahead " not in sole["line"]
+    assert "last vs lead" not in sole["line"]
 
     _write(
         [

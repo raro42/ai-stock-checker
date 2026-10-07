@@ -1078,6 +1078,7 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert "lead " not in thin["line"]
 
     # Strict reject lead · 67% + ahead thin · +1 · vs pass · 1 · 33%.
+    # Newest reject matches tilt — last vs lead silent.
     _write([_row("pass", "AAPL"), _row("reject", "MSFT"), _row("reject", "NVDA")])
     lead = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert lead["sample_lead"] == "lead reject · 67%"
@@ -1089,6 +1090,7 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert lead["sample_lead_sides_name"] == "pass"
     assert lead["sample_lead_sides_n"] == 1
     assert lead["sample_lead_sides_share"] == 33
+    assert lead["last_vs_sample_lead"] == ""
     assert "1p/0h/2r" in lead["line"]
     assert "lead reject · 67%" in lead["line"]
     assert "ahead thin · +1" in lead["line"]
@@ -1097,6 +1099,23 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert lead["line"].index("lead reject") < lead["line"].index("ahead thin")
     # Runner bit may truncate after ahead (age + meter already fill the 96).
     assert "vs pass · 1" in lead["line"] or lead["line"].endswith("vs …")
+    assert "last vs lead" not in lead["line"]
+
+    # Newest pass ≠ reject tilt — speak last vs lead (no tone escalate).
+    _write([_row("reject", "AAPL"), _row("reject", "MSFT"), _row("pass", "NVDA")])
+    clash = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert clash["sample_lead"] == "lead reject · 67%"
+    assert clash["last_vs_sample_lead"] == "last vs lead · pass"
+    assert "last vs lead · pass" in clash["line"]
+    assert clash["line"].index("lead reject") < clash["line"].index(
+        "last vs lead · pass"
+    )
+    # Margin/sides may truncate after last-vs (age + meter fill the 96).
+    if "ahead thin" in clash["line"]:
+        assert clash["line"].index("last vs lead · pass") < clash["line"].index(
+            "ahead thin"
+        )
+    assert clash["tone"] == "advisory"  # last vs lead does not escalate tone
 
     # Sole-bucket lead omits ahead + vs (ownership % ≠ margin ≠ who is #2).
     _write([_row("reject", "AAPL"), _row("reject", "MSFT")])
@@ -1105,10 +1124,12 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert sole["sample_lead_margin"] == ""
     assert sole["sample_lead_sides"] == ""
     assert sole["sample_lead_sides_share"] is None
+    assert sole["last_vs_sample_lead"] == ""
     assert "ahead " not in sole["line"]
     assert "vs pass" not in sole["line"]
     assert "vs hold" not in sole["line"]
     assert "vs reject" not in sole["line"]
+    assert "last vs lead" not in sole["line"]
 
     # Wide margin (≥2) when lead is further ahead; clear runner still speaks.
     _write(
@@ -1128,13 +1149,14 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert "vs pass · 1" in wide["line"] or wide["line"].endswith("vs …")
 
     # Tied runners: ahead speaks, vs silent (ahead ≠ who is #2).
+    # Newest reject matches tilt so last-vs stays quiet and ahead can fit.
     _write(
         [
+            _row("pass", "TSLA"),
+            _row("hold", "AMD"),
             _row("reject", "AAPL"),
             _row("reject", "MSFT"),
             _row("reject", "NVDA"),
-            _row("pass", "TSLA"),
-            _row("hold", "AMD"),
         ]
     )
     tied_runners = build_laya_glance(
@@ -1144,9 +1166,11 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert tied_runners["sample_lead_margin"] == "ahead wide · +2"
     assert tied_runners["sample_lead_sides"] == ""
     assert tied_runners["sample_lead_sides_share"] is None
+    assert tied_runners["last_vs_sample_lead"] == ""
     assert "ahead wide · +2" in tied_runners["line"]
     assert "vs pass" not in tied_runners["line"]
     assert "vs hold" not in tied_runners["line"]
+    assert "last vs lead" not in tied_runners["line"]
 
     # Tie stays silent.
     _write([_row("pass", "AAPL"), _row("reject", "MSFT")])

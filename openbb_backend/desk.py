@@ -6028,6 +6028,26 @@ def _decision_sample_lead(
     )
 
 
+def _last_vs_sample_lead(lead_name: str, last_verb: str) -> str:
+    """Newest decision vs sample lead (display only).
+
+    Compact ``lead pass · N%`` / ``lead BUY · N%`` hid whether the newest
+    print matches the ring tilt. When sample lead already spoke and
+    last-row verb differs, speak ``last vs lead · reject`` /
+    ``last vs lead · HOLD`` (same verb silent; fail-open is a distinct
+    verb). Ownership % ≠ newest print. xang1234 multi-meter + FinRobot
+    last-debate + portfolio AI speak-both-sides after sample lead sides
+    share. No tone escalate. Not a gate.
+    """
+    lead = str(lead_name or "").strip()
+    last = str(last_verb or "").strip()
+    if not lead or not last:
+        return ""
+    if lead.casefold() == last.casefold():
+        return ""
+    return f"last vs lead · {last}"
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -6067,11 +6087,12 @@ def build_laya_glance(
     clash · strong`` (extremes only; mid ok silent; clash paints
     ``aging``). Same ticker + debate conf: ``pass/conf clash · lo`` /
     ``reject/conf align · hi`` (conviction model; mid med silent;
-    clash paints ``aging``). Decided sample (≥2) with a strict lead
-    speaks ``lead pass · N%`` after ``Np/Nh/Nr`` (ties / thin silent;
-    last-row ≠ sample tilt); runner present also speaks
-    ``ahead wide|thin · +K`` then ``vs hold · N · P%`` when #2 is clear
-    (ownership % ≠ margin ≠ who is #2; absolute count ≠ runner share).
+    clash paints ``aging``).     Decided sample (≥2) with a strict lead
+    speaks ``lead pass · N%`` after ``Np/Nh/Nr`` (ties / thin silent);
+    runner present also speaks ``ahead wide|thin · +K`` then
+    ``vs hold · N · P%`` when #2 is clear (ownership % ≠ margin ≠ who
+    is #2; absolute count ≠ runner share). When newest verb disagrees
+    with the lead, speak ``last vs lead · pass`` (same verb silent).
     See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
@@ -6139,6 +6160,7 @@ def build_laya_glance(
     sample_lead_sides_name = ""
     sample_lead_sides_n: int | None = None
     sample_lead_sides_share: int | None = None
+    last_vs_sample_lead = ""
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -6233,8 +6255,14 @@ def build_laya_glance(
             ) = _decision_sample_lead(
                 [("pass", n_pass), ("hold", n_hold), ("reject", n_rej)]
             )
+            last_vs_sample_lead = _last_vs_sample_lead(
+                sample_lead_name, own_verb
+            )
+            # last vs lead before margin/sides so the 96-char clip keeps it.
             if sample_lead:
                 bits.append(sample_lead)
+            if last_vs_sample_lead:
+                bits.append(last_vs_sample_lead)
             if sample_lead_margin:
                 bits.append(sample_lead_margin)
             if sample_lead_sides:
@@ -6318,6 +6346,7 @@ def build_laya_glance(
         "sample_lead_sides_name": sample_lead_sides_name,
         "sample_lead_sides_n": sample_lead_sides_n,
         "sample_lead_sides_share": sample_lead_sides_share,
+        "last_vs_sample_lead": last_vs_sample_lead,
         "latest_at": latest_at,
     }
 
@@ -6378,9 +6407,10 @@ def build_ai_debate_glance(
     ``SELL/conf align · hi`` (conviction model; mid med silent; clash
     paints ``aging``). Decided sample (≥2, gated out) with a strict lead
     speaks ``lead BUY · N%`` after the BUY/HOLD/SELL counts (ties / thin
-    silent; last BUY ≠ sample tilt); runner present also speaks
-    ``ahead wide|thin · +K`` then ``vs HOLD · N · P%`` when #2 is clear
-    (ownership % ≠ margin ≠ who is #2; absolute count ≠ runner share).
+    silent); runner present also speaks ``ahead wide|thin · +K`` then
+    ``vs HOLD · N · P%`` when #2 is clear (ownership % ≠ margin ≠ who is
+    #2; absolute count ≠ runner share). When newest action disagrees
+    with the lead, speak ``last vs lead · HOLD`` (same verb silent).
     Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
@@ -6418,6 +6448,7 @@ def build_ai_debate_glance(
         "sample_lead_sides_name": "",
         "sample_lead_sides_n": None,
         "sample_lead_sides_share": None,
+        "last_vs_sample_lead": "",
         "latest_confidence": "",
         "latest_at": "",
     }
@@ -6530,8 +6561,12 @@ def build_ai_debate_glance(
     ) = _decision_sample_lead(
         [("BUY", buy), ("HOLD", hold), ("SELL", sell)]
     )
+    last_vs_sample_lead = _last_vs_sample_lead(sample_lead_name, action)
+    # last vs lead before margin/sides so the 96-char clip keeps it.
     if sample_lead:
         bits.append(sample_lead)
+    if last_vs_sample_lead:
+        bits.append(last_vs_sample_lead)
     if sample_lead_margin:
         bits.append(sample_lead_margin)
     if sample_lead_sides:
@@ -6641,6 +6676,7 @@ def build_ai_debate_glance(
         "sample_lead_sides_name": sample_lead_sides_name,
         "sample_lead_sides_n": sample_lead_sides_n,
         "sample_lead_sides_share": sample_lead_sides_share,
+        "last_vs_sample_lead": last_vs_sample_lead,
         "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }
