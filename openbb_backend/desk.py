@@ -476,6 +476,19 @@ def scan_list_rows(raw: Any) -> list[Mapping[str, Any]]:
     return [item for item in raw if isinstance(item, Mapping)]
 
 
+def scan_list_junk_count(raw: Any) -> int:
+    """Count non-object slots inside a scan list (display honesty).
+
+    xang1234 #498 + portfolio AI speak-both-sides: dropping junk must not
+    be silent — list length ≠ object rows. Wrong-container values (string /
+    dict / null) stay 0 here (``scan_list_rows`` already empties them).
+    Not a gate.
+    """
+    if not isinstance(raw, (list, tuple)):
+        return 0
+    return sum(1 for item in raw if not isinstance(item, Mapping))
+
+
 def build_screener_opportunity_counts(
     opportunities: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
@@ -483,6 +496,8 @@ def build_screener_opportunity_counts(
 
     Integer lengths only — not bool casts. Counts object rows only
     (``scan_list_rows``); junk string/null slots do not inflate Total.
+    When junk slots exist, weight speaks ``N junk`` (warn) so silent drop
+    does not hide damaged lists (portfolio AI speak-both-sides).
     ``n_total`` is the sum of the three list lengths (row slots).
     ``n_unique`` counts distinct symbols. When lists overlap, weight speaks
     uniqueness share (unique÷total) with strong/thin severity, then the
@@ -507,6 +522,7 @@ def build_screener_opportunity_counts(
         "n_total": 0,
         "n_unique": 0,
         "n_dup": 0,
+        "n_junk": 0,
         "lists_populated": 0,
         "overlap": False,
         "unique_share_pct": None,
@@ -545,6 +561,11 @@ def build_screener_opportunity_counts(
     n_rec = len(_rows("recommendations"))
     n_crypto = len(_rows("crypto_leaders"))
     n_brk = len(_rows("stock_breakouts"))
+    n_junk = (
+        scan_list_junk_count(opportunities.get("recommendations"))
+        + scan_list_junk_count(opportunities.get("crypto_leaders"))
+        + scan_list_junk_count(opportunities.get("stock_breakouts"))
+    )
     n_total = n_rec + n_crypto + n_brk
     unique = (
         _symbols("recommendations")
@@ -701,6 +722,11 @@ def build_screener_opportunity_counts(
         weight = "row slots"
         weight_core = "row slots"
         weight_lean = ""
+    if n_junk > 0:
+        junk_bit = f"{n_junk} junk"
+        weight_core = f"{weight_core} · {junk_bit}"
+        weight = f"{weight} · {junk_bit}"
+        tone = "warn"
     return {
         "n_rec": n_rec,
         "n_crypto": n_crypto,
@@ -708,6 +734,7 @@ def build_screener_opportunity_counts(
         "n_total": n_total,
         "n_unique": n_unique,
         "n_dup": n_dup,
+        "n_junk": n_junk,
         "lists_populated": lists_populated,
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
@@ -11161,6 +11188,11 @@ def load_desk_snapshot(
             "title": "Screener opportunity scalar total",
             "from": "xang1234/stock-screener (opportunity-summary-scalar-counts)",
             "note": "Total = sum of three list lengths; weight shows unique when lists overlap — not bool casts.",
+        },
+        {
+            "title": "Screener junk-slot speak",
+            "from": "xang1234/stock-screener #498 + portfolio AI (speak-both-sides)",
+            "note": "When scan lists hold string/null/truncated slots, Total weight speaks N junk + warn — object-only filter ≠ hide damage.",
         },
         {
             "title": "Screener opportunity uniqueness share",

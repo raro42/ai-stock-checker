@@ -2,6 +2,7 @@
 
 from openbb_backend.desk import (
     build_screener_opportunity_counts,
+    scan_list_junk_count,
     scan_list_rows,
 )
 
@@ -16,8 +17,22 @@ def test_scan_list_rows_keeps_objects_only():
     assert scan_list_rows("bad") == []
 
 
+def test_scan_list_junk_count():
+    """Non-object slots are counted; wrong containers stay 0."""
+    assert (
+        scan_list_junk_count(
+            [{"symbol": "AAPL"}, "MSFT", None, 3, {"symbol": "NVDA"}, []]
+        )
+        == 4
+    )
+    assert scan_list_junk_count([]) == 0
+    assert scan_list_junk_count(None) == 0
+    assert scan_list_junk_count("not-a-list") == 0
+    assert scan_list_junk_count({"symbol": "X"}) == 0
+
+
 def test_junk_slots_do_not_inflate_counts():
-    """xang1234 #498 — list length ≠ object rows (truncated/junk slots)."""
+    """xang1234 #498 — list length ≠ object rows; junk speaks (not silent)."""
     c = build_screener_opportunity_counts(
         {
             "recommendations": [
@@ -36,8 +51,11 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["n_total"] == 3
     assert c["n_unique"] == 3
     assert c["n_dup"] == 0
+    assert c["n_junk"] == 5
     assert c["lists_populated"] == 2
-    assert c["weight"] == "row slots"
+    assert c["weight"] == "row slots · 5 junk"
+    assert c["weight_core"] == "row slots · 5 junk"
+    assert c["tone"] == "warn"
 
 
 def test_empty_and_non_mapping():
@@ -45,6 +63,7 @@ def test_empty_and_non_mapping():
     assert empty["n_total"] == 0
     assert empty["n_unique"] == 0
     assert empty["n_dup"] == 0
+    assert empty["n_junk"] == 0
     assert empty["lists_populated"] == 0
     assert empty["weight"] == "row slots"
     assert empty["unique_share_pct"] is None
@@ -64,6 +83,30 @@ def test_empty_and_non_mapping():
     assert empty["weight_core"] == "row slots"
     assert empty["weight_lean"] == ""
     assert build_screener_opportunity_counts("bad")["n_total"] == 0
+    assert build_screener_opportunity_counts("bad")["n_junk"] == 0
+
+
+def test_junk_appends_on_overlap_weight():
+    """Junk speak sits on weight_core even when unique/dup already spoke."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": [
+                {"symbol": "AAPL"},
+                {"symbol": "MSFT"},
+                "junk",
+            ],
+            "crypto_leaders": [{"symbol": "AAPL"}],
+            "stock_breakouts": [{"symbol": "MSFT"}, None],
+        }
+    )
+    assert c["n_total"] == 4
+    assert c["n_unique"] == 2
+    assert c["n_dup"] == 2
+    assert c["n_junk"] == 2
+    assert c["overlap"] is True
+    assert c["weight_core"].endswith(" · 2 junk")
+    assert c["weight"].endswith(" · 2 junk")
+    assert c["tone"] == "warn"
 
 
 def test_scalar_list_lengths():
@@ -256,13 +299,14 @@ def test_string_symbols_and_bad_list_type():
     assert c["n_total"] == 1
     assert c["n_unique"] == 1
     assert c["n_dup"] == 0
+    assert c["n_junk"] == 2  # two string slots; wrong-container crypto = 0
     assert c["overlap"] is False
     assert c["unique_share_pct"] is None
     assert c["dup_share_pct"] is None
-    assert c["weight"] == "row slots"
-    assert c["weight_core"] == "row slots"
+    assert c["weight"] == "row slots · 2 junk"
+    assert c["weight_core"] == "row slots · 2 junk"
     assert c["weight_lean"] == ""
-    assert c["tone"] == "flat"
+    assert c["tone"] == "warn"
 
 
 def test_overlap_unique_vs_dup_delta_mid_silent():
