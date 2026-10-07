@@ -5981,7 +5981,7 @@ def _decision_sample_lead(
     Compact ``Np/Nh/Nr`` / ``N BUY · N HOLD · N SELL`` hid which verb owns
     the ring. When one bucket is strictly largest and the decided sample
     has ≥2 rows, speak ``lead pass · N%`` / ``lead BUY · N%`` (ties and
-    thin samples silent). When a runner-up bucket exists, also speak
+    thin samples use ``_decision_sample_gap`` instead of a fake lead). When a runner-up bucket exists, also speak
     ``ahead wide|thin · +K`` (wide ≥2 · thin =1; sole-bucket omits).
     When ahead already spoke and a clear #2 exists, also speak
     ``vs hold · N · P%`` / ``vs HOLD · N · P%`` (tied runners silent;
@@ -6060,6 +6060,24 @@ def _last_vs_sample_lead(lead_name: str, last_verb: str) -> str:
     return f"last vs lead · {last}"
 
 
+def _decision_sample_gap(total: int, lead_name: str) -> str:
+    """Speak thin/tied when a lead would overclaim (display only).
+
+    Empty / ``no sample`` stays on the caller. A single decided row is
+    compact ``n=1`` (last-row ≠ ring tilt; not edge-band ``thin``).
+    Two-plus with no strict lead is ``tied`` (counts without a winner).
+    Short so the 96-char clip still keeps last-symbol. Window A Kelly
+    sample thin + xang1234 sample honesty + portfolio AI speak-both-sides.
+    Not a gate.
+    """
+    n = max(0, int(total or 0))
+    if n <= 0 or str(lead_name or "").strip():
+        return ""
+    if n < 2:
+        return "n=1"
+    return "tied"
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -6105,7 +6123,9 @@ def build_laya_glance(
     ``vs hold · N · P%`` when #2 is clear (ownership % ≠ margin ≠ who
     is #2; absolute count ≠ runner share). When sample lead already
     spoke, newest verb speaks ``agree`` (match) or ``last vs lead ·
-    pass`` (clash) — silent confirm hid match.
+    pass`` (clash) — silent confirm hid match. Thin (1 decided) speaks
+    ``n=1`` after counts; ≥2 with no lead speaks ``tied`` (silent gap
+    hid that last-row is not a tilt).
     See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
@@ -6174,6 +6194,7 @@ def build_laya_glance(
     sample_lead_sides_n: int | None = None
     sample_lead_sides_share: int | None = None
     last_vs_sample_lead = ""
+    sample_gap = ""
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -6254,7 +6275,6 @@ def build_laya_glance(
         if n_decided == 0 and n_fo == 0:
             bits.append("no sample")
         else:
-            bits.append(f"{n_pass}p/{n_hold}h/{n_rej}r")
             (
                 sample_lead,
                 sample_lead_name,
@@ -6271,6 +6291,11 @@ def build_laya_glance(
             last_vs_sample_lead = _last_vs_sample_lead(
                 sample_lead_name, own_verb
             )
+            sample_gap = _decision_sample_gap(n_decided, sample_lead_name)
+            meter = f"{n_pass}p/{n_hold}h/{n_rej}r"
+            if sample_gap:
+                meter = f"{meter} {sample_gap}"
+            bits.append(meter)
             # last vs lead before margin/sides so the 96-char clip keeps it.
             if sample_lead:
                 bits.append(sample_lead)
@@ -6360,6 +6385,7 @@ def build_laya_glance(
         "sample_lead_sides_n": sample_lead_sides_n,
         "sample_lead_sides_share": sample_lead_sides_share,
         "last_vs_sample_lead": last_vs_sample_lead,
+        "sample_gap": sample_gap,
         "latest_at": latest_at,
     }
 
@@ -6424,7 +6450,8 @@ def build_ai_debate_glance(
     ``vs HOLD · N · P%`` when #2 is clear (ownership % ≠ margin ≠ who is
     #2; absolute count ≠ runner share). When sample lead already spoke,
     newest action speaks ``agree`` (match) or ``last vs lead · HOLD``
-    (clash) — silent confirm hid match.
+    (clash) — silent confirm hid match. Thin (1 decided) speaks
+    ``n=1`` after counts; ≥2 with no lead speaks ``tied``.
     Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
@@ -6463,6 +6490,7 @@ def build_ai_debate_glance(
         "sample_lead_sides_n": None,
         "sample_lead_sides_share": None,
         "last_vs_sample_lead": "",
+        "sample_gap": "",
         "latest_confidence": "",
         "latest_at": "",
     }
@@ -6576,6 +6604,9 @@ def build_ai_debate_glance(
         [("BUY", buy), ("HOLD", hold), ("SELL", sell)]
     )
     last_vs_sample_lead = _last_vs_sample_lead(sample_lead_name, action)
+    sample_gap = _decision_sample_gap(buy + hold + sell, sample_lead_name)
+    if sample_gap:
+        bits[-1] = f"{bits[-1]} {sample_gap}"
     # last vs lead before margin/sides so the 96-char clip keeps it.
     if sample_lead:
         bits.append(sample_lead)
@@ -6691,6 +6722,7 @@ def build_ai_debate_glance(
         "sample_lead_sides_n": sample_lead_sides_n,
         "sample_lead_sides_share": sample_lead_sides_share,
         "last_vs_sample_lead": last_vs_sample_lead,
+        "sample_gap": sample_gap,
         "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }

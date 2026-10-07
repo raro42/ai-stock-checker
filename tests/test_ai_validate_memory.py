@@ -995,6 +995,8 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert thin["sample_lead_margin"] == ""
     assert thin["sample_lead_sides"] == ""
     assert thin["sample_lead_sides_share"] is None
+    assert thin["sample_gap"] == "n=1"
+    assert "n=1" in thin["line"]
 
     _write([_row("BUY", "AAPL"), _row("BUY", "MSFT"), _row("HOLD", "NVDA")])
     lead = build_ai_debate_glance(
@@ -1011,6 +1013,7 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert lead["sample_lead_sides_share"] == 33
     # Newest HOLD ≠ BUY tilt — speak last vs lead (no tone escalate).
     assert lead["last_vs_sample_lead"] == "last vs lead · HOLD"
+    assert lead["sample_gap"] == ""
     assert "2 BUY" in lead["line"]
     assert "lead BUY · 67%" in lead["line"]
     assert "last vs lead · HOLD" in lead["line"]
@@ -1081,6 +1084,8 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert tied["sample_lead_margin"] == ""
     assert tied["sample_lead_sides"] == ""
     assert tied["sample_lead_sides_share"] is None
+    assert tied["sample_gap"] == "tied"
+    assert "tied" in tied["line"]
     assert "lead " not in tied["line"]
 
 

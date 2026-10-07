@@ -22,7 +22,7 @@ and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](htt
 | Edge vs fee (same row) | Yes — `edge/fee clash · strong · hot` / `align · strong · quiet` (fee polarity inverted; mid fee silent; clash paints `aging`) |
 | Decision vs edge | Yes — `pass/edge clash · thin` / `reject/edge clash · strong` (and debate `BUY`/`SELL`); extremes only; mid `ok` silent; clash paints `aging` |
 | Decision vs conf | Yes — `pass/conf clash · lo` / `BUY/conf align · hi` (conviction model; mid `med` silent; clash paints `aging`) |
-| Sample lead (ring tilt) | Yes — decided ≥2 with a strict lead speaks `lead pass · N%` / debate `lead BUY · N%` after counts (ties / thin silent; last-row ≠ sample tilt); runner present also speaks `ahead wide\|thin · +K` then `vs hold · N · P%` / `vs HOLD · N · P%` when #2 is clear (ownership % ≠ margin ≠ who is #2; absolute count ≠ runner share; sole-bucket / tied runners omit vs) |
+| Sample lead (ring tilt) | Yes — decided ≥2 with a strict lead speaks `lead pass · N%` / debate `lead BUY · N%` after counts; 1 decided speaks `n=1`; ≥2 with no lead speaks `tied` (last-row ≠ sample tilt); runner present also speaks `ahead wide\|thin · +K` then `vs hold · N · P%` / `vs HOLD · N · P%` when #2 is clear (ownership % ≠ margin ≠ who is #2; absolute count ≠ runner share; sole-bucket / tied runners omit vs) |
 | Desk parity (Screener/Book/Ideas/Breadth/scan-log/Charts) | Yes — display only |
 | Live **buy gate** / exits blocked by LAYA | **No** — deferred until paper evidence |
 

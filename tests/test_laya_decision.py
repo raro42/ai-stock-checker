@@ -1067,7 +1067,7 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
             "model": "systemone",
         }
 
-    # Thin sample (1 decided) stays silent — last-row ≠ sample tilt.
+    # Thin sample (1 decided) speaks n=1 — last-row ≠ ring tilt.
     _write([_row("reject")])
     thin = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert thin["sample_lead"] == ""
@@ -1075,6 +1075,8 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert thin["sample_lead_margin"] == ""
     assert thin["sample_lead_sides"] == ""
     assert thin["sample_lead_sides_share"] is None
+    assert thin["sample_gap"] == "n=1"
+    assert "n=1" in thin["line"]
     assert "lead " not in thin["line"]
 
     # Strict reject lead · 67% + ahead thin · +1 · vs pass · 1 · 33%.
@@ -1091,6 +1093,7 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert lead["sample_lead_sides_n"] == 1
     assert lead["sample_lead_sides_share"] == 33
     assert lead["last_vs_sample_lead"] == "agree"
+    assert lead["sample_gap"] == ""
     assert "1p/0h/2r" in lead["line"]
     assert "lead reject · 67%" in lead["line"]
     assert "agree" in lead["line"]
@@ -1183,13 +1186,15 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert "vs hold" not in tied_runners["line"]
     assert "last vs lead" not in tied_runners["line"]
 
-    # Tie stays silent.
+    # Tie speaks tied (counts without a winner).
     _write([_row("pass", "AAPL"), _row("reject", "MSFT")])
     tied = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert tied["sample_lead"] == ""
     assert tied["sample_lead_margin"] == ""
     assert tied["sample_lead_sides"] == ""
     assert tied["sample_lead_sides_share"] is None
+    assert tied["sample_gap"] == "tied"
+    assert "tied" in tied["line"]
     assert "lead " not in tied["line"]
 
 
