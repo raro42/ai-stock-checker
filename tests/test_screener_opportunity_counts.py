@@ -52,9 +52,12 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["n_unique"] == 3
     assert c["n_dup"] == 0
     assert c["n_junk"] == 5
+    # 3 object + 5 junk = 8 slots → 62.5% hot
+    assert c["junk_share_pct"] == 62.5
+    assert c["junk_share_severity"] == "hot"
     assert c["lists_populated"] == 2
-    assert c["weight"] == "row slots · 5 junk"
-    assert c["weight_core"] == "row slots · 5 junk"
+    assert c["weight"] == "row slots · 5 junk · hot · 62.5%"
+    assert c["weight_core"] == "row slots · 5 junk · hot · 62.5%"
     assert c["tone"] == "warn"
 
 
@@ -64,6 +67,8 @@ def test_empty_and_non_mapping():
     assert empty["n_unique"] == 0
     assert empty["n_dup"] == 0
     assert empty["n_junk"] == 0
+    assert empty["junk_share_pct"] is None
+    assert empty["junk_share_severity"] == ""
     assert empty["lists_populated"] == 0
     assert empty["weight"] == "row slots"
     assert empty["unique_share_pct"] is None
@@ -103,9 +108,12 @@ def test_junk_appends_on_overlap_weight():
     assert c["n_unique"] == 2
     assert c["n_dup"] == 2
     assert c["n_junk"] == 2
+    # 4 object + 2 junk = 6 slots → 33.3% mid (ok)
+    assert c["junk_share_pct"] == 33.3
+    assert c["junk_share_severity"] == "ok"
     assert c["overlap"] is True
-    assert c["weight_core"].endswith(" · 2 junk")
-    assert c["weight"].endswith(" · 2 junk")
+    assert c["weight_core"].endswith(" · 2 junk · 33.3%")
+    assert c["weight"].endswith(" · 2 junk · 33.3%")
     assert c["tone"] == "warn"
 
 
@@ -300,12 +308,34 @@ def test_string_symbols_and_bad_list_type():
     assert c["n_unique"] == 1
     assert c["n_dup"] == 0
     assert c["n_junk"] == 2  # two string slots; wrong-container crypto = 0
+    # 1 object + 2 junk = 3 slots → 66.7% hot
+    assert c["junk_share_pct"] == 66.7
+    assert c["junk_share_severity"] == "hot"
     assert c["overlap"] is False
     assert c["unique_share_pct"] is None
     assert c["dup_share_pct"] is None
-    assert c["weight"] == "row slots · 2 junk"
-    assert c["weight_core"] == "row slots · 2 junk"
+    assert c["weight"] == "row slots · 2 junk · hot · 66.7%"
+    assert c["weight_core"] == "row slots · 2 junk · hot · 66.7%"
     assert c["weight_lean"] == ""
+    assert c["tone"] == "warn"
+
+
+def test_junk_share_quiet_band():
+    """Quiet ≤25%: absolute junk ≠ sparse damage share."""
+    recs = [{"symbol": f"S{i}"} for i in range(7)] + ["junk"]
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": recs,
+            "crypto_leaders": [],
+            "stock_breakouts": [],
+        }
+    )
+    assert c["n_total"] == 7
+    assert c["n_junk"] == 1
+    # 7 + 1 = 8 slots → 12.5% quiet
+    assert c["junk_share_pct"] == 12.5
+    assert c["junk_share_severity"] == "quiet"
+    assert c["weight"] == "row slots · 1 junk · quiet · 12.5%"
     assert c["tone"] == "warn"
 
 

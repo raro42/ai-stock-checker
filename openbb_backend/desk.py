@@ -459,6 +459,9 @@ SCREENER_UNIQUE_SHARE_THIN = 50.0
 # Dup waste share (dup÷total). Hot ≥50% · quiet ≤25% (mirrors unique thin/strong).
 SCREENER_DUP_SHARE_HOT = 50.0
 SCREENER_DUP_SHARE_QUIET = 25.0
+# Junk ownership of raw slots (object+junk). Same hot/quiet bands as dup waste.
+SCREENER_JUNK_SHARE_HOT = 50.0
+SCREENER_JUNK_SHARE_QUIET = 25.0
 # Unique%−dup% spread after lean clash/align. Wide ≥20pp · thin <10pp (mid silent).
 SCREENER_UNIQUE_VS_DUP_DELTA_WIDE_PP = 20.0
 SCREENER_UNIQUE_VS_DUP_DELTA_THIN_PP = 10.0
@@ -497,8 +500,11 @@ def build_screener_opportunity_counts(
     Integer lengths only — not bool casts. Counts object rows only
     (``scan_list_rows``); junk string/null slots do not inflate Total.
     When junk slots exist, weight speaks ``N junk`` (warn) so silent drop
-    does not hide damaged lists (portfolio AI speak-both-sides).
-    ``n_total`` is the sum of the three list lengths (row slots).
+    does not hide damaged lists (portfolio AI speak-both-sides). Absolute
+    junk count also gets ownership of raw slots (object+junk) with
+    hot ≥50% · quiet ≤25% (count ≠ share; mid shows % only) — xang1234
+    #540 damaged-artifact visibility + portfolio AI count≠share.
+    ``n_total`` is the sum of the three list lengths (object rows).
     ``n_unique`` counts distinct symbols. When lists overlap, weight speaks
     uniqueness share (unique÷total) with strong/thin severity, then the
     waste side (``N dup · [hot|quiet] · M%``), then unique vs dup lean
@@ -523,6 +529,8 @@ def build_screener_opportunity_counts(
         "n_unique": 0,
         "n_dup": 0,
         "n_junk": 0,
+        "junk_share_pct": None,
+        "junk_share_severity": "",
         "lists_populated": 0,
         "overlap": False,
         "unique_share_pct": None,
@@ -722,8 +730,20 @@ def build_screener_opportunity_counts(
         weight = "row slots"
         weight_core = "row slots"
         weight_lean = ""
+    junk_share_pct: float | None = None
+    junk_share_severity = ""
     if n_junk > 0:
-        junk_bit = f"{n_junk} junk"
+        n_slots = n_total + n_junk
+        junk_share_pct = round(100.0 * n_junk / n_slots, 1)
+        if junk_share_pct >= SCREENER_JUNK_SHARE_HOT:
+            junk_share_severity = "hot"
+            junk_bit = f"{n_junk} junk · hot · {junk_share_pct:g}%"
+        elif junk_share_pct <= SCREENER_JUNK_SHARE_QUIET:
+            junk_share_severity = "quiet"
+            junk_bit = f"{n_junk} junk · quiet · {junk_share_pct:g}%"
+        else:
+            junk_share_severity = "ok"
+            junk_bit = f"{n_junk} junk · {junk_share_pct:g}%"
         weight_core = f"{weight_core} · {junk_bit}"
         weight = f"{weight} · {junk_bit}"
         tone = "warn"
@@ -735,6 +755,8 @@ def build_screener_opportunity_counts(
         "n_unique": n_unique,
         "n_dup": n_dup,
         "n_junk": n_junk,
+        "junk_share_pct": junk_share_pct,
+        "junk_share_severity": junk_share_severity,
         "lists_populated": lists_populated,
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
@@ -11193,6 +11215,11 @@ def load_desk_snapshot(
             "title": "Screener junk-slot speak",
             "from": "xang1234/stock-screener #498 + portfolio AI (speak-both-sides)",
             "note": "When scan lists hold string/null/truncated slots, Total weight speaks N junk + warn — object-only filter ≠ hide damage.",
+        },
+        {
+            "title": "Screener junk-slot share",
+            "from": "xang1234/stock-screener #540 + portfolio AI (count ≠ ownership)",
+            "note": "When junk spoke, weight also speaks junk÷(object+junk) with hot ≥50% · quiet ≤25%; absolute N ≠ how much of the list is damaged.",
         },
         {
             "title": "Screener opportunity uniqueness share",
