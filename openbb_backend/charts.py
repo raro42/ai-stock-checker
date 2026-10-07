@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 from openbb_backend.symbol_names import display_name, resolve_symbol_names
+
+# xang1234 #498: chart cache basenames stay under chart_bars/ (no path escape).
+_CHART_CACHE_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 
 
 def _finite(value: Any, default: float = 0.0) -> float:
@@ -202,13 +206,44 @@ def build_allocation(data_dir: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _cache_path(data_dir: Path, symbol: str, interval: str = "1d") -> Path:
-    safe = symbol.replace("/", "_")
-    # Keep daily cache path stable for existing chart_bars/*.json files.
+def _safe_chart_cache_token(raw: str) -> str | None:
+    """Basename token for chart_bars — reject empty / escape / junk.
+
+    xang1234 #498 advertised-path containment: slash→underscore keeps
+    BTC/USDT-style names; ``..`` and other path junk stay out.
+    """
+    text = str(raw or "").strip().replace("/", "_").replace("\\", "_")
+    if not text or ".." in text or not _CHART_CACHE_TOKEN.match(text):
+        return None
+    return text
+
+
+def _cache_path(
+    data_dir: Path, symbol: str, interval: str = "1d"
+) -> Path | None:
+    """Resolve a chart cache file under ``chart_bars/`` or None if unsafe.
+
+    xang1234 #498 / 464a0ce: resolved path must stay inside the chart root
+    (``is_relative_to``); empty/malformed tokens refuse the cache slot.
+    """
+    safe = _safe_chart_cache_token(symbol)
+    if safe is None:
+        return None
+    root = (Path(data_dir) / "chart_bars").resolve()
     if interval in {"1d", "d", "day", "daily"}:
-        return data_dir / "chart_bars" / f"{safe}.json"
-    safe_iv = interval.replace("/", "_")
-    return data_dir / "chart_bars" / f"{safe}_{safe_iv}.json"
+        name = f"{safe}.json"
+    else:
+        safe_iv = _safe_chart_cache_token(interval)
+        if safe_iv is None:
+            return None
+        name = f"{safe}_{safe_iv}.json"
+    try:
+        path = (root / name).resolve()
+    except (OSError, ValueError):
+        return None
+    if not path.is_relative_to(root):
+        return None
+    return path
 
 
 def _yf_period_for(days: int, interval: str) -> str:
@@ -247,6 +282,9 @@ def fetch_price_history(
 ) -> list[dict[str, Any]]:
     """OHLC closes for symbol; cached under data/chart_bars/ (per interval)."""
     path = _cache_path(data_dir, symbol, interval=interval)
+    if path is None:
+        # Unsafe token — do not touch disk outside chart_bars (xang1234 #498).
+        return []
     cached = _load_json(path, {})
     # Intraday moves faster — shorter cache TTL.
     max_age = 45 * 60 if interval != "1d" else 6 * 3600

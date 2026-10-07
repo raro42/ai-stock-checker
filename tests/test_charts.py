@@ -462,6 +462,29 @@ def test_price_history_lean_fallback_non_object_cache(tmp_path: Path, monkeypatc
     assert fetch_price_history("MSFT", tmp_path, live=False) == []
 
 
+def test_chart_cache_path_stays_under_chart_bars(tmp_path: Path):
+    """xang1234 #498 / 464a0ce: refuse path-escape / junk chart cache tokens."""
+    from openbb_backend.charts import _cache_path, fetch_price_history
+
+    root = (tmp_path / "chart_bars").resolve()
+    ok = _cache_path(tmp_path, "AAPL")
+    assert ok is not None
+    assert ok.is_relative_to(root)
+    assert ok.name == "AAPL.json"
+
+    slash = _cache_path(tmp_path, "BTC/USDT", interval="15m")
+    assert slash is not None
+    assert slash.name == "BTC_USDT_15m.json"
+    assert slash.is_relative_to(root)
+
+    assert _cache_path(tmp_path, "") is None
+    assert _cache_path(tmp_path, "../etc/passwd") is None
+    assert _cache_path(tmp_path, "..") is None
+    assert _cache_path(tmp_path, "AAPL", interval="../x") is None
+    assert fetch_price_history("../evil", tmp_path, live=False) == []
+    assert fetch_price_history("", tmp_path, live=False) == []
+
+
 def test_price_history_parses_advertised_points(tmp_path: Path, monkeypatch):
     """xang1234 c6f8650: truthy points blob ≠ hit — require list of point objects."""
     from openbb_backend.charts import fetch_price_history, _parse_chart_points
