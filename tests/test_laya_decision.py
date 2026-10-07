@@ -1078,7 +1078,7 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert "lead " not in thin["line"]
 
     # Strict reject lead · 67% + ahead thin · +1 · vs pass · 1 · 33%.
-    # Newest reject matches tilt — last vs lead silent.
+    # Newest reject matches tilt — speak agree (silent confirm hid match).
     _write([_row("pass", "AAPL"), _row("reject", "MSFT"), _row("reject", "NVDA")])
     lead = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
     assert lead["sample_lead"] == "lead reject · 67%"
@@ -1090,15 +1090,16 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert lead["sample_lead_sides_name"] == "pass"
     assert lead["sample_lead_sides_n"] == 1
     assert lead["sample_lead_sides_share"] == 33
-    assert lead["last_vs_sample_lead"] == ""
+    assert lead["last_vs_sample_lead"] == "agree"
     assert "1p/0h/2r" in lead["line"]
     assert "lead reject · 67%" in lead["line"]
-    assert "ahead thin · +1" in lead["line"]
+    assert "agree" in lead["line"]
     # Meter before lead so the 96-char clip keeps ownership after counts.
     assert lead["line"].index("1p/0h/2r") < lead["line"].index("lead reject")
-    assert lead["line"].index("lead reject") < lead["line"].index("ahead thin")
-    # Runner bit may truncate after ahead (age + meter already fill the 96).
-    assert "vs pass · 1" in lead["line"] or lead["line"].endswith("vs …")
+    assert lead["line"].index("lead reject") < lead["line"].index("agree")
+    # Ahead/runner may truncate after agree (age + meter already fill the 96).
+    if "ahead thin" in lead["line"]:
+        assert lead["line"].index("agree") < lead["line"].index("ahead thin")
     assert "last vs lead" not in lead["line"]
 
     # Newest pass ≠ reject tilt — speak last vs lead (no tone escalate).
@@ -1124,7 +1125,8 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert sole["sample_lead_margin"] == ""
     assert sole["sample_lead_sides"] == ""
     assert sole["sample_lead_sides_share"] is None
-    assert sole["last_vs_sample_lead"] == ""
+    assert sole["last_vs_sample_lead"] == "agree"
+    assert "agree" in sole["line"]
     assert "ahead " not in sole["line"]
     assert "vs pass" not in sole["line"]
     assert "vs hold" not in sole["line"]
@@ -1145,11 +1147,16 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert wide["sample_lead_margin_gap"] == 2
     assert wide["sample_lead_sides"] == "vs pass · 1 · 25%"
     assert wide["sample_lead_sides_share"] == 25
-    assert "ahead wide · +2" in wide["line"]
-    assert "vs pass · 1" in wide["line"] or wide["line"].endswith("vs …")
+    assert wide["last_vs_sample_lead"] == "agree"
+    assert "agree" in wide["line"]
+    # Ahead/runner may truncate after agree (age + meter fill the 96).
+    assert "ahead wide" in wide["line"] or wide["line"].endswith("…")
+    assert "vs pass · 1" in wide["line"] or "vs …" in wide["line"] or wide[
+        "line"
+    ].endswith("…")
 
     # Tied runners: ahead speaks, vs silent (ahead ≠ who is #2).
-    # Newest reject matches tilt so last-vs stays quiet and ahead can fit.
+    # Newest reject matches tilt — agree speaks; ahead may still fit.
     _write(
         [
             _row("pass", "TSLA"),
@@ -1166,8 +1173,12 @@ def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
     assert tied_runners["sample_lead_margin"] == "ahead wide · +2"
     assert tied_runners["sample_lead_sides"] == ""
     assert tied_runners["sample_lead_sides_share"] is None
-    assert tied_runners["last_vs_sample_lead"] == ""
-    assert "ahead wide · +2" in tied_runners["line"]
+    assert tied_runners["last_vs_sample_lead"] == "agree"
+    assert "agree" in tied_runners["line"]
+    if "ahead wide" in tied_runners["line"]:
+        assert tied_runners["line"].index("agree") < tied_runners["line"].index(
+            "ahead wide"
+        )
     assert "vs pass" not in tied_runners["line"]
     assert "vs hold" not in tied_runners["line"]
     assert "last vs lead" not in tied_runners["line"]

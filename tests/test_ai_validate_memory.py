@@ -1032,7 +1032,8 @@ def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
     assert sole["sample_lead_margin"] == ""
     assert sole["sample_lead_sides"] == ""
     assert sole["sample_lead_sides_share"] is None
-    assert sole["last_vs_sample_lead"] == ""
+    assert sole["last_vs_sample_lead"] == "agree"
+    assert "agree" in sole["line"]
     assert "ahead " not in sole["line"]
     assert "last vs lead" not in sole["line"]
 

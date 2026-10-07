@@ -571,18 +571,19 @@ def soft_allow_last_vs_lead(lead_gate: str, last_gate: str) -> str:
     """Newest soft-allow gate vs band lead (display only).
 
     Compact ``rs leads · …`` hid whether the newest print matches the
-    severity-band tilt. When lead already spoke and last-row gate differs,
-    speak ``last vs lead · breadth`` (same gate silent). Lead ownership ≠
-    newest print. FinRobot last-debate ≠ ring tilt + portfolio AI
-    speak-both-sides after soft-allow lead sides share (LAYA/debate
-    ``last vs lead`` parity). No tone escalate. Not a gate.
+    severity-band tilt. When lead already spoke: same gate speaks
+    ``agree`` (silent confirm hid match); different speaks
+    ``last vs lead · breadth``. Lead ownership ≠ newest print.
+    FinRobot last-debate ≠ ring tilt + portfolio AI speak-both-sides
+    after soft-allow lead sides share (LAYA/debate ``last vs lead`` /
+    ``agree`` parity). No tone escalate. Not a gate.
     """
     lead = str(lead_gate or "").strip()
     last = str(last_gate or "").strip()
     if not lead or not last:
         return ""
     if lead.casefold() == last.casefold():
-        return ""
+        return "agree"
     return f"last vs lead · {last}"
 
 

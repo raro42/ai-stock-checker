@@ -884,9 +884,10 @@ def build_soft_allow_glance(
     margin ≠ who is runner-up; absolute ×K ≠ runner band ownership; two
     % ≠ the ownership spread (mid silent); count-ahead lean ≠
     ownership-Δ lean (clash when share mid; align when same lean;
-    different lean silent). When lead already spoke and newest row gate
-    disagrees, speak ``last vs lead · breadth`` right after the lead bit
-    (same gate silent; FinRobot last ≠ ring tilt + LAYA/debate parity).
+    different lean silent). When lead already spoke, newest row gate
+    speaks ``agree`` (match) or ``last vs lead · breadth`` (clash) right
+    after the lead bit — FinRobot last ≠ ring tilt + portfolio AI
+    speak-both-sides (silent confirm hid match; LAYA/debate parity).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -6042,19 +6043,20 @@ def _last_vs_sample_lead(lead_name: str, last_verb: str) -> str:
     """Newest decision vs sample lead (display only).
 
     Compact ``lead pass · N%`` / ``lead BUY · N%`` hid whether the newest
-    print matches the ring tilt. When sample lead already spoke and
-    last-row verb differs, speak ``last vs lead · reject`` /
-    ``last vs lead · HOLD`` (same verb silent; fail-open is a distinct
-    verb). Ownership % ≠ newest print. xang1234 multi-meter + FinRobot
-    last-debate + portfolio AI speak-both-sides after sample lead sides
-    share. No tone escalate. Not a gate.
+    print matches the ring tilt. When sample lead already spoke: same
+    verb speaks ``agree`` (silent confirm hid match); different speaks
+    ``last vs lead · reject`` / ``last vs lead · HOLD`` (fail-open is a
+    distinct verb). Ownership % ≠ newest print. xang1234 multi-meter +
+    FinRobot last-debate + portfolio AI speak-both-sides after sample
+    lead sides share (soft-allow ``agree`` / ``last vs lead`` parity).
+    No tone escalate. Not a gate.
     """
     lead = str(lead_name or "").strip()
     last = str(last_verb or "").strip()
     if not lead or not last:
         return ""
     if lead.casefold() == last.casefold():
-        return ""
+        return "agree"
     return f"last vs lead · {last}"
 
 
@@ -6101,8 +6103,9 @@ def build_laya_glance(
     speaks ``lead pass · N%`` after ``Np/Nh/Nr`` (ties / thin silent);
     runner present also speaks ``ahead wide|thin · +K`` then
     ``vs hold · N · P%`` when #2 is clear (ownership % ≠ margin ≠ who
-    is #2; absolute count ≠ runner share). When newest verb disagrees
-    with the lead, speak ``last vs lead · pass`` (same verb silent).
+    is #2; absolute count ≠ runner share). When sample lead already
+    spoke, newest verb speaks ``agree`` (match) or ``last vs lead ·
+    pass`` (clash) — silent confirm hid match.
     See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
@@ -6419,8 +6422,9 @@ def build_ai_debate_glance(
     speaks ``lead BUY · N%`` after the BUY/HOLD/SELL counts (ties / thin
     silent); runner present also speaks ``ahead wide|thin · +K`` then
     ``vs HOLD · N · P%`` when #2 is clear (ownership % ≠ margin ≠ who is
-    #2; absolute count ≠ runner share). When newest action disagrees
-    with the lead, speak ``last vs lead · HOLD`` (same verb silent).
+    #2; absolute count ≠ runner share). When sample lead already spoke,
+    newest action speaks ``agree`` (match) or ``last vs lead · HOLD``
+    (clash) — silent confirm hid match.
     Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates

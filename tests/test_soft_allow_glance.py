@@ -10,7 +10,7 @@ from stock_checker.gate_audit import soft_allow_last_vs_lead
 
 def test_soft_allow_last_vs_lead_helper() -> None:
     assert soft_allow_last_vs_lead("rs", "breadth") == "last vs lead · breadth"
-    assert soft_allow_last_vs_lead("rs", "RS") == ""
+    assert soft_allow_last_vs_lead("rs", "RS") == "agree"
     assert soft_allow_last_vs_lead("", "breadth") == ""
     assert soft_allow_last_vs_lead("rs", "") == ""
 
@@ -523,7 +523,7 @@ def test_soft_allow_glance_last_vs_lead() -> None:
         "share Δ wide · +33pp · last vs lead · breadth · "
     )
 
-    # Newest matches lead — silent.
+    # Newest matches lead — speak agree (silent confirm hid match).
     match = build_soft_allow_glance(
         [
             {"at": fresh, "gate": "rs", "reason": "insufficient a"},
@@ -534,7 +534,8 @@ def test_soft_allow_glance_last_vs_lead() -> None:
     )
     assert match["lead_gate"] == "rs"
     assert match["last_gate"] == "rs"
-    assert match["last_vs_lead"] == ""
+    assert match["last_vs_lead"] == "agree"
+    assert " · agree · " in match["line"]
     assert "last vs lead" not in match["line"]
 
     # No lead (thin / ties) — silent even when last exists.
@@ -545,3 +546,4 @@ def test_soft_allow_glance_last_vs_lead() -> None:
     assert thin["lead_gate"] == ""
     assert thin["last_vs_lead"] == ""
     assert "last vs lead" not in thin["line"]
+    assert "agree" not in thin["line"]
