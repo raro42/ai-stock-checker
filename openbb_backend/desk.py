@@ -503,7 +503,10 @@ def build_screener_opportunity_counts(
     does not hide damaged lists (portfolio AI speak-both-sides). Absolute
     junk count also gets ownership of raw slots (object+junk) with
     hot ≥50% · quiet ≤25% (count ≠ share; mid shows % only) — xang1234
-    #540 damaged-artifact visibility + portfolio AI count≠share.
+    #540 damaged-artifact visibility + portfolio AI count≠share. When junk
+    share already spoke, also name remaining object slots
+    (``vs N ok · P%``) so junk% ≠ silent empty Total — portfolio AI
+    speak-both-sides after junk share (unique/dup sides parity).
     ``n_total`` is the sum of the three list lengths (object rows).
     ``n_unique`` counts distinct symbols. When lists overlap, weight speaks
     uniqueness share (unique÷total) with strong/thin severity, then the
@@ -531,6 +534,7 @@ def build_screener_opportunity_counts(
         "n_junk": 0,
         "junk_share_pct": None,
         "junk_share_severity": "",
+        "ok_share_pct": None,
         "lists_populated": 0,
         "overlap": False,
         "unique_share_pct": None,
@@ -732,18 +736,21 @@ def build_screener_opportunity_counts(
         weight_lean = ""
     junk_share_pct: float | None = None
     junk_share_severity = ""
+    ok_share_pct: float | None = None
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
+        ok_share_pct = round(100.0 * n_total / n_slots, 1)
+        ok_bit = f"vs {n_total} ok · {ok_share_pct:g}%"
         if junk_share_pct >= SCREENER_JUNK_SHARE_HOT:
             junk_share_severity = "hot"
-            junk_bit = f"{n_junk} junk · hot · {junk_share_pct:g}%"
+            junk_bit = f"{n_junk} junk · hot · {junk_share_pct:g}% · {ok_bit}"
         elif junk_share_pct <= SCREENER_JUNK_SHARE_QUIET:
             junk_share_severity = "quiet"
-            junk_bit = f"{n_junk} junk · quiet · {junk_share_pct:g}%"
+            junk_bit = f"{n_junk} junk · quiet · {junk_share_pct:g}% · {ok_bit}"
         else:
             junk_share_severity = "ok"
-            junk_bit = f"{n_junk} junk · {junk_share_pct:g}%"
+            junk_bit = f"{n_junk} junk · {junk_share_pct:g}% · {ok_bit}"
         weight_core = f"{weight_core} · {junk_bit}"
         weight = f"{weight} · {junk_bit}"
         tone = "warn"
@@ -757,6 +764,7 @@ def build_screener_opportunity_counts(
         "n_junk": n_junk,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
+        "ok_share_pct": ok_share_pct,
         "lists_populated": lists_populated,
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
