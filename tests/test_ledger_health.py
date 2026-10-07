@@ -59,9 +59,37 @@ def test_ledger_bad_portfolio_and_trades(tmp_path: Path) -> None:
 
 def test_ledger_non_object_portfolio_is_bad(tmp_path: Path) -> None:
     (tmp_path / "portfolio.json").write_text("[1]")
+    doc, meta = load_json_checked(tmp_path / "portfolio.json", {})
+    assert doc == {}
+    assert meta["state"] == "malformed"
     g = build_ledger_health(tmp_path)
     assert g["severity"] == "bad"
     assert "portfolio malformed" in g["line"]
+
+
+def test_load_json_checked_lean_type_mismatch(tmp_path: Path) -> None:
+    """xang1234 #498/#540: parseable wrong container → lean malformed, not ok."""
+    path = tmp_path / "row.json"
+    path.write_text('["not", "an", "object"]')
+    doc, meta = load_json_checked(path, {})
+    assert doc == {}
+    assert meta["state"] == "malformed"
+    assert meta["bad"] == 1
+
+    path.write_text('{"a": 1}')
+    doc, meta = load_json_checked(path, [])
+    assert doc == []
+    assert meta["state"] == "malformed"
+
+    path.write_text("null")
+    doc, meta = load_json_checked(path, {})
+    assert doc == {}
+    assert meta["state"] == "malformed"
+
+    path.write_text('{"ok": true}')
+    doc, meta = load_json_checked(path, {})
+    assert doc == {"ok": True}
+    assert meta["state"] == "ok"
 
 
 def test_ledger_missing_portfolio_with_fills_is_thin(tmp_path: Path) -> None:

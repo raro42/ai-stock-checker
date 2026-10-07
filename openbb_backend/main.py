@@ -31,6 +31,7 @@ from openbb_backend.desk import (
     build_ledger_health,
     find_day_scan_archive,
     load_desk_snapshot,
+    load_json_checked,
     load_jsonl_checked,
     scan_breadth_pulse_for_day,
 )
@@ -195,12 +196,9 @@ def _check_key(x_api_key: Optional[str]) -> None:
 
 
 def _load_json(path: Path, default: Any) -> Any:
-    if not path.exists():
-        return default
-    try:
-        return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return default
+    """Parse JSON via desk lean-checked loader (xang1234 #498 / #540)."""
+    doc, _meta = load_json_checked(path, default)
+    return doc
 
 
 def _load_trades(limit: int = 50) -> List[Dict]:

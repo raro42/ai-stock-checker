@@ -22,21 +22,10 @@ def _finite(value: Any, default: float = 0.0) -> float:
 
 
 def _load_json(path: Path, default: Any) -> Any:
-    """Parse JSON. Non-object when an object is expected → lean fallback.
+    """Parse JSON via desk lean-checked loader (xang1234 #498 / #540)."""
+    from openbb_backend.desk import load_json_checked
 
-    xang1234 #498 / #540: a parseable list/string/null must not crash
-    ``.get`` callers — treat it as absent, same as unreadable.
-    """
-    if not path.exists():
-        return default
-    try:
-        doc = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return default
-    if isinstance(default, dict) and not isinstance(doc, dict):
-        return default
-    if isinstance(default, list) and not isinstance(doc, list):
-        return default
+    doc, _meta = load_json_checked(path, default)
     return doc
 
 

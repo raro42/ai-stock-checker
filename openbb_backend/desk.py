@@ -24,6 +24,9 @@ def load_json_checked(path: Path, default: Any) -> tuple[Any, dict[str, Any]]:
     """Parse one JSON file. Report missing, ok, malformed, or unreadable.
 
     A bad file returns ``default``. Callers must not treat that as an empty book.
+    Parseable JSON whose container type mismatches ``default`` (e.g. a list when
+    a dict is expected) is lean-fallback malformed — presence alone ≠ usable
+    (xang1234 #498 / #540 reject damaged descriptors).
     """
     if not path.exists():
         return default, {"state": "missing", "bad": 0}
@@ -32,9 +35,14 @@ def load_json_checked(path: Path, default: Any) -> tuple[Any, dict[str, Any]]:
     except OSError:
         return default, {"state": "unreadable", "bad": 1}
     try:
-        return json.loads(text), {"state": "ok", "bad": 0}
+        doc = json.loads(text)
     except json.JSONDecodeError:
         return default, {"state": "malformed", "bad": 1}
+    if isinstance(default, dict) and not isinstance(doc, dict):
+        return default, {"state": "malformed", "bad": 1}
+    if isinstance(default, list) and not isinstance(doc, list):
+        return default, {"state": "malformed", "bad": 1}
+    return doc, {"state": "ok", "bad": 0}
 
 
 def load_jsonl_checked(path: Path) -> tuple[list[dict], dict[str, Any]]:
@@ -803,9 +811,7 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "good_lines": 0,
     }
     root = Path(data_dir)
-    port_doc, port = load_json_checked(root / "portfolio.json", {})
-    if port["state"] == "ok" and not isinstance(port_doc, dict):
-        port = {"state": "malformed", "bad": 1}
+    _port_doc, port = load_json_checked(root / "portfolio.json", {})
     _rows, trades = load_jsonl_checked(root / "trades.jsonl")
     port_state = str(port.get("state") or "missing")
     trades_state = str(trades.get("state") or "missing")
