@@ -1041,6 +1041,57 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
     assert cross["fee_vs_conf"] == ""
 
 
+def test_laya_glance_sample_lead(monkeypatch, tmp_path: Path) -> None:
+    """Decided sample (≥2) speaks strict lead · N% after Np/Nh/Nr (display only)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write(events: list[dict]) -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps({"events": events}) + "\n", encoding="utf-8"
+        )
+
+    def _row(entry: str, symbol: str = "NVDA") -> dict:
+        # Mid edge/fee so clash warns do not eat the 96-char clip before meter.
+        return {
+            "at": at,
+            "symbol": symbol,
+            "ok": True,
+            "fail_open": False,
+            "reason": "ok",
+            "entry": entry,
+            "edge_score": 2.0,
+            "fee_churn": 0.35,
+            "latency_ms": 40,
+            "model": "systemone",
+        }
+
+    # Thin sample (1 decided) stays silent — last-row ≠ sample tilt.
+    _write([_row("reject")])
+    thin = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert thin["sample_lead"] == ""
+    assert thin["sample_lead_share"] is None
+    assert "lead " not in thin["line"]
+
+    # Strict reject lead · 67% (2 reject + 1 pass).
+    _write([_row("pass", "AAPL"), _row("reject", "MSFT"), _row("reject", "NVDA")])
+    lead = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert lead["sample_lead"] == "lead reject · 67%"
+    assert lead["sample_lead_name"] == "reject"
+    assert lead["sample_lead_share"] == 67
+    assert "1p/0h/2r" in lead["line"]
+    assert "lead reject · 67%" in lead["line"]
+    # Meter before lead so the 96-char clip keeps ownership after counts.
+    assert lead["line"].index("1p/0h/2r") < lead["line"].index("lead reject")
+
+    # Tie stays silent.
+    _write([_row("pass", "AAPL"), _row("reject", "MSFT")])
+    tied = build_laya_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert tied["sample_lead"] == ""
+    assert "lead " not in tied["line"]
+
+
 def test_desk_templates_include_laya_glance() -> None:
     roots = Path("openbb_backend/templates")
     for name in (

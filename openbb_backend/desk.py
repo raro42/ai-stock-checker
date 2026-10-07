@@ -5957,6 +5957,34 @@ def _decision_vs_conf_bits(decision: str, conf_short: str) -> tuple[str, bool]:
     return f"{label}/conf align · hi", False
 
 
+def _decision_sample_lead(
+    buckets: list[tuple[str, int]],
+) -> tuple[str, str, int | None]:
+    """Strict sample lead + ownership % (display only).
+
+    Compact ``Np/Nh/Nr`` / ``N BUY · N HOLD · N SELL`` hid which verb owns
+    the ring. When one bucket is strictly largest and the decided sample
+    has ≥2 rows, speak ``lead pass · N%`` / ``lead BUY · N%`` (ties and
+    thin samples silent). Last-row verb ≠ sample tilt. xang1234 multi-meter
+    lead + portfolio AI count≠share after decision vs conf. Not a gate.
+    """
+    total = sum(max(0, int(n or 0)) for _, n in buckets)
+    if total < 2:
+        return "", "", None
+    ranked = sorted(
+        ((str(name), max(0, int(n or 0))) for name, n in buckets),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    lead_name, lead_n = ranked[0]
+    if lead_n <= 0:
+        return "", "", None
+    if len(ranked) > 1 and ranked[1][1] == lead_n:
+        return "", "", None
+    share = int(round(100.0 * lead_n / total))
+    return f"lead {lead_name} · {share}%", lead_name, share
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -5996,7 +6024,9 @@ def build_laya_glance(
     clash · strong`` (extremes only; mid ok silent; clash paints
     ``aging``). Same ticker + debate conf: ``pass/conf clash · lo`` /
     ``reject/conf align · hi`` (conviction model; mid med silent;
-    clash paints ``aging``). See docs/LAYA.md.
+    clash paints ``aging``). Decided sample (≥2) with a strict lead
+    speaks ``lead pass · N%`` after ``Np/Nh/Nr`` (ties / thin silent;
+    last-row ≠ sample tilt). See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -6054,6 +6084,9 @@ def build_laya_glance(
     decision_vs_edge_warn = False
     decision_vs_conf = ""
     decision_vs_conf_warn = False
+    sample_lead = ""
+    sample_lead_name = ""
+    sample_lead_share: int | None = None
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -6135,6 +6168,11 @@ def build_laya_glance(
             bits.append("no sample")
         else:
             bits.append(f"{n_pass}p/{n_hold}h/{n_rej}r")
+            sample_lead, sample_lead_name, sample_lead_share = _decision_sample_lead(
+                [("pass", n_pass), ("hold", n_hold), ("reject", n_rej)]
+            )
+            if sample_lead:
+                bits.append(sample_lead)
             if n_fo:
                 bits.append(f"{n_fo} fail-open")
         if newest:
@@ -6205,6 +6243,9 @@ def build_laya_glance(
         "decision_vs_edge_warn": decision_vs_edge_warn,
         "decision_vs_conf": decision_vs_conf,
         "decision_vs_conf_warn": decision_vs_conf_warn,
+        "sample_lead": sample_lead,
+        "sample_lead_name": sample_lead_name,
+        "sample_lead_share": sample_lead_share,
         "latest_at": latest_at,
     }
 
@@ -6261,9 +6302,12 @@ def build_ai_debate_glance(
     match. Same ticker + debate action vs LAYA edge:
     ``BUY/edge clash · thin`` / ``SELL/edge clash · strong`` (extremes
     only; mid ok silent; early on the line so the 96-char clip keeps
-    it). Same-row action vs typed conf: ``BUY/conf clash · lo`` /
+    it).     Same-row action vs typed conf: ``BUY/conf clash · lo`` /
     ``SELL/conf align · hi`` (conviction model; mid med silent; clash
-    paints ``aging``). Not a research score and not a new gate.
+    paints ``aging``). Decided sample (≥2, gated out) with a strict lead
+    speaks ``lead BUY · N%`` after the BUY/HOLD/SELL counts (ties / thin
+    silent; last BUY ≠ sample tilt). Not a research score and not a new
+    gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -6291,6 +6335,9 @@ def build_ai_debate_glance(
         "decision_vs_edge_warn": False,
         "decision_vs_conf": "",
         "decision_vs_conf_warn": False,
+        "sample_lead": "",
+        "sample_lead_name": "",
+        "sample_lead_share": None,
         "latest_confidence": "",
         "latest_at": "",
     }
@@ -6390,6 +6437,11 @@ def build_ai_debate_glance(
                     action, edge_band
                 )
     bits = [f"{count} debates", f"{buy} BUY", f"{hold} HOLD", f"{sell} SELL"]
+    sample_lead, sample_lead_name, sample_lead_share = _decision_sample_lead(
+        [("BUY", buy), ("HOLD", hold), ("SELL", sell)]
+    )
+    if sample_lead:
+        bits.append(sample_lead)
     if gated:
         bits.append(f"{gated} gated")
     if age_label and freshness and freshness != "unknown":
@@ -6486,6 +6538,9 @@ def build_ai_debate_glance(
         "decision_vs_edge_warn": decision_vs_edge_warn,
         "decision_vs_conf": decision_vs_conf,
         "decision_vs_conf_warn": decision_vs_conf_warn,
+        "sample_lead": sample_lead,
+        "sample_lead_name": sample_lead_name,
+        "sample_lead_share": sample_lead_share,
         "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }

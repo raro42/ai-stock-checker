@@ -966,6 +966,52 @@ def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:
     assert g["confidence_bits"] == "conf med"
 
 
+def test_build_ai_debate_glance_sample_lead(tmp_path: Path) -> None:
+    """Decided sample (≥2) speaks strict lead BUY|HOLD|SELL · N% (display only)."""
+    at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write(events: list[dict]) -> None:
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps({"updated_at": at, "events": events}) + "\n",
+            encoding="utf-8",
+        )
+
+    def _row(action: str, symbol: str, *, conf: str = "MEDIUM") -> dict:
+        return {
+            "at": at,
+            "symbol": symbol,
+            "action": action,
+            "confidence": conf,
+            "score": 20,
+            "reasons": ["tape"],
+            "kept": True,
+            "gated": False,
+        }
+
+    _write([_row("BUY", "AAPL")])
+    thin = build_ai_debate_glance(tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900)
+    assert thin["sample_lead"] == ""
+    assert thin["sample_lead_share"] is None
+
+    _write([_row("BUY", "AAPL"), _row("BUY", "MSFT"), _row("HOLD", "NVDA")])
+    lead = build_ai_debate_glance(
+        tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
+    )
+    assert lead["sample_lead"] == "lead BUY · 67%"
+    assert lead["sample_lead_name"] == "BUY"
+    assert lead["sample_lead_share"] == 67
+    assert "2 BUY" in lead["line"]
+    assert "lead BUY · 67%" in lead["line"]
+    assert lead["line"].index("2 BUY") < lead["line"].index("lead BUY")
+
+    _write([_row("BUY", "AAPL"), _row("SELL", "MSFT")])
+    tied = build_ai_debate_glance(
+        tmp_path, now=datetime.now(timezone.utc), scan_interval_sec=900
+    )
+    assert tied["sample_lead"] == ""
+    assert "lead " not in tied["line"]
+
+
 def test_ideas_template_has_ai_debates_section() -> None:
     text = Path("openbb_backend/templates/desk_ideas.html").read_text()
     assert "ai_debates" in text
