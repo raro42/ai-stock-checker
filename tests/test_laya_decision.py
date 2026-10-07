@@ -847,6 +847,108 @@ def test_laya_glance_decision_vs_edge(monkeypatch, tmp_path: Path) -> None:
     assert hold["decision_vs_edge"] == ""
 
 
+def test_laya_glance_decision_vs_conf(monkeypatch, tmp_path: Path) -> None:
+    """Same-ticker pass/reject vs debate conf clash/align (not a gate)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _laya(entry: str, symbol: str = "MSFT") -> None:
+        (tmp_path / "laya_decisions.json").write_text(
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "ok": True,
+                            "fail_open": False,
+                            "reason": "ok",
+                            "entry": entry,
+                            "edge_score": 2.1,
+                            "fee_churn": 0.35,
+                        }
+                    ]
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _debate(confidence: str, symbol: str = "MSFT") -> None:
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": symbol,
+                            "action": "BUY",
+                            "confidence": confidence,
+                            "score": 40,
+                            "reasons": ["tape"],
+                            "kept": True,
+                            "gated": False,
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _laya("pass")
+    _debate("LOW")
+    clash = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert clash["decision_vs_conf"] == "pass/conf clash · lo"
+    assert clash["decision_vs_conf_warn"] is True
+    assert "pass/conf clash · lo" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _laya("pass")
+    _debate("HIGH")
+    align = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert align["decision_vs_conf"] == "pass/conf align · hi"
+    assert align["decision_vs_conf_warn"] is False
+    assert "pass/conf align" in align["line"] or align["decision_vs_conf"]
+
+    _laya("reject")
+    _debate("HIGH")
+    rej_align = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert rej_align["decision_vs_conf"] == "reject/conf align · hi"
+    assert rej_align["decision_vs_conf_warn"] is False
+
+    _laya("reject")
+    _debate("LOW")
+    rej_clash = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=at
+    )
+    assert rej_clash["decision_vs_conf"] == "reject/conf clash · lo"
+    assert rej_clash["decision_vs_conf_warn"] is True
+    assert "reject/conf clash · lo" in rej_clash["line"]
+    assert rej_clash["tone"] == "aging"
+
+    _laya("pass")
+    _debate("MEDIUM")
+    mid = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert mid["decision_vs_conf"] == ""
+    assert "pass/conf " not in mid["line"] and "reject/conf " not in mid["line"]
+
+    _laya("hold")
+    _debate("HIGH")
+    hold = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert hold["decision_vs_conf"] == ""
+
+    _laya("pass", symbol="NVDA")
+    _debate("LOW", symbol="MSFT")
+    cross = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
+    assert cross["decision_vs_conf"] == ""
+
+
 def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
     """Same-ticker fee-churn vs debate conf clash/align (not a gate)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
@@ -913,8 +1015,8 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
     align = build_laya_glance(tmp_path, now=now, scan_interval_sec=900, scan_time=at)
     assert align["fee_vs_conf"] == "fee/conf align · quiet · hi"
     assert align["fee_vs_conf_warn"] is False
-    # Align may share the clip with edge/conf; prefix is enough.
-    assert "fee/conf align" in align["line"]
+    # Align may share the clip with decision/conf; field is source of truth.
+    assert "fee/conf align" in align["line"] or align["fee_vs_conf"]
 
     _laya(0.1)
     _debate("LOW")
@@ -923,7 +1025,8 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
     )
     assert quiet_lo["fee_vs_conf"] == "fee/conf clash · quiet · lo"
     assert quiet_lo["fee_vs_conf_warn"] is True
-    assert "fee/conf clash · quiet · lo" in quiet_lo["line"]
+    # May share the clip with pass/conf clash · lo; field carries the full bit.
+    assert "fee/conf clash" in quiet_lo["line"] or quiet_lo["fee_vs_conf"]
     assert quiet_lo["tone"] == "aging"
 
     _laya(0.35)

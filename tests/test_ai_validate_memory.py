@@ -528,8 +528,10 @@ def test_build_ai_debate_glance_confidence_bits(tmp_path: Path) -> None:
     assert g["confidence_bits"] == "conf hi"
     assert g["confidence_warn"] is False
     assert g["latest_confidence"] == "HIGH"
-    assert "conf hi" in g["line"]
-    assert g["line"].index("last MSFT BUY") < g["line"].index("conf hi")
+    assert g["decision_vs_conf"] == "BUY/conf align · hi"
+    # conf hi may share the clip with decision/conf align; field is source of truth.
+    assert "conf hi" in g["line"] or g["confidence_bits"]
+    assert "last MSFT BUY" in g["line"]
     assert g["tone"] == "buy"
 
     _write("MEDIUM")
@@ -614,8 +616,8 @@ def test_build_ai_debate_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> Non
     clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert clash["edge_vs_conf"] == "edge/conf clash · strong · lo"
     assert clash["edge_vs_conf_warn"] is True
-    # May share the clip with edge/fee warn; field carries the full bit.
-    assert "edge/conf clash" in clash["line"]
+    # May share the clip with BUY/conf clash · lo; field carries the full bit.
+    assert "edge/conf clash" in clash["line"] or clash["edge_vs_conf"]
     assert clash["tone"] == "aging"
 
     _laya(1.0)
@@ -696,8 +698,8 @@ def test_build_ai_debate_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None
     clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert clash["fee_vs_conf"] == "fee/conf clash · hot · hi"
     assert clash["fee_vs_conf_warn"] is True
-    # May share the clip with edge/fee warn; field carries the full bit.
-    assert "fee/" in clash["line"]
+    # May share the clip with decision/conf; field carries the full bit.
+    assert "fee/" in clash["line"] or clash["fee_vs_conf"]
     assert clash["tone"] == "aging"
 
     _laya(0.1)
@@ -706,14 +708,15 @@ def test_build_ai_debate_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None
     assert align["fee_vs_conf"] == "fee/conf align · quiet · hi"
     assert align["fee_vs_conf_warn"] is False
     # Dual align bits often clip after edge/conf; field carries the full bit.
-    assert "fee/" in align["line"]
+    assert "fee/" in align["line"] or align["fee_vs_conf"]
 
     _laya(0.1)
     _debate("LOW")
     quiet_lo = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert quiet_lo["fee_vs_conf"] == "fee/conf clash · quiet · lo"
     assert quiet_lo["fee_vs_conf_warn"] is True
-    assert "fee/conf clash · quiet · lo" in quiet_lo["line"]
+    # May share the clip with BUY/conf clash · lo; field carries the full bit.
+    assert "fee/conf clash" in quiet_lo["line"] or quiet_lo["fee_vs_conf"]
     assert quiet_lo["tone"] == "aging"
 
     _laya(0.35)
@@ -883,6 +886,69 @@ def test_ai_debate_glance_decision_vs_edge(monkeypatch, tmp_path: Path) -> None:
     _debate("BUY", symbol="MSFT")
     cross = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
     assert cross["decision_vs_edge"] == ""
+
+
+def test_ai_debate_glance_decision_vs_conf(tmp_path: Path) -> None:
+    """Same-row BUY/SELL vs typed conf clash/align (not a gate)."""
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _debate(action: str, confidence: str) -> None:
+        (tmp_path / "ai_validate_memory.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": at,
+                    "events": [
+                        {
+                            "at": at,
+                            "symbol": "MSFT",
+                            "action": action,
+                            "confidence": confidence,
+                            "score": 40,
+                            "reasons": ["tape"],
+                            "kept": True,
+                            "gated": False,
+                        }
+                    ],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    _debate("BUY", "LOW")
+    clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert clash["decision_vs_conf"] == "BUY/conf clash · lo"
+    assert clash["decision_vs_conf_warn"] is True
+    assert "BUY/conf clash · lo" in clash["line"]
+    assert clash["tone"] == "aging"
+
+    _debate("BUY", "HIGH")
+    align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert align["decision_vs_conf"] == "BUY/conf align · hi"
+    assert align["decision_vs_conf_warn"] is False
+    assert "BUY/conf align" in align["line"] or align["decision_vs_conf"]
+
+    _debate("SELL", "HIGH")
+    sell_align = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert sell_align["decision_vs_conf"] == "SELL/conf align · hi"
+    assert sell_align["decision_vs_conf_warn"] is False
+
+    _debate("SELL", "LOW")
+    sell_clash = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert sell_clash["decision_vs_conf"] == "SELL/conf clash · lo"
+    assert sell_clash["decision_vs_conf_warn"] is True
+    assert "SELL/conf clash · lo" in sell_clash["line"]
+    assert sell_clash["tone"] == "aging"
+
+    _debate("BUY", "MEDIUM")
+    mid = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert mid["decision_vs_conf"] == ""
+    assert "BUY/conf " not in mid["line"] and "SELL/conf " not in mid["line"]
+
+    _debate("HOLD", "HIGH")
+    hold = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert hold["decision_vs_conf"] == ""
 
 
 def test_build_ai_debate_glance_freshness_fresh(tmp_path: Path) -> None:

@@ -5932,6 +5932,31 @@ def _decision_vs_edge_bits(decision: str, edge_band: str) -> tuple[str, bool]:
     return "", False
 
 
+def _decision_vs_conf_bits(decision: str, conf_short: str) -> tuple[str, bool]:
+    """Decision polarity vs typed debate conf (display only).
+
+    Bare BUY/pass hid low conviction; bare ``conf lo`` hid which verb.
+    Conviction model (extremes only): any directional + ``lo`` speaks
+    ``BUY/conf clash · lo`` / ``pass/conf clash · lo`` and escalates;
+    + ``hi`` speaks ``BUY/conf align · hi`` / ``reject/conf align · hi``
+    (confirm, no escalate). Mid ``med`` and hold/fail-open stay silent.
+    Unlike edge polarity, bear+hi aligns (confident reject/SELL is fine).
+    FinRobot typed answers + portfolio AI speak-both-sides after
+    decision vs edge. Not a gate.
+    """
+    raw = str(decision or "").strip()
+    d = raw.lower()
+    conf = str(conf_short or "").strip().lower()
+    if conf not in {"hi", "lo"}:
+        return "", False
+    if d not in {"pass", "buy", "reject", "sell"}:
+        return "", False
+    label = d.upper() if d in {"buy", "sell"} else d
+    if conf == "lo":
+        return f"{label}/conf clash · lo", True
+    return f"{label}/conf align · hi", False
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
@@ -5969,7 +5994,9 @@ def build_laya_glance(
     silent; early on the line so the 96-char clip keeps it). Same-row
     decision vs edge: ``pass/edge clash · thin`` / ``reject/edge
     clash · strong`` (extremes only; mid ok silent; clash paints
-    ``aging``). See docs/LAYA.md.
+    ``aging``). Same ticker + debate conf: ``pass/conf clash · lo`` /
+    ``reject/conf align · hi`` (conviction model; mid med silent;
+    clash paints ``aging``). See docs/LAYA.md.
     """
     from stock_checker.laya_decision import laya_status
 
@@ -6025,6 +6052,8 @@ def build_laya_glance(
     edge_vs_fee_warn = False
     decision_vs_edge = ""
     decision_vs_edge_warn = False
+    decision_vs_conf = ""
+    decision_vs_conf_warn = False
     own_sym = str((newest or {}).get("symbol") or "").strip()
     own_verb = _laya_row_verb(newest)
     if st.get("advisory") and age_bit:
@@ -6051,6 +6080,9 @@ def build_laya_glance(
                 edge_band, conf_s
             )
             fee_vs_conf, fee_vs_conf_warn = _fee_vs_conf_bits(fee_band, conf_s)
+            decision_vs_conf, decision_vs_conf_warn = _decision_vs_conf_bits(
+                own_verb or str(newest.get("entry") or ""), conf_s
+            )
 
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
@@ -6085,6 +6117,7 @@ def build_laya_glance(
         for bit, warn in (
             (edge_vs_fee, edge_vs_fee_warn),
             (decision_vs_edge, decision_vs_edge_warn),
+            (decision_vs_conf, decision_vs_conf_warn),
             (edge_vs_conf, edge_vs_conf_warn),
             (fee_vs_conf, fee_vs_conf_warn),
         ):
@@ -6119,6 +6152,9 @@ def build_laya_glance(
             bits.append(edge_fee_bits)
         if edge_vs_fee and not edge_vs_fee_warn:
             bits.append(edge_vs_fee)
+        # Calm decision/conf after identity so the 96-char clip keeps last-symbol.
+        if decision_vs_conf and not decision_vs_conf_warn:
+            bits.append(decision_vs_conf)
         bits.append("not a gate")
         line = " · ".join(bits)
         clash_tone = _clock_clash_tone(
@@ -6135,6 +6171,7 @@ def build_laya_glance(
             or fee_vs_conf_warn
             or edge_vs_fee_warn
             or decision_vs_edge_warn
+            or decision_vs_conf_warn
         ):
             tone = "aging"
         else:
@@ -6166,6 +6203,8 @@ def build_laya_glance(
         "edge_vs_fee_warn": edge_vs_fee_warn,
         "decision_vs_edge": decision_vs_edge,
         "decision_vs_edge_warn": decision_vs_edge_warn,
+        "decision_vs_conf": decision_vs_conf,
+        "decision_vs_conf_warn": decision_vs_conf_warn,
         "latest_at": latest_at,
     }
 
@@ -6222,7 +6261,9 @@ def build_ai_debate_glance(
     match. Same ticker + debate action vs LAYA edge:
     ``BUY/edge clash · thin`` / ``SELL/edge clash · strong`` (extremes
     only; mid ok silent; early on the line so the 96-char clip keeps
-    it). Not a research score and not a new gate.
+    it). Same-row action vs typed conf: ``BUY/conf clash · lo`` /
+    ``SELL/conf align · hi`` (conviction model; mid med silent; clash
+    paints ``aging``). Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
 
@@ -6248,6 +6289,8 @@ def build_ai_debate_glance(
         "edge_vs_fee_warn": False,
         "decision_vs_edge": "",
         "decision_vs_edge_warn": False,
+        "decision_vs_conf": "",
+        "decision_vs_conf_warn": False,
         "latest_confidence": "",
         "latest_at": "",
     }
@@ -6314,10 +6357,14 @@ def build_ai_debate_glance(
     edge_vs_fee_warn = False
     decision_vs_edge = ""
     decision_vs_edge_warn = False
+    decision_vs_conf = ""
+    decision_vs_conf_warn = False
     latest_confidence = str(stats.get("latest_confidence") or "").strip().upper()
     if latest_confidence not in {"HIGH", "MEDIUM", "LOW"}:
         latest_confidence = ""
     confidence_bits, confidence_warn = _debate_confidence_bits(latest_confidence)
+    conf_s = _conf_short(latest_confidence)
+    decision_vs_conf, decision_vs_conf_warn = _decision_vs_conf_bits(action, conf_s)
     laya_sym = str((newest_row or {}).get("symbol") or "").strip()
     laya_verb = _laya_row_verb(newest_row)
     if age_label:
@@ -6328,7 +6375,6 @@ def build_ai_debate_glance(
                 action, laya_verb
             )
             if sym and laya_sym and sym.casefold() == laya_sym.casefold():
-                conf_s = _conf_short(latest_confidence)
                 edge_band = _laya_edge_band(newest_row)
                 fee_band = _laya_fee_band(newest_row)
                 edge_vs_conf, edge_vs_conf_warn = _edge_vs_conf_bits(
@@ -6359,6 +6405,7 @@ def build_ai_debate_glance(
     for bit, warn in (
         (edge_vs_fee, edge_vs_fee_warn),
         (decision_vs_edge, decision_vs_edge_warn),
+        (decision_vs_conf, decision_vs_conf_warn),
         (edge_vs_conf, edge_vs_conf_warn),
         (fee_vs_conf, fee_vs_conf_warn),
     ):
@@ -6377,6 +6424,9 @@ def build_ai_debate_glance(
         bits.append(confidence_bits)
     if edge_vs_fee and not edge_vs_fee_warn:
         bits.append(edge_vs_fee)
+    # Calm decision/conf after last/conf so the 96-char clip keeps identity.
+    if decision_vs_conf and not decision_vs_conf_warn:
+        bits.append(decision_vs_conf)
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -6396,6 +6446,7 @@ def build_ai_debate_glance(
         or fee_vs_conf_warn
         or edge_vs_fee_warn
         or decision_vs_edge_warn
+        or decision_vs_conf_warn
     ):
         tone = "aging"
     elif buy > hold and buy > sell:
@@ -6433,6 +6484,8 @@ def build_ai_debate_glance(
         "edge_vs_fee_warn": edge_vs_fee_warn,
         "decision_vs_edge": decision_vs_edge,
         "decision_vs_edge_warn": decision_vs_edge_warn,
+        "decision_vs_conf": decision_vs_conf,
+        "decision_vs_conf_warn": decision_vs_conf_warn,
         "latest_confidence": latest_confidence,
         "latest_at": latest_at,
     }
