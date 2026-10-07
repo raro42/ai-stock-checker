@@ -22,12 +22,41 @@ def _finite(value: Any, default: float = 0.0) -> float:
 
 
 def _load_json(path: Path, default: Any) -> Any:
+    """Parse JSON. Non-object when an object is expected → lean fallback.
+
+    xang1234 #498 / #540: a parseable list/string/null must not crash
+    ``.get`` callers — treat it as absent, same as unreadable.
+    """
     if not path.exists():
         return default
     try:
-        return json.loads(path.read_text())
+        doc = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
         return default
+    if isinstance(default, dict) and not isinstance(doc, dict):
+        return default
+    if isinstance(default, list) and not isinstance(doc, list):
+        return default
+    return doc
+
+
+def _parse_chart_points(raw: Any) -> list[dict[str, Any]]:
+    """Parse advertised chart points — presence alone is not enough.
+
+    xang1234 c6f8650: require a list of point objects with finite closes;
+    skip non-dicts and junk closes rather than treating a truthy blob as hit.
+    """
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for p in raw:
+        if not isinstance(p, dict):
+            continue
+        close = _finite(p.get("close"), default=float("nan"))
+        if not math.isfinite(close):
+            continue
+        out.append({"t": p.get("t"), "close": round(close, 6)})
+    return out
 
 
 def _load_jsonl(path: Path) -> list[dict]:
@@ -232,28 +261,18 @@ def fetch_price_history(
     cached = _load_json(path, {})
     # Intraday moves faster — shorter cache TTL.
     max_age = 45 * 60 if interval != "1d" else 6 * 3600
-
-    def _clean(points: list) -> list[dict[str, Any]]:
-        out: list[dict[str, Any]] = []
-        for p in points or []:
-            close = _finite(p.get("close"), default=float("nan"))
-            if not math.isfinite(close):
-                continue
-            out.append({"t": p.get("t"), "close": round(close, 6)})
-        return out
+    cleaned = _parse_chart_points(cached.get("points"))
 
     if (
         cached.get("symbol") == symbol
         and cached.get("interval", "1d") == interval
-        and cached.get("points")
+        and cleaned
         and (time.time() - float(cached.get("fetched_at") or 0)) < max_age
     ):
-        cleaned = _clean(list(cached["points"]))
-        if cleaned:
-            return cleaned
+        return cleaned
 
     if not live:
-        return _clean(list(cached.get("points") or []))
+        return cleaned
 
     try:
         import yfinance as yf
@@ -291,7 +310,7 @@ def fetch_price_history(
             )
         return points
     except Exception:
-        return _clean(list(cached.get("points") or []))
+        return cleaned
 
 
 def build_price_panels(
@@ -305,14 +324,16 @@ def build_price_panels(
             "no",
         }
     portfolio = _load_json(data_dir / "portfolio.json", {})
-    holdings = list((portfolio.get("holdings") or {}).keys())
+    holds_raw = portfolio.get("holdings")
+    holdings = list(holds_raw.keys()) if isinstance(holds_raw, dict) else []
     # Also include top scan breakouts for color
     opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
-    extras = [
-        r.get("symbol")
-        for r in (opp.get("stock_breakouts") or [])[:4]
-        if r.get("symbol")
-    ]
+    breakouts = opp.get("stock_breakouts")
+    extras: list[str] = []
+    if isinstance(breakouts, list):
+        for r in breakouts[:4]:
+            if isinstance(r, dict) and r.get("symbol"):
+                extras.append(str(r["symbol"]))
     symbols: list[str] = []
     for s in holdings + extras:
         if s and s not in symbols:

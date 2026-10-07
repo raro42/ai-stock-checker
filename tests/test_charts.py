@@ -447,6 +447,62 @@ def test_price_history_skips_nan(tmp_path: Path, monkeypatch):
     assert all(p["close"] == p["close"] for p in pts)  # no NaN
 
 
+def test_price_history_lean_fallback_non_object_cache(tmp_path: Path, monkeypatch):
+    """xang1234 #498: parseable non-object chart cache → empty, not crash."""
+    from openbb_backend.charts import fetch_price_history
+
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    (cache / "AAPL.json").write_text("[]\n")
+    assert fetch_price_history("AAPL", tmp_path, live=False) == []
+    (cache / "AAPL.json").write_text("null\n")
+    assert fetch_price_history("AAPL", tmp_path, live=False) == []
+    (cache / "MSFT.json").write_text('"oops"\n')
+    assert fetch_price_history("MSFT", tmp_path, live=False) == []
+
+
+def test_price_history_parses_advertised_points(tmp_path: Path, monkeypatch):
+    """xang1234 c6f8650: truthy points blob ≠ hit — require list of point objects."""
+    from openbb_backend.charts import fetch_price_history, _parse_chart_points
+
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    # Presence-only trap: points is a non-empty string.
+    (cache / "AAPL.json").write_text(
+        json.dumps(
+            {
+                "symbol": "AAPL",
+                "interval": "1d",
+                "fetched_at": 9e12,
+                "points": "advertised",
+            }
+        )
+    )
+    assert fetch_price_history("AAPL", tmp_path, live=False) == []
+    # Mixed junk in an advertised list — keep only real closes.
+    (cache / "AAPL.json").write_text(
+        json.dumps(
+            {
+                "symbol": "AAPL",
+                "interval": "1d",
+                "fetched_at": 9e12,
+                "points": [
+                    "junk",
+                    {"t": "2026-07-01T00:00:00Z", "close": 100},
+                    {"t": "2026-07-02T00:00:00Z"},
+                    42,
+                ],
+            }
+        )
+    )
+    pts = fetch_price_history("AAPL", tmp_path, live=False)
+    assert pts == [{"t": "2026-07-01T00:00:00Z", "close": 100.0}]
+    assert _parse_chart_points(None) == []
+    assert _parse_chart_points({"close": 1}) == []
+
+
 def test_unrealized_curve_offline(tmp_path: Path, monkeypatch):
     from openbb_backend.charts import build_unrealized_curve
 
