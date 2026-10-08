@@ -46,6 +46,10 @@ def is_soft_allow_reason(reason: str) -> bool:
 # floors as Screener junk share — absolute ``N gap`` ≠ ring share.
 SOFT_ALLOW_ANCHOR_GAP_SHARE_HOT = 50.0
 SOFT_ALLOW_ANCHOR_GAP_SHARE_QUIET = 25.0
+# Non-gap remainder (other÷rows). Same strong/thin floors as Screener ok
+# share — gap% alone hid usable fail-opens that are not anchor-gap.
+SOFT_ALLOW_OTHER_SHARE_STRONG = 75.0
+SOFT_ALLOW_OTHER_SHARE_THIN = 50.0
 
 
 def soft_allow_anchor_gap_count(
@@ -91,16 +95,51 @@ def soft_allow_anchor_gap_share(
     return gap_n, share, severity
 
 
+def soft_allow_anchor_gap_vs_other(
+    events: list[dict[str, Any]] | None,
+) -> tuple[int, float | None, str]:
+    """Non-gap remainder when gap already spoke (display only).
+
+    Returns ``(other_n, share_pct, severity)``. No gaps →
+    ``(0, None, "")``. Other = Mapping-rows − gap; strong ≥75% ·
+    thin <50% · mid ``ok``. All-gap → ``(0, 0.0, "thin")`` — Screener
+    junk vs ok sides parity after gap% alone hid usable ring rows
+    (portfolio AI speak-both-sides; xang1234 #539).
+    """
+    rows = [r for r in (events or []) if isinstance(r, dict)]
+    gap_n = soft_allow_anchor_gap_count(rows)
+    if gap_n <= 0 or not rows:
+        return 0, None, ""
+    other_n = len(rows) - gap_n
+    share = round(100.0 * other_n / len(rows), 1)
+    if share >= SOFT_ALLOW_OTHER_SHARE_STRONG:
+        severity = "strong"
+    elif share < SOFT_ALLOW_OTHER_SHARE_THIN:
+        severity = "thin"
+    else:
+        severity = "ok"
+    return other_n, share, severity
+
+
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · hot|quiet · P%`` (mid omits lean; zero silent)."""
+    """Compact ``N gap · hot|quiet · P% · vs M other · …`` (zero silent)."""
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
         return ""
     if severity in {"hot", "quiet"}:
-        return f"{gap_n} gap · {severity} · {share:g}%"
-    return f"{gap_n} gap · {share:g}%"
+        bit = f"{gap_n} gap · {severity} · {share:g}%"
+    else:
+        bit = f"{gap_n} gap · {share:g}%"
+    other_n, other_share, other_sev = soft_allow_anchor_gap_vs_other(events)
+    if other_share is None:
+        return bit
+    if other_sev in {"strong", "thin"}:
+        other_bit = f"vs {other_n} other · {other_sev} · {other_share:g}%"
+    else:
+        other_bit = f"vs {other_n} other · {other_share:g}%"
+    return f"{bit} · {other_bit}"
 
 
 def load_soft_allows(data_dir: Path | str) -> list[dict[str, Any]]:

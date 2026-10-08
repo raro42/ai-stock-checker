@@ -66,17 +66,19 @@ def test_soft_allow_anchor_gap_count() -> None:
 
 
 def test_soft_allow_anchor_gap_share() -> None:
-    """portfolio AI count≠share: gap÷ring with hot/quiet floors."""
+    """portfolio AI count≠share: gap÷ring with hot/quiet floors + vs other."""
     from stock_checker.gate_audit import (
         format_soft_allow_anchor_gap_bit,
         soft_allow_anchor_gap_share,
+        soft_allow_anchor_gap_vs_other,
     )
 
     assert soft_allow_anchor_gap_share(None) == (0, None, "")
     assert soft_allow_anchor_gap_share([]) == (0, None, "")
+    assert soft_allow_anchor_gap_vs_other(None) == (0, None, "")
     assert format_soft_allow_anchor_gap_bit(None) == ""
 
-    # 1/4 = 25% → quiet
+    # 1/4 = 25% gap quiet · 75% other strong
     quiet_rows = [
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "MSFT RS unknown — allow"},
@@ -84,25 +86,43 @@ def test_soft_allow_anchor_gap_share() -> None:
         {"gate": "breadth", "reason": "unknown scan"},
     ]
     assert soft_allow_anchor_gap_share(quiet_rows) == (1, 25.0, "quiet")
-    assert format_soft_allow_anchor_gap_bit(quiet_rows) == "1 gap · quiet · 25%"
+    assert soft_allow_anchor_gap_vs_other(quiet_rows) == (3, 75.0, "strong")
+    assert format_soft_allow_anchor_gap_bit(quiet_rows) == (
+        "1 gap · quiet · 25% · vs 3 other · strong · 75%"
+    )
 
-    # 2/3 ≈ 66.7% → hot
+    # 2/3 ≈ 66.7% gap hot · 33.3% other thin
     hot_rows = [
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "SPY RS unknown — allow"},
         {"gate": "rs", "reason": "MSFT RS unknown — anchor gap — allow"},
     ]
     assert soft_allow_anchor_gap_share(hot_rows) == (2, 66.7, "hot")
-    assert format_soft_allow_anchor_gap_bit(hot_rows) == "2 gap · hot · 66.7%"
+    assert soft_allow_anchor_gap_vs_other(hot_rows) == (1, 33.3, "thin")
+    assert format_soft_allow_anchor_gap_bit(hot_rows) == (
+        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3%"
+    )
 
-    # 2/5 = 40% → mid ok (lean silent)
+    # 2/5 = 40% gap mid · 60% other mid (leans silent)
     mid_rows = hot_rows + [
         {"gate": "regime", "reason": "unknown — no SPY bars"},
         {"gate": "breadth", "reason": "unknown scan"},
     ]
     assert soft_allow_anchor_gap_share(mid_rows) == (2, 40.0, "ok")
-    assert format_soft_allow_anchor_gap_bit(mid_rows) == "2 gap · 40%"
+    assert soft_allow_anchor_gap_vs_other(mid_rows) == (3, 60.0, "ok")
+    assert format_soft_allow_anchor_gap_bit(mid_rows) == (
+        "2 gap · 40% · vs 3 other · 60%"
+    )
 
+    # All-gap → vs 0 other · thin · 0%
+    all_gap = [
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+        {"gate": "rs", "reason": "MSFT RS unknown — anchor gap — allow"},
+    ]
+    assert soft_allow_anchor_gap_vs_other(all_gap) == (0, 0.0, "thin")
+    assert format_soft_allow_anchor_gap_bit(all_gap) == (
+        "2 gap · hot · 100% · vs 0 other · thin · 0%"
+    )
 
 def test_record_and_recent_soft_allows(tmp_path: Path) -> None:
     record_soft_allow(tmp_path, "regime", "unknown — no bars")
