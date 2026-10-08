@@ -42,6 +42,12 @@ def is_soft_allow_reason(reason: str) -> bool:
     return any(m in r for m in _SOFT_MARKERS)
 
 
+# Anchor-gap ownership of the soft-allow ring (gap÷rows). Same hot/quiet
+# floors as Screener junk share — absolute ``N gap`` ≠ ring share.
+SOFT_ALLOW_ANCHOR_GAP_SHARE_HOT = 50.0
+SOFT_ALLOW_ANCHOR_GAP_SHARE_QUIET = 25.0
+
+
 def soft_allow_anchor_gap_count(
     events: list[dict[str, Any]] | None,
 ) -> int:
@@ -59,6 +65,42 @@ def soft_allow_anchor_gap_count(
         if "anchor gap" in str(row.get("reason") or "").casefold():
             n += 1
     return n
+
+
+def soft_allow_anchor_gap_share(
+    events: list[dict[str, Any]] | None,
+) -> tuple[int, float | None, str]:
+    """Anchor-gap count + ring share + severity (display only).
+
+    Returns ``(count, share_pct, severity)``. Zero gaps →
+    ``(0, None, "")``. Share is gap÷Mapping-rows; hot ≥50% · quiet ≤25% ·
+    mid ``ok`` (portfolio AI count≠share after absolute ``N gap``;
+    xang1234 #539 reject-anchor-gap).
+    """
+    rows = [r for r in (events or []) if isinstance(r, dict)]
+    gap_n = soft_allow_anchor_gap_count(rows)
+    if gap_n <= 0 or not rows:
+        return 0, None, ""
+    share = round(100.0 * gap_n / len(rows), 1)
+    if share >= SOFT_ALLOW_ANCHOR_GAP_SHARE_HOT:
+        severity = "hot"
+    elif share <= SOFT_ALLOW_ANCHOR_GAP_SHARE_QUIET:
+        severity = "quiet"
+    else:
+        severity = "ok"
+    return gap_n, share, severity
+
+
+def format_soft_allow_anchor_gap_bit(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Compact ``N gap · hot|quiet · P%`` (mid omits lean; zero silent)."""
+    gap_n, share, severity = soft_allow_anchor_gap_share(events)
+    if gap_n <= 0 or share is None:
+        return ""
+    if severity in {"hot", "quiet"}:
+        return f"{gap_n} gap · {severity} · {share:g}%"
+    return f"{gap_n} gap · {share:g}%"
 
 
 def load_soft_allows(data_dir: Path | str) -> list[dict[str, Any]]:

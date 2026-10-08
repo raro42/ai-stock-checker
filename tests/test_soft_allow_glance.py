@@ -42,6 +42,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["aging_hours"] == 12.0
     assert g["last_gate"] == "regime"
     assert g["anchor_gap_count"] == 0
+    assert g["anchor_gap_share_pct"] is None
+    assert g["anchor_gap_share_severity"] == ""
     assert g["anchor_gap_bit"] == ""
     assert g["line"].startswith("hot · ")
     assert "1 recent soft-allow" in g["line"]
@@ -51,7 +53,7 @@ def test_soft_allow_glance_one() -> None:
 
 
 def test_soft_allow_glance_anchor_gap_count() -> None:
-    """xang1234 #539: rs×N alone ≠ gappy-anchor fail-open count."""
+    """xang1234 #539: rs×N alone ≠ gappy-anchor fail-open count + share."""
     now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
     g = build_soft_allow_glance(
         [
@@ -75,10 +77,47 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     )
     assert g["ready"] is True
     assert g["anchor_gap_count"] == 2
-    assert g["anchor_gap_bit"] == "2 gap"
-    assert "2 gap" in g["line"]
+    assert g["anchor_gap_share_pct"] == 66.7
+    assert g["anchor_gap_share_severity"] == "hot"
+    assert g["anchor_gap_bit"] == "2 gap · hot · 66.7%"
+    assert "2 gap · hot · 66.7%" in g["line"]
     assert "last [rs]" in g["line"]
     assert "anchor gap" in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
+    """portfolio AI: low gap ownership speaks quiet · % (not bare count)."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": "2026-10-08T11:00:00Z",
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": "2026-10-08T10:45:00Z",
+                "gate": "rs",
+                "reason": "MSFT RS unknown — allow",
+            },
+            {
+                "at": "2026-10-08T10:30:00Z",
+                "gate": "regime",
+                "reason": "unknown — no SPY bars",
+            },
+            {
+                "at": "2026-10-08T10:00:00Z",
+                "gate": "breadth",
+                "reason": "unknown scan",
+            },
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_count"] == 1
+    assert g["anchor_gap_share_pct"] == 25.0
+    assert g["anchor_gap_share_severity"] == "quiet"
+    assert g["anchor_gap_bit"] == "1 gap · quiet · 25%"
+    assert "1 gap · quiet · 25%" in g["line"]
 
 
 def test_soft_allow_glance_truncates_reason() -> None:
