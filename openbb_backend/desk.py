@@ -1099,6 +1099,11 @@ def build_soft_allow_glance(
     ``vs 0 other · thin · 0%``); sides alone ≠ lean (``gap vs other
     align · hot|thin`` / ``quiet|strong`` or clash; Screener junk vs ok
     lean parity; ``format_soft_allow_anchor_gap_bit``; zero silent).
+    Gap honesty flags escalate glance ``tone`` to ``warn`` when the
+    cursor is ``expired``, gap share is ``hot``, or lean clash already
+    set ``anchor_gap_vs_other_warn`` — age/share label ≠ clay flat
+    (RyanJHamby Ops stale-warn + Screener junk-hot; ring cool-off
+    severity stays ``cool`` / ``aging``).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1298,6 +1303,15 @@ def build_soft_allow_glance(
         severity = "cool"
         tone = "flat"
         lead_band = "expired"
+    # Gap honesty ≠ clay: expired cursor / hot share / lean clash escalate
+    # tone (RyanJHamby age≠severity + Screener junk-hot + portfolio AI after
+    # last-freshness label alone hid severity; ring cool-off stays cool).
+    if tone != "warn" and (
+        anchor_gap_last_freshness == "expired"
+        or anchor_gap_share_severity == "hot"
+        or anchor_gap_vs_other_warn
+    ):
+        tone = "warn"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
     lead = soft_allow_lead_share(rows, band=lead_band)
     margin = soft_allow_lead_margin(rows, band=lead_band)

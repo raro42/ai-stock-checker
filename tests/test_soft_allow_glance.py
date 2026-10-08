@@ -275,8 +275,72 @@ def test_soft_allow_glance_anchor_gap_last_freshness_aging() -> None:
     )
     assert g["anchor_gap_last"] == "AAPL"
     assert g["anchor_gap_last_freshness"] == "aging"
+    assert g["anchor_gap_share_severity"] == "hot"
+    assert g["anchor_gap_vs_other_warn"] is True
+    # Hot share / lean clash escalate tone; severity stays aging (not hot).
+    assert g["severity"] == "aging"
+    assert g["tone"] == "warn"
     assert g["anchor_gap_bit"].startswith("1 gap · last AAPL · aging · n=1")
     assert "last AAPL · aging" in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_expired_tone_warn() -> None:
+    """RyanJHamby age≠severity: expired gap cursor warns; cool-off stays cool."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    stale = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    other = {
+        "at": stale,
+        "gate": "rs",
+        "reason": "SPY RS unknown — allow",
+    }
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": stale,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            other,
+            {**other, "reason": "MSFT RS unknown — allow"},
+            {**other, "reason": "NVDA RS unknown — allow"},
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_last_freshness"] == "expired"
+    assert g["anchor_gap_share_severity"] == "quiet"
+    assert g["anchor_gap_vs_other_warn"] is False
+    assert g["severity"] == "cool"
+    assert g["tone"] == "warn"
+    assert "last AAPL · expired" in g["anchor_gap_bit"]
+
+
+def test_soft_allow_glance_anchor_gap_aging_quiet_stays_flat() -> None:
+    """Aging quiet gap label alone does not escalate (expired/hot/clash do)."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    other = {
+        "at": aging,
+        "gate": "rs",
+        "reason": "SPY RS unknown — allow",
+    }
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": aging,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            other,
+            {**other, "reason": "MSFT RS unknown — allow"},
+            {**other, "reason": "NVDA RS unknown — allow"},
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_last_freshness"] == "aging"
+    assert g["anchor_gap_share_severity"] == "quiet"
+    assert g["anchor_gap_vs_other_warn"] is False
+    assert g["severity"] == "aging"
+    assert g["tone"] == "flat"
 
 
 def test_soft_allow_glance_truncates_reason() -> None:
