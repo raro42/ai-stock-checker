@@ -510,10 +510,13 @@ def build_screener_opportunity_counts(
     share already spoke, also name remaining object slots
     (``vs N ok · [strong|thin] · P%``) so junk% ≠ silent empty Total —
     portfolio AI speak-both-sides after junk share (unique/dup sides
-    parity). When junk+ok sides already spoke, also lean clash/align
+    parity).     When junk+ok sides already spoke, also lean clash/align
     (``junk vs ok align · hot|thin`` / ``quiet|strong``, or clash when
     exactly one lean spoke at 50/50) — unique/dup lean parity; junk vs ok
-    share Δ still deferred. ``n_total`` is the sum of the three list
+    share Δ still deferred. When junk already spoke, also name which
+    scan lists hold junk (``in rec · crypto · brk``) — total N junk ≠
+    which sleeve is damaged (xang1234 #531 market-pointer + #540
+    damaged-artifact visibility). ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -539,6 +542,10 @@ def build_screener_opportunity_counts(
         "n_unique": 0,
         "n_dup": 0,
         "n_junk": 0,
+        "n_junk_rec": 0,
+        "n_junk_crypto": 0,
+        "n_junk_brk": 0,
+        "junk_lists": "",
         "junk_share_pct": None,
         "junk_share_severity": "",
         "ok_share_pct": None,
@@ -583,11 +590,10 @@ def build_screener_opportunity_counts(
     n_rec = len(_rows("recommendations"))
     n_crypto = len(_rows("crypto_leaders"))
     n_brk = len(_rows("stock_breakouts"))
-    n_junk = (
-        scan_list_junk_count(opportunities.get("recommendations"))
-        + scan_list_junk_count(opportunities.get("crypto_leaders"))
-        + scan_list_junk_count(opportunities.get("stock_breakouts"))
-    )
+    n_junk_rec = scan_list_junk_count(opportunities.get("recommendations"))
+    n_junk_crypto = scan_list_junk_count(opportunities.get("crypto_leaders"))
+    n_junk_brk = scan_list_junk_count(opportunities.get("stock_breakouts"))
+    n_junk = n_junk_rec + n_junk_crypto + n_junk_brk
     n_total = n_rec + n_crypto + n_brk
     unique = (
         _symbols("recommendations")
@@ -750,10 +756,20 @@ def build_screener_opportunity_counts(
     ok_share_severity = ""
     junk_vs_ok = ""
     junk_vs_ok_warn = False
+    junk_lists = ""
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
         ok_share_pct = round(100.0 * n_total / n_slots, 1)
+        list_bits: list[str] = []
+        if n_junk_rec:
+            list_bits.append("rec")
+        if n_junk_crypto:
+            list_bits.append("crypto")
+        if n_junk_brk:
+            list_bits.append("brk")
+        junk_lists = " · ".join(list_bits)
+        in_bit = f"in {junk_lists}" if junk_lists else ""
         if ok_share_pct >= SCREENER_OK_SHARE_STRONG:
             ok_share_severity = "strong"
             ok_bit = f"vs {n_total} ok · strong · {ok_share_pct:g}%"
@@ -765,13 +781,16 @@ def build_screener_opportunity_counts(
             ok_bit = f"vs {n_total} ok · {ok_share_pct:g}%"
         if junk_share_pct >= SCREENER_JUNK_SHARE_HOT:
             junk_share_severity = "hot"
-            junk_bit = f"{n_junk} junk · hot · {junk_share_pct:g}% · {ok_bit}"
+            junk_bit = f"{n_junk} junk · hot · {junk_share_pct:g}%"
         elif junk_share_pct <= SCREENER_JUNK_SHARE_QUIET:
             junk_share_severity = "quiet"
-            junk_bit = f"{n_junk} junk · quiet · {junk_share_pct:g}% · {ok_bit}"
+            junk_bit = f"{n_junk} junk · quiet · {junk_share_pct:g}%"
         else:
             junk_share_severity = "ok"
-            junk_bit = f"{n_junk} junk · {junk_share_pct:g}% · {ok_bit}"
+            junk_bit = f"{n_junk} junk · {junk_share_pct:g}%"
+        if in_bit:
+            junk_bit = f"{junk_bit} · {in_bit}"
+        junk_bit = f"{junk_bit} · {ok_bit}"
         junk_lean = junk_share_severity in {"hot", "quiet"}
         ok_lean = ok_share_severity in {"strong", "thin"}
         if junk_lean and ok_lean:
@@ -815,6 +834,10 @@ def build_screener_opportunity_counts(
         "n_unique": n_unique,
         "n_dup": n_dup,
         "n_junk": n_junk,
+        "n_junk_rec": n_junk_rec,
+        "n_junk_crypto": n_junk_crypto,
+        "n_junk_brk": n_junk_brk,
+        "junk_lists": junk_lists,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
         "ok_share_pct": ok_share_pct,
@@ -11294,6 +11317,11 @@ def load_desk_snapshot(
             "title": "Screener junk vs ok lean",
             "from": "xang1234/stock-screener + portfolio AI (unique/dup lean parity)",
             "note": "When junk+ok sides already spoke, weight_lean speaks junk vs ok align · hot|thin / quiet|strong, or clash when exactly one lean spoke (50/50); share Δ still deferred.",
+        },
+        {
+            "title": "Screener junk list pointer",
+            "from": "xang1234/stock-screener #531 market-pointer + #540 damaged-artifact",
+            "note": "When junk already spoke, weight also names which scan lists hold junk (in rec · crypto · brk); total N junk ≠ which sleeve is damaged.",
         },
         {
             "title": "Screener opportunity uniqueness share",
