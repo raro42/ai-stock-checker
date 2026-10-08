@@ -6,6 +6,7 @@ from stock_checker.relative_strength import (
     beats_benchmark,
     new_entry_rs_allowed,
     period_return,
+    rs_anchor_max_miss,
     rs_gate_enabled,
     rs_lookback,
 )
@@ -192,3 +193,18 @@ def test_rs_gate_env(monkeypatch):
     assert rs_lookback() == 30
     monkeypatch.setenv("RS_LOOKBACK", "9999")
     assert rs_lookback() == 252
+
+
+def test_rs_anchor_max_miss_env_clamp(monkeypatch):
+    """xang1234 #539 30c6c2d: bad/out-of-range override falls back to default."""
+    monkeypatch.delenv("RS_ANCHOR_MAX_MISS", raising=False)
+    assert rs_anchor_max_miss() == RS_ANCHOR_MAX_MISS
+    monkeypatch.setenv("RS_ANCHOR_MAX_MISS", "0.4")
+    assert rs_anchor_max_miss() == 0.4
+    monkeypatch.setenv("RS_ANCHOR_MAX_MISS", "0")
+    assert rs_anchor_max_miss() == 0.0
+    monkeypatch.setenv("RS_ANCHOR_MAX_MISS", "1")
+    assert rs_anchor_max_miss() == 1.0
+    for raw in ("50%", "nan", "inf", "-0.1", "1.5", "nope"):
+        monkeypatch.setenv("RS_ANCHOR_MAX_MISS", raw)
+        assert rs_anchor_max_miss() == RS_ANCHOR_MAX_MISS

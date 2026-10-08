@@ -845,7 +845,7 @@
   heading_id='gate-params-glance-h',
   link_href='/desk/ops#ops-regime',
   link_label='Ops gates →',
-  sub='SMA / RS lookback / scan A/D mins beside gate toggles. Fail-open on short bars. Display only — not a new gate.'
+  sub='SMA / RS lookback / anchor-gap ceiling / scan A/D mins beside gate toggles. Fail-open on short bars. Display only — not a new gate.'
 ) -%}
 {% set glance = snap.gate_params_glance if snap.gate_params_glance is mapping else {} %}
 {% if glance.ready %}

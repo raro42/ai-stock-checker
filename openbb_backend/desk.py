@@ -5604,18 +5604,21 @@ def build_gate_params_glance() -> dict[str, Any]:
         STOCK_BENCHMARK,
         STOCK_SMA_PERIOD,
     )
-    from stock_checker.relative_strength import rs_lookback
+    from stock_checker.relative_strength import rs_anchor_max_miss, rs_lookback
     from stock_checker.scan_breadth_gate import min_advance_ratio, min_stock_leaders
 
     lookback = int(rs_lookback())
+    gap_ceil = float(rs_anchor_max_miss())
     adv = float(min_advance_ratio())
     leaders = int(min_stock_leaders())
     crypto_label = str(CRYPTO_BENCHMARK).replace("USDT", "").replace("USD", "")
     adv_pct = f"{adv * 100:.0f}%"
+    # xang1234 #539: gap share is a live knob (0..1 clamped); speak beside RS days.
+    gap_pct = f"{gap_ceil * 100:.0f}%"
     line = (
         f"{STOCK_BENCHMARK}≥SMA{STOCK_SMA_PERIOD} · "
         f"{crypto_label}≥SMA{CRYPTO_SMA_PERIOD} · "
-        f"RS≥bench {lookback}d · "
+        f"RS≥bench {lookback}d · gap≤{gap_pct} · "
         f"A/D≥{adv_pct} · ≥{leaders} leader · fail-open"
     )
     if len(line) > 96:
@@ -5629,6 +5632,7 @@ def build_gate_params_glance() -> dict[str, Any]:
         "crypto_benchmark": CRYPTO_BENCHMARK,
         "crypto_sma": int(CRYPTO_SMA_PERIOD),
         "rs_lookback": lookback,
+        "rs_anchor_max_miss": gap_ceil,
         "min_advance_ratio": adv,
         "min_stock_leaders": leaders,
         "fail_open": True,

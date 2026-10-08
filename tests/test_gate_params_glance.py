@@ -11,7 +11,7 @@ from stock_checker.market_regime import (
     STOCK_BENCHMARK,
     STOCK_SMA_PERIOD,
 )
-from stock_checker.relative_strength import DEFAULT_RS_LOOKBACK
+from stock_checker.relative_strength import DEFAULT_RS_LOOKBACK, RS_ANCHOR_MAX_MISS
 from stock_checker.scan_breadth_gate import (
     DEFAULT_MIN_ADVANCE_RATIO,
     DEFAULT_MIN_STOCK_LEADERS,
@@ -27,11 +27,13 @@ def test_gate_params_glance_line() -> None:
     assert g["stock_sma"] == STOCK_SMA_PERIOD
     assert g["crypto_sma"] == CRYPTO_SMA_PERIOD
     assert g["rs_lookback"] == DEFAULT_RS_LOOKBACK
+    assert g["rs_anchor_max_miss"] == RS_ANCHOR_MAX_MISS
     assert g["min_advance_ratio"] == DEFAULT_MIN_ADVANCE_RATIO
     assert g["min_stock_leaders"] == DEFAULT_MIN_STOCK_LEADERS
     assert f"SMA{STOCK_SMA_PERIOD}" in g["line"]
     assert f"SMA{CRYPTO_SMA_PERIOD}" in g["line"]
     assert f"{DEFAULT_RS_LOOKBACK}d" in g["line"]
+    assert f"gap≤{RS_ANCHOR_MAX_MISS * 100:.0f}%" in g["line"]
     assert "fail-open" in g["line"]
 
 

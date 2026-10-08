@@ -46,6 +46,25 @@ def rs_lookback() -> int:
     return max(5, min(252, n))
 
 
+def rs_anchor_max_miss() -> float:
+    """Max positional NaN share before RS fail-opens as anchor gap.
+
+    ``RS_ANCHOR_MAX_MISS`` env override is a share in ``[0, 1]`` (1 disables
+    the gap guard). xang1234 #539 30c6c2d: out-of-range / NaN / typo must not
+    turn the guarded path into a hard failure — fall back to the default.
+    """
+    raw = os.getenv("RS_ANCHOR_MAX_MISS", "").strip()
+    if not raw:
+        return float(RS_ANCHOR_MAX_MISS)
+    try:
+        value = float(raw)
+    except ValueError:
+        return float(RS_ANCHOR_MAX_MISS)
+    if not _finite(value) or not 0.0 <= value <= 1.0:
+        return float(RS_ANCHOR_MAX_MISS)
+    return float(value)
+
+
 def anchor_miss_ratio(closes: Sequence[float], lookback: int) -> Optional[float]:
     """
     Fraction of non-finite bars in the last lookback+1 *positional* slots.
@@ -67,8 +86,8 @@ def period_return(closes: Sequence[float], lookback: int) -> Optional[float]:
     Return over `lookback` steps on a positional window: (last / first) - 1.
 
     Needs lookback+1 raw slots with finite start+end anchors and miss rate
-    ≤ RS_ANCHOR_MAX_MISS. Does not drop NaNs to steal older bars (anchor-gap
-    honesty). Returns None if insufficient, gappy, or invalid.
+    ≤ ``rs_anchor_max_miss()``. Does not drop NaNs to steal older bars
+    (anchor-gap honesty). Returns None if insufficient, gappy, or invalid.
     """
     if lookback <= 0:
         return None
@@ -77,7 +96,7 @@ def period_return(closes: Sequence[float], lookback: int) -> Optional[float]:
         return None
     window = [float(c) for c in closes[-need:]]
     miss = sum(1 for c in window if not _finite(c)) / float(need)
-    if miss > RS_ANCHOR_MAX_MISS:
+    if miss > rs_anchor_max_miss():
         return None
     start, end = window[0], window[-1]
     if not _finite(start) or not _finite(end):
@@ -98,16 +117,18 @@ def beats_benchmark(
     """
     True if asset period return >= benchmark (or data missing → fail-open allow).
 
-    Returns (allowed, reason). Anchor-gap miss >25% fail-opens distinctly so
-    soft-allow audit does not treat a compressed lookback as a real RS read.
+    Returns (allowed, reason). Anchor-gap miss above ``rs_anchor_max_miss()``
+    fail-opens distinctly so soft-allow audit does not treat a compressed
+    lookback as a real RS read.
     """
+    gap_ceil = rs_anchor_max_miss()
     asset_miss = anchor_miss_ratio(asset_closes, lookback)
     bench_miss = anchor_miss_ratio(bench_closes, lookback)
     if asset_miss is None or bench_miss is None:
         return True, f"{asset_label} RS unknown — allow"
-    if asset_miss > RS_ANCHOR_MAX_MISS:
+    if asset_miss > gap_ceil:
         return True, f"{asset_label} RS unknown — anchor gap — allow"
-    if bench_miss > RS_ANCHOR_MAX_MISS:
+    if bench_miss > gap_ceil:
         return True, f"{bench_label} RS unknown — anchor gap — allow"
 
     asset_ret = period_return(asset_closes, lookback)
