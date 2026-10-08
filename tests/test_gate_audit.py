@@ -45,6 +45,7 @@ def test_soft_allow_anchor_gap_count() -> None:
     from stock_checker.gate_audit import (
         soft_allow_anchor_gap_count,
         soft_allow_anchor_gap_last_symbol,
+        soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
         soft_allow_anchor_gap_symbol_sample_gap,
     )
@@ -54,6 +55,7 @@ def test_soft_allow_anchor_gap_count() -> None:
     assert soft_allow_anchor_gap_last_symbol(None) == ""
     assert soft_allow_anchor_gap_last_symbol([]) == ""
     assert soft_allow_anchor_gap_symbol_lead(None) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(None) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(None) == ""
     assert (
         soft_allow_anchor_gap_count(
@@ -76,6 +78,7 @@ def test_soft_allow_anchor_gap_count() -> None:
     assert soft_allow_anchor_gap_count(mixed) == 1
     assert soft_allow_anchor_gap_last_symbol(mixed) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(mixed) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(mixed) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(mixed) == ""
 
 
@@ -85,6 +88,7 @@ def test_soft_allow_anchor_gap_share() -> None:
         format_soft_allow_anchor_gap_bit,
         soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_share,
+        soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
         soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
@@ -107,6 +111,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_share(quiet_rows) == (1, 25.0, "quiet")
     assert soft_allow_anchor_gap_last_symbol(quiet_rows) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(quiet_rows) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(quiet_rows) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(quiet_rows) == ""
     assert soft_allow_anchor_gap_vs_other(quiet_rows) == (3, 75.0, "strong")
     assert soft_allow_anchor_gap_vs_other_lean(quiet_rows) == (
@@ -128,6 +133,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_share(hot_rows) == (2, 66.7, "hot")
     assert soft_allow_anchor_gap_last_symbol(hot_rows) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(hot_rows) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(hot_rows) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(hot_rows) == "tied"
     assert soft_allow_anchor_gap_vs_other(hot_rows) == (1, 33.3, "thin")
     assert soft_allow_anchor_gap_vs_other_lean(hot_rows) == (
@@ -153,8 +159,11 @@ def test_soft_allow_anchor_gap_share() -> None:
     )
     assert soft_allow_anchor_gap_symbol_sample_gap(lead_rows) == ""
     assert soft_allow_anchor_gap_last_symbol(lead_rows) == "MSFT"
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(lead_rows) == (
+        "last vs lead · MSFT"
+    )
     assert format_soft_allow_anchor_gap_bit(lead_rows) == (
-        "3 gap · last MSFT · lead AAPL · 67% · hot · 75% · "
+        "3 gap · last MSFT · lead AAPL · 67% · last vs lead · MSFT · hot · 75% · "
         "vs 1 other · thin · 25% · gap vs other align · hot|thin"
     )
 
@@ -198,8 +207,9 @@ def test_soft_allow_anchor_gap_share() -> None:
         100,
     )
     assert soft_allow_anchor_gap_symbol_sample_gap(same_sym) == ""
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(same_sym) == "agree"
     assert format_soft_allow_anchor_gap_bit(same_sym) == (
-        "2 gap · last AAPL · lead AAPL · 100% · hot · 100% · "
+        "2 gap · last AAPL · lead AAPL · 100% · agree · hot · 100% · "
         "vs 0 other · thin · 0% · gap vs other align · hot|thin"
     )
 

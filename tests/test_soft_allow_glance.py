@@ -46,6 +46,7 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_symbol_lead"] == ""
     assert g["anchor_gap_symbol_lead_name"] == ""
     assert g["anchor_gap_symbol_lead_share"] is None
+    assert g["anchor_gap_symbol_last_vs_lead"] == ""
     assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_share_pct"] is None
     assert g["anchor_gap_share_severity"] == ""
@@ -89,6 +90,7 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["anchor_gap_count"] == 2
     assert g["anchor_gap_last"] == "AAPL"
     assert g["anchor_gap_symbol_lead"] == ""
+    assert g["anchor_gap_symbol_last_vs_lead"] == ""
     assert g["anchor_gap_symbol_sample_gap"] == "tied"
     assert g["anchor_gap_share_pct"] == 66.7
     assert g["anchor_gap_share_severity"] == "hot"
@@ -142,12 +144,14 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert g["anchor_gap_symbol_lead"] == "lead AAPL · 67%"
     assert g["anchor_gap_symbol_lead_name"] == "AAPL"
     assert g["anchor_gap_symbol_lead_share"] == 67
+    assert g["anchor_gap_symbol_last_vs_lead"] == "last vs lead · MSFT"
     assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_bit"] == (
-        "3 gap · last MSFT · lead AAPL · 67% · hot · 75% · "
+        "3 gap · last MSFT · lead AAPL · 67% · last vs lead · MSFT · hot · 75% · "
         "vs 1 other · thin · 25% · gap vs other align · hot|thin"
     )
     assert "lead AAPL · 67%" in g["line"]
+    assert "last vs lead · MSFT" in g["line"]
 
 
 def test_soft_allow_glance_anchor_gap_share_quiet() -> None:

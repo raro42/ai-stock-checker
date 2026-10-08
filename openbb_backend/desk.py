@@ -1087,7 +1087,9 @@ def build_soft_allow_glance(
     RS unknown — absolute count ≠ which name (``last SYM`` cursor;
     xang1234 #546 + FinRobot last-row) ≠ which name owns the gap ring
     (``lead SYM · N%`` / ``tied`` when ≥2 parseable; Screener junk-list
-    lead parity) ≠ ring share (hot ≥50% · quiet ≤25% · mid % only);
+    lead parity) ≠ whether cursor matches owner (``last vs lead · SYM`` /
+    ``agree`` when lead spoke; FinRobot last≠tilt) ≠ ring share
+    (hot ≥50% · quiet ≤25% · mid % only);
     gap% alone ≠ remaining non-gap rows (``vs M other`` · strong ≥75% ·
     thin <50%; all-gap → ``vs 0 other · thin · 0%``); sides alone ≠ lean
     (``gap vs other align · hot|thin`` / ``quiet|strong`` or clash;
@@ -1112,6 +1114,7 @@ def build_soft_allow_glance(
         format_soft_allow_lead_bit,
         soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_share,
+        soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
         soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
@@ -1164,6 +1167,7 @@ def build_soft_allow_glance(
         "anchor_gap_symbol_lead": "",
         "anchor_gap_symbol_lead_name": "",
         "anchor_gap_symbol_lead_share": None,
+        "anchor_gap_symbol_last_vs_lead": "",
         "anchor_gap_symbol_sample_gap": "",
         "anchor_gap_share_pct": None,
         "anchor_gap_share_severity": "",
@@ -1193,6 +1197,9 @@ def build_soft_allow_glance(
         anchor_gap_symbol_lead_name,
         anchor_gap_symbol_lead_share,
     ) = soft_allow_anchor_gap_symbol_lead(rows)
+    anchor_gap_symbol_last_vs_lead = soft_allow_anchor_gap_symbol_last_vs_lead(
+        rows
+    )
     anchor_gap_symbol_sample_gap = soft_allow_anchor_gap_symbol_sample_gap(
         rows
     )
@@ -1329,6 +1336,7 @@ def build_soft_allow_glance(
         "anchor_gap_symbol_lead": anchor_gap_symbol_lead,
         "anchor_gap_symbol_lead_name": anchor_gap_symbol_lead_name,
         "anchor_gap_symbol_lead_share": anchor_gap_symbol_lead_share,
+        "anchor_gap_symbol_last_vs_lead": anchor_gap_symbol_last_vs_lead,
         "anchor_gap_symbol_sample_gap": anchor_gap_symbol_sample_gap,
         "anchor_gap_share_pct": anchor_gap_share_pct,
         "anchor_gap_share_severity": anchor_gap_share_severity,

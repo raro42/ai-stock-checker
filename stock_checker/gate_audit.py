@@ -164,6 +164,25 @@ def soft_allow_anchor_gap_symbol_sample_gap(
     return "tied"
 
 
+def soft_allow_anchor_gap_symbol_last_vs_lead(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Newest gap ticker vs symbol lead (display only).
+
+    ``last SYM`` + ``lead SYM · N%`` alone hid whether the resume cursor
+    matches the ring owner. When lead already spoke: same name speaks
+    ``agree``; different speaks ``last vs lead · MSFT``. Tied / no-lead /
+    missing cursor stay silent. Reuses ``soft_allow_last_vs_lead``
+    (gate lead parity). xang1234 #546 resume-cursor + FinRobot last≠ring
+    tilt + portfolio AI speak-both-sides. Not a gate.
+    """
+    _bit, lead_name, _share = soft_allow_anchor_gap_symbol_lead(events)
+    if not lead_name:
+        return ""
+    last = soft_allow_anchor_gap_last_symbol(events)
+    return soft_allow_last_vs_lead(lead_name, last)
+
+
 def soft_allow_anchor_gap_share(
     events: list[dict[str, Any]] | None,
 ) -> tuple[int, float | None, str]:
@@ -253,11 +272,13 @@ def soft_allow_anchor_gap_vs_other_lean(
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · last SYM · lead|tied · hot|quiet · P% · vs other``.
+    """Compact ``N gap · last SYM · lead|tied · last vs lead|agree · …``.
 
     Zero silent. ``last SYM`` sits right after the count so a long lean
     cascade cannot clip the cursor (xang1234 #546). Symbol lead / tied
-    follows the cursor (last ≠ ring ownership; Screener junk-list lead).
+    follows the cursor (last ≠ ring ownership; Screener junk-list lead);
+    when lead spoke, ``last vs lead`` / ``agree`` sits right after so the
+    cursor≠owner clash is not clipped by share/lean (FinRobot last≠tilt).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -271,6 +292,9 @@ def format_soft_allow_anchor_gap_bit(
     )
     if lead_bit:
         head = f"{head} · {lead_bit}"
+        last_vs = soft_allow_anchor_gap_symbol_last_vs_lead(events)
+        if last_vs:
+            head = f"{head} · {last_vs}"
     else:
         sample_gap = soft_allow_anchor_gap_symbol_sample_gap(events)
         if sample_gap:
