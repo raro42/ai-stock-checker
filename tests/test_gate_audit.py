@@ -44,6 +44,7 @@ def test_is_soft_allow_reason_markers() -> None:
 def test_soft_allow_anchor_gap_count() -> None:
     from stock_checker.gate_audit import (
         soft_allow_anchor_gap_count,
+        soft_allow_anchor_gap_last_freshness,
         soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
@@ -56,6 +57,8 @@ def test_soft_allow_anchor_gap_count() -> None:
     assert soft_allow_anchor_gap_count([]) == 0
     assert soft_allow_anchor_gap_last_symbol(None) == ""
     assert soft_allow_anchor_gap_last_symbol([]) == ""
+    assert soft_allow_anchor_gap_last_freshness(None) == ""
+    assert soft_allow_anchor_gap_last_freshness([]) == ""
     assert soft_allow_anchor_gap_symbol_lead(None) == ("", "", None)
     assert soft_allow_anchor_gap_symbol_lead_margin(None) is None
     assert soft_allow_anchor_gap_symbol_lead_sides(None) is None
@@ -81,11 +84,72 @@ def test_soft_allow_anchor_gap_count() -> None:
     ]
     assert soft_allow_anchor_gap_count(mixed) == 1
     assert soft_allow_anchor_gap_last_symbol(mixed) == "AAPL"
+    # No at stamp → unknown silent (cursor name still speaks)
+    assert soft_allow_anchor_gap_last_freshness(mixed) == ""
     assert soft_allow_anchor_gap_symbol_lead(mixed) == ("", "", None)
     assert soft_allow_anchor_gap_symbol_lead_margin(mixed) is None
     assert soft_allow_anchor_gap_symbol_lead_sides(mixed) is None
     assert soft_allow_anchor_gap_symbol_last_vs_lead(mixed) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(mixed) == "n=1"
+
+
+def test_soft_allow_anchor_gap_last_freshness() -> None:
+    """last SYM ≠ live fail-open: speak fresh/aging/expired on gap cursor."""
+    from stock_checker.gate_audit import (
+        format_soft_allow_anchor_gap_bit,
+        soft_allow_anchor_gap_last_freshness,
+    )
+
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    fresh_at = "2026-10-08T11:00:00Z"  # 1h → fresh
+    aging_at = "2026-10-07T18:00:00Z"  # 18h → aging
+    expired_at = "2026-10-07T10:00:00Z"  # 26h → expired
+
+    fresh_row = {
+        "at": fresh_at,
+        "gate": "rs",
+        "reason": "AAPL RS unknown — anchor gap — allow",
+    }
+    aging_row = {
+        "at": aging_at,
+        "gate": "rs",
+        "reason": "AAPL RS unknown — anchor gap — allow",
+    }
+    expired_row = {
+        "at": expired_at,
+        "gate": "rs",
+        "reason": "AAPL RS unknown — anchor gap — allow",
+    }
+    other = {
+        "at": fresh_at,
+        "gate": "rs",
+        "reason": "SPY RS unknown — allow",
+    }
+    assert soft_allow_anchor_gap_last_freshness(
+        [fresh_row, other], now=now
+    ) == "fresh"
+    assert soft_allow_anchor_gap_last_freshness(
+        [aging_row, other], now=now
+    ) == "aging"
+    assert soft_allow_anchor_gap_last_freshness(
+        [expired_row, other], now=now
+    ) == "expired"
+    # Skip non-gap head; use newest gap stamp
+    assert soft_allow_anchor_gap_last_freshness(
+        [other, aging_row], now=now
+    ) == "aging"
+    assert format_soft_allow_anchor_gap_bit(
+        [aging_row, other], now=now
+    ) == (
+        "1 gap · last AAPL · aging · n=1 · hot · 50% · vs 1 other · 50% · "
+        "gap vs other clash · gap hot · other ok"
+    )
+    assert format_soft_allow_anchor_gap_bit(
+        [expired_row, other], now=now
+    ) == (
+        "1 gap · last AAPL · expired · n=1 · hot · 50% · vs 1 other · 50% · "
+        "gap vs other clash · gap hot · other ok"
+    )
 
 
 def test_soft_allow_anchor_gap_share() -> None:

@@ -1081,23 +1081,24 @@ def build_soft_allow_glance(
     Kelly sample thin + xang1234 sample honesty + LAYA/debate
     ``_decision_sample_gap`` parity.
     Anchor-gap RS fail-opens (xang1234 #539): when any reason contains
-    ``anchor gap``, speak ``N gap · last SYM · lead|tied · [hot|quiet ·]
-    P% · vs M other · … · gap vs other align|clash …`` after
-    ``last [gate]`` so ``rs×N`` alone does not hide gappy-anchor vs bare
-    RS unknown — absolute count ≠ which name (``last SYM`` cursor;
-    xang1234 #546 + FinRobot last-row) ≠ which name owns the gap ring
-    (``lead SYM · N%`` / ``n=1`` / ``tied``; Screener junk-list lead +
-    soft-allow sample honesty) ≠ whether cursor matches owner
-    (``last vs lead · SYM`` / ``agree`` when lead spoke; FinRobot
-    last≠tilt) ≠ how far ahead / who is #2
-    (``ahead wide|thin · +K`` · ``vs SYM · N · P%`` when a runner
-    exists; sole 100% omits; soft gate-lead margin/sides) ≠ ring share
-    (hot ≥50% · quiet ≤25% · mid % only);
-    gap% alone ≠ remaining non-gap rows (``vs M other`` · strong ≥75% ·
-    thin <50%; all-gap → ``vs 0 other · thin · 0%``); sides alone ≠ lean
-    (``gap vs other align · hot|thin`` / ``quiet|strong`` or clash;
-    Screener junk vs ok lean parity; ``format_soft_allow_anchor_gap_bit``;
-    zero silent).
+    ``anchor gap``, speak ``N gap · last SYM · fresh|aging|expired ·
+    lead|tied · [hot|quiet ·] P% · vs M other · … · gap vs other
+    align|clash …`` after ``last [gate]`` so ``rs×N`` alone does not
+    hide gappy-anchor vs bare RS unknown — absolute count ≠ which name
+    (``last SYM`` cursor; xang1234 #546 + FinRobot last-row) ≠ whether
+    that cursor is still live (``fresh`` / ``aging`` / ``expired``;
+    RyanJHamby + soft-allow triad + FinRobot last-row age; unknown
+    stamp silent) ≠ which name owns the gap ring (``lead SYM · N%`` /
+    ``n=1`` / ``tied``; Screener junk-list lead + soft-allow sample
+    honesty) ≠ whether cursor matches owner (``last vs lead · SYM`` /
+    ``agree`` when lead spoke; FinRobot last≠tilt) ≠ how far ahead /
+    who is #2 (``ahead wide|thin · +K`` · ``vs SYM · N · P%`` when a
+    runner exists; sole 100% omits; soft gate-lead margin/sides) ≠ ring
+    share (hot ≥50% · quiet ≤25% · mid % only); gap% alone ≠ remaining
+    non-gap rows (``vs M other`` · strong ≥75% · thin <50%; all-gap →
+    ``vs 0 other · thin · 0%``); sides alone ≠ lean (``gap vs other
+    align · hot|thin`` / ``quiet|strong`` or clash; Screener junk vs ok
+    lean parity; ``format_soft_allow_anchor_gap_bit``; zero silent).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1115,6 +1116,7 @@ def build_soft_allow_glance(
         format_fresh_soft_allow_tally,
         format_soft_allow_anchor_gap_bit,
         format_soft_allow_lead_bit,
+        soft_allow_anchor_gap_last_freshness,
         soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
@@ -1169,6 +1171,7 @@ def build_soft_allow_glance(
         "sample_gap": "",
         "anchor_gap_count": 0,
         "anchor_gap_last": "",
+        "anchor_gap_last_freshness": "",
         "anchor_gap_symbol_lead": "",
         "anchor_gap_symbol_lead_name": "",
         "anchor_gap_symbol_lead_share": None,
@@ -1204,6 +1207,9 @@ def build_soft_allow_glance(
     reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
     n = len(rows)
     anchor_gap_last = soft_allow_anchor_gap_last_symbol(rows)
+    anchor_gap_last_freshness = soft_allow_anchor_gap_last_freshness(
+        rows, now=now
+    )
     (
         anchor_gap_symbol_lead,
         anchor_gap_symbol_lead_name,
@@ -1241,7 +1247,7 @@ def build_soft_allow_glance(
     anchor_gap_vs_other, anchor_gap_vs_other_warn = (
         soft_allow_anchor_gap_vs_other_lean(rows)
     )
-    anchor_gap_bit = format_soft_allow_anchor_gap_bit(rows)
+    anchor_gap_bit = format_soft_allow_anchor_gap_bit(rows, now=now)
     expired_n = sum(1 for r in rows if r.get("freshness") == "expired")
     aging_n = sum(1 for r in rows if r.get("freshness") == "aging")
     fresh_n = sum(1 for r in rows if r.get("freshness") == "fresh")
@@ -1360,6 +1366,7 @@ def build_soft_allow_glance(
         "sample_gap": sample_gap,
         "anchor_gap_count": anchor_gap_n,
         "anchor_gap_last": anchor_gap_last,
+        "anchor_gap_last_freshness": anchor_gap_last_freshness,
         "anchor_gap_symbol_lead": anchor_gap_symbol_lead,
         "anchor_gap_symbol_lead_name": anchor_gap_symbol_lead_name,
         "anchor_gap_symbol_lead_share": anchor_gap_symbol_lead_share,

@@ -96,6 +96,7 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["ready"] is True
     assert g["anchor_gap_count"] == 2
     assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_last_freshness"] == "fresh"
     assert g["anchor_gap_symbol_lead"] == ""
     assert g["anchor_gap_symbol_last_vs_lead"] == ""
     assert g["anchor_gap_symbol_sample_gap"] == "tied"
@@ -107,12 +108,12 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["anchor_gap_vs_other"] == "align · hot|thin"
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "2 gap · last AAPL · tied · hot · 66.7% · vs 1 other · thin · 33.3% · "
-        "gap vs other align · hot|thin"
+        "2 gap · last AAPL · fresh · tied · hot · 66.7% · vs 1 other · thin · "
+        "33.3% · gap vs other align · hot|thin"
     )
     assert (
-        "2 gap · last AAPL · tied · hot · 66.7% · vs 1 other · thin · 33.3% · "
-        "gap vs other align · hot|thin"
+        "2 gap · last AAPL · fresh · tied · hot · 66.7% · vs 1 other · thin · "
+        "33.3% · gap vs other align · hot|thin"
     ) in g["line"]
     assert "last [rs]" in g["line"]
     assert "anchor gap" in g["line"]
@@ -148,6 +149,7 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     )
     assert g["anchor_gap_count"] == 3
     assert g["anchor_gap_last"] == "MSFT"
+    assert g["anchor_gap_last_freshness"] == "fresh"
     assert g["anchor_gap_symbol_lead"] == "lead AAPL · 67%"
     assert g["anchor_gap_symbol_lead_name"] == "AAPL"
     assert g["anchor_gap_symbol_lead_share"] == 67
@@ -161,7 +163,7 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert g["anchor_gap_symbol_last_vs_lead"] == "last vs lead · MSFT"
     assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_bit"] == (
-        "3 gap · last MSFT · lead AAPL · 67% · last vs lead · MSFT · "
+        "3 gap · last MSFT · fresh · lead AAPL · 67% · last vs lead · MSFT · "
         "ahead thin · +1 · vs MSFT · 1 · 33% · hot · 75% · "
         "vs 1 other · thin · 25% · gap vs other align · hot|thin"
     )
@@ -201,6 +203,7 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     )
     assert g["anchor_gap_count"] == 1
     assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_last_freshness"] == "fresh"
     assert g["anchor_gap_symbol_lead"] == ""
     assert g["anchor_gap_symbol_sample_gap"] == "n=1"
     assert g["anchor_gap_share_pct"] == 25.0
@@ -211,12 +214,12 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     assert g["anchor_gap_vs_other"] == "align · quiet|strong"
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "1 gap · last AAPL · n=1 · quiet · 25% · vs 3 other · strong · 75% · "
-        "gap vs other align · quiet|strong"
+        "1 gap · last AAPL · fresh · n=1 · quiet · 25% · vs 3 other · strong · "
+        "75% · gap vs other align · quiet|strong"
     )
     assert (
-        "1 gap · last AAPL · n=1 · quiet · 25% · vs 3 other · strong · 75% · "
-        "gap vs other align · quiet|strong"
+        "1 gap · last AAPL · fresh · n=1 · quiet · 25% · vs 3 other · strong · "
+        "75% · gap vs other align · quiet|strong"
     ) in g["line"]
 
 
@@ -240,14 +243,40 @@ def test_soft_allow_glance_anchor_gap_vs_other_clash() -> None:
     )
     assert g["anchor_gap_share_severity"] == "hot"
     assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_last_freshness"] == "fresh"
     assert g["anchor_gap_symbol_lead"] == ""
     assert g["anchor_gap_symbol_sample_gap"] == "n=1"
     assert g["anchor_gap_other_share_severity"] == "ok"
     assert g["anchor_gap_vs_other"] == "clash · gap hot · other ok"
     assert g["anchor_gap_vs_other_warn"] is True
-    assert "1 gap · last AAPL · n=1 · hot · 50%" in g["anchor_gap_bit"]
+    assert "1 gap · last AAPL · fresh · n=1 · hot · 50%" in g["anchor_gap_bit"]
     assert "gap vs other clash · gap hot · other ok" in g["anchor_gap_bit"]
     assert "gap vs other clash · gap hot · other ok" in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_last_freshness_aging() -> None:
+    """Cursor name ≠ live fail-open: aging/expired speak after last SYM."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    aging = (now - timedelta(hours=18)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": aging,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": aging,
+                "gate": "rs",
+                "reason": "SPY RS unknown — allow",
+            },
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_last_freshness"] == "aging"
+    assert g["anchor_gap_bit"].startswith("1 gap · last AAPL · aging · n=1")
+    assert "last AAPL · aging" in g["line"]
 
 
 def test_soft_allow_glance_truncates_reason() -> None:

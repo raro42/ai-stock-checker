@@ -103,6 +103,36 @@ def soft_allow_anchor_gap_last_symbol(
     return ""
 
 
+def soft_allow_anchor_gap_last_freshness(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> str:
+    """Freshness band of the newest parseable gap row (display only).
+
+    ``last SYM`` alone ≠ whether that gappy fail-open is still live.
+    Speaks ``fresh`` / ``aging`` / ``expired`` from enriched
+    ``freshness`` or ``at`` (RyanJHamby + xang1234 soft-allow triad +
+    FinRobot last-row age). Missing / unknown stamp stays silent —
+    cursor name still speaks. Not a gate.
+    """
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        if not _anchor_gap_symbol(str(row.get("reason") or "")):
+            continue
+        band = str(row.get("freshness") or "").strip().casefold()
+        if band in {"fresh", "aging", "expired"}:
+            return band
+        if band == "unknown":
+            return ""
+        computed = soft_allow_freshness(row.get("at"), now=now)
+        if computed in {"fresh", "aging", "expired"}:
+            return computed
+        return ""
+    return ""
+
+
 def _anchor_gap_symbol_counts(
     events: list[dict[str, Any]] | None,
 ) -> dict[str, int]:
@@ -327,14 +357,19 @@ def soft_allow_anchor_gap_vs_other_lean(
 
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
 ) -> str:
-    """Compact ``N gap · last SYM · lead|n=1|tied · last vs lead|agree · ahead · vs · …``.
+    """Compact ``N gap · last SYM · fresh|aging|expired · lead|n=1|tied · …``.
 
     Zero silent. ``last SYM`` sits right after the count so a long lean
-    cascade cannot clip the cursor (xang1234 #546). Symbol lead / n=1 /
-    tied follows the cursor (last ≠ ring ownership; Screener junk-list
-    lead + soft-allow sample honesty); when lead spoke, ``last vs lead``
-    / ``agree`` sits right after so the cursor≠owner clash is not clipped
+    cascade cannot clip the cursor (xang1234 #546). Cursor age
+    (``fresh`` / ``aging`` / ``expired``) follows the name so a live
+    ticker ≠ a live fail-open (RyanJHamby + soft-allow triad + FinRobot
+    last-row age; unknown stamp silent). Symbol lead / n=1 / tied
+    follows the cursor (last ≠ ring ownership; Screener junk-list lead
+    + soft-allow sample honesty); when lead spoke, ``last vs lead`` /
+    ``agree`` sits right after so the cursor≠owner clash is not clipped
     by share/lean (FinRobot last≠tilt); when a runner exists, ``ahead``
     + ``vs SYM`` follow so ownership % ≠ how far ahead ≠ who is #2
     (soft gate-lead margin/sides; sole 100% omits).
@@ -346,6 +381,9 @@ def format_soft_allow_anchor_gap_bit(
     head = f"{gap_n} gap"
     if last:
         head = f"{head} · last {last}"
+        last_fresh = soft_allow_anchor_gap_last_freshness(events, now=now)
+        if last_fresh:
+            head = f"{head} · {last_fresh}"
     lead_bit, _lead_name, _lead_share = soft_allow_anchor_gap_symbol_lead(
         events
     )
