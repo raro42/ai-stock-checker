@@ -56,6 +56,10 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["n_junk_crypto"] == 1
     assert c["n_junk_brk"] == 2
     assert c["junk_lists"] == "rec · crypto · brk"
+    # rec=2 · crypto=1 · brk=2 → tie at 2; lead silent
+    assert c["junk_list_lead"] == ""
+    assert c["junk_list_lead_name"] == ""
+    assert c["junk_list_lead_share"] is None
     # 3 object + 5 junk = 8 slots → 62.5% hot · vs 3 ok · thin · 37.5%
     assert c["junk_share_pct"] == 62.5
     assert c["junk_share_severity"] == "hot"
@@ -86,6 +90,9 @@ def test_empty_and_non_mapping():
     assert empty["n_junk_crypto"] == 0
     assert empty["n_junk_brk"] == 0
     assert empty["junk_lists"] == ""
+    assert empty["junk_list_lead"] == ""
+    assert empty["junk_list_lead_name"] == ""
+    assert empty["junk_list_lead_share"] is None
     assert empty["junk_share_pct"] is None
     assert empty["junk_share_severity"] == ""
     assert empty["ok_share_pct"] is None
@@ -135,6 +142,9 @@ def test_junk_appends_on_overlap_weight():
     assert c["n_junk_crypto"] == 0
     assert c["n_junk_brk"] == 1
     assert c["junk_lists"] == "rec · brk"
+    # rec=1 · brk=1 → tie; lead silent
+    assert c["junk_list_lead"] == ""
+    assert c["junk_list_lead_share"] is None
     # 4 object + 2 junk = 6 slots → 33.3% mid (ok) · vs 4 ok · 66.7% mid — no lean
     assert c["junk_share_pct"] == 33.3
     assert c["junk_share_severity"] == "ok"
@@ -350,6 +360,9 @@ def test_string_symbols_and_bad_list_type():
     assert c["n_junk_crypto"] == 0
     assert c["n_junk_brk"] == 0
     assert c["junk_lists"] == "rec"
+    # sole-list → lead silent (pointer already names it)
+    assert c["junk_list_lead"] == ""
+    assert c["junk_list_lead_share"] is None
     # 1 object + 2 junk = 3 slots → 66.7% hot · vs 1 ok · thin · 33.3%
     assert c["junk_share_pct"] == 66.7
     assert c["junk_share_severity"] == "hot"
@@ -418,6 +431,10 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["n_junk_crypto"] == 1
     assert c["n_junk_brk"] == 0
     assert c["junk_lists"] == "rec · crypto"
+    # rec=2 · crypto=1 → lead rec · 67%
+    assert c["junk_list_lead"] == "lead rec · 67%"
+    assert c["junk_list_lead_name"] == "rec"
+    assert c["junk_list_lead_share"] == 67
     assert c["junk_share_pct"] == 100.0
     assert c["junk_share_severity"] == "hot"
     assert c["ok_share_pct"] == 0.0
@@ -425,13 +442,34 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["junk_vs_ok"] == "align · hot|thin"
     assert (
         c["weight_core"]
-        == "row slots · 3 junk · hot · 100% · in rec · crypto · vs 0 ok · thin · 0%"
+        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · vs 0 ok · thin · 0%"
     )
     assert c["weight_lean"] == "junk vs ok align · hot|thin"
     assert (
         c["weight"]
-        == "row slots · 3 junk · hot · 100% · in rec · crypto · vs 0 ok · thin · 0% · junk vs ok align · hot|thin"
+        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · vs 0 ok · thin · 0% · junk vs ok align · hot|thin"
     )
+    assert c["tone"] == "warn"
+
+
+def test_junk_list_lead_strict():
+    """≥2 damaged lists + strict max → lead; pointer ≠ ownership."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": ["a", "b", "c"],
+            "crypto_leaders": [None],
+            "stock_breakouts": ["x"],
+        }
+    )
+    assert c["n_junk"] == 5
+    assert c["n_junk_rec"] == 3
+    assert c["n_junk_crypto"] == 1
+    assert c["n_junk_brk"] == 1
+    assert c["junk_lists"] == "rec · crypto · brk"
+    assert c["junk_list_lead"] == "lead rec · 60%"
+    assert c["junk_list_lead_name"] == "rec"
+    assert c["junk_list_lead_share"] == 60
+    assert "lead rec · 60%" in c["weight_core"]
     assert c["tone"] == "warn"
 
 

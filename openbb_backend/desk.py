@@ -516,7 +516,11 @@ def build_screener_opportunity_counts(
     share Δ still deferred. When junk already spoke, also name which
     scan lists hold junk (``in rec · crypto · brk``) — total N junk ≠
     which sleeve is damaged (xang1234 #531 market-pointer + #540
-    damaged-artifact visibility). ``n_total`` is the sum of the three list
+    damaged-artifact visibility). When ≥2 lists hold junk and one is
+    strictly largest, also speak ``lead rec · N%`` (junk÷total junk;
+    ties / sole-list silent) — list pointer ≠ which sleeve owns the
+    damage (xang1234 multi-meter lead + portfolio AI count≠share after
+    junk list pointer). ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -546,6 +550,9 @@ def build_screener_opportunity_counts(
         "n_junk_crypto": 0,
         "n_junk_brk": 0,
         "junk_lists": "",
+        "junk_list_lead": "",
+        "junk_list_lead_name": "",
+        "junk_list_lead_share": None,
         "junk_share_pct": None,
         "junk_share_severity": "",
         "ok_share_pct": None,
@@ -757,19 +764,34 @@ def build_screener_opportunity_counts(
     junk_vs_ok = ""
     junk_vs_ok_warn = False
     junk_lists = ""
+    junk_list_lead = ""
+    junk_list_lead_name = ""
+    junk_list_lead_share: int | None = None
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
         ok_share_pct = round(100.0 * n_total / n_slots, 1)
         list_bits: list[str] = []
+        junk_buckets: list[tuple[str, int]] = []
         if n_junk_rec:
             list_bits.append("rec")
+            junk_buckets.append(("rec", n_junk_rec))
         if n_junk_crypto:
             list_bits.append("crypto")
+            junk_buckets.append(("crypto", n_junk_crypto))
         if n_junk_brk:
             list_bits.append("brk")
+            junk_buckets.append(("brk", n_junk_brk))
         junk_lists = " · ".join(list_bits)
         in_bit = f"in {junk_lists}" if junk_lists else ""
+        # ≥2 damaged lists + strict max → lead; sole-list / ties silent.
+        if len(junk_buckets) >= 2:
+            (
+                junk_list_lead,
+                junk_list_lead_name,
+                junk_list_lead_share,
+                *_,
+            ) = _decision_sample_lead(junk_buckets)
         if ok_share_pct >= SCREENER_OK_SHARE_STRONG:
             ok_share_severity = "strong"
             ok_bit = f"vs {n_total} ok · strong · {ok_share_pct:g}%"
@@ -790,6 +812,8 @@ def build_screener_opportunity_counts(
             junk_bit = f"{n_junk} junk · {junk_share_pct:g}%"
         if in_bit:
             junk_bit = f"{junk_bit} · {in_bit}"
+        if junk_list_lead:
+            junk_bit = f"{junk_bit} · {junk_list_lead}"
         junk_bit = f"{junk_bit} · {ok_bit}"
         junk_lean = junk_share_severity in {"hot", "quiet"}
         ok_lean = ok_share_severity in {"strong", "thin"}
@@ -838,6 +862,9 @@ def build_screener_opportunity_counts(
         "n_junk_crypto": n_junk_crypto,
         "n_junk_brk": n_junk_brk,
         "junk_lists": junk_lists,
+        "junk_list_lead": junk_list_lead,
+        "junk_list_lead_name": junk_list_lead_name,
+        "junk_list_lead_share": junk_list_lead_share,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
         "ok_share_pct": ok_share_pct,
@@ -11322,6 +11349,11 @@ def load_desk_snapshot(
             "title": "Screener junk list pointer",
             "from": "xang1234/stock-screener #531 market-pointer + #540 damaged-artifact",
             "note": "When junk already spoke, weight also names which scan lists hold junk (in rec · crypto · brk); total N junk ≠ which sleeve is damaged.",
+        },
+        {
+            "title": "Screener junk list lead",
+            "from": "xang1234/stock-screener multi-meter lead + portfolio AI (count ≠ ownership)",
+            "note": "When ≥2 lists hold junk and one is strictly largest, weight speaks lead rec · N% (junk÷total junk); ties / sole-list silent — list pointer ≠ which sleeve owns the damage.",
         },
         {
             "title": "Screener opportunity uniqueness share",
