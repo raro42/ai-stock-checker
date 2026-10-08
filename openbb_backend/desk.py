@@ -516,15 +516,19 @@ def build_screener_opportunity_counts(
     share Δ still deferred. When junk already spoke, also name which
     scan lists hold junk (``in rec · crypto · brk``) — total N junk ≠
     which sleeve is damaged (xang1234 #531 market-pointer + #540
-    damaged-artifact visibility). When ≥2 lists hold junk and one is
+    damaged-artifact visibility).     When ≥2 lists hold junk and one is
     strictly largest, also speak ``lead rec · N%`` (junk÷total junk;
     sole-list silent) — list pointer ≠ which sleeve owns the
     damage (xang1234 multi-meter lead + portfolio AI count≠share after
-    junk list pointer). When ≥2 lists hold junk and no strict lead,
-    also speak ``tied`` (``junk_list_sample_gap``; lead cases stay
-    silent; sole-list stays silent on gap) — soft-allow / LAYA
-    ``_decision_sample_gap`` parity after silent tie hid that multi-list
-    damage has no owner. ``n_total`` is the sum of the three list
+    junk list pointer). When lead already spoke and a runner-up list
+    exists, also speak ``ahead wide|thin · +K`` then ``vs crypto · N ·
+    P%`` (wide ≥2 · thin =1; sole 100% omits; tied runners silent on
+    vs) — soft-allow RS gap symbol lead margin/sides + portfolio AI after
+    lead % alone hid how far ahead / who is #2. When ≥2 lists hold junk
+    and no strict lead, also speak ``tied`` (``junk_list_sample_gap``;
+    lead cases stay silent; sole-list stays silent on gap) — soft-allow
+    / LAYA ``_decision_sample_gap`` parity after silent tie hid that
+    multi-list damage has no owner. ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -557,6 +561,12 @@ def build_screener_opportunity_counts(
         "junk_list_lead": "",
         "junk_list_lead_name": "",
         "junk_list_lead_share": None,
+        "junk_list_lead_margin": "",
+        "junk_list_lead_margin_gap": None,
+        "junk_list_lead_sides": "",
+        "junk_list_lead_sides_name": "",
+        "junk_list_lead_sides_n": None,
+        "junk_list_lead_sides_share": None,
         "junk_list_sample_gap": "",
         "junk_share_pct": None,
         "junk_share_severity": "",
@@ -772,6 +782,12 @@ def build_screener_opportunity_counts(
     junk_list_lead = ""
     junk_list_lead_name = ""
     junk_list_lead_share: int | None = None
+    junk_list_lead_margin = ""
+    junk_list_lead_margin_gap: int | None = None
+    junk_list_lead_sides = ""
+    junk_list_lead_sides_name = ""
+    junk_list_lead_sides_n: int | None = None
+    junk_list_lead_sides_share: int | None = None
     junk_list_sample_gap = ""
     if n_junk > 0:
         n_slots = n_total + n_junk
@@ -796,7 +812,12 @@ def build_screener_opportunity_counts(
                 junk_list_lead,
                 junk_list_lead_name,
                 junk_list_lead_share,
-                *_,
+                junk_list_lead_margin,
+                junk_list_lead_margin_gap,
+                junk_list_lead_sides,
+                junk_list_lead_sides_name,
+                junk_list_lead_sides_n,
+                junk_list_lead_sides_share,
             ) = _decision_sample_lead(junk_buckets)
             # ≥2 with no lead → tied (not sole-list n=1; pointer is enough).
             junk_list_sample_gap = _decision_sample_gap(
@@ -824,6 +845,10 @@ def build_screener_opportunity_counts(
             junk_bit = f"{junk_bit} · {in_bit}"
         if junk_list_lead:
             junk_bit = f"{junk_bit} · {junk_list_lead}"
+            if junk_list_lead_margin:
+                junk_bit = f"{junk_bit} · {junk_list_lead_margin}"
+            if junk_list_lead_sides:
+                junk_bit = f"{junk_bit} · {junk_list_lead_sides}"
         elif junk_list_sample_gap:
             junk_bit = f"{junk_bit} · {junk_list_sample_gap}"
         junk_bit = f"{junk_bit} · {ok_bit}"
@@ -877,6 +902,12 @@ def build_screener_opportunity_counts(
         "junk_list_lead": junk_list_lead,
         "junk_list_lead_name": junk_list_lead_name,
         "junk_list_lead_share": junk_list_lead_share,
+        "junk_list_lead_margin": junk_list_lead_margin,
+        "junk_list_lead_margin_gap": junk_list_lead_margin_gap,
+        "junk_list_lead_sides": junk_list_lead_sides,
+        "junk_list_lead_sides_name": junk_list_lead_sides_name,
+        "junk_list_lead_sides_n": junk_list_lead_sides_n,
+        "junk_list_lead_sides_share": junk_list_lead_sides_share,
         "junk_list_sample_gap": junk_list_sample_gap,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,

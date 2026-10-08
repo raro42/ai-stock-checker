@@ -60,6 +60,8 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["junk_list_lead"] == ""
     assert c["junk_list_lead_name"] == ""
     assert c["junk_list_lead_share"] is None
+    assert c["junk_list_lead_margin"] == ""
+    assert c["junk_list_lead_sides"] == ""
     assert c["junk_list_sample_gap"] == "tied"
     # 3 object + 5 junk = 8 slots → 62.5% hot · vs 3 ok · thin · 37.5%
     assert c["junk_share_pct"] == 62.5
@@ -94,6 +96,12 @@ def test_empty_and_non_mapping():
     assert empty["junk_list_lead"] == ""
     assert empty["junk_list_lead_name"] == ""
     assert empty["junk_list_lead_share"] is None
+    assert empty["junk_list_lead_margin"] == ""
+    assert empty["junk_list_lead_margin_gap"] is None
+    assert empty["junk_list_lead_sides"] == ""
+    assert empty["junk_list_lead_sides_name"] == ""
+    assert empty["junk_list_lead_sides_n"] is None
+    assert empty["junk_list_lead_sides_share"] is None
     assert empty["junk_list_sample_gap"] == ""
     assert empty["junk_share_pct"] is None
     assert empty["junk_share_severity"] == ""
@@ -435,10 +443,16 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["n_junk_crypto"] == 1
     assert c["n_junk_brk"] == 0
     assert c["junk_lists"] == "rec · crypto"
-    # rec=2 · crypto=1 → lead rec · 67%
+    # rec=2 · crypto=1 → lead rec · 67% · ahead thin · +1 · vs crypto · 1 · 33%
     assert c["junk_list_lead"] == "lead rec · 67%"
     assert c["junk_list_lead_name"] == "rec"
     assert c["junk_list_lead_share"] == 67
+    assert c["junk_list_lead_margin"] == "ahead thin · +1"
+    assert c["junk_list_lead_margin_gap"] == 1
+    assert c["junk_list_lead_sides"] == "vs crypto · 1 · 33%"
+    assert c["junk_list_lead_sides_name"] == "crypto"
+    assert c["junk_list_lead_sides_n"] == 1
+    assert c["junk_list_lead_sides_share"] == 33
     assert c["junk_list_sample_gap"] == ""
     assert c["junk_share_pct"] == 100.0
     assert c["junk_share_severity"] == "hot"
@@ -447,12 +461,12 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["junk_vs_ok"] == "align · hot|thin"
     assert (
         c["weight_core"]
-        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · vs 0 ok · thin · 0%"
+        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · ahead thin · +1 · vs crypto · 1 · 33% · vs 0 ok · thin · 0%"
     )
     assert c["weight_lean"] == "junk vs ok align · hot|thin"
     assert (
         c["weight"]
-        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · vs 0 ok · thin · 0% · junk vs ok align · hot|thin"
+        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · ahead thin · +1 · vs crypto · 1 · 33% · vs 0 ok · thin · 0% · junk vs ok align · hot|thin"
     )
     assert c["tone"] == "warn"
 
@@ -474,8 +488,17 @@ def test_junk_list_lead_strict():
     assert c["junk_list_lead"] == "lead rec · 60%"
     assert c["junk_list_lead_name"] == "rec"
     assert c["junk_list_lead_share"] == 60
+    # ahead wide · +2; crypto=brk=1 → tied runners → sides silent
+    assert c["junk_list_lead_margin"] == "ahead wide · +2"
+    assert c["junk_list_lead_margin_gap"] == 2
+    assert c["junk_list_lead_sides"] == ""
+    assert c["junk_list_lead_sides_name"] == ""
+    assert c["junk_list_lead_sides_n"] is None
+    assert c["junk_list_lead_sides_share"] is None
     assert c["junk_list_sample_gap"] == ""
     assert "lead rec · 60%" in c["weight_core"]
+    assert "ahead wide · +2" in c["weight_core"]
+    assert "vs crypto" not in c["weight_core"]
     assert "tied" not in c["weight_core"]
     assert c["tone"] == "warn"
 
@@ -494,8 +517,33 @@ def test_junk_list_sample_gap_tied():
     assert c["n_junk_crypto"] == 1
     assert c["junk_lists"] == "rec · crypto"
     assert c["junk_list_lead"] == ""
+    assert c["junk_list_lead_margin"] == ""
+    assert c["junk_list_lead_sides"] == ""
     assert c["junk_list_sample_gap"] == "tied"
     assert " · tied · " in c["weight_core"]
+    assert c["tone"] == "warn"
+
+
+def test_junk_list_lead_margin_sides():
+    """Lead % alone ≠ ahead / #2 — soft-allow gap symbol margin/sides parity."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": ["a", "b", "c", "d"],
+            "crypto_leaders": [None],
+            "stock_breakouts": [],
+        }
+    )
+    assert c["n_junk_rec"] == 4
+    assert c["n_junk_crypto"] == 1
+    assert c["junk_list_lead"] == "lead rec · 80%"
+    assert c["junk_list_lead_margin"] == "ahead wide · +3"
+    assert c["junk_list_lead_margin_gap"] == 3
+    assert c["junk_list_lead_sides"] == "vs crypto · 1 · 20%"
+    assert c["junk_list_lead_sides_name"] == "crypto"
+    assert c["junk_list_lead_sides_n"] == 1
+    assert c["junk_list_lead_sides_share"] == 20
+    assert "ahead wide · +3" in c["weight_core"]
+    assert "vs crypto · 1 · 20%" in c["weight_core"]
     assert c["tone"] == "warn"
 
 
