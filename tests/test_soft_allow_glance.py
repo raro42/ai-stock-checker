@@ -42,6 +42,7 @@ def test_soft_allow_glance_one() -> None:
     assert g["aging_hours"] == 12.0
     assert g["last_gate"] == "regime"
     assert g["anchor_gap_count"] == 0
+    assert g["anchor_gap_last"] == ""
     assert g["anchor_gap_share_pct"] is None
     assert g["anchor_gap_share_severity"] == ""
     assert g["anchor_gap_other_count"] == 0
@@ -82,6 +83,7 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     )
     assert g["ready"] is True
     assert g["anchor_gap_count"] == 2
+    assert g["anchor_gap_last"] == "AAPL"
     assert g["anchor_gap_share_pct"] == 66.7
     assert g["anchor_gap_share_severity"] == "hot"
     assert g["anchor_gap_other_count"] == 1
@@ -90,11 +92,11 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["anchor_gap_vs_other"] == "align · hot|thin"
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "2 gap · last AAPL · hot · 66.7% · vs 1 other · thin · 33.3% · "
         "gap vs other align · hot|thin"
     )
     assert (
-        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "2 gap · last AAPL · hot · 66.7% · vs 1 other · thin · 33.3% · "
         "gap vs other align · hot|thin"
     ) in g["line"]
     assert "last [rs]" in g["line"]
@@ -130,6 +132,7 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
         now=now,
     )
     assert g["anchor_gap_count"] == 1
+    assert g["anchor_gap_last"] == "AAPL"
     assert g["anchor_gap_share_pct"] == 25.0
     assert g["anchor_gap_share_severity"] == "quiet"
     assert g["anchor_gap_other_count"] == 3
@@ -138,11 +141,11 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     assert g["anchor_gap_vs_other"] == "align · quiet|strong"
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "1 gap · quiet · 25% · vs 3 other · strong · 75% · "
+        "1 gap · last AAPL · quiet · 25% · vs 3 other · strong · 75% · "
         "gap vs other align · quiet|strong"
     )
     assert (
-        "1 gap · quiet · 25% · vs 3 other · strong · 75% · "
+        "1 gap · last AAPL · quiet · 25% · vs 3 other · strong · 75% · "
         "gap vs other align · quiet|strong"
     ) in g["line"]
 
@@ -166,9 +169,11 @@ def test_soft_allow_glance_anchor_gap_vs_other_clash() -> None:
         now=now,
     )
     assert g["anchor_gap_share_severity"] == "hot"
+    assert g["anchor_gap_last"] == "AAPL"
     assert g["anchor_gap_other_share_severity"] == "ok"
     assert g["anchor_gap_vs_other"] == "clash · gap hot · other ok"
     assert g["anchor_gap_vs_other_warn"] is True
+    assert "1 gap · last AAPL · hot · 50%" in g["anchor_gap_bit"]
     assert "gap vs other clash · gap hot · other ok" in g["anchor_gap_bit"]
     assert "gap vs other clash · gap hot · other ok" in g["line"]
 

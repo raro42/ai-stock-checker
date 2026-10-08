@@ -71,6 +71,30 @@ def soft_allow_anchor_gap_count(
     return n
 
 
+def soft_allow_anchor_gap_last_symbol(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Newest anchor-gap row's ticker/label (display only).
+
+    Absolute ``N gap`` + lean hid which name last failed open on a
+    gappy RS window. Reasons look like ``AAPL RS unknown — anchor gap
+    — allow`` / ``SPY RS unknown — anchor gap — allow`` — first token
+    is the asset or bench label. Ring order is newest-first. xang1234
+    #546 resume-cursor honesty + FinRobot last-row; zero / unparseable
+    silent.
+    """
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        reason = str(row.get("reason") or "").strip()
+        if "anchor gap" not in reason.casefold():
+            continue
+        tok = reason.split(None, 1)[0] if reason else ""
+        if tok and tok.lower() not in {"rs", "unknown", "—", "-"}:
+            return tok
+    return ""
+
+
 def soft_allow_anchor_gap_share(
     events: list[dict[str, Any]] | None,
 ) -> tuple[int, float | None, str]:
@@ -160,14 +184,22 @@ def soft_allow_anchor_gap_vs_other_lean(
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · hot|quiet · P% · vs M other · … · lean`` (zero silent)."""
+    """Compact ``N gap · last SYM · hot|quiet · P% · vs M other · lean``.
+
+    Zero silent. ``last SYM`` sits right after the count so a long lean
+    cascade cannot clip the cursor (xang1234 #546).
+    """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
         return ""
+    last = soft_allow_anchor_gap_last_symbol(events)
+    head = f"{gap_n} gap"
+    if last:
+        head = f"{head} · last {last}"
     if severity in {"hot", "quiet"}:
-        bit = f"{gap_n} gap · {severity} · {share:g}%"
+        bit = f"{head} · {severity} · {share:g}%"
     else:
-        bit = f"{gap_n} gap · {share:g}%"
+        bit = f"{head} · {share:g}%"
     other_n, other_share, other_sev = soft_allow_anchor_gap_vs_other(events)
     if other_share is None:
         return bit

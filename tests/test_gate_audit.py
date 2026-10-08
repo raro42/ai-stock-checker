@@ -42,10 +42,15 @@ def test_is_soft_allow_reason_markers() -> None:
 
 
 def test_soft_allow_anchor_gap_count() -> None:
-    from stock_checker.gate_audit import soft_allow_anchor_gap_count
+    from stock_checker.gate_audit import (
+        soft_allow_anchor_gap_count,
+        soft_allow_anchor_gap_last_symbol,
+    )
 
     assert soft_allow_anchor_gap_count(None) == 0
     assert soft_allow_anchor_gap_count([]) == 0
+    assert soft_allow_anchor_gap_last_symbol(None) == ""
+    assert soft_allow_anchor_gap_last_symbol([]) == ""
     assert (
         soft_allow_anchor_gap_count(
             [{"gate": "rs", "reason": "SPY RS unknown — allow"}]
@@ -53,22 +58,26 @@ def test_soft_allow_anchor_gap_count() -> None:
         == 0
     )
     assert (
-        soft_allow_anchor_gap_count(
-            [
-                {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
-                {"gate": "rs", "reason": "MSFT RS unknown — allow"},
-                {"gate": "regime", "reason": "unknown — no SPY bars"},
-                "junk",
-            ]
+        soft_allow_anchor_gap_last_symbol(
+            [{"gate": "rs", "reason": "SPY RS unknown — allow"}]
         )
-        == 1
+        == ""
     )
+    mixed = [
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+        {"gate": "rs", "reason": "MSFT RS unknown — allow"},
+        {"gate": "regime", "reason": "unknown — no SPY bars"},
+        "junk",
+    ]
+    assert soft_allow_anchor_gap_count(mixed) == 1
+    assert soft_allow_anchor_gap_last_symbol(mixed) == "AAPL"
 
 
 def test_soft_allow_anchor_gap_share() -> None:
     """portfolio AI count≠share: gap÷ring with hot/quiet floors + vs other."""
     from stock_checker.gate_audit import (
         format_soft_allow_anchor_gap_bit,
+        soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_share,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
@@ -88,30 +97,32 @@ def test_soft_allow_anchor_gap_share() -> None:
         {"gate": "breadth", "reason": "unknown scan"},
     ]
     assert soft_allow_anchor_gap_share(quiet_rows) == (1, 25.0, "quiet")
+    assert soft_allow_anchor_gap_last_symbol(quiet_rows) == "AAPL"
     assert soft_allow_anchor_gap_vs_other(quiet_rows) == (3, 75.0, "strong")
     assert soft_allow_anchor_gap_vs_other_lean(quiet_rows) == (
         "align · quiet|strong",
         False,
     )
     assert format_soft_allow_anchor_gap_bit(quiet_rows) == (
-        "1 gap · quiet · 25% · vs 3 other · strong · 75% · "
+        "1 gap · last AAPL · quiet · 25% · vs 3 other · strong · 75% · "
         "gap vs other align · quiet|strong"
     )
 
-    # 2/3 ≈ 66.7% gap hot · 33.3% other thin → align
+    # 2/3 ≈ 66.7% gap hot · 33.3% other thin → align; newest gap cursor
     hot_rows = [
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "SPY RS unknown — allow"},
         {"gate": "rs", "reason": "MSFT RS unknown — anchor gap — allow"},
     ]
     assert soft_allow_anchor_gap_share(hot_rows) == (2, 66.7, "hot")
+    assert soft_allow_anchor_gap_last_symbol(hot_rows) == "AAPL"
     assert soft_allow_anchor_gap_vs_other(hot_rows) == (1, 33.3, "thin")
     assert soft_allow_anchor_gap_vs_other_lean(hot_rows) == (
         "align · hot|thin",
         False,
     )
     assert format_soft_allow_anchor_gap_bit(hot_rows) == (
-        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "2 gap · last AAPL · hot · 66.7% · vs 1 other · thin · 33.3% · "
         "gap vs other align · hot|thin"
     )
 
@@ -124,7 +135,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_vs_other(mid_rows) == (3, 60.0, "ok")
     assert soft_allow_anchor_gap_vs_other_lean(mid_rows) == ("", False)
     assert format_soft_allow_anchor_gap_bit(mid_rows) == (
-        "2 gap · 40% · vs 3 other · 60%"
+        "2 gap · last AAPL · 40% · vs 3 other · 60%"
     )
 
     # All-gap → vs 0 other · thin · 0% · align hot|thin
@@ -138,7 +149,7 @@ def test_soft_allow_anchor_gap_share() -> None:
         False,
     )
     assert format_soft_allow_anchor_gap_bit(all_gap) == (
-        "2 gap · hot · 100% · vs 0 other · thin · 0% · "
+        "2 gap · last AAPL · hot · 100% · vs 0 other · thin · 0% · "
         "gap vs other align · hot|thin"
     )
 
@@ -154,7 +165,18 @@ def test_soft_allow_anchor_gap_share() -> None:
         True,
     )
     assert format_soft_allow_anchor_gap_bit(half_rows) == (
-        "1 gap · hot · 50% · vs 1 other · 50% · "
+        "1 gap · last AAPL · hot · 50% · vs 1 other · 50% · "
+        "gap vs other clash · gap hot · other ok"
+    )
+
+    # Bench-label gap cursor (SPY window hole) + skip non-gap head
+    bench_gap = [
+        {"gate": "rs", "reason": "NVDA RS unknown — allow"},
+        {"gate": "rs", "reason": "SPY RS unknown — anchor gap — allow"},
+    ]
+    assert soft_allow_anchor_gap_last_symbol(bench_gap) == "SPY"
+    assert format_soft_allow_anchor_gap_bit(bench_gap) == (
+        "1 gap · last SPY · hot · 50% · vs 1 other · 50% · "
         "gap vs other clash · gap hot · other ok"
     )
 

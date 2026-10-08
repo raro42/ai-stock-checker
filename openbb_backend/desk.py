@@ -1081,14 +1081,15 @@ def build_soft_allow_glance(
     Kelly sample thin + xang1234 sample honesty + LAYA/debate
     ``_decision_sample_gap`` parity.
     Anchor-gap RS fail-opens (xang1234 #539): when any reason contains
-    ``anchor gap``, speak ``N gap · [hot|quiet ·] P% · vs M other · …
-    · gap vs other align|clash …`` after ``last [gate]`` so ``rs×N``
-    alone does not hide gappy-anchor vs bare RS unknown — absolute
-    count ≠ ring share (hot ≥50% · quiet ≤25% · mid % only); gap%
-    alone ≠ remaining non-gap rows (``vs M other`` · strong ≥75% ·
-    thin <50%; all-gap → ``vs 0 other · thin · 0%``); sides alone ≠
-    lean (``gap vs other align · hot|thin`` / ``quiet|strong`` or
-    clash; Screener junk vs ok lean parity;
+    ``anchor gap``, speak ``N gap · last SYM · [hot|quiet ·] P% · vs M
+    other · … · gap vs other align|clash …`` after ``last [gate]`` so
+    ``rs×N`` alone does not hide gappy-anchor vs bare RS unknown —
+    absolute count ≠ which name (``last SYM`` cursor; xang1234 #546 +
+    FinRobot last-row) ≠ ring share (hot ≥50% · quiet ≤25% · mid %
+    only); gap% alone ≠ remaining non-gap rows (``vs M other`` ·
+    strong ≥75% · thin <50%; all-gap → ``vs 0 other · thin · 0%``);
+    sides alone ≠ lean (``gap vs other align · hot|thin`` /
+    ``quiet|strong`` or clash; Screener junk vs ok lean parity;
     ``format_soft_allow_anchor_gap_bit``; zero silent).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
@@ -1107,6 +1108,7 @@ def build_soft_allow_glance(
         format_fresh_soft_allow_tally,
         format_soft_allow_anchor_gap_bit,
         format_soft_allow_lead_bit,
+        soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_share,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
@@ -1154,6 +1156,7 @@ def build_soft_allow_glance(
         "last_vs_lead": "",
         "sample_gap": "",
         "anchor_gap_count": 0,
+        "anchor_gap_last": "",
         "anchor_gap_share_pct": None,
         "anchor_gap_share_severity": "",
         "anchor_gap_other_count": 0,
@@ -1176,6 +1179,7 @@ def build_soft_allow_glance(
     reason = str(last.get("reason") or "").strip()
     reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
     n = len(rows)
+    anchor_gap_last = soft_allow_anchor_gap_last_symbol(rows)
     anchor_gap_n, anchor_gap_share_pct, anchor_gap_share_severity = (
         soft_allow_anchor_gap_share(rows)
     )
@@ -1305,6 +1309,7 @@ def build_soft_allow_glance(
         "last_vs_lead": last_vs_lead,
         "sample_gap": sample_gap,
         "anchor_gap_count": anchor_gap_n,
+        "anchor_gap_last": anchor_gap_last,
         "anchor_gap_share_pct": anchor_gap_share_pct,
         "anchor_gap_share_severity": anchor_gap_share_severity,
         "anchor_gap_other_count": anchor_gap_other_n,
