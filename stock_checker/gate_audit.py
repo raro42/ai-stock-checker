@@ -140,12 +140,13 @@ def soft_allow_anchor_gap_symbol_lead(
 def soft_allow_anchor_gap_symbol_sample_gap(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Speak ``tied`` when ≥2 parseable gap symbols have no lead.
+    """Speak ``n=1`` / ``tied`` when parseable gap names have no lead.
 
-    Lead cases / sole-symbol / zero stay silent on gap (not edge-band
-    ``thin``). Silent tie hid that multi-name gap damage has no owner —
-    Screener ``junk_list_sample_gap`` + LAYA ``_decision_sample_gap``
-    parity after last SYM. Display only.
+    One parseable gap row speaks compact ``n=1`` (``last SYM`` alone ≠ a
+    thin sample; soft-allow / LAYA ``_decision_sample_gap`` parity). ≥2
+    with no strict lead speaks ``tied``. Lead cases / zero stay silent
+    on gap (not edge-band ``thin``). Silent sole hid that a single gap
+    name is not a ring tilt. Display only.
     """
     counts: dict[str, int] = {}
     for row in events or []:
@@ -156,11 +157,13 @@ def soft_allow_anchor_gap_symbol_sample_gap(
             continue
         counts[sym] = counts.get(sym, 0) + 1
     total = sum(counts.values())
-    if total < 2:
+    if total <= 0:
         return ""
     lead_bit, _name, _share = soft_allow_anchor_gap_symbol_lead(events)
     if lead_bit:
         return ""
+    if total < 2:
+        return "n=1"
     return "tied"
 
 
@@ -272,13 +275,14 @@ def soft_allow_anchor_gap_vs_other_lean(
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · last SYM · lead|tied · last vs lead|agree · …``.
+    """Compact ``N gap · last SYM · lead|n=1|tied · last vs lead|agree · …``.
 
     Zero silent. ``last SYM`` sits right after the count so a long lean
-    cascade cannot clip the cursor (xang1234 #546). Symbol lead / tied
-    follows the cursor (last ≠ ring ownership; Screener junk-list lead);
-    when lead spoke, ``last vs lead`` / ``agree`` sits right after so the
-    cursor≠owner clash is not clipped by share/lean (FinRobot last≠tilt).
+    cascade cannot clip the cursor (xang1234 #546). Symbol lead / n=1 /
+    tied follows the cursor (last ≠ ring ownership; Screener junk-list
+    lead + soft-allow sample honesty); when lead spoke, ``last vs lead``
+    / ``agree`` sits right after so the cursor≠owner clash is not clipped
+    by share/lean (FinRobot last≠tilt).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:

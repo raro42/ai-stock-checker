@@ -1086,9 +1086,10 @@ def build_soft_allow_glance(
     ``last [gate]`` so ``rs×N`` alone does not hide gappy-anchor vs bare
     RS unknown — absolute count ≠ which name (``last SYM`` cursor;
     xang1234 #546 + FinRobot last-row) ≠ which name owns the gap ring
-    (``lead SYM · N%`` / ``tied`` when ≥2 parseable; Screener junk-list
-    lead parity) ≠ whether cursor matches owner (``last vs lead · SYM`` /
-    ``agree`` when lead spoke; FinRobot last≠tilt) ≠ ring share
+    (``lead SYM · N%`` / ``n=1`` / ``tied``; Screener junk-list lead +
+    soft-allow sample honesty) ≠ whether cursor matches owner
+    (``last vs lead · SYM`` / ``agree`` when lead spoke; FinRobot
+    last≠tilt) ≠ ring share
     (hot ≥50% · quiet ≤25% · mid % only);
     gap% alone ≠ remaining non-gap rows (``vs M other`` · strong ≥75% ·
     thin <50%; all-gap → ``vs 0 other · thin · 0%``); sides alone ≠ lean

@@ -79,7 +79,7 @@ def test_soft_allow_anchor_gap_count() -> None:
     assert soft_allow_anchor_gap_last_symbol(mixed) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(mixed) == ("", "", None)
     assert soft_allow_anchor_gap_symbol_last_vs_lead(mixed) == ""
-    assert soft_allow_anchor_gap_symbol_sample_gap(mixed) == ""
+    assert soft_allow_anchor_gap_symbol_sample_gap(mixed) == "n=1"
 
 
 def test_soft_allow_anchor_gap_share() -> None:
@@ -112,14 +112,14 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_last_symbol(quiet_rows) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(quiet_rows) == ("", "", None)
     assert soft_allow_anchor_gap_symbol_last_vs_lead(quiet_rows) == ""
-    assert soft_allow_anchor_gap_symbol_sample_gap(quiet_rows) == ""
+    assert soft_allow_anchor_gap_symbol_sample_gap(quiet_rows) == "n=1"
     assert soft_allow_anchor_gap_vs_other(quiet_rows) == (3, 75.0, "strong")
     assert soft_allow_anchor_gap_vs_other_lean(quiet_rows) == (
         "align · quiet|strong",
         False,
     )
     assert format_soft_allow_anchor_gap_bit(quiet_rows) == (
-        "1 gap · last AAPL · quiet · 25% · vs 3 other · strong · 75% · "
+        "1 gap · last AAPL · n=1 · quiet · 25% · vs 3 other · strong · 75% · "
         "gap vs other align · quiet|strong"
     )
 
@@ -224,8 +224,9 @@ def test_soft_allow_anchor_gap_share() -> None:
         "clash · gap hot · other ok",
         True,
     )
+    assert soft_allow_anchor_gap_symbol_sample_gap(half_rows) == "n=1"
     assert format_soft_allow_anchor_gap_bit(half_rows) == (
-        "1 gap · last AAPL · hot · 50% · vs 1 other · 50% · "
+        "1 gap · last AAPL · n=1 · hot · 50% · vs 1 other · 50% · "
         "gap vs other clash · gap hot · other ok"
     )
 
@@ -235,8 +236,9 @@ def test_soft_allow_anchor_gap_share() -> None:
         {"gate": "rs", "reason": "SPY RS unknown — anchor gap — allow"},
     ]
     assert soft_allow_anchor_gap_last_symbol(bench_gap) == "SPY"
+    assert soft_allow_anchor_gap_symbol_sample_gap(bench_gap) == "n=1"
     assert format_soft_allow_anchor_gap_bit(bench_gap) == (
-        "1 gap · last SPY · hot · 50% · vs 1 other · 50% · "
+        "1 gap · last SPY · n=1 · hot · 50% · vs 1 other · 50% · "
         "gap vs other clash · gap hot · other ok"
     )
 
