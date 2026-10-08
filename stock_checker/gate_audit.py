@@ -71,6 +71,17 @@ def soft_allow_anchor_gap_count(
     return n
 
 
+def _anchor_gap_symbol(reason: str) -> str:
+    """First token of an anchor-gap reason (asset / bench label)."""
+    text = str(reason or "").strip()
+    if "anchor gap" not in text.casefold():
+        return ""
+    tok = text.split(None, 1)[0] if text else ""
+    if tok and tok.lower() not in {"rs", "unknown", "—", "-"}:
+        return tok
+    return ""
+
+
 def soft_allow_anchor_gap_last_symbol(
     events: list[dict[str, Any]] | None,
 ) -> str:
@@ -86,13 +97,71 @@ def soft_allow_anchor_gap_last_symbol(
     for row in events or []:
         if not isinstance(row, dict):
             continue
-        reason = str(row.get("reason") or "").strip()
-        if "anchor gap" not in reason.casefold():
-            continue
-        tok = reason.split(None, 1)[0] if reason else ""
-        if tok and tok.lower() not in {"rs", "unknown", "—", "-"}:
-            return tok
+        sym = _anchor_gap_symbol(str(row.get("reason") or ""))
+        if sym:
+            return sym
     return ""
+
+
+def soft_allow_anchor_gap_symbol_lead(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, str, int | None]:
+    """Strict lead among parseable gap symbols (display only).
+
+    Returns ``(lead_bit, lead_name, share_pct)``. ``last SYM`` alone ≠
+    which name owns the gap fail-open ring. When ≥2 parseable gap
+    symbols and one is strictly largest, speak ``lead AAPL · N%``
+    (share of parseable gap rows). Ties / sole-symbol / <2 parseable
+    stay silent on lead (use ``soft_allow_anchor_gap_symbol_sample_gap``).
+    Screener junk-list lead + xang1234 multi-meter + portfolio AI
+    count≠share after last-cursor.
+    """
+    counts: dict[str, int] = {}
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        sym = _anchor_gap_symbol(str(row.get("reason") or ""))
+        if not sym:
+            continue
+        counts[sym] = counts.get(sym, 0) + 1
+    total = sum(counts.values())
+    if total < 2:
+        return "", "", None
+    ranked = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+    lead_name, lead_n = ranked[0]
+    if lead_n <= 0:
+        return "", "", None
+    if len(ranked) > 1 and ranked[1][1] == lead_n:
+        return "", "", None
+    share = int(round(100.0 * lead_n / total))
+    return f"lead {lead_name} · {share}%", lead_name, share
+
+
+def soft_allow_anchor_gap_symbol_sample_gap(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Speak ``tied`` when ≥2 parseable gap symbols have no lead.
+
+    Lead cases / sole-symbol / zero stay silent on gap (not edge-band
+    ``thin``). Silent tie hid that multi-name gap damage has no owner —
+    Screener ``junk_list_sample_gap`` + LAYA ``_decision_sample_gap``
+    parity after last SYM. Display only.
+    """
+    counts: dict[str, int] = {}
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        sym = _anchor_gap_symbol(str(row.get("reason") or ""))
+        if not sym:
+            continue
+        counts[sym] = counts.get(sym, 0) + 1
+    total = sum(counts.values())
+    if total < 2:
+        return ""
+    lead_bit, _name, _share = soft_allow_anchor_gap_symbol_lead(events)
+    if lead_bit:
+        return ""
+    return "tied"
 
 
 def soft_allow_anchor_gap_share(
@@ -184,10 +253,11 @@ def soft_allow_anchor_gap_vs_other_lean(
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · last SYM · hot|quiet · P% · vs M other · lean``.
+    """Compact ``N gap · last SYM · lead|tied · hot|quiet · P% · vs other``.
 
     Zero silent. ``last SYM`` sits right after the count so a long lean
-    cascade cannot clip the cursor (xang1234 #546).
+    cascade cannot clip the cursor (xang1234 #546). Symbol lead / tied
+    follows the cursor (last ≠ ring ownership; Screener junk-list lead).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -196,6 +266,15 @@ def format_soft_allow_anchor_gap_bit(
     head = f"{gap_n} gap"
     if last:
         head = f"{head} · last {last}"
+    lead_bit, _lead_name, _lead_share = soft_allow_anchor_gap_symbol_lead(
+        events
+    )
+    if lead_bit:
+        head = f"{head} · {lead_bit}"
+    else:
+        sample_gap = soft_allow_anchor_gap_symbol_sample_gap(events)
+        if sample_gap:
+            head = f"{head} · {sample_gap}"
     if severity in {"hot", "quiet"}:
         bit = f"{head} · {severity} · {share:g}%"
     else:

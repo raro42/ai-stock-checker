@@ -45,12 +45,16 @@ def test_soft_allow_anchor_gap_count() -> None:
     from stock_checker.gate_audit import (
         soft_allow_anchor_gap_count,
         soft_allow_anchor_gap_last_symbol,
+        soft_allow_anchor_gap_symbol_lead,
+        soft_allow_anchor_gap_symbol_sample_gap,
     )
 
     assert soft_allow_anchor_gap_count(None) == 0
     assert soft_allow_anchor_gap_count([]) == 0
     assert soft_allow_anchor_gap_last_symbol(None) == ""
     assert soft_allow_anchor_gap_last_symbol([]) == ""
+    assert soft_allow_anchor_gap_symbol_lead(None) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_sample_gap(None) == ""
     assert (
         soft_allow_anchor_gap_count(
             [{"gate": "rs", "reason": "SPY RS unknown — allow"}]
@@ -71,6 +75,8 @@ def test_soft_allow_anchor_gap_count() -> None:
     ]
     assert soft_allow_anchor_gap_count(mixed) == 1
     assert soft_allow_anchor_gap_last_symbol(mixed) == "AAPL"
+    assert soft_allow_anchor_gap_symbol_lead(mixed) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_sample_gap(mixed) == ""
 
 
 def test_soft_allow_anchor_gap_share() -> None:
@@ -79,6 +85,8 @@ def test_soft_allow_anchor_gap_share() -> None:
         format_soft_allow_anchor_gap_bit,
         soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_share,
+        soft_allow_anchor_gap_symbol_lead,
+        soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
     )
@@ -98,6 +106,8 @@ def test_soft_allow_anchor_gap_share() -> None:
     ]
     assert soft_allow_anchor_gap_share(quiet_rows) == (1, 25.0, "quiet")
     assert soft_allow_anchor_gap_last_symbol(quiet_rows) == "AAPL"
+    assert soft_allow_anchor_gap_symbol_lead(quiet_rows) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_sample_gap(quiet_rows) == ""
     assert soft_allow_anchor_gap_vs_other(quiet_rows) == (3, 75.0, "strong")
     assert soft_allow_anchor_gap_vs_other_lean(quiet_rows) == (
         "align · quiet|strong",
@@ -109,6 +119,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     )
 
     # 2/3 ≈ 66.7% gap hot · 33.3% other thin → align; newest gap cursor
+    # + two distinct gap names → tied (last ≠ ownership)
     hot_rows = [
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "SPY RS unknown — allow"},
@@ -116,17 +127,38 @@ def test_soft_allow_anchor_gap_share() -> None:
     ]
     assert soft_allow_anchor_gap_share(hot_rows) == (2, 66.7, "hot")
     assert soft_allow_anchor_gap_last_symbol(hot_rows) == "AAPL"
+    assert soft_allow_anchor_gap_symbol_lead(hot_rows) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_sample_gap(hot_rows) == "tied"
     assert soft_allow_anchor_gap_vs_other(hot_rows) == (1, 33.3, "thin")
     assert soft_allow_anchor_gap_vs_other_lean(hot_rows) == (
         "align · hot|thin",
         False,
     )
     assert format_soft_allow_anchor_gap_bit(hot_rows) == (
-        "2 gap · last AAPL · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "2 gap · last AAPL · tied · hot · 66.7% · vs 1 other · thin · 33.3% · "
         "gap vs other align · hot|thin"
     )
 
-    # 2/5 = 40% gap mid · 60% other mid (leans silent)
+    # Strict lead: 2×AAPL + 1×MSFT gap (last MSFT ≠ lead AAPL)
+    lead_rows = [
+        {"gate": "rs", "reason": "MSFT RS unknown — anchor gap — allow"},
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+        {"gate": "rs", "reason": "SPY RS unknown — allow"},
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+    ]
+    assert soft_allow_anchor_gap_symbol_lead(lead_rows) == (
+        "lead AAPL · 67%",
+        "AAPL",
+        67,
+    )
+    assert soft_allow_anchor_gap_symbol_sample_gap(lead_rows) == ""
+    assert soft_allow_anchor_gap_last_symbol(lead_rows) == "MSFT"
+    assert format_soft_allow_anchor_gap_bit(lead_rows) == (
+        "3 gap · last MSFT · lead AAPL · 67% · hot · 75% · "
+        "vs 1 other · thin · 25% · gap vs other align · hot|thin"
+    )
+
+    # 2/5 = 40% gap mid · 60% other mid (leans silent); gap names tied
     mid_rows = hot_rows + [
         {"gate": "regime", "reason": "unknown — no SPY bars"},
         {"gate": "breadth", "reason": "unknown scan"},
@@ -134,11 +166,12 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_share(mid_rows) == (2, 40.0, "ok")
     assert soft_allow_anchor_gap_vs_other(mid_rows) == (3, 60.0, "ok")
     assert soft_allow_anchor_gap_vs_other_lean(mid_rows) == ("", False)
+    assert soft_allow_anchor_gap_symbol_sample_gap(mid_rows) == "tied"
     assert format_soft_allow_anchor_gap_bit(mid_rows) == (
-        "2 gap · last AAPL · 40% · vs 3 other · 60%"
+        "2 gap · last AAPL · tied · 40% · vs 3 other · 60%"
     )
 
-    # All-gap → vs 0 other · thin · 0% · align hot|thin
+    # All-gap → vs 0 other · thin · 0% · align hot|thin; names tied
     all_gap = [
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "MSFT RS unknown — anchor gap — allow"},
@@ -148,9 +181,26 @@ def test_soft_allow_anchor_gap_share() -> None:
         "align · hot|thin",
         False,
     )
+    assert soft_allow_anchor_gap_symbol_sample_gap(all_gap) == "tied"
     assert format_soft_allow_anchor_gap_bit(all_gap) == (
-        "2 gap · last AAPL · hot · 100% · vs 0 other · thin · 0% · "
+        "2 gap · last AAPL · tied · hot · 100% · vs 0 other · thin · 0% · "
         "gap vs other align · hot|thin"
+    )
+
+    # Same symbol twice → lead · 100% (sole-name with n≥2)
+    same_sym = [
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+    ]
+    assert soft_allow_anchor_gap_symbol_lead(same_sym) == (
+        "lead AAPL · 100%",
+        "AAPL",
+        100,
+    )
+    assert soft_allow_anchor_gap_symbol_sample_gap(same_sym) == ""
+    assert format_soft_allow_anchor_gap_bit(same_sym) == (
+        "2 gap · last AAPL · lead AAPL · 100% · hot · 100% · "
+        "vs 0 other · thin · 0% · gap vs other align · hot|thin"
     )
 
     # 1/2 = 50% gap hot · 50% other ok → one-lean clash (warn)

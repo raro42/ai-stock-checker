@@ -43,6 +43,10 @@ def test_soft_allow_glance_one() -> None:
     assert g["last_gate"] == "regime"
     assert g["anchor_gap_count"] == 0
     assert g["anchor_gap_last"] == ""
+    assert g["anchor_gap_symbol_lead"] == ""
+    assert g["anchor_gap_symbol_lead_name"] == ""
+    assert g["anchor_gap_symbol_lead_share"] is None
+    assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_share_pct"] is None
     assert g["anchor_gap_share_severity"] == ""
     assert g["anchor_gap_other_count"] == 0
@@ -84,6 +88,8 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["ready"] is True
     assert g["anchor_gap_count"] == 2
     assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_symbol_lead"] == ""
+    assert g["anchor_gap_symbol_sample_gap"] == "tied"
     assert g["anchor_gap_share_pct"] == 66.7
     assert g["anchor_gap_share_severity"] == "hot"
     assert g["anchor_gap_other_count"] == 1
@@ -92,15 +98,56 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["anchor_gap_vs_other"] == "align · hot|thin"
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "2 gap · last AAPL · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "2 gap · last AAPL · tied · hot · 66.7% · vs 1 other · thin · 33.3% · "
         "gap vs other align · hot|thin"
     )
     assert (
-        "2 gap · last AAPL · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "2 gap · last AAPL · tied · hot · 66.7% · vs 1 other · thin · 33.3% · "
         "gap vs other align · hot|thin"
     ) in g["line"]
     assert "last [rs]" in g["line"]
     assert "anchor gap" in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
+    """last SYM ≠ ring ownership: strict gap-symbol lead speaks %."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": "2026-10-08T11:00:00Z",
+                "gate": "rs",
+                "reason": "MSFT RS unknown — anchor gap — allow",
+            },
+            {
+                "at": "2026-10-08T10:45:00Z",
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": "2026-10-08T10:30:00Z",
+                "gate": "rs",
+                "reason": "SPY RS unknown — allow",
+            },
+            {
+                "at": "2026-10-08T10:00:00Z",
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_count"] == 3
+    assert g["anchor_gap_last"] == "MSFT"
+    assert g["anchor_gap_symbol_lead"] == "lead AAPL · 67%"
+    assert g["anchor_gap_symbol_lead_name"] == "AAPL"
+    assert g["anchor_gap_symbol_lead_share"] == 67
+    assert g["anchor_gap_symbol_sample_gap"] == ""
+    assert g["anchor_gap_bit"] == (
+        "3 gap · last MSFT · lead AAPL · 67% · hot · 75% · "
+        "vs 1 other · thin · 25% · gap vs other align · hot|thin"
+    )
+    assert "lead AAPL · 67%" in g["line"]
 
 
 def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
@@ -133,6 +180,8 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     )
     assert g["anchor_gap_count"] == 1
     assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_symbol_lead"] == ""
+    assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_share_pct"] == 25.0
     assert g["anchor_gap_share_severity"] == "quiet"
     assert g["anchor_gap_other_count"] == 3
@@ -170,6 +219,8 @@ def test_soft_allow_glance_anchor_gap_vs_other_clash() -> None:
     )
     assert g["anchor_gap_share_severity"] == "hot"
     assert g["anchor_gap_last"] == "AAPL"
+    assert g["anchor_gap_symbol_lead"] == ""
+    assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_other_share_severity"] == "ok"
     assert g["anchor_gap_vs_other"] == "clash · gap hot · other ok"
     assert g["anchor_gap_vs_other_warn"] is True
