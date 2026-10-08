@@ -98,6 +98,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     from stock_checker.gate_audit import (
         format_soft_allow_anchor_gap_bit,
         soft_allow_anchor_gap_last_freshness,
+        soft_allow_anchor_gap_last_vs_share,
     )
 
     now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
@@ -138,6 +139,16 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_last_freshness(
         [other, aging_row], now=now
     ) == "aging"
+    # aging mid → last/share silent; expired·hot → clash warn
+    assert soft_allow_anchor_gap_last_vs_share(
+        [aging_row, other], now=now
+    ) == ("", False)
+    assert soft_allow_anchor_gap_last_vs_share(
+        [expired_row, other], now=now
+    ) == ("clash · expired · hot", True)
+    assert soft_allow_anchor_gap_last_vs_share(
+        [fresh_row, other], now=now
+    ) == ("align · fresh · hot", False)
     assert format_soft_allow_anchor_gap_bit(
         [aging_row, other], now=now
     ) == (
@@ -147,7 +158,8 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert format_soft_allow_anchor_gap_bit(
         [expired_row, other], now=now
     ) == (
-        "1 gap · last AAPL · expired · n=1 · hot · 50% · vs 1 other · 50% · "
+        "1 gap · last AAPL · expired · n=1 · hot · 50% · "
+        "last/share clash · expired · hot · vs 1 other · 50% · "
         "gap vs other clash · gap hot · other ok"
     )
 

@@ -355,6 +355,35 @@ def soft_allow_anchor_gap_vs_other_lean(
     return "", False
 
 
+def soft_allow_anchor_gap_last_vs_share(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last gap freshness vs gap share lean (display only).
+
+    Returns ``(bit, warn)``. Cursor age ≠ ownership heat. Extremes only:
+    ``fresh``↔``hot`` and ``expired``↔``quiet`` speak ``align``; crossed
+    pairs speak ``clash`` (warn). ``aging`` / mid share stay silent —
+    RyanJHamby triad + FinRobot last-row age + portfolio AI
+    speak-both-sides after last-freshness + share labels alone hid the
+    relationship. Not a gate.
+    """
+    last_fresh = soft_allow_anchor_gap_last_freshness(events, now=now)
+    gap_n, _share, severity = soft_allow_anchor_gap_share(events)
+    if (
+        gap_n <= 0
+        or last_fresh not in {"fresh", "expired"}
+        or severity not in {"hot", "quiet"}
+    ):
+        return "", False
+    live_age = last_fresh == "fresh"
+    hot_share = severity == "hot"
+    if live_age == hot_share:
+        return f"align · {last_fresh} · {severity}", False
+    return f"clash · {last_fresh} · {severity}", True
+
+
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
     *,
@@ -372,7 +401,10 @@ def format_soft_allow_anchor_gap_bit(
     ``agree`` sits right after so the cursor≠owner clash is not clipped
     by share/lean (FinRobot last≠tilt); when a runner exists, ``ahead``
     + ``vs SYM`` follow so ownership % ≠ how far ahead ≠ who is #2
-    (soft gate-lead margin/sides; sole 100% omits).
+    (soft gate-lead margin/sides; sole 100% omits). Share severity
+    follows; when last freshness + share lean already spoke, ``last/share
+    align|clash`` sits right after so age ≠ ownership heat (portfolio AI
+    speak-both-sides; clash warns).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -406,6 +438,11 @@ def format_soft_allow_anchor_gap_bit(
         bit = f"{head} · {severity} · {share:g}%"
     else:
         bit = f"{head} · {share:g}%"
+    last_vs_share, _lvs_warn = soft_allow_anchor_gap_last_vs_share(
+        events, now=now
+    )
+    if last_vs_share:
+        bit = f"{bit} · last/share {last_vs_share}"
     other_n, other_share, other_sev = soft_allow_anchor_gap_vs_other(events)
     if other_share is None:
         return bit
