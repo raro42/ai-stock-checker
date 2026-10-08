@@ -25,6 +25,7 @@ _SOFT_MARKERS = (
     "empty yahoo",
     "empty earnings",
     "malformed yahoo",
+    "anchor gap",  # xang1234 #539 RS positional miss >25%
 )
 
 

@@ -36,6 +36,7 @@ def test_is_soft_allow_reason_markers() -> None:
     assert is_soft_allow_reason("insufficient history")
     assert is_soft_allow_reason("empty Yahoo earnings window · fail-open")
     assert is_soft_allow_reason("malformed Yahoo earnings · fail-open")
+    assert is_soft_allow_reason("SPY RS unknown — anchor gap — allow")
     assert not is_soft_allow_reason("SPY above SMA200")
     assert not is_soft_allow_reason("")
 

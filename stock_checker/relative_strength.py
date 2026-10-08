@@ -3,7 +3,7 @@ Soft relative-strength gate for new paper entries.
 
 Inspired by external screener “RS as primary filter”: only block *new* buys when
 the name underperforms its benchmark over a lookback window. Existing holds are
-untouched. Fail-open on short history / missing data.
+untouched. Fail-open on short history / missing data / gappy anchors.
 """
 
 from __future__ import annotations
@@ -15,6 +15,9 @@ from typing import Optional, Sequence, Tuple
 DEFAULT_RS_LOOKBACK = 63
 STOCK_BENCHMARK = "SPY"
 CRYPTO_BENCHMARK = "BTCUSDT"
+# xang1234 #539: reject RS when >25% of the positional lookback misses anchors
+# (silent NaN-drop compresses the window and invents relative strength).
+RS_ANCHOR_MAX_MISS = 0.25
 
 
 def _finite(x: float) -> bool:
@@ -43,20 +46,42 @@ def rs_lookback() -> int:
     return max(5, min(252, n))
 
 
-def period_return(closes: Sequence[float], lookback: int) -> Optional[float]:
+def anchor_miss_ratio(closes: Sequence[float], lookback: int) -> Optional[float]:
     """
-    Return over `lookback` steps: (last / close[-lookback-1]) - 1.
+    Fraction of non-finite bars in the last lookback+1 *positional* slots.
 
-    Needs lookback+1 finite closes. Returns None if insufficient or invalid.
+    None when the series is shorter than the window (short-history path).
     """
     if lookback <= 0:
         return None
-    clean = [float(c) for c in closes if _finite(float(c))]
     need = lookback + 1
-    if len(clean) < need:
+    if len(closes) < need:
         return None
-    start = clean[-need]
-    end = clean[-1]
+    window = closes[-need:]
+    miss = sum(1 for c in window if not _finite(float(c)))
+    return miss / float(need)
+
+
+def period_return(closes: Sequence[float], lookback: int) -> Optional[float]:
+    """
+    Return over `lookback` steps on a positional window: (last / first) - 1.
+
+    Needs lookback+1 raw slots with finite start+end anchors and miss rate
+    ≤ RS_ANCHOR_MAX_MISS. Does not drop NaNs to steal older bars (anchor-gap
+    honesty). Returns None if insufficient, gappy, or invalid.
+    """
+    if lookback <= 0:
+        return None
+    need = lookback + 1
+    if len(closes) < need:
+        return None
+    window = [float(c) for c in closes[-need:]]
+    miss = sum(1 for c in window if not _finite(c)) / float(need)
+    if miss > RS_ANCHOR_MAX_MISS:
+        return None
+    start, end = window[0], window[-1]
+    if not _finite(start) or not _finite(end):
+        return None
     if start <= 0 or end <= 0:
         return None
     return (end / start) - 1.0
@@ -73,11 +98,26 @@ def beats_benchmark(
     """
     True if asset period return >= benchmark (or data missing → fail-open allow).
 
-    Returns (allowed, reason).
+    Returns (allowed, reason). Anchor-gap miss >25% fail-opens distinctly so
+    soft-allow audit does not treat a compressed lookback as a real RS read.
     """
+    asset_miss = anchor_miss_ratio(asset_closes, lookback)
+    bench_miss = anchor_miss_ratio(bench_closes, lookback)
+    if asset_miss is None or bench_miss is None:
+        return True, f"{asset_label} RS unknown — allow"
+    if asset_miss > RS_ANCHOR_MAX_MISS:
+        return True, f"{asset_label} RS unknown — anchor gap — allow"
+    if bench_miss > RS_ANCHOR_MAX_MISS:
+        return True, f"{bench_label} RS unknown — anchor gap — allow"
+
     asset_ret = period_return(asset_closes, lookback)
     bench_ret = period_return(bench_closes, lookback)
     if asset_ret is None or bench_ret is None:
+        # Start/end hole inside an otherwise tolerable miss budget.
+        if asset_ret is None and asset_miss > 0:
+            return True, f"{asset_label} RS unknown — anchor gap — allow"
+        if bench_ret is None and bench_miss > 0:
+            return True, f"{bench_label} RS unknown — anchor gap — allow"
         return True, f"{asset_label} RS unknown — allow"
     if asset_ret >= bench_ret:
         return (

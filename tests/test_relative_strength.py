@@ -1,6 +1,8 @@
 """Offline tests for soft relative-strength entry gate."""
 
 from stock_checker.relative_strength import (
+    RS_ANCHOR_MAX_MISS,
+    anchor_miss_ratio,
     beats_benchmark,
     new_entry_rs_allowed,
     period_return,
@@ -46,6 +48,70 @@ def test_beats_benchmark_fail_open_short_history():
     ok, why = beats_benchmark([1.0, 2.0], [1.0, 1.1], 63)
     assert ok
     assert "unknown" in why
+    assert "anchor gap" not in why
+
+
+def test_anchor_miss_ratio_positional():
+    lb = 5
+    clean = _series(100.0, 0.01, lb + 1)
+    assert anchor_miss_ratio(clean, lb) == 0.0
+    assert anchor_miss_ratio(clean[:3], lb) is None
+    gappy = list(clean)
+    gappy[2] = float("nan")
+    gappy[3] = float("nan")
+    # 2/6 ≈ 0.333 > 0.25
+    assert anchor_miss_ratio(gappy, lb) == 2 / float(lb + 1)
+
+
+def test_period_return_rejects_heavy_anchor_gap():
+    lb = 5
+    closes = _series(100.0, 0.01, lb + 1)
+    # Steal older bars via NaN-drop used to invent a return; positional miss
+    # above the 25% floor must refuse.
+    padded = [90.0, 91.0, 92.0] + list(closes)
+    padded[-4] = float("nan")
+    padded[-3] = float("nan")
+    assert len(padded) >= lb + 1
+    window = padded[-(lb + 1) :]
+    miss = sum(1 for c in window if c != c) / float(lb + 1)
+    assert miss > RS_ANCHOR_MAX_MISS
+    assert period_return(padded, lb) is None
+
+
+def test_period_return_tolerates_light_interior_hole():
+    lb = 5
+    closes = _series(100.0, 0.01, lb + 1)
+    closes[2] = float("nan")  # 1/6 ≤ 0.25; start+end finite
+    ret = period_return(closes, lb)
+    assert ret is not None
+    assert abs(ret - (closes[-1] / closes[0] - 1.0)) < 1e-9
+
+
+def test_beats_benchmark_fail_open_anchor_gap():
+    lb = 5
+    bench = _series(100.0, 0.0, lb + 1)
+    # Asset window: 2 NaNs → miss >25% → fail-open, never a lagging block.
+    asset = _series(100.0, -0.02, lb + 1)
+    asset[1] = float("nan")
+    asset[2] = float("nan")
+    ok, why = beats_benchmark(
+        asset, bench, lb, asset_label="HOLE", bench_label="SPY"
+    )
+    assert ok
+    assert "anchor gap" in why
+    assert "lagging" not in why
+
+    # Benchmark holes fail-open the same way (do not invent SPY RS).
+    spy_hole = list(bench)
+    spy_hole[1] = float("nan")
+    spy_hole[2] = float("nan")
+    strong = _series(50.0, 0.02, lb + 1)
+    ok_b, why_b = beats_benchmark(
+        strong, spy_hole, lb, asset_label="AAA", bench_label="SPY"
+    )
+    assert ok_b
+    assert "SPY" in why_b
+    assert "anchor gap" in why_b
 
 
 def test_new_entry_rs_allowed_stock_and_crypto():
