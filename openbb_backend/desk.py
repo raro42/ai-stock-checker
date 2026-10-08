@@ -1080,6 +1080,10 @@ def build_soft_allow_glance(
     lead cases stay silent on gap; not cool-off ``aging``) — Window A
     Kelly sample thin + xang1234 sample honesty + LAYA/debate
     ``_decision_sample_gap`` parity.
+    Anchor-gap RS fail-opens (xang1234 #539): when any reason contains
+    ``anchor gap``, speak ``N gap`` after ``last [gate]`` so
+    ``rs×N`` alone does not hide gappy-anchor vs bare RS unknown
+    (``soft_allow_anchor_gap_count``; zero silent).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1096,6 +1100,7 @@ def build_soft_allow_glance(
         format_expired_soft_allow_tally,
         format_fresh_soft_allow_tally,
         format_soft_allow_lead_bit,
+        soft_allow_anchor_gap_count,
         soft_allow_last_vs_lead,
         soft_allow_lead_margin,
         soft_allow_lead_share,
@@ -1139,6 +1144,8 @@ def build_soft_allow_glance(
         "lead_bit": "",
         "last_vs_lead": "",
         "sample_gap": "",
+        "anchor_gap_count": 0,
+        "anchor_gap_bit": "",
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1153,6 +1160,8 @@ def build_soft_allow_glance(
     reason = str(last.get("reason") or "").strip()
     reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
     n = len(rows)
+    anchor_gap_n = soft_allow_anchor_gap_count(rows)
+    anchor_gap_bit = f"{anchor_gap_n} gap" if anchor_gap_n else ""
     expired_n = sum(1 for r in rows if r.get("freshness") == "expired")
     aging_n = sum(1 for r in rows if r.get("freshness") == "aging")
     fresh_n = sum(1 for r in rows if r.get("freshness") == "fresh")
@@ -1235,6 +1244,8 @@ def build_soft_allow_glance(
         line = f"{severity} · {sample_gap} · {line}"
     else:
         line = f"{severity} · {line}"
+    if anchor_gap_bit:
+        line = f"{line} · {anchor_gap_bit}"
     if reason_short:
         line = f"{line} {reason_short}"
     return {
@@ -1267,6 +1278,8 @@ def build_soft_allow_glance(
         "lead_bit": lead_bit,
         "last_vs_lead": last_vs_lead,
         "sample_gap": sample_gap,
+        "anchor_gap_count": anchor_gap_n,
+        "anchor_gap_bit": anchor_gap_bit,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,

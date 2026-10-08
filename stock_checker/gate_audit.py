@@ -42,6 +42,25 @@ def is_soft_allow_reason(reason: str) -> bool:
     return any(m in r for m in _SOFT_MARKERS)
 
 
+def soft_allow_anchor_gap_count(
+    events: list[dict[str, Any]] | None,
+) -> int:
+    """Count soft-allows whose reason is an RS anchor-gap fail-open.
+
+    Gate tallies only say ``rs×N`` — bare ``RS unknown`` and
+    ``RS unknown — anchor gap — allow`` look the same. xang1234 #539
+    rejects compressed-window RS; desk should speak how many ring rows
+    are gappy-anchor fail-opens (display only; zero stays silent).
+    """
+    n = 0
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        if "anchor gap" in str(row.get("reason") or "").casefold():
+            n += 1
+    return n
+
+
 def load_soft_allows(data_dir: Path | str) -> list[dict[str, Any]]:
     path = soft_allow_path(data_dir)
     if not path.is_file():

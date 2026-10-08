@@ -41,10 +41,44 @@ def test_soft_allow_glance_one() -> None:
     assert g["expired_count"] == 0
     assert g["aging_hours"] == 12.0
     assert g["last_gate"] == "regime"
+    assert g["anchor_gap_count"] == 0
+    assert g["anchor_gap_bit"] == ""
     assert g["line"].startswith("hot · ")
     assert "1 recent soft-allow" in g["line"]
     assert "[regime]" in g["line"]
     assert "no SPY bars" in g["line"]
+    assert " gap" not in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_count() -> None:
+    """xang1234 #539: rs×N alone ≠ gappy-anchor fail-open count."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": "2026-10-08T11:00:00Z",
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": "2026-10-08T10:30:00Z",
+                "gate": "rs",
+                "reason": "SPY RS unknown — allow",
+            },
+            {
+                "at": "2026-10-08T10:00:00Z",
+                "gate": "rs",
+                "reason": "MSFT RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+    )
+    assert g["ready"] is True
+    assert g["anchor_gap_count"] == 2
+    assert g["anchor_gap_bit"] == "2 gap"
+    assert "2 gap" in g["line"]
+    assert "last [rs]" in g["line"]
+    assert "anchor gap" in g["line"]
 
 
 def test_soft_allow_glance_truncates_reason() -> None:

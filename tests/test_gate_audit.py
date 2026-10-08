@@ -41,6 +41,30 @@ def test_is_soft_allow_reason_markers() -> None:
     assert not is_soft_allow_reason("")
 
 
+def test_soft_allow_anchor_gap_count() -> None:
+    from stock_checker.gate_audit import soft_allow_anchor_gap_count
+
+    assert soft_allow_anchor_gap_count(None) == 0
+    assert soft_allow_anchor_gap_count([]) == 0
+    assert (
+        soft_allow_anchor_gap_count(
+            [{"gate": "rs", "reason": "SPY RS unknown — allow"}]
+        )
+        == 0
+    )
+    assert (
+        soft_allow_anchor_gap_count(
+            [
+                {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+                {"gate": "rs", "reason": "MSFT RS unknown — allow"},
+                {"gate": "regime", "reason": "unknown — no SPY bars"},
+                "junk",
+            ]
+        )
+        == 1
+    )
+
+
 def test_record_and_recent_soft_allows(tmp_path: Path) -> None:
     record_soft_allow(tmp_path, "regime", "unknown — no bars")
     record_soft_allow(tmp_path, "rs", "hard pass — should not store")
