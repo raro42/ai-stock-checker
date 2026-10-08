@@ -5596,7 +5596,10 @@ def build_gate_params_glance() -> dict[str, Any]:
 
     Complements ``build_gate_roles_glance``: roles say *what* each gate is;
     this line shows the live knobs (SMA periods, RS lookback, scan A/D mins).
-    Fail-open on short bars stays. Not a new gate.
+    Fail-open on short bars stays. When ``RS_ANCHOR_MAX_MISS`` env sets a
+    non-default gap ceiling, speak ``gap≤N% · env`` so a looser/tighter
+    override is not mistaken for the 25% default (xang1234 #539 clamp +
+    config-precedence env honesty). Not a new gate.
     """
     from stock_checker.market_regime import (
         CRYPTO_BENCHMARK,
@@ -5604,7 +5607,11 @@ def build_gate_params_glance() -> dict[str, Any]:
         STOCK_BENCHMARK,
         STOCK_SMA_PERIOD,
     )
-    from stock_checker.relative_strength import rs_anchor_max_miss, rs_lookback
+    from stock_checker.relative_strength import (
+        RS_ANCHOR_MAX_MISS,
+        rs_anchor_max_miss,
+        rs_lookback,
+    )
     from stock_checker.scan_breadth_gate import min_advance_ratio, min_stock_leaders
 
     lookback = int(rs_lookback())
@@ -5615,10 +5622,12 @@ def build_gate_params_glance() -> dict[str, Any]:
     adv_pct = f"{adv * 100:.0f}%"
     # xang1234 #539: gap share is a live knob (0..1 clamped); speak beside RS days.
     gap_pct = f"{gap_ceil * 100:.0f}%"
+    gap_env = abs(gap_ceil - float(RS_ANCHOR_MAX_MISS)) > 1e-12
+    gap_bit = f"gap≤{gap_pct} · env" if gap_env else f"gap≤{gap_pct}"
     line = (
         f"{STOCK_BENCHMARK}≥SMA{STOCK_SMA_PERIOD} · "
         f"{crypto_label}≥SMA{CRYPTO_SMA_PERIOD} · "
-        f"RS≥bench {lookback}d · gap≤{gap_pct} · "
+        f"RS≥bench {lookback}d · {gap_bit} · "
         f"A/D≥{adv_pct} · ≥{leaders} leader · fail-open"
     )
     if len(line) > 96:
@@ -5633,6 +5642,7 @@ def build_gate_params_glance() -> dict[str, Any]:
         "crypto_sma": int(CRYPTO_SMA_PERIOD),
         "rs_lookback": lookback,
         "rs_anchor_max_miss": gap_ceil,
+        "rs_anchor_max_miss_env": gap_env,
         "min_advance_ratio": adv,
         "min_stock_leaders": leaders,
         "fail_open": True,

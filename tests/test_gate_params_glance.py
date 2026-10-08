@@ -28,13 +28,29 @@ def test_gate_params_glance_line() -> None:
     assert g["crypto_sma"] == CRYPTO_SMA_PERIOD
     assert g["rs_lookback"] == DEFAULT_RS_LOOKBACK
     assert g["rs_anchor_max_miss"] == RS_ANCHOR_MAX_MISS
+    assert g["rs_anchor_max_miss_env"] is False
     assert g["min_advance_ratio"] == DEFAULT_MIN_ADVANCE_RATIO
     assert g["min_stock_leaders"] == DEFAULT_MIN_STOCK_LEADERS
     assert f"SMA{STOCK_SMA_PERIOD}" in g["line"]
     assert f"SMA{CRYPTO_SMA_PERIOD}" in g["line"]
     assert f"{DEFAULT_RS_LOOKBACK}d" in g["line"]
     assert f"gap≤{RS_ANCHOR_MAX_MISS * 100:.0f}%" in g["line"]
+    assert "gap≤25% · env" not in g["line"]
     assert "fail-open" in g["line"]
+
+
+def test_gate_params_glance_gap_env_override(monkeypatch) -> None:
+    """Non-default RS_ANCHOR_MAX_MISS speaks gap≤N% · env (xang1234 #539)."""
+    monkeypatch.setenv("RS_ANCHOR_MAX_MISS", "0.4")
+    g = build_gate_params_glance()
+    assert g["rs_anchor_max_miss"] == 0.4
+    assert g["rs_anchor_max_miss_env"] is True
+    assert "gap≤40% · env" in g["line"]
+    monkeypatch.setenv("RS_ANCHOR_MAX_MISS", "50%")  # typo → default
+    bad = build_gate_params_glance()
+    assert bad["rs_anchor_max_miss"] == RS_ANCHOR_MAX_MISS
+    assert bad["rs_anchor_max_miss_env"] is False
+    assert "gap≤25% · env" not in bad["line"]
 
 
 def test_gate_params_glance_in_snapshot(tmp_path) -> None:
