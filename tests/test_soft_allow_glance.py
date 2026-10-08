@@ -47,6 +47,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_other_count"] == 0
     assert g["anchor_gap_other_share_pct"] is None
     assert g["anchor_gap_other_share_severity"] == ""
+    assert g["anchor_gap_vs_other"] == ""
+    assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == ""
     assert g["line"].startswith("hot · ")
     assert "1 recent soft-allow" in g["line"]
@@ -85,10 +87,16 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["anchor_gap_other_count"] == 1
     assert g["anchor_gap_other_share_pct"] == 33.3
     assert g["anchor_gap_other_share_severity"] == "thin"
+    assert g["anchor_gap_vs_other"] == "align · hot|thin"
+    assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3%"
+        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "gap vs other align · hot|thin"
     )
-    assert "2 gap · hot · 66.7% · vs 1 other · thin · 33.3%" in g["line"]
+    assert (
+        "2 gap · hot · 66.7% · vs 1 other · thin · 33.3% · "
+        "gap vs other align · hot|thin"
+    ) in g["line"]
     assert "last [rs]" in g["line"]
     assert "anchor gap" in g["line"]
 
@@ -127,10 +135,42 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     assert g["anchor_gap_other_count"] == 3
     assert g["anchor_gap_other_share_pct"] == 75.0
     assert g["anchor_gap_other_share_severity"] == "strong"
+    assert g["anchor_gap_vs_other"] == "align · quiet|strong"
+    assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_bit"] == (
-        "1 gap · quiet · 25% · vs 3 other · strong · 75%"
+        "1 gap · quiet · 25% · vs 3 other · strong · 75% · "
+        "gap vs other align · quiet|strong"
     )
-    assert "1 gap · quiet · 25% · vs 3 other · strong · 75%" in g["line"]
+    assert (
+        "1 gap · quiet · 25% · vs 3 other · strong · 75% · "
+        "gap vs other align · quiet|strong"
+    ) in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_vs_other_clash() -> None:
+    """Sides alone ≠ lean: gap hot + other mid speaks clash (junk_vs_ok)."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": "2026-10-08T11:00:00Z",
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": "2026-10-08T10:30:00Z",
+                "gate": "rs",
+                "reason": "SPY RS unknown — allow",
+            },
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_share_severity"] == "hot"
+    assert g["anchor_gap_other_share_severity"] == "ok"
+    assert g["anchor_gap_vs_other"] == "clash · gap hot · other ok"
+    assert g["anchor_gap_vs_other_warn"] is True
+    assert "gap vs other clash · gap hot · other ok" in g["anchor_gap_bit"]
+    assert "gap vs other clash · gap hot · other ok" in g["line"]
 
 
 def test_soft_allow_glance_truncates_reason() -> None:

@@ -121,10 +121,46 @@ def soft_allow_anchor_gap_vs_other(
     return other_n, share, severity
 
 
+def soft_allow_anchor_gap_vs_other_lean(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Gap vs other lean when both sides already spoke (display only).
+
+    Returns ``(lean_bit, warn)``. Silent when gap did not speak or both
+    severities are mid. Screener ``junk_vs_ok`` parity: matched extremes
+    speak ``align · hot|thin`` / ``quiet|strong``; mismatch or one-lean
+    speaks ``clash · gap … · other …`` (warn when gap hot or other thin).
+    Sides alone hid lean agreement (portfolio AI speak-both-sides).
+    """
+    gap_n, _gap_share, gap_sev = soft_allow_anchor_gap_share(events)
+    other_n, other_share, other_sev = soft_allow_anchor_gap_vs_other(events)
+    if gap_n <= 0 or other_share is None:
+        return "", False
+    gap_lean = gap_sev in {"hot", "quiet"}
+    other_lean = other_sev in {"strong", "thin"}
+    if gap_lean and other_lean:
+        matched = (gap_sev == "hot" and other_sev == "thin") or (
+            gap_sev == "quiet" and other_sev == "strong"
+        )
+        if matched:
+            return f"align · {gap_sev}|{other_sev}", False
+        return (
+            f"clash · gap {gap_sev} · other {other_sev}",
+            True,
+        )
+    if gap_lean != other_lean:
+        warn = gap_sev == "hot" or other_sev == "thin"
+        return (
+            f"clash · gap {gap_sev} · other {other_sev}",
+            warn,
+        )
+    return "", False
+
+
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · hot|quiet · P% · vs M other · …`` (zero silent)."""
+    """Compact ``N gap · hot|quiet · P% · vs M other · … · lean`` (zero silent)."""
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
         return ""
@@ -139,7 +175,11 @@ def format_soft_allow_anchor_gap_bit(
         other_bit = f"vs {other_n} other · {other_sev} · {other_share:g}%"
     else:
         other_bit = f"vs {other_n} other · {other_share:g}%"
-    return f"{bit} · {other_bit}"
+    bit = f"{bit} · {other_bit}"
+    lean, _warn = soft_allow_anchor_gap_vs_other_lean(events)
+    if lean:
+        bit = f"{bit} · gap vs other {lean}"
+    return bit
 
 
 def load_soft_allows(data_dir: Path | str) -> list[dict[str, Any]]:
