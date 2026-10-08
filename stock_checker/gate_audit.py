@@ -103,6 +103,21 @@ def soft_allow_anchor_gap_last_symbol(
     return ""
 
 
+def _anchor_gap_symbol_counts(
+    events: list[dict[str, Any]] | None,
+) -> dict[str, int]:
+    """Parseable gap-symbol tallies (newest-first ring; display only)."""
+    counts: dict[str, int] = {}
+    for row in events or []:
+        if not isinstance(row, dict):
+            continue
+        sym = _anchor_gap_symbol(str(row.get("reason") or ""))
+        if not sym:
+            continue
+        counts[sym] = counts.get(sym, 0) + 1
+    return counts
+
+
 def soft_allow_anchor_gap_symbol_lead(
     events: list[dict[str, Any]] | None,
 ) -> tuple[str, str, int | None]:
@@ -116,14 +131,7 @@ def soft_allow_anchor_gap_symbol_lead(
     Screener junk-list lead + xang1234 multi-meter + portfolio AI
     count≠share after last-cursor.
     """
-    counts: dict[str, int] = {}
-    for row in events or []:
-        if not isinstance(row, dict):
-            continue
-        sym = _anchor_gap_symbol(str(row.get("reason") or ""))
-        if not sym:
-            continue
-        counts[sym] = counts.get(sym, 0) + 1
+    counts = _anchor_gap_symbol_counts(events)
     total = sum(counts.values())
     if total < 2:
         return "", "", None
@@ -137,6 +145,58 @@ def soft_allow_anchor_gap_symbol_lead(
     return f"lead {lead_name} · {share}%", lead_name, share
 
 
+def soft_allow_anchor_gap_symbol_lead_margin(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, int, str] | None:
+    """Lead share plus margin over #2 gap symbol (display only).
+
+    Returns ``(ahead_bit, margin, severity)``. Ownership % ≠ how far
+    ahead. Speaks only when symbol lead already spoke **and** a
+    runner-up name exists (sole 100% omits ahead). Severity: ``wide``
+    when margin ≥ ``SOFT_ALLOW_LEAD_MARGIN_WIDE``, else ``thin``. Soft
+    gate-lead margin + Screener junk-list lead + portfolio AI after
+    lead %. Not a gate.
+    """
+    lead_bit, _name, _share = soft_allow_anchor_gap_symbol_lead(events)
+    if not lead_bit:
+        return None
+    counts = _anchor_gap_symbol_counts(events)
+    ranked = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+    if len(ranked) < 2:
+        return None
+    margin = int(ranked[0][1]) - int(ranked[1][1])
+    if margin < 1:
+        return None
+    severity = "wide" if margin >= SOFT_ALLOW_LEAD_MARGIN_WIDE else "thin"
+    return f"ahead {severity} · +{margin}", margin, severity
+
+
+def soft_allow_anchor_gap_symbol_lead_sides(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, str, int, int] | None:
+    """Lead margin plus runner-up gap symbol (display only).
+
+    Returns ``(sides_bit, runner, runner_n, runner_share_pct)``. Ahead
+    +K ≠ who is #2. Speaks when margin already spoke; runner share is
+    runner÷parseable gap total (absolute count ≠ ownership). Soft
+    gate-lead sides share + portfolio AI speak-both-sides. Not a gate.
+    """
+    margin = soft_allow_anchor_gap_symbol_lead_margin(events)
+    if margin is None:
+        return None
+    counts = _anchor_gap_symbol_counts(events)
+    ranked = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+    if len(ranked) < 2:
+        return None
+    total = sum(counts.values())
+    if total <= 0:
+        return None
+    runner, runner_n = ranked[1]
+    runner_share = int(round(100.0 * int(runner_n) / total))
+    bit = f"vs {runner} · {runner_n} · {runner_share}%"
+    return bit, str(runner), int(runner_n), runner_share
+
+
 def soft_allow_anchor_gap_symbol_sample_gap(
     events: list[dict[str, Any]] | None,
 ) -> str:
@@ -148,14 +208,7 @@ def soft_allow_anchor_gap_symbol_sample_gap(
     on gap (not edge-band ``thin``). Silent sole hid that a single gap
     name is not a ring tilt. Display only.
     """
-    counts: dict[str, int] = {}
-    for row in events or []:
-        if not isinstance(row, dict):
-            continue
-        sym = _anchor_gap_symbol(str(row.get("reason") or ""))
-        if not sym:
-            continue
-        counts[sym] = counts.get(sym, 0) + 1
+    counts = _anchor_gap_symbol_counts(events)
     total = sum(counts.values())
     if total <= 0:
         return ""
@@ -275,14 +328,16 @@ def soft_allow_anchor_gap_vs_other_lean(
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
 ) -> str:
-    """Compact ``N gap · last SYM · lead|n=1|tied · last vs lead|agree · …``.
+    """Compact ``N gap · last SYM · lead|n=1|tied · last vs lead|agree · ahead · vs · …``.
 
     Zero silent. ``last SYM`` sits right after the count so a long lean
     cascade cannot clip the cursor (xang1234 #546). Symbol lead / n=1 /
     tied follows the cursor (last ≠ ring ownership; Screener junk-list
     lead + soft-allow sample honesty); when lead spoke, ``last vs lead``
     / ``agree`` sits right after so the cursor≠owner clash is not clipped
-    by share/lean (FinRobot last≠tilt).
+    by share/lean (FinRobot last≠tilt); when a runner exists, ``ahead``
+    + ``vs SYM`` follow so ownership % ≠ how far ahead ≠ who is #2
+    (soft gate-lead margin/sides; sole 100% omits).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -299,6 +354,12 @@ def format_soft_allow_anchor_gap_bit(
         last_vs = soft_allow_anchor_gap_symbol_last_vs_lead(events)
         if last_vs:
             head = f"{head} · {last_vs}"
+        margin = soft_allow_anchor_gap_symbol_lead_margin(events)
+        if margin is not None:
+            head = f"{head} · {margin[0]}"
+            sides = soft_allow_anchor_gap_symbol_lead_sides(events)
+            if sides is not None:
+                head = f"{head} · {sides[0]}"
     else:
         sample_gap = soft_allow_anchor_gap_symbol_sample_gap(events)
         if sample_gap:

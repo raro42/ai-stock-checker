@@ -47,6 +47,8 @@ def test_soft_allow_anchor_gap_count() -> None:
         soft_allow_anchor_gap_last_symbol,
         soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
+        soft_allow_anchor_gap_symbol_lead_margin,
+        soft_allow_anchor_gap_symbol_lead_sides,
         soft_allow_anchor_gap_symbol_sample_gap,
     )
 
@@ -55,6 +57,8 @@ def test_soft_allow_anchor_gap_count() -> None:
     assert soft_allow_anchor_gap_last_symbol(None) == ""
     assert soft_allow_anchor_gap_last_symbol([]) == ""
     assert soft_allow_anchor_gap_symbol_lead(None) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_lead_margin(None) is None
+    assert soft_allow_anchor_gap_symbol_lead_sides(None) is None
     assert soft_allow_anchor_gap_symbol_last_vs_lead(None) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(None) == ""
     assert (
@@ -78,6 +82,8 @@ def test_soft_allow_anchor_gap_count() -> None:
     assert soft_allow_anchor_gap_count(mixed) == 1
     assert soft_allow_anchor_gap_last_symbol(mixed) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(mixed) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_lead_margin(mixed) is None
+    assert soft_allow_anchor_gap_symbol_lead_sides(mixed) is None
     assert soft_allow_anchor_gap_symbol_last_vs_lead(mixed) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(mixed) == "n=1"
 
@@ -90,6 +96,8 @@ def test_soft_allow_anchor_gap_share() -> None:
         soft_allow_anchor_gap_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
+        soft_allow_anchor_gap_symbol_lead_margin,
+        soft_allow_anchor_gap_symbol_lead_sides,
         soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
@@ -111,6 +119,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_share(quiet_rows) == (1, 25.0, "quiet")
     assert soft_allow_anchor_gap_last_symbol(quiet_rows) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(quiet_rows) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_lead_margin(quiet_rows) is None
     assert soft_allow_anchor_gap_symbol_last_vs_lead(quiet_rows) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(quiet_rows) == "n=1"
     assert soft_allow_anchor_gap_vs_other(quiet_rows) == (3, 75.0, "strong")
@@ -133,6 +142,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     assert soft_allow_anchor_gap_share(hot_rows) == (2, 66.7, "hot")
     assert soft_allow_anchor_gap_last_symbol(hot_rows) == "AAPL"
     assert soft_allow_anchor_gap_symbol_lead(hot_rows) == ("", "", None)
+    assert soft_allow_anchor_gap_symbol_lead_margin(hot_rows) is None
     assert soft_allow_anchor_gap_symbol_last_vs_lead(hot_rows) == ""
     assert soft_allow_anchor_gap_symbol_sample_gap(hot_rows) == "tied"
     assert soft_allow_anchor_gap_vs_other(hot_rows) == (1, 33.3, "thin")
@@ -146,6 +156,7 @@ def test_soft_allow_anchor_gap_share() -> None:
     )
 
     # Strict lead: 2×AAPL + 1×MSFT gap (last MSFT ≠ lead AAPL)
+    # margin thin +1 · vs MSFT · 1 · 33%
     lead_rows = [
         {"gate": "rs", "reason": "MSFT RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
@@ -157,14 +168,52 @@ def test_soft_allow_anchor_gap_share() -> None:
         "AAPL",
         67,
     )
+    assert soft_allow_anchor_gap_symbol_lead_margin(lead_rows) == (
+        "ahead thin · +1",
+        1,
+        "thin",
+    )
+    assert soft_allow_anchor_gap_symbol_lead_sides(lead_rows) == (
+        "vs MSFT · 1 · 33%",
+        "MSFT",
+        1,
+        33,
+    )
     assert soft_allow_anchor_gap_symbol_sample_gap(lead_rows) == ""
     assert soft_allow_anchor_gap_last_symbol(lead_rows) == "MSFT"
     assert soft_allow_anchor_gap_symbol_last_vs_lead(lead_rows) == (
         "last vs lead · MSFT"
     )
     assert format_soft_allow_anchor_gap_bit(lead_rows) == (
-        "3 gap · last MSFT · lead AAPL · 67% · last vs lead · MSFT · hot · 75% · "
+        "3 gap · last MSFT · lead AAPL · 67% · last vs lead · MSFT · "
+        "ahead thin · +1 · vs MSFT · 1 · 33% · hot · 75% · "
         "vs 1 other · thin · 25% · gap vs other align · hot|thin"
+    )
+
+    # Wide margin: 3×AAPL + 1×MSFT (ahead ≥2)
+    wide_rows = lead_rows + [
+        {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
+    ]
+    assert soft_allow_anchor_gap_symbol_lead(wide_rows) == (
+        "lead AAPL · 75%",
+        "AAPL",
+        75,
+    )
+    assert soft_allow_anchor_gap_symbol_lead_margin(wide_rows) == (
+        "ahead wide · +2",
+        2,
+        "wide",
+    )
+    assert soft_allow_anchor_gap_symbol_lead_sides(wide_rows) == (
+        "vs MSFT · 1 · 25%",
+        "MSFT",
+        1,
+        25,
+    )
+    assert format_soft_allow_anchor_gap_bit(wide_rows) == (
+        "4 gap · last MSFT · lead AAPL · 75% · last vs lead · MSFT · "
+        "ahead wide · +2 · vs MSFT · 1 · 25% · hot · 80% · "
+        "vs 1 other · thin · 20% · gap vs other align · hot|thin"
     )
 
     # 2/5 = 40% gap mid · 60% other mid (leans silent); gap names tied
@@ -196,7 +245,7 @@ def test_soft_allow_anchor_gap_share() -> None:
         "gap vs other align · hot|thin"
     )
 
-    # Same symbol twice → lead · 100% (sole-name with n≥2)
+    # Same symbol twice → lead · 100% (sole-name with n≥2); no ahead
     same_sym = [
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
         {"gate": "rs", "reason": "AAPL RS unknown — anchor gap — allow"},
@@ -206,6 +255,8 @@ def test_soft_allow_anchor_gap_share() -> None:
         "AAPL",
         100,
     )
+    assert soft_allow_anchor_gap_symbol_lead_margin(same_sym) is None
+    assert soft_allow_anchor_gap_symbol_lead_sides(same_sym) is None
     assert soft_allow_anchor_gap_symbol_sample_gap(same_sym) == ""
     assert soft_allow_anchor_gap_symbol_last_vs_lead(same_sym) == "agree"
     assert format_soft_allow_anchor_gap_bit(same_sym) == (

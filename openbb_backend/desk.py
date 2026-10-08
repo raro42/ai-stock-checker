@@ -1089,7 +1089,9 @@ def build_soft_allow_glance(
     (``lead SYM · N%`` / ``n=1`` / ``tied``; Screener junk-list lead +
     soft-allow sample honesty) ≠ whether cursor matches owner
     (``last vs lead · SYM`` / ``agree`` when lead spoke; FinRobot
-    last≠tilt) ≠ ring share
+    last≠tilt) ≠ how far ahead / who is #2
+    (``ahead wide|thin · +K`` · ``vs SYM · N · P%`` when a runner
+    exists; sole 100% omits; soft gate-lead margin/sides) ≠ ring share
     (hot ≥50% · quiet ≤25% · mid % only);
     gap% alone ≠ remaining non-gap rows (``vs M other`` · strong ≥75% ·
     thin <50%; all-gap → ``vs 0 other · thin · 0%``); sides alone ≠ lean
@@ -1117,6 +1119,8 @@ def build_soft_allow_glance(
         soft_allow_anchor_gap_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_symbol_lead,
+        soft_allow_anchor_gap_symbol_lead_margin,
+        soft_allow_anchor_gap_symbol_lead_sides,
         soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
@@ -1168,6 +1172,13 @@ def build_soft_allow_glance(
         "anchor_gap_symbol_lead": "",
         "anchor_gap_symbol_lead_name": "",
         "anchor_gap_symbol_lead_share": None,
+        "anchor_gap_symbol_lead_margin": None,
+        "anchor_gap_symbol_lead_margin_severity": "",
+        "anchor_gap_symbol_lead_margin_bit": "",
+        "anchor_gap_symbol_lead_runner": "",
+        "anchor_gap_symbol_lead_runner_count": 0,
+        "anchor_gap_symbol_lead_runner_share": None,
+        "anchor_gap_symbol_lead_sides": "",
         "anchor_gap_symbol_last_vs_lead": "",
         "anchor_gap_symbol_sample_gap": "",
         "anchor_gap_share_pct": None,
@@ -1198,6 +1209,21 @@ def build_soft_allow_glance(
         anchor_gap_symbol_lead_name,
         anchor_gap_symbol_lead_share,
     ) = soft_allow_anchor_gap_symbol_lead(rows)
+    _gap_margin = soft_allow_anchor_gap_symbol_lead_margin(rows)
+    anchor_gap_symbol_lead_margin_bit = (
+        _gap_margin[0] if _gap_margin else ""
+    )
+    anchor_gap_symbol_lead_margin = _gap_margin[1] if _gap_margin else None
+    anchor_gap_symbol_lead_margin_severity = (
+        _gap_margin[2] if _gap_margin else ""
+    )
+    _gap_sides = soft_allow_anchor_gap_symbol_lead_sides(rows)
+    anchor_gap_symbol_lead_sides = _gap_sides[0] if _gap_sides else ""
+    anchor_gap_symbol_lead_runner = _gap_sides[1] if _gap_sides else ""
+    anchor_gap_symbol_lead_runner_count = _gap_sides[2] if _gap_sides else 0
+    anchor_gap_symbol_lead_runner_share = (
+        _gap_sides[3] if _gap_sides else None
+    )
     anchor_gap_symbol_last_vs_lead = soft_allow_anchor_gap_symbol_last_vs_lead(
         rows
     )
@@ -1337,6 +1363,21 @@ def build_soft_allow_glance(
         "anchor_gap_symbol_lead": anchor_gap_symbol_lead,
         "anchor_gap_symbol_lead_name": anchor_gap_symbol_lead_name,
         "anchor_gap_symbol_lead_share": anchor_gap_symbol_lead_share,
+        "anchor_gap_symbol_lead_margin": anchor_gap_symbol_lead_margin,
+        "anchor_gap_symbol_lead_margin_severity": (
+            anchor_gap_symbol_lead_margin_severity
+        ),
+        "anchor_gap_symbol_lead_margin_bit": (
+            anchor_gap_symbol_lead_margin_bit
+        ),
+        "anchor_gap_symbol_lead_runner": anchor_gap_symbol_lead_runner,
+        "anchor_gap_symbol_lead_runner_count": (
+            anchor_gap_symbol_lead_runner_count
+        ),
+        "anchor_gap_symbol_lead_runner_share": (
+            anchor_gap_symbol_lead_runner_share
+        ),
+        "anchor_gap_symbol_lead_sides": anchor_gap_symbol_lead_sides,
         "anchor_gap_symbol_last_vs_lead": anchor_gap_symbol_last_vs_lead,
         "anchor_gap_symbol_sample_gap": anchor_gap_symbol_sample_gap,
         "anchor_gap_share_pct": anchor_gap_share_pct,
