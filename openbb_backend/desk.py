@@ -1132,13 +1132,16 @@ def build_soft_allow_glance(
     lean parity; ``format_soft_allow_anchor_gap_bit``; zero silent).
     Gap honesty flags escalate glance ``tone`` to ``warn`` when the
     cursor is ``expired``, gap share is ``hot``, lean clash already
-    set ``anchor_gap_vs_other_warn``, or last/share clash already set
-    ``anchor_gap_last_vs_share_warn`` — age/share label ≠ clay flat
+    set ``anchor_gap_vs_other_warn``, last/share clash already set
+    ``anchor_gap_last_vs_share_warn``, or last/lean clash already set
+    ``anchor_gap_last_vs_lean_warn`` — age/share/lean label ≠ clay flat
     (RyanJHamby Ops stale-warn + Screener junk-hot; ring cool-off
     severity stays ``cool`` / ``aging``). When last freshness + share
     lean already spoke, ``last/share align|clash`` names whether cursor
     age matches ownership heat (fresh↔hot / expired↔quiet align;
-    crossed clash warns; aging / mid share silent).
+    crossed clash warns; aging / mid share silent). When lean already
+    spoke, ``last/lean align|clash`` names whether cursor age matches
+    lean agreement (fresh↔align / expired↔clash; crossed warns).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1158,6 +1161,7 @@ def build_soft_allow_glance(
         format_soft_allow_lead_bit,
         soft_allow_anchor_gap_last_freshness,
         soft_allow_anchor_gap_last_symbol,
+        soft_allow_anchor_gap_last_vs_lean,
         soft_allow_anchor_gap_last_vs_share,
         soft_allow_anchor_gap_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
@@ -1234,6 +1238,8 @@ def build_soft_allow_glance(
         "anchor_gap_other_share_severity": "",
         "anchor_gap_vs_other": "",
         "anchor_gap_vs_other_warn": False,
+        "anchor_gap_last_vs_lean": "",
+        "anchor_gap_last_vs_lean_warn": False,
         "anchor_gap_bit": "",
         "line": "",
         "last_gate": "",
@@ -1293,6 +1299,9 @@ def build_soft_allow_glance(
     anchor_gap_vs_other, anchor_gap_vs_other_warn = (
         soft_allow_anchor_gap_vs_other_lean(rows)
     )
+    anchor_gap_last_vs_lean, anchor_gap_last_vs_lean_warn = (
+        soft_allow_anchor_gap_last_vs_lean(rows, now=now)
+    )
     anchor_gap_bit = format_soft_allow_anchor_gap_bit(rows, now=now)
     expired_n = sum(1 for r in rows if r.get("freshness") == "expired")
     aging_n = sum(1 for r in rows if r.get("freshness") == "aging")
@@ -1345,14 +1354,16 @@ def build_soft_allow_glance(
         tone = "flat"
         lead_band = "expired"
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
-    # last/share clash escalate tone (RyanJHamby age≠severity + Screener
-    # junk-hot + portfolio AI after last-freshness + share labels alone
-    # hid relationship; ring cool-off stays cool).
+    # last/share clash / last/lean clash escalate tone (RyanJHamby
+    # age≠severity + Screener junk-hot + portfolio AI after last-freshness
+    # + share/lean labels alone hid relationship; ring cool-off stays
+    # cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
         or anchor_gap_vs_other_warn
         or anchor_gap_last_vs_share_warn
+        or anchor_gap_last_vs_lean_warn
     ):
         tone = "warn"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
@@ -1453,6 +1464,8 @@ def build_soft_allow_glance(
         "anchor_gap_other_share_severity": anchor_gap_other_share_severity,
         "anchor_gap_vs_other": anchor_gap_vs_other,
         "anchor_gap_vs_other_warn": anchor_gap_vs_other_warn,
+        "anchor_gap_last_vs_lean": anchor_gap_last_vs_lean,
+        "anchor_gap_last_vs_lean_warn": anchor_gap_last_vs_lean_warn,
         "anchor_gap_bit": anchor_gap_bit,
         "line": line,
         "last_gate": gate,

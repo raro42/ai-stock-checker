@@ -384,6 +384,38 @@ def soft_allow_anchor_gap_last_vs_share(
     return f"clash · {last_fresh} · {severity}", True
 
 
+def soft_allow_anchor_gap_last_vs_lean(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last gap freshness vs gap/other lean (display only).
+
+    Returns ``(bit, warn)``. Cursor age ≠ lean agreement. Extremes only:
+    ``fresh``↔ lean ``align`` and ``expired``↔ lean ``clash`` speak
+    ``align``; crossed pairs speak ``clash`` (warn). ``aging`` / silent
+    lean stay silent — RyanJHamby triad + FinRobot last-row age +
+    portfolio AI speak-both-sides after last/share + lean labels alone
+    hid the relationship. Not a gate.
+    """
+    last_fresh = soft_allow_anchor_gap_last_freshness(events, now=now)
+    lean, _lean_warn = soft_allow_anchor_gap_vs_other_lean(events)
+    if last_fresh not in {"fresh", "expired"} or not lean:
+        return "", False
+    if lean.startswith("align · "):
+        lean_align = True
+        lean_tail = lean[len("align · ") :]
+    elif lean.startswith("clash · "):
+        lean_align = False
+        lean_tail = lean[len("clash · ") :]
+    else:
+        return "", False
+    live_age = last_fresh == "fresh"
+    if live_age == lean_align:
+        return f"align · {last_fresh} · {lean_tail}", False
+    return f"clash · {last_fresh} · {lean_tail}", True
+
+
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
     *,
@@ -404,7 +436,8 @@ def format_soft_allow_anchor_gap_bit(
     (soft gate-lead margin/sides; sole 100% omits). Share severity
     follows; when last freshness + share lean already spoke, ``last/share
     align|clash`` sits right after so age ≠ ownership heat (portfolio AI
-    speak-both-sides; clash warns).
+    speak-both-sides; clash warns). When gap/other lean already spoke,
+    ``last/lean align|clash`` follows so age ≠ lean agreement.
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -454,6 +487,11 @@ def format_soft_allow_anchor_gap_bit(
     lean, _warn = soft_allow_anchor_gap_vs_other_lean(events)
     if lean:
         bit = f"{bit} · gap vs other {lean}"
+        last_vs_lean, _lvl_warn = soft_allow_anchor_gap_last_vs_lean(
+            events, now=now
+        )
+        if last_vs_lean:
+            bit = f"{bit} · last/lean {last_vs_lean}"
     return bit
 
 
