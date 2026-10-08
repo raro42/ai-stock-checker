@@ -518,9 +518,13 @@ def build_screener_opportunity_counts(
     which sleeve is damaged (xang1234 #531 market-pointer + #540
     damaged-artifact visibility). When ≥2 lists hold junk and one is
     strictly largest, also speak ``lead rec · N%`` (junk÷total junk;
-    ties / sole-list silent) — list pointer ≠ which sleeve owns the
+    sole-list silent) — list pointer ≠ which sleeve owns the
     damage (xang1234 multi-meter lead + portfolio AI count≠share after
-    junk list pointer). ``n_total`` is the sum of the three list
+    junk list pointer). When ≥2 lists hold junk and no strict lead,
+    also speak ``tied`` (``junk_list_sample_gap``; lead cases stay
+    silent; sole-list stays silent on gap) — soft-allow / LAYA
+    ``_decision_sample_gap`` parity after silent tie hid that multi-list
+    damage has no owner. ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -553,6 +557,7 @@ def build_screener_opportunity_counts(
         "junk_list_lead": "",
         "junk_list_lead_name": "",
         "junk_list_lead_share": None,
+        "junk_list_sample_gap": "",
         "junk_share_pct": None,
         "junk_share_severity": "",
         "ok_share_pct": None,
@@ -767,6 +772,7 @@ def build_screener_opportunity_counts(
     junk_list_lead = ""
     junk_list_lead_name = ""
     junk_list_lead_share: int | None = None
+    junk_list_sample_gap = ""
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
@@ -784,7 +790,7 @@ def build_screener_opportunity_counts(
             junk_buckets.append(("brk", n_junk_brk))
         junk_lists = " · ".join(list_bits)
         in_bit = f"in {junk_lists}" if junk_lists else ""
-        # ≥2 damaged lists + strict max → lead; sole-list / ties silent.
+        # ≥2 damaged lists + strict max → lead; sole-list silent on lead.
         if len(junk_buckets) >= 2:
             (
                 junk_list_lead,
@@ -792,6 +798,10 @@ def build_screener_opportunity_counts(
                 junk_list_lead_share,
                 *_,
             ) = _decision_sample_lead(junk_buckets)
+            # ≥2 with no lead → tied (not sole-list n=1; pointer is enough).
+            junk_list_sample_gap = _decision_sample_gap(
+                len(junk_buckets), junk_list_lead_name
+            )
         if ok_share_pct >= SCREENER_OK_SHARE_STRONG:
             ok_share_severity = "strong"
             ok_bit = f"vs {n_total} ok · strong · {ok_share_pct:g}%"
@@ -814,6 +824,8 @@ def build_screener_opportunity_counts(
             junk_bit = f"{junk_bit} · {in_bit}"
         if junk_list_lead:
             junk_bit = f"{junk_bit} · {junk_list_lead}"
+        elif junk_list_sample_gap:
+            junk_bit = f"{junk_bit} · {junk_list_sample_gap}"
         junk_bit = f"{junk_bit} · {ok_bit}"
         junk_lean = junk_share_severity in {"hot", "quiet"}
         ok_lean = ok_share_severity in {"strong", "thin"}
@@ -865,6 +877,7 @@ def build_screener_opportunity_counts(
         "junk_list_lead": junk_list_lead,
         "junk_list_lead_name": junk_list_lead_name,
         "junk_list_lead_share": junk_list_lead_share,
+        "junk_list_sample_gap": junk_list_sample_gap,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
         "ok_share_pct": ok_share_pct,

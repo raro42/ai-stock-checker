@@ -56,10 +56,11 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["n_junk_crypto"] == 1
     assert c["n_junk_brk"] == 2
     assert c["junk_lists"] == "rec · crypto · brk"
-    # rec=2 · crypto=1 · brk=2 → tie at 2; lead silent
+    # rec=2 · crypto=1 · brk=2 → tie at 2; lead silent → tied
     assert c["junk_list_lead"] == ""
     assert c["junk_list_lead_name"] == ""
     assert c["junk_list_lead_share"] is None
+    assert c["junk_list_sample_gap"] == "tied"
     # 3 object + 5 junk = 8 slots → 62.5% hot · vs 3 ok · thin · 37.5%
     assert c["junk_share_pct"] == 62.5
     assert c["junk_share_severity"] == "hot"
@@ -70,12 +71,12 @@ def test_junk_slots_do_not_inflate_counts():
     assert c["lists_populated"] == 2
     assert (
         c["weight_core"]
-        == "row slots · 5 junk · hot · 62.5% · in rec · crypto · brk · vs 3 ok · thin · 37.5%"
+        == "row slots · 5 junk · hot · 62.5% · in rec · crypto · brk · tied · vs 3 ok · thin · 37.5%"
     )
     assert c["weight_lean"] == "junk vs ok align · hot|thin"
     assert (
         c["weight"]
-        == "row slots · 5 junk · hot · 62.5% · in rec · crypto · brk · vs 3 ok · thin · 37.5% · junk vs ok align · hot|thin"
+        == "row slots · 5 junk · hot · 62.5% · in rec · crypto · brk · tied · vs 3 ok · thin · 37.5% · junk vs ok align · hot|thin"
     )
     assert c["tone"] == "warn"
 
@@ -93,6 +94,7 @@ def test_empty_and_non_mapping():
     assert empty["junk_list_lead"] == ""
     assert empty["junk_list_lead_name"] == ""
     assert empty["junk_list_lead_share"] is None
+    assert empty["junk_list_sample_gap"] == ""
     assert empty["junk_share_pct"] is None
     assert empty["junk_share_severity"] == ""
     assert empty["ok_share_pct"] is None
@@ -142,9 +144,10 @@ def test_junk_appends_on_overlap_weight():
     assert c["n_junk_crypto"] == 0
     assert c["n_junk_brk"] == 1
     assert c["junk_lists"] == "rec · brk"
-    # rec=1 · brk=1 → tie; lead silent
+    # rec=1 · brk=1 → tie; lead silent → tied
     assert c["junk_list_lead"] == ""
     assert c["junk_list_lead_share"] is None
+    assert c["junk_list_sample_gap"] == "tied"
     # 4 object + 2 junk = 6 slots → 33.3% mid (ok) · vs 4 ok · 66.7% mid — no lean
     assert c["junk_share_pct"] == 33.3
     assert c["junk_share_severity"] == "ok"
@@ -154,11 +157,11 @@ def test_junk_appends_on_overlap_weight():
     assert c["junk_vs_ok_warn"] is False
     assert c["overlap"] is True
     assert c["weight_core"].endswith(
-        " · 2 junk · 33.3% · in rec · brk · vs 4 ok · 66.7%"
+        " · 2 junk · 33.3% · in rec · brk · tied · vs 4 ok · 66.7%"
     )
     # junk sits on weight_core; unique/dup lean cascade stays after core
     assert (
-        " · 2 junk · 33.3% · in rec · brk · vs 4 ok · 66.7% · unique vs dup"
+        " · 2 junk · 33.3% · in rec · brk · tied · vs 4 ok · 66.7% · unique vs dup"
         in c["weight"]
     )
     assert "junk vs ok" not in c["weight_lean"]
@@ -360,9 +363,10 @@ def test_string_symbols_and_bad_list_type():
     assert c["n_junk_crypto"] == 0
     assert c["n_junk_brk"] == 0
     assert c["junk_lists"] == "rec"
-    # sole-list → lead silent (pointer already names it)
+    # sole-list → lead + sample gap silent (pointer already names it)
     assert c["junk_list_lead"] == ""
     assert c["junk_list_lead_share"] is None
+    assert c["junk_list_sample_gap"] == ""
     # 1 object + 2 junk = 3 slots → 66.7% hot · vs 1 ok · thin · 33.3%
     assert c["junk_share_pct"] == 66.7
     assert c["junk_share_severity"] == "hot"
@@ -435,6 +439,7 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["junk_list_lead"] == "lead rec · 67%"
     assert c["junk_list_lead_name"] == "rec"
     assert c["junk_list_lead_share"] == 67
+    assert c["junk_list_sample_gap"] == ""
     assert c["junk_share_pct"] == 100.0
     assert c["junk_share_severity"] == "hot"
     assert c["ok_share_pct"] == 0.0
@@ -469,7 +474,28 @@ def test_junk_list_lead_strict():
     assert c["junk_list_lead"] == "lead rec · 60%"
     assert c["junk_list_lead_name"] == "rec"
     assert c["junk_list_lead_share"] == 60
+    assert c["junk_list_sample_gap"] == ""
     assert "lead rec · 60%" in c["weight_core"]
+    assert "tied" not in c["weight_core"]
+    assert c["tone"] == "warn"
+
+
+def test_junk_list_sample_gap_tied():
+    """≥2 damaged lists with no strict lead → tied (silent tie hid ownership)."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": ["a"],
+            "crypto_leaders": [None],
+            "stock_breakouts": [],
+        }
+    )
+    assert c["n_junk"] == 2
+    assert c["n_junk_rec"] == 1
+    assert c["n_junk_crypto"] == 1
+    assert c["junk_lists"] == "rec · crypto"
+    assert c["junk_list_lead"] == ""
+    assert c["junk_list_sample_gap"] == "tied"
+    assert " · tied · " in c["weight_core"]
     assert c["tone"] == "warn"
 
 
