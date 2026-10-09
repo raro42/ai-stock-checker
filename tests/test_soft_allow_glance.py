@@ -76,6 +76,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_vs_scan_clash"] == ""
     assert g["anchor_gap_vs_scan_clash_warn"] is False
+    assert g["anchor_gap_vs_cash_clock_clash"] == ""
+    assert g["anchor_gap_vs_cash_clock_clash_warn"] is False
     assert g["soft_vs_gap_clock_clash"] == ""
     assert g["soft_vs_gap_clock_clash_warn"] is False
     assert g["soft_vs_cash_clock_clash"] == ""
@@ -1242,12 +1244,14 @@ def test_soft_allow_glance_gap_vs_scan_when_last_matches_scan() -> None:
     assert "clash · soft stale · gap" not in same["line"]
     assert same["anchor_gap_vs_scan_clash"] == ""
     assert same["anchor_gap_vs_scan_clash_warn"] is False
-    assert "clash · gap expired" not in same["anchor_gap_bit"]
-    assert "clash · gap fresh" not in same["anchor_gap_bit"]
-    assert "clash · gap aging" not in same["anchor_gap_bit"]
-    # Soft↔gap silent; soft≠cash may still speak on the clip.
+    assert "clash · gap" not in same["anchor_gap_bit"] or "scan" not in (
+        same["anchor_gap_bit"]
+    )
+    # Soft↔gap + gap↔scan silent; soft≠cash / gap≠cash may still speak.
     if same["soft_vs_cash_clock_clash"]:
         assert same["soft_vs_cash_clock_clash"] in same["line"]
+    if same["anchor_gap_vs_cash_clock_clash"]:
+        assert same["anchor_gap_vs_cash_clock_clash"] in same["anchor_gap_bit"]
 
 
 def test_soft_allow_glance_soft_vs_gap_same_when_last_is_gap() -> None:
@@ -1317,3 +1321,62 @@ def test_soft_allow_glance_soft_vs_cash_when_soft_matches_scan() -> None:
     assert same["soft_vs_cash_clock_clash"] == ""
     assert same["soft_vs_cash_clock_clash_warn"] is False
     assert "cash" not in same["line"] or "clash · soft" not in same["line"]
+
+
+def test_soft_allow_glance_gap_vs_cash_when_soft_matches_cash() -> None:
+    """xang1234 #549: soft≠cash can still hide gap≠cash on the gap bit."""
+    # Saturday afternoon UTC — cash sleeves last-published (US aging).
+    # Soft last aging (12–24h) matches cash aging → soft≠cash silent;
+    # expired gap cursor ≠ cash → gap≠cash speaks on the gap bit.
+    now = datetime(2026, 10, 10, 14, 0, tzinfo=timezone.utc)
+    aging_at = (now - timedelta(hours=16)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    expired_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Fresh scan archive so soft aging ≠ scan is a separate bit; gap≠cash
+    # still speaks on the gap bit after gap≠scan.
+    fresh_scan = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": aging_at,
+                "gate": "regime",
+                "reason": "no SPY bars — allow",
+            },
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+        scan_time=fresh_scan,
+        scan_interval_sec=900,
+    )
+    assert g["last_freshness"] == "aging"
+    assert g["anchor_gap_last_freshness"] == "expired"
+    assert g["soft_vs_cash_clock_clash"] == ""
+    gap_cash = g["anchor_gap_vs_cash_clock_clash"]
+    assert gap_cash.startswith("clash · gap expired · cash ")
+    assert g["anchor_gap_vs_cash_clock_clash_warn"] is True
+    assert gap_cash in g["anchor_gap_bit"]
+    assert g["tone"] == "warn"
+    # Same-evening last-published: gap fresh + cash fresh → silent.
+    even = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    even_at = (even - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    same = build_soft_allow_glance(
+        [
+            {
+                "at": even_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            }
+        ],
+        now=even,
+        scan_time=even_at,
+        scan_interval_sec=900,
+    )
+    assert same["anchor_gap_last_freshness"] == "fresh"
+    assert same["anchor_gap_vs_cash_clock_clash"] == ""
+    assert same["anchor_gap_vs_cash_clock_clash_warn"] is False
+    assert "cash" not in same["anchor_gap_bit"] or "clash · gap" not in (
+        same["anchor_gap_bit"]
+    )

@@ -178,6 +178,36 @@ def soft_allow_anchor_gap_vs_scan_clash(
     return f"clash · gap {gap_speak} · scan {scan}", True
 
 
+def soft_allow_anchor_gap_vs_cash_clock_clash(
+    events: list[dict[str, Any]] | None,
+    *,
+    cash_band: str = "",
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Gap cursor vs pinned cash-print generation (display only).
+
+    Returns ``(bit, warn)``. When newest gap-row clock ≠ worst
+    last-published cash sleeve (``expired``≡``stale``), speak
+    ``clash · gap expired|aging|fresh · cash …``. Same band / missing
+    either / live cash (no pin) silent. Soft matching the scan archive
+    (and soft≠cash) can still hide a gap cursor that matches soft but
+    not the cash print — closes gap↔cash beside soft↔cash + soft↔gap +
+    gap↔scan (xang1234 #549 / e3c84e1 coherent generations + portfolio
+    AI speak-both-sides). Not a gate.
+    """
+    cash = str(cash_band or "").strip().casefold()
+    if cash not in {"fresh", "aging", "stale"}:
+        return "", False
+    gap_band = soft_allow_anchor_gap_last_freshness(events, now=now)
+    gap_clock = _soft_allow_gap_clock_tone(gap_band)
+    if not gap_clock or gap_clock == cash:
+        return "", False
+    gap_speak = (
+        gap_band if gap_band in {"fresh", "aging", "expired"} else gap_clock
+    )
+    return f"clash · gap {gap_speak} · cash {cash}", True
+
+
 def soft_allow_vs_gap_clock_clash(
     events: list[dict[str, Any]] | None,
     *,
@@ -672,6 +702,7 @@ def format_soft_allow_anchor_gap_bit(
     *,
     now: datetime | None = None,
     scan_freshness: str = "",
+    cash_band: str = "",
 ) -> str:
     """Compact ``N gap · last SYM · fresh|aging|expired · lead|n=1|tied · …``.
 
@@ -682,28 +713,31 @@ def format_soft_allow_anchor_gap_bit(
     last-row age; unknown stamp silent). When gap clock ≠ scan archive
     band, ``clash · gap … · scan …`` follows age so a soft-allow last
     matching the scan cannot hide a staler gap cursor (xang1234 #549 /
-    e3c84e1 generation coherence + portfolio AI speak-both-sides).
-    Symbol lead / n=1 / tied follows the cursor (last ≠ ring ownership;
-    Screener junk-list lead + soft-allow sample honesty); when lead
-    spoke, ``last vs lead`` / ``agree`` sits right after so the
-    cursor≠owner clash is not clipped by share/lean (FinRobot
-    last≠tilt); when last freshness + last-vs-lead already spoke,
-    ``last/lead align|clash`` follows so age ≠ name agreement (stale
-    ``agree`` warns; live name clash warns). When a runner exists,
-    ``ahead`` + ``vs SYM`` follow so ownership % ≠ how far ahead ≠ who
-    is #2 (soft gate-lead margin/sides; sole 100% omits). Share
-    severity follows; when last freshness + share lean already spoke,
-    ``last/share align|clash`` sits right after so age ≠ ownership heat
-    (portfolio AI speak-both-sides; clash warns). When last/lead +
-    last/share already spoke, ``lead/share align|clash`` follows so
-    cursor-vs-owner ≠ ownership-heat (``both clash`` warns; ``both
-    align`` stays calm). When gap/other lean already spoke, ``last/lean
-    align|clash`` follows so age ≠ lean agreement. When last/lead +
-    last/lean already spoke, ``lead/lean align|clash`` follows so
-    cursor-vs-owner ≠ age↔lean (``both clash`` warns; ``both align``
-    stays calm). When both last/share and last/lean already spoke,
-    ``share/lean align|clash`` follows so the two relationships are not
-    silent-confirm (``both clash`` warns; ``both align`` stays calm).
+    e3c84e1 generation coherence + portfolio AI speak-both-sides). When
+    gap clock ≠ pinned cash print, ``clash · gap … · cash …`` follows so
+    soft≠cash alone cannot hide a gap cursor that matches soft but not
+    the cash sleeve (gap↔cash after soft↔cash + gap↔scan). Symbol lead /
+    n=1 / tied follows the cursor (last ≠ ring ownership; Screener
+    junk-list lead + soft-allow sample honesty); when lead spoke,
+    ``last vs lead`` / ``agree`` sits right after so the cursor≠owner
+    clash is not clipped by share/lean (FinRobot last≠tilt); when last
+    freshness + last-vs-lead already spoke, ``last/lead align|clash``
+    follows so age ≠ name agreement (stale ``agree`` warns; live name
+    clash warns). When a runner exists, ``ahead`` + ``vs SYM`` follow so
+    ownership % ≠ how far ahead ≠ who is #2 (soft gate-lead margin/sides;
+    sole 100% omits). Share severity follows; when last freshness + share
+    lean already spoke, ``last/share align|clash`` sits right after so
+    age ≠ ownership heat (portfolio AI speak-both-sides; clash warns).
+    When last/lead + last/share already spoke, ``lead/share align|clash``
+    follows so cursor-vs-owner ≠ ownership-heat (``both clash`` warns;
+    ``both align`` stays calm). When gap/other lean already spoke,
+    ``last/lean align|clash`` follows so age ≠ lean agreement. When
+    last/lead + last/lean already spoke, ``lead/lean align|clash``
+    follows so cursor-vs-owner ≠ age↔lean (``both clash`` warns; ``both
+    align`` stays calm). When both last/share and last/lean already
+    spoke, ``share/lean align|clash`` follows so the two relationships
+    are not silent-confirm (``both clash`` warns; ``both align`` stays
+    calm).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -720,6 +754,11 @@ def format_soft_allow_anchor_gap_bit(
         )
         if gap_vs_scan:
             head = f"{head} · {gap_vs_scan}"
+        gap_vs_cash, _ = soft_allow_anchor_gap_vs_cash_clock_clash(
+            events, cash_band=cash_band, now=now
+        )
+        if gap_vs_cash:
+            head = f"{head} · {gap_vs_cash}"
     lead_bit, _lead_name, _lead_share = soft_allow_anchor_gap_symbol_lead(
         events
     )

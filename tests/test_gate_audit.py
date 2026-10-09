@@ -105,6 +105,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         soft_allow_anchor_gap_last_vs_lean,
         soft_allow_anchor_gap_last_vs_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
+        soft_allow_anchor_gap_vs_cash_clock_clash,
         soft_allow_anchor_gap_vs_scan_clash,
         soft_allow_vs_gap_clock_clash,
     )
@@ -354,6 +355,33 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_vs_gap_clock_clash(
         [fresh_row, other], soft_last_freshness="fresh", now=now
     ) == ("", False)
+    # Gap ≠ cash: expired≡stale vs aging speaks; same band silent.
+    assert soft_allow_anchor_gap_vs_cash_clock_clash(
+        [expired_row, other], cash_band="aging", now=now
+    ) == ("clash · gap expired · cash aging", True)
+    assert soft_allow_anchor_gap_vs_cash_clock_clash(
+        [expired_row, other], cash_band="stale", now=now
+    ) == ("", False)
+    assert soft_allow_anchor_gap_vs_cash_clock_clash(
+        [fresh_row, other], cash_band="fresh", now=now
+    ) == ("", False)
+    assert soft_allow_anchor_gap_vs_cash_clock_clash(
+        [fresh_row, other], cash_band="", now=now
+    ) == ("", False)
+    assert format_soft_allow_anchor_gap_bit(
+        [expired_row, other],
+        now=now,
+        scan_freshness="fresh",
+        cash_band="aging",
+    ) == (
+        "1 gap · last AAPL · expired · clash · gap expired · scan fresh · "
+        "clash · gap expired · cash aging · "
+        "n=1 · hot · 50% · "
+        "last/share clash · expired · hot · vs 1 other · 50% · "
+        "gap vs other clash · gap hot · other ok · "
+        "last/lean align · expired · gap hot · other ok · "
+        "share/lean clash · share clash · lean align"
+    )
 
 
 def test_soft_allow_anchor_gap_share() -> None:

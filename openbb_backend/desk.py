@@ -1323,6 +1323,7 @@ def build_soft_allow_glance(
         soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
+        soft_allow_anchor_gap_vs_cash_clock_clash,
         soft_allow_anchor_gap_vs_scan_clash,
         soft_allow_vs_gap_clock_clash,
         soft_allow_last_vs_lead,
@@ -1412,6 +1413,8 @@ def build_soft_allow_glance(
         "soft_vs_cash_clock_clash_warn": False,
         "anchor_gap_vs_scan_clash": "",
         "anchor_gap_vs_scan_clash_warn": False,
+        "anchor_gap_vs_cash_clock_clash": "",
+        "anchor_gap_vs_cash_clock_clash_warn": False,
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1513,8 +1516,16 @@ def build_soft_allow_glance(
             rows, scan_freshness=scan_freshness, now=now
         )
     )
+    anchor_gap_vs_cash_clock_clash, anchor_gap_vs_cash_clock_clash_warn = (
+        soft_allow_anchor_gap_vs_cash_clock_clash(
+            rows, cash_band=cash_band, now=now
+        )
+    )
     anchor_gap_bit = format_soft_allow_anchor_gap_bit(
-        rows, now=now, scan_freshness=scan_freshness
+        rows,
+        now=now,
+        scan_freshness=scan_freshness,
+        cash_band=cash_band,
     )
     expired_n = sum(1 for r in rows if r.get("freshness") == "expired")
     aging_n = sum(1 for r in rows if r.get("freshness") == "aging")
@@ -1569,12 +1580,13 @@ def build_soft_allow_glance(
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
     # last/lead clash / last/share clash / lead/share clash /
     # last/lean clash / lead/lean clash / share/lean clash-or-both-clash /
-    # soft vs gap / soft vs cash / gap vs scan generation clash escalate
-    # tone (RyanJHamby age≠severity + Screener junk-hot + portfolio AI
-    # after last-freshness + last-vs-lead / share/lean labels alone hid
-    # relationship; stale agree ≠ calm; dual-clash agreement ≠ calm;
-    # soft-allow last matching scan ≠ live gap cursor or live cash
-    # print; ring cool-off stays cool).
+    # soft vs gap / soft vs cash / gap vs scan / gap vs cash generation
+    # clash escalate tone (RyanJHamby age≠severity + Screener junk-hot +
+    # portfolio AI after last-freshness + last-vs-lead / share/lean
+    # labels alone hid relationship; stale agree ≠ calm; dual-clash
+    # agreement ≠ calm; soft-allow last matching scan ≠ live gap cursor
+    # or live cash print; gap matching soft ≠ live cash sleeve; ring
+    # cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1589,6 +1601,7 @@ def build_soft_allow_glance(
         or soft_vs_gap_clock_clash_warn
         or soft_vs_cash_clock_clash_warn
         or anchor_gap_vs_scan_clash_warn
+        or anchor_gap_vs_cash_clock_clash_warn
     ):
         tone = "warn"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
@@ -1731,6 +1744,10 @@ def build_soft_allow_glance(
         ),
         "anchor_gap_vs_scan_clash": anchor_gap_vs_scan_clash,
         "anchor_gap_vs_scan_clash_warn": anchor_gap_vs_scan_clash_warn,
+        "anchor_gap_vs_cash_clock_clash": anchor_gap_vs_cash_clock_clash,
+        "anchor_gap_vs_cash_clock_clash_warn": (
+            anchor_gap_vs_cash_clock_clash_warn
+        ),
         "anchor_gap_bit": anchor_gap_bit,
         "last_freshness": last_clock,
         "scan_freshness": scan_freshness,
