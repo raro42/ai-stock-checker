@@ -352,6 +352,32 @@ def _scan_vs_cash_clash_delta(tone: str, cash: str) -> str:
     return ""
 
 
+def soft_allow_vs_cash_clock_clash(
+    soft_freshness: str, cash_band: str
+) -> tuple[str, bool]:
+    """Soft-allow last vs pinned cash-print generation (display only).
+
+    Returns ``(bit, warn)``. When newest soft-allow clock ≠ worst
+    last-published cash sleeve (``expired``≡``stale``), speak
+    ``clash · soft fresh|aging|stale · cash …``. Same band / missing
+    either / live cash (no pin) silent. Soft matching the scan archive
+    can still hide a staler cash print — closes soft↔cash↔scan with
+    soft-vs-scan + scan-vs-cash (xang1234 #549 coherent generations +
+    portfolio AI speak-both-sides after soft≠gap triangle). Not a gate.
+    """
+    soft = str(soft_freshness or "").strip().casefold()
+    if soft == "expired":
+        soft = "stale"
+    elif soft == "unknown":
+        soft = "fresh"
+    cash = str(cash_band or "").strip().casefold()
+    if soft not in _CASH_PRINT_RANK or cash not in _CASH_PRINT_RANK:
+        return "", False
+    if soft == cash:
+        return "", False
+    return f"clash · soft {soft} · cash {cash}", True
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
@@ -1181,10 +1207,13 @@ def build_soft_allow_glance(
     (``expired``≡``stale``), speak ``clash · scan fresh|aging|stale``
     (xang1234 #549 coherent generations + LAYA/debate scan-clash parity —
     a fresh scan does not make an expired fail-open live; mixed generation
-    escalates tone to warn). When a gap cursor disagrees with the scan
+    escalates tone to warn).     When a gap cursor disagrees with the scan
     even if soft-allow last matches, the gap bit speaks
     ``clash · gap expired|aging|fresh · scan …`` (e3c84e1 generation
-    coherence — soft-allow last ≠ gap cursor). Not a gate.
+    coherence — soft-allow last ≠ gap cursor). When soft-allow last
+    disagrees with the worst pinned cash print, speak
+    ``clash · soft … · cash …`` (soft↔cash↔scan — soft matching the
+    scan archive ≠ a live cash sleeve). Not a gate.
 
     Cool-off severity (portfolio AI quiet vs high + xang1234): ``hot`` when
     any fresh row remains (tone warn); ``aging`` when only aging cools
@@ -1379,6 +1408,8 @@ def build_soft_allow_glance(
         "scan_vs_soft_allow_clash": "",
         "soft_vs_gap_clock_clash": "",
         "soft_vs_gap_clock_clash_warn": False,
+        "soft_vs_cash_clock_clash": "",
+        "soft_vs_cash_clock_clash_warn": False,
         "anchor_gap_vs_scan_clash": "",
         "anchor_gap_vs_scan_clash_warn": False,
         "line": "",
@@ -1397,11 +1428,13 @@ def build_soft_allow_glance(
     n = len(rows)
     last_clock = _soft_allow_clock_tone(str(last.get("freshness") or ""))
     scan_freshness = ""
+    cash_band = ""
     if scan_time:
         scan_pack = build_scan_freshness(
             scan_time, now=now, scan_interval_sec=scan_interval_sec
         )
         scan_freshness = str(scan_pack.get("tone") or "")
+        cash_band = str(scan_pack.get("scan_vs_cash_print") or "")
     scan_vs_soft_allow_clash = (
         _clock_clash(last_clock, scan=scan_freshness) if last_clock else ""
     )
@@ -1409,6 +1442,9 @@ def build_soft_allow_glance(
         soft_allow_vs_gap_clock_clash(
             rows, soft_last_freshness=last_clock, now=now
         )
+    )
+    soft_vs_cash_clock_clash, soft_vs_cash_clock_clash_warn = (
+        soft_allow_vs_cash_clock_clash(last_clock, cash_band)
     )
     anchor_gap_last = soft_allow_anchor_gap_last_symbol(rows)
     anchor_gap_last_freshness = soft_allow_anchor_gap_last_freshness(
@@ -1533,12 +1569,12 @@ def build_soft_allow_glance(
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
     # last/lead clash / last/share clash / lead/share clash /
     # last/lean clash / lead/lean clash / share/lean clash-or-both-clash /
-    # soft vs gap / gap vs scan generation clash escalate tone
-    # (RyanJHamby age≠severity + Screener junk-hot + portfolio AI after
-    # last-freshness + last-vs-lead / share/lean labels alone hid
+    # soft vs gap / soft vs cash / gap vs scan generation clash escalate
+    # tone (RyanJHamby age≠severity + Screener junk-hot + portfolio AI
+    # after last-freshness + last-vs-lead / share/lean labels alone hid
     # relationship; stale agree ≠ calm; dual-clash agreement ≠ calm;
-    # soft-allow last matching scan ≠ live gap cursor; ring cool-off
-    # stays cool).
+    # soft-allow last matching scan ≠ live gap cursor or live cash
+    # print; ring cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1551,6 +1587,7 @@ def build_soft_allow_glance(
         or anchor_gap_last_share_vs_lean_warn
         or scan_vs_soft_allow_clash
         or soft_vs_gap_clock_clash_warn
+        or soft_vs_cash_clock_clash_warn
         or anchor_gap_vs_scan_clash_warn
     ):
         tone = "warn"
@@ -1589,10 +1626,16 @@ def build_soft_allow_glance(
     # Clash right after severity so the clip keeps mixed-generation honesty
     # (LAYA age-before-clash; xang1234 #549 coherent generations). Soft≠gap
     # sits after soft-vs-scan so a fresh soft last cannot hide a staler
-    # gap cursor when scan itself matches soft (e3c84e1 triangle).
+    # gap cursor when scan itself matches soft (e3c84e1 triangle). Soft≠cash
+    # follows so soft matching the scan archive cannot hide a staler
+    # pinned cash print (soft↔cash↔scan after soft↔gap↔scan).
     gen_clash_bits = [
         b
-        for b in (scan_vs_soft_allow_clash, soft_vs_gap_clock_clash)
+        for b in (
+            scan_vs_soft_allow_clash,
+            soft_vs_gap_clock_clash,
+            soft_vs_cash_clock_clash,
+        )
         if b
     ]
     if gen_clash_bits and line.startswith(f"{severity} · "):
@@ -1694,6 +1737,8 @@ def build_soft_allow_glance(
         "scan_vs_soft_allow_clash": scan_vs_soft_allow_clash,
         "soft_vs_gap_clock_clash": soft_vs_gap_clock_clash,
         "soft_vs_gap_clock_clash_warn": soft_vs_gap_clock_clash_warn,
+        "soft_vs_cash_clock_clash": soft_vs_cash_clock_clash,
+        "soft_vs_cash_clock_clash_warn": soft_vs_cash_clock_clash_warn,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,

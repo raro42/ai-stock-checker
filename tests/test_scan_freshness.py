@@ -9,9 +9,29 @@ import pytz
 from openbb_backend.desk import (
     build_scan_freshness,
     cash_print_freshness,
+    soft_allow_vs_cash_clock_clash,
     _scan_vs_cash_clash_delta,
     _scan_vs_cash_print_clash,
 )
+
+
+def test_soft_allow_vs_cash_clock_clash_helper() -> None:
+    """Soft last ≠ pinned cash closes soft↔cash↔scan (display only)."""
+    assert soft_allow_vs_cash_clock_clash("fresh", "aging") == (
+        "clash · soft fresh · cash aging",
+        True,
+    )
+    assert soft_allow_vs_cash_clock_clash("expired", "fresh") == (
+        "clash · soft stale · cash fresh",
+        True,
+    )
+    assert soft_allow_vs_cash_clock_clash("stale", "stale") == ("", False)
+    assert soft_allow_vs_cash_clock_clash("fresh", "") == ("", False)
+    assert soft_allow_vs_cash_clock_clash("", "stale") == ("", False)
+    assert soft_allow_vs_cash_clock_clash("unknown", "aging") == (
+        "clash · soft fresh · cash aging",
+        True,
+    )
 
 
 def test_scan_freshness_empty() -> None:
