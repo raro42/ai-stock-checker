@@ -446,6 +446,32 @@ def soft_allow_last_clock_tone(
     return _soft_allow_clock_tone(str(last.get("freshness") or ""))
 
 
+def soft_allow_gap_last_clock_tone(
+    data_dir: Path | str | None = None,
+    *,
+    now: Optional[datetime] = None,
+) -> str:
+    """Newest RS anchor-gap cursor as scan-band tone (display only).
+
+    Maps ``expired``→``stale`` via ``_soft_allow_clock_tone``. Empty when
+    no parseable gap row. Soft last matching memory can still hide a
+    staler gap cursor — speak-both-sides of gap≠memory on LAYA/debate
+    (xang1234 #549 / e3c84e1 + FinRobot last-row + portfolio AI after
+    soft-allow gap≠memory alone). Not a gate.
+    """
+    from stock_checker.gate_audit import (
+        enrich_soft_allows,
+        load_soft_allows,
+        soft_allow_anchor_gap_last_freshness,
+    )
+
+    root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
+    # File order is oldest-first; gap helpers expect newest-first.
+    rows = list(reversed(enrich_soft_allows(load_soft_allows(root), now=now)))
+    band = soft_allow_anchor_gap_last_freshness(rows, now=now)
+    return _soft_allow_clock_tone(band)
+
+
 def memory_peer_cash_clock_clash(
     own_freshness: str,
     peer_freshness: str,
@@ -526,6 +552,53 @@ def memory_peer_soft_clock_clash(
     if peer == soft:
         return "", False
     return f"peer soft · {label} {peer} · soft {soft}", True
+
+
+def memory_peer_gap_clock_clash(
+    own_freshness: str,
+    peer_freshness: str,
+    gap_band: str,
+    *,
+    peer_side: str,
+) -> tuple[str, bool]:
+    """Peer memory vs gap cursor when own matches gap (display only).
+
+    Returns ``(bit, warn)``. When own clock matches the RS anchor-gap
+    cursor (or own gap clash is silent) but peer ≠ gap, speak
+    ``peer gap · {peer} fresh|aging|stale · gap …``. Own already
+    clashing stays silent here — the own bit covers it. Matching gap on
+    this glance can still hide a peer that disagrees with the gap cursor
+    (LAYA↔debate↔gap triangle; xang1234 #549 / e3c84e1 + FinRobot
+    last-row + portfolio AI speak-both-sides; soft peer parity). Compact
+    so the 96-char clip keeps it beside clock clash. Not a gate.
+    """
+    gap = str(gap_band or "").strip().casefold()
+    if gap == "expired":
+        gap = "stale"
+    elif gap == "unknown":
+        gap = "fresh"
+    own = str(own_freshness or "").strip().casefold()
+    if own == "expired":
+        own = "stale"
+    elif own == "unknown":
+        own = "fresh"
+    peer = str(peer_freshness or "").strip().casefold()
+    if peer == "expired":
+        peer = "stale"
+    elif peer == "unknown":
+        peer = "fresh"
+    label = str(peer_side or "").strip().casefold() or "peer"
+    if (
+        own not in _CASH_PRINT_RANK
+        or peer not in _CASH_PRINT_RANK
+        or gap not in _CASH_PRINT_RANK
+    ):
+        return "", False
+    if own != gap:
+        return "", False
+    if peer == gap:
+        return "", False
+    return f"peer gap · {label} {peer} · gap {gap}", True
 
 
 def build_scan_freshness(
@@ -7089,7 +7162,12 @@ def build_laya_glance(
     laya_vs_soft_clock_clash_warn = False
     laya_peer_soft_clock_clash = ""
     laya_peer_soft_clock_clash_warn = False
+    laya_vs_gap_clock_clash = ""
+    laya_vs_gap_clock_clash_warn = False
+    laya_peer_gap_clock_clash = ""
+    laya_peer_gap_clock_clash_warn = False
     soft_freshness = soft_allow_last_clock_tone(root, now=now)
+    gap_freshness = soft_allow_gap_last_clock_tone(root, now=now)
     name_clash = ""
     verb_oppose = False
     edge_fee_bits = ""
@@ -7144,6 +7222,20 @@ def build_laya_glance(
                 freshness,
                 debate_freshness,
                 soft_freshness,
+                peer_side="debate",
+            )
+        )
+        # Soft matching memory can still hide a staler gap cursor.
+        laya_vs_gap_clock_clash = (
+            _clock_clash(freshness, gap=gap_freshness) if gap_freshness else ""
+        )
+        laya_vs_gap_clock_clash_warn = bool(laya_vs_gap_clock_clash)
+        # LAYA matching gap can still hide debate ≠ gap (peer speak).
+        laya_peer_gap_clock_clash, laya_peer_gap_clock_clash_warn = (
+            memory_peer_gap_clock_clash(
+                freshness,
+                debate_freshness,
+                gap_freshness,
                 peer_side="debate",
             )
         )
@@ -7206,6 +7298,12 @@ def build_laya_glance(
         # Soft≠memory speak-both-sides (soft-allow line already names LAYA).
         if laya_vs_soft_clock_clash:
             bits.append(laya_vs_soft_clock_clash)
+        # Gap≠memory before soft peer so the 96-char clip keeps gap honesty
+        # when soft last matching memory still hides a staler gap cursor.
+        if laya_vs_gap_clock_clash:
+            bits.append(laya_vs_gap_clock_clash)
+        if laya_peer_gap_clock_clash:
+            bits.append(laya_peer_gap_clock_clash)
         # Own matching soft ≠ peer debate vs soft (FinRobot speak-both-sides).
         if laya_peer_soft_clock_clash:
             bits.append(laya_peer_soft_clock_clash)
@@ -7291,17 +7389,23 @@ def build_laya_glance(
         soft_for_tone = soft_freshness if (
             laya_vs_soft_clock_clash or laya_peer_soft_clock_clash
         ) else ""
+        gap_for_tone = gap_freshness if (
+            laya_vs_gap_clock_clash or laya_peer_gap_clock_clash
+        ) else ""
         clash_tone = _clock_clash_tone(
             freshness,
             clash
             or laya_vs_cash_clock_clash
             or laya_peer_cash_clock_clash
             or laya_vs_soft_clock_clash
-            or laya_peer_soft_clock_clash,
+            or laya_peer_soft_clock_clash
+            or laya_vs_gap_clock_clash
+            or laya_peer_gap_clock_clash,
             scan=scan_freshness,
             debate=debate_freshness,
             cash=cash_for_tone,
             soft=soft_for_tone,
+            gap=gap_for_tone,
         )
         if freshness == "stale" or clash_tone == "stale":
             tone = "stale"
@@ -7312,6 +7416,8 @@ def build_laya_glance(
             or laya_peer_cash_clock_clash_warn
             or laya_vs_soft_clock_clash_warn
             or laya_peer_soft_clock_clash_warn
+            or laya_vs_gap_clock_clash_warn
+            or laya_peer_gap_clock_clash_warn
             or verb_oppose
             or edge_fee_warn
             or edge_vs_conf_warn
@@ -7338,6 +7444,7 @@ def build_laya_glance(
         "scan_freshness": scan_freshness,
         "debate_freshness": debate_freshness,
         "soft_freshness": soft_freshness,
+        "gap_freshness": gap_freshness,
         "scan_vs_laya_clash": clash,
         "laya_vs_cash_clock_clash": laya_vs_cash_clock_clash,
         "laya_vs_cash_clock_clash_warn": laya_vs_cash_clock_clash_warn,
@@ -7347,6 +7454,10 @@ def build_laya_glance(
         "laya_vs_soft_clock_clash_warn": laya_vs_soft_clock_clash_warn,
         "laya_peer_soft_clock_clash": laya_peer_soft_clock_clash,
         "laya_peer_soft_clock_clash_warn": laya_peer_soft_clock_clash_warn,
+        "laya_vs_gap_clock_clash": laya_vs_gap_clock_clash,
+        "laya_vs_gap_clock_clash_warn": laya_vs_gap_clock_clash_warn,
+        "laya_peer_gap_clock_clash": laya_peer_gap_clock_clash,
+        "laya_peer_gap_clock_clash_warn": laya_peer_gap_clock_clash_warn,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
         "edge_fee_bits": edge_fee_bits,
@@ -7557,7 +7668,12 @@ def build_ai_debate_glance(
     debate_vs_soft_clock_clash_warn = False
     debate_peer_soft_clock_clash = ""
     debate_peer_soft_clock_clash_warn = False
+    debate_vs_gap_clock_clash = ""
+    debate_vs_gap_clock_clash_warn = False
+    debate_peer_gap_clock_clash = ""
+    debate_peer_gap_clock_clash_warn = False
     soft_freshness = soft_allow_last_clock_tone(root, now=now)
+    gap_freshness = soft_allow_gap_last_clock_tone(root, now=now)
     name_clash = ""
     verb_oppose = False
     edge_vs_conf = ""
@@ -7589,6 +7705,11 @@ def build_ai_debate_glance(
             _clock_clash(freshness, soft=soft_freshness) if soft_freshness else ""
         )
         debate_vs_soft_clock_clash_warn = bool(debate_vs_soft_clock_clash)
+        # Soft matching memory can still hide a staler gap cursor.
+        debate_vs_gap_clock_clash = (
+            _clock_clash(freshness, gap=gap_freshness) if gap_freshness else ""
+        )
+        debate_vs_gap_clock_clash_warn = bool(debate_vs_gap_clock_clash)
         # Debate matching cash can still hide LAYA ≠ cash (peer speak).
         if laya_st.get("advisory"):
             (
@@ -7608,6 +7729,16 @@ def build_ai_debate_glance(
                 freshness,
                 laya_freshness,
                 soft_freshness,
+                peer_side="laya",
+            )
+            # Debate matching gap can still hide LAYA ≠ gap (peer speak).
+            (
+                debate_peer_gap_clock_clash,
+                debate_peer_gap_clock_clash_warn,
+            ) = memory_peer_gap_clock_clash(
+                freshness,
+                laya_freshness,
+                gap_freshness,
                 peer_side="laya",
             )
             name_clash = _memory_name_clash(sym, action, laya_sym, laya_verb)
@@ -7662,6 +7793,12 @@ def build_ai_debate_glance(
     # Soft≠memory speak-both-sides (soft-allow line already names debate).
     if debate_vs_soft_clock_clash:
         bits.append(debate_vs_soft_clock_clash)
+    # Gap≠memory before soft peer so the 96-char clip keeps gap honesty
+    # when soft last matching memory still hides a staler gap cursor.
+    if debate_vs_gap_clock_clash:
+        bits.append(debate_vs_gap_clock_clash)
+    if debate_peer_gap_clock_clash:
+        bits.append(debate_peer_gap_clock_clash)
     # Own matching soft ≠ peer LAYA vs soft (FinRobot speak-both-sides).
     if debate_peer_soft_clock_clash:
         bits.append(debate_peer_soft_clock_clash)
@@ -7714,17 +7851,23 @@ def build_ai_debate_glance(
     soft_for_tone = soft_freshness if (
         debate_vs_soft_clock_clash or debate_peer_soft_clock_clash
     ) else ""
+    gap_for_tone = gap_freshness if (
+        debate_vs_gap_clock_clash or debate_peer_gap_clock_clash
+    ) else ""
     clash_tone = _clock_clash_tone(
         freshness,
         clash
         or debate_vs_cash_clock_clash
         or debate_peer_cash_clock_clash
         or debate_vs_soft_clock_clash
-        or debate_peer_soft_clock_clash,
+        or debate_peer_soft_clock_clash
+        or debate_vs_gap_clock_clash
+        or debate_peer_gap_clock_clash,
         scan=scan_freshness,
         laya=laya_freshness,
         cash=cash_for_tone,
         soft=soft_for_tone,
+        gap=gap_for_tone,
     )
     if freshness == "stale" or clash_tone == "stale":
         tone = "stale"
@@ -7737,6 +7880,8 @@ def build_ai_debate_glance(
         or debate_peer_cash_clock_clash_warn
         or debate_vs_soft_clock_clash_warn
         or debate_peer_soft_clock_clash_warn
+        or debate_vs_gap_clock_clash_warn
+        or debate_peer_gap_clock_clash_warn
         or verb_oppose
         or confidence_warn
         or edge_vs_conf_warn
@@ -7769,6 +7914,7 @@ def build_ai_debate_glance(
         "scan_freshness": scan_freshness,
         "laya_freshness": laya_freshness,
         "soft_freshness": soft_freshness,
+        "gap_freshness": gap_freshness,
         "scan_vs_debate_clash": clash,
         "debate_vs_cash_clock_clash": debate_vs_cash_clock_clash,
         "debate_vs_cash_clock_clash_warn": debate_vs_cash_clock_clash_warn,
@@ -7778,6 +7924,10 @@ def build_ai_debate_glance(
         "debate_vs_soft_clock_clash_warn": debate_vs_soft_clock_clash_warn,
         "debate_peer_soft_clock_clash": debate_peer_soft_clock_clash,
         "debate_peer_soft_clock_clash_warn": debate_peer_soft_clock_clash_warn,
+        "debate_vs_gap_clock_clash": debate_vs_gap_clock_clash,
+        "debate_vs_gap_clock_clash_warn": debate_vs_gap_clock_clash_warn,
+        "debate_peer_gap_clock_clash": debate_peer_gap_clock_clash,
+        "debate_peer_gap_clock_clash_warn": debate_peer_gap_clock_clash_warn,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
         "confidence_bits": confidence_bits,

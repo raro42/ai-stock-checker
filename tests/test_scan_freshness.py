@@ -10,8 +10,10 @@ from openbb_backend.desk import (
     build_scan_freshness,
     cash_print_freshness,
     memory_peer_cash_clock_clash,
+    memory_peer_gap_clock_clash,
     memory_peer_soft_clock_clash,
     memory_vs_cash_clock_clash,
+    soft_allow_gap_last_clock_tone,
     soft_allow_last_clock_tone,
     soft_allow_vs_cash_clock_clash,
     _scan_vs_cash_clash_delta,
@@ -114,6 +116,62 @@ def test_memory_peer_soft_clock_clash_helper() -> None:
         "fresh", "fresh", "fresh", peer_side="debate"
     ) == ("", False)
     assert memory_peer_soft_clock_clash(
+        "fresh", "", "fresh", peer_side="debate"
+    ) == ("", False)
+
+
+def test_soft_allow_gap_last_clock_tone_helper(tmp_path) -> None:
+    """Newest gap maps expired→stale; soft last alone ≠ gap cursor."""
+    import json
+    from datetime import timedelta
+
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    assert soft_allow_gap_last_clock_tone(tmp_path, now=now) == ""
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Oldest-first file: stale gap then fresh non-gap soft last.
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — anchor gap — allow",
+                    },
+                    {
+                        "at": fresh_at,
+                        "gate": "breadth",
+                        "reason": "unknown breadth — allow",
+                    },
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert soft_allow_last_clock_tone(tmp_path, now=now) == "fresh"
+    assert soft_allow_gap_last_clock_tone(tmp_path, now=now) == "stale"
+
+
+def test_memory_peer_gap_clock_clash_helper() -> None:
+    """Own matching gap + peer ≠ gap speaks peer (display only)."""
+    assert memory_peer_gap_clock_clash(
+        "fresh", "aging", "fresh", peer_side="debate"
+    ) == ("peer gap · debate aging · gap fresh", True)
+    assert memory_peer_gap_clock_clash(
+        "fresh", "stale", "fresh", peer_side="laya"
+    ) == ("peer gap · laya stale · gap fresh", True)
+    assert memory_peer_gap_clock_clash(
+        "stale", "fresh", "expired", peer_side="debate"
+    ) == ("peer gap · debate fresh · gap stale", True)
+    assert memory_peer_gap_clock_clash(
+        "fresh", "aging", "aging", peer_side="debate"
+    ) == ("", False)
+    assert memory_peer_gap_clock_clash(
+        "fresh", "fresh", "fresh", peer_side="debate"
+    ) == ("", False)
+    assert memory_peer_gap_clock_clash(
         "fresh", "", "fresh", peer_side="debate"
     ) == ("", False)
 

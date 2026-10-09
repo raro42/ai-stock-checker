@@ -397,6 +397,140 @@ def test_build_ai_debate_glance_vs_soft_clock_clash(tmp_path: Path) -> None:
     assert "clash · soft" not in same["line"]
 
 
+def test_build_ai_debate_glance_vs_gap_clock_clash(tmp_path: Path) -> None:
+    """Soft last matching debate can still hide a staler gap cursor."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = fresh_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": fresh_at, "events": events}) + "\n")
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — anchor gap — allow",
+                    },
+                    {
+                        "at": fresh_at,
+                        "gate": "breadth",
+                        "reason": "unknown breadth — allow",
+                    },
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert g["freshness"] == "fresh"
+    assert g["soft_freshness"] == "fresh"
+    assert g["gap_freshness"] == "stale"
+    assert g["debate_vs_soft_clock_clash"] == ""
+    assert g["debate_vs_gap_clock_clash"] == "clash · gap stale"
+    assert g["debate_vs_gap_clock_clash_warn"] is True
+    assert "clash · gap stale" in g["line"]
+    assert g["tone"] in {"aging", "stale", "buy"}
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — anchor gap — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    same = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert same["gap_freshness"] == "fresh"
+    assert same["debate_vs_gap_clock_clash"] == ""
+    assert same["debate_vs_gap_clock_clash_warn"] is False
+    assert "clash · gap" not in same["line"]
+
+
+def test_build_ai_debate_glance_peer_gap_clash_when_debate_matches_gap(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Debate matching gap can still hide LAYA ≠ gap (peer speak)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    events[-1]["at"] = fresh_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": fresh_at, "events": events}) + "\n")
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — anchor gap — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "symbol": "NVDA",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert g["freshness"] == "fresh"
+    assert g["gap_freshness"] == "fresh"
+    assert g["debate_vs_gap_clock_clash"] == ""
+    peer = g["debate_peer_gap_clock_clash"]
+    assert peer.startswith("peer gap · laya ")
+    assert "gap fresh" in peer
+    assert g["debate_peer_gap_clock_clash_warn"] is True
+    assert "peer gap" in g["line"]
+    assert g["tone"] in {"aging", "stale", "buy"}
+
+
 def test_build_ai_debate_glance_peer_soft_clash_when_debate_matches_soft(
     monkeypatch, tmp_path: Path
 ) -> None:
