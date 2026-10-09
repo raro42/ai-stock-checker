@@ -424,12 +424,14 @@ def soft_allow_anchor_gap_last_share_vs_lean(
     """Last/share vs last/lean relationship agreement (display only).
 
     Returns ``(bit, warn)``. Age↔share ≠ age↔lean. When both already
-    spoke: same verb (both align or both clash) speaks
-    ``align · both align|clash``; crossed verbs speak
+    spoke: same verb speaks ``align · both align|clash`` — ``both
+    align`` stays calm; ``both clash`` warns (agreement that both
+    relationships disagree ≠ quiet confirm). Crossed verbs speak
     ``clash · share align|clash · lean align|clash`` (warn). Missing
     either stays silent — FinRobot last-row age + portfolio AI
-    speak-both-sides after last/share + last/lean labels alone hid
-    whether the two relationships agree. Not a gate.
+    speak-both-sides + RyanJHamby severity after last/share +
+    last/lean alone hid whether the two relationships agree *and*
+    whether dual-clash agreement is adverse. Not a gate.
     """
     share_bit, _ = soft_allow_anchor_gap_last_vs_share(events, now=now)
     lean_bit, _ = soft_allow_anchor_gap_last_vs_lean(events, now=now)
@@ -448,7 +450,8 @@ def soft_allow_anchor_gap_last_share_vs_lean(
     if share_verb is None or lean_verb is None:
         return "", False
     if share_verb == lean_verb:
-        return f"align · both {share_verb}", False
+        # Dual-clash agreement is adverse; dual-align is calm.
+        return f"align · both {share_verb}", share_verb == "clash"
     return f"clash · share {share_verb} · lean {lean_verb}", True
 
 
@@ -475,7 +478,8 @@ def format_soft_allow_anchor_gap_bit(
     speak-both-sides; clash warns). When gap/other lean already spoke,
     ``last/lean align|clash`` follows so age ≠ lean agreement. When both
     last/share and last/lean already spoke, ``share/lean align|clash``
-    follows so the two relationships are not silent-confirm.
+    follows so the two relationships are not silent-confirm (``both
+    clash`` warns; ``both align`` stays calm).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:

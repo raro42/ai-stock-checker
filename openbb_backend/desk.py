@@ -1144,7 +1144,8 @@ def build_soft_allow_glance(
     spoke, ``last/lean align|clash`` names whether cursor age matches
     lean agreement (fresh↔align / expired↔clash; crossed warns). When
     both already spoke, ``share/lean align|clash`` names whether the two
-    relationships agree (same verb align; crossed warns).
+    relationships agree (``both align`` calm; ``both clash`` warns;
+    crossed warns).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1363,10 +1364,11 @@ def build_soft_allow_glance(
         tone = "flat"
         lead_band = "expired"
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
-    # last/share clash / last/lean clash / share/lean clash escalate
-    # tone (RyanJHamby age≠severity + Screener junk-hot + portfolio AI
-    # after last-freshness + share/lean labels alone hid relationship;
-    # ring cool-off stays cool).
+    # last/share clash / last/lean clash / share/lean clash-or-both-clash
+    # escalate tone (RyanJHamby age≠severity + Screener junk-hot +
+    # portfolio AI after last-freshness + share/lean labels alone hid
+    # relationship; dual-clash agreement ≠ calm; ring cool-off stays
+    # cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"

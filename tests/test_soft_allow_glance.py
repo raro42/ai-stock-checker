@@ -203,6 +203,46 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert "share/lean align · both align" in g["line"]
 
 
+def test_soft_allow_glance_anchor_gap_share_lean_both_clash_warns() -> None:
+    """Dual-clash agreement ≠ calm: align · both clash warns + tone."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    stale = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": stale,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": stale,
+                "gate": "rs",
+                "reason": "MSFT RS unknown — anchor gap — allow",
+            },
+            {
+                "at": stale,
+                "gate": "rs",
+                "reason": "SPY RS unknown — allow",
+            },
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_last_freshness"] == "expired"
+    assert g["anchor_gap_share_severity"] == "hot"
+    assert g["anchor_gap_last_vs_share"] == "clash · expired · hot"
+    assert g["anchor_gap_last_vs_share_warn"] is True
+    assert g["anchor_gap_vs_other"] == "align · hot|thin"
+    assert g["anchor_gap_vs_other_warn"] is False
+    assert g["anchor_gap_last_vs_lean"] == "clash · expired · hot|thin"
+    assert g["anchor_gap_last_vs_lean_warn"] is True
+    assert g["anchor_gap_last_share_vs_lean"] == "align · both clash"
+    assert g["anchor_gap_last_share_vs_lean_warn"] is True
+    assert g["severity"] == "cool"
+    assert g["tone"] == "warn"
+    assert "share/lean align · both clash" in g["anchor_gap_bit"]
+    assert "share/lean align · both clash" in g["line"]
+
+
 def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     """portfolio AI: low gap ownership speaks quiet · % + vs other strong."""
     now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)

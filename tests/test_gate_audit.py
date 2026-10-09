@@ -170,6 +170,23 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_last_share_vs_lean(
         [fresh_row, other], now=now
     ) == ("clash · share align · lean clash", True)
+    # expired·hot + lean align hot|thin → both relationships clash;
+    # agreement on dual clash warns (not calm align).
+    gap2 = {
+        "at": expired_at,
+        "gate": "rs",
+        "reason": "MSFT RS unknown — anchor gap — allow",
+    }
+    other_expired = {**other, "at": expired_at}
+    assert soft_allow_anchor_gap_last_vs_share(
+        [expired_row, gap2, other_expired], now=now
+    ) == ("clash · expired · hot", True)
+    assert soft_allow_anchor_gap_last_vs_lean(
+        [expired_row, gap2, other_expired], now=now
+    ) == ("clash · expired · hot|thin", True)
+    assert soft_allow_anchor_gap_last_share_vs_lean(
+        [expired_row, gap2, other_expired], now=now
+    ) == ("align · both clash", True)
     assert format_soft_allow_anchor_gap_bit(
         [aging_row, other], now=now
     ) == (
