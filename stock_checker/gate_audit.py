@@ -269,6 +269,39 @@ def soft_allow_anchor_gap_symbol_last_vs_lead(
     return soft_allow_last_vs_lead(lead_name, last)
 
 
+def soft_allow_anchor_gap_last_vs_lead_freshness(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last gap freshness vs symbol last-vs-lead (display only).
+
+    Returns ``(bit, warn)``. Cursor age ≠ name-vs-lead agreement.
+    Extremes only: ``fresh``↔``agree`` and ``expired``↔ name clash speak
+    ``align``; crossed pairs speak ``clash`` (warn). ``aging`` / silent
+    last-vs-lead stay silent — RyanJHamby triad + FinRobot last-row age
+    + portfolio AI speak-both-sides after bare ``agree`` / ``last vs
+    lead`` hid whether the cursor match is still live (stale agree ≠
+    calm confirm). Not a gate.
+    """
+    last_fresh = soft_allow_anchor_gap_last_freshness(events, now=now)
+    last_vs = soft_allow_anchor_gap_symbol_last_vs_lead(events)
+    if last_fresh not in {"fresh", "expired"} or not last_vs:
+        return "", False
+    if last_vs == "agree":
+        name_agree = True
+        name_tail = "agree"
+    elif last_vs.startswith("last vs lead · "):
+        name_agree = False
+        name_tail = f"vs {last_vs[len('last vs lead · ') :]}"
+    else:
+        return "", False
+    live_age = last_fresh == "fresh"
+    if live_age == name_agree:
+        return f"align · {last_fresh} · {name_tail}", False
+    return f"clash · {last_fresh} · {name_tail}", True
+
+
 def soft_allow_anchor_gap_share(
     events: list[dict[str, Any]] | None,
 ) -> tuple[int, float | None, str]:
@@ -470,16 +503,18 @@ def format_soft_allow_anchor_gap_bit(
     follows the cursor (last ≠ ring ownership; Screener junk-list lead
     + soft-allow sample honesty); when lead spoke, ``last vs lead`` /
     ``agree`` sits right after so the cursor≠owner clash is not clipped
-    by share/lean (FinRobot last≠tilt); when a runner exists, ``ahead``
-    + ``vs SYM`` follow so ownership % ≠ how far ahead ≠ who is #2
-    (soft gate-lead margin/sides; sole 100% omits). Share severity
-    follows; when last freshness + share lean already spoke, ``last/share
-    align|clash`` sits right after so age ≠ ownership heat (portfolio AI
-    speak-both-sides; clash warns). When gap/other lean already spoke,
-    ``last/lean align|clash`` follows so age ≠ lean agreement. When both
-    last/share and last/lean already spoke, ``share/lean align|clash``
-    follows so the two relationships are not silent-confirm (``both
-    clash`` warns; ``both align`` stays calm).
+    by share/lean (FinRobot last≠tilt); when last freshness + last-vs-lead
+    already spoke, ``last/lead align|clash`` follows so age ≠ name
+    agreement (stale ``agree`` warns; live name clash warns). When a
+    runner exists, ``ahead`` + ``vs SYM`` follow so ownership % ≠ how far
+    ahead ≠ who is #2 (soft gate-lead margin/sides; sole 100% omits).
+    Share severity follows; when last freshness + share lean already
+    spoke, ``last/share align|clash`` sits right after so age ≠ ownership
+    heat (portfolio AI speak-both-sides; clash warns). When gap/other
+    lean already spoke, ``last/lean align|clash`` follows so age ≠ lean
+    agreement. When both last/share and last/lean already spoke,
+    ``share/lean align|clash`` follows so the two relationships are not
+    silent-confirm (``both clash`` warns; ``both align`` stays calm).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -499,6 +534,11 @@ def format_soft_allow_anchor_gap_bit(
         last_vs = soft_allow_anchor_gap_symbol_last_vs_lead(events)
         if last_vs:
             head = f"{head} · {last_vs}"
+            last_vs_lead_fresh, _ = soft_allow_anchor_gap_last_vs_lead_freshness(
+                events, now=now
+            )
+            if last_vs_lead_fresh:
+                head = f"{head} · last/lead {last_vs_lead_fresh}"
         margin = soft_allow_anchor_gap_symbol_lead_margin(events)
         if margin is not None:
             head = f"{head} · {margin[0]}"

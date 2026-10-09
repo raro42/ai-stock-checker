@@ -54,6 +54,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_symbol_lead_runner_share"] is None
     assert g["anchor_gap_symbol_lead_sides"] == ""
     assert g["anchor_gap_symbol_last_vs_lead"] == ""
+    assert g["anchor_gap_last_vs_lead_freshness"] == ""
+    assert g["anchor_gap_last_vs_lead_freshness_warn"] is False
     assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_share_pct"] is None
     assert g["anchor_gap_share_severity"] == ""
@@ -179,6 +181,10 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert g["anchor_gap_symbol_lead_runner_share"] == 33
     assert g["anchor_gap_symbol_lead_sides"] == "vs MSFT · 1 · 33%"
     assert g["anchor_gap_symbol_last_vs_lead"] == "last vs lead · MSFT"
+    assert g["anchor_gap_last_vs_lead_freshness"] == (
+        "clash · fresh · vs MSFT"
+    )
+    assert g["anchor_gap_last_vs_lead_freshness_warn"] is True
     assert g["anchor_gap_symbol_sample_gap"] == ""
     assert g["anchor_gap_last_vs_share"] == "align · fresh · hot"
     assert g["anchor_gap_last_vs_share_warn"] is False
@@ -188,6 +194,7 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_bit"] == (
         "3 gap · last MSFT · fresh · lead AAPL · 67% · last vs lead · MSFT · "
+        "last/lead clash · fresh · vs MSFT · "
         "ahead thin · +1 · vs MSFT · 1 · 33% · hot · 75% · "
         "last/share align · fresh · hot · "
         "vs 1 other · thin · 25% · gap vs other align · hot|thin · "
@@ -196,11 +203,41 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     )
     assert "lead AAPL · 67%" in g["line"]
     assert "last vs lead · MSFT" in g["line"]
+    assert "last/lead clash · fresh · vs MSFT" in g["line"]
     assert "ahead thin · +1" in g["line"]
     assert "vs MSFT · 1 · 33%" in g["line"]
     assert "last/share align · fresh · hot" in g["line"]
     assert "last/lean align · fresh · hot|thin" in g["line"]
     assert "share/lean align · both align" in g["line"]
+
+
+def test_soft_allow_glance_anchor_gap_last_vs_lead_freshness_stale_agree() -> None:
+    """Bare agree ≠ live owner: expired + agree clashes and warns."""
+    now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+    stale = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": stale,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+            {
+                "at": stale,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+    )
+    assert g["anchor_gap_symbol_last_vs_lead"] == "agree"
+    assert g["anchor_gap_last_vs_lead_freshness"] == (
+        "clash · expired · agree"
+    )
+    assert g["anchor_gap_last_vs_lead_freshness_warn"] is True
+    assert g["tone"] == "warn"
+    assert "last/lead clash · expired · agree" in g["anchor_gap_bit"]
+    assert "last/lead clash · expired · agree" in g["line"]
 
 
 def test_soft_allow_glance_anchor_gap_share_lean_both_clash_warns() -> None:

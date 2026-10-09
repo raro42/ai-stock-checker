@@ -1132,12 +1132,16 @@ def build_soft_allow_glance(
     lean parity; ``format_soft_allow_anchor_gap_bit``; zero silent).
     Gap honesty flags escalate glance ``tone`` to ``warn`` when the
     cursor is ``expired``, gap share is ``hot``, lean clash already
-    set ``anchor_gap_vs_other_warn``, last/share clash already set
-    ``anchor_gap_last_vs_share_warn``, last/lean clash already set
+    set ``anchor_gap_vs_other_warn``, last/lead clash already set
+    ``anchor_gap_last_vs_lead_freshness_warn``, last/share clash already
+    set ``anchor_gap_last_vs_share_warn``, last/lean clash already set
     ``anchor_gap_last_vs_lean_warn``, or share/lean clash already set
-    ``anchor_gap_last_share_vs_lean_warn`` — age/share/lean label ≠
+    ``anchor_gap_last_share_vs_lean_warn`` — age/share/lean/lead label ≠
     clay flat (RyanJHamby Ops stale-warn + Screener junk-hot; ring
     cool-off severity stays ``cool`` / ``aging``). When last freshness
+    + last-vs-lead already spoke, ``last/lead align|clash`` names whether
+    cursor age matches name agreement (fresh↔agree / expired↔name clash
+    align; stale agree and live name clash warn). When last freshness
     + share lean already spoke, ``last/share align|clash`` names whether
     cursor age matches ownership heat (fresh↔hot / expired↔quiet align;
     crossed clash warns; aging / mid share silent). When lean already
@@ -1166,6 +1170,7 @@ def build_soft_allow_glance(
         soft_allow_anchor_gap_last_freshness,
         soft_allow_anchor_gap_last_share_vs_lean,
         soft_allow_anchor_gap_last_symbol,
+        soft_allow_anchor_gap_last_vs_lead_freshness,
         soft_allow_anchor_gap_last_vs_lean,
         soft_allow_anchor_gap_last_vs_share,
         soft_allow_anchor_gap_share,
@@ -1233,6 +1238,8 @@ def build_soft_allow_glance(
         "anchor_gap_symbol_lead_runner_share": None,
         "anchor_gap_symbol_lead_sides": "",
         "anchor_gap_symbol_last_vs_lead": "",
+        "anchor_gap_last_vs_lead_freshness": "",
+        "anchor_gap_last_vs_lead_freshness_warn": False,
         "anchor_gap_symbol_sample_gap": "",
         "anchor_gap_share_pct": None,
         "anchor_gap_share_severity": "",
@@ -1289,6 +1296,10 @@ def build_soft_allow_glance(
     anchor_gap_symbol_last_vs_lead = soft_allow_anchor_gap_symbol_last_vs_lead(
         rows
     )
+    (
+        anchor_gap_last_vs_lead_freshness,
+        anchor_gap_last_vs_lead_freshness_warn,
+    ) = soft_allow_anchor_gap_last_vs_lead_freshness(rows, now=now)
     anchor_gap_symbol_sample_gap = soft_allow_anchor_gap_symbol_sample_gap(
         rows
     )
@@ -1364,15 +1375,17 @@ def build_soft_allow_glance(
         tone = "flat"
         lead_band = "expired"
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
-    # last/share clash / last/lean clash / share/lean clash-or-both-clash
-    # escalate tone (RyanJHamby age≠severity + Screener junk-hot +
-    # portfolio AI after last-freshness + share/lean labels alone hid
-    # relationship; dual-clash agreement ≠ calm; ring cool-off stays
-    # cool).
+    # last/lead clash / last/share clash / last/lean clash /
+    # share/lean clash-or-both-clash escalate tone (RyanJHamby
+    # age≠severity + Screener junk-hot + portfolio AI after
+    # last-freshness + last-vs-lead / share/lean labels alone hid
+    # relationship; stale agree ≠ calm; dual-clash agreement ≠ calm;
+    # ring cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
         or anchor_gap_vs_other_warn
+        or anchor_gap_last_vs_lead_freshness_warn
         or anchor_gap_last_vs_share_warn
         or anchor_gap_last_vs_lean_warn
         or anchor_gap_last_share_vs_lean_warn
@@ -1466,6 +1479,12 @@ def build_soft_allow_glance(
         ),
         "anchor_gap_symbol_lead_sides": anchor_gap_symbol_lead_sides,
         "anchor_gap_symbol_last_vs_lead": anchor_gap_symbol_last_vs_lead,
+        "anchor_gap_last_vs_lead_freshness": (
+            anchor_gap_last_vs_lead_freshness
+        ),
+        "anchor_gap_last_vs_lead_freshness_warn": (
+            anchor_gap_last_vs_lead_freshness_warn
+        ),
         "anchor_gap_symbol_sample_gap": anchor_gap_symbol_sample_gap,
         "anchor_gap_share_pct": anchor_gap_share_pct,
         "anchor_gap_share_severity": anchor_gap_share_severity,

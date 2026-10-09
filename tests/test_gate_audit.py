@@ -99,8 +99,10 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         format_soft_allow_anchor_gap_bit,
         soft_allow_anchor_gap_last_freshness,
         soft_allow_anchor_gap_last_share_vs_lean,
+        soft_allow_anchor_gap_last_vs_lead_freshness,
         soft_allow_anchor_gap_last_vs_lean,
         soft_allow_anchor_gap_last_vs_share,
+        soft_allow_anchor_gap_symbol_last_vs_lead,
     )
 
     now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
@@ -187,6 +189,67 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_last_share_vs_lean(
         [expired_row, gap2, other_expired], now=now
     ) == ("align · both clash", True)
+    # Sole-name lead + freshness: stale agree warns; live agree calm.
+    agree_expired = [
+        expired_row,
+        {
+            "at": expired_at,
+            "gate": "rs",
+            "reason": "AAPL RS unknown — anchor gap — allow",
+        },
+    ]
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(agree_expired) == "agree"
+    assert soft_allow_anchor_gap_last_vs_lead_freshness(
+        agree_expired, now=now
+    ) == ("clash · expired · agree", True)
+    agree_fresh = [
+        fresh_row,
+        {
+            "at": fresh_at,
+            "gate": "rs",
+            "reason": "AAPL RS unknown — anchor gap — allow",
+        },
+    ]
+    assert soft_allow_anchor_gap_last_vs_lead_freshness(
+        agree_fresh, now=now
+    ) == ("align · fresh · agree", False)
+    # Live name clash warns (cursor ≠ owner while still fresh).
+    lead_fresh = [
+        {
+            "at": fresh_at,
+            "gate": "rs",
+            "reason": "MSFT RS unknown — anchor gap — allow",
+        },
+        {
+            "at": fresh_at,
+            "gate": "rs",
+            "reason": "AAPL RS unknown — anchor gap — allow",
+        },
+        {
+            "at": fresh_at,
+            "gate": "rs",
+            "reason": "AAPL RS unknown — anchor gap — allow",
+        },
+    ]
+    assert soft_allow_anchor_gap_symbol_last_vs_lead(lead_fresh) == (
+        "last vs lead · MSFT"
+    )
+    assert soft_allow_anchor_gap_last_vs_lead_freshness(
+        lead_fresh, now=now
+    ) == ("clash · fresh · vs MSFT", True)
+    assert soft_allow_anchor_gap_last_vs_lead_freshness(
+        [aging_row, other], now=now
+    ) == ("", False)
+    assert format_soft_allow_anchor_gap_bit(
+        agree_expired, now=now
+    ) == (
+        "2 gap · last AAPL · expired · lead AAPL · 100% · agree · "
+        "last/lead clash · expired · agree · hot · 100% · "
+        "last/share clash · expired · hot · vs 0 other · thin · 0% · "
+        "gap vs other align · hot|thin · "
+        "last/lean clash · expired · hot|thin · "
+        "share/lean align · both clash"
+    )
     assert format_soft_allow_anchor_gap_bit(
         [aging_row, other], now=now
     ) == (
