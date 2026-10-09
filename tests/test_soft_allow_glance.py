@@ -66,6 +66,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_last_vs_lean"] == ""
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == ""
+    assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_bit"] == ""
     assert g["line"].startswith("hot · ")
     assert "1 recent soft-allow" in g["line"]
@@ -115,17 +117,21 @@ def test_soft_allow_glance_anchor_gap_count() -> None:
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_last_vs_lean"] == "align · fresh · hot|thin"
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == "align · both align"
+    assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_bit"] == (
         "2 gap · last AAPL · fresh · tied · hot · 66.7% · "
         "last/share align · fresh · hot · vs 1 other · thin · "
         "33.3% · gap vs other align · hot|thin · "
-        "last/lean align · fresh · hot|thin"
+        "last/lean align · fresh · hot|thin · "
+        "share/lean align · both align"
     )
     assert (
         "2 gap · last AAPL · fresh · tied · hot · 66.7% · "
         "last/share align · fresh · hot · vs 1 other · thin · "
         "33.3% · gap vs other align · hot|thin · "
-        "last/lean align · fresh · hot|thin"
+        "last/lean align · fresh · hot|thin · "
+        "share/lean align · both align"
     ) in g["line"]
     assert "last [rs]" in g["line"]
     assert "anchor gap" in g["line"]
@@ -178,12 +184,15 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert g["anchor_gap_last_vs_share_warn"] is False
     assert g["anchor_gap_last_vs_lean"] == "align · fresh · hot|thin"
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == "align · both align"
+    assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_bit"] == (
         "3 gap · last MSFT · fresh · lead AAPL · 67% · last vs lead · MSFT · "
         "ahead thin · +1 · vs MSFT · 1 · 33% · hot · 75% · "
         "last/share align · fresh · hot · "
         "vs 1 other · thin · 25% · gap vs other align · hot|thin · "
-        "last/lean align · fresh · hot|thin"
+        "last/lean align · fresh · hot|thin · "
+        "share/lean align · both align"
     )
     assert "lead AAPL · 67%" in g["line"]
     assert "last vs lead · MSFT" in g["line"]
@@ -191,6 +200,7 @@ def test_soft_allow_glance_anchor_gap_symbol_lead() -> None:
     assert "vs MSFT · 1 · 33%" in g["line"]
     assert "last/share align · fresh · hot" in g["line"]
     assert "last/lean align · fresh · hot|thin" in g["line"]
+    assert "share/lean align · both align" in g["line"]
 
 
 def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
@@ -237,17 +247,23 @@ def test_soft_allow_glance_anchor_gap_share_quiet() -> None:
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_last_vs_lean"] == "align · fresh · quiet|strong"
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == (
+        "clash · share clash · lean align"
+    )
+    assert g["anchor_gap_last_share_vs_lean_warn"] is True
     assert g["anchor_gap_bit"] == (
         "1 gap · last AAPL · fresh · n=1 · quiet · 25% · "
         "last/share clash · fresh · quiet · vs 3 other · strong · "
         "75% · gap vs other align · quiet|strong · "
-        "last/lean align · fresh · quiet|strong"
+        "last/lean align · fresh · quiet|strong · "
+        "share/lean clash · share clash · lean align"
     )
     assert (
         "1 gap · last AAPL · fresh · n=1 · quiet · 25% · "
         "last/share clash · fresh · quiet · vs 3 other · strong · "
         "75% · gap vs other align · quiet|strong · "
-        "last/lean align · fresh · quiet|strong"
+        "last/lean align · fresh · quiet|strong · "
+        "share/lean clash · share clash · lean align"
     ) in g["line"]
 
 
@@ -281,10 +297,17 @@ def test_soft_allow_glance_anchor_gap_vs_other_clash() -> None:
     assert g["anchor_gap_vs_other_warn"] is True
     assert g["anchor_gap_last_vs_lean"] == "clash · fresh · gap hot · other ok"
     assert g["anchor_gap_last_vs_lean_warn"] is True
+    assert g["anchor_gap_last_share_vs_lean"] == (
+        "clash · share align · lean clash"
+    )
+    assert g["anchor_gap_last_share_vs_lean_warn"] is True
     assert "1 gap · last AAPL · fresh · n=1 · hot · 50%" in g["anchor_gap_bit"]
     assert "last/share align · fresh · hot" in g["anchor_gap_bit"]
     assert "gap vs other clash · gap hot · other ok" in g["anchor_gap_bit"]
     assert "last/lean clash · fresh · gap hot · other ok" in g["anchor_gap_bit"]
+    assert (
+        "share/lean clash · share align · lean clash" in g["anchor_gap_bit"]
+    )
     assert "gap vs other clash · gap hot · other ok" in g["line"]
 
 
@@ -315,6 +338,8 @@ def test_soft_allow_glance_anchor_gap_last_freshness_aging() -> None:
     assert g["anchor_gap_vs_other_warn"] is True
     assert g["anchor_gap_last_vs_lean"] == ""
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == ""
+    assert g["anchor_gap_last_share_vs_lean_warn"] is False
     # Hot share / lean clash escalate tone; severity stays aging (not hot).
     assert g["severity"] == "aging"
     assert g["tone"] == "warn"
@@ -322,6 +347,7 @@ def test_soft_allow_glance_anchor_gap_last_freshness_aging() -> None:
     assert "last AAPL · aging" in g["line"]
     assert "last/share" not in g["anchor_gap_bit"]
     assert "last/lean" not in g["anchor_gap_bit"]
+    assert "share/lean" not in g["anchor_gap_bit"]
 
 
 def test_soft_allow_glance_anchor_gap_expired_tone_warn() -> None:
@@ -353,11 +379,18 @@ def test_soft_allow_glance_anchor_gap_expired_tone_warn() -> None:
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_last_vs_lean"] == "clash · expired · quiet|strong"
     assert g["anchor_gap_last_vs_lean_warn"] is True
+    assert g["anchor_gap_last_share_vs_lean"] == (
+        "clash · share align · lean clash"
+    )
+    assert g["anchor_gap_last_share_vs_lean_warn"] is True
     assert g["severity"] == "cool"
     assert g["tone"] == "warn"
     assert "last AAPL · expired" in g["anchor_gap_bit"]
     assert "last/share align · expired · quiet" in g["anchor_gap_bit"]
     assert "last/lean clash · expired · quiet|strong" in g["anchor_gap_bit"]
+    assert (
+        "share/lean clash · share align · lean clash" in g["anchor_gap_bit"]
+    )
 
 
 def test_soft_allow_glance_anchor_gap_last_vs_share_clash_tone() -> None:
@@ -387,11 +420,16 @@ def test_soft_allow_glance_anchor_gap_last_vs_share_clash_tone() -> None:
         "align · expired · gap hot · other ok"
     )
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == (
+        "clash · share clash · lean align"
+    )
+    assert g["anchor_gap_last_share_vs_lean_warn"] is True
     assert g["severity"] == "cool"
     assert g["tone"] == "warn"
     assert "last/share clash · expired · hot" in g["anchor_gap_bit"]
     assert "last/share clash · expired · hot" in g["line"]
     assert "last/lean align · expired · gap hot · other ok" in g["line"]
+    assert "share/lean clash · share clash · lean align" in g["line"]
 
 
 def test_soft_allow_glance_anchor_gap_aging_quiet_stays_flat() -> None:
@@ -423,6 +461,8 @@ def test_soft_allow_glance_anchor_gap_aging_quiet_stays_flat() -> None:
     assert g["anchor_gap_vs_other_warn"] is False
     assert g["anchor_gap_last_vs_lean"] == ""
     assert g["anchor_gap_last_vs_lean_warn"] is False
+    assert g["anchor_gap_last_share_vs_lean"] == ""
+    assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["severity"] == "aging"
     assert g["tone"] == "flat"
 

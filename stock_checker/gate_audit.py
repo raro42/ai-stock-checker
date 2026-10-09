@@ -416,6 +416,42 @@ def soft_allow_anchor_gap_last_vs_lean(
     return f"clash · {last_fresh} · {lean_tail}", True
 
 
+def soft_allow_anchor_gap_last_share_vs_lean(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last/share vs last/lean relationship agreement (display only).
+
+    Returns ``(bit, warn)``. Age↔share ≠ age↔lean. When both already
+    spoke: same verb (both align or both clash) speaks
+    ``align · both align|clash``; crossed verbs speak
+    ``clash · share align|clash · lean align|clash`` (warn). Missing
+    either stays silent — FinRobot last-row age + portfolio AI
+    speak-both-sides after last/share + last/lean labels alone hid
+    whether the two relationships agree. Not a gate.
+    """
+    share_bit, _ = soft_allow_anchor_gap_last_vs_share(events, now=now)
+    lean_bit, _ = soft_allow_anchor_gap_last_vs_lean(events, now=now)
+    if not share_bit or not lean_bit:
+        return "", False
+
+    def _verb(bit: str) -> str | None:
+        if bit.startswith("align · "):
+            return "align"
+        if bit.startswith("clash · "):
+            return "clash"
+        return None
+
+    share_verb = _verb(share_bit)
+    lean_verb = _verb(lean_bit)
+    if share_verb is None or lean_verb is None:
+        return "", False
+    if share_verb == lean_verb:
+        return f"align · both {share_verb}", False
+    return f"clash · share {share_verb} · lean {lean_verb}", True
+
+
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
     *,
@@ -437,7 +473,9 @@ def format_soft_allow_anchor_gap_bit(
     follows; when last freshness + share lean already spoke, ``last/share
     align|clash`` sits right after so age ≠ ownership heat (portfolio AI
     speak-both-sides; clash warns). When gap/other lean already spoke,
-    ``last/lean align|clash`` follows so age ≠ lean agreement.
+    ``last/lean align|clash`` follows so age ≠ lean agreement. When both
+    last/share and last/lean already spoke, ``share/lean align|clash``
+    follows so the two relationships are not silent-confirm.
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -492,6 +530,11 @@ def format_soft_allow_anchor_gap_bit(
         )
         if last_vs_lean:
             bit = f"{bit} · last/lean {last_vs_lean}"
+            share_vs_lean, _svl_warn = soft_allow_anchor_gap_last_share_vs_lean(
+                events, now=now
+            )
+            if share_vs_lean:
+                bit = f"{bit} · share/lean {share_vs_lean}"
     return bit
 
 
