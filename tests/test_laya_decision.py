@@ -229,7 +229,7 @@ def test_laya_glance_stale_last_row(monkeypatch, tmp_path: Path) -> None:
 def test_laya_glance_scan_clash(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     scan_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     (tmp_path / "laya_decisions.json").write_text(
@@ -269,7 +269,7 @@ def test_laya_glance_scan_clash_escalates_tone(monkeypatch, tmp_path: Path) -> N
     """Fresh last-row vs stale scan → clash warn tone (age label ≠ severity)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     stale_scan = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     aging_scan = (now - timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -311,11 +311,81 @@ def test_laya_glance_scan_clash_escalates_tone(monkeypatch, tmp_path: Path) -> N
     assert calm["tone"] == "advisory"
 
 
+def test_laya_glance_cash_clash_when_laya_matches_scan(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """xang1234 #549: LAYA matching scan ≠ pinned cash print generation."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    # Saturday afternoon UTC — cash sleeves last-published; US Fri close
+    # is ~17h ago → cash aging while a fresh LAYA + fresh scan stay
+    # LAYA↔scan silent (soft-allow soft≠cash parity).
+    now = datetime(2026, 10, 10, 14, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert g["freshness"] == "fresh"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_vs_laya_clash"] == ""
+    cash = g["laya_vs_cash_clock_clash"]
+    assert cash.startswith("clash · laya fresh · cash ")
+    assert g["laya_vs_cash_clock_clash_warn"] is True
+    assert cash in g["line"]
+    assert g["tone"] == "aging"
+    # Same-evening last-published: LAYA fresh + cash fresh → silent.
+    even = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    even_at = (even - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": even_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    same = build_laya_glance(
+        tmp_path, now=even, scan_interval_sec=900, scan_time=even_at
+    )
+    assert same["freshness"] == "fresh"
+    assert same["laya_vs_cash_clock_clash"] == ""
+    assert same["laya_vs_cash_clock_clash_warn"] is False
+    assert "clash · laya" not in same["line"]
+
+
 def test_laya_glance_debate_clash(monkeypatch, tmp_path: Path) -> None:
     """Last-row band ≠ last-debate band → clash · debate {tone} (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     (tmp_path / "laya_decisions.json").write_text(
@@ -388,7 +458,7 @@ def test_laya_glance_debate_name_clash(monkeypatch, tmp_path: Path) -> None:
     """Last-row ticker/verb ≠ last-debate → mixed/align/vs (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _write(laya_sym: str, laya_entry: str, debate_sym: str, debate_act: str) -> None:
@@ -477,7 +547,7 @@ def test_laya_glance_debate_verb_oppose(monkeypatch, tmp_path: Path) -> None:
     """reject vs BUY escalates tone; ticker-only clash stays advisory."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _write(laya_entry: str, debate_act: str, *, laya_sym: str = "MSFT") -> None:
@@ -545,7 +615,7 @@ def test_laya_glance_debate_mixed_fail_open(monkeypatch, tmp_path: Path) -> None
     """fail-open vs BUY on same ticker speaks mixed (not polarity oppose)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     (tmp_path / "laya_decisions.json").write_text(
         json.dumps(
@@ -588,7 +658,7 @@ def test_laya_glance_edge_fee_bits(monkeypatch, tmp_path: Path) -> None:
     """Last-row edge + fee-churn speak; thin/hot escalate tone (not a gate)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _write(
@@ -647,7 +717,7 @@ def test_laya_glance_edge_vs_conf(monkeypatch, tmp_path: Path) -> None:
 
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _laya(edge_score: float, symbol: str = "MSFT") -> None:
@@ -725,7 +795,7 @@ def test_laya_glance_edge_vs_fee(monkeypatch, tmp_path: Path) -> None:
     """Same-row edge vs fee-churn clash/align (not a gate)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _laya(edge_score: float, fee_churn: float) -> None:
@@ -783,7 +853,7 @@ def test_laya_glance_decision_vs_edge(monkeypatch, tmp_path: Path) -> None:
     """Same-row pass/reject vs typed edge clash/align (not a gate)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _laya(entry: str, edge_score: float) -> None:
@@ -851,7 +921,7 @@ def test_laya_glance_decision_vs_conf(monkeypatch, tmp_path: Path) -> None:
     """Same-ticker pass/reject vs debate conf clash/align (not a gate)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _laya(entry: str, symbol: str = "MSFT") -> None:
@@ -953,7 +1023,7 @@ def test_laya_glance_fee_vs_conf(monkeypatch, tmp_path: Path) -> None:
     """Same-ticker fee-churn vs debate conf clash/align (not a gate)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _laya(fee_churn: float, symbol: str = "MSFT") -> None:
