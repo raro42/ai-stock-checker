@@ -371,10 +371,10 @@ def test_string_symbols_and_bad_list_type():
     assert c["n_junk_crypto"] == 0
     assert c["n_junk_brk"] == 0
     assert c["junk_lists"] == "rec"
-    # sole-list → lead + sample gap silent (pointer already names it)
+    # sole-list → lead silent; sample gap speaks n=1 (pointer alone ≠ thin sample)
     assert c["junk_list_lead"] == ""
     assert c["junk_list_lead_share"] is None
-    assert c["junk_list_sample_gap"] == ""
+    assert c["junk_list_sample_gap"] == "n=1"
     # 1 object + 2 junk = 3 slots → 66.7% hot · vs 1 ok · thin · 33.3%
     assert c["junk_share_pct"] == 66.7
     assert c["junk_share_severity"] == "hot"
@@ -386,12 +386,12 @@ def test_string_symbols_and_bad_list_type():
     assert c["dup_share_pct"] is None
     assert (
         c["weight_core"]
-        == "row slots · 2 junk · hot · 66.7% · in rec · vs 1 ok · thin · 33.3%"
+        == "row slots · 2 junk · hot · 66.7% · in rec · n=1 · vs 1 ok · thin · 33.3%"
     )
     assert c["weight_lean"] == "junk vs ok align · hot|thin"
     assert (
         c["weight"]
-        == "row slots · 2 junk · hot · 66.7% · in rec · vs 1 ok · thin · 33.3% · junk vs ok align · hot|thin"
+        == "row slots · 2 junk · hot · 66.7% · in rec · n=1 · vs 1 ok · thin · 33.3% · junk vs ok align · hot|thin"
     )
     assert c["tone"] == "warn"
 
@@ -416,14 +416,15 @@ def test_junk_share_quiet_band():
     assert c["ok_share_severity"] == "strong"
     assert c["junk_vs_ok"] == "align · quiet|strong"
     assert c["junk_vs_ok_warn"] is False
+    assert c["junk_list_sample_gap"] == "n=1"
     assert (
         c["weight_core"]
-        == "row slots · 1 junk · quiet · 12.5% · in rec · vs 7 ok · strong · 87.5%"
+        == "row slots · 1 junk · quiet · 12.5% · in rec · n=1 · vs 7 ok · strong · 87.5%"
     )
     assert c["weight_lean"] == "junk vs ok align · quiet|strong"
     assert (
         c["weight"]
-        == "row slots · 1 junk · quiet · 12.5% · in rec · vs 7 ok · strong · 87.5% · junk vs ok align · quiet|strong"
+        == "row slots · 1 junk · quiet · 12.5% · in rec · n=1 · vs 7 ok · strong · 87.5% · junk vs ok align · quiet|strong"
     )
     assert c["tone"] == "warn"
 
@@ -524,6 +525,23 @@ def test_junk_list_sample_gap_tied():
     assert c["tone"] == "warn"
 
 
+def test_junk_list_sample_gap_n1():
+    """Sole damaged sleeve → n=1 (in rec alone ≠ a thin multi-list sample)."""
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": ["a", "b"],
+            "crypto_leaders": [],
+            "stock_breakouts": [],
+        }
+    )
+    assert c["n_junk"] == 2
+    assert c["junk_lists"] == "rec"
+    assert c["junk_list_lead"] == ""
+    assert c["junk_list_sample_gap"] == "n=1"
+    assert " · n=1 · " in c["weight_core"]
+    assert c["tone"] == "warn"
+
+
 def test_junk_list_lead_margin_sides():
     """Lead % alone ≠ ahead / #2 — soft-allow gap symbol margin/sides parity."""
     c = build_screener_opportunity_counts(
@@ -565,14 +583,15 @@ def test_junk_vs_ok_clash_at_half():
     assert c["ok_share_severity"] == "ok"
     assert c["junk_vs_ok"] == "clash · junk hot · ok ok"
     assert c["junk_vs_ok_warn"] is True
+    assert c["junk_list_sample_gap"] == "n=1"
     assert (
         c["weight_core"]
-        == "row slots · 1 junk · hot · 50% · in rec · vs 1 ok · 50%"
+        == "row slots · 1 junk · hot · 50% · in rec · n=1 · vs 1 ok · 50%"
     )
     assert c["weight_lean"] == "junk vs ok clash · junk hot · ok ok"
     assert (
         c["weight"]
-        == "row slots · 1 junk · hot · 50% · in rec · vs 1 ok · 50% · junk vs ok clash · junk hot · ok ok"
+        == "row slots · 1 junk · hot · 50% · in rec · n=1 · vs 1 ok · 50% · junk vs ok clash · junk hot · ok ok"
     )
     assert c["tone"] == "warn"
 

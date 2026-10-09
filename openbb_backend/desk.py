@@ -520,15 +520,15 @@ def build_screener_opportunity_counts(
     strictly largest, also speak ``lead rec · N%`` (junk÷total junk;
     sole-list silent) — list pointer ≠ which sleeve owns the
     damage (xang1234 multi-meter lead + portfolio AI count≠share after
-    junk list pointer). When lead already spoke and a runner-up list
+    junk list pointer).     When lead already spoke and a runner-up list
     exists, also speak ``ahead wide|thin · +K`` then ``vs crypto · N ·
     P%`` (wide ≥2 · thin =1; sole 100% omits; tied runners silent on
     vs) — soft-allow RS gap symbol lead margin/sides + portfolio AI after
-    lead % alone hid how far ahead / who is #2. When ≥2 lists hold junk
-    and no strict lead, also speak ``tied`` (``junk_list_sample_gap``;
-    lead cases stay silent; sole-list stays silent on gap) — soft-allow
-    / LAYA ``_decision_sample_gap`` parity after silent tie hid that
-    multi-list damage has no owner. ``n_total`` is the sum of the three list
+    lead % alone hid how far ahead / who is #2. When damaged lists have
+    no strict lead, also speak ``n=1`` (sole sleeve) or ``tied`` (≥2;
+    ``junk_list_sample_gap``; lead cases stay silent) — soft-allow RS gap
+    symbol / LAYA ``_decision_sample_gap`` parity after silent sole hid
+    that ``in rec`` alone ≠ a thin multi-list sample. ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -819,7 +819,8 @@ def build_screener_opportunity_counts(
                 junk_list_lead_sides_n,
                 junk_list_lead_sides_share,
             ) = _decision_sample_lead(junk_buckets)
-            # ≥2 with no lead → tied (not sole-list n=1; pointer is enough).
+        # Sole sleeve → n=1; ≥2 with no lead → tied (pointer alone ≠ sample).
+        if junk_buckets:
             junk_list_sample_gap = _decision_sample_gap(
                 len(junk_buckets), junk_list_lead_name
             )
