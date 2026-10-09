@@ -387,6 +387,43 @@ def soft_allow_vs_cash_clock_clash(
     return memory_vs_cash_clock_clash(soft_freshness, cash_band, side="soft")
 
 
+def memory_advisory_clock_tones(
+    data_dir: Path | str | None = None,
+    *,
+    now: Optional[datetime] = None,
+    scan_interval_sec: int = 900,
+) -> tuple[str, str]:
+    """LAYA + AI-debate clock tones for soft-allow generation clash.
+
+    Display only. Empty when no newest stamp. Soft matching the scan
+    archive can still hide a staler advisory print (xang1234 #549 +
+    FinRobot last-row + portfolio AI speak-both-sides).
+    """
+    from stock_checker.ai_validate_memory import summarize_ai_debates
+    from stock_checker.laya_decision import laya_status
+
+    root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
+    laya_tone = ""
+    st = laya_status(root)
+    stats = st.get("stats") if isinstance(st.get("stats"), dict) else {}
+    newest = stats.get("newest") if isinstance(stats.get("newest"), dict) else None
+    laya_at = str((newest or {}).get("at") or "").strip()
+    if laya_at:
+        pack = build_scan_freshness(
+            laya_at, now=now, scan_interval_sec=scan_interval_sec
+        )
+        laya_tone = str(pack.get("tone") or "")
+    debate_tone = ""
+    debate_sum = summarize_ai_debates(root)
+    debate_at = str(debate_sum.get("latest_at") or "").strip()
+    if debate_at:
+        pack = build_scan_freshness(
+            debate_at, now=now, scan_interval_sec=scan_interval_sec
+        )
+        debate_tone = str(pack.get("tone") or "")
+    return laya_tone, debate_tone
+
+
 def memory_peer_cash_clock_clash(
     own_freshness: str,
     peer_freshness: str,
@@ -1238,6 +1275,8 @@ def build_soft_allow_glance(
     aging_hours: float | None = None,
     scan_time: Any = None,
     scan_interval_sec: int = 900,
+    laya_freshness: str = "",
+    debate_freshness: str = "",
 ) -> dict[str, Any]:
     """Compact fail-open soft-allow memory (tradermonty; display only).
 
@@ -1256,7 +1295,10 @@ def build_soft_allow_glance(
     coherence — soft-allow last ≠ gap cursor). When soft-allow last
     disagrees with the worst pinned cash print, speak
     ``clash · soft … · cash …`` (soft↔cash↔scan — soft matching the
-    scan archive ≠ a live cash sleeve). Not a gate.
+    scan archive ≠ a live cash sleeve). When soft-allow last disagrees
+    with LAYA and/or AI-debate clocks, speak
+    ``clash · laya … · debate …`` (soft↔memory — soft matching the scan
+    archive ≠ a live advisory print; FinRobot last-row). Not a gate.
 
     Cool-off severity (portfolio AI quiet vs high + xang1234): ``hot`` when
     any fresh row remains (tone warn); ``aging`` when only aging cools
@@ -1454,6 +1496,10 @@ def build_soft_allow_glance(
         "soft_vs_gap_clock_clash_warn": False,
         "soft_vs_cash_clock_clash": "",
         "soft_vs_cash_clock_clash_warn": False,
+        "soft_vs_memory_clock_clash": "",
+        "soft_vs_memory_clock_clash_warn": False,
+        "laya_freshness": "",
+        "debate_freshness": "",
         "anchor_gap_vs_scan_clash": "",
         "anchor_gap_vs_scan_clash_warn": False,
         "anchor_gap_vs_cash_clock_clash": "",
@@ -1492,6 +1538,14 @@ def build_soft_allow_glance(
     soft_vs_cash_clock_clash, soft_vs_cash_clock_clash_warn = (
         soft_allow_vs_cash_clock_clash(last_clock, cash_band)
     )
+    laya_tone = str(laya_freshness or "").strip()
+    debate_tone = str(debate_freshness or "").strip()
+    soft_vs_memory_clock_clash = (
+        _clock_clash(last_clock, laya=laya_tone, debate=debate_tone)
+        if last_clock
+        else ""
+    )
+    soft_vs_memory_clock_clash_warn = bool(soft_vs_memory_clock_clash)
     anchor_gap_last = soft_allow_anchor_gap_last_symbol(rows)
     anchor_gap_last_freshness = soft_allow_anchor_gap_last_freshness(
         rows, now=now
@@ -1623,13 +1677,13 @@ def build_soft_allow_glance(
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
     # last/lead clash / last/share clash / lead/share clash /
     # last/lean clash / lead/lean clash / share/lean clash-or-both-clash /
-    # soft vs gap / soft vs cash / gap vs scan / gap vs cash generation
-    # clash escalate tone (RyanJHamby age≠severity + Screener junk-hot +
-    # portfolio AI after last-freshness + last-vs-lead / share/lean
-    # labels alone hid relationship; stale agree ≠ calm; dual-clash
-    # agreement ≠ calm; soft-allow last matching scan ≠ live gap cursor
-    # or live cash print; gap matching soft ≠ live cash sleeve; ring
-    # cool-off stays cool).
+    # soft vs gap / soft vs cash / soft vs memory / gap vs scan /
+    # gap vs cash generation clash escalate tone (RyanJHamby age≠severity +
+    # Screener junk-hot + portfolio AI after last-freshness + last-vs-lead
+    # / share/lean labels alone hid relationship; stale agree ≠ calm;
+    # dual-clash agreement ≠ calm; soft-allow last matching scan ≠ live
+    # gap cursor, cash print, or advisory memory; gap matching soft ≠
+    # live cash sleeve; ring cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1643,6 +1697,7 @@ def build_soft_allow_glance(
         or scan_vs_soft_allow_clash
         or soft_vs_gap_clock_clash_warn
         or soft_vs_cash_clock_clash_warn
+        or soft_vs_memory_clock_clash_warn
         or anchor_gap_vs_scan_clash_warn
         or anchor_gap_vs_cash_clock_clash_warn
     ):
@@ -1684,13 +1739,16 @@ def build_soft_allow_glance(
     # sits after soft-vs-scan so a fresh soft last cannot hide a staler
     # gap cursor when scan itself matches soft (e3c84e1 triangle). Soft≠cash
     # follows so soft matching the scan archive cannot hide a staler
-    # pinned cash print (soft↔cash↔scan after soft↔gap↔scan).
+    # pinned cash print (soft↔cash↔scan after soft↔gap↔scan). Soft≠memory
+    # follows so soft matching scan/cash cannot hide a staler LAYA or
+    # debate print (soft↔laya↔debate after soft↔cash↔scan).
     gen_clash_bits = [
         b
         for b in (
             scan_vs_soft_allow_clash,
             soft_vs_gap_clock_clash,
             soft_vs_cash_clock_clash,
+            soft_vs_memory_clock_clash,
         )
         if b
     ]
@@ -1799,6 +1857,10 @@ def build_soft_allow_glance(
         "soft_vs_gap_clock_clash_warn": soft_vs_gap_clock_clash_warn,
         "soft_vs_cash_clock_clash": soft_vs_cash_clock_clash,
         "soft_vs_cash_clock_clash_warn": soft_vs_cash_clock_clash_warn,
+        "soft_vs_memory_clock_clash": soft_vs_memory_clock_clash,
+        "soft_vs_memory_clock_clash_warn": soft_vs_memory_clock_clash_warn,
+        "laya_freshness": laya_tone,
+        "debate_freshness": debate_tone,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,
@@ -12297,10 +12359,15 @@ def load_desk_snapshot(
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
     scan_time_raw = opportunities.get("scan_time") or ""
+    laya_tone, debate_tone = memory_advisory_clock_tones(
+        data_dir, scan_interval_sec=scan_interval_sec
+    )
     soft_allow_glance = build_soft_allow_glance(
         soft_allows,
         scan_time=scan_time_raw,
         scan_interval_sec=scan_interval_sec,
+        laya_freshness=laya_tone,
+        debate_freshness=debate_tone,
     )
     soft_allows = mark_soft_allow_lead_rows(
         soft_allows,

@@ -82,6 +82,10 @@ def test_soft_allow_glance_one() -> None:
     assert g["soft_vs_gap_clock_clash_warn"] is False
     assert g["soft_vs_cash_clock_clash"] == ""
     assert g["soft_vs_cash_clock_clash_warn"] is False
+    assert g["soft_vs_memory_clock_clash"] == ""
+    assert g["soft_vs_memory_clock_clash_warn"] is False
+    assert g["laya_freshness"] == ""
+    assert g["debate_freshness"] == ""
     assert g["anchor_gap_bit"] == ""
     assert g["last_freshness"] == "fresh"
     assert g["scan_freshness"] == ""
@@ -1380,3 +1384,71 @@ def test_soft_allow_glance_gap_vs_cash_when_soft_matches_cash() -> None:
     assert "cash" not in same["anchor_gap_bit"] or "clash · gap" not in (
         same["anchor_gap_bit"]
     )
+
+
+def test_soft_allow_glance_vs_memory_clock_clash() -> None:
+    """xang1234 #549: soft matching scan ≠ live LAYA/debate print."""
+    now = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — allow",
+            }
+        ],
+        now=now,
+        scan_time=fresh_at,
+        scan_interval_sec=900,
+        laya_freshness="stale",
+        debate_freshness="aging",
+    )
+    assert g["last_freshness"] == "fresh"
+    assert g["scan_vs_soft_allow_clash"] == ""
+    assert g["laya_freshness"] == "stale"
+    assert g["debate_freshness"] == "aging"
+    assert g["soft_vs_memory_clock_clash"] == (
+        "clash · laya stale · debate aging"
+    )
+    assert g["soft_vs_memory_clock_clash_warn"] is True
+    assert g["tone"] == "warn"
+    assert "clash · laya stale · debate aging" in g["line"]
+
+    # Same band as soft — silent (no false mixed-generation warn).
+    same = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — allow",
+            }
+        ],
+        now=now,
+        scan_time=fresh_at,
+        scan_interval_sec=900,
+        laya_freshness="fresh",
+        debate_freshness="fresh",
+    )
+    assert same["soft_vs_memory_clock_clash"] == ""
+    assert same["soft_vs_memory_clock_clash_warn"] is False
+    assert "clash · laya" not in same["line"]
+    assert "clash · debate" not in same["line"]
+
+    # Only debate disagrees — compact single-side bit.
+    one = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "breadth",
+                "reason": "unknown breadth — allow",
+            }
+        ],
+        now=now,
+        laya_freshness="fresh",
+        debate_freshness="stale",
+    )
+    assert one["soft_vs_memory_clock_clash"] == "clash · debate stale"
+    assert one["soft_vs_memory_clock_clash_warn"] is True
+    assert "clash · debate stale" in one["line"]
+    assert "laya" not in one["soft_vs_memory_clock_clash"]

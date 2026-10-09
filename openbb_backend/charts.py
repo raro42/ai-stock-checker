@@ -1243,6 +1243,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         build_scan_freshness,
         build_session_glance,
         build_soft_allow_glance,
+        memory_advisory_clock_tones,
         scan_list_rows,
     )
     from stock_checker.gate_audit import enrich_soft_allows, recent_soft_allows
@@ -1257,6 +1258,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         portfolio = {}
     initial = float(portfolio.get("initial_cash") or 0)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
+    laya_tone, debate_tone = memory_advisory_clock_tones(data_dir)
 
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1275,6 +1277,8 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "soft_allow_glance": build_soft_allow_glance(
             enrich_soft_allows(recent_soft_allows(data_dir, limit=12)),
             scan_time=scan_time,
+            laya_freshness=laya_tone,
+            debate_freshness=debate_tone,
         ),
         "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),
