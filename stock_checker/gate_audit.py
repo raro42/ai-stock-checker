@@ -178,6 +178,59 @@ def soft_allow_anchor_gap_vs_scan_clash(
     return f"clash · gap {gap_speak} · scan {scan}", True
 
 
+def soft_allow_vs_gap_clock_clash(
+    events: list[dict[str, Any]] | None,
+    *,
+    soft_last_freshness: str = "",
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Soft-allow last vs gap cursor generation (display only).
+
+    Returns ``(bit, warn)``. When newest soft-allow clock ≠ newest gap
+    cursor clock (``expired``≡``stale``), speak
+    ``clash · soft fresh|aging|stale · gap expired|aging|fresh``.
+    Same band / missing either silent. Soft last matching the scan can
+    still hide a staler gap cursor — naming soft≠gap closes the
+    generation triangle with soft-vs-scan and gap-vs-scan (xang1234
+    #549 / e3c84e1 + FinRobot last-row + portfolio AI speak-both-sides).
+    Not a gate.
+    """
+    soft = str(soft_last_freshness or "").strip().casefold()
+    if soft == "expired":
+        soft = "stale"
+    elif soft == "unknown":
+        soft = "fresh"
+    if soft not in {"fresh", "aging", "stale"}:
+        first = next(
+            (r for r in (events or []) if isinstance(r, dict)), None
+        )
+        if first is None:
+            return "", False
+        band = str(first.get("freshness") or "").strip().casefold()
+        if band == "unknown":
+            soft = "fresh"
+        elif band == "expired":
+            soft = "stale"
+        elif band in {"fresh", "aging"}:
+            soft = band
+        else:
+            computed = soft_allow_freshness(first.get("at"), now=now)
+            if computed == "expired":
+                soft = "stale"
+            elif computed in {"fresh", "aging"}:
+                soft = computed
+            else:
+                return "", False
+    gap_band = soft_allow_anchor_gap_last_freshness(events, now=now)
+    gap_clock = _soft_allow_gap_clock_tone(gap_band)
+    if not gap_clock or soft == gap_clock:
+        return "", False
+    gap_speak = (
+        gap_band if gap_band in {"fresh", "aging", "expired"} else gap_clock
+    )
+    return f"clash · soft {soft} · gap {gap_speak}", True
+
+
 def _anchor_gap_symbol_counts(
     events: list[dict[str, Any]] | None,
 ) -> dict[str, int]:

@@ -76,6 +76,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_vs_scan_clash"] == ""
     assert g["anchor_gap_vs_scan_clash_warn"] is False
+    assert g["soft_vs_gap_clock_clash"] == ""
+    assert g["soft_vs_gap_clock_clash_warn"] is False
     assert g["anchor_gap_bit"] == ""
     assert g["last_freshness"] == "fresh"
     assert g["scan_freshness"] == ""
@@ -1194,6 +1196,12 @@ def test_soft_allow_glance_gap_vs_scan_when_last_matches_scan() -> None:
     assert g["scan_freshness"] == "fresh"
     # Soft-allow last matches scan — no ring-level clash.
     assert g["scan_vs_soft_allow_clash"] == ""
+    # Soft last ≠ gap cursor — close the generation triangle.
+    assert g["soft_vs_gap_clock_clash"] == (
+        "clash · soft fresh · gap expired"
+    )
+    assert g["soft_vs_gap_clock_clash_warn"] is True
+    assert "clash · soft fresh · gap expired" in g["line"]
     # Gap cursor is a different generation — speak both sides.
     assert g["anchor_gap_vs_scan_clash"] == (
         "clash · gap expired · scan fresh"
@@ -1221,8 +1229,32 @@ def test_soft_allow_glance_gap_vs_scan_when_last_matches_scan() -> None:
         scan_time=scan_at,
         scan_interval_sec=900,
     )
+    assert same["soft_vs_gap_clock_clash"] == ""
+    assert same["soft_vs_gap_clock_clash_warn"] is False
+    assert "clash · soft" not in same["line"]
     assert same["anchor_gap_vs_scan_clash"] == ""
     assert same["anchor_gap_vs_scan_clash_warn"] is False
     assert "clash · gap expired" not in same["anchor_gap_bit"]
     assert "clash · gap fresh" not in same["anchor_gap_bit"]
     assert "clash · gap aging" not in same["anchor_gap_bit"]
+
+
+def test_soft_allow_glance_soft_vs_gap_same_when_last_is_gap() -> None:
+    """When soft last *is* the gap row, soft≠gap stays silent."""
+    now = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    expired_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "MSFT RS unknown — anchor gap — allow",
+            }
+        ],
+        now=now,
+    )
+    assert g["last_freshness"] == "stale"
+    assert g["anchor_gap_last_freshness"] == "expired"
+    assert g["soft_vs_gap_clock_clash"] == ""
+    assert g["soft_vs_gap_clock_clash_warn"] is False
+    assert "clash · soft" not in g["line"]

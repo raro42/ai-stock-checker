@@ -1295,6 +1295,7 @@ def build_soft_allow_glance(
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
         soft_allow_anchor_gap_vs_scan_clash,
+        soft_allow_vs_gap_clock_clash,
         soft_allow_last_vs_lead,
         soft_allow_lead_margin,
         soft_allow_lead_share,
@@ -1376,6 +1377,8 @@ def build_soft_allow_glance(
         "last_freshness": "",
         "scan_freshness": "",
         "scan_vs_soft_allow_clash": "",
+        "soft_vs_gap_clock_clash": "",
+        "soft_vs_gap_clock_clash_warn": False,
         "anchor_gap_vs_scan_clash": "",
         "anchor_gap_vs_scan_clash_warn": False,
         "line": "",
@@ -1401,6 +1404,11 @@ def build_soft_allow_glance(
         scan_freshness = str(scan_pack.get("tone") or "")
     scan_vs_soft_allow_clash = (
         _clock_clash(last_clock, scan=scan_freshness) if last_clock else ""
+    )
+    soft_vs_gap_clock_clash, soft_vs_gap_clock_clash_warn = (
+        soft_allow_vs_gap_clock_clash(
+            rows, soft_last_freshness=last_clock, now=now
+        )
     )
     anchor_gap_last = soft_allow_anchor_gap_last_symbol(rows)
     anchor_gap_last_freshness = soft_allow_anchor_gap_last_freshness(
@@ -1525,11 +1533,12 @@ def build_soft_allow_glance(
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
     # last/lead clash / last/share clash / lead/share clash /
     # last/lean clash / lead/lean clash / share/lean clash-or-both-clash /
-    # gap vs scan generation clash escalate tone (RyanJHamby age≠severity
-    # + Screener junk-hot + portfolio AI after last-freshness +
-    # last-vs-lead / share/lean labels alone hid relationship; stale
-    # agree ≠ calm; dual-clash agreement ≠ calm; soft-allow last
-    # matching scan ≠ live gap cursor; ring cool-off stays cool).
+    # soft vs gap / gap vs scan generation clash escalate tone
+    # (RyanJHamby age≠severity + Screener junk-hot + portfolio AI after
+    # last-freshness + last-vs-lead / share/lean labels alone hid
+    # relationship; stale agree ≠ calm; dual-clash agreement ≠ calm;
+    # soft-allow last matching scan ≠ live gap cursor; ring cool-off
+    # stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1541,6 +1550,7 @@ def build_soft_allow_glance(
         or anchor_gap_last_lead_vs_lean_warn
         or anchor_gap_last_share_vs_lean_warn
         or scan_vs_soft_allow_clash
+        or soft_vs_gap_clock_clash_warn
         or anchor_gap_vs_scan_clash_warn
     ):
         tone = "warn"
@@ -1577,12 +1587,19 @@ def build_soft_allow_glance(
     else:
         line = f"{severity} · {line}"
     # Clash right after severity so the clip keeps mixed-generation honesty
-    # (LAYA age-before-clash; xang1234 #549 coherent generations).
-    if scan_vs_soft_allow_clash and line.startswith(f"{severity} · "):
+    # (LAYA age-before-clash; xang1234 #549 coherent generations). Soft≠gap
+    # sits after soft-vs-scan so a fresh soft last cannot hide a staler
+    # gap cursor when scan itself matches soft (e3c84e1 triangle).
+    gen_clash_bits = [
+        b
+        for b in (scan_vs_soft_allow_clash, soft_vs_gap_clock_clash)
+        if b
+    ]
+    if gen_clash_bits and line.startswith(f"{severity} · "):
         rest = line[len(severity) + 3 :]
-        line = f"{severity} · {scan_vs_soft_allow_clash} · {rest}"
-    elif scan_vs_soft_allow_clash:
-        line = f"{scan_vs_soft_allow_clash} · {line}"
+        line = f"{severity} · {' · '.join(gen_clash_bits)} · {rest}"
+    elif gen_clash_bits:
+        line = f"{' · '.join(gen_clash_bits)} · {line}"
     if anchor_gap_bit:
         line = f"{line} · {anchor_gap_bit}"
     if reason_short:
@@ -1675,6 +1692,8 @@ def build_soft_allow_glance(
         "last_freshness": last_clock,
         "scan_freshness": scan_freshness,
         "scan_vs_soft_allow_clash": scan_vs_soft_allow_clash,
+        "soft_vs_gap_clock_clash": soft_vs_gap_clock_clash,
+        "soft_vs_gap_clock_clash_warn": soft_vs_gap_clock_clash_warn,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,

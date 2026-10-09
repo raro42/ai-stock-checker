@@ -106,6 +106,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         soft_allow_anchor_gap_last_vs_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_vs_scan_clash,
+        soft_allow_vs_gap_clock_clash,
     )
 
     now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
@@ -343,6 +344,16 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         "last/lean align · expired · gap hot · other ok · "
         "share/lean clash · share clash · lean align"
     )
+    # Soft last ≠ gap cursor closes the generation triangle.
+    assert soft_allow_vs_gap_clock_clash(
+        [other, expired_row], soft_last_freshness="fresh", now=now
+    ) == ("clash · soft fresh · gap expired", True)
+    assert soft_allow_vs_gap_clock_clash(
+        [expired_row, other], soft_last_freshness="stale", now=now
+    ) == ("", False)
+    assert soft_allow_vs_gap_clock_clash(
+        [fresh_row, other], soft_last_freshness="fresh", now=now
+    ) == ("", False)
 
 
 def test_soft_allow_anchor_gap_share() -> None:
