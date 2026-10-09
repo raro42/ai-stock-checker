@@ -381,6 +381,80 @@ def test_laya_glance_cash_clash_when_laya_matches_scan(
     assert "clash · laya" not in same["line"]
 
 
+def test_laya_glance_vs_soft_clock_clash(monkeypatch, tmp_path: Path) -> None:
+    """xang1234 #549: LAYA matching scan ≠ staler soft-allow (speak-both-sides)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert g["freshness"] == "fresh"
+    assert g["soft_freshness"] == "stale"
+    assert g["laya_vs_soft_clock_clash"] == "clash · soft stale"
+    assert g["laya_vs_soft_clock_clash_warn"] is True
+    assert "clash · soft stale" in g["line"]
+    assert g["tone"] in {"aging", "stale"}
+    # Same band — silent.
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    same = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert same["soft_freshness"] == "fresh"
+    assert same["laya_vs_soft_clock_clash"] == ""
+    assert same["laya_vs_soft_clock_clash_warn"] is False
+    assert "clash · soft" not in same["line"]
+
+
 def test_laya_glance_peer_cash_clash_when_laya_matches_cash(
     monkeypatch, tmp_path: Path
 ) -> None:

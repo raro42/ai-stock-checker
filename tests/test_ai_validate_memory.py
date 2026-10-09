@@ -333,6 +333,70 @@ def test_build_ai_debate_glance_cash_clash_when_debate_matches_scan(
     assert "clash · debate" not in same["line"]
 
 
+def test_build_ai_debate_glance_vs_soft_clock_clash(tmp_path: Path) -> None:
+    """xang1234 #549: debate matching scan ≠ staler soft-allow (speak-both-sides)."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = fresh_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": fresh_at, "events": events}) + "\n")
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "gate": "breadth",
+                        "reason": "unknown breadth — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert g["freshness"] == "fresh"
+    assert g["soft_freshness"] == "stale"
+    assert g["debate_vs_soft_clock_clash"] == "clash · soft stale"
+    assert g["debate_vs_soft_clock_clash_warn"] is True
+    assert "clash · soft stale" in g["line"]
+    assert g["tone"] in {"aging", "stale", "buy"}
+    # Same band — silent.
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "gate": "breadth",
+                        "reason": "unknown breadth — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    same = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert same["soft_freshness"] == "fresh"
+    assert same["debate_vs_soft_clock_clash"] == ""
+    assert same["debate_vs_soft_clock_clash_warn"] is False
+    assert "clash · soft" not in same["line"]
+
+
 def test_build_ai_debate_glance_peer_cash_clash_when_debate_matches_cash(
     monkeypatch, tmp_path: Path
 ) -> None:

@@ -424,6 +424,28 @@ def memory_advisory_clock_tones(
     return laya_tone, debate_tone
 
 
+def soft_allow_last_clock_tone(
+    data_dir: Path | str | None = None,
+    *,
+    now: Optional[datetime] = None,
+) -> str:
+    """Newest soft-allow clock as scan-band tone (display only).
+
+    Maps ``expired``→``stale`` via ``_soft_allow_clock_tone``. Empty when
+    the ring has no rows. LAYA/debate matching the scan archive can still
+    hide a staler fail-open print — speak-both-sides of soft≠memory
+    (xang1234 #549 + FinRobot last-row + portfolio AI). Not a gate.
+    """
+    from stock_checker.gate_audit import enrich_soft_allows, load_soft_allows
+
+    root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
+    rows = enrich_soft_allows(load_soft_allows(root), now=now)
+    if not rows:
+        return ""
+    last = rows[-1]
+    return _soft_allow_clock_tone(str(last.get("freshness") or ""))
+
+
 def memory_peer_cash_clock_clash(
     own_freshness: str,
     peer_freshness: str,
@@ -6901,9 +6923,12 @@ def build_laya_glance(
     reject is not a live print).     When the scan archive band disagrees
     with last-row age, speak ``clash · scan fresh|aging|stale``. When the
     newest validate-debate band also disagrees, append ``debate {tone}``
-    (FinRobot last-debate ≠ JEV last-reject). When last-row age ≠ worst
+    (FinRobot last-debate ≠ JEV last-reject).     When last-row age ≠ worst
     pinned cash sleeve, speak ``clash · laya fresh|aging|stale · cash …``
     (xang1234 #549; soft matching scan ≠ live cash; soft-allow parity).
+    When last-row age ≠ newest soft-allow clock, speak
+    ``clash · soft fresh|aging|stale`` (soft≠memory speak-both-sides —
+    LAYA matching scan/cash can still hide a staler fail-open print).
     When last-row ticker/verb also disagrees with last-validate, append
     ``vs NVDA BUY`` / ``vs BUY``.
     Same ticker + same polarity (pass↔BUY / reject↔SELL) or same literal
@@ -6987,6 +7012,9 @@ def build_laya_glance(
     laya_vs_cash_clock_clash_warn = False
     laya_peer_cash_clock_clash = ""
     laya_peer_cash_clock_clash_warn = False
+    laya_vs_soft_clock_clash = ""
+    laya_vs_soft_clock_clash_warn = False
+    soft_freshness = soft_allow_last_clock_tone(root, now=now)
     name_clash = ""
     verb_oppose = False
     edge_fee_bits = ""
@@ -7030,6 +7058,11 @@ def build_laya_glance(
                 peer_side="debate",
             )
         )
+        # LAYA matching scan/cash can still hide a staler soft-allow print.
+        laya_vs_soft_clock_clash = (
+            _clock_clash(freshness, soft=soft_freshness) if soft_freshness else ""
+        )
+        laya_vs_soft_clock_clash_warn = bool(laya_vs_soft_clock_clash)
         name_clash = _memory_name_clash(
             own_sym, own_verb, debate_sym, debate_action
         )
@@ -7086,6 +7119,9 @@ def build_laya_glance(
         # Own matching cash ≠ peer debate vs cash (FinRobot speak-both-sides).
         if laya_peer_cash_clock_clash:
             bits.append(laya_peer_cash_clock_clash)
+        # Soft≠memory speak-both-sides (soft-allow line already names LAYA).
+        if laya_vs_soft_clock_clash:
+            bits.append(laya_vs_soft_clock_clash)
         if name_clash:
             bits.append(name_clash)
         # Warn clashes first so the 96-char clip keeps adverse honesty.
@@ -7167,10 +7203,14 @@ def build_laya_glance(
         ) else ""
         clash_tone = _clock_clash_tone(
             freshness,
-            clash or laya_vs_cash_clock_clash or laya_peer_cash_clock_clash,
+            clash
+            or laya_vs_cash_clock_clash
+            or laya_peer_cash_clock_clash
+            or laya_vs_soft_clock_clash,
             scan=scan_freshness,
             debate=debate_freshness,
             cash=cash_for_tone,
+            soft=soft_freshness if laya_vs_soft_clock_clash else "",
         )
         if freshness == "stale" or clash_tone == "stale":
             tone = "stale"
@@ -7179,6 +7219,7 @@ def build_laya_glance(
             or clash_tone == "aging"
             or laya_vs_cash_clock_clash_warn
             or laya_peer_cash_clock_clash_warn
+            or laya_vs_soft_clock_clash_warn
             or verb_oppose
             or edge_fee_warn
             or edge_vs_conf_warn
@@ -7204,11 +7245,14 @@ def build_laya_glance(
         "freshness": freshness,
         "scan_freshness": scan_freshness,
         "debate_freshness": debate_freshness,
+        "soft_freshness": soft_freshness,
         "scan_vs_laya_clash": clash,
         "laya_vs_cash_clock_clash": laya_vs_cash_clock_clash,
         "laya_vs_cash_clock_clash_warn": laya_vs_cash_clock_clash_warn,
         "laya_peer_cash_clock_clash": laya_peer_cash_clock_clash,
         "laya_peer_cash_clock_clash_warn": laya_peer_cash_clock_clash_warn,
+        "laya_vs_soft_clock_clash": laya_vs_soft_clock_clash,
+        "laya_vs_soft_clock_clash_warn": laya_vs_soft_clock_clash_warn,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
         "edge_fee_bits": edge_fee_bits,
@@ -7279,8 +7323,11 @@ def build_ai_debate_glance(
     ``agree``. Same ticker + hold/fail-open vs directional speaks
     ``mixed · vs hold`` (neutral ≠ polarity; no tone escalate). Cross-ticker
     mixed / same-side speak ``mixed · vs NVDA hold`` / ``align · vs NVDA
-    pass`` (bare ``vs`` keeps bull↔bear). Clash vs a staler scan/LAYA
-    escalates glance tone (fresh last BUY ≠ live print). Bull↔bear verb
+    pass`` (bare ``vs`` keeps bull↔bear).     Clash vs a staler scan/LAYA
+    escalates glance tone (fresh last BUY ≠ live print). When last-debate
+    age ≠ newest soft-allow clock, speak ``clash · soft fresh|aging|stale``
+    (soft≠memory speak-both-sides — debate matching scan/cash can still
+    hide a staler fail-open print). Bull↔bear verb
     oppose (BUY vs reject / SELL vs pass) also escalates to aging — name
     label ≠ polarity severity. Last-row ``conf hi|med|lo`` speaks when
     typed confidence is present (BUY alone ≠ high conviction); ``conf lo``
@@ -7315,11 +7362,14 @@ def build_ai_debate_glance(
         "freshness": "",
         "scan_freshness": "",
         "laya_freshness": "",
+        "soft_freshness": "",
         "scan_vs_debate_clash": "",
         "debate_vs_cash_clock_clash": "",
         "debate_vs_cash_clock_clash_warn": False,
         "debate_peer_cash_clock_clash": "",
         "debate_peer_cash_clock_clash_warn": False,
+        "debate_vs_soft_clock_clash": "",
+        "debate_vs_soft_clock_clash_warn": False,
         "memory_name_clash": "",
         "memory_verb_oppose": False,
         "confidence_bits": "",
@@ -7407,6 +7457,9 @@ def build_ai_debate_glance(
     debate_vs_cash_clock_clash_warn = False
     debate_peer_cash_clock_clash = ""
     debate_peer_cash_clock_clash_warn = False
+    debate_vs_soft_clock_clash = ""
+    debate_vs_soft_clock_clash_warn = False
+    soft_freshness = soft_allow_last_clock_tone(root, now=now)
     name_clash = ""
     verb_oppose = False
     edge_vs_conf = ""
@@ -7433,6 +7486,11 @@ def build_ai_debate_glance(
         debate_vs_cash_clock_clash, debate_vs_cash_clock_clash_warn = (
             memory_vs_cash_clock_clash(freshness, cash_band, side="debate")
         )
+        # Debate matching scan/cash can still hide a staler soft-allow print.
+        debate_vs_soft_clock_clash = (
+            _clock_clash(freshness, soft=soft_freshness) if soft_freshness else ""
+        )
+        debate_vs_soft_clock_clash_warn = bool(debate_vs_soft_clock_clash)
         # Debate matching cash can still hide LAYA ≠ cash (peer speak).
         if laya_st.get("advisory"):
             (
@@ -7493,6 +7551,9 @@ def build_ai_debate_glance(
         bits.append(debate_vs_cash_clock_clash)
     if debate_peer_cash_clock_clash:
         bits.append(debate_peer_cash_clock_clash)
+    # Soft≠memory speak-both-sides (soft-allow line already names debate).
+    if debate_vs_soft_clock_clash:
+        bits.append(debate_vs_soft_clock_clash)
     # last vs lead before margin/sides so the 96-char clip keeps it.
     if sample_lead:
         bits.append(sample_lead)
@@ -7541,10 +7602,14 @@ def build_ai_debate_glance(
     ) else ""
     clash_tone = _clock_clash_tone(
         freshness,
-        clash or debate_vs_cash_clock_clash or debate_peer_cash_clock_clash,
+        clash
+        or debate_vs_cash_clock_clash
+        or debate_peer_cash_clock_clash
+        or debate_vs_soft_clock_clash,
         scan=scan_freshness,
         laya=laya_freshness,
         cash=cash_for_tone,
+        soft=soft_freshness if debate_vs_soft_clock_clash else "",
     )
     if freshness == "stale" or clash_tone == "stale":
         tone = "stale"
@@ -7555,6 +7620,7 @@ def build_ai_debate_glance(
         or clash_tone == "aging"
         or debate_vs_cash_clock_clash_warn
         or debate_peer_cash_clock_clash_warn
+        or debate_vs_soft_clock_clash_warn
         or verb_oppose
         or confidence_warn
         or edge_vs_conf_warn
@@ -7586,11 +7652,14 @@ def build_ai_debate_glance(
         "freshness": freshness,
         "scan_freshness": scan_freshness,
         "laya_freshness": laya_freshness,
+        "soft_freshness": soft_freshness,
         "scan_vs_debate_clash": clash,
         "debate_vs_cash_clock_clash": debate_vs_cash_clock_clash,
         "debate_vs_cash_clock_clash_warn": debate_vs_cash_clock_clash_warn,
         "debate_peer_cash_clock_clash": debate_peer_cash_clock_clash,
         "debate_peer_cash_clock_clash_warn": debate_peer_cash_clock_clash_warn,
+        "debate_vs_soft_clock_clash": debate_vs_soft_clock_clash,
+        "debate_vs_soft_clock_clash_warn": debate_vs_soft_clock_clash_warn,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
         "confidence_bits": confidence_bits,

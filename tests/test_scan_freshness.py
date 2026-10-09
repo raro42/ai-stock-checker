@@ -11,6 +11,7 @@ from openbb_backend.desk import (
     cash_print_freshness,
     memory_peer_cash_clock_clash,
     memory_vs_cash_clock_clash,
+    soft_allow_last_clock_tone,
     soft_allow_vs_cash_clock_clash,
     _scan_vs_cash_clash_delta,
     _scan_vs_cash_print_clash,
@@ -42,6 +43,32 @@ def test_soft_allow_vs_cash_clock_clash_helper() -> None:
         "clash · debate fresh · cash aging",
         True,
     )
+
+
+def test_soft_allow_last_clock_tone_helper(tmp_path) -> None:
+    """Newest soft-allow maps expired→stale for memory speak-both-sides."""
+    import json
+    from datetime import timedelta
+
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    assert soft_allow_last_clock_tone(tmp_path, now=now) == ""
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "gate": "rs",
+                        "reason": "AAPL RS unknown — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert soft_allow_last_clock_tone(tmp_path, now=now) == "stale"
 
 
 def test_memory_peer_cash_clock_clash_helper() -> None:
