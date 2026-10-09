@@ -462,6 +462,9 @@ SCREENER_DUP_SHARE_QUIET = 25.0
 # Junk ownership of raw slots (object+junk). Same hot/quiet bands as dup waste.
 SCREENER_JUNK_SHARE_HOT = 50.0
 SCREENER_JUNK_SHARE_QUIET = 25.0
+# Junk-list lead ownership of total junk. Fat ≥50% · thin <50% — lead %
+# alone ≠ whether sleeve concentration matches book junk heat.
+SCREENER_JUNK_LIST_LEAD_SHARE_FAT = 50.0
 # Ok ownership of raw slots (object÷(object+junk)). Same strong/thin as unique share.
 SCREENER_OK_SHARE_STRONG = 75.0
 SCREENER_OK_SHARE_THIN = 50.0
@@ -524,11 +527,16 @@ def build_screener_opportunity_counts(
     exists, also speak ``ahead wide|thin · +K`` then ``vs crypto · N ·
     P%`` (wide ≥2 · thin =1; sole 100% omits; tied runners silent on
     vs) — soft-allow RS gap symbol lead margin/sides + portfolio AI after
-    lead % alone hid how far ahead / who is #2. When damaged lists have
+    lead % alone hid how far ahead / who is #2.     When damaged lists have
     no strict lead, also speak ``n=1`` (sole sleeve) or ``tied`` (≥2;
     ``junk_list_sample_gap``; lead cases stay silent) — soft-allow RS gap
     symbol / LAYA ``_decision_sample_gap`` parity after silent sole hid
-    that ``in rec`` alone ≠ a thin multi-list sample. ``n_total`` is the sum of the three list
+    that ``in rec`` alone ≠ a thin multi-list sample. When list lead +
+    junk share extremes already spoke, also speak
+    ``lead/share align|clash · fat|thin · hot|quiet`` (fat ≥50% of junk;
+    fat↔hot / thin↔quiet align; crossed clash warns) — soft-allow RS gap
+    last/share + portfolio AI speak-both-sides after lead % + share labels
+    alone hid whether sleeve concentration matches book heat. ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -568,6 +576,8 @@ def build_screener_opportunity_counts(
         "junk_list_lead_sides_n": None,
         "junk_list_lead_sides_share": None,
         "junk_list_sample_gap": "",
+        "junk_list_lead_vs_share": "",
+        "junk_list_lead_vs_share_warn": False,
         "junk_share_pct": None,
         "junk_share_severity": "",
         "ok_share_pct": None,
@@ -789,6 +799,8 @@ def build_screener_opportunity_counts(
     junk_list_lead_sides_n: int | None = None
     junk_list_lead_sides_share: int | None = None
     junk_list_sample_gap = ""
+    junk_list_lead_vs_share = ""
+    junk_list_lead_vs_share_warn = False
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
@@ -878,9 +890,31 @@ def build_screener_opportunity_counts(
             )
             if junk_share_severity == "hot" or ok_share_severity == "thin":
                 junk_vs_ok_warn = True
+        # Lead % ≠ book junk heat (soft-allow last/share extremes).
+        if (
+            junk_list_lead
+            and junk_list_lead_share is not None
+            and junk_share_severity in {"hot", "quiet"}
+        ):
+            fat = junk_list_lead_share >= SCREENER_JUNK_LIST_LEAD_SHARE_FAT
+            lead_band = "fat" if fat else "thin"
+            hot_share = junk_share_severity == "hot"
+            if fat == hot_share:
+                junk_list_lead_vs_share = (
+                    f"align · {lead_band} · {junk_share_severity}"
+                )
+            else:
+                junk_list_lead_vs_share = (
+                    f"clash · {lead_band} · {junk_share_severity}"
+                )
+                junk_list_lead_vs_share_warn = True
         weight_core = f"{weight_core} · {junk_bit}"
+        lean_extras: list[str] = []
+        if junk_list_lead_vs_share:
+            lean_extras.append(f"lead/share {junk_list_lead_vs_share}")
         if junk_vs_ok:
-            lean_extra = f"junk vs ok {junk_vs_ok}"
+            lean_extras.append(f"junk vs ok {junk_vs_ok}")
+        for lean_extra in lean_extras:
             weight_lean = (
                 f"{weight_lean} · {lean_extra}" if weight_lean else lean_extra
             )
@@ -910,6 +944,8 @@ def build_screener_opportunity_counts(
         "junk_list_lead_sides_n": junk_list_lead_sides_n,
         "junk_list_lead_sides_share": junk_list_lead_sides_share,
         "junk_list_sample_gap": junk_list_sample_gap,
+        "junk_list_lead_vs_share": junk_list_lead_vs_share,
+        "junk_list_lead_vs_share_warn": junk_list_lead_vs_share_warn,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
         "ok_share_pct": ok_share_pct,
@@ -11649,6 +11685,11 @@ def load_desk_snapshot(
             "title": "Screener junk list lead",
             "from": "xang1234/stock-screener multi-meter lead + portfolio AI (count ≠ ownership)",
             "note": "When ≥2 lists hold junk and one is strictly largest, weight speaks lead rec · N% (junk÷total junk); ties / sole-list silent — list pointer ≠ which sleeve owns the damage.",
+        },
+        {
+            "title": "Screener junk list lead vs share",
+            "from": "xang1234/stock-screener + FinRobot + portfolio AI (soft-allow last/share parity)",
+            "note": "When list lead + junk share extremes already spoke, weight_lean speaks lead/share align|clash · fat|thin · hot|quiet (fat ≥50% of junk; crossed warns) — lead % ≠ book heat.",
         },
         {
             "title": "Screener opportunity uniqueness share",
