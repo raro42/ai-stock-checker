@@ -1136,7 +1136,8 @@ def build_soft_allow_glance(
     ``anchor_gap_last_vs_lead_freshness_warn``, last/share clash already
     set ``anchor_gap_last_vs_share_warn``, lead/share clash already set
     ``anchor_gap_last_lead_vs_share_warn``, last/lean clash already set
-    ``anchor_gap_last_vs_lean_warn``, or share/lean clash already set
+    ``anchor_gap_last_vs_lean_warn``, lead/lean clash already set
+    ``anchor_gap_last_lead_vs_lean_warn``, or share/lean clash already set
     ``anchor_gap_last_share_vs_lean_warn`` — age/share/lean/lead label ≠
     clay flat (RyanJHamby Ops stale-warn + Screener junk-hot; ring
     cool-off severity stays ``cool`` / ``aging``). When last freshness
@@ -1150,9 +1151,13 @@ def build_soft_allow_glance(
     those two relationships agree (``both align`` calm; ``both clash``
     warns; crossed warns). When lean already spoke, ``last/lean
     align|clash`` names whether cursor age matches lean agreement
-    (fresh↔align / expired↔clash; crossed warns). When both already
-    spoke, ``share/lean align|clash`` names whether the two relationships
-    agree (``both align`` calm; ``both clash`` warns; crossed warns).
+    (fresh↔align / expired↔clash; crossed warns). When last/lead +
+    last/lean already spoke, ``lead/lean align|clash`` names whether
+    those two relationships agree (``both align`` calm; ``both clash``
+    warns; crossed warns; lead/share + share/lean ≠ transitive). When
+    both last/share and last/lean already spoke, ``share/lean
+    align|clash`` names whether the two relationships agree (``both
+    align`` calm; ``both clash`` warns; crossed warns).
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1171,6 +1176,7 @@ def build_soft_allow_glance(
         format_soft_allow_anchor_gap_bit,
         format_soft_allow_lead_bit,
         soft_allow_anchor_gap_last_freshness,
+        soft_allow_anchor_gap_last_lead_vs_lean,
         soft_allow_anchor_gap_last_lead_vs_share,
         soft_allow_anchor_gap_last_share_vs_lean,
         soft_allow_anchor_gap_last_symbol,
@@ -1258,6 +1264,8 @@ def build_soft_allow_glance(
         "anchor_gap_vs_other_warn": False,
         "anchor_gap_last_vs_lean": "",
         "anchor_gap_last_vs_lean_warn": False,
+        "anchor_gap_last_lead_vs_lean": "",
+        "anchor_gap_last_lead_vs_lean_warn": False,
         "anchor_gap_last_share_vs_lean": "",
         "anchor_gap_last_share_vs_lean_warn": False,
         "anchor_gap_bit": "",
@@ -1330,6 +1338,10 @@ def build_soft_allow_glance(
     anchor_gap_last_vs_lean, anchor_gap_last_vs_lean_warn = (
         soft_allow_anchor_gap_last_vs_lean(rows, now=now)
     )
+    (
+        anchor_gap_last_lead_vs_lean,
+        anchor_gap_last_lead_vs_lean_warn,
+    ) = soft_allow_anchor_gap_last_lead_vs_lean(rows, now=now)
     anchor_gap_last_share_vs_lean, anchor_gap_last_share_vs_lean_warn = (
         soft_allow_anchor_gap_last_share_vs_lean(rows, now=now)
     )
@@ -1386,11 +1398,11 @@ def build_soft_allow_glance(
         lead_band = "expired"
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
     # last/lead clash / last/share clash / lead/share clash /
-    # last/lean clash / share/lean clash-or-both-clash escalate tone
-    # (RyanJHamby age≠severity + Screener junk-hot + portfolio AI after
-    # last-freshness + last-vs-lead / share/lean labels alone hid
-    # relationship; stale agree ≠ calm; dual-clash agreement ≠ calm;
-    # ring cool-off stays cool).
+    # last/lean clash / lead/lean clash / share/lean clash-or-both-clash
+    # escalate tone (RyanJHamby age≠severity + Screener junk-hot +
+    # portfolio AI after last-freshness + last-vs-lead / share/lean
+    # labels alone hid relationship; stale agree ≠ calm; dual-clash
+    # agreement ≠ calm; ring cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1399,6 +1411,7 @@ def build_soft_allow_glance(
         or anchor_gap_last_vs_share_warn
         or anchor_gap_last_lead_vs_share_warn
         or anchor_gap_last_vs_lean_warn
+        or anchor_gap_last_lead_vs_lean_warn
         or anchor_gap_last_share_vs_lean_warn
     ):
         tone = "warn"
@@ -1512,6 +1525,10 @@ def build_soft_allow_glance(
         "anchor_gap_vs_other_warn": anchor_gap_vs_other_warn,
         "anchor_gap_last_vs_lean": anchor_gap_last_vs_lean,
         "anchor_gap_last_vs_lean_warn": anchor_gap_last_vs_lean_warn,
+        "anchor_gap_last_lead_vs_lean": anchor_gap_last_lead_vs_lean,
+        "anchor_gap_last_lead_vs_lean_warn": (
+            anchor_gap_last_lead_vs_lean_warn
+        ),
         "anchor_gap_last_share_vs_lean": anchor_gap_last_share_vs_lean,
         "anchor_gap_last_share_vs_lean_warn": (
             anchor_gap_last_share_vs_lean_warn

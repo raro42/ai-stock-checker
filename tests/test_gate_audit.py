@@ -98,6 +98,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     from stock_checker.gate_audit import (
         format_soft_allow_anchor_gap_bit,
         soft_allow_anchor_gap_last_freshness,
+        soft_allow_anchor_gap_last_lead_vs_lean,
         soft_allow_anchor_gap_last_lead_vs_share,
         soft_allow_anchor_gap_last_share_vs_lean,
         soft_allow_anchor_gap_last_vs_lead_freshness,
@@ -158,6 +159,9 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_last_lead_vs_share(
         [aging_row, other], now=now
     ) == ("", False)
+    assert soft_allow_anchor_gap_last_lead_vs_lean(
+        [aging_row, other], now=now
+    ) == ("", False)
     assert soft_allow_anchor_gap_last_vs_share(
         [expired_row, other], now=now
     ) == ("clash · expired · hot", True)
@@ -213,6 +217,12 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_last_lead_vs_share(
         agree_expired, now=now
     ) == ("align · both clash", True)
+    assert soft_allow_anchor_gap_last_vs_lean(
+        agree_expired, now=now
+    ) == ("clash · expired · hot|thin", True)
+    assert soft_allow_anchor_gap_last_lead_vs_lean(
+        agree_expired, now=now
+    ) == ("align · both clash", True)
     agree_fresh = [
         fresh_row,
         {
@@ -228,6 +238,12 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         agree_fresh, now=now
     ) == ("align · fresh · hot", False)
     assert soft_allow_anchor_gap_last_lead_vs_share(
+        agree_fresh, now=now
+    ) == ("align · both align", False)
+    assert soft_allow_anchor_gap_last_vs_lean(
+        agree_fresh, now=now
+    ) == ("align · fresh · hot|thin", False)
+    assert soft_allow_anchor_gap_last_lead_vs_lean(
         agree_fresh, now=now
     ) == ("align · both align", False)
     # Live name clash warns (cursor ≠ owner while still fresh).
@@ -260,6 +276,12 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_last_lead_vs_share(
         lead_fresh, now=now
     ) == ("clash · lead clash · share align", True)
+    assert soft_allow_anchor_gap_last_vs_lean(
+        lead_fresh, now=now
+    ) == ("align · fresh · hot|thin", False)
+    assert soft_allow_anchor_gap_last_lead_vs_lean(
+        lead_fresh, now=now
+    ) == ("clash · lead clash · lean align", True)
     assert soft_allow_anchor_gap_last_vs_lead_freshness(
         [aging_row, other], now=now
     ) == ("", False)
@@ -273,6 +295,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         "vs 0 other · thin · 0% · "
         "gap vs other align · hot|thin · "
         "last/lean clash · expired · hot|thin · "
+        "lead/lean align · both clash · "
         "share/lean align · both clash"
     )
     assert format_soft_allow_anchor_gap_bit(
