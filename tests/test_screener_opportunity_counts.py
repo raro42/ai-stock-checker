@@ -103,6 +103,10 @@ def test_empty_and_non_mapping():
     assert empty["junk_list_lead_sides_n"] is None
     assert empty["junk_list_lead_sides_share"] is None
     assert empty["junk_list_sample_gap"] == ""
+    assert empty["junk_list_lead_vs_share"] == ""
+    assert empty["junk_list_lead_vs_share_warn"] is False
+    assert empty["junk_list_lead_vs_lean"] == ""
+    assert empty["junk_list_lead_vs_lean_warn"] is False
     assert empty["junk_share_pct"] is None
     assert empty["junk_share_severity"] == ""
     assert empty["ok_share_pct"] is None
@@ -459,21 +463,23 @@ def test_junk_all_slots_speaks_zero_ok():
     assert c["junk_share_severity"] == "hot"
     assert c["ok_share_pct"] == 0.0
     assert c["ok_share_severity"] == "thin"
-    # lead 67% fat ↔ junk hot → lead/share align
+    # lead 67% fat ↔ junk hot → lead/share align; junk/ok align → lead/lean both align
     assert c["junk_list_lead_vs_share"] == "align · fat · hot"
     assert c["junk_list_lead_vs_share_warn"] is False
     assert c["junk_vs_ok"] == "align · hot|thin"
+    assert c["junk_list_lead_vs_lean"] == "align · both align"
+    assert c["junk_list_lead_vs_lean_warn"] is False
     assert (
         c["weight_core"]
         == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · ahead thin · +1 · vs crypto · 1 · 33% · vs 0 ok · thin · 0%"
     )
     assert (
         c["weight_lean"]
-        == "lead/share align · fat · hot · junk vs ok align · hot|thin"
+        == "lead/share align · fat · hot · junk vs ok align · hot|thin · lead/lean align · both align"
     )
     assert (
         c["weight"]
-        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · ahead thin · +1 · vs crypto · 1 · 33% · vs 0 ok · thin · 0% · lead/share align · fat · hot · junk vs ok align · hot|thin"
+        == "row slots · 3 junk · hot · 100% · in rec · crypto · lead rec · 67% · ahead thin · +1 · vs crypto · 1 · 33% · vs 0 ok · thin · 0% · lead/share align · fat · hot · junk vs ok align · hot|thin · lead/lean align · both align"
     )
     assert c["tone"] == "warn"
 
@@ -567,9 +573,11 @@ def test_junk_list_lead_margin_sides():
     assert c["junk_list_lead_sides_n"] == 1
     assert c["junk_list_lead_sides_share"] == 20
     assert c["junk_list_lead_vs_share"] == "align · fat · hot"
+    assert c["junk_list_lead_vs_lean"] == "align · both align"
     assert "ahead wide · +3" in c["weight_core"]
     assert "vs crypto · 1 · 20%" in c["weight_core"]
     assert "lead/share align · fat · hot" in c["weight_lean"]
+    assert "lead/lean align · both align" in c["weight_lean"]
     assert c["tone"] == "warn"
 
 
@@ -590,6 +598,11 @@ def test_junk_list_lead_vs_share_clash_fat_quiet():
     assert c["junk_list_lead_vs_share"] == "clash · fat · quiet"
     assert c["junk_list_lead_vs_share_warn"] is True
     assert "lead/share clash · fat · quiet" in c["weight_lean"]
+    # lead/share clash + junk/ok align → lead/lean clash (not transitive)
+    assert c["junk_vs_ok"].startswith("align ·")
+    assert c["junk_list_lead_vs_lean"] == "clash · lead clash · lean align"
+    assert c["junk_list_lead_vs_lean_warn"] is True
+    assert "lead/lean clash · lead clash · lean align" in c["weight_lean"]
     assert c["tone"] == "warn"
 
 
@@ -611,6 +624,10 @@ def test_junk_list_lead_vs_share_align_thin_quiet():
     assert c["junk_list_lead_vs_share"] == "align · thin · quiet"
     assert c["junk_list_lead_vs_share_warn"] is False
     assert "lead/share align · thin · quiet" in c["weight_lean"]
+    assert c["junk_vs_ok"].startswith("align ·")
+    assert c["junk_list_lead_vs_lean"] == "align · both align"
+    assert c["junk_list_lead_vs_lean_warn"] is False
+    assert "lead/lean align · both align" in c["weight_lean"]
 
 
 def test_junk_list_lead_vs_share_silent_without_lead():
@@ -624,6 +641,7 @@ def test_junk_list_lead_vs_share_silent_without_lead():
     )
     assert tied["junk_list_sample_gap"] == "tied"
     assert tied["junk_list_lead_vs_share"] == ""
+    assert tied["junk_list_lead_vs_lean"] == ""
     sole = build_screener_opportunity_counts(
         {
             "recommendations": ["a", "b"],
@@ -633,6 +651,31 @@ def test_junk_list_lead_vs_share_silent_without_lead():
     )
     assert sole["junk_list_sample_gap"] == "n=1"
     assert sole["junk_list_lead_vs_share"] == ""
+    assert sole["junk_list_lead_vs_lean"] == ""
+
+
+def test_junk_list_lead_vs_lean_both_clash():
+    """Dual-clash agreement warns (silent confirm hid adverse both-clash)."""
+    # junk=7 · ok=7 · slots=14 → 50% hot · ok 50% mid → junk_vs_ok clash
+    # lead rec 43% thin + hot → lead/share clash → both clash
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": ["a", "b", "c"],
+            "crypto_leaders": [None, None],
+            "stock_breakouts": [None, None]
+            + [{"symbol": f"OK{i}"} for i in range(7)],
+        }
+    )
+    assert c["n_junk"] == 7
+    assert c["n_total"] == 7
+    assert c["junk_share_severity"] == "hot"
+    assert c["ok_share_severity"] == "ok"
+    assert c["junk_list_lead_share"] == 43
+    assert c["junk_list_lead_vs_share"] == "clash · thin · hot"
+    assert c["junk_vs_ok"] == "clash · junk hot · ok ok"
+    assert c["junk_list_lead_vs_lean"] == "align · both clash"
+    assert c["junk_list_lead_vs_lean_warn"] is True
+    assert "lead/lean align · both clash" in c["weight_lean"]
 
 
 def test_junk_vs_ok_clash_at_half():

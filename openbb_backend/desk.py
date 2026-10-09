@@ -536,7 +536,13 @@ def build_screener_opportunity_counts(
     ``lead/share align|clash · fat|thin · hot|quiet`` (fat ≥50% of junk;
     fat↔hot / thin↔quiet align; crossed clash warns) — soft-allow RS gap
     last/share + portfolio AI speak-both-sides after lead % + share labels
-    alone hid whether sleeve concentration matches book heat. ``n_total`` is the sum of the three list
+    alone hid whether sleeve concentration matches book heat. When
+    lead/share + junk vs ok lean already spoke, also speak
+    ``lead/lean align|clash · both align|clash`` / ``clash · lead … · lean …``
+    (``both clash`` warns; crossed warns; lead/share + junk/ok ≠ transitive)
+    — soft-allow RS gap lead/lean + FinRobot + portfolio AI after the two
+    relationships alone hid whether sleeve-conc↔book-heat and junk↔ok
+    agree. ``n_total`` is the sum of the three list
     lengths (object rows). ``n_unique`` counts distinct symbols. When lists
     overlap, weight speaks uniqueness share (unique÷total) with
     strong/thin severity, then the waste side (``N dup · [hot|quiet] ·
@@ -578,6 +584,8 @@ def build_screener_opportunity_counts(
         "junk_list_sample_gap": "",
         "junk_list_lead_vs_share": "",
         "junk_list_lead_vs_share_warn": False,
+        "junk_list_lead_vs_lean": "",
+        "junk_list_lead_vs_lean_warn": False,
         "junk_share_pct": None,
         "junk_share_severity": "",
         "ok_share_pct": None,
@@ -801,6 +809,8 @@ def build_screener_opportunity_counts(
     junk_list_sample_gap = ""
     junk_list_lead_vs_share = ""
     junk_list_lead_vs_share_warn = False
+    junk_list_lead_vs_lean = ""
+    junk_list_lead_vs_lean_warn = False
     if n_junk > 0:
         n_slots = n_total + n_junk
         junk_share_pct = round(100.0 * n_junk / n_slots, 1)
@@ -908,12 +918,35 @@ def build_screener_opportunity_counts(
                     f"clash · {lead_band} · {junk_share_severity}"
                 )
                 junk_list_lead_vs_share_warn = True
+        # Lead/share ≠ junk/ok lean (soft-allow lead/lean; not transitive).
+        if junk_list_lead_vs_share and junk_vs_ok:
+
+            def _junk_rel_verb(bit: str) -> str | None:
+                if bit.startswith("align · "):
+                    return "align"
+                if bit.startswith("clash · "):
+                    return "clash"
+                return None
+
+            lead_verb = _junk_rel_verb(junk_list_lead_vs_share)
+            lean_verb = _junk_rel_verb(junk_vs_ok)
+            if lead_verb and lean_verb:
+                if lead_verb == lean_verb:
+                    junk_list_lead_vs_lean = f"align · both {lead_verb}"
+                    junk_list_lead_vs_lean_warn = lead_verb == "clash"
+                else:
+                    junk_list_lead_vs_lean = (
+                        f"clash · lead {lead_verb} · lean {lean_verb}"
+                    )
+                    junk_list_lead_vs_lean_warn = True
         weight_core = f"{weight_core} · {junk_bit}"
         lean_extras: list[str] = []
         if junk_list_lead_vs_share:
             lean_extras.append(f"lead/share {junk_list_lead_vs_share}")
         if junk_vs_ok:
             lean_extras.append(f"junk vs ok {junk_vs_ok}")
+        if junk_list_lead_vs_lean:
+            lean_extras.append(f"lead/lean {junk_list_lead_vs_lean}")
         for lean_extra in lean_extras:
             weight_lean = (
                 f"{weight_lean} · {lean_extra}" if weight_lean else lean_extra
@@ -946,6 +979,8 @@ def build_screener_opportunity_counts(
         "junk_list_sample_gap": junk_list_sample_gap,
         "junk_list_lead_vs_share": junk_list_lead_vs_share,
         "junk_list_lead_vs_share_warn": junk_list_lead_vs_share_warn,
+        "junk_list_lead_vs_lean": junk_list_lead_vs_lean,
+        "junk_list_lead_vs_lean_warn": junk_list_lead_vs_lean_warn,
         "junk_share_pct": junk_share_pct,
         "junk_share_severity": junk_share_severity,
         "ok_share_pct": ok_share_pct,
@@ -11690,6 +11725,11 @@ def load_desk_snapshot(
             "title": "Screener junk list lead vs share",
             "from": "xang1234/stock-screener + FinRobot + portfolio AI (soft-allow last/share parity)",
             "note": "When list lead + junk share extremes already spoke, weight_lean speaks lead/share align|clash · fat|thin · hot|quiet (fat ≥50% of junk; crossed warns) — lead % ≠ book heat.",
+        },
+        {
+            "title": "Screener junk list lead vs junk/ok lean",
+            "from": "xang1234/stock-screener + FinRobot + portfolio AI (soft-allow lead/lean parity)",
+            "note": "When lead/share + junk vs ok lean already spoke, weight_lean speaks lead/lean align|clash · both align|clash (both clash warns; crossed warns) — sleeve-conc↔book-heat ≠ junk↔ok (not transitive).",
         },
         {
             "title": "Screener opportunity uniqueness share",
