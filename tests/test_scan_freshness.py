@@ -9,6 +9,7 @@ import pytz
 from openbb_backend.desk import (
     build_scan_freshness,
     cash_print_freshness,
+    memory_peer_cash_clock_clash,
     memory_vs_cash_clock_clash,
     soft_allow_vs_cash_clock_clash,
     _scan_vs_cash_clash_delta,
@@ -41,6 +42,27 @@ def test_soft_allow_vs_cash_clock_clash_helper() -> None:
         "clash · debate fresh · cash aging",
         True,
     )
+
+
+def test_memory_peer_cash_clock_clash_helper() -> None:
+    """Own matching cash + peer ≠ cash speaks peer (display only)."""
+    assert memory_peer_cash_clock_clash(
+        "fresh", "aging", "fresh", peer_side="debate"
+    ) == ("peer cash · debate aging · cash fresh", True)
+    assert memory_peer_cash_clock_clash(
+        "fresh", "stale", "fresh", peer_side="laya"
+    ) == ("peer cash · laya stale · cash fresh", True)
+    # Own already clashes — peer bit stays on the other glance.
+    assert memory_peer_cash_clock_clash(
+        "fresh", "aging", "aging", peer_side="debate"
+    ) == ("", False)
+    # Both match cash — silent.
+    assert memory_peer_cash_clock_clash(
+        "fresh", "fresh", "fresh", peer_side="debate"
+    ) == ("", False)
+    assert memory_peer_cash_clock_clash(
+        "fresh", "", "aging", peer_side="debate"
+    ) == ("", False)
 
 
 def test_scan_freshness_empty() -> None:

@@ -387,6 +387,40 @@ def soft_allow_vs_cash_clock_clash(
     return memory_vs_cash_clock_clash(soft_freshness, cash_band, side="soft")
 
 
+def memory_peer_cash_clock_clash(
+    own_freshness: str,
+    peer_freshness: str,
+    cash_band: str,
+    *,
+    peer_side: str,
+) -> tuple[str, bool]:
+    """Peer memory vs cash when own matches cash (display only).
+
+    Returns ``(bit, warn)``. When own clock matches the pinned cash print
+    (or own cash clash is silent) but peer ≠ cash, speak
+    ``peer cash · {peer} fresh|aging|stale · cash …``. Own already
+    clashing stays silent here — the own bit covers it. Matching cash on
+    this glance can still hide a peer that disagrees with the cash print
+    (LAYA↔debate↔cash triangle; xang1234 #549 / e3c84e1 + FinRobot
+    last-row + portfolio AI speak-both-sides). Compact so the 96-char
+    clip keeps it beside clock clash. Not a gate.
+    """
+    own_bit, _ = memory_vs_cash_clock_clash(
+        own_freshness, cash_band, side="own"
+    )
+    if own_bit:
+        return "", False
+    peer_bit, peer_warn = memory_vs_cash_clock_clash(
+        peer_freshness, cash_band, side=peer_side
+    )
+    if not peer_bit:
+        return "", False
+    rest = peer_bit.removeprefix("clash · ").strip()
+    if not rest:
+        return "", False
+    return f"peer cash · {rest}", peer_warn
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
@@ -6889,6 +6923,8 @@ def build_laya_glance(
     clash = ""
     laya_vs_cash_clock_clash = ""
     laya_vs_cash_clock_clash_warn = False
+    laya_peer_cash_clock_clash = ""
+    laya_peer_cash_clock_clash_warn = False
     name_clash = ""
     verb_oppose = False
     edge_fee_bits = ""
@@ -6922,6 +6958,15 @@ def build_laya_glance(
         )
         laya_vs_cash_clock_clash, laya_vs_cash_clock_clash_warn = (
             memory_vs_cash_clock_clash(freshness, cash_band, side="laya")
+        )
+        # LAYA matching cash can still hide debate ≠ cash (peer speak).
+        laya_peer_cash_clock_clash, laya_peer_cash_clock_clash_warn = (
+            memory_peer_cash_clock_clash(
+                freshness,
+                debate_freshness,
+                cash_band,
+                peer_side="debate",
+            )
         )
         name_clash = _memory_name_clash(
             own_sym, own_verb, debate_sym, debate_action
@@ -6976,6 +7021,9 @@ def build_laya_glance(
         # Soft matching scan ≠ live cash (xang1234 #549; soft-allow parity).
         if laya_vs_cash_clock_clash:
             bits.append(laya_vs_cash_clock_clash)
+        # Own matching cash ≠ peer debate vs cash (FinRobot speak-both-sides).
+        if laya_peer_cash_clock_clash:
+            bits.append(laya_peer_cash_clock_clash)
         if name_clash:
             bits.append(name_clash)
         # Warn clashes first so the 96-char clip keeps adverse honesty.
@@ -7052,10 +7100,12 @@ def build_laya_glance(
             bits.append(decision_vs_conf)
         bits.append("not a gate")
         line = " · ".join(bits)
-        cash_for_tone = cash_band if laya_vs_cash_clock_clash else ""
+        cash_for_tone = cash_band if (
+            laya_vs_cash_clock_clash or laya_peer_cash_clock_clash
+        ) else ""
         clash_tone = _clock_clash_tone(
             freshness,
-            clash or laya_vs_cash_clock_clash,
+            clash or laya_vs_cash_clock_clash or laya_peer_cash_clock_clash,
             scan=scan_freshness,
             debate=debate_freshness,
             cash=cash_for_tone,
@@ -7066,6 +7116,7 @@ def build_laya_glance(
             freshness == "aging"
             or clash_tone == "aging"
             or laya_vs_cash_clock_clash_warn
+            or laya_peer_cash_clock_clash_warn
             or verb_oppose
             or edge_fee_warn
             or edge_vs_conf_warn
@@ -7094,6 +7145,8 @@ def build_laya_glance(
         "scan_vs_laya_clash": clash,
         "laya_vs_cash_clock_clash": laya_vs_cash_clock_clash,
         "laya_vs_cash_clock_clash_warn": laya_vs_cash_clock_clash_warn,
+        "laya_peer_cash_clock_clash": laya_peer_cash_clock_clash,
+        "laya_peer_cash_clock_clash_warn": laya_peer_cash_clock_clash_warn,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
         "edge_fee_bits": edge_fee_bits,
@@ -7203,6 +7256,8 @@ def build_ai_debate_glance(
         "scan_vs_debate_clash": "",
         "debate_vs_cash_clock_clash": "",
         "debate_vs_cash_clock_clash_warn": False,
+        "debate_peer_cash_clock_clash": "",
+        "debate_peer_cash_clock_clash_warn": False,
         "memory_name_clash": "",
         "memory_verb_oppose": False,
         "confidence_bits": "",
@@ -7288,6 +7343,8 @@ def build_ai_debate_glance(
     clash = ""
     debate_vs_cash_clock_clash = ""
     debate_vs_cash_clock_clash_warn = False
+    debate_peer_cash_clock_clash = ""
+    debate_peer_cash_clock_clash_warn = False
     name_clash = ""
     verb_oppose = False
     edge_vs_conf = ""
@@ -7314,7 +7371,17 @@ def build_ai_debate_glance(
         debate_vs_cash_clock_clash, debate_vs_cash_clock_clash_warn = (
             memory_vs_cash_clock_clash(freshness, cash_band, side="debate")
         )
+        # Debate matching cash can still hide LAYA ≠ cash (peer speak).
         if laya_st.get("advisory"):
+            (
+                debate_peer_cash_clock_clash,
+                debate_peer_cash_clock_clash_warn,
+            ) = memory_peer_cash_clock_clash(
+                freshness,
+                laya_freshness,
+                cash_band,
+                peer_side="laya",
+            )
             name_clash = _memory_name_clash(sym, action, laya_sym, laya_verb)
             verb_oppose = bool(name_clash) and _memory_verb_oppose(
                 action, laya_verb
@@ -7352,6 +7419,18 @@ def build_ai_debate_glance(
     sample_gap = _decision_sample_gap(buy + hold + sell, sample_lead_name)
     if sample_gap:
         bits[-1] = f"{bits[-1]} {sample_gap}"
+    # Age + generation clashes before lead/margin so the 96-char clip
+    # keeps mixed-generation honesty (LAYA age-before-clash parity).
+    if age_label and freshness and freshness != "unknown":
+        bits.append(f"{age_label} · {freshness}")
+    elif age_label:
+        bits.append(age_label)
+    if clash:
+        bits.append(clash)
+    if debate_vs_cash_clock_clash:
+        bits.append(debate_vs_cash_clock_clash)
+    if debate_peer_cash_clock_clash:
+        bits.append(debate_peer_cash_clock_clash)
     # last vs lead before margin/sides so the 96-char clip keeps it.
     if sample_lead:
         bits.append(sample_lead)
@@ -7363,14 +7442,6 @@ def build_ai_debate_glance(
         bits.append(sample_lead_sides)
     if gated:
         bits.append(f"{gated} gated")
-    if age_label and freshness and freshness != "unknown":
-        bits.append(f"{age_label} · {freshness}")
-    elif age_label:
-        bits.append(age_label)
-    if clash:
-        bits.append(clash)
-    if debate_vs_cash_clock_clash:
-        bits.append(debate_vs_cash_clock_clash)
     if name_clash:
         bits.append(name_clash)
     # Warn clashes first so the 96-char clip keeps adverse honesty.
@@ -7403,10 +7474,12 @@ def build_ai_debate_glance(
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
-    cash_for_tone = cash_band if debate_vs_cash_clock_clash else ""
+    cash_for_tone = cash_band if (
+        debate_vs_cash_clock_clash or debate_peer_cash_clock_clash
+    ) else ""
     clash_tone = _clock_clash_tone(
         freshness,
-        clash or debate_vs_cash_clock_clash,
+        clash or debate_vs_cash_clock_clash or debate_peer_cash_clock_clash,
         scan=scan_freshness,
         laya=laya_freshness,
         cash=cash_for_tone,
@@ -7419,6 +7492,7 @@ def build_ai_debate_glance(
         freshness == "aging"
         or clash_tone == "aging"
         or debate_vs_cash_clock_clash_warn
+        or debate_peer_cash_clock_clash_warn
         or verb_oppose
         or confidence_warn
         or edge_vs_conf_warn
@@ -7453,6 +7527,8 @@ def build_ai_debate_glance(
         "scan_vs_debate_clash": clash,
         "debate_vs_cash_clock_clash": debate_vs_cash_clock_clash,
         "debate_vs_cash_clock_clash_warn": debate_vs_cash_clock_clash_warn,
+        "debate_peer_cash_clock_clash": debate_peer_cash_clock_clash,
+        "debate_peer_cash_clock_clash_warn": debate_peer_cash_clock_clash_warn,
         "memory_name_clash": name_clash,
         "memory_verb_oppose": verb_oppose,
         "confidence_bits": confidence_bits,

@@ -381,6 +381,65 @@ def test_laya_glance_cash_clash_when_laya_matches_scan(
     assert "clash · laya" not in same["line"]
 
 
+def test_laya_glance_peer_cash_clash_when_laya_matches_cash(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """LAYA matching cash can still hide debate ≠ cash (peer speak)."""
+    from stock_checker.ai_validate_memory import record_ai_validate
+
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    # Same-evening last-published: cash fresh. Fresh LAYA matches cash;
+    # stale debate ≠ cash → peer bit on LAYA glance.
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "symbol": "MSFT",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="NVDA",
+        kept=True,
+    )
+    events = json.loads(
+        (tmp_path / "ai_validate_memory.json").read_text(encoding="utf-8")
+    )
+    events["events"][-1]["at"] = stale_at
+    events["updated_at"] = stale_at
+    (tmp_path / "ai_validate_memory.json").write_text(
+        json.dumps(events) + "\n", encoding="utf-8"
+    )
+    g = build_laya_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert g["freshness"] == "fresh"
+    assert g["laya_vs_cash_clock_clash"] == ""
+    peer = g["laya_peer_cash_clock_clash"]
+    assert peer.startswith("peer cash · debate ")
+    assert "cash fresh" in peer
+    assert g["laya_peer_cash_clock_clash_warn"] is True
+    assert "peer cash" in g["line"]
+    # Stale peer clock clash escalates tone above aging warn.
+    assert g["tone"] in {"aging", "stale"}
+
+
 def test_laya_glance_debate_clash(monkeypatch, tmp_path: Path) -> None:
     """Last-row band ≠ last-debate band → clash · debate {tone} (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
