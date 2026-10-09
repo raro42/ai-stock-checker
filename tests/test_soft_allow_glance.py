@@ -78,6 +78,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_vs_scan_clash_warn"] is False
     assert g["anchor_gap_vs_cash_clock_clash"] == ""
     assert g["anchor_gap_vs_cash_clock_clash_warn"] is False
+    assert g["anchor_gap_vs_memory_clock_clash"] == ""
+    assert g["anchor_gap_vs_memory_clock_clash_warn"] is False
     assert g["soft_vs_gap_clock_clash"] == ""
     assert g["soft_vs_gap_clock_clash_warn"] is False
     assert g["soft_vs_cash_clock_clash"] == ""
@@ -1452,3 +1454,56 @@ def test_soft_allow_glance_vs_memory_clock_clash() -> None:
     assert one["soft_vs_memory_clock_clash_warn"] is True
     assert "clash · debate stale" in one["line"]
     assert "laya" not in one["soft_vs_memory_clock_clash"]
+
+
+def test_soft_allow_glance_gap_vs_memory_when_soft_matches_memory() -> None:
+    """xang1234 #549: soft≠memory can still hide gap≠memory on the gap bit."""
+    now = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    expired_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Soft last fresh matches laya/debate fresh → soft≠memory silent;
+    # expired gap cursor ≠ memory → gap≠memory speaks on the gap bit.
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "regime",
+                "reason": "no SPY bars — allow",
+            },
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+        scan_time=fresh_at,
+        scan_interval_sec=900,
+        laya_freshness="fresh",
+        debate_freshness="fresh",
+    )
+    assert g["last_freshness"] == "fresh"
+    assert g["soft_vs_memory_clock_clash"] == ""
+    assert g["anchor_gap_last_freshness"] == "expired"
+    gap_mem = g["anchor_gap_vs_memory_clock_clash"]
+    assert gap_mem == "clash · gap expired · laya fresh · debate fresh"
+    assert g["anchor_gap_vs_memory_clock_clash_warn"] is True
+    assert gap_mem in g["anchor_gap_bit"]
+    assert g["tone"] == "warn"
+    # Same band as gap (expired≡stale) — silent.
+    same = build_soft_allow_glance(
+        [
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            }
+        ],
+        now=now,
+        laya_freshness="stale",
+        debate_freshness="stale",
+    )
+    assert same["anchor_gap_vs_memory_clock_clash"] == ""
+    assert same["anchor_gap_vs_memory_clock_clash_warn"] is False
+    assert "laya" not in same["anchor_gap_bit"]
+    assert "debate" not in same["anchor_gap_bit"]

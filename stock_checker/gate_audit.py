@@ -208,6 +208,46 @@ def soft_allow_anchor_gap_vs_cash_clock_clash(
     return f"clash · gap {gap_speak} · cash {cash}", True
 
 
+def soft_allow_anchor_gap_vs_memory_clock_clash(
+    events: list[dict[str, Any]] | None,
+    *,
+    laya_freshness: str = "",
+    debate_freshness: str = "",
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Gap cursor vs LAYA/debate memory generation (display only).
+
+    Returns ``(bit, warn)``. When newest gap-row clock ≠ LAYA and/or
+    AI-debate clocks (``expired``≡``stale``), speak
+    ``clash · gap expired|aging|fresh · laya … · debate …``.
+    Same band / missing either side silent. Soft matching memory (and
+    soft≠gap) can still hide a gap cursor that matches soft but not the
+    advisory print — closes gap↔memory beside soft↔memory + soft↔gap +
+    gap↔scan/cash (xang1234 #549 / e3c84e1 + FinRobot last-row +
+    portfolio AI speak-both-sides). Not a gate.
+    """
+    gap_band = soft_allow_anchor_gap_last_freshness(events, now=now)
+    gap_clock = _soft_allow_gap_clock_tone(gap_band)
+    if not gap_clock:
+        return "", False
+    gap_speak = (
+        gap_band if gap_band in {"fresh", "aging", "expired"} else gap_clock
+    )
+    bits: list[str] = []
+    for name, tone in (("laya", laya_freshness), ("debate", debate_freshness)):
+        t = str(tone or "").strip().casefold()
+        if t == "expired":
+            t = "stale"
+        elif t == "unknown":
+            t = "fresh"
+        if t not in {"fresh", "aging", "stale"} or t == gap_clock:
+            continue
+        bits.append(f"{name} {t}")
+    if not bits:
+        return "", False
+    return f"clash · gap {gap_speak} · {' · '.join(bits)}", True
+
+
 def soft_allow_vs_gap_clock_clash(
     events: list[dict[str, Any]] | None,
     *,
@@ -703,6 +743,8 @@ def format_soft_allow_anchor_gap_bit(
     now: datetime | None = None,
     scan_freshness: str = "",
     cash_band: str = "",
+    laya_freshness: str = "",
+    debate_freshness: str = "",
 ) -> str:
     """Compact ``N gap · last SYM · fresh|aging|expired · lead|n=1|tied · …``.
 
@@ -716,7 +758,11 @@ def format_soft_allow_anchor_gap_bit(
     e3c84e1 generation coherence + portfolio AI speak-both-sides). When
     gap clock ≠ pinned cash print, ``clash · gap … · cash …`` follows so
     soft≠cash alone cannot hide a gap cursor that matches soft but not
-    the cash sleeve (gap↔cash after soft↔cash + gap↔scan). Symbol lead /
+    the cash sleeve (gap↔cash after soft↔cash + gap↔scan). When gap
+    clock ≠ LAYA/debate, ``clash · gap … · laya … · debate …`` follows
+    so soft≠memory alone cannot hide a gap cursor that matches soft but
+    not the advisory print (gap↔memory after soft↔memory + soft↔gap).
+    Symbol lead /
     n=1 / tied follows the cursor (last ≠ ring ownership; Screener
     junk-list lead + soft-allow sample honesty); when lead spoke,
     ``last vs lead`` / ``agree`` sits right after so the cursor≠owner
@@ -759,6 +805,14 @@ def format_soft_allow_anchor_gap_bit(
         )
         if gap_vs_cash:
             head = f"{head} · {gap_vs_cash}"
+        gap_vs_mem, _ = soft_allow_anchor_gap_vs_memory_clock_clash(
+            events,
+            laya_freshness=laya_freshness,
+            debate_freshness=debate_freshness,
+            now=now,
+        )
+        if gap_vs_mem:
+            head = f"{head} · {gap_vs_mem}"
     lead_bit, _lead_name, _lead_share = soft_allow_anchor_gap_symbol_lead(
         events
     )

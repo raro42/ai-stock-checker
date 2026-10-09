@@ -1368,7 +1368,10 @@ def build_soft_allow_glance(
     scan archive ≠ a live cash sleeve). When soft-allow last disagrees
     with LAYA and/or AI-debate clocks, speak
     ``clash · laya … · debate …`` (soft↔memory — soft matching the scan
-    archive ≠ a live advisory print; FinRobot last-row). Not a gate.
+    archive ≠ a live advisory print; FinRobot last-row). When a gap
+    cursor disagrees with LAYA/debate even if soft last matches memory,
+    the gap bit speaks ``clash · gap … · laya … · debate …``
+    (gap↔memory — soft≠memory alone ≠ live gap cursor). Not a gate.
 
     Cool-off severity (portfolio AI quiet vs high + xang1234): ``hot`` when
     any fresh row remains (tone warn); ``aging`` when only aging cools
@@ -1479,6 +1482,7 @@ def build_soft_allow_glance(
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
         soft_allow_anchor_gap_vs_cash_clock_clash,
+        soft_allow_anchor_gap_vs_memory_clock_clash,
         soft_allow_anchor_gap_vs_scan_clash,
         soft_allow_vs_gap_clock_clash,
         soft_allow_last_vs_lead,
@@ -1574,6 +1578,8 @@ def build_soft_allow_glance(
         "anchor_gap_vs_scan_clash_warn": False,
         "anchor_gap_vs_cash_clock_clash": "",
         "anchor_gap_vs_cash_clock_clash_warn": False,
+        "anchor_gap_vs_memory_clock_clash": "",
+        "anchor_gap_vs_memory_clock_clash_warn": False,
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1688,11 +1694,22 @@ def build_soft_allow_glance(
             rows, cash_band=cash_band, now=now
         )
     )
+    (
+        anchor_gap_vs_memory_clock_clash,
+        anchor_gap_vs_memory_clock_clash_warn,
+    ) = soft_allow_anchor_gap_vs_memory_clock_clash(
+        rows,
+        laya_freshness=laya_tone,
+        debate_freshness=debate_tone,
+        now=now,
+    )
     anchor_gap_bit = format_soft_allow_anchor_gap_bit(
         rows,
         now=now,
         scan_freshness=scan_freshness,
         cash_band=cash_band,
+        laya_freshness=laya_tone,
+        debate_freshness=debate_tone,
     )
     expired_n = sum(1 for r in rows if r.get("freshness") == "expired")
     aging_n = sum(1 for r in rows if r.get("freshness") == "aging")
@@ -1748,12 +1765,13 @@ def build_soft_allow_glance(
     # last/lead clash / last/share clash / lead/share clash /
     # last/lean clash / lead/lean clash / share/lean clash-or-both-clash /
     # soft vs gap / soft vs cash / soft vs memory / gap vs scan /
-    # gap vs cash generation clash escalate tone (RyanJHamby age≠severity +
-    # Screener junk-hot + portfolio AI after last-freshness + last-vs-lead
-    # / share/lean labels alone hid relationship; stale agree ≠ calm;
-    # dual-clash agreement ≠ calm; soft-allow last matching scan ≠ live
-    # gap cursor, cash print, or advisory memory; gap matching soft ≠
-    # live cash sleeve; ring cool-off stays cool).
+    # gap vs cash / gap vs memory generation clash escalate tone
+    # (RyanJHamby age≠severity + Screener junk-hot + portfolio AI after
+    # last-freshness + last-vs-lead / share/lean labels alone hid
+    # relationship; stale agree ≠ calm; dual-clash agreement ≠ calm;
+    # soft-allow last matching scan ≠ live gap cursor, cash print, or
+    # advisory memory; gap matching soft ≠ live cash or advisory
+    # sleeve; ring cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1770,6 +1788,7 @@ def build_soft_allow_glance(
         or soft_vs_memory_clock_clash_warn
         or anchor_gap_vs_scan_clash_warn
         or anchor_gap_vs_cash_clock_clash_warn
+        or anchor_gap_vs_memory_clock_clash_warn
     ):
         tone = "warn"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
@@ -1918,6 +1937,12 @@ def build_soft_allow_glance(
         "anchor_gap_vs_cash_clock_clash": anchor_gap_vs_cash_clock_clash,
         "anchor_gap_vs_cash_clock_clash_warn": (
             anchor_gap_vs_cash_clock_clash_warn
+        ),
+        "anchor_gap_vs_memory_clock_clash": (
+            anchor_gap_vs_memory_clock_clash
+        ),
+        "anchor_gap_vs_memory_clock_clash_warn": (
+            anchor_gap_vs_memory_clock_clash_warn
         ),
         "anchor_gap_bit": anchor_gap_bit,
         "last_freshness": last_clock,

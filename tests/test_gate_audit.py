@@ -106,6 +106,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         soft_allow_anchor_gap_last_vs_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
         soft_allow_anchor_gap_vs_cash_clock_clash,
+        soft_allow_anchor_gap_vs_memory_clock_clash,
         soft_allow_anchor_gap_vs_scan_clash,
         soft_allow_vs_gap_clock_clash,
     )
@@ -368,14 +369,42 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
     assert soft_allow_anchor_gap_vs_cash_clock_clash(
         [fresh_row, other], cash_band="", now=now
     ) == ("", False)
+    # Gap ≠ memory: soft matching memory can still hide gap≠laya/debate.
+    assert soft_allow_anchor_gap_vs_memory_clock_clash(
+        [expired_row, other],
+        laya_freshness="fresh",
+        debate_freshness="aging",
+        now=now,
+    ) == ("clash · gap expired · laya fresh · debate aging", True)
+    assert soft_allow_anchor_gap_vs_memory_clock_clash(
+        [fresh_row, other],
+        laya_freshness="fresh",
+        debate_freshness="fresh",
+        now=now,
+    ) == ("", False)
+    assert soft_allow_anchor_gap_vs_memory_clock_clash(
+        [fresh_row, other],
+        laya_freshness="fresh",
+        debate_freshness="stale",
+        now=now,
+    ) == ("clash · gap fresh · debate stale", True)
+    assert soft_allow_anchor_gap_vs_memory_clock_clash(
+        [expired_row, other],
+        laya_freshness="stale",
+        debate_freshness="",
+        now=now,
+    ) == ("", False)
     assert format_soft_allow_anchor_gap_bit(
         [expired_row, other],
         now=now,
         scan_freshness="fresh",
         cash_band="aging",
+        laya_freshness="fresh",
+        debate_freshness="aging",
     ) == (
         "1 gap · last AAPL · expired · clash · gap expired · scan fresh · "
         "clash · gap expired · cash aging · "
+        "clash · gap expired · laya fresh · debate aging · "
         "n=1 · hot · 50% · "
         "last/share clash · expired · hot · vs 1 other · 50% · "
         "gap vs other clash · gap hot · other ok · "
