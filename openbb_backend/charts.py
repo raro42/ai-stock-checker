@@ -1273,7 +1273,8 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "next_buy_glance": _next_buy_glance_from_portfolio(data_dir, portfolio),
         "soft_allow_glance": build_soft_allow_glance(
-            enrich_soft_allows(recent_soft_allows(data_dir, limit=12))
+            enrich_soft_allows(recent_soft_allows(data_dir, limit=12)),
+            scan_time=scan_time,
         ),
         "entry_gates_glance": _entry_gates_glance_from_config(data_dir),
         "calm_streak_glance": _calm_streak_glance_from_data(data_dir),

@@ -1144,12 +1144,31 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     }
 
 
+def _soft_allow_clock_tone(band: str) -> str:
+    """Map soft-allow fresh/aging/expired → scan clock fresh/aging/stale.
+
+    ``expired`` ≡ ``stale`` for generation clash (xang1234 coherent
+    generations + LAYA scan-vs-memory). ``unknown`` counts with fresh
+    (fail-open — do not hide). Empty / junk → silent.
+    """
+    b = str(band or "").strip().casefold()
+    if b in {"fresh", "unknown"}:
+        return "fresh"
+    if b == "aging":
+        return "aging"
+    if b == "expired":
+        return "stale"
+    return ""
+
+
 def build_soft_allow_glance(
     events: list[dict[str, Any]] | None,
     *,
     now: datetime | None = None,
     fresh_hours: float | None = None,
     aging_hours: float | None = None,
+    scan_time: Any = None,
+    scan_interval_sec: int = 900,
 ) -> dict[str, Any]:
     """Compact fail-open soft-allow memory (tradermonty; display only).
 
@@ -1158,6 +1177,11 @@ def build_soft_allow_glance(
     scan-age pattern): aging after ``aging_hours``, expired after
     ``fresh_hours``. Speak fresh + aging + expired counts (+ gate tallies)
     so friends see live fail-opens beside rows that cool off.
+    When the scan archive band disagrees with the newest soft-allow clock
+    (``expired``≡``stale``), speak ``clash · scan fresh|aging|stale``
+    (xang1234 #549 coherent generations + LAYA/debate scan-clash parity —
+    a fresh scan does not make an expired fail-open live; mixed generation
+    escalates tone to warn). Not a gate.
 
     Cool-off severity (portfolio AI quiet vs high + xang1234): ``hot`` when
     any fresh row remains (tone warn); ``aging`` when only aging cools
@@ -1230,6 +1254,10 @@ def build_soft_allow_glance(
     both last/share and last/lean already spoke, ``share/lean
     align|clash`` names whether the two relationships agree (``both
     align`` calm; ``both clash`` warns; crossed warns).
+    Scan archive band ≠ newest soft-allow clock speaks
+    ``clash · scan fresh|aging|stale`` (``expired``≡``stale``; same band
+    silent; mixed generation warns — xang1234 #549 coherent generations
+    + LAYA/debate scan-clash). Age sits before clash so the clip keeps it.
     Ops lead inventory reuses the same share / ahead margin / Δ / vs-Δ
     fields so ``Lead · gate ×N · band · M% · ahead … · +K`` shows
     ownership and how far ahead (counts ≠ share ≠ margin) without
@@ -1341,6 +1369,9 @@ def build_soft_allow_glance(
         "anchor_gap_last_share_vs_lean": "",
         "anchor_gap_last_share_vs_lean_warn": False,
         "anchor_gap_bit": "",
+        "last_freshness": "",
+        "scan_freshness": "",
+        "scan_vs_soft_allow_clash": "",
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1355,6 +1386,16 @@ def build_soft_allow_glance(
     reason = str(last.get("reason") or "").strip()
     reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
     n = len(rows)
+    last_clock = _soft_allow_clock_tone(str(last.get("freshness") or ""))
+    scan_freshness = ""
+    if scan_time:
+        scan_pack = build_scan_freshness(
+            scan_time, now=now, scan_interval_sec=scan_interval_sec
+        )
+        scan_freshness = str(scan_pack.get("tone") or "")
+    scan_vs_soft_allow_clash = (
+        _clock_clash(last_clock, scan=scan_freshness) if last_clock else ""
+    )
     anchor_gap_last = soft_allow_anchor_gap_last_symbol(rows)
     anchor_gap_last_freshness = soft_allow_anchor_gap_last_freshness(
         rows, now=now
@@ -1485,6 +1526,7 @@ def build_soft_allow_glance(
         or anchor_gap_last_vs_lean_warn
         or anchor_gap_last_lead_vs_lean_warn
         or anchor_gap_last_share_vs_lean_warn
+        or scan_vs_soft_allow_clash
     ):
         tone = "warn"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
@@ -1519,6 +1561,13 @@ def build_soft_allow_glance(
         line = f"{severity} · {sample_gap} · {line}"
     else:
         line = f"{severity} · {line}"
+    # Clash right after severity so the clip keeps mixed-generation honesty
+    # (LAYA age-before-clash; xang1234 #549 coherent generations).
+    if scan_vs_soft_allow_clash and line.startswith(f"{severity} · "):
+        rest = line[len(severity) + 3 :]
+        line = f"{severity} · {scan_vs_soft_allow_clash} · {rest}"
+    elif scan_vs_soft_allow_clash:
+        line = f"{scan_vs_soft_allow_clash} · {line}"
     if anchor_gap_bit:
         line = f"{line} · {anchor_gap_bit}"
     if reason_short:
@@ -1606,6 +1655,9 @@ def build_soft_allow_glance(
             anchor_gap_last_share_vs_lean_warn
         ),
         "anchor_gap_bit": anchor_gap_bit,
+        "last_freshness": last_clock,
+        "scan_freshness": scan_freshness,
+        "scan_vs_soft_allow_clash": scan_vs_soft_allow_clash,
         "line": line,
         "last_gate": gate,
         "last_reason": reason_short,
@@ -11908,13 +11960,6 @@ def load_desk_snapshot(
     )
 
     soft_allows = enrich_soft_allows(recent_soft_allows(data_dir, limit=12))
-    soft_allow_glance = build_soft_allow_glance(soft_allows)
-    soft_allows = mark_soft_allow_lead_rows(
-        soft_allows,
-        lead_gate=str(soft_allow_glance.get("lead_gate") or ""),
-        lead_band=str(soft_allow_glance.get("lead_band") or ""),
-        runner_gate=str(soft_allow_glance.get("lead_runner_gate") or ""),
-    )
     ai_debates = recent_ai_debates(data_dir, limit=8)
     ai_actions = latest_ai_actions(data_dir)
     ai_confidences = latest_ai_confidences(data_dir)
@@ -12026,6 +12071,17 @@ def load_desk_snapshot(
     runtime = _trader_runtime_view()
     scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
     scan_time_raw = opportunities.get("scan_time") or ""
+    soft_allow_glance = build_soft_allow_glance(
+        soft_allows,
+        scan_time=scan_time_raw,
+        scan_interval_sec=scan_interval_sec,
+    )
+    soft_allows = mark_soft_allow_lead_rows(
+        soft_allows,
+        lead_gate=str(soft_allow_glance.get("lead_gate") or ""),
+        lead_band=str(soft_allow_glance.get("lead_band") or ""),
+        runner_gate=str(soft_allow_glance.get("lead_runner_gate") or ""),
+    )
     mark_coverage = build_mark_coverage(rows)
     ledger_health = build_ledger_health(data_dir)
     mark_base = {

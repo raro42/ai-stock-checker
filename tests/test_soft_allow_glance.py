@@ -75,11 +75,15 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_last_share_vs_lean"] == ""
     assert g["anchor_gap_last_share_vs_lean_warn"] is False
     assert g["anchor_gap_bit"] == ""
+    assert g["last_freshness"] == "fresh"
+    assert g["scan_freshness"] == ""
+    assert g["scan_vs_soft_allow_clash"] == ""
     assert g["line"].startswith("hot · ")
     assert "1 recent soft-allow" in g["line"]
     assert "[regime]" in g["line"]
     assert "no SPY bars" in g["line"]
     assert " gap" not in g["line"]
+    assert "clash" not in g["line"]
 
 
 def test_soft_allow_glance_anchor_gap_count() -> None:
@@ -1092,3 +1096,70 @@ def test_soft_allow_glance_last_vs_lead() -> None:
     assert match["sample_gap"] == ""
     assert "n=1" not in match["line"]
     assert "tied" not in match["line"]
+
+
+def test_soft_allow_glance_scan_clash_expired_vs_fresh() -> None:
+    """xang1234 #549: expired soft-allow ≠ fresh scan → clash · scan fresh."""
+    now = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    expired_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    scan_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — allow",
+            }
+        ],
+        now=now,
+        scan_time=scan_at,
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["last_freshness"] == "stale"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_vs_soft_allow_clash"] == "clash · scan fresh"
+    assert g["tone"] == "warn"
+    assert g["severity"] == "cool"
+    assert g["line"].startswith("cool · clash · scan fresh · ")
+    assert "clash" in g["line"]
+    same = build_soft_allow_glance(
+        [
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — allow",
+            }
+        ],
+        now=now,
+        scan_time=expired_at,
+        scan_interval_sec=900,
+    )
+    assert same["scan_freshness"] == "stale"
+    assert same["scan_vs_soft_allow_clash"] == ""
+    assert "clash" not in same["line"]
+    assert same["tone"] == "flat"
+
+
+def test_soft_allow_glance_scan_clash_fresh_vs_stale() -> None:
+    """Fresh fail-open vs stale scan → clash · scan stale (mixed generation)."""
+    now = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_scan = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "breadth",
+                "reason": "unknown breadth — allow",
+            }
+        ],
+        now=now,
+        scan_time=stale_scan,
+        scan_interval_sec=900,
+    )
+    assert g["last_freshness"] == "fresh"
+    assert g["scan_freshness"] == "stale"
+    assert g["scan_vs_soft_allow_clash"] == "clash · scan stale"
+    assert g["tone"] == "warn"
+    assert g["line"].startswith("hot · clash · scan stale · ")
