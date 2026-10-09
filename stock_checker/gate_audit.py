@@ -488,6 +488,46 @@ def soft_allow_anchor_gap_last_share_vs_lean(
     return f"clash · share {share_verb} · lean {lean_verb}", True
 
 
+def soft_allow_anchor_gap_last_lead_vs_share(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last/lead freshness vs last/share relationship agreement (display only).
+
+    Returns ``(bit, warn)``. Age↔name-vs-lead ≠ age↔share heat. When both
+    already spoke: same verb speaks ``align · both align|clash`` —
+    ``both align`` stays calm; ``both clash`` warns (dual-clash agreement
+    ≠ quiet confirm). Crossed verbs speak
+    ``clash · lead align|clash · share align|clash`` (warn). Missing
+    either stays silent — FinRobot last-row age + portfolio AI
+    speak-both-sides + RyanJHamby severity after last/lead + last/share
+    alone hid whether cursor-vs-owner and ownership-heat agree *and*
+    whether dual-clash agreement is adverse. Not a gate.
+    """
+    lead_bit, _ = soft_allow_anchor_gap_last_vs_lead_freshness(
+        events, now=now
+    )
+    share_bit, _ = soft_allow_anchor_gap_last_vs_share(events, now=now)
+    if not lead_bit or not share_bit:
+        return "", False
+
+    def _verb(bit: str) -> str | None:
+        if bit.startswith("align · "):
+            return "align"
+        if bit.startswith("clash · "):
+            return "clash"
+        return None
+
+    lead_verb = _verb(lead_bit)
+    share_verb = _verb(share_bit)
+    if lead_verb is None or share_verb is None:
+        return "", False
+    if lead_verb == share_verb:
+        return f"align · both {lead_verb}", lead_verb == "clash"
+    return f"clash · lead {lead_verb} · share {share_verb}", True
+
+
 def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
     *,
@@ -510,11 +550,14 @@ def format_soft_allow_anchor_gap_bit(
     ahead ≠ who is #2 (soft gate-lead margin/sides; sole 100% omits).
     Share severity follows; when last freshness + share lean already
     spoke, ``last/share align|clash`` sits right after so age ≠ ownership
-    heat (portfolio AI speak-both-sides; clash warns). When gap/other
-    lean already spoke, ``last/lean align|clash`` follows so age ≠ lean
-    agreement. When both last/share and last/lean already spoke,
-    ``share/lean align|clash`` follows so the two relationships are not
-    silent-confirm (``both clash`` warns; ``both align`` stays calm).
+    heat (portfolio AI speak-both-sides; clash warns). When last/lead +
+    last/share already spoke, ``lead/share align|clash`` follows so
+    cursor-vs-owner ≠ ownership-heat (``both clash`` warns; ``both
+    align`` stays calm). When gap/other lean already spoke, ``last/lean
+    align|clash`` follows so age ≠ lean agreement. When both last/share
+    and last/lean already spoke, ``share/lean align|clash`` follows so
+    the two relationships are not silent-confirm (``both clash`` warns;
+    ``both align`` stays calm).
     """
     gap_n, share, severity = soft_allow_anchor_gap_share(events)
     if gap_n <= 0 or share is None:
@@ -558,6 +601,11 @@ def format_soft_allow_anchor_gap_bit(
     )
     if last_vs_share:
         bit = f"{bit} · last/share {last_vs_share}"
+        lead_vs_share, _lvs_rel_warn = soft_allow_anchor_gap_last_lead_vs_share(
+            events, now=now
+        )
+        if lead_vs_share:
+            bit = f"{bit} · lead/share {lead_vs_share}"
     other_n, other_share, other_sev = soft_allow_anchor_gap_vs_other(events)
     if other_share is None:
         return bit
