@@ -397,6 +397,72 @@ def test_build_ai_debate_glance_vs_soft_clock_clash(tmp_path: Path) -> None:
     assert "clash · soft" not in same["line"]
 
 
+def test_build_ai_debate_glance_peer_soft_clash_when_debate_matches_soft(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Debate matching soft can still hide LAYA ≠ soft (peer speak)."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+    now = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stale_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    events[-1]["at"] = fresh_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": fresh_at, "events": events}) + "\n")
+    (tmp_path / "gate_soft_allows.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": fresh_at,
+                        "gate": "breadth",
+                        "reason": "unknown breadth — allow",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "laya_decisions.json").write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "at": stale_at,
+                        "symbol": "NVDA",
+                        "ok": True,
+                        "fail_open": False,
+                        "reason": "ok",
+                        "entry": "hold",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # No scan_time → no pinned cash sleeve, so peer-cash does not crowd the clip.
+    g = build_ai_debate_glance(tmp_path, now=now, scan_interval_sec=900)
+    assert g["freshness"] == "fresh"
+    assert g["soft_freshness"] == "fresh"
+    assert g["debate_vs_soft_clock_clash"] == ""
+    assert g["debate_peer_cash_clock_clash"] == ""
+    peer = g["debate_peer_soft_clock_clash"]
+    assert peer.startswith("peer soft · laya ")
+    assert "soft fresh" in peer
+    assert g["debate_peer_soft_clock_clash_warn"] is True
+    assert "peer soft" in g["line"]
+    assert g["tone"] in {"aging", "stale"}
+
+
 def test_build_ai_debate_glance_peer_cash_clash_when_debate_matches_cash(
     monkeypatch, tmp_path: Path
 ) -> None:

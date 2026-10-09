@@ -10,6 +10,7 @@ from openbb_backend.desk import (
     build_scan_freshness,
     cash_print_freshness,
     memory_peer_cash_clock_clash,
+    memory_peer_soft_clock_clash,
     memory_vs_cash_clock_clash,
     soft_allow_last_clock_tone,
     soft_allow_vs_cash_clock_clash,
@@ -89,6 +90,31 @@ def test_memory_peer_cash_clock_clash_helper() -> None:
     ) == ("", False)
     assert memory_peer_cash_clock_clash(
         "fresh", "", "aging", peer_side="debate"
+    ) == ("", False)
+
+
+def test_memory_peer_soft_clock_clash_helper() -> None:
+    """Own matching soft + peer ≠ soft speaks peer (display only)."""
+    assert memory_peer_soft_clock_clash(
+        "fresh", "aging", "fresh", peer_side="debate"
+    ) == ("peer soft · debate aging · soft fresh", True)
+    assert memory_peer_soft_clock_clash(
+        "fresh", "stale", "fresh", peer_side="laya"
+    ) == ("peer soft · laya stale · soft fresh", True)
+    # expired≡stale — own stale matching soft + peer fresh speaks.
+    assert memory_peer_soft_clock_clash(
+        "stale", "fresh", "expired", peer_side="debate"
+    ) == ("peer soft · debate fresh · soft stale", True)
+    # Own already clashes — peer bit stays on the other glance.
+    assert memory_peer_soft_clock_clash(
+        "fresh", "aging", "aging", peer_side="debate"
+    ) == ("", False)
+    # Both match soft — silent.
+    assert memory_peer_soft_clock_clash(
+        "fresh", "fresh", "fresh", peer_side="debate"
+    ) == ("", False)
+    assert memory_peer_soft_clock_clash(
+        "fresh", "", "fresh", peer_side="debate"
     ) == ("", False)
 
 
