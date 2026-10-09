@@ -37,6 +37,10 @@ def test_soft_allow_vs_cash_clock_clash_helper() -> None:
         "clash · laya fresh · cash aging",
         True,
     )
+    assert memory_vs_cash_clock_clash("fresh", "aging", side="debate") == (
+        "clash · debate fresh · cash aging",
+        True,
+    )
 
 
 def test_scan_freshness_empty() -> None:

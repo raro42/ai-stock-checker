@@ -230,7 +230,8 @@ def test_build_ai_debate_glance_scan_clash(tmp_path: Path) -> None:
         kept=True,
     )
     events = load_ai_validate_memory(tmp_path)
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    # 15:00 UTC = US RTH — cash live (no pin) so cash clash stays silent.
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     stale_at = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     scan_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     events[-1]["at"] = stale_at
@@ -261,7 +262,8 @@ def test_build_ai_debate_glance_scan_clash_escalates_tone(tmp_path: Path) -> Non
         kept=True,
     )
     events = load_ai_validate_memory(tmp_path)
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    # 15:00 UTC = US RTH — cash live so calm path is buy, not cash-aging.
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     stale_scan = (now - timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     aging_scan = (now - timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -285,6 +287,50 @@ def test_build_ai_debate_glance_scan_clash_escalates_tone(tmp_path: Path) -> Non
     )
     assert calm["scan_vs_debate_clash"] == ""
     assert calm["tone"] == "buy"
+
+
+def test_build_ai_debate_glance_cash_clash_when_debate_matches_scan(
+    tmp_path: Path,
+) -> None:
+    """xang1234 #549: debate matching scan ≠ pinned cash print generation."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="MSFT",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    # Saturday afternoon UTC — cash sleeves last-published; US Fri close
+    # is ~17h ago → cash aging while a fresh debate + fresh scan stay
+    # debate↔scan silent (LAYA soft≠cash parity).
+    now = datetime(2026, 10, 10, 14, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = fresh_at
+    path = tmp_path / "ai_validate_memory.json"
+    path.write_text(json.dumps({"updated_at": fresh_at, "events": events}) + "\n")
+    g = build_ai_debate_glance(
+        tmp_path, now=now, scan_interval_sec=900, scan_time=fresh_at
+    )
+    assert g["freshness"] == "fresh"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_vs_debate_clash"] == ""
+    cash = g["debate_vs_cash_clock_clash"]
+    assert cash.startswith("clash · debate fresh · cash ")
+    assert g["debate_vs_cash_clock_clash_warn"] is True
+    assert cash in g["line"]
+    assert g["tone"] == "aging"
+    # Same-evening last-published: debate fresh + cash fresh → silent.
+    even = datetime(2026, 9, 8, 1, 30, tzinfo=timezone.utc)
+    even_at = (even - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events[-1]["at"] = even_at
+    path.write_text(json.dumps({"updated_at": even_at, "events": events}) + "\n")
+    same = build_ai_debate_glance(
+        tmp_path, now=even, scan_interval_sec=900, scan_time=even_at
+    )
+    assert same["freshness"] == "fresh"
+    assert same["debate_vs_cash_clock_clash"] == ""
+    assert same["debate_vs_cash_clock_clash_warn"] is False
+    assert "clash · debate" not in same["line"]
 
 
 def test_build_ai_debate_glance_laya_clash(monkeypatch, tmp_path: Path) -> None:
@@ -340,7 +386,8 @@ def test_build_ai_debate_glance_laya_name_clash(monkeypatch, tmp_path: Path) -> 
     """Last-debate ticker/verb ≠ LAYA last-row → mixed/align/vs (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    # 15:00 UTC = US RTH — cash live so name clash is not clipped by cash.
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     record_ai_validate(
         tmp_path,
@@ -410,7 +457,8 @@ def test_build_ai_debate_glance_laya_verb_oppose(monkeypatch, tmp_path: Path) ->
     """BUY vs LAYA reject escalates tone off buy-calm (display only)."""
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
-    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    # 15:00 UTC = US RTH — cash live so hold/agree stay buy-calm.
+    now = datetime(2026, 10, 6, 15, 0, tzinfo=timezone.utc)
     at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     record_ai_validate(
         tmp_path,
