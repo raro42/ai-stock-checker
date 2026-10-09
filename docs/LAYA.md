@@ -4,6 +4,28 @@ Typed **System-1** decisions beside Ollama multi-role validate — inspired by
 [QuantDinger’s JEV pre-trade filter](https://github.com/OpenByteInc/QuantDinger)
 and open-source [Laya](https://github.com/NandhaKishorM/laya) / [jev-trader](https://github.com/jarrodwatts/jev-trader).
 
+## Are we using LAYA now? (GitHub #3)
+
+**Code yes · live default no.** The client, Ops/Overview glance, and fail-open path shipped
+([GitHub #2](https://github.com/raro42/ai-stock-checker/issues/2)). Shared desk and compose
+do **not** set `LAYA_BASE_URL` / `LAYA_ADVISORY=1`, so the trader does not call LAYA/JEV
+unless you opt in. Ops glance reads `off · no LAYA/JEV URL` in that case.
+
+LAYA is **never** a buy gate today — `reject` does not block paper entries. Rules, soft gates,
+and `exit_policy` stay authoritative.
+
+### How to profit from the advisory (opt-in)
+
+1. Run a Laya/Jev-compatible `POST /v1/systemone` endpoint **outside** this Docker image
+   (no torch/ONNX weights vendored here).
+2. In `.env`: set `LAYA_BASE_URL` (or `JEV_BASE_URL`) + `LAYA_ADVISORY=1` (see **Enable** below).
+3. Restart `intelligent-trader` (+ `openbb-backend` if you want Ops to see env immediately).
+4. Prefer `AI_MODE=validate` so the advisory records on the validate path; watch Ops/Overview
+   LAYA glance (`pass`/`hold`/`reject`, edge/fee, clash vs debate/scan).
+5. Treat the print as **second opinion**, not alpha. Do **not** flip LAYA into a live entry
+   veto until promote A/B is honest and a calm paper sample exists
+   ([IMPROVEMENT.md](../IMPROVEMENT.md) deferral).
+
 ## What shipped (GitHub #2)
 
 | Piece | Status |

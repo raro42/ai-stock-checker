@@ -37,7 +37,7 @@ docker compose up -d --build intelligent-trader openbb-backend
 docker compose logs -f --tail 50 intelligent-trader openbb-backend
 ```
 
-Defaults avoid fee-burn: 15m scans, 5m checks, **4h minimum hold**.
+Defaults avoid fee-burn: 15m scans, 5m checks, **24h minimum hold** (Ops/compose; floor still ≥4h).
 Paper fees default to **Revolut-like 0.25%/side · €1 min** (change on Ops).
 
 Paper desk UI: shared [https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk) · local [http://127.0.0.1:7779/desk](http://127.0.0.1:7779/desk) (Overview / Charts / Screener / Breadth / Book / Ideas / Ops) · Design: [DESIGN.md](DESIGN.md) · OpenBB widgets: same host — see [OPENBB.md](OPENBB.md).
@@ -73,7 +73,17 @@ On startup you may see `High fee burn: …`. That means the old paper book churn
 1. Stop: `docker compose stop intelligent-trader`
 2. Reset: `python3 scripts/reset_paper_portfolio.py --capital 10000`
 3. Start again: `docker compose up -d intelligent-trader`
-4. Keep the **4h min hold** — do not “fix” fees by trading faster.
+4. Keep the **24h min hold** — do not “fix” fees by trading faster.
+
+## LAYA / JEV — are we using it?
+
+**Not on the shared desk by default.** The stack can call an optional LAYA/JEV System-1
+advisory (typed `pass` / `hold` / `reject`) when someone sets `LAYA_BASE_URL` +
+`LAYA_ADVISORY=1` in `.env` and runs a remote/local endpoint. It is **fail-open** and
+**not a buy gate** — paper entries still follow rules + soft gates + exits.
+
+To try it on your own host: [docs/LAYA.md](docs/LAYA.md). Live veto stays deferred until
+promote A/B honesty + a calm paper sample.
 
 ## Rules of the group
 
