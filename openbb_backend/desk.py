@@ -1181,7 +1181,10 @@ def build_soft_allow_glance(
     (``expired``≡``stale``), speak ``clash · scan fresh|aging|stale``
     (xang1234 #549 coherent generations + LAYA/debate scan-clash parity —
     a fresh scan does not make an expired fail-open live; mixed generation
-    escalates tone to warn). Not a gate.
+    escalates tone to warn). When a gap cursor disagrees with the scan
+    even if soft-allow last matches, the gap bit speaks
+    ``clash · gap expired|aging|fresh · scan …`` (e3c84e1 generation
+    coherence — soft-allow last ≠ gap cursor). Not a gate.
 
     Cool-off severity (portfolio AI quiet vs high + xang1234): ``hot`` when
     any fresh row remains (tone warn); ``aging`` when only aging cools
@@ -1291,6 +1294,7 @@ def build_soft_allow_glance(
         soft_allow_anchor_gap_symbol_sample_gap,
         soft_allow_anchor_gap_vs_other,
         soft_allow_anchor_gap_vs_other_lean,
+        soft_allow_anchor_gap_vs_scan_clash,
         soft_allow_last_vs_lead,
         soft_allow_lead_margin,
         soft_allow_lead_share,
@@ -1372,6 +1376,8 @@ def build_soft_allow_glance(
         "last_freshness": "",
         "scan_freshness": "",
         "scan_vs_soft_allow_clash": "",
+        "anchor_gap_vs_scan_clash": "",
+        "anchor_gap_vs_scan_clash_warn": False,
         "line": "",
         "last_gate": "",
         "last_reason": "",
@@ -1458,7 +1464,14 @@ def build_soft_allow_glance(
     anchor_gap_last_share_vs_lean, anchor_gap_last_share_vs_lean_warn = (
         soft_allow_anchor_gap_last_share_vs_lean(rows, now=now)
     )
-    anchor_gap_bit = format_soft_allow_anchor_gap_bit(rows, now=now)
+    anchor_gap_vs_scan_clash, anchor_gap_vs_scan_clash_warn = (
+        soft_allow_anchor_gap_vs_scan_clash(
+            rows, scan_freshness=scan_freshness, now=now
+        )
+    )
+    anchor_gap_bit = format_soft_allow_anchor_gap_bit(
+        rows, now=now, scan_freshness=scan_freshness
+    )
     expired_n = sum(1 for r in rows if r.get("freshness") == "expired")
     aging_n = sum(1 for r in rows if r.get("freshness") == "aging")
     fresh_n = sum(1 for r in rows if r.get("freshness") == "fresh")
@@ -1511,11 +1524,12 @@ def build_soft_allow_glance(
         lead_band = "expired"
     # Gap honesty ≠ clay: expired cursor / hot share / lean clash /
     # last/lead clash / last/share clash / lead/share clash /
-    # last/lean clash / lead/lean clash / share/lean clash-or-both-clash
-    # escalate tone (RyanJHamby age≠severity + Screener junk-hot +
-    # portfolio AI after last-freshness + last-vs-lead / share/lean
-    # labels alone hid relationship; stale agree ≠ calm; dual-clash
-    # agreement ≠ calm; ring cool-off stays cool).
+    # last/lean clash / lead/lean clash / share/lean clash-or-both-clash /
+    # gap vs scan generation clash escalate tone (RyanJHamby age≠severity
+    # + Screener junk-hot + portfolio AI after last-freshness +
+    # last-vs-lead / share/lean labels alone hid relationship; stale
+    # agree ≠ calm; dual-clash agreement ≠ calm; soft-allow last
+    # matching scan ≠ live gap cursor; ring cool-off stays cool).
     if tone != "warn" and (
         anchor_gap_last_freshness == "expired"
         or anchor_gap_share_severity == "hot"
@@ -1527,6 +1541,7 @@ def build_soft_allow_glance(
         or anchor_gap_last_lead_vs_lean_warn
         or anchor_gap_last_share_vs_lean_warn
         or scan_vs_soft_allow_clash
+        or anchor_gap_vs_scan_clash_warn
     ):
         tone = "warn"
     lead_bit = format_soft_allow_lead_bit(rows, band=lead_band)
@@ -1654,6 +1669,8 @@ def build_soft_allow_glance(
         "anchor_gap_last_share_vs_lean_warn": (
             anchor_gap_last_share_vs_lean_warn
         ),
+        "anchor_gap_vs_scan_clash": anchor_gap_vs_scan_clash,
+        "anchor_gap_vs_scan_clash_warn": anchor_gap_vs_scan_clash_warn,
         "anchor_gap_bit": anchor_gap_bit,
         "last_freshness": last_clock,
         "scan_freshness": scan_freshness,

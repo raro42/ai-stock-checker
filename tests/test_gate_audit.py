@@ -105,6 +105,7 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         soft_allow_anchor_gap_last_vs_lean,
         soft_allow_anchor_gap_last_vs_share,
         soft_allow_anchor_gap_symbol_last_vs_lead,
+        soft_allow_anchor_gap_vs_scan_clash,
     )
 
     now = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
@@ -321,6 +322,26 @@ def test_soft_allow_anchor_gap_last_freshness() -> None:
         "gap vs other clash · gap hot · other ok · "
         "last/lean clash · fresh · gap hot · other ok · "
         "share/lean clash · share align · lean clash"
+    )
+    # Gap vs scan: expired cursor ≠ fresh scan; same band silent.
+    assert soft_allow_anchor_gap_vs_scan_clash(
+        [expired_row, other], scan_freshness="fresh", now=now
+    ) == ("clash · gap expired · scan fresh", True)
+    assert soft_allow_anchor_gap_vs_scan_clash(
+        [fresh_row, other], scan_freshness="fresh", now=now
+    ) == ("", False)
+    assert soft_allow_anchor_gap_vs_scan_clash(
+        [aging_row, other], scan_freshness="fresh", now=now
+    ) == ("clash · gap aging · scan fresh", True)
+    assert format_soft_allow_anchor_gap_bit(
+        [expired_row, other], now=now, scan_freshness="fresh"
+    ) == (
+        "1 gap · last AAPL · expired · clash · gap expired · scan fresh · "
+        "n=1 · hot · 50% · "
+        "last/share clash · expired · hot · vs 1 other · 50% · "
+        "gap vs other clash · gap hot · other ok · "
+        "last/lean align · expired · gap hot · other ok · "
+        "share/lean clash · share clash · lean align"
     )
 
 

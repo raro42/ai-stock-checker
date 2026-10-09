@@ -133,6 +133,51 @@ def soft_allow_anchor_gap_last_freshness(
     return ""
 
 
+def _soft_allow_gap_clock_tone(band: str) -> str:
+    """Map gap fresh/aging/expired → scan clock fresh/aging/stale.
+
+    ``expired`` ≡ ``stale`` for generation clash (xang1234 #549 /
+    e3c84e1 coherent generations). Empty / junk → silent.
+    """
+    b = str(band or "").strip().casefold()
+    if b == "fresh":
+        return "fresh"
+    if b == "aging":
+        return "aging"
+    if b == "expired":
+        return "stale"
+    return ""
+
+
+def soft_allow_anchor_gap_vs_scan_clash(
+    events: list[dict[str, Any]] | None,
+    *,
+    scan_freshness: str = "",
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Gap cursor vs scan archive generation (display only).
+
+    Returns ``(bit, warn)``. When newest gap-row clock ≠ scan band
+    (``expired``≡``stale``), speak
+    ``clash · gap expired|aging|fresh · scan fresh|aging|stale``.
+    Same band / missing either silent. Soft-allow *last* matching the
+    scan can still hide a staler gap cursor — speak both sides
+    (xang1234 #549 / e3c84e1 generation coherence + portfolio AI
+    speak-both-sides + soft-allow vs scan parity). A fresh scan does
+    not make an expired gap fail-open live. Not a gate.
+    """
+    scan = str(scan_freshness or "").strip().casefold()
+    if scan not in {"fresh", "aging", "stale"}:
+        return "", False
+    gap_band = soft_allow_anchor_gap_last_freshness(events, now=now)
+    gap_clock = _soft_allow_gap_clock_tone(gap_band)
+    if not gap_clock or gap_clock == scan:
+        return "", False
+    # Speak soft-allow vocabulary on the gap side (expired not stale).
+    gap_speak = gap_band if gap_band in {"fresh", "aging", "expired"} else gap_clock
+    return f"clash · gap {gap_speak} · scan {scan}", True
+
+
 def _anchor_gap_symbol_counts(
     events: list[dict[str, Any]] | None,
 ) -> dict[str, int]:
@@ -573,6 +618,7 @@ def format_soft_allow_anchor_gap_bit(
     events: list[dict[str, Any]] | None,
     *,
     now: datetime | None = None,
+    scan_freshness: str = "",
 ) -> str:
     """Compact ``N gap · last SYM · fresh|aging|expired · lead|n=1|tied · …``.
 
@@ -580,18 +626,22 @@ def format_soft_allow_anchor_gap_bit(
     cascade cannot clip the cursor (xang1234 #546). Cursor age
     (``fresh`` / ``aging`` / ``expired``) follows the name so a live
     ticker ≠ a live fail-open (RyanJHamby + soft-allow triad + FinRobot
-    last-row age; unknown stamp silent). Symbol lead / n=1 / tied
-    follows the cursor (last ≠ ring ownership; Screener junk-list lead
-    + soft-allow sample honesty); when lead spoke, ``last vs lead`` /
-    ``agree`` sits right after so the cursor≠owner clash is not clipped
-    by share/lean (FinRobot last≠tilt); when last freshness + last-vs-lead
-    already spoke, ``last/lead align|clash`` follows so age ≠ name
-    agreement (stale ``agree`` warns; live name clash warns). When a
-    runner exists, ``ahead`` + ``vs SYM`` follow so ownership % ≠ how far
-    ahead ≠ who is #2 (soft gate-lead margin/sides; sole 100% omits).
-    Share severity follows; when last freshness + share lean already
-    spoke, ``last/share align|clash`` sits right after so age ≠ ownership
-    heat (portfolio AI speak-both-sides; clash warns). When last/lead +
+    last-row age; unknown stamp silent). When gap clock ≠ scan archive
+    band, ``clash · gap … · scan …`` follows age so a soft-allow last
+    matching the scan cannot hide a staler gap cursor (xang1234 #549 /
+    e3c84e1 generation coherence + portfolio AI speak-both-sides).
+    Symbol lead / n=1 / tied follows the cursor (last ≠ ring ownership;
+    Screener junk-list lead + soft-allow sample honesty); when lead
+    spoke, ``last vs lead`` / ``agree`` sits right after so the
+    cursor≠owner clash is not clipped by share/lean (FinRobot
+    last≠tilt); when last freshness + last-vs-lead already spoke,
+    ``last/lead align|clash`` follows so age ≠ name agreement (stale
+    ``agree`` warns; live name clash warns). When a runner exists,
+    ``ahead`` + ``vs SYM`` follow so ownership % ≠ how far ahead ≠ who
+    is #2 (soft gate-lead margin/sides; sole 100% omits). Share
+    severity follows; when last freshness + share lean already spoke,
+    ``last/share align|clash`` sits right after so age ≠ ownership heat
+    (portfolio AI speak-both-sides; clash warns). When last/lead +
     last/share already spoke, ``lead/share align|clash`` follows so
     cursor-vs-owner ≠ ownership-heat (``both clash`` warns; ``both
     align`` stays calm). When gap/other lean already spoke, ``last/lean
@@ -612,6 +662,11 @@ def format_soft_allow_anchor_gap_bit(
         last_fresh = soft_allow_anchor_gap_last_freshness(events, now=now)
         if last_fresh:
             head = f"{head} · {last_fresh}"
+        gap_vs_scan, _ = soft_allow_anchor_gap_vs_scan_clash(
+            events, scan_freshness=scan_freshness, now=now
+        )
+        if gap_vs_scan:
+            head = f"{head} · {gap_vs_scan}"
     lead_bit, _lead_name, _lead_share = soft_allow_anchor_gap_symbol_lead(
         events
     )

@@ -74,6 +74,8 @@ def test_soft_allow_glance_one() -> None:
     assert g["anchor_gap_last_lead_vs_lean_warn"] is False
     assert g["anchor_gap_last_share_vs_lean"] == ""
     assert g["anchor_gap_last_share_vs_lean_warn"] is False
+    assert g["anchor_gap_vs_scan_clash"] == ""
+    assert g["anchor_gap_vs_scan_clash_warn"] is False
     assert g["anchor_gap_bit"] == ""
     assert g["last_freshness"] == "fresh"
     assert g["scan_freshness"] == ""
@@ -1163,3 +1165,64 @@ def test_soft_allow_glance_scan_clash_fresh_vs_stale() -> None:
     assert g["scan_vs_soft_allow_clash"] == "clash · scan stale"
     assert g["tone"] == "warn"
     assert g["line"].startswith("hot · clash · scan stale · ")
+
+
+def test_soft_allow_glance_gap_vs_scan_when_last_matches_scan() -> None:
+    """xang1234 #549/e3c84e1: soft-allow last matching scan ≠ live gap cursor."""
+    now = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+    fresh_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    expired_at = (now - timedelta(hours=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    scan_at = (now - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    g = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "regime",
+                "reason": "no SPY bars — allow",
+            },
+            {
+                "at": expired_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+        scan_time=scan_at,
+        scan_interval_sec=900,
+    )
+    assert g["last_freshness"] == "fresh"
+    assert g["scan_freshness"] == "fresh"
+    # Soft-allow last matches scan — no ring-level clash.
+    assert g["scan_vs_soft_allow_clash"] == ""
+    # Gap cursor is a different generation — speak both sides.
+    assert g["anchor_gap_vs_scan_clash"] == (
+        "clash · gap expired · scan fresh"
+    )
+    assert g["anchor_gap_vs_scan_clash_warn"] is True
+    assert g["tone"] == "warn"
+    assert "clash · gap expired · scan fresh" in g["anchor_gap_bit"]
+    assert "last AAPL · expired · clash · gap expired · scan fresh" in (
+        g["anchor_gap_bit"]
+    )
+    same = build_soft_allow_glance(
+        [
+            {
+                "at": fresh_at,
+                "gate": "regime",
+                "reason": "no SPY bars — allow",
+            },
+            {
+                "at": fresh_at,
+                "gate": "rs",
+                "reason": "AAPL RS unknown — anchor gap — allow",
+            },
+        ],
+        now=now,
+        scan_time=scan_at,
+        scan_interval_sec=900,
+    )
+    assert same["anchor_gap_vs_scan_clash"] == ""
+    assert same["anchor_gap_vs_scan_clash_warn"] is False
+    assert "clash · gap expired" not in same["anchor_gap_bit"]
+    assert "clash · gap fresh" not in same["anchor_gap_bit"]
+    assert "clash · gap aging" not in same["anchor_gap_bit"]
