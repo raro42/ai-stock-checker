@@ -122,6 +122,10 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_half_kelly_slot_pct"] is None
     assert g["window_a_closes_half_kelly_vs_slot"] == ""
     assert g["window_a_closes_half_kelly_slot_under"] is False
+    assert g["window_a_closes_half_kelly_cap_bit"] == ""
+    assert g["window_a_closes_half_kelly_cap_pct"] is None
+    assert g["window_a_closes_half_kelly_vs_cap"] == ""
+    assert g["window_a_closes_half_kelly_cap_under"] is False
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
@@ -308,14 +312,21 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["window_a_closes_half_kelly_slot_pct"] == 20.0
     assert g["window_a_closes_half_kelly_vs_slot"] == "match"
     assert g["window_a_closes_half_kelly_slot_under"] is False
-    assert g["tone"] == "paused"  # days short — not warn
+    # half 20% vs 30% cap → under (slot match ≠ single-name ceiling)
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 20% vs 30%"
+    )
+    assert g["window_a_closes_half_kelly_cap_pct"] == 30.0
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_under"] is True
+    assert g["tone"] == "warn"  # under cap
     # sample ready + payoff + exp + PF + WR% + WR/BE + net + fee take +
-    # net PF + net/fee + Kelly + half-K/sizer stay in fields; half-K/slot
-    # owns clip
+    # net PF + net/fee + Kelly + half-K/sizer + half-K/slot stay in
+    # fields; half-K/cap owns clip
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
     assert "pay strong" not in g["line"]
-    assert "€8" not in g["line"]  # compact € stays in fields when slot spoke
+    assert "€8" not in g["line"]  # compact € stays in fields when cap spoke
     assert "+€12" not in g["line"]
     assert "fees ok" in g["line"]
     assert "3w/2l" not in g["line"]  # polarity stays in fields
@@ -329,7 +340,8 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert "net/fee strong · 3×" not in g["line"]  # net/fee stays in fields
     assert "Kelly strong · 40%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer over · 20% vs 10%" not in g["line"]  # sizer in fields
-    assert "half-K/slot match · 20% vs 20%" in g["line"]
+    assert "half-K/slot match · 20% vs 20%" not in g["line"]  # slot in fields
+    assert "half-K/cap under · 20% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -447,17 +459,22 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     )
     assert g["window_a_closes_half_kelly_vs"] == "match"
     assert g["window_a_closes_half_kelly_under"] is False
-    # half 5% vs 20% slot → under (sizer match ≠ equal book weight)
+    # half 5% vs 20% slot → under; vs 30% cap → under (cap owns clip)
     assert g["window_a_closes_half_kelly_slot_bit"] == (
         "half-K/slot under · 5% vs 20%"
     )
     assert g["window_a_closes_half_kelly_vs_slot"] == "under"
     assert g["window_a_closes_half_kelly_slot_under"] is True
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 5% vs 30%"
+    )
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_under"] is True
     assert g["tone"] == "warn"
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
     assert "drag mild" in g["line"]
-    # Compact € dropped when slot spoke so the slot bit fits.
+    # Compact € dropped when cap spoke so the cap bit fits.
     assert "€15" not in g["line"]
     assert "2w/3l" not in g["line"]  # polarity stays in fields
     assert "pay strong" not in g["line"]
@@ -472,7 +489,8 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert "net PF thin · 0.1×" not in g["line"]  # net PF stays in fields
     assert "Kelly · 10%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer match · 5% vs 10%" not in g["line"]  # sizer in fields
-    assert "half-K/slot under · 5% vs 20%" in g["line"]
+    assert "half-K/slot under · 5% vs 20%" not in g["line"]  # slot in fields
+    assert "half-K/cap under · 5% vs 30%" in g["line"]
     # Mood + half-K before meters.
     mood_pos = g["line"].find("drag mild")
     half_pos = g["line"].find("half-K")
@@ -573,6 +591,12 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     )
     assert g["window_a_closes_half_kelly_vs_slot"] == "over"
     assert g["window_a_closes_half_kelly_slot_under"] is False
+    # half 33.4% vs 30% cap → match (±5pp; slot over ≠ cap match)
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap match · 33.4% vs 30%"
+    )
+    assert g["window_a_closes_half_kelly_vs_cap"] == "match"
+    assert g["window_a_closes_half_kelly_cap_under"] is False
     assert g["tone"] == "paused"
     assert "fees calm" in g["line"]
     assert "4w/1l" not in g["line"]  # polarity stays in fields
@@ -587,7 +611,8 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert "net/fee strong · 9×" not in g["line"]  # net/fee stays in fields
     assert "Kelly strong · 66.7%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer over · 33.4% vs 10%" not in g["line"]
-    assert "half-K/slot over · 33.4% vs 20%" in g["line"]
+    assert "half-K/slot over · 33.4% vs 20%" not in g["line"]
+    assert "half-K/cap match · 33.4% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -663,6 +688,11 @@ def test_calm_streak_glance_promote_off_paused_closes_payoff_thin() -> None:
     )
     assert g["window_a_closes_half_kelly_vs_slot"] == "under"
     assert g["window_a_closes_half_kelly_slot_under"] is True
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 12.5% vs 30%"
+    )
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_under"] is True
     assert g["tone"] == "warn"
     assert "3w/1l" not in g["line"]  # polarity stays in fields
     assert "pay thin" not in g["line"]
@@ -675,7 +705,8 @@ def test_calm_streak_glance_promote_off_paused_closes_payoff_thin() -> None:
     assert "net PF · 1.4×" not in g["line"]  # net PF stays in fields
     assert "Kelly strong · 25%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer match · 12.5% vs 10%" not in g["line"]
-    assert "half-K/slot under · 12.5% vs 20%" in g["line"]
+    assert "half-K/slot under · 12.5% vs 20%" not in g["line"]
+    assert "half-K/cap under · 12.5% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -755,7 +786,8 @@ def test_calm_streak_glance_promote_off_paused_closes_expectancy_neg() -> None:
     assert "net PF thin · 0.1×" not in g["line"]  # net PF stays in fields
     assert "Kelly neg · −140%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer under · −70% vs 10%" not in g["line"]
-    assert "half-K/slot under · −70% vs 20%" in g["line"]
+    assert "half-K/slot under · −70% vs 20%" not in g["line"]
+    assert "half-K/cap under · −70% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -830,7 +862,8 @@ def test_calm_streak_glance_promote_off_paused_closes_profit_factor_thin() -> No
     assert "net PF thin · 0.2×" not in g["line"]  # net PF stays in fields
     assert "Kelly neg · −110%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer under · −55% vs 10%" not in g["line"]
-    assert "half-K/slot under · −55% vs 20%" in g["line"]
+    assert "half-K/slot under · −55% vs 20%" not in g["line"]
+    assert "half-K/cap under · −55% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -906,7 +939,8 @@ def test_calm_streak_glance_promote_off_paused_closes_win_rate_thin() -> None:
     assert "net PF strong · 2.5×" not in g["line"]  # net PF stays in fields
     assert "Kelly · 15.6%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer match · 7.8% vs 10%" not in g["line"]
-    assert "half-K/slot under · 7.8% vs 20%" in g["line"]
+    assert "half-K/slot under · 7.8% vs 20%" not in g["line"]
+    assert "half-K/cap under · 7.8% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -975,7 +1009,8 @@ def test_calm_streak_glance_promote_off_paused_closes_wr_below_be() -> None:
     assert "net PF thin · 0.2×" not in g["line"]  # net PF stays in fields
     assert "Kelly neg · −140%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer under · −70% vs 10%" not in g["line"]
-    assert "half-K/slot under · −70% vs 20%" in g["line"]
+    assert "half-K/slot under · −70% vs 20%" not in g["line"]
+    assert "half-K/cap under · −70% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1114,7 +1149,8 @@ def test_calm_streak_glance_promote_off_paused_closes_fee_take_thin() -> None:
     assert "net/fee thin · 0.1×" not in g["line"]  # net/fee stays in fields
     assert "Kelly strong · 62.5%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer over · 31.2% vs 10%" not in g["line"]
-    assert "half-K/slot over · 31.2% vs 20%" in g["line"]
+    assert "half-K/slot over · 31.2% vs 20%" not in g["line"]
+    assert "half-K/cap match · 31.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1159,7 +1195,8 @@ def test_calm_streak_glance_promote_off_paused_closes_net_vs_fee_thin() -> None:
     assert "net/fee thin · 0.1×" not in g["line"]  # net/fee stays in fields
     assert "Kelly strong · 62.5%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer over · 31.2% vs 10%" not in g["line"]
-    assert "half-K/slot over · 31.2% vs 20%" in g["line"]
+    assert "half-K/slot over · 31.2% vs 20%" not in g["line"]
+    assert "half-K/cap match · 31.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1208,7 +1245,8 @@ def test_calm_streak_glance_promote_off_paused_closes_net_pf_eats_edge() -> None
     assert "net PF · fees eat PF" not in g["line"]  # net PF stays in fields
     assert "Kelly strong · 62.5%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer over · 31.2% vs 10%" not in g["line"]
-    assert "half-K/slot over · 31.2% vs 20%" in g["line"]
+    assert "half-K/slot over · 31.2% vs 20%" not in g["line"]
+    assert "half-K/cap match · 31.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1243,7 +1281,8 @@ def test_calm_streak_glance_promote_off_paused_closes_kelly_thin() -> None:
     assert g["window_a_closes_kelly_severity"] == "thin"
     assert g["window_a_closes_kelly_thin"] is True
     assert g["window_a_closes_kelly_neg"] is False
-    # half 2.2% vs 10% → under; vs 20% slot → under (slot owns clip)
+    # half 2.2% vs 10% → under; vs 20% slot → under; vs 30% cap → under
+    # (cap owns clip)
     assert g["window_a_closes_half_kelly_bit"] == (
         "half-K/sizer under · 2.2% vs 10%"
     )
@@ -1257,11 +1296,18 @@ def test_calm_streak_glance_promote_off_paused_closes_kelly_thin() -> None:
     assert g["window_a_closes_half_kelly_slot_pct"] == 20.0
     assert g["window_a_closes_half_kelly_vs_slot"] == "under"
     assert g["window_a_closes_half_kelly_slot_under"] is True
-    assert g["tone"] == "warn"  # thin Kelly / under sizer / under slot
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 2.2% vs 30%"
+    )
+    assert g["window_a_closes_half_kelly_cap_pct"] == 30.0
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_under"] is True
+    assert g["tone"] == "warn"  # thin Kelly / under sizer / slot / cap
     assert "net/fee" not in g["line"]  # net/fee stays in fields
     assert "Kelly thin · 4.5%" not in g["line"]  # Kelly stays in fields
     assert "half-K/sizer under · 2.2% vs 10%" not in g["line"]
-    assert "half-K/slot under · 2.2% vs 20%" in g["line"]
+    assert "half-K/slot under · 2.2% vs 20%" not in g["line"]
+    assert "half-K/cap under · 2.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1301,10 +1347,16 @@ def test_calm_streak_glance_promote_off_paused_closes_half_kelly_under() -> None
     assert g["window_a_closes_half_kelly_slot_bit"] == (
         "half-K/slot under · 2.2% vs 20%"
     )
+    assert g["window_a_closes_half_kelly_cap_under"] is True
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 2.2% vs 30%"
+    )
     assert g["tone"] == "warn"
     assert "Kelly thin" not in g["line"]
     assert "half-K/sizer under · 2.2% vs 10%" not in g["line"]
-    assert "half-K/slot under · 2.2% vs 20%" in g["line"]
+    assert "half-K/slot under · 2.2% vs 20%" not in g["line"]
+    assert "half-K/cap under · 2.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1346,9 +1398,57 @@ def test_calm_streak_glance_promote_off_paused_closes_half_kelly_slot_under() ->
     assert g["window_a_closes_half_kelly_slot_bit"] == (
         "half-K/slot under · 12.5% vs 20%"
     )
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_under"] is True
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 12.5% vs 30%"
+    )
     assert g["tone"] == "warn"
     assert "half-K/sizer match · 12.5% vs 10%" not in g["line"]
-    assert "half-K/slot under · 12.5% vs 20%" in g["line"]
+    assert "half-K/slot under · 12.5% vs 20%" not in g["line"]
+    assert "half-K/cap under · 12.5% vs 30%" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_half_kelly_cap_under() -> None:
+    """Equal-slot match alone must not hide half-Kelly under conc cap."""
+    as_of = date(2026, 8, 18)
+    # 60% WR · payoff 2 → Kelly 40 → half 20 vs 10 over · vs 20 match ·
+    # vs 30 under
+    stats = {
+        "trades": 12,
+        "buys": 7,
+        "sells": 5,
+        "fees": 4.0,
+        "realized_pnl": 16.0,
+        "net_after_all_fees": 12.0,
+        "wins": 3,
+        "losses": 2,
+        "avg_win": 8.0,
+        "avg_loss": 4.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_closes_kelly_pct"] == 40.0
+    assert g["window_a_closes_half_kelly_pct"] == 20.0
+    assert g["window_a_closes_half_kelly_vs_slot"] == "match"
+    assert g["window_a_closes_half_kelly_slot_under"] is False
+    assert g["window_a_closes_half_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_half_kelly_cap_under"] is True
+    assert g["window_a_closes_half_kelly_cap_bit"] == (
+        "half-K/cap under · 20% vs 30%"
+    )
+    assert g["tone"] == "warn"
+    assert "half-K/slot match · 20% vs 20%" not in g["line"]
+    assert "half-K/cap under · 20% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
