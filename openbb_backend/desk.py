@@ -2269,23 +2269,26 @@ def build_calm_streak_glance(
     ``promote off · streak paused · A Nd/Td · building sample|… · drag severe|
     fees comfortable · €N · ±€N · Nw/Nl · pay thin|strong · N× · exp … ·
     PF thin|strong · N× · WR … · WR above|at|below BE … ·
-    net exp thin|strong · ±€N · fee take calm|thin · €N · N/M fills ·
-    N/M sells`` — intentional pause ≠ overweight/fee block; Window A day +
-    sample status + fee-adjusted net + fee-mood severity + close polarity +
-    close payoff (avg win÷loss) + close expectancy (€/close) + close profit
-    factor (gross wins÷losses; avg ratio ≠ total €) + close win rate + WR vs
-    BE cushion (hit rate alone ≠ edge when payoff ≠ 1) + fee-adjusted net
-    expectancy (gross €/close ≠ net €/close; gross+ / net− → fees eat) +
-    expectancy fee take (gross − net €/close; distinct from fee-drag totals) +
-    meters so pause/meters/€/mood/Nw/Nl/pay/exp/PF/WR/WR−BE/net alone do not
-    hide control-window progress, building vs ready, fee-burned edge, mild vs
-    severe drag, all-win vs all-loss, thin € payoff, thin/neg €/close, thin
-    PF, thin WR, WR below / thin cushion vs breakeven, fee-eaten net €/close,
-    or thin fee take vs gross (portfolio AI + xang1234 severity).
-    Day floor met + thin sample, fee drag / fees thin, all-loss / loss-lean,
-    thin payoff, neg/thin expectancy, thin PF, thin WR, WR below BE, thin
-    WR-vs-BE cushion, net expect neg/thin/fees-eat, or fee take thin escalate
-    tone to ``warn``. Not an entry gate.
+    net exp thin|strong · ±€N · fee take calm|thin · €N ·
+    net PF thin|strong · N× · N/M fills · N/M sells`` — intentional pause ≠
+    overweight/fee block; Window A day + sample status + fee-adjusted net +
+    fee-mood severity + close polarity + close payoff (avg win÷loss) + close
+    expectancy (€/close) + close profit factor (gross wins÷losses; avg ratio
+    ≠ total €) + close win rate + WR vs BE cushion (hit rate alone ≠ edge
+    when payoff ≠ 1) + fee-adjusted net expectancy (gross €/close ≠ net
+    €/close; gross+ / net− → fees eat) + expectancy fee take (gross − net
+    €/close; distinct from fee-drag totals) + net profit factor
+    ((gross wins − fees) ÷ gross losses; gross PF ≠ fee-adjusted PF; fees
+    eat PF) + meters so pause/meters/€/mood/Nw/Nl/pay/exp/PF/WR/WR−BE/net/
+    fee-take alone do not hide control-window progress, building vs ready,
+    fee-burned edge, mild vs severe drag, all-win vs all-loss, thin €
+    payoff, thin/neg €/close, thin PF, thin WR, WR below / thin cushion vs
+    breakeven, fee-eaten net €/close, thin fee take vs gross, or
+    thin/fees-eat net PF (portfolio AI + xang1234 severity). Day floor met +
+    thin sample, fee drag / fees thin, all-loss / loss-lean, thin payoff,
+    neg/thin expectancy, thin PF, thin WR, WR below BE, thin WR-vs-BE
+    cushion, net expect neg/thin/fees-eat, fee take thin, or net PF
+    thin/fees-eat escalate tone to ``warn``. Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2349,6 +2352,11 @@ def build_calm_streak_glance(
         "window_a_closes_fee_take_severity": "",
         "window_a_closes_fee_take_thin": False,
         "window_a_closes_fee_take_ratio": None,
+        "window_a_closes_net_profit_factor_bit": "",
+        "window_a_closes_net_profit_factor": None,
+        "window_a_closes_net_profit_factor_severity": "",
+        "window_a_closes_net_profit_factor_thin": False,
+        "window_a_closes_net_profit_factor_eats_edge": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2415,6 +2423,11 @@ def build_calm_streak_glance(
     window_a_closes_fee_take_severity = ""
     window_a_closes_fee_take_thin = False
     window_a_closes_fee_take_ratio: float | None = None
+    window_a_closes_net_profit_factor_bit = ""
+    window_a_closes_net_profit_factor: float | None = None
+    window_a_closes_net_profit_factor_severity = ""
+    window_a_closes_net_profit_factor_thin = False
+    window_a_closes_net_profit_factor_eats_edge = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
@@ -2422,15 +2435,16 @@ def build_calm_streak_glance(
         # Window A: streak cannot grow until promote flips for Window B.
         # Speak A day + sample status + fee/net + fee-mood + close polarity
         # + close payoff + close expectancy + close PF + close WR +
-        # WR vs BE + net expectancy + fee take + fill/sell meters beside
-        # the pause — calm glance alone hid day floor / thin ledger /
+        # WR vs BE + net expectancy + fee take + net PF + fill/sell meters
+        # beside the pause — calm glance alone hid day floor / thin ledger /
         # building vs ready / fee-burned edge / mild vs severe drag /
         # all-win vs all-loss / count lean ≠ € payoff / payoff ≠ €/close /
         # €/close ≠ total-€ PF / PF ≠ hit rate / hit rate ≠ cushion vs
         # breakeven / gross €/close ≠ fee-adjusted net €/close / net ≠
-        # fee take €/close (days ≠ fills ≠ fair sample ≠ net edge ≠
-        # severity band ≠ win/lose mix ≠ avg-win÷avg-loss ≠ expectancy ≠
-        # PF ≠ WR% ≠ WR−BE ≠ net expect ≠ fee take).
+        # fee take €/close / fee take ≠ fee-adjusted PF (days ≠ fills ≠
+        # fair sample ≠ net edge ≠ severity band ≠ win/lose mix ≠
+        # avg-win÷avg-loss ≠ expectancy ≠ PF ≠ WR% ≠ WR−BE ≠ net expect ≠
+        # fee take ≠ net PF).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -2940,6 +2954,90 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_fee_take_bit}"
                     )
+                # Net PF after fee take — (gross wins − fees) ÷ gross losses
+                # ≠ fee take €/close (portfolio AI + xang1234). Compact
+                # "A net PF …" → "net PF …"; drop fee take from the line
+                # when net PF spoke so the 96-char clip keeps the ratio
+                # (fee take stays in fields). fees eat PF / thin warn.
+                raw_net_pf = str(
+                    sample.get("closes_net_profit_factor_bit") or ""
+                ).strip()
+                if raw_net_pf:
+                    window_a_closes_net_profit_factor_bit = (
+                        raw_net_pf.replace("A net PF", "net PF", 1).strip()
+                    )
+                    window_a_closes_net_profit_factor_severity = str(
+                        sample.get("closes_net_profit_factor_severity")
+                        or ""
+                    )
+                    window_a_closes_net_profit_factor_thin = bool(
+                        sample.get("closes_net_profit_factor_thin")
+                    )
+                    window_a_closes_net_profit_factor_eats_edge = bool(
+                        sample.get("closes_net_profit_factor_eats_edge")
+                    )
+                    try:
+                        npf = sample.get("closes_net_profit_factor")
+                        window_a_closes_net_profit_factor = (
+                            float(npf) if npf is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_net_profit_factor = None
+                    if window_a_closes_fee_take_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_fee_take_bit}", "", 1
+                        )
+                    if window_a_closes_net_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_expectancy_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_wr_vs_be_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_wr_vs_be_bit}", "", 1
+                        )
+                    if window_a_closes_win_rate_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_win_rate_bit}", "", 1
+                        )
+                    if window_a_closes_profit_factor_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_profit_factor_bit}", "", 1
+                        )
+                    if window_a_closes_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_expectancy_bit}", "", 1
+                        )
+                    if window_a_closes_payoff_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_payoff_bit}", "", 1
+                        )
+                    if window_a_closes_polarity_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_polarity_bit}", "", 1
+                        )
+                    if window_a_sample_status == "sample ready":
+                        status = status.replace(
+                            " · sample ready", "", 1
+                        )
+                    if (
+                        window_a_closes_net_expectancy_eats_edge
+                        and window_a_fee_net_bit
+                    ):
+                        compact_fee = (
+                            window_a_fee_net_bit.replace(" fees", "")
+                            .replace(" net", "")
+                        )
+                        status = status.replace(
+                            f" · {compact_fee}", "", 1
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_net_profit_factor_bit}"
+                    )
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -2972,6 +3070,7 @@ def build_calm_streak_glance(
                 # WR below BE / thin cushion: WR% alone hid payoff-adjusted edge.
                 # Neg / thin / fees-eat net expect: WR/BE alone hid fee-eaten €/close.
                 # Thin fee take: net alone hid that fees remove ≥50% of gross €/close.
+                # Thin / fees-eat net PF: fee take alone hid fee-adjusted wins÷losses.
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -2992,6 +3091,8 @@ def build_calm_streak_glance(
                     or window_a_closes_net_expectancy_thin
                     or window_a_closes_net_expectancy_eats_edge
                     or window_a_closes_fee_take_thin
+                    or window_a_closes_net_profit_factor_thin
+                    or window_a_closes_net_profit_factor_eats_edge
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -3081,6 +3182,21 @@ def build_calm_streak_glance(
         ),
         "window_a_closes_fee_take_thin": window_a_closes_fee_take_thin,
         "window_a_closes_fee_take_ratio": window_a_closes_fee_take_ratio,
+        "window_a_closes_net_profit_factor_bit": (
+            window_a_closes_net_profit_factor_bit
+        ),
+        "window_a_closes_net_profit_factor": (
+            window_a_closes_net_profit_factor
+        ),
+        "window_a_closes_net_profit_factor_severity": (
+            window_a_closes_net_profit_factor_severity
+        ),
+        "window_a_closes_net_profit_factor_thin": (
+            window_a_closes_net_profit_factor_thin
+        ),
+        "window_a_closes_net_profit_factor_eats_edge": (
+            window_a_closes_net_profit_factor_eats_edge
+        ),
     }
 
 
