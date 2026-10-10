@@ -104,6 +104,10 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_net_profit_factor"] is None
     assert g["window_a_closes_net_profit_factor_thin"] is False
     assert g["window_a_closes_net_profit_factor_eats_edge"] is False
+    assert g["window_a_closes_net_vs_fee_bit"] == ""
+    assert g["window_a_closes_net_vs_fee"] is None
+    assert g["window_a_closes_net_vs_fee_thin"] is False
+    assert g["window_a_closes_net_vs_fee_severity"] == ""
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
@@ -267,9 +271,14 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["window_a_closes_net_profit_factor_severity"] == "strong"
     assert g["window_a_closes_net_profit_factor_thin"] is False
     assert g["window_a_closes_net_profit_factor_eats_edge"] is False
+    # net 2.4 ÷ take 0.8 → 3× strong (net PF ≠ net÷fee-take)
+    assert g["window_a_closes_net_vs_fee_bit"] == "net/fee strong · 3×"
+    assert g["window_a_closes_net_vs_fee"] == 3.0
+    assert g["window_a_closes_net_vs_fee_severity"] == "strong"
+    assert g["window_a_closes_net_vs_fee_thin"] is False
     assert g["tone"] == "paused"  # days short — not warn
-    # sample ready + payoff + exp + PF + WR% + WR/BE + net + fee take stay
-    # in fields; net PF owns clip
+    # sample ready + payoff + exp + PF + WR% + WR/BE + net + fee take +
+    # net PF stay in fields; net/fee owns clip
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
     assert "pay strong" not in g["line"]
@@ -283,7 +292,8 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert "WR above BE strong" not in g["line"]  # WR/BE stays in fields
     assert "net exp strong" not in g["line"]  # net stays in fields
     assert "fee take · €1" not in g["line"]  # fee take stays in fields
-    assert "net PF strong · 2×" in g["line"]
+    assert "net PF strong · 2×" not in g["line"]  # net PF stays in fields
+    assert "net/fee strong · 3×" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -386,6 +396,10 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert g["window_a_closes_net_profit_factor"] == 0.08
     assert g["window_a_closes_net_profit_factor_thin"] is True
     assert g["window_a_closes_net_profit_factor_eats_edge"] is False
+    # net ≤ 0 → net/fee silent (net PF still owns clip)
+    assert g["window_a_closes_net_vs_fee_bit"] == ""
+    assert g["window_a_closes_net_vs_fee"] is None
+    assert g["window_a_closes_net_vs_fee_thin"] is False
     assert g["tone"] == "warn"
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
@@ -401,6 +415,7 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert "net exp −€1" not in g["line"]  # net stays in fields
     assert "fees eat" not in g["line"]
     assert "fee take thin · €2" not in g["line"]  # fee take stays in fields
+    assert "net/fee" not in g["line"]
     assert "net PF thin · 0.1×" in g["line"]
     # Mood + net PF before meters.
     mood_pos = g["line"].find("drag mild")
@@ -481,6 +496,11 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert g["window_a_closes_net_profit_factor"] == 5.5
     assert g["window_a_closes_net_profit_factor_severity"] == "strong"
     assert g["window_a_closes_net_profit_factor_thin"] is False
+    # net 3.6 ÷ take 0.4 → 9× strong (net PF ≠ net÷fee-take)
+    assert g["window_a_closes_net_vs_fee_bit"] == "net/fee strong · 9×"
+    assert g["window_a_closes_net_vs_fee"] == 9.0
+    assert g["window_a_closes_net_vs_fee_severity"] == "strong"
+    assert g["window_a_closes_net_vs_fee_thin"] is False
     assert g["tone"] == "paused"
     assert "fees calm" in g["line"]
     assert "4w/1l" not in g["line"]  # polarity stays in fields
@@ -491,7 +511,8 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert "WR above BE strong" not in g["line"]  # WR/BE stays in fields
     assert "net exp strong" not in g["line"]  # net stays in fields
     assert "fee take calm · €0" not in g["line"]  # fee take stays in fields
-    assert "net PF strong · 5.5×" in g["line"]
+    assert "net PF strong · 5.5×" not in g["line"]  # net PF stays in fields
+    assert "net/fee strong · 9×" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -928,10 +949,54 @@ def test_calm_streak_glance_promote_off_paused_closes_fee_take_thin() -> None:
     assert g["window_a_closes_net_profit_factor_bit"] == "net PF · 1.2×"
     assert g["window_a_closes_net_profit_factor"] == 1.25
     assert g["window_a_closes_net_profit_factor_thin"] is False
-    assert g["tone"] == "warn"  # thin fee take still warns via fields
+    # net 2.5 ÷ take 47.5 → 0.05× thin (net PF mid ≠ remaining edge multiples)
+    assert g["window_a_closes_net_vs_fee_bit"] == "net/fee thin · 0.1×"
+    assert g["window_a_closes_net_vs_fee"] == 0.05
+    assert g["window_a_closes_net_vs_fee_thin"] is True
+    assert g["window_a_closes_net_vs_fee_severity"] == "thin"
+    assert g["tone"] == "warn"  # thin fee take / thin net/fee warn
     assert "net exp thin" not in g["line"]
     assert "fee take thin · €48" not in g["line"]  # fee take stays in fields
-    assert "net PF · 1.2×" in g["line"]
+    assert "net PF · 1.2×" not in g["line"]  # net PF stays in fields
+    assert "net/fee thin · 0.1×" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_net_vs_fee_thin() -> None:
+    """Net PF alone must not hide thin net÷fee-take remaining edge."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 12,
+        "buys": 8,
+        "sells": 4,
+        "fees": 10.0,
+        "realized_pnl": 20.0,
+        "net_after_all_fees": 10.0,
+        "wins": 3,
+        "losses": 1,
+        "avg_win": 80.0,
+        "avg_loss": 40.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    # gross exp 50; net 2.5 → take 47.5; 2.5÷47.5 → 0.05× thin
+    assert g["window_a_closes_net_expectancy"] == 2.5
+    assert g["window_a_closes_fee_take"] == 47.5
+    assert g["window_a_closes_net_vs_fee"] == 0.05
+    assert g["window_a_closes_net_vs_fee_bit"] == "net/fee thin · 0.1×"
+    assert g["window_a_closes_net_vs_fee_thin"] is True
+    assert g["window_a_closes_net_vs_fee_severity"] == "thin"
+    assert g["tone"] == "warn"
+    assert "net PF" not in g["line"]  # net PF stays in fields when net/fee spoke
+    assert "net/fee thin · 0.1×" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -966,9 +1031,13 @@ def test_calm_streak_glance_promote_off_paused_closes_net_pf_eats_edge() -> None
     assert g["window_a_closes_net_profit_factor"] is None
     assert g["window_a_closes_net_profit_factor_eats_edge"] is True
     assert g["window_a_closes_net_profit_factor_thin"] is True
+    # net ≤ 0 → net/fee silent (fees-eat net PF still owns clip)
+    assert g["window_a_closes_net_vs_fee_bit"] == ""
+    assert g["window_a_closes_net_vs_fee"] is None
     assert g["tone"] == "warn"
     assert " · PF" not in g["line"]  # gross PF stays in fields
     assert "fee take" not in g["line"]
+    assert "net/fee" not in g["line"]
     assert "net PF · fees eat PF" in g["line"]
     assert len(g["line"]) <= 96
 
