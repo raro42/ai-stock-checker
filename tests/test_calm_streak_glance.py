@@ -91,6 +91,11 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_wr_edge_pp"] is None
     assert g["window_a_closes_wr_edge_thin"] is False
     assert g["window_a_closes_wr_below_be"] is False
+    assert g["window_a_closes_net_expectancy_bit"] == ""
+    assert g["window_a_closes_net_expectancy"] is None
+    assert g["window_a_closes_net_expectancy_neg"] is False
+    assert g["window_a_closes_net_expectancy_thin"] is False
+    assert g["window_a_closes_net_expectancy_eats_edge"] is False
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
@@ -235,8 +240,15 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["window_a_closes_wr_edge_severity"] == "strong"
     assert g["window_a_closes_wr_edge_thin"] is False
     assert g["window_a_closes_wr_below_be"] is False
+    # net 12÷5 = 2.4 → strong vs avg_loss (gross exp ≠ fee-adjusted)
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp strong · +€2"
+    assert g["window_a_closes_net_expectancy"] == 2.4
+    assert g["window_a_closes_net_expectancy_severity"] == "strong"
+    assert g["window_a_closes_net_expectancy_thin"] is False
+    assert g["window_a_closes_net_expectancy_neg"] is False
+    assert g["window_a_closes_net_expectancy_eats_edge"] is False
     assert g["tone"] == "paused"  # days short — not warn
-    # sample ready + payoff + exp + PF + WR% stay in fields; WR/BE owns clip
+    # sample ready + payoff + exp + PF + WR% + WR/BE stay in fields; net owns clip
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
     assert "pay strong" not in g["line"]
@@ -244,10 +256,11 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert "+€12" in g["line"]
     assert "fees ok" in g["line"]
     assert "3w/2l" not in g["line"]  # polarity stays in fields
-    assert "exp strong" not in g["line"]  # expectancy stays in fields
+    assert f" · {g['window_a_closes_expectancy_bit']}" not in g["line"]
     assert "PF strong" not in g["line"]  # PF stays in fields
     assert "WR strong · 60%" not in g["line"]  # WR% stays in fields
-    assert "WR above BE strong" in g["line"]
+    assert "WR above BE strong" not in g["line"]  # WR/BE stays in fields
+    assert "net exp strong" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -335,28 +348,33 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert g["window_a_closes_wr_vs_be"] == "above"
     assert g["window_a_closes_wr_edge_pp"] == 6.7
     assert g["window_a_closes_wr_edge_thin"] is False
+    # net −5÷5 = −1; gross exp +0.8 → fees eat edge
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp −€1 · fees eat"
+    assert g["window_a_closes_net_expectancy"] == -1.0
+    assert g["window_a_closes_net_expectancy_neg"] is True
+    assert g["window_a_closes_net_expectancy_eats_edge"] is True
     assert g["tone"] == "warn"
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
-    assert "€15" in g["line"]
-    assert "−€5" in g["line"]
     assert "drag mild" in g["line"]
+    # Compact € dropped when fees eat so the adverse net bit fits.
+    assert "€15" not in g["line"]
     assert "2w/3l" not in g["line"]  # polarity stays in fields
     assert "pay strong" not in g["line"]
-    assert "exp thin" not in g["line"]
+    assert f" · {g['window_a_closes_expectancy_bit']}" not in g["line"]
     assert "PF ·" not in g["line"]
     assert "WR · 40%" not in g["line"]  # WR% stays in fields
-    assert "WR above BE · +6.7pp" in g["line"]
-    # Mood + compact € + WR/BE before meters.
+    assert "WR above BE · +6.7pp" not in g["line"]  # WR/BE stays in fields
+    assert "net exp −€1" in g["line"]
+    assert "fees eat" in g["line"]
+    # Mood + net expect before meters.
     mood_pos = g["line"].find("drag mild")
-    fee_pos = g["line"].find("€15")
-    be_pos = g["line"].find("WR above BE")
+    net_pos = g["line"].find("net exp")
     fill_pos = g["line"].find("fills")
     assert mood_pos > 0
-    assert fee_pos > mood_pos
-    assert be_pos > fee_pos
+    assert net_pos > mood_pos
     if fill_pos > 0:
-        assert fee_pos < fill_pos
+        assert net_pos < fill_pos
     assert len(g["line"]) <= 96
 
 
@@ -412,14 +430,20 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert g["window_a_closes_breakeven_wr_pct"] == 40.0
     assert g["window_a_closes_wr_edge_pp"] == 40.0
     assert g["window_a_closes_wr_edge_severity"] == "strong"
+    # net 18÷5 = 3.6 → strong vs avg_loss
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp strong · +€4"
+    assert g["window_a_closes_net_expectancy"] == 3.6
+    assert g["window_a_closes_net_expectancy_severity"] == "strong"
+    assert g["window_a_closes_net_expectancy_neg"] is False
     assert g["tone"] == "paused"
     assert "fees calm" in g["line"]
     assert "4w/1l" not in g["line"]  # polarity stays in fields
     assert "pay · 1.5×" not in g["line"]
-    assert "exp strong" not in g["line"]
+    assert f" · {g['window_a_closes_expectancy_bit']}" not in g["line"]
     assert "PF strong" not in g["line"]
     assert "WR strong · 80%" not in g["line"]  # WR% stays in fields
-    assert "WR above BE strong" in g["line"]
+    assert "WR above BE strong" not in g["line"]  # WR/BE stays in fields
+    assert "net exp strong" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -470,13 +494,18 @@ def test_calm_streak_glance_promote_off_paused_closes_payoff_thin() -> None:
     assert g["window_a_closes_wr_vs_be_bit"] == "WR above BE · +8.3pp"
     assert g["window_a_closes_wr_vs_be"] == "above"
     assert g["window_a_closes_wr_edge_pp"] == 8.3
+    # net 35÷4 = 8.75 → thin vs avg_loss 40 (8.75/40 < 0.25)
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp thin · +€9"
+    assert g["window_a_closes_net_expectancy"] == 8.75
+    assert g["window_a_closes_net_expectancy_thin"] is True
     assert g["tone"] == "warn"
     assert "3w/1l" not in g["line"]  # polarity stays in fields
     assert "pay thin" not in g["line"]
-    assert "exp thin" not in g["line"]
+    assert f" · {g['window_a_closes_expectancy_bit']}" not in g["line"]
     assert "PF ·" not in g["line"]
     assert "WR strong · 75%" not in g["line"]  # WR% stays in fields
-    assert "WR above BE · +8.3pp" in g["line"]
+    assert "WR above BE · +8.3pp" not in g["line"]  # WR/BE stays in fields
+    assert "net exp thin" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -524,13 +553,18 @@ def test_calm_streak_glance_promote_off_paused_closes_expectancy_neg() -> None:
     assert g["window_a_closes_wr_edge_pp"] == -46.7
     assert g["window_a_closes_wr_below_be"] is True
     assert g["window_a_closes_wr_edge_thin"] is True
+    # net 18÷5 = 3.6 → thin vs avg_loss 20 (gross− / net+ still speaks)
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp thin · +€4"
+    assert g["window_a_closes_net_expectancy"] == 3.6
+    assert g["window_a_closes_net_expectancy_thin"] is True
     assert g["tone"] == "warn"
-    assert "WR below BE · -46.7pp" in g["line"]
+    assert "WR below BE · -46.7pp" not in g["line"]  # WR/BE stays in fields
     assert "WR thin · 20%" not in g["line"]  # WR% stays in fields
     assert "PF thin" not in g["line"]
     assert "exp −€14" not in g["line"]
     assert "pay thin" not in g["line"]
     assert "sample ready" not in g["line"]
+    assert "net exp thin" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -574,12 +608,17 @@ def test_calm_streak_glance_promote_off_paused_closes_profit_factor_thin() -> No
     assert g["window_a_closes_wr_vs_be_bit"] == "WR below BE · -31.4pp"
     assert g["window_a_closes_wr_vs_be"] == "below"
     assert g["window_a_closes_wr_below_be"] is True
+    # net 18÷5 = 3.6 → mid vs avg_loss 10 (0.36; not thin <0.25)
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp · +€4"
+    assert g["window_a_closes_net_expectancy"] == 3.6
+    assert g["window_a_closes_net_expectancy_thin"] is False
     assert g["tone"] == "warn"
-    assert "WR below BE · -31.4pp" in g["line"]
+    assert "WR below BE · -31.4pp" not in g["line"]
     assert "WR · 40%" not in g["line"]
     assert "PF thin" not in g["line"]
-    assert "exp " not in g["line"]
+    assert "exp −" not in g["line"]  # gross expectancy stays in fields
     assert "pay thin" not in g["line"]
+    assert "net exp · +€4" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -622,12 +661,17 @@ def test_calm_streak_glance_promote_off_paused_closes_win_rate_thin() -> None:
     assert g["window_a_closes_wr_edge_pp"] == 13.9
     assert g["window_a_closes_wr_edge_severity"] == "strong"
     assert g["window_a_closes_wr_below_be"] is False
+    # net 38÷4 = 9.5 → strong vs avg_loss 5
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp strong · +€10"
+    assert g["window_a_closes_net_expectancy"] == 9.5
+    assert g["window_a_closes_net_expectancy_severity"] == "strong"
     assert g["tone"] == "warn"  # thin WR still warns
-    assert "WR above BE strong" in g["line"]
+    assert "WR above BE strong" not in g["line"]  # WR/BE stays in fields
     assert "WR thin · 25%" not in g["line"]  # WR% stays in fields
     assert "PF strong" not in g["line"]
     assert "pay strong" not in g["line"]
     assert "sample ready" not in g["line"]
+    assert "net exp strong" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -666,11 +710,16 @@ def test_calm_streak_glance_promote_off_paused_closes_wr_below_be() -> None:
     assert g["window_a_closes_wr_edge_pp"] == -23.3
     assert g["window_a_closes_wr_below_be"] is True
     assert g["window_a_closes_wr_edge_thin"] is True
+    # net 18÷5 = 3.6 → mid vs avg_loss 10 (WR/BE ≠ fee-adjusted €/close)
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp · +€4"
+    assert g["window_a_closes_net_expectancy"] == 3.6
+    assert g["window_a_closes_net_expectancy_thin"] is False
     assert g["tone"] == "warn"
-    assert "WR below BE · -23.3pp" in g["line"]
+    assert "WR below BE · -23.3pp" not in g["line"]  # WR/BE stays in fields
     assert "WR strong · 60%" not in g["line"]
     assert "pay thin" not in g["line"]
     assert "sample ready" not in g["line"]
+    assert "net exp · +€4" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -707,8 +756,8 @@ def test_calm_streak_glance_promote_off_paused_closes_polarity_all_loss() -> Non
     assert g["window_a_closes_payoff_thin"] is False
     assert g["window_a_closes_profit_factor_bit"] == ""
     assert g["window_a_closes_profit_factor_thin"] is False
-    # all-loss → expectancy = −avg_loss; WR 0% thin owns the clip
-    # (no payoff → WR vs BE silent)
+    # all-loss → expectancy = −avg_loss; WR 0% thin; no payoff → WR vs BE
+    # silent; net 18÷5 = 3.6 → strong owns the clip (gross− ≠ fee-adj net)
     assert g["window_a_closes_expectancy_bit"] == "exp −€4"
     assert g["window_a_closes_expectancy"] == -4.0
     assert g["window_a_closes_expectancy_neg"] is True
@@ -718,13 +767,17 @@ def test_calm_streak_glance_promote_off_paused_closes_polarity_all_loss() -> Non
     assert g["window_a_closes_wr_vs_be_bit"] == ""
     assert g["window_a_closes_wr_vs_be"] == ""
     assert g["window_a_closes_wr_below_be"] is False
+    assert g["window_a_closes_net_expectancy_bit"] == "net exp strong · +€4"
+    assert g["window_a_closes_net_expectancy"] == 3.6
+    assert g["window_a_closes_net_expectancy_severity"] == "strong"
     assert g["tone"] == "warn"  # all-loss / thin WR escalate
     assert "0w/5l" not in g["line"]  # polarity stays in fields
     assert "fees calm" in g["line"]
-    assert "WR thin · 0%" in g["line"]
+    assert "WR thin · 0%" not in g["line"]  # WR% stays in fields
     assert "WR above BE" not in g["line"]
     assert "WR below BE" not in g["line"]
-    assert "exp −€4" not in g["line"]  # WR owns the clip
+    assert "exp −€4" not in g["line"]
+    assert "net exp strong" in g["line"]
     assert "sample ready" not in g["line"]
     assert len(g["line"]) <= 96
 
