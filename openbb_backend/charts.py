@@ -846,7 +846,8 @@ def _calm_streak_glance_from_data(data_dir: Path) -> dict[str, Any]:
             "calm_required_days": int(calm.get("required_days") or 30),
             "calm_ready": bool(calm.get("ready_for_compose_default")),
             "calm_detail": str(calm.get("detail") or ""),
-        }
+        },
+        data_dir=data_dir,
     )
 
 

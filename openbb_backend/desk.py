@@ -2259,15 +2259,17 @@ def build_calm_streak_glance(
     runtime: dict[str, Any] | None,
     *,
     as_of: date | None = None,
+    data_dir: Path | str | None = None,
+    window_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compact paper-calm promote-unlock line (Phase A / portfolio AI; display only).
 
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
     default — not live edge. When promote is off (Window A), speak
-    ``promote off · streak paused · A Nd/Td`` — intentional pause ≠
-    overweight/fee block; Window A day meter so pause alone does not hide
-    control-window progress (portfolio AI speak-both-sides + xang1234
-    multi-meter). Not an entry gate.
+    ``promote off · streak paused · A Nd/Td · N/M fills · N/M sells`` —
+    intentional pause ≠ overweight/fee block; Window A day + sample meters so
+    pause alone does not hide control-window progress or a thin ledger
+    (portfolio AI speak-both-sides + xang1234 multi-meter). Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2279,6 +2281,10 @@ def build_calm_streak_glance(
         "promote_off_paused": False,
         "window_a_days": None,
         "window_a_target_days": None,
+        "window_a_fills": None,
+        "window_a_target_fills": None,
+        "window_a_sells": None,
+        "window_a_target_sells": None,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2293,16 +2299,26 @@ def build_calm_streak_glance(
     )
     window_a_days: int | None = None
     window_a_target_days: int | None = None
+    window_a_fills: int | None = None
+    window_a_target_fills: int | None = None
+    window_a_sells: int | None = None
+    window_a_target_sells: int | None = None
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
-        # Speak A day progress beside the pause — calm glance alone hid
-        # whether the control window already met its day floor.
+        # Speak A day + fill/sell progress beside the pause — calm glance
+        # alone hid whether the control window met its day floor or still
+        # has a thin ledger (days ≠ fair sample).
         tone = "paused"
         status = "promote off · streak paused"
-        from stock_checker.promote_ab import promote_ab_snapshot
+        from stock_checker.promote_ab import (
+            format_window_a_fill_progress_bit,
+            promote_ab_snapshot,
+            window_a_sample_readiness,
+            window_stats_from_data_dir,
+        )
 
         ab = promote_ab_snapshot(False, as_of=as_of)
         if ab.get("window") == "A":
@@ -2311,6 +2327,29 @@ def build_calm_streak_glance(
             status = (
                 f"{status} · A {window_a_days}/{window_a_target_days}d"
             )
+            stats = window_stats
+            if stats is None and data_dir is not None:
+                stats = window_stats_from_data_dir(data_dir, promote_on=False)
+            sample = window_a_sample_readiness(stats, as_of=as_of)
+            fill_bit = format_window_a_fill_progress_bit(sample)
+            if fill_bit:
+                status = f"{status} · {fill_bit}"
+            if sample.get("known"):
+                try:
+                    window_a_fills = max(0, int(sample.get("fills") or 0))
+                    window_a_target_fills = max(
+                        1, int(sample.get("target_fills") or 10)
+                    )
+                except (TypeError, ValueError):
+                    pass
+                if sample.get("sides_known"):
+                    try:
+                        window_a_sells = max(0, int(sample.get("sells") or 0))
+                        window_a_target_sells = max(
+                            1, int(sample.get("target_sells") or 3)
+                        )
+                    except (TypeError, ValueError):
+                        pass
     elif streak <= 0:
         tone = "blocked"
         status = "streak not started"
@@ -2334,6 +2373,10 @@ def build_calm_streak_glance(
         "promote_off_paused": promote_off_paused,
         "window_a_days": window_a_days,
         "window_a_target_days": window_a_target_days,
+        "window_a_fills": window_a_fills,
+        "window_a_target_fills": window_a_target_fills,
+        "window_a_sells": window_a_sells,
+        "window_a_target_sells": window_a_target_sells,
     }
 
 
@@ -12813,7 +12856,9 @@ def load_desk_snapshot(
         "ai_debates": ai_debates,
         "soft_allow_glance": soft_allow_glance,
         "entry_gates_glance": build_entry_gates_glance(runtime),
-        "calm_streak_glance": build_calm_streak_glance(runtime),
+        "calm_streak_glance": build_calm_streak_glance(
+            runtime, data_dir=data_dir
+        ),
         "promote_ab_glance": build_promote_ab_glance(
             {**runtime, "max_positions": max_pos, "open_positions": len(rows)},
             data_dir=data_dir,
