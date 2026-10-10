@@ -2257,13 +2257,17 @@ def _calm_detail_is_promote_off_pause(detail: str) -> bool:
 
 def build_calm_streak_glance(
     runtime: dict[str, Any] | None,
+    *,
+    as_of: date | None = None,
 ) -> dict[str, Any]:
     """Compact paper-calm promote-unlock line (Phase A / portfolio AI; display only).
 
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
     default — not live edge. When promote is off (Window A), speak
-    ``promote off · streak paused`` — intentional pause ≠ overweight/fee block.
-    Not an entry gate.
+    ``promote off · streak paused · A Nd/Td`` — intentional pause ≠
+    overweight/fee block; Window A day meter so pause alone does not hide
+    control-window progress (portfolio AI speak-both-sides + xang1234
+    multi-meter). Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2273,6 +2277,8 @@ def build_calm_streak_glance(
         "required": 0,
         "calm_ready": False,
         "promote_off_paused": False,
+        "window_a_days": None,
+        "window_a_target_days": None,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2285,13 +2291,26 @@ def build_calm_streak_glance(
     promote_off_paused = (not calm_ready) and _calm_detail_is_promote_off_pause(
         detail
     )
+    window_a_days: int | None = None
+    window_a_target_days: int | None = None
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
+        # Speak A day progress beside the pause — calm glance alone hid
+        # whether the control window already met its day floor.
         tone = "paused"
         status = "promote off · streak paused"
+        from stock_checker.promote_ab import promote_ab_snapshot
+
+        ab = promote_ab_snapshot(False, as_of=as_of)
+        if ab.get("window") == "A":
+            window_a_days = max(0, int(ab.get("trading_days") or 0))
+            window_a_target_days = max(1, int(ab.get("target_days") or 10))
+            status = (
+                f"{status} · A {window_a_days}/{window_a_target_days}d"
+            )
     elif streak <= 0:
         tone = "blocked"
         status = "streak not started"
@@ -2313,6 +2332,8 @@ def build_calm_streak_glance(
         "required": need,
         "calm_ready": calm_ready,
         "promote_off_paused": promote_off_paused,
+        "window_a_days": window_a_days,
+        "window_a_target_days": window_a_target_days,
     }
 
 

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from openbb_backend.desk import (
     _calm_detail_is_promote_off_pause,
     build_calm_streak_glance,
 )
+from stock_checker.promote_ab import WINDOW_A_TARGET_TRADING_DAYS, weekday_trading_days
 
 
 def test_calm_streak_glance_empty() -> None:
@@ -34,6 +37,7 @@ def test_calm_streak_glance_blocked() -> None:
     assert g["ready"] is True
     assert g["tone"] == "blocked"
     assert g["promote_off_paused"] is False
+    assert g["window_a_days"] is None
     assert g["streak"] == 0
     assert g["required"] == 30
     assert "0/30" in g["line"]
@@ -43,22 +47,48 @@ def test_calm_streak_glance_blocked() -> None:
 
 def test_calm_streak_glance_promote_off_paused() -> None:
     """Window A: promote off is intentional — not 'streak not started' failure."""
+    as_of = date(2026, 8, 18)  # Window A running; day target not yet met
+    a_days = weekday_trading_days(date(2026, 8, 12), as_of)
     g = build_calm_streak_glance(
         {
             "calm_streak_days": 0,
             "calm_required_days": 30,
             "calm_ready": False,
             "calm_detail": "promote filter off — streak paused",
-        }
+        },
+        as_of=as_of,
     )
     assert g["ready"] is True
     assert g["tone"] == "paused"
     assert g["promote_off_paused"] is True
+    assert g["window_a_days"] == a_days
+    assert g["window_a_target_days"] == WINDOW_A_TARGET_TRADING_DAYS
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
+    assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
     assert "streak not started" not in g["line"]
     # Compact status already names the why — do not repeat long detail.
     assert "promote filter off" not in g["line"]
+
+
+def test_calm_streak_glance_promote_off_paused_window_a_days_ready() -> None:
+    """Pause alone must not hide that Window A day floor is already met."""
+    as_of = date(2026, 9, 9)
+    a_days = weekday_trading_days(date(2026, 8, 12), as_of)
+    assert a_days >= WINDOW_A_TARGET_TRADING_DAYS
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+    )
+    assert g["promote_off_paused"] is True
+    assert g["window_a_days"] == a_days
+    assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
+    assert len(g["line"]) <= 96
 
 
 def test_calm_streak_glance_progress() -> None:
@@ -73,6 +103,7 @@ def test_calm_streak_glance_progress() -> None:
     assert g["tone"] == "progress"
     assert g["calm_ready"] is False
     assert g["promote_off_paused"] is False
+    assert g["window_a_days"] is None
     assert "12/30" in g["line"]
     assert "building" in g["line"]
 
@@ -90,6 +121,7 @@ def test_calm_streak_glance_ready() -> None:
     assert g["tone"] == "ready"
     assert g["calm_ready"] is True
     assert g["promote_off_paused"] is False
+    assert g["window_a_days"] is None
     assert "compose promote default ready" in g["line"]
     assert "should not appear" not in g["line"]
 
