@@ -83,6 +83,9 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_profit_factor_bit"] == ""
     assert g["window_a_closes_profit_factor"] is None
     assert g["window_a_closes_profit_factor_thin"] is False
+    assert g["window_a_closes_win_rate_bit"] == ""
+    assert g["window_a_closes_win_rate_pct"] is None
+    assert g["window_a_closes_win_rate_thin"] is False
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
@@ -214,8 +217,13 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["window_a_closes_profit_factor"] == 3.0
     assert g["window_a_closes_profit_factor_severity"] == "strong"
     assert g["window_a_closes_profit_factor_thin"] is False
+    # 3/5 = 60% → strong WR (PF ≠ hit rate)
+    assert g["window_a_closes_win_rate_bit"] == "WR strong · 60%"
+    assert g["window_a_closes_win_rate_pct"] == 60.0
+    assert g["window_a_closes_win_rate_severity"] == "strong"
+    assert g["window_a_closes_win_rate_thin"] is False
     assert g["tone"] == "paused"  # days short — not warn
-    # sample ready + payoff + exp stay in fields; PF owns the clip
+    # sample ready + payoff + exp + PF stay in fields; WR owns the clip
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
     assert "pay strong" not in g["line"]
@@ -224,7 +232,8 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert "fees ok" in g["line"]
     assert "3w/2l" not in g["line"]  # polarity stays in fields
     assert "exp strong" not in g["line"]  # expectancy stays in fields
-    assert "PF strong · 3×" in g["line"]
+    assert "PF strong" not in g["line"]  # PF stays in fields
+    assert "WR strong · 60%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -304,6 +313,10 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert g["window_a_closes_profit_factor_bit"] == "PF · 1.3×"
     assert g["window_a_closes_profit_factor"] == 1.33
     assert g["window_a_closes_profit_factor_thin"] is False
+    # 2/5 = 40% → mid WR (not thin)
+    assert g["window_a_closes_win_rate_bit"] == "WR · 40%"
+    assert g["window_a_closes_win_rate_pct"] == 40.0
+    assert g["window_a_closes_win_rate_thin"] is False
     assert g["tone"] == "warn"
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
@@ -312,16 +325,17 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert "drag mild" in g["line"]
     assert "2w/3l" not in g["line"]  # polarity stays in fields
     assert "pay strong" not in g["line"]
-    assert "exp thin" not in g["line"]  # PF owns the clip
-    assert "PF · 1.3×" in g["line"]
-    # Mood + compact € + PF before meters.
+    assert "exp thin" not in g["line"]
+    assert "PF ·" not in g["line"]  # WR owns the clip
+    assert "WR · 40%" in g["line"]
+    # Mood + compact € + WR before meters.
     mood_pos = g["line"].find("drag mild")
     fee_pos = g["line"].find("€15")
-    pf_pos = g["line"].find("PF ·")
+    wr_pos = g["line"].find("WR ·")
     fill_pos = g["line"].find("fills")
     assert mood_pos > 0
     assert fee_pos > mood_pos
-    assert pf_pos > fee_pos
+    assert wr_pos > fee_pos
     if fill_pos > 0:
         assert fee_pos < fill_pos
     assert len(g["line"]) <= 96
@@ -370,12 +384,17 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert g["window_a_closes_profit_factor_bit"] == "PF strong · 6×"
     assert g["window_a_closes_profit_factor"] == 6.0
     assert g["window_a_closes_profit_factor_severity"] == "strong"
+    # 4/5 = 80% → strong WR
+    assert g["window_a_closes_win_rate_bit"] == "WR strong · 80%"
+    assert g["window_a_closes_win_rate_pct"] == 80.0
+    assert g["window_a_closes_win_rate_severity"] == "strong"
     assert g["tone"] == "paused"
     assert "fees calm" in g["line"]
     assert "4w/1l" not in g["line"]  # polarity stays in fields
     assert "pay · 1.5×" not in g["line"]
-    assert "exp strong" not in g["line"]  # PF owns the clip
-    assert "PF strong · 6×" in g["line"]
+    assert "exp strong" not in g["line"]
+    assert "PF strong" not in g["line"]  # WR owns the clip
+    assert "WR strong · 80%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -419,11 +438,16 @@ def test_calm_streak_glance_promote_off_paused_closes_payoff_thin() -> None:
     assert g["window_a_closes_profit_factor_bit"] == "PF · 1.5×"
     assert g["window_a_closes_profit_factor"] == 1.5
     assert g["window_a_closes_profit_factor_thin"] is False
+    # 3/4 = 75% → strong WR (count lean ≠ thin payoff)
+    assert g["window_a_closes_win_rate_bit"] == "WR strong · 75%"
+    assert g["window_a_closes_win_rate_pct"] == 75.0
+    assert g["window_a_closes_win_rate_severity"] == "strong"
     assert g["tone"] == "warn"
     assert "3w/1l" not in g["line"]  # polarity stays in fields
     assert "pay thin" not in g["line"]
-    assert "exp thin" not in g["line"]  # PF owns the clip
-    assert "PF · 1.5×" in g["line"]
+    assert "exp thin" not in g["line"]
+    assert "PF ·" not in g["line"]  # WR owns the clip
+    assert "WR strong · 75%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -462,9 +486,14 @@ def test_calm_streak_glance_promote_off_paused_closes_expectancy_neg() -> None:
     assert g["window_a_closes_profit_factor_bit"] == "PF thin · 0.1×"
     assert g["window_a_closes_profit_factor"] == 0.12
     assert g["window_a_closes_profit_factor_thin"] is True
+    # 1/5 = 20% → thin WR
+    assert g["window_a_closes_win_rate_bit"] == "WR thin · 20%"
+    assert g["window_a_closes_win_rate_pct"] == 20.0
+    assert g["window_a_closes_win_rate_thin"] is True
     assert g["tone"] == "warn"
-    assert "PF thin · 0.1×" in g["line"]
-    assert "exp −€14" not in g["line"]  # PF owns the clip
+    assert "WR thin · 20%" in g["line"]
+    assert "PF thin" not in g["line"]  # WR owns the clip
+    assert "exp −€14" not in g["line"]
     assert "pay thin" not in g["line"]
     assert "sample ready" not in g["line"]
     assert len(g["line"]) <= 96
@@ -503,10 +532,56 @@ def test_calm_streak_glance_promote_off_paused_closes_profit_factor_thin() -> No
     assert g["window_a_closes_profit_factor"] == 0.27
     assert g["window_a_closes_profit_factor_severity"] == "thin"
     assert g["window_a_closes_profit_factor_thin"] is True
+    # 2/5 = 40% → mid WR (PF thin ≠ hit-rate thin)
+    assert g["window_a_closes_win_rate_bit"] == "WR · 40%"
+    assert g["window_a_closes_win_rate_pct"] == 40.0
+    assert g["window_a_closes_win_rate_thin"] is False
     assert g["tone"] == "warn"
-    assert "PF thin · 0.3×" in g["line"]
+    assert "WR · 40%" in g["line"]
+    assert "PF thin" not in g["line"]  # WR owns the clip; PF in fields
     assert "exp " not in g["line"]
     assert "pay thin" not in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_win_rate_thin() -> None:
+    """PF alone must not hide thin hit rate (total-€ ≠ win%)."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 12,
+        "buys": 8,
+        "sells": 4,
+        "fees": 2.0,
+        "realized_pnl": 40.0,
+        "net_after_all_fees": 38.0,
+        "wins": 1,
+        "losses": 3,
+        "avg_win": 40.0,
+        "avg_loss": 5.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    # payoff 8× strong; PF 40÷15 ≈ 2.7× strong; WR 25% thin
+    assert g["window_a_closes_payoff_bit"] == "pay strong · 8×"
+    assert g["window_a_closes_profit_factor_bit"] == "PF strong · 2.7×"
+    assert g["window_a_closes_profit_factor_thin"] is False
+    assert g["window_a_closes_win_rate_bit"] == "WR thin · 25%"
+    assert g["window_a_closes_win_rate_pct"] == 25.0
+    assert g["window_a_closes_win_rate_severity"] == "thin"
+    assert g["window_a_closes_win_rate_thin"] is True
+    assert g["tone"] == "warn"
+    assert "WR thin · 25%" in g["line"]
+    assert "PF strong" not in g["line"]
+    assert "pay strong" not in g["line"]
+    assert "sample ready" not in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -543,14 +618,18 @@ def test_calm_streak_glance_promote_off_paused_closes_polarity_all_loss() -> Non
     assert g["window_a_closes_payoff_thin"] is False
     assert g["window_a_closes_profit_factor_bit"] == ""
     assert g["window_a_closes_profit_factor_thin"] is False
-    # all-loss → expectancy = −avg_loss (no PF → expectancy owns the clip)
+    # all-loss → expectancy = −avg_loss; WR 0% thin owns the clip
     assert g["window_a_closes_expectancy_bit"] == "exp −€4"
     assert g["window_a_closes_expectancy"] == -4.0
     assert g["window_a_closes_expectancy_neg"] is True
-    assert g["tone"] == "warn"  # all-loss / neg expectancy escalate
+    assert g["window_a_closes_win_rate_bit"] == "WR thin · 0%"
+    assert g["window_a_closes_win_rate_pct"] == 0.0
+    assert g["window_a_closes_win_rate_thin"] is True
+    assert g["tone"] == "warn"  # all-loss / thin WR escalate
     assert "0w/5l" not in g["line"]  # polarity stays in fields
     assert "fees calm" in g["line"]
-    assert "exp −€4" in g["line"]
+    assert "WR thin · 0%" in g["line"]
+    assert "exp −€4" not in g["line"]  # WR owns the clip
     assert "sample ready" not in g["line"]
     assert len(g["line"]) <= 96
 

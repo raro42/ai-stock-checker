@@ -2319,6 +2319,10 @@ def build_calm_streak_glance(
         "window_a_closes_profit_factor": None,
         "window_a_closes_profit_factor_severity": "",
         "window_a_closes_profit_factor_thin": False,
+        "window_a_closes_win_rate_bit": "",
+        "window_a_closes_win_rate_pct": None,
+        "window_a_closes_win_rate_severity": "",
+        "window_a_closes_win_rate_thin": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2362,18 +2366,23 @@ def build_calm_streak_glance(
     window_a_closes_profit_factor: float | None = None
     window_a_closes_profit_factor_severity = ""
     window_a_closes_profit_factor_thin = False
+    window_a_closes_win_rate_bit = ""
+    window_a_closes_win_rate_pct: float | None = None
+    window_a_closes_win_rate_severity = ""
+    window_a_closes_win_rate_thin = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
         # Speak A day + sample status + fee/net + fee-mood + close polarity
-        # + close payoff + close expectancy + close PF + fill/sell meters
-        # beside the pause — calm glance alone hid day floor / thin ledger /
-        # building vs ready / fee-burned edge / mild vs severe drag /
-        # all-win vs all-loss / count lean ≠ € payoff / payoff ≠ €/close /
-        # €/close ≠ total-€ PF (days ≠ fills ≠ fair sample ≠ net edge ≠
-        # severity band ≠ win/lose mix ≠ avg-win÷avg-loss ≠ expectancy ≠ PF).
+        # + close payoff + close expectancy + close PF + close WR +
+        # fill/sell meters beside the pause — calm glance alone hid day
+        # floor / thin ledger / building vs ready / fee-burned edge /
+        # mild vs severe drag / all-win vs all-loss / count lean ≠ €
+        # payoff / payoff ≠ €/close / €/close ≠ total-€ PF / PF ≠ hit
+        # rate (days ≠ fills ≠ fair sample ≠ net edge ≠ severity band ≠
+        # win/lose mix ≠ avg-win÷avg-loss ≠ expectancy ≠ PF ≠ WR%).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -2592,6 +2601,56 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_profit_factor_bit}"
                     )
+                # Close win rate after PF — total-€ ratio ≠ hit rate
+                # (portfolio AI + xang1234). Compact "A win rate …" →
+                # "WR …"; drop PF from the line when WR spoke so the
+                # 96-char clip keeps % (PF stays in fields).
+                raw_wr = str(
+                    sample.get("closes_win_rate_bit") or ""
+                ).strip()
+                if raw_wr:
+                    window_a_closes_win_rate_bit = raw_wr.replace(
+                        "A win rate", "WR", 1
+                    ).strip()
+                    window_a_closes_win_rate_severity = str(
+                        sample.get("closes_win_rate_severity") or ""
+                    )
+                    window_a_closes_win_rate_thin = bool(
+                        sample.get("closes_win_rate_thin")
+                    )
+                    try:
+                        wr = sample.get("closes_win_rate_pct")
+                        window_a_closes_win_rate_pct = (
+                            float(wr) if wr is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_win_rate_pct = None
+                    if window_a_closes_profit_factor_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_profit_factor_bit}", "", 1
+                        )
+                    if window_a_closes_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_expectancy_bit}", "", 1
+                        )
+                    if window_a_closes_payoff_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_payoff_bit}", "", 1
+                        )
+                    if window_a_closes_polarity_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_polarity_bit}", "", 1
+                        )
+                    if window_a_sample_status == "sample ready":
+                        status = status.replace(
+                            " · sample ready", "", 1
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_win_rate_bit}"
+                    )
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -2620,6 +2679,7 @@ def build_calm_streak_glance(
                 # Thin payoff: Nw/Nl alone hid poor avg-win÷avg-loss.
                 # Neg / thin expectancy: payoff alone hid poor €/close.
                 # Thin PF: expectancy alone hid poor gross wins÷losses.
+                # Thin WR: PF alone hid poor hit rate (count lean ≠ %).
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -2633,6 +2693,7 @@ def build_calm_streak_glance(
                     or window_a_closes_expectancy_neg
                     or window_a_closes_expectancy_thin
                     or window_a_closes_profit_factor_thin
+                    or window_a_closes_win_rate_thin
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -2687,6 +2748,10 @@ def build_calm_streak_glance(
         "window_a_closes_profit_factor": window_a_closes_profit_factor,
         "window_a_closes_profit_factor_severity": window_a_closes_profit_factor_severity,
         "window_a_closes_profit_factor_thin": window_a_closes_profit_factor_thin,
+        "window_a_closes_win_rate_bit": window_a_closes_win_rate_bit,
+        "window_a_closes_win_rate_pct": window_a_closes_win_rate_pct,
+        "window_a_closes_win_rate_severity": window_a_closes_win_rate_severity,
+        "window_a_closes_win_rate_thin": window_a_closes_win_rate_thin,
     }
 
 
