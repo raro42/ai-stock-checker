@@ -135,6 +135,10 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_quarter_kelly_slot_pct"] is None
     assert g["window_a_closes_quarter_kelly_vs_slot"] == ""
     assert g["window_a_closes_quarter_kelly_slot_under"] is False
+    assert g["window_a_closes_quarter_kelly_cap_bit"] == ""
+    assert g["window_a_closes_quarter_kelly_cap_pct"] is None
+    assert g["window_a_closes_quarter_kelly_vs_cap"] == ""
+    assert g["window_a_closes_quarter_kelly_cap_under"] is False
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
@@ -343,10 +347,17 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["window_a_closes_quarter_kelly_slot_pct"] == 20.0
     assert g["window_a_closes_quarter_kelly_vs_slot"] == "under"
     assert g["window_a_closes_quarter_kelly_slot_under"] is True
-    assert g["tone"] == "warn"  # under cap / under slot
+    # quarter 10% vs 30% cap → under (slot under ≠ single-name ceiling)
+    assert g["window_a_closes_quarter_kelly_cap_bit"] == (
+        "qtr-K/cap under · 10% vs 30%"
+    )
+    assert g["window_a_closes_quarter_kelly_cap_pct"] == 30.0
+    assert g["window_a_closes_quarter_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_quarter_kelly_cap_under"] is True
+    assert g["tone"] == "warn"  # under half-cap / under slot / under qtr-cap
     # sample ready + payoff + exp + PF + WR% + WR/BE + net + fee take +
-    # net PF + net/fee + Kelly + half-K triad + qtr-K/sizer stay in fields;
-    # qtr-K/slot owns clip
+    # net PF + net/fee + Kelly + half-K triad + qtr-K/sizer·slot stay in
+    # fields; qtr-K/cap owns clip
     assert g["window_a_sample_status"] == "sample ready"
     assert "sample ready" not in g["line"]
     assert "pay strong" not in g["line"]
@@ -367,7 +378,8 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert "half-K/slot match · 20% vs 20%" not in g["line"]  # slot in fields
     assert "half-K/cap under · 20% vs 30%" not in g["line"]  # cap in fields
     assert "qtr-K/sizer match · 10% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 10% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 10% vs 20%" not in g["line"]  # slot in fields
+    assert "qtr-K/cap under · 10% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -518,7 +530,8 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert "half-K/slot under · 5% vs 20%" not in g["line"]  # slot in fields
     assert "half-K/cap under · 5% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · 2.5% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 2.5% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 2.5% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 2.5% vs 30%" in g["line"]
     # Mood + qtr-K before meters.
     mood_pos = g["line"].find("drag mild")
     qtr_pos = g["line"].find("qtr-K")
@@ -625,7 +638,13 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     )
     assert g["window_a_closes_half_kelly_vs_cap"] == "match"
     assert g["window_a_closes_half_kelly_cap_under"] is False
-    assert g["tone"] == "paused"
+    # quarter 16.7% vs 30% cap → under (slot match ≠ single-name ceiling)
+    assert g["window_a_closes_quarter_kelly_cap_bit"] == (
+        "qtr-K/cap under · 16.7% vs 30%"
+    )
+    assert g["window_a_closes_quarter_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_quarter_kelly_cap_under"] is True
+    assert g["tone"] == "warn"  # qtr-K/cap under
     assert "fees calm" in g["line"]
     assert "4w/1l" not in g["line"]  # polarity stays in fields
     assert "pay · 1.5×" not in g["line"]
@@ -642,7 +661,8 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert "half-K/slot over · 33.4% vs 20%" not in g["line"]
     assert "half-K/cap match · 33.4% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer over · 16.7% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot match · 16.7% vs 20%" in g["line"]
+    assert "qtr-K/slot match · 16.7% vs 20%" not in g["line"]  # slot in fields
+    assert "qtr-K/cap under · 16.7% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -738,7 +758,8 @@ def test_calm_streak_glance_promote_off_paused_closes_payoff_thin() -> None:
     assert "half-K/slot under · 12.5% vs 20%" not in g["line"]
     assert "half-K/cap under · 12.5% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer match · 6.2% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 6.2% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 6.2% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 6.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -821,7 +842,8 @@ def test_calm_streak_glance_promote_off_paused_closes_expectancy_neg() -> None:
     assert "half-K/slot under · −70% vs 20%" not in g["line"]
     assert "half-K/cap under · −70% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · −35% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · −35% vs 20%" in g["line"]
+    assert "qtr-K/slot under · −35% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · −35% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -899,7 +921,8 @@ def test_calm_streak_glance_promote_off_paused_closes_profit_factor_thin() -> No
     assert "half-K/slot under · −55% vs 20%" not in g["line"]
     assert "half-K/cap under · −55% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · −27.5% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · −27.5% vs 20%" in g["line"]
+    assert "qtr-K/slot under · −27.5% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · −27.5% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -978,7 +1001,8 @@ def test_calm_streak_glance_promote_off_paused_closes_win_rate_thin() -> None:
     assert "half-K/slot under · 7.8% vs 20%" not in g["line"]
     assert "half-K/cap under · 7.8% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · 3.9% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 3.9% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 3.9% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 3.9% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1050,7 +1074,8 @@ def test_calm_streak_glance_promote_off_paused_closes_wr_below_be() -> None:
     assert "half-K/slot under · −70% vs 20%" not in g["line"]
     assert "half-K/cap under · −70% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · −35% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · −35% vs 20%" in g["line"]
+    assert "qtr-K/slot under · −35% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · −35% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1192,7 +1217,8 @@ def test_calm_streak_glance_promote_off_paused_closes_fee_take_thin() -> None:
     assert "half-K/slot over · 31.2% vs 20%" not in g["line"]
     assert "half-K/cap match · 31.2% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer over · 15.6% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot match · 15.6% vs 20%" in g["line"]
+    assert "qtr-K/slot match · 15.6% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 15.6% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1240,7 +1266,8 @@ def test_calm_streak_glance_promote_off_paused_closes_net_vs_fee_thin() -> None:
     assert "half-K/slot over · 31.2% vs 20%" not in g["line"]
     assert "half-K/cap match · 31.2% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer over · 15.6% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot match · 15.6% vs 20%" in g["line"]
+    assert "qtr-K/slot match · 15.6% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 15.6% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1292,7 +1319,8 @@ def test_calm_streak_glance_promote_off_paused_closes_net_pf_eats_edge() -> None
     assert "half-K/slot over · 31.2% vs 20%" not in g["line"]
     assert "half-K/cap match · 31.2% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer over · 15.6% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot match · 15.6% vs 20%" in g["line"]
+    assert "qtr-K/slot match · 15.6% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 15.6% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1355,7 +1383,8 @@ def test_calm_streak_glance_promote_off_paused_closes_kelly_thin() -> None:
     assert "half-K/slot under · 2.2% vs 20%" not in g["line"]
     assert "half-K/cap under · 2.2% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · 1.1% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 1.1% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 1.1% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 1.1% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1406,7 +1435,8 @@ def test_calm_streak_glance_promote_off_paused_closes_half_kelly_under() -> None
     assert "half-K/slot under · 2.2% vs 20%" not in g["line"]
     assert "half-K/cap under · 2.2% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer under · 1.1% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 1.1% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 1.1% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 1.1% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1458,7 +1488,8 @@ def test_calm_streak_glance_promote_off_paused_closes_half_kelly_slot_under() ->
     assert "half-K/slot under · 12.5% vs 20%" not in g["line"]
     assert "half-K/cap under · 12.5% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer match · 6.2% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 6.2% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 6.2% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 6.2% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -1505,11 +1536,56 @@ def test_calm_streak_glance_promote_off_paused_closes_half_kelly_cap_under() -> 
     assert g["window_a_closes_quarter_kelly_slot_bit"] == (
         "qtr-K/slot under · 10% vs 20%"
     )
+    assert g["window_a_closes_quarter_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_quarter_kelly_cap_under"] is True
+    assert g["window_a_closes_quarter_kelly_cap_bit"] == (
+        "qtr-K/cap under · 10% vs 30%"
+    )
     assert g["tone"] == "warn"
     assert "half-K/slot match · 20% vs 20%" not in g["line"]
     assert "half-K/cap under · 20% vs 30%" not in g["line"]  # cap stays in fields
     assert "qtr-K/sizer match · 10% vs 10%" not in g["line"]  # sizer in fields
-    assert "qtr-K/slot under · 10% vs 20%" in g["line"]
+    assert "qtr-K/slot under · 10% vs 20%" not in g["line"]  # slot in fields
+    assert "qtr-K/cap under · 10% vs 30%" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_quarter_kelly_cap_under() -> None:
+    """Quarter-Kelly under name cap → warn on calm glance; slot stays in fields."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 12,
+        "buys": 7,
+        "sells": 5,
+        "fees": 4.0,
+        "realized_pnl": 16.0,
+        "net_after_all_fees": 12.0,
+        "wins": 3,
+        "losses": 2,
+        "avg_win": 8.0,
+        "avg_loss": 4.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_closes_quarter_kelly_pct"] == 10.0
+    assert g["window_a_closes_quarter_kelly_vs_slot"] == "under"
+    assert g["window_a_closes_quarter_kelly_slot_under"] is True
+    assert g["window_a_closes_quarter_kelly_vs_cap"] == "under"
+    assert g["window_a_closes_quarter_kelly_cap_under"] is True
+    assert g["window_a_closes_quarter_kelly_cap_bit"] == (
+        "qtr-K/cap under · 10% vs 30%"
+    )
+    assert g["tone"] == "warn"
+    assert "qtr-K/slot under · 10% vs 20%" not in g["line"]
+    assert "qtr-K/cap under · 10% vs 30%" in g["line"]
     assert len(g["line"]) <= 96
 
 
