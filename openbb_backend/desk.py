@@ -2282,18 +2282,21 @@ def build_calm_streak_glance(
     totals) + net profit factor ((gross wins − fees) ÷ gross losses;
     gross PF ≠ fee-adjusted PF; fees eat PF) + net/fee multiple (net ÷
     fee take; fee take € alone ≠ remaining edge multiples) + full Kelly
-    (f*=p−(1−p)/R from WR+payoff; WR vs BE ≠ size fraction) + meters so
+    (f*=p−(1−p)/R from WR+payoff; WR vs BE ≠ size fraction) + half-Kelly
+    vs cash sizer (½·f* vs ~10% entry cash; under|match|over ±5pp; full
+    Kelly ≠ the cash slice the desk buys) + meters so
     pause/meters/€/mood/Nw/Nl/pay/exp/PF/WR/WR−BE/net/fee-take/net-PF/
-    net/fee alone do not hide control-window progress, building vs ready,
-    fee-burned edge, mild vs severe drag, all-win vs all-loss, thin €
-    payoff, thin/neg €/close, thin PF, thin WR, WR below / thin cushion
-    vs breakeven, fee-eaten net €/close, thin fee take vs gross,
-    thin/fees-eat net PF, thin net/fee, or thin/neg Kelly (portfolio AI +
-    xang1234 severity). Day floor met + thin sample, fee drag / fees thin,
-    all-loss / loss-lean, thin payoff, neg/thin expectancy, thin PF, thin
-    WR, WR below BE, thin WR-vs-BE cushion, net expect neg/thin/fees-eat,
-    fee take thin, net PF thin/fees-eat, net/fee thin, or Kelly thin/neg
-    escalate tone to ``warn``. Not an entry gate.
+    net/fee/Kelly alone do not hide control-window progress, building vs
+    ready, fee-burned edge, mild vs severe drag, all-win vs all-loss,
+    thin € payoff, thin/neg €/close, thin PF, thin WR, WR below / thin
+    cushion vs breakeven, fee-eaten net €/close, thin fee take vs gross,
+    thin/fees-eat net PF, thin net/fee, thin/neg Kelly, or half-Kelly
+    under sizer (portfolio AI + tradermonty sizer + xang1234 severity).
+    Day floor met + thin sample, fee drag / fees thin, all-loss /
+    loss-lean, thin payoff, neg/thin expectancy, thin PF, thin WR, WR
+    below BE, thin WR-vs-BE cushion, net expect neg/thin/fees-eat, fee
+    take thin, net PF thin/fees-eat, net/fee thin, Kelly thin/neg, or
+    half-Kelly under escalate tone to ``warn``. Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2371,6 +2374,11 @@ def build_calm_streak_glance(
         "window_a_closes_kelly_severity": "",
         "window_a_closes_kelly_thin": False,
         "window_a_closes_kelly_neg": False,
+        "window_a_closes_half_kelly_bit": "",
+        "window_a_closes_half_kelly_pct": None,
+        "window_a_closes_half_kelly_sizer_pct": None,
+        "window_a_closes_half_kelly_vs": "",
+        "window_a_closes_half_kelly_under": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2451,6 +2459,11 @@ def build_calm_streak_glance(
     window_a_closes_kelly_severity = ""
     window_a_closes_kelly_thin = False
     window_a_closes_kelly_neg = False
+    window_a_closes_half_kelly_bit = ""
+    window_a_closes_half_kelly_pct: float | None = None
+    window_a_closes_half_kelly_sizer_pct: float | None = None
+    window_a_closes_half_kelly_vs = ""
+    window_a_closes_half_kelly_under = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
@@ -2459,16 +2472,18 @@ def build_calm_streak_glance(
         # Speak A day + sample status + fee/net + fee-mood + close polarity
         # + close payoff + close expectancy + close PF + close WR +
         # WR vs BE + net expectancy + fee take + net PF + net/fee +
-        # Kelly + fill/sell meters beside the pause — calm glance alone
-        # hid day floor / thin ledger / building vs ready / fee-burned
-        # edge / mild vs severe drag / all-win vs all-loss / count lean ≠
-        # € payoff / payoff ≠ €/close / €/close ≠ total-€ PF / PF ≠ hit
-        # rate / hit rate ≠ cushion vs breakeven / gross €/close ≠
-        # fee-adjusted net €/close / net ≠ fee take €/close / fee take ≠
-        # fee-adjusted PF / net PF ≠ net÷fee-take multiples / WR−BE ≠
-        # size fraction (days ≠ fills ≠ fair sample ≠ net edge ≠ severity
-        # band ≠ win/lose mix ≠ avg-win÷avg-loss ≠ expectancy ≠ PF ≠ WR%
-        # ≠ WR−BE ≠ net expect ≠ fee take ≠ net PF ≠ net/fee ≠ Kelly).
+        # Kelly + half-Kelly vs sizer + fill/sell meters beside the
+        # pause — calm glance alone hid day floor / thin ledger /
+        # building vs ready / fee-burned edge / mild vs severe drag /
+        # all-win vs all-loss / count lean ≠ € payoff / payoff ≠ €/close /
+        # €/close ≠ total-€ PF / PF ≠ hit rate / hit rate ≠ cushion vs
+        # breakeven / gross €/close ≠ fee-adjusted net €/close / net ≠
+        # fee take €/close / fee take ≠ fee-adjusted PF / net PF ≠
+        # net÷fee-take multiples / WR−BE ≠ size fraction / full Kelly ≠
+        # cash sizer slice (days ≠ fills ≠ fair sample ≠ net edge ≠
+        # severity band ≠ win/lose mix ≠ avg-win÷avg-loss ≠ expectancy ≠
+        # PF ≠ WR% ≠ WR−BE ≠ net expect ≠ fee take ≠ net PF ≠ net/fee ≠
+        # Kelly ≠ half-Kelly vs sizer).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -3243,6 +3258,108 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_kelly_bit}"
                     )
+                # Half-Kelly vs cash sizer after full Kelly — f* alone ≠
+                # the ~10% entry cash slice (portfolio AI + tradermonty
+                # sizer + xang1234). Compact "A half-Kelly vs sizer …" →
+                # "half-K/sizer …"; drop Kelly + compact € from the line
+                # when half spoke so the 96-char clip keeps the
+                # relationship (Kelly + fee € stay in fields; mood stays).
+                # Under warns only. Silent without Kelly.
+                raw_half = str(
+                    sample.get("closes_half_kelly_bit") or ""
+                ).strip()
+                if raw_half:
+                    window_a_closes_half_kelly_bit = raw_half.replace(
+                        "A half-Kelly vs sizer", "half-K/sizer", 1
+                    ).strip()
+                    window_a_closes_half_kelly_vs = str(
+                        sample.get("closes_half_kelly_vs") or ""
+                    )
+                    window_a_closes_half_kelly_under = bool(
+                        sample.get("closes_half_kelly_under")
+                    )
+                    try:
+                        hp = sample.get("closes_half_kelly_pct")
+                        window_a_closes_half_kelly_pct = (
+                            float(hp) if hp is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_half_kelly_pct = None
+                    try:
+                        sp = sample.get("closes_half_kelly_sizer_pct")
+                        window_a_closes_half_kelly_sizer_pct = (
+                            float(sp) if sp is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_half_kelly_sizer_pct = None
+                    if window_a_closes_kelly_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_bit}", "", 1
+                        )
+                    if window_a_closes_net_vs_fee_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_vs_fee_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_net_profit_factor_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_profit_factor_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_fee_take_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_fee_take_bit}", "", 1
+                        )
+                    if window_a_closes_net_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_expectancy_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_wr_vs_be_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_wr_vs_be_bit}", "", 1
+                        )
+                    if window_a_closes_win_rate_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_win_rate_bit}", "", 1
+                        )
+                    if window_a_closes_profit_factor_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_profit_factor_bit}", "", 1
+                        )
+                    if window_a_closes_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_expectancy_bit}", "", 1
+                        )
+                    if window_a_closes_payoff_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_payoff_bit}", "", 1
+                        )
+                    if window_a_closes_polarity_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_polarity_bit}", "", 1
+                        )
+                    if window_a_sample_status == "sample ready":
+                        status = status.replace(
+                            " · sample ready", "", 1
+                        )
+                    if window_a_fee_net_bit:
+                        compact_fee = (
+                            window_a_fee_net_bit.replace(" fees", "")
+                            .replace(" net", "")
+                        )
+                        status = status.replace(
+                            f" · {compact_fee}", "", 1
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_half_kelly_bit}"
+                    )
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -3279,6 +3396,8 @@ def build_calm_streak_glance(
                 # Thin net/fee: net PF alone hid that remaining edge < 1× fee take.
                 # Thin / neg Kelly: net/fee alone hid that WR+payoff size fraction
                 # is thin or negative (WR vs BE ≠ Kelly).
+                # Half-Kelly under sizer: full Kelly alone hid that ½·f* sits
+                # below the ~10% cash slice the desk buys.
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -3304,6 +3423,7 @@ def build_calm_streak_glance(
                     or window_a_closes_net_vs_fee_thin
                     or window_a_closes_kelly_thin
                     or window_a_closes_kelly_neg
+                    or window_a_closes_half_kelly_under
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -3419,6 +3539,13 @@ def build_calm_streak_glance(
         "window_a_closes_kelly_severity": window_a_closes_kelly_severity,
         "window_a_closes_kelly_thin": window_a_closes_kelly_thin,
         "window_a_closes_kelly_neg": window_a_closes_kelly_neg,
+        "window_a_closes_half_kelly_bit": window_a_closes_half_kelly_bit,
+        "window_a_closes_half_kelly_pct": window_a_closes_half_kelly_pct,
+        "window_a_closes_half_kelly_sizer_pct": (
+            window_a_closes_half_kelly_sizer_pct
+        ),
+        "window_a_closes_half_kelly_vs": window_a_closes_half_kelly_vs,
+        "window_a_closes_half_kelly_under": window_a_closes_half_kelly_under,
     }
 
 
