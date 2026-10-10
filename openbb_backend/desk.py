@@ -2392,6 +2392,10 @@ def build_calm_streak_glance(
         "window_a_closes_quarter_kelly_sizer_pct": None,
         "window_a_closes_quarter_kelly_vs": "",
         "window_a_closes_quarter_kelly_under": False,
+        "window_a_closes_quarter_kelly_slot_bit": "",
+        "window_a_closes_quarter_kelly_slot_pct": None,
+        "window_a_closes_quarter_kelly_vs_slot": "",
+        "window_a_closes_quarter_kelly_slot_under": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2490,6 +2494,10 @@ def build_calm_streak_glance(
     window_a_closes_quarter_kelly_sizer_pct: float | None = None
     window_a_closes_quarter_kelly_vs = ""
     window_a_closes_quarter_kelly_under = False
+    window_a_closes_quarter_kelly_slot_bit = ""
+    window_a_closes_quarter_kelly_slot_pct: float | None = None
+    window_a_closes_quarter_kelly_vs_slot = ""
+    window_a_closes_quarter_kelly_slot_under = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
@@ -3711,6 +3719,124 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_quarter_kelly_bit}"
                     )
+                # Quarter-Kelly vs equal-slot after vs sizer — cash slice ≠
+                # equal book weight (portfolio AI + xang1234). Compact
+                # "A quarter-Kelly vs slot …" → "qtr-K/slot …"; drop
+                # qtr-K/sizer from the line when slot spoke so the
+                # 96-char clip keeps the relationship (sizer stays in
+                # fields). Under warns only. Silent without quarter-Kelly.
+                raw_qtr_slot = str(
+                    sample.get("closes_quarter_kelly_slot_bit") or ""
+                ).strip()
+                if raw_qtr_slot:
+                    window_a_closes_quarter_kelly_slot_bit = (
+                        raw_qtr_slot.replace(
+                            "A quarter-Kelly vs slot", "qtr-K/slot", 1
+                        ).strip()
+                    )
+                    window_a_closes_quarter_kelly_vs_slot = str(
+                        sample.get("closes_quarter_kelly_vs_slot") or ""
+                    )
+                    window_a_closes_quarter_kelly_slot_under = bool(
+                        sample.get("closes_quarter_kelly_slot_under")
+                    )
+                    try:
+                        qslp = sample.get("closes_quarter_kelly_slot_pct")
+                        window_a_closes_quarter_kelly_slot_pct = (
+                            float(qslp) if qslp is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_quarter_kelly_slot_pct = None
+                    if window_a_closes_quarter_kelly_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_quarter_kelly_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_half_kelly_cap_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_half_kelly_cap_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_half_kelly_slot_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_half_kelly_slot_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_half_kelly_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_half_kelly_bit}", "", 1
+                        )
+                    if window_a_closes_kelly_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_bit}", "", 1
+                        )
+                    if window_a_closes_net_vs_fee_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_vs_fee_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_net_profit_factor_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_profit_factor_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_fee_take_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_fee_take_bit}", "", 1
+                        )
+                    if window_a_closes_net_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_net_expectancy_bit}",
+                            "",
+                            1,
+                        )
+                    if window_a_closes_wr_vs_be_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_wr_vs_be_bit}", "", 1
+                        )
+                    if window_a_closes_win_rate_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_win_rate_bit}", "", 1
+                        )
+                    if window_a_closes_profit_factor_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_profit_factor_bit}", "", 1
+                        )
+                    if window_a_closes_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_expectancy_bit}", "", 1
+                        )
+                    if window_a_closes_payoff_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_payoff_bit}", "", 1
+                        )
+                    if window_a_closes_polarity_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_polarity_bit}", "", 1
+                        )
+                    if window_a_sample_status == "sample ready":
+                        status = status.replace(
+                            " · sample ready", "", 1
+                        )
+                    if window_a_fee_net_bit:
+                        compact_fee = (
+                            window_a_fee_net_bit.replace(" fees", "")
+                            .replace(" net", "")
+                        )
+                        status = status.replace(
+                            f" · {compact_fee}", "", 1
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_quarter_kelly_slot_bit}"
+                    )
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -3756,6 +3882,8 @@ def build_calm_streak_glance(
                 # Quarter-Kelly under sizer: half alone hid that ¼·f* sits
                 # below the ~10% cash slice (half often matches/over when
                 # quarter is thin).
+                # Quarter-Kelly under slot: sizer alone hid that ¼·f* sits
+                # below equal book weight (100/max_positions).
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -3785,6 +3913,7 @@ def build_calm_streak_glance(
                     or window_a_closes_half_kelly_slot_under
                     or window_a_closes_half_kelly_cap_under
                     or window_a_closes_quarter_kelly_under
+                    or window_a_closes_quarter_kelly_slot_under
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -3945,6 +4074,18 @@ def build_calm_streak_glance(
         ),
         "window_a_closes_quarter_kelly_under": (
             window_a_closes_quarter_kelly_under
+        ),
+        "window_a_closes_quarter_kelly_slot_bit": (
+            window_a_closes_quarter_kelly_slot_bit
+        ),
+        "window_a_closes_quarter_kelly_slot_pct": (
+            window_a_closes_quarter_kelly_slot_pct
+        ),
+        "window_a_closes_quarter_kelly_vs_slot": (
+            window_a_closes_quarter_kelly_vs_slot
+        ),
+        "window_a_closes_quarter_kelly_slot_under": (
+            window_a_closes_quarter_kelly_slot_under
         ),
     }
 
