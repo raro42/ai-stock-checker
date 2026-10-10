@@ -2240,13 +2240,30 @@ def build_entry_gates_glance(
     }
 
 
+def _calm_detail_is_promote_off_pause(detail: str) -> bool:
+    """True when calm streak is intentionally paused (Window A / promote off).
+
+    ``0/30 · streak not started`` alone looks like a book failure; promote-off
+    during Window A is protocol (portfolio AI speak-both-sides + Phase A
+    honesty). Matches ``paper_calm.evaluate_calm_day`` wording.
+    """
+    d = str(detail or "").strip().casefold()
+    if not d:
+        return False
+    return "promote filter off" in d or (
+        "streak paused" in d and "promote" in d
+    )
+
+
 def build_calm_streak_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Compact paper-calm promote-unlock line (Phase A / portfolio AI; display only).
 
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
-    default — not live edge. Not an entry gate.
+    default — not live edge. When promote is off (Window A), speak
+    ``promote off · streak paused`` — intentional pause ≠ overweight/fee block.
+    Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2255,6 +2272,7 @@ def build_calm_streak_glance(
         "streak": 0,
         "required": 0,
         "calm_ready": False,
+        "promote_off_paused": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2264,9 +2282,16 @@ def build_calm_streak_glance(
     need = max(1, int(runtime.get("calm_required_days") or 30))
     calm_ready = bool(runtime.get("calm_ready"))
     detail = str(runtime.get("calm_detail") or "").strip()
+    promote_off_paused = (not calm_ready) and _calm_detail_is_promote_off_pause(
+        detail
+    )
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
+    elif promote_off_paused:
+        # Window A: streak cannot grow until promote flips for Window B.
+        tone = "paused"
+        status = "promote off · streak paused"
     elif streak <= 0:
         tone = "blocked"
         status = "streak not started"
@@ -2274,7 +2299,8 @@ def build_calm_streak_glance(
         tone = "progress"
         status = "building"
     line = f"{streak}/{need} calm days · {status}"
-    if detail and not calm_ready:
+    # Promote-off pause already names the why; do not repeat the long detail.
+    if detail and not calm_ready and not promote_off_paused:
         short = detail if len(detail) <= 48 else (detail[:47] + "…")
         line = f"{line} · {short}"
     if len(line) > 96:
@@ -2286,6 +2312,7 @@ def build_calm_streak_glance(
         "streak": streak,
         "required": need,
         "calm_ready": calm_ready,
+        "promote_off_paused": promote_off_paused,
     }
 
 

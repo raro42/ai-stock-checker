@@ -831,6 +831,11 @@ a:active {
   color: var(--muted);
 }
 
+.calm-streak-glance-tone.paused {
+  /* Window A / promote-off — intentional, not a book failure. */
+  color: var(--accent);
+}
+
 .calm-streak-glance-tone.flat {
   color: var(--muted);
 }
