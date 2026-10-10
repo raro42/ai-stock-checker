@@ -2267,15 +2267,18 @@ def build_calm_streak_glance(
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
     default — not live edge. When promote is off (Window A), speak
     ``promote off · streak paused · A Nd/Td · building sample|… · drag severe|
-    fees comfortable · €N · ±€N · Nw/Nl · pay thin|strong · N× · N/M fills ·
-    N/M sells`` — intentional pause ≠ overweight/fee block; Window A day +
-    sample status + fee-adjusted net + fee-mood severity + close polarity +
-    close payoff (avg win÷loss; count lean ≠ € lean) + meters so
-    pause/meters/€/mood/Nw/Nl alone do not hide control-window progress,
-    building vs ready, fee-burned edge, mild vs severe drag, all-win vs
-    all-loss, or thin € payoff despite win lean (portfolio AI + xang1234
-    severity). Day floor met + thin sample, fee drag / fees thin, all-loss /
-    loss-lean, or thin payoff escalate tone to ``warn``. Not an entry gate.
+    fees comfortable · €N · ±€N · Nw/Nl · pay thin|strong · N× · exp … ·
+    PF thin|strong · N× · N/M fills · N/M sells`` — intentional pause ≠
+    overweight/fee block; Window A day + sample status + fee-adjusted net +
+    fee-mood severity + close polarity + close payoff (avg win÷loss) +
+    close expectancy (€/close) + close profit factor (gross wins÷losses;
+    avg ratio ≠ total €) + meters so pause/meters/€/mood/Nw/Nl/pay/exp alone
+    do not hide control-window progress, building vs ready, fee-burned edge,
+    mild vs severe drag, all-win vs all-loss, thin € payoff, thin/neg €/close,
+    or thin PF despite strong expectancy (portfolio AI + xang1234 severity).
+    Day floor met + thin sample, fee drag / fees thin, all-loss / loss-lean,
+    thin payoff, neg/thin expectancy, or thin PF escalate tone to ``warn``.
+    Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2312,6 +2315,10 @@ def build_calm_streak_glance(
         "window_a_closes_expectancy_severity": "",
         "window_a_closes_expectancy_thin": False,
         "window_a_closes_expectancy_ratio": None,
+        "window_a_closes_profit_factor_bit": "",
+        "window_a_closes_profit_factor": None,
+        "window_a_closes_profit_factor_severity": "",
+        "window_a_closes_profit_factor_thin": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2351,18 +2358,22 @@ def build_calm_streak_glance(
     window_a_closes_expectancy_severity = ""
     window_a_closes_expectancy_thin = False
     window_a_closes_expectancy_ratio: float | None = None
+    window_a_closes_profit_factor_bit = ""
+    window_a_closes_profit_factor: float | None = None
+    window_a_closes_profit_factor_severity = ""
+    window_a_closes_profit_factor_thin = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
         # Speak A day + sample status + fee/net + fee-mood + close polarity
-        # + close payoff + close expectancy + fill/sell meters beside the
-        # pause — calm glance alone hid day floor / thin ledger / building
-        # vs ready / fee-burned edge / mild vs severe drag / all-win vs
-        # all-loss / count lean ≠ € payoff / payoff ratio ≠ €/close
-        # (days ≠ fills ≠ fair sample ≠ net edge ≠ severity band ≠
-        # win/lose mix ≠ avg-win÷avg-loss ≠ expectancy).
+        # + close payoff + close expectancy + close PF + fill/sell meters
+        # beside the pause — calm glance alone hid day floor / thin ledger /
+        # building vs ready / fee-burned edge / mild vs severe drag /
+        # all-win vs all-loss / count lean ≠ € payoff / payoff ≠ €/close /
+        # €/close ≠ total-€ PF (days ≠ fills ≠ fair sample ≠ net edge ≠
+        # severity band ≠ win/lose mix ≠ avg-win÷avg-loss ≠ expectancy ≠ PF).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -2535,6 +2546,52 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_expectancy_bit}"
                     )
+                # Close profit factor after expectancy — €/close ≠ total €
+                # (portfolio AI + xang1234). Compact "A PF …" → "PF …"; drop
+                # expectancy from the line when PF spoke so the 96-char clip
+                # keeps the ratio (expectancy stays in fields).
+                raw_pf = str(
+                    sample.get("closes_profit_factor_bit") or ""
+                ).strip()
+                if raw_pf:
+                    window_a_closes_profit_factor_bit = raw_pf.replace(
+                        "A PF", "PF", 1
+                    ).strip()
+                    window_a_closes_profit_factor_severity = str(
+                        sample.get("closes_profit_factor_severity") or ""
+                    )
+                    window_a_closes_profit_factor_thin = bool(
+                        sample.get("closes_profit_factor_thin")
+                    )
+                    try:
+                        pf = sample.get("closes_profit_factor")
+                        window_a_closes_profit_factor = (
+                            float(pf) if pf is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_profit_factor = None
+                    if window_a_closes_expectancy_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_expectancy_bit}", "", 1
+                        )
+                    if window_a_closes_payoff_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_payoff_bit}", "", 1
+                        )
+                    if window_a_closes_polarity_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_polarity_bit}", "", 1
+                        )
+                    if window_a_sample_status == "sample ready":
+                        status = status.replace(
+                            " · sample ready", "", 1
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_profit_factor_bit}"
+                    )
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -2562,6 +2619,7 @@ def build_calm_streak_glance(
                 # All-loss / loss-lean: fee mood alone hid a red control book.
                 # Thin payoff: Nw/Nl alone hid poor avg-win÷avg-loss.
                 # Neg / thin expectancy: payoff alone hid poor €/close.
+                # Thin PF: expectancy alone hid poor gross wins÷losses.
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -2574,6 +2632,7 @@ def build_calm_streak_glance(
                     or window_a_closes_payoff_thin
                     or window_a_closes_expectancy_neg
                     or window_a_closes_expectancy_thin
+                    or window_a_closes_profit_factor_thin
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -2624,6 +2683,10 @@ def build_calm_streak_glance(
         "window_a_closes_expectancy_severity": window_a_closes_expectancy_severity,
         "window_a_closes_expectancy_thin": window_a_closes_expectancy_thin,
         "window_a_closes_expectancy_ratio": window_a_closes_expectancy_ratio,
+        "window_a_closes_profit_factor_bit": window_a_closes_profit_factor_bit,
+        "window_a_closes_profit_factor": window_a_closes_profit_factor,
+        "window_a_closes_profit_factor_severity": window_a_closes_profit_factor_severity,
+        "window_a_closes_profit_factor_thin": window_a_closes_profit_factor_thin,
     }
 
 
