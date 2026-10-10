@@ -6739,6 +6739,28 @@ def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
     return bit
 
 
+def format_window_a_sample_status_bit(sample: dict[str, Any] | None) -> str:
+    """Compact sample readiness verb (meters alone hide building vs ready).
+
+    Matches promote A/B glance verbs: ``building sample`` / ``building closes``
+    / ``open-only`` / ``stale closes`` / ``sample ready``. Unknown → empty.
+    Portfolio AI speak-both-sides + xang1234 multi-meter. Display only; not a gate.
+    """
+    if not isinstance(sample, dict) or not sample.get("known"):
+        return ""
+    if sample.get("thin"):
+        return "building sample"
+    if sample.get("open_only"):
+        return "open-only"
+    if sample.get("thin_closes"):
+        return "building closes"
+    if sample.get("stale_closes"):
+        return "stale closes"
+    if sample.get("ready"):
+        return "sample ready"
+    return ""
+
+
 def weekday_trading_days(start: date, end: date) -> int:
     """Count Mon–Fri calendar days from start through end (inclusive)."""
     if end < start:

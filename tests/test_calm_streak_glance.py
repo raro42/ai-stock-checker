@@ -128,9 +128,74 @@ def test_calm_streak_glance_promote_off_paused_sample_meter() -> None:
     assert g["window_a_target_fills"] == WINDOW_A_TARGET_FILLS
     assert g["window_a_sells"] == 1
     assert g["window_a_target_sells"] == WINDOW_A_TARGET_SELLS
+    assert g["window_a_sample_status"] == "building sample"
+    assert g["tone"] == "warn"  # day floor met + thin sample
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
+    assert "building sample" in g["line"]
     assert f"4/{WINDOW_A_TARGET_FILLS} fills" in g["line"]
-    assert f"1/{WINDOW_A_TARGET_SELLS} sells" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
+    """Fill/sell meters alone must not hide that the sample floors are met."""
+    as_of = date(2026, 8, 18)  # days still short
+    a_days = weekday_trading_days(date(2026, 8, 12), as_of)
+    assert a_days < WINDOW_A_TARGET_TRADING_DAYS
+    stats = {
+        "trades": 12,
+        "buys": 7,
+        "sells": 5,
+        "fees": 8.0,
+        "realized_pnl": 20.0,
+        "net_after_all_fees": 12.0,
+        "wins": 3,
+        "losses": 2,
+        "avg_win": 8.0,
+        "avg_loss": 4.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["promote_off_paused"] is True
+    assert g["window_a_sample_status"] == "sample ready"
+    assert g["tone"] == "paused"  # days short — not warn
+    assert "sample ready" in g["line"]
+    assert f"12/{WINDOW_A_TARGET_FILLS} fills" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_building_closes() -> None:
+    """Fills ok but sparse sells → building closes (not bare meters)."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 12,
+        "buys": 11,
+        "sells": 1,
+        "fees": 8.0,
+        "realized_pnl": 2.0,
+        "net_after_all_fees": -6.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_sample_status"] == "building closes"
+    assert g["tone"] == "paused"
+    assert "building closes" in g["line"]
+    assert f"12/{WINDOW_A_TARGET_FILLS} fills" in g["line"]
     assert len(g["line"]) <= 96
 
 
