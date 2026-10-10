@@ -2267,14 +2267,15 @@ def build_calm_streak_glance(
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
     default — not live edge. When promote is off (Window A), speak
     ``promote off · streak paused · A Nd/Td · building sample|… · drag severe|
-    fees comfortable · €N · ±€N · Nw/Nl · N/M fills · N/M sells`` —
-    intentional pause ≠ overweight/fee block; Window A day + sample status +
-    fee-adjusted net + fee-mood severity + close polarity + meters so
-    pause/meters/€/mood alone do not hide control-window progress, building
-    vs ready, fee-burned edge, mild vs severe drag, or all-win vs all-loss
-    closes (portfolio AI Win·Lose + xang1234 severity bands). Day floor met
-    + thin sample, fee drag / fees thin, or all-loss / loss-lean closes
-    escalate tone to ``warn``. Not an entry gate.
+    fees comfortable · €N · ±€N · Nw/Nl · pay thin|strong · N× · N/M fills ·
+    N/M sells`` — intentional pause ≠ overweight/fee block; Window A day +
+    sample status + fee-adjusted net + fee-mood severity + close polarity +
+    close payoff (avg win÷loss; count lean ≠ € lean) + meters so
+    pause/meters/€/mood/Nw/Nl alone do not hide control-window progress,
+    building vs ready, fee-burned edge, mild vs severe drag, all-win vs
+    all-loss, or thin € payoff despite win lean (portfolio AI + xang1234
+    severity). Day floor met + thin sample, fee drag / fees thin, all-loss /
+    loss-lean, or thin payoff escalate tone to ``warn``. Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2301,6 +2302,10 @@ def build_calm_streak_glance(
         "window_a_closes_polarity": "",
         "window_a_closes_all_loss": False,
         "window_a_closes_loss_lean": False,
+        "window_a_closes_payoff_bit": "",
+        "window_a_closes_payoff_severity": "",
+        "window_a_closes_payoff_thin": False,
+        "window_a_closes_payoff_ratio": None,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2330,16 +2335,21 @@ def build_calm_streak_glance(
     window_a_closes_polarity = ""
     window_a_closes_all_loss = False
     window_a_closes_loss_lean = False
+    window_a_closes_payoff_bit = ""
+    window_a_closes_payoff_severity = ""
+    window_a_closes_payoff_thin = False
+    window_a_closes_payoff_ratio: float | None = None
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
         # Speak A day + sample status + fee/net + fee-mood + close polarity
-        # + fill/sell meters beside the pause — calm glance alone hid day
-        # floor / thin ledger / building vs ready / fee-burned edge / mild
-        # vs severe drag / all-win vs all-loss (days ≠ fills ≠ fair sample
-        # ≠ net edge ≠ severity band ≠ win/lose mix).
+        # + close payoff + fill/sell meters beside the pause — calm glance
+        # alone hid day floor / thin ledger / building vs ready /
+        # fee-burned edge / mild vs severe drag / all-win vs all-loss /
+        # count lean ≠ € payoff (days ≠ fills ≠ fair sample ≠ net edge ≠
+        # severity band ≠ win/lose mix ≠ avg-win÷avg-loss).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -2427,6 +2437,37 @@ def build_calm_streak_glance(
                             "streak paused", "paused", 1
                         )
                         status = f"{status} · {window_a_closes_polarity_bit}"
+                # Close payoff after Nw/Nl — count lean ≠ € lean (portfolio
+                # AI + xang1234). Compact "A payoff …" → "pay …"; drop
+                # "sample ready" from the line when payoff spoke so the
+                # 96-char clip keeps the ratio (status stays in fields).
+                raw_pay = str(sample.get("closes_payoff_bit") or "").strip()
+                if raw_pay:
+                    window_a_closes_payoff_bit = raw_pay.replace(
+                        "A payoff", "pay", 1
+                    ).strip()
+                    window_a_closes_payoff_severity = str(
+                        sample.get("closes_payoff_severity") or ""
+                    )
+                    window_a_closes_payoff_thin = bool(
+                        sample.get("closes_payoff_thin")
+                    )
+                    try:
+                        pr = sample.get("closes_payoff_ratio")
+                        window_a_closes_payoff_ratio = (
+                            float(pr) if pr is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_payoff_ratio = None
+                    if window_a_sample_status == "sample ready":
+                        status = status.replace(
+                            " · sample ready", "", 1
+                        )
+                    # Drop "streak " if polarity did not (payoff-only path).
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = f"{status} · {window_a_closes_payoff_bit}"
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -2452,6 +2493,7 @@ def build_calm_streak_glance(
                 # Day floor met + thin/open/stale sample ≠ ready for B.
                 # Fee drag / fees thin: sample ready can still be fee-eaten.
                 # All-loss / loss-lean: fee mood alone hid a red control book.
+                # Thin payoff: Nw/Nl alone hid poor avg-win÷avg-loss.
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -2461,6 +2503,7 @@ def build_calm_streak_glance(
                     or window_a_fees_thin
                     or window_a_closes_all_loss
                     or window_a_closes_loss_lean
+                    or window_a_closes_payoff_thin
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -2501,6 +2544,10 @@ def build_calm_streak_glance(
         "window_a_closes_polarity": window_a_closes_polarity,
         "window_a_closes_all_loss": window_a_closes_all_loss,
         "window_a_closes_loss_lean": window_a_closes_loss_lean,
+        "window_a_closes_payoff_bit": window_a_closes_payoff_bit,
+        "window_a_closes_payoff_severity": window_a_closes_payoff_severity,
+        "window_a_closes_payoff_thin": window_a_closes_payoff_thin,
+        "window_a_closes_payoff_ratio": window_a_closes_payoff_ratio,
     }
 
 
