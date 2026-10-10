@@ -2886,6 +2886,7 @@ def window_a_sample_readiness(
                 fees_ok_severity = "comfortable"
                 fees_ok_bit = "A fees comfortable"
             else:
+                fees_ok_severity = "ok"
                 fees_ok_bit = "A fees ok"
             if net != 0:
                 fees_ok_bit = f"{fees_ok_bit} · net {_net_s(net)}"

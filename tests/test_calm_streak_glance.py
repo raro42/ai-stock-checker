@@ -71,12 +71,15 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_target_days"] == WINDOW_A_TARGET_TRADING_DAYS
     assert g["window_a_fills"] is None  # no stats → fail-open silent
     assert g["window_a_fee_net_bit"] == ""
+    assert g["window_a_fee_mood_bit"] == ""
     assert g["window_a_fee_drag"] is False
+    assert g["window_a_fee_drag_severity"] == ""
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
     assert "fills" not in g["line"]
     assert "fees" not in g["line"]
+    assert "drag" not in g["line"]
     assert "streak not started" not in g["line"]
     # Compact status already names the why — do not repeat long detail.
     assert "promote filter off" not in g["line"]
@@ -133,13 +136,16 @@ def test_calm_streak_glance_promote_off_paused_sample_meter() -> None:
     assert g["window_a_target_sells"] == WINDOW_A_TARGET_SELLS
     assert g["window_a_sample_status"] == "building sample"
     assert g["window_a_fee_net_bit"] == "€5 fees · −€3 net"
+    assert g["window_a_fee_mood_bit"] == "drag heavy"
     assert g["window_a_fee_drag"] is True
+    assert g["window_a_fee_drag_severity"] == "heavy"
     assert g["tone"] == "warn"  # day floor met + thin sample / fee drag
-    assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
+    assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}" in g["line"]
     assert "building sample" in g["line"]
-    assert "€5 fees" in g["line"]
-    assert "−€3 net" in g["line"]
-    # Fee/net before meters — clip may drop fill counts.
+    assert "€5" in g["line"]
+    assert "−€3" in g["line"]
+    assert "drag heavy" in g["line"]
+    # Mood + compact € before meters — clip may drop fill counts.
     assert len(g["line"]) <= 96
 
 
@@ -173,12 +179,15 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["promote_off_paused"] is True
     assert g["window_a_sample_status"] == "sample ready"
     assert g["window_a_fee_net_bit"] == "€8 fees · +€12 net"
+    assert g["window_a_fee_mood_bit"] == "fees ok"
     assert g["window_a_fee_drag"] is False
+    assert g["window_a_fees_ok_severity"] == "ok"
     assert g["window_a_fees_thin"] is False
     assert g["tone"] == "paused"  # days short — not warn
     assert "sample ready" in g["line"]
-    assert "€8 fees" in g["line"]
-    assert "+€12 net" in g["line"]
+    assert "€8" in g["line"]
+    assert "+€12" in g["line"]
+    assert "fees ok" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -205,10 +214,13 @@ def test_calm_streak_glance_promote_off_paused_building_closes() -> None:
     )
     assert g["window_a_sample_status"] == "building closes"
     assert g["window_a_fee_net_bit"] == "€8 fees · −€6 net"
+    assert g["window_a_fee_mood_bit"] == "drag heavy"
     assert g["window_a_fee_drag"] is True
+    assert g["window_a_fee_drag_severity"] == "heavy"
     assert g["tone"] == "warn"  # fee drag escalates even when days short
     assert "building closes" in g["line"]
-    assert "€8 fees" in g["line"]
+    assert "€8" in g["line"]
+    assert "drag heavy" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -239,17 +251,57 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     )
     assert g["window_a_sample_status"] == "sample ready"
     assert g["window_a_fee_net_bit"] == "€15 fees · −€5 net"
+    assert g["window_a_fee_mood_bit"] == "drag mild"
     assert g["window_a_fee_drag"] is True
+    assert g["window_a_fee_drag_severity"] == "mild"
     assert g["tone"] == "warn"
     assert "sample ready" in g["line"]
-    assert "€15 fees" in g["line"]
-    assert "−€5 net" in g["line"]
-    # Status + fee/net before meters so clip keeps fee honesty.
-    fee_pos = g["line"].find("€15 fees")
+    assert "€15" in g["line"]
+    assert "−€5" in g["line"]
+    assert "drag mild" in g["line"]
+    # Status + mood + compact € before meters so clip keeps fee honesty.
+    mood_pos = g["line"].find("drag mild")
+    fee_pos = g["line"].find("€15")
     fill_pos = g["line"].find("fills")
-    assert fee_pos > 0
+    assert mood_pos > 0
+    assert fee_pos > mood_pos
     if fill_pos > 0:
         assert fee_pos < fill_pos
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
+    """€/net alone must not hide comfortable fee mood (speak-both-sides)."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 12,
+        "buys": 7,
+        "sells": 5,
+        "fees": 2.0,
+        "realized_pnl": 20.0,
+        "net_after_all_fees": 18.0,
+        "wins": 4,
+        "losses": 1,
+        "avg_win": 6.0,
+        "avg_loss": 4.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_fee_net_bit"] == "€2 fees · +€18 net"
+    # Line uses "fees calm" (clip); field keeps the band token.
+    assert g["window_a_fee_mood_bit"] == "fees calm"
+    assert g["window_a_fees_ok_severity"] == "comfortable"
+    assert g["window_a_fee_drag"] is False
+    assert g["tone"] == "paused"
+    assert "fees calm" in g["line"]
     assert len(g["line"]) <= 96
 
 

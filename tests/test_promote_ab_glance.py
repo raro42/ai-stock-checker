@@ -651,7 +651,7 @@ def test_window_a_sample_readiness_fill_floor() -> None:
     assert mid_fees["fees_ok"] is True
     assert mid_fees["fee_drag"] is False
     assert mid_fees["fees_ok_ratio"] == 0.4
-    assert mid_fees["fees_ok_severity"] == ""
+    assert mid_fees["fees_ok_severity"] == "ok"
     assert mid_fees["fees_ok_bit"] == "A fees ok · net +€120 · fees 0.4×"
     assert format_window_a_fees_ok_bit(mid_fees) == mid_fees["fees_ok_bit"]
 
@@ -772,7 +772,7 @@ def test_promote_ab_glance_fees_ok_ready_for_b() -> None:
     assert g["sample_ready"] is True
     assert g["sample_fee_drag"] is False
     assert g["sample_fees_ok"] is True
-    assert g["fees_ok_severity"] == ""
+    assert g["fees_ok_severity"] == "ok"
     assert g["sample_fresh_closes"] is True
     assert "A fees ok · net +€120 · fees 0.4×" in g["line"]
     assert "A fees comfortable" not in g["line"]

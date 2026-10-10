@@ -2267,12 +2267,13 @@ def build_calm_streak_glance(
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
     default — not live edge. When promote is off (Window A), speak
     ``promote off · streak paused · A Nd/Td · building sample|… · €N fees ·
-    ±€N net · N/M fills · N/M sells`` — intentional pause ≠ overweight/fee
-    block; Window A day + sample status + fee-adjusted net + meters so
-    pause/meters alone do not hide control-window progress, whether the
-    ledger is building vs ready, or fee-burned edge (portfolio AI
-    speak-both-sides + xang1234 multi-meter). Day floor met + thin sample,
-    or fee drag / fees thin, escalates tone to ``warn``. Not an entry gate.
+    ±€N net · drag severe|fees comfortable · N/M fills · N/M sells`` —
+    intentional pause ≠ overweight/fee block; Window A day + sample status +
+    fee-adjusted net + fee-mood severity + meters so pause/meters/€ alone do
+    not hide control-window progress, building vs ready, fee-burned edge, or
+    mild vs severe drag (portfolio AI fee-burn + xang1234 severity bands).
+    Day floor met + thin sample, or fee drag / fees thin, escalates tone to
+    ``warn``. Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2290,7 +2291,10 @@ def build_calm_streak_glance(
         "window_a_target_sells": None,
         "window_a_sample_status": "",
         "window_a_fee_net_bit": "",
+        "window_a_fee_mood_bit": "",
         "window_a_fee_drag": False,
+        "window_a_fee_drag_severity": "",
+        "window_a_fees_ok_severity": "",
         "window_a_fees_thin": False,
     }
     if not isinstance(runtime, dict) or not runtime:
@@ -2312,16 +2316,20 @@ def build_calm_streak_glance(
     window_a_target_sells: int | None = None
     window_a_sample_status = ""
     window_a_fee_net_bit = ""
+    window_a_fee_mood_bit = ""
     window_a_fee_drag = False
+    window_a_fee_drag_severity = ""
+    window_a_fees_ok_severity = ""
     window_a_fees_thin = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
-        # Speak A day + sample status + fee/net + fill/sell meters beside the
-        # pause — calm glance alone hid day floor / thin ledger / building vs
-        # ready / fee-burned edge (days ≠ fills ≠ fair sample ≠ net edge).
+        # Speak A day + sample status + fee/net + fee-mood + fill/sell meters
+        # beside the pause — calm glance alone hid day floor / thin ledger /
+        # building vs ready / fee-burned edge / mild vs severe drag
+        # (days ≠ fills ≠ fair sample ≠ net edge ≠ severity band).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -2337,14 +2345,14 @@ def build_calm_streak_glance(
         if ab.get("window") == "A":
             window_a_days = max(0, int(ab.get("trading_days") or 0))
             window_a_target_days = max(1, int(ab.get("target_days") or 10))
-            status = (
-                f"{status} · A {window_a_days}/{window_a_target_days}d"
-            )
+            day_bit = f"A {window_a_days}/{window_a_target_days}d"
+            status = f"{status} · {day_bit}"
             stats = window_stats
             if stats is None and data_dir is not None:
                 stats = window_stats_from_data_dir(data_dir, promote_on=False)
             sample = window_a_sample_readiness(stats, as_of=as_of)
-            # Status + fee/net before meters so the 96-char clip keeps them.
+            # Status + mood + fee before meters so the 96-char clip keeps
+            # severity (absolute € alone hid mild vs severe / quiet fees).
             status_bit = format_window_a_sample_status_bit(sample)
             if status_bit:
                 window_a_sample_status = status_bit
@@ -2355,14 +2363,38 @@ def build_calm_streak_glance(
                 )
                 if fee_net:
                     window_a_fee_net_bit = fee_net
-                    status = f"{status} · {fee_net}"
                 window_a_fee_drag = bool(sample.get("fee_drag"))
-                window_a_fees_thin = (
-                    str(sample.get("fees_ok_severity") or "") == "thin"
-                )
-            fill_bit = format_window_a_fill_progress_bit(sample)
-            if fill_bit:
-                status = f"{status} · {fill_bit}"
+                drag_sev = str(sample.get("fee_drag_severity") or "").strip()
+                ok_sev = str(sample.get("fees_ok_severity") or "").strip()
+                window_a_fees_thin = ok_sev == "thin"
+                # Compact mood before € — portfolio AI + xang1234 bands;
+                # "comfortable" → "calm" on the line so the 96-char clip fits.
+                if window_a_fee_drag and drag_sev:
+                    window_a_fee_drag_severity = drag_sev
+                    window_a_fee_mood_bit = f"drag {drag_sev}"
+                elif ok_sev in ("comfortable", "ok", "thin"):
+                    window_a_fees_ok_severity = ok_sev
+                    mood_label = "calm" if ok_sev == "comfortable" else ok_sev
+                    window_a_fee_mood_bit = f"fees {mood_label}"
+                if window_a_fee_mood_bit:
+                    # Drop trailing "d" on day bit when mood spoke (saves 1
+                    # char for two-digit day counts under the 96-char clip).
+                    status = status.replace(day_bit, day_bit.rstrip("d"), 1)
+                    status = f"{status} · {window_a_fee_mood_bit}"
+                    if fee_net:
+                        # Drop " fees"/" net" words — mood already names the band.
+                        compact = (
+                            fee_net.replace(" fees", "").replace(" net", "")
+                        )
+                        status = f"{status} · {compact}"
+                elif fee_net:
+                    status = f"{status} · {fee_net}"
+            # Fill meters stay in fields; omit from the line when mood spoke
+            # so the 96-char clip keeps severity over N/M counts.
+            if not window_a_fee_mood_bit:
+                fill_bit = format_window_a_fill_progress_bit(sample)
+                if fill_bit:
+                    status = f"{status} · {fill_bit}"
             if sample.get("known"):
                 try:
                     window_a_fills = max(0, int(sample.get("fills") or 0))
@@ -2419,7 +2451,10 @@ def build_calm_streak_glance(
         "window_a_target_sells": window_a_target_sells,
         "window_a_sample_status": window_a_sample_status,
         "window_a_fee_net_bit": window_a_fee_net_bit,
+        "window_a_fee_mood_bit": window_a_fee_mood_bit,
         "window_a_fee_drag": window_a_fee_drag,
+        "window_a_fee_drag_severity": window_a_fee_drag_severity,
+        "window_a_fees_ok_severity": window_a_fees_ok_severity,
         "window_a_fees_thin": window_a_fees_thin,
     }
 
