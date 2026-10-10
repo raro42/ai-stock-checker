@@ -74,6 +74,9 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_fee_mood_bit"] == ""
     assert g["window_a_fee_drag"] is False
     assert g["window_a_fee_drag_severity"] == ""
+    assert g["window_a_closes_polarity_bit"] == ""
+    assert g["window_a_closes_polarity"] == ""
+    assert g["window_a_closes_all_loss"] is False
     assert "0/30" in g["line"]
     assert "promote off · streak paused" in g["line"]
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}d" in g["line"]
@@ -139,6 +142,7 @@ def test_calm_streak_glance_promote_off_paused_sample_meter() -> None:
     assert g["window_a_fee_mood_bit"] == "drag heavy"
     assert g["window_a_fee_drag"] is True
     assert g["window_a_fee_drag_severity"] == "heavy"
+    assert g["window_a_closes_polarity_bit"] == ""  # no wins/losses → silent
     assert g["tone"] == "warn"  # day floor met + thin sample / fee drag
     assert f"A {a_days}/{WINDOW_A_TARGET_TRADING_DAYS}" in g["line"]
     assert "building sample" in g["line"]
@@ -183,11 +187,15 @@ def test_calm_streak_glance_promote_off_paused_sample_ready() -> None:
     assert g["window_a_fee_drag"] is False
     assert g["window_a_fees_ok_severity"] == "ok"
     assert g["window_a_fees_thin"] is False
+    assert g["window_a_closes_polarity_bit"] == "3w/2l"
+    assert g["window_a_closes_polarity"] == "mixed"
+    assert g["window_a_closes_loss_lean"] is False
     assert g["tone"] == "paused"  # days short — not warn
     assert "sample ready" in g["line"]
     assert "€8" in g["line"]
     assert "+€12" in g["line"]
     assert "fees ok" in g["line"]
+    assert "3w/2l" in g["line"]
     assert len(g["line"]) <= 96
 
 
@@ -254,17 +262,23 @@ def test_calm_streak_glance_promote_off_paused_fee_net() -> None:
     assert g["window_a_fee_mood_bit"] == "drag mild"
     assert g["window_a_fee_drag"] is True
     assert g["window_a_fee_drag_severity"] == "mild"
+    assert g["window_a_closes_polarity_bit"] == "2w/3l"
+    assert g["window_a_closes_polarity"] == "mixed"
+    assert g["window_a_closes_loss_lean"] is True
     assert g["tone"] == "warn"
     assert "sample ready" in g["line"]
     assert "€15" in g["line"]
     assert "−€5" in g["line"]
     assert "drag mild" in g["line"]
+    assert "2w/3l" in g["line"]
     # Status + mood + compact € before meters so clip keeps fee honesty.
     mood_pos = g["line"].find("drag mild")
     fee_pos = g["line"].find("€15")
+    pol_pos = g["line"].find("2w/3l")
     fill_pos = g["line"].find("fills")
     assert mood_pos > 0
     assert fee_pos > mood_pos
+    assert pol_pos > fee_pos
     if fill_pos > 0:
         assert fee_pos < fill_pos
     assert len(g["line"]) <= 96
@@ -300,7 +314,44 @@ def test_calm_streak_glance_promote_off_paused_fee_mood_comfortable() -> None:
     assert g["window_a_fee_mood_bit"] == "fees calm"
     assert g["window_a_fees_ok_severity"] == "comfortable"
     assert g["window_a_fee_drag"] is False
+    assert g["window_a_closes_polarity_bit"] == "4w/1l"
+    assert g["window_a_closes_polarity"] == "mixed"
     assert g["tone"] == "paused"
+    assert "fees calm" in g["line"]
+    assert "4w/1l" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_polarity_all_loss() -> None:
+    """Fee mood alone must not hide an all-loss Window A control book."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 12,
+        "buys": 7,
+        "sells": 5,
+        "fees": 2.0,
+        "realized_pnl": 20.0,
+        "net_after_all_fees": 18.0,
+        "wins": 0,
+        "losses": 5,
+        "avg_win": 0.0,
+        "avg_loss": 4.0,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_closes_polarity_bit"] == "0w/5l"
+    assert g["window_a_closes_polarity"] == "all_loss"
+    assert g["window_a_closes_all_loss"] is True
+    assert g["tone"] == "warn"  # all-loss escalates even when fees calm
+    assert "0w/5l" in g["line"]
     assert "fees calm" in g["line"]
     assert len(g["line"]) <= 96
 

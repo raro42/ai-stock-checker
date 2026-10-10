@@ -2266,14 +2266,15 @@ def build_calm_streak_glance(
 
     Surfaces streak progress outside Ops facts. Calm days unlock compose promote
     default — not live edge. When promote is off (Window A), speak
-    ``promote off · streak paused · A Nd/Td · building sample|… · €N fees ·
-    ±€N net · drag severe|fees comfortable · N/M fills · N/M sells`` —
+    ``promote off · streak paused · A Nd/Td · building sample|… · drag severe|
+    fees comfortable · €N · ±€N · Nw/Nl · N/M fills · N/M sells`` —
     intentional pause ≠ overweight/fee block; Window A day + sample status +
-    fee-adjusted net + fee-mood severity + meters so pause/meters/€ alone do
-    not hide control-window progress, building vs ready, fee-burned edge, or
-    mild vs severe drag (portfolio AI fee-burn + xang1234 severity bands).
-    Day floor met + thin sample, or fee drag / fees thin, escalates tone to
-    ``warn``. Not an entry gate.
+    fee-adjusted net + fee-mood severity + close polarity + meters so
+    pause/meters/€/mood alone do not hide control-window progress, building
+    vs ready, fee-burned edge, mild vs severe drag, or all-win vs all-loss
+    closes (portfolio AI Win·Lose + xang1234 severity bands). Day floor met
+    + thin sample, fee drag / fees thin, or all-loss / loss-lean closes
+    escalate tone to ``warn``. Not an entry gate.
     """
     empty = {
         "ready": False,
@@ -2296,6 +2297,10 @@ def build_calm_streak_glance(
         "window_a_fee_drag_severity": "",
         "window_a_fees_ok_severity": "",
         "window_a_fees_thin": False,
+        "window_a_closes_polarity_bit": "",
+        "window_a_closes_polarity": "",
+        "window_a_closes_all_loss": False,
+        "window_a_closes_loss_lean": False,
     }
     if not isinstance(runtime, dict) or not runtime:
         return empty
@@ -2321,15 +2326,20 @@ def build_calm_streak_glance(
     window_a_fee_drag_severity = ""
     window_a_fees_ok_severity = ""
     window_a_fees_thin = False
+    window_a_closes_polarity_bit = ""
+    window_a_closes_polarity = ""
+    window_a_closes_all_loss = False
+    window_a_closes_loss_lean = False
     if calm_ready:
         tone = "ready"
         status = "compose promote default ready"
     elif promote_off_paused:
         # Window A: streak cannot grow until promote flips for Window B.
-        # Speak A day + sample status + fee/net + fee-mood + fill/sell meters
-        # beside the pause — calm glance alone hid day floor / thin ledger /
-        # building vs ready / fee-burned edge / mild vs severe drag
-        # (days ≠ fills ≠ fair sample ≠ net edge ≠ severity band).
+        # Speak A day + sample status + fee/net + fee-mood + close polarity
+        # + fill/sell meters beside the pause — calm glance alone hid day
+        # floor / thin ledger / building vs ready / fee-burned edge / mild
+        # vs severe drag / all-win vs all-loss (days ≠ fills ≠ fair sample
+        # ≠ net edge ≠ severity band ≠ win/lose mix).
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
@@ -2389,6 +2399,34 @@ def build_calm_streak_glance(
                         status = f"{status} · {compact}"
                 elif fee_net:
                     status = f"{status} · {fee_net}"
+                # Close polarity after € — fee mood alone hid all-win vs
+                # all-loss (portfolio AI Win·Lose + xang1234). Compact
+                # Nw/Nl keeps the 96-char clip; fields keep the band.
+                if sample.get("closes_polarity_known") and sample.get(
+                    "closes_polarity"
+                ):
+                    try:
+                        nw = max(0, int(sample.get("closes_wins") or 0))
+                        nl = max(0, int(sample.get("closes_losses") or 0))
+                    except (TypeError, ValueError):
+                        nw, nl = 0, 0
+                    if nw + nl > 0:
+                        window_a_closes_polarity = str(
+                            sample.get("closes_polarity") or ""
+                        )
+                        window_a_closes_all_loss = bool(
+                            sample.get("closes_all_loss")
+                        )
+                        window_a_closes_loss_lean = bool(
+                            sample.get("closes_loss_lean")
+                        )
+                        window_a_closes_polarity_bit = f"{nw}w/{nl}l"
+                        # Drop "streak " so Nw/Nl fits under the 96-char clip
+                        # beside mood + compact € (promote off · paused).
+                        status = status.replace(
+                            "streak paused", "paused", 1
+                        )
+                        status = f"{status} · {window_a_closes_polarity_bit}"
             # Fill meters stay in fields; omit from the line when mood spoke
             # so the 96-char clip keeps severity over N/M counts.
             if not window_a_fee_mood_bit:
@@ -2413,6 +2451,7 @@ def build_calm_streak_glance(
                         pass
                 # Day floor met + thin/open/stale sample ≠ ready for B.
                 # Fee drag / fees thin: sample ready can still be fee-eaten.
+                # All-loss / loss-lean: fee mood alone hid a red control book.
                 if (
                     (
                         window_a_days >= window_a_target_days
@@ -2420,6 +2459,8 @@ def build_calm_streak_glance(
                     )
                     or window_a_fee_drag
                     or window_a_fees_thin
+                    or window_a_closes_all_loss
+                    or window_a_closes_loss_lean
                 ):
                     tone = "warn"
     elif streak <= 0:
@@ -2456,6 +2497,10 @@ def build_calm_streak_glance(
         "window_a_fee_drag_severity": window_a_fee_drag_severity,
         "window_a_fees_ok_severity": window_a_fees_ok_severity,
         "window_a_fees_thin": window_a_fees_thin,
+        "window_a_closes_polarity_bit": window_a_closes_polarity_bit,
+        "window_a_closes_polarity": window_a_closes_polarity,
+        "window_a_closes_all_loss": window_a_closes_all_loss,
+        "window_a_closes_loss_lean": window_a_closes_loss_lean,
     }
 
 
