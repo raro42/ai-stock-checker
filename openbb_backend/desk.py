@@ -1100,6 +1100,7 @@ _WEIGHT_LEAN_QUIET_NAME_CAP = 4
 _WEIGHT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^lead/lean\b"), "lead/lean"),
     (re.compile(r"^lead/share\b"), "lead/share"),
+    (re.compile(r"^lean moods\b"), "moods"),
     (re.compile(r"^junk vs ok\b"), "junk"),
     (re.compile(r"^unique vs dup\b"), "unique"),
     (re.compile(r"^lean vs Δ\b"), "lean"),
@@ -1116,6 +1117,8 @@ def screener_weight_lean_meta(
     junk_list_lead_vs_lean_warn: bool = False,
     junk_list_lead_vs_share: str = "",
     junk_list_lead_vs_share_warn: bool = False,
+    lean_moods: str = "",
+    lean_moods_warn: bool = False,
     junk_vs_ok_lean_vs_delta: str = "",
     junk_vs_ok_lean_vs_delta_warn: bool = False,
     junk_vs_ok: str = "",
@@ -1133,14 +1136,15 @@ def screener_weight_lean_meta(
     (``quiet · N folds · unique · Δ · lean · lead``), clipped at 4, so
     ``cascade`` does not claim unique/Δ/lead when the line is only a lean
     bit. Empty text stays ``quiet``. Prefer junk lead/lean → lead/share →
-    lean vs Δ → junk vs ok → unique lean vs Δ → unique vs dup (Yahoo
-    mix/cascade meta parity). Adverse ``align · wide`` and any ``clash``
-    shorten; bare junk with no warned relationship speaks ``junk``
-    (damage alone opened the fold). Hot lean/junk also append clipped
-    spoken stages (``align · wide · unique · Δ · lean · lead``) so severity
-    alone does not hide which ladder bits spoke (Hours inactive hot-venue
-    inventory). Favorable ``align · quiet|strong`` / ``align · strong|quiet``
-    stay calm upstream so this chip is not consulted for them.
+    lean moods → lean vs Δ → junk vs ok → unique lean vs Δ → unique vs dup
+    (Yahoo mix/cascade + soft-allow short lean moods meta parity). Adverse
+    ``align · wide`` / ``align · both clash`` and any ``clash`` shorten;
+    bare junk with no warned relationship speaks ``junk`` (damage alone
+    opened the fold). Hot lean/junk also append clipped spoken stages
+    (``align · wide · unique · Δ · lean · lead``) so severity alone does
+    not hide which ladder bits spoke (Hours inactive hot-venue inventory).
+    Favorable ``align · quiet|strong`` / ``align · strong|quiet`` stay calm
+    upstream so this chip is not consulted for them.
     """
 
     def _chip(bit: str) -> str:
@@ -1172,6 +1176,8 @@ def screener_weight_lean_meta(
         return _hot(_chip(junk_list_lead_vs_lean))
     if junk_list_lead_vs_share_warn and str(junk_list_lead_vs_share or "").strip():
         return _hot(_chip(junk_list_lead_vs_share))
+    if lean_moods_warn and str(lean_moods or "").strip():
+        return _hot(_chip(lean_moods))
     if junk_vs_ok_lean_vs_delta_warn and str(
         junk_vs_ok_lean_vs_delta or ""
     ).strip():
@@ -1297,6 +1303,8 @@ def build_screener_opportunity_counts(
         "junk_vs_ok_delta_severity": "",
         "junk_vs_ok_lean_vs_delta": "",
         "junk_vs_ok_lean_vs_delta_warn": False,
+        "lean_moods": "",
+        "lean_moods_warn": False,
         "weight_lean_meta": "quiet",
         "lists_populated": 0,
         "overlap": False,
@@ -1719,11 +1727,50 @@ def build_screener_opportunity_counts(
             f"{weight_core} · {weight_lean}" if weight_lean else weight_core
         )
         tone = "warn"
+    # Junk/ok lean verb vs unique/dup lean verb (soft-allow short lean moods
+    # + Window A close sleeve lean moods parity). Side-by-side lean labels
+    # alone hid whether damage lean and overlap lean *verbs* match.
+    lean_moods = ""
+    lean_moods_warn = False
+    if junk_vs_ok and unique_vs_dup:
+
+        def _screener_lean_verb(bit: str) -> str:
+            raw = str(bit or "").strip()
+            if raw.startswith("align ·"):
+                return "align"
+            if raw.startswith("clash ·"):
+                return "clash"
+            return ""
+
+        junk_v = _screener_lean_verb(junk_vs_ok)
+        uniq_v = _screener_lean_verb(unique_vs_dup)
+        if junk_v and uniq_v:
+            if junk_v == uniq_v:
+                lean_moods = f"align · both {junk_v}"
+                # Dual-clash agreement ≠ calm confirm.
+                lean_moods_warn = junk_v == "clash"
+            else:
+                lean_moods = (
+                    f"clash · junk/ok {junk_v} · unique/dup {uniq_v}"
+                )
+                lean_moods_warn = True
+            if lean_moods_warn:
+                tone = "warn"
+            weight_lean = (
+                f"{weight_lean} · lean moods {lean_moods}"
+                if weight_lean
+                else f"lean moods {lean_moods}"
+            )
+            weight = (
+                f"{weight_core} · {weight_lean}" if weight_lean else weight_core
+            )
     weight_lean_meta = screener_weight_lean_meta(
         junk_list_lead_vs_lean=junk_list_lead_vs_lean,
         junk_list_lead_vs_lean_warn=junk_list_lead_vs_lean_warn,
         junk_list_lead_vs_share=junk_list_lead_vs_share,
         junk_list_lead_vs_share_warn=junk_list_lead_vs_share_warn,
+        lean_moods=lean_moods,
+        lean_moods_warn=lean_moods_warn,
         junk_vs_ok_lean_vs_delta=junk_vs_ok_lean_vs_delta,
         junk_vs_ok_lean_vs_delta_warn=junk_vs_ok_lean_vs_delta_warn,
         junk_vs_ok=junk_vs_ok,
@@ -1771,6 +1818,8 @@ def build_screener_opportunity_counts(
         "junk_vs_ok_delta_severity": junk_vs_ok_delta_severity,
         "junk_vs_ok_lean_vs_delta": junk_vs_ok_lean_vs_delta,
         "junk_vs_ok_lean_vs_delta_warn": junk_vs_ok_lean_vs_delta_warn,
+        "lean_moods": lean_moods,
+        "lean_moods_warn": lean_moods_warn,
         "lists_populated": lists_populated,
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
