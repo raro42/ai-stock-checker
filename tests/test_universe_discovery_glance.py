@@ -106,6 +106,47 @@ def test_universe_discovery_glance_yahoo_fail_reuses_seed(tmp_path) -> None:
     assert "×" not in g["line"]
 
 
+def test_universe_discovery_glance_yahoo_fail_plan_retry_held(tmp_path) -> None:
+    """FinRobot #119: plan + backoff expired → retry held · plan (not retry due)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    # Fail stamp older than default 1h backoff → retry_due True.
+    fail = (now - timedelta(hours=2)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": fail,
+                    "last_yahoo_discovery_error": "plan",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["yahoo_fail_error"] == "plan"
+    assert g["yahoo_retry_due"] is True
+    assert g["yahoo_retry_held_plan"] is True
+    assert "retry held · plan" in g["line"]
+    assert "retry held · plan" in g["line_core"]
+    assert "retry due" not in g["line"]
+    assert "retry due" not in g["line_core"]
+    # Non-plan fail still speaks retry due after backoff.
+    meta = json.loads((tmp_path / "stock_universe.json").read_text(encoding="utf-8"))
+    meta["meta"]["last_yahoo_discovery_error"] = "http"
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(meta), encoding="utf-8"
+    )
+    http = build_universe_discovery_glance(tmp_path, now=now)
+    assert http["yahoo_fail_error"] == "http"
+    assert http["yahoo_retry_held_plan"] is False
+    assert "retry due" in http["line_core"]
+    assert "retry held · plan" not in http["line_core"]
+
+
 def test_universe_discovery_glance_yahoo_fail_error_class(tmp_path) -> None:
     """xang1234 #639: last-error class on core line (why ≠ N× alone)."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)

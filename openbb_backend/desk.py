@@ -23447,10 +23447,15 @@ def build_universe_discovery_glance(
     (xang1234 #639 Failed-N× chip — a single fail stamp hid a chronic dead
     movers source; first fail stays silent on streak).
     When a fail already spoke, also speak compact last-error class
-    ``empty|thin|timeout|http|error`` after ``Yahoo fail`` / before the
-    screen fraction (xang1234 #639 report source failures by kind — N× +
-    fail age alone hid *why*; Manage Sources / last-error tooltip panel
-    still deferred).
+    ``empty|thin|timeout|inflight|plan|http|error`` after ``Yahoo fail`` /
+    before the screen fraction (xang1234 #639 report source failures by
+    kind — N× + fail age alone hid *why*; FinRobot #119 ``plan`` =
+    payment/plan entitlement, not http flake; Manage Sources / last-error
+    tooltip panel still deferred).
+    When class is ``plan`` and fail backoff already expired, speak
+    ``retry held · plan`` instead of ``retry due`` (FinRobot keep plan out
+    of circuit-breaker — billing wall ≠ spend-again-now; display only;
+    backoff timer unchanged).
     When last-error class already spoke, also speak error vs seed extremes
     ``error/seed clash · fresh`` / ``align · stale`` on the first fail
     (portfolio AI speak-both-sides — typed death alone hid a still-fresh
@@ -23932,6 +23937,7 @@ def build_universe_discovery_glance(
         if yahoo_failed
         else ("", False)
     )
+    retry_held_plan = False
     if yahoo_failed:
         tone = "warn"
         # xang1234 #639: last-error class before fraction (why ≠ how many).
@@ -24087,7 +24093,12 @@ def build_universe_discovery_glance(
             streak_seed_fail_vs_budget_bit = (
                 f" · sf/budget {streak_seed_fail_vs_budget}"
             )
-        if retry_due:
+        # FinRobot #119: plan entitlement outlives backoff — desk must not
+        # say ``retry due`` as if another Yahoo spend will clear a billing wall.
+        retry_held_plan = bool(fail_error == "plan" and retry_due)
+        if retry_held_plan:
+            retry = " · retry held · plan"
+        elif retry_due:
             retry = " · retry due"
         elif retry_remain_sec is not None and retry_remain_sec > 0:
             # Speak remaining backoff (not age) — thrash calm honesty.
@@ -24293,6 +24304,7 @@ def build_universe_discovery_glance(
         "last_yahoo_prune_skipped": prune_skipped,
         "last_yahoo_discovery_status": yahoo_status or "unknown",
         "yahoo_failed": yahoo_failed,
+        "yahoo_retry_held_plan": bool(retry_held_plan),
         "yahoo_fail_error": fail_error,
         "yahoo_fail_error_also": fail_error_also,
         "yahoo_fail_error_also_counts": fail_error_also_counts,
@@ -27435,16 +27447,6 @@ def build_post_sl_cooldown_glance(
     """
     from stock_checker.risk_halts import DEFAULT_POST_SL_COOLDOWN_SEC
 
-    empty = {
-        "ready": False,
-        "tone": "flat",
-        "line": "",
-        "symbol": "",
-        "active": False,
-        "seconds_left": 0.0,
-        "cooldown_hours": 0.0,
-        "expiring_soon": False,
-    }
     try:
         cd = float(
             cooldown_seconds

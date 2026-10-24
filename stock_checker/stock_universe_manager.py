@@ -286,7 +286,6 @@ class StockUniverseManager:
         Safe for live data/: does not delete Yahoo-discovered names.
         Returns count of newly added symbols.
         """
-        before = len(self.universe.get("stocks") or {})
         removed = False
         for dead in ("PXD",):
             if self._drop_stock(dead):
