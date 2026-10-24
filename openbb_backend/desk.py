@@ -1100,9 +1100,11 @@ _WEIGHT_LEAN_QUIET_NAME_CAP = 4
 _WEIGHT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^lead/lean\b"), "lead/lean"),
     (re.compile(r"^lead/share\b"), "lead/share"),
-    # Longer ``lean vs Δ moods`` / ``Δ moods`` before bare lean moods / Δ.
+    # Longer ``lean vs Δ moods`` / ``Δ moods`` / ``Δ lead moods`` before
+    # bare lean moods / Δ / Δ lead.
     (re.compile(r"^lean vs Δ moods\b"), "lean/Δ moods"),
     (re.compile(r"^lean moods\b"), "moods"),
+    (re.compile(r"^Δ lead moods\b"), "Δ lead moods"),
     (re.compile(r"^Δ moods\b"), "Δ moods"),
     (re.compile(r"^junk vs ok\b"), "junk"),
     (re.compile(r"^unique vs dup\b"), "unique"),
@@ -1124,6 +1126,8 @@ def screener_weight_lean_meta(
     lean_vs_delta_moods_warn: bool = False,
     lean_moods: str = "",
     lean_moods_warn: bool = False,
+    delta_lead_moods: str = "",
+    delta_lead_moods_warn: bool = False,
     delta_moods: str = "",
     delta_moods_warn: bool = False,
     junk_vs_ok_lean_vs_delta: str = "",
@@ -1143,16 +1147,17 @@ def screener_weight_lean_meta(
     (``quiet · N folds · unique · Δ · lean · lead``), clipped at 4, so
     ``cascade`` does not claim unique/Δ/lead when the line is only a lean
     bit. Empty text stays ``quiet``. Prefer junk lead/lean → lead/share →
-    lean vs Δ moods → lean moods → Δ moods → lean vs Δ → junk vs ok →
-    unique lean vs Δ → unique vs dup (Yahoo mix/cascade + soft-allow short
-    lean/Δ moods meta parity). Adverse ``align · wide`` /
-    ``align · both clash`` and any ``clash`` shorten; bare junk with no
-    warned relationship speaks ``junk`` (damage alone opened the fold).
-    Hot lean/junk also append clipped spoken stages
-    (``align · wide · unique · Δ · lean · lead``) so severity alone does
-    not hide which ladder bits spoke (Hours inactive hot-venue inventory).
-    Favorable ``align · quiet|strong`` / ``align · strong|quiet`` stay calm
-    upstream so this chip is not consulted for them.
+    lean vs Δ moods → lean moods → Δ lead moods → Δ moods → lean vs Δ →
+    junk vs ok → unique lean vs Δ → unique vs dup (Yahoo mix/cascade +
+    soft-allow short lean/Δ moods meta parity). Adverse ``align · wide`` /
+    ``align · both clash`` / ``align · both adverse`` and any ``clash``
+    shorten; bare junk with no warned relationship speaks ``junk``
+    (damage alone opened the fold). Hot lean/junk also append clipped
+    spoken stages (``align · wide · unique · Δ · lean · lead``) so
+    severity alone does not hide which ladder bits spoke (Hours inactive
+    hot-venue inventory). Favorable ``align · quiet|strong`` /
+    ``align · strong|quiet`` stay calm upstream so this chip is not
+    consulted for them.
     """
 
     def _chip(bit: str) -> str:
@@ -1161,7 +1166,7 @@ def screener_weight_lean_meta(
             return "quiet"
         if low.startswith("align · both "):
             tail = low[len("align · both ") :].strip()
-            if tail in ("clash", "align", "wide", "thin"):
+            if tail in ("clash", "align", "wide", "thin", "adverse", "healthy"):
                 return f"align · both {tail}"
         if low.startswith("align · wide") or low.endswith("· wide"):
             return "align · wide"
@@ -1188,6 +1193,8 @@ def screener_weight_lean_meta(
         return _hot(_chip(lean_vs_delta_moods))
     if lean_moods_warn and str(lean_moods or "").strip():
         return _hot(_chip(lean_moods))
+    if delta_lead_moods_warn and str(delta_lead_moods or "").strip():
+        return _hot(_chip(delta_lead_moods))
     if delta_moods_warn and str(delta_moods or "").strip():
         return _hot(_chip(delta_moods))
     if junk_vs_ok_lean_vs_delta_warn and str(
@@ -1233,7 +1240,12 @@ def build_screener_opportunity_counts(
     already spoke, also junk−ok pp Δ then lean vs Δ then Δ lead · junk|ok
     when ±pp ≠ 0, then Δ lead size · N× (louder%÷quieter%) and sides
     louder/quieter % (unique/dup Δ lead size parity; zero quieter silent).
-    When junk already spoke, also name which
+    When both junk/ok and unique/dup Δ leads already spoke, also
+    ``Δ lead moods align · both adverse|healthy`` / ``clash · junk/ok …
+    · unique/dup …`` (adverse = junk|dup; healthy = ok|unique; dual
+    adverse + crossed warn) — side-by-side lead names alone hid whether
+    damage ownership and overlap ownership pull the same way. When junk
+    already spoke, also name which
     scan lists hold junk (``in rec · crypto · brk``) — total N junk ≠
     which sleeve is damaged (xang1234 #531 market-pointer + #540
     damaged-artifact visibility).     When ≥2 lists hold junk and one is
@@ -1328,6 +1340,8 @@ def build_screener_opportunity_counts(
         "delta_moods_warn": False,
         "lean_vs_delta_moods": "",
         "lean_vs_delta_moods_warn": False,
+        "delta_lead_moods": "",
+        "delta_lead_moods_warn": False,
         "weight_lean_meta": "quiet",
         "lists_populated": 0,
         "overlap": False,
@@ -1801,6 +1815,8 @@ def build_screener_opportunity_counts(
     delta_moods_warn = False
     lean_vs_delta_moods = ""
     lean_vs_delta_moods_warn = False
+    delta_lead_moods = ""
+    delta_lead_moods_warn = False
 
     def _screener_lean_verb(bit: str) -> str:
         raw = str(bit or "").strip()
@@ -1884,6 +1900,36 @@ def build_screener_opportunity_counts(
         weight = (
             f"{weight_core} · {weight_lean}" if weight_lean else weight_core
         )
+    # Junk/ok Δ lead polarity vs unique/dup Δ lead polarity (lean moods +
+    # soft-allow short Δ lead speak-both-sides). Side-by-side ``Δ lead ·
+    # junk`` and ``Δ lead · unique`` alone hid whether damage ownership
+    # and overlap ownership pull the same way. Adverse = junk|dup;
+    # healthy = ok|unique. Dual adverse warns; crossed warns; both
+    # healthy speaks calm. Missing either lead silent.
+    junk_lead = str(junk_vs_ok_delta_lead or "").strip()
+    uniq_lead = str(unique_vs_dup_delta_lead or "").strip()
+    if junk_lead in {"junk", "ok"} and uniq_lead in {"unique", "dup"}:
+        junk_adverse = junk_lead == "junk"
+        uniq_adverse = uniq_lead == "dup"
+        if junk_adverse == uniq_adverse:
+            band = "adverse" if junk_adverse else "healthy"
+            delta_lead_moods = f"align · both {band}"
+            delta_lead_moods_warn = junk_adverse
+        else:
+            delta_lead_moods = (
+                f"clash · junk/ok {junk_lead} · unique/dup {uniq_lead}"
+            )
+            delta_lead_moods_warn = True
+        if delta_lead_moods_warn:
+            tone = "warn"
+        weight_lean = (
+            f"{weight_lean} · Δ lead moods {delta_lead_moods}"
+            if weight_lean
+            else f"Δ lead moods {delta_lead_moods}"
+        )
+        weight = (
+            f"{weight_core} · {weight_lean}" if weight_lean else weight_core
+        )
     weight_lean_meta = screener_weight_lean_meta(
         junk_list_lead_vs_lean=junk_list_lead_vs_lean,
         junk_list_lead_vs_lean_warn=junk_list_lead_vs_lean_warn,
@@ -1893,6 +1939,8 @@ def build_screener_opportunity_counts(
         lean_vs_delta_moods_warn=lean_vs_delta_moods_warn,
         lean_moods=lean_moods,
         lean_moods_warn=lean_moods_warn,
+        delta_lead_moods=delta_lead_moods,
+        delta_lead_moods_warn=delta_lead_moods_warn,
         delta_moods=delta_moods,
         delta_moods_warn=delta_moods_warn,
         junk_vs_ok_lean_vs_delta=junk_vs_ok_lean_vs_delta,
@@ -1956,6 +2004,8 @@ def build_screener_opportunity_counts(
         "delta_moods_warn": delta_moods_warn,
         "lean_vs_delta_moods": lean_vs_delta_moods,
         "lean_vs_delta_moods_warn": lean_vs_delta_moods_warn,
+        "delta_lead_moods": delta_lead_moods,
+        "delta_lead_moods_warn": delta_lead_moods_warn,
         "lists_populated": lists_populated,
         "overlap": overlap,
         "unique_share_pct": unique_share_pct,
