@@ -73,6 +73,38 @@ def test_discover_yahoo_movers_empty_does_not_stamp_cache(tmp_path: Path, monkey
     assert mgr.universe["meta"]["yahoo_discovery_fail_streak"] == 2
 
 
+def test_discover_yahoo_movers_plan_held_after_backoff(
+    tmp_path: Path, monkeypatch
+):
+    """FinRobot #119: plan wall holds even after backoff + force."""
+    mgr = StockUniverseManager(data_dir=str(tmp_path))
+    mgr.universe.setdefault("meta", {})
+    mgr.universe["meta"].update(
+        {
+            "last_yahoo_discovery": "2026-09-01T00:00:00",
+            "last_yahoo_discovery_status": "failed",
+            "last_yahoo_discovery_fail": "2020-01-01T00:00:00",
+            "last_yahoo_discovery_error": "plan",
+            "yahoo_discovery_fail_streak": 3,
+        }
+    )
+    mgr._save_universe()
+    calls = {"n": 0}
+
+    def boom(*, per_screen: int = 25):
+        calls["n"] += 1
+        raise RuntimeError("HTTP 402 Payment Required")
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.discover_yahoo_mover_report",
+        boom,
+    )
+    assert mgr.discover_yahoo_movers(force=True) == 0
+    assert calls["n"] == 0
+    assert mgr.universe["meta"]["yahoo_discovery_fail_streak"] == 3
+    assert mgr.universe["meta"]["last_yahoo_discovery_error"] == "plan"
+
+
 def test_discover_yahoo_movers_majority_fail_discards_leftovers(
     tmp_path: Path, monkeypatch
 ):

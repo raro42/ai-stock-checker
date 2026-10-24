@@ -382,6 +382,7 @@ class StockUniverseManager:
             screens_bundle_partial,
             set_yahoo_discovery_error,
             set_yahoo_discovery_error_sides,
+            yahoo_fail_plan_held,
             yahoo_fail_retry_remaining_sec,
         )
 
@@ -401,6 +402,11 @@ class StockUniverseManager:
             else:
                 wait = f"{rem // 3600}h"
             print(f"   📡 Yahoo movers held (fail backoff {wait}) — not spent")
+            return 0
+        # FinRobot #119: plan wall outlives backoff — weekend/cycle force
+        # must not thrash a billing entitlement (same as mid-backoff hold).
+        if yahoo_fail_plan_held(meta):
+            print("   📡 Yahoo movers held (plan) — not spent")
             return 0
         if not force and not self.yahoo_discovery_due(max_age_hours=max_age_hours):
             print("   📡 Yahoo movers skipped (discovery fresh) — not spent")

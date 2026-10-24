@@ -107,10 +107,10 @@ def test_universe_discovery_glance_yahoo_fail_reuses_seed(tmp_path) -> None:
 
 
 def test_universe_discovery_glance_yahoo_fail_plan_retry_held(tmp_path) -> None:
-    """FinRobot #119: plan + backoff expired → retry held · plan (not retry due)."""
+    """FinRobot #119: plan → retry held · plan; due stays False (no auto-retry)."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
     last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
-    # Fail stamp older than default 1h backoff → retry_due True.
+    # Fail stamp older than default 1h backoff — plan still not due.
     fail = (now - timedelta(hours=2)).replace(tzinfo=None).isoformat()
     (tmp_path / "stock_universe.json").write_text(
         json.dumps(
@@ -128,20 +128,33 @@ def test_universe_discovery_glance_yahoo_fail_plan_retry_held(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["yahoo_fail_error"] == "plan"
-    assert g["yahoo_retry_due"] is True
+    assert g["yahoo_retry_due"] is False
     assert g["yahoo_retry_held_plan"] is True
     assert "retry held · plan" in g["line"]
     assert "retry held · plan" in g["line_core"]
     assert "retry due" not in g["line"]
     assert "retry due" not in g["line_core"]
-    # Non-plan fail still speaks retry due after backoff.
+    assert "retry in" not in g["line_core"]
+    # Cooling plan also speaks held (not retry in …).
+    cool_fail = (now - timedelta(minutes=15)).replace(tzinfo=None).isoformat()
     meta = json.loads((tmp_path / "stock_universe.json").read_text(encoding="utf-8"))
+    meta["meta"]["last_yahoo_discovery_fail"] = cool_fail
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(meta), encoding="utf-8"
+    )
+    cool = build_universe_discovery_glance(tmp_path, now=now)
+    assert cool["yahoo_retry_held_plan"] is True
+    assert "retry held · plan" in cool["line_core"]
+    assert "retry in" not in cool["line_core"]
+    # Non-plan fail still speaks retry due after backoff.
     meta["meta"]["last_yahoo_discovery_error"] = "http"
+    meta["meta"]["last_yahoo_discovery_fail"] = fail
     (tmp_path / "stock_universe.json").write_text(
         json.dumps(meta), encoding="utf-8"
     )
     http = build_universe_discovery_glance(tmp_path, now=now)
     assert http["yahoo_fail_error"] == "http"
+    assert http["yahoo_retry_due"] is True
     assert http["yahoo_retry_held_plan"] is False
     assert "retry due" in http["line_core"]
     assert "retry held · plan" not in http["line_core"]

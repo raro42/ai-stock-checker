@@ -23452,10 +23452,10 @@ def build_universe_discovery_glance(
     kind — N× + fail age alone hid *why*; FinRobot #119 ``plan`` =
     payment/plan entitlement, not http flake; Manage Sources / last-error
     tooltip panel still deferred).
-    When class is ``plan`` and fail backoff already expired, speak
-    ``retry held · plan`` instead of ``retry due`` (FinRobot keep plan out
-    of circuit-breaker — billing wall ≠ spend-again-now; display only;
-    backoff timer unchanged).
+    When class is ``plan``, speak ``retry held · plan`` (cooling or after
+    backoff) instead of ``retry due`` / ``retry in …`` — FinRobot #119 keep
+    plan out of the auto-retry circuit; discovery due + refresh both hold
+    (weekend/cycle force cannot thrash a billing wall).
     When last-error class already spoke, also speak error vs seed extremes
     ``error/seed clash · fresh`` / ``align · stale`` on the first fail
     (portfolio AI speak-both-sides — typed death alone hid a still-fresh
@@ -23523,6 +23523,7 @@ def build_universe_discovery_glance(
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
         yahoo_discovery_due_from_meta,
+        yahoo_fail_plan_held,
         yahoo_fail_retry_remaining_sec,
         yahoo_discovery_error_class,
         yahoo_discovery_error_sides,
@@ -23894,12 +23895,15 @@ def build_universe_discovery_glance(
         if yahoo_failed
         else ("", False)
     )
+    # FinRobot #119: plan wall is held even after backoff (not about-to-spend).
+    plan_held = bool(yahoo_failed and yahoo_fail_plan_held(uni_meta))
     # xang1234 #640: first-fail class alone hid held vs due before N×.
     error_vs_budget = (
         yahoo_fail_error_vs_budget(
             fail_error,
             retry_due=retry_due,
             retry_remain_sec=retry_remain_sec,
+            plan_held=plan_held,
         )
         if yahoo_failed and fail_error
         else ""
@@ -23910,6 +23914,7 @@ def build_universe_discovery_glance(
             fail_streak,
             retry_due=retry_due,
             retry_remain_sec=retry_remain_sec,
+            plan_held=plan_held,
         )
         if yahoo_failed
         else ""
@@ -24094,8 +24099,9 @@ def build_universe_discovery_glance(
                 f" · sf/budget {streak_seed_fail_vs_budget}"
             )
         # FinRobot #119: plan entitlement outlives backoff — desk must not
-        # say ``retry due`` as if another Yahoo spend will clear a billing wall.
-        retry_held_plan = bool(fail_error == "plan" and retry_due)
+        # say ``retry due`` / ``retry in …`` as if another Yahoo spend will
+        # clear a billing wall (due + refresh both hold; see plan_held).
+        retry_held_plan = bool(plan_held or fail_error == "plan")
         if retry_held_plan:
             retry = " · retry held · plan"
         elif retry_due:

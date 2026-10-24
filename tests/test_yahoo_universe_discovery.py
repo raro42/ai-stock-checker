@@ -786,6 +786,11 @@ def test_yahoo_fail_error_vs_budget_extremes():
         yahoo_fail_error_vs_budget("error", retry_due=False, retry_remain_sec=0)
         == ""
     )
+    # FinRobot #119: plan stays held even when remain is 0 / retry_due True.
+    assert (
+        yahoo_fail_error_vs_budget("plan", retry_due=True, retry_remain_sec=0)
+        == "clash · held · not spent"
+    )
 
 
 def test_yahoo_fail_streak_vs_budget_extremes():
@@ -1043,6 +1048,35 @@ def test_yahoo_discovery_due_from_meta_fail_backoff():
     }
     assert yahoo_discovery_due_from_meta(meta_due, now=now) is True
     assert yahoo_fail_retry_remaining_sec(meta_due, now=now) == 0
+
+
+def test_yahoo_discovery_due_from_meta_plan_held():
+    """FinRobot #119: plan fail never auto-due after backoff."""
+    from datetime import datetime, timezone
+
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_due_from_meta,
+        yahoo_fail_plan_held,
+        yahoo_fail_retry_remaining_sec,
+    )
+
+    now = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+    seed = "2026-10-04T06:00:00"
+    old_fail = "2026-10-04T10:30:00"
+    meta_plan = {
+        "last_yahoo_discovery": seed,
+        "last_yahoo_discovery_status": "failed",
+        "last_yahoo_discovery_fail": old_fail,
+        "last_yahoo_discovery_error": "plan",
+    }
+    assert yahoo_fail_plan_held(meta_plan) is True
+    assert yahoo_fail_retry_remaining_sec(meta_plan, now=now) == 0
+    assert yahoo_discovery_due_from_meta(meta_plan, now=now) is False
+    # http after the same stamp still becomes due.
+    meta_http = dict(meta_plan)
+    meta_http["last_yahoo_discovery_error"] = "http"
+    assert yahoo_fail_plan_held(meta_http) is False
+    assert yahoo_discovery_due_from_meta(meta_http, now=now) is True
 
 
 def test_fetch_yahoo_screen_403_is_empty_error(monkeypatch):

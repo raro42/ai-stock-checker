@@ -285,6 +285,21 @@ def yahoo_discovery_error_class(meta: Any) -> str:
     return ""
 
 
+def yahoo_fail_plan_held(meta: Any) -> bool:
+    """True when last movers fail is a plan entitlement wall (FinRobot #119).
+
+    Plan stays out of the auto-retry circuit: backoff expiry must not
+    re-dispatch Yahoo spend against a billing wall. Clear only on a later
+    success (or a non-plan fail that replaces the class).
+    """
+    if not isinstance(meta, dict):
+        return False
+    status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
+    if status != "failed":
+        return False
+    return yahoo_discovery_error_class(meta) == "plan"
+
+
 def yahoo_discovery_error_sides(meta: Any) -> tuple[int, int]:
     """Read persisted timeout/inflight fail counts; junk → ``(0, 0)``."""
     if not isinstance(meta, dict):
@@ -1104,13 +1119,18 @@ def _yahoo_fail_budget_spend_bit(
     *,
     retry_due: bool,
     retry_remain_sec: int | None,
+    plan_held: bool = False,
 ) -> str:
     """Fetch-budget hold vs about-to-spend (xang1234 #640/#642).
 
     Cooling (remain > 0) is unused capacity: ``clash · held · not spent``.
-    Retry due aligns: ``align · due``. Missing remain while not due stays
-    silent. Shared by streak (N×≥2) and first-fail typed error.
+    FinRobot #119 plan walls stay held even after backoff expiry (not
+    ``align · due``). Retry due aligns: ``align · due``. Missing remain
+    while not due stays silent. Shared by streak (N×≥2) and first-fail
+    typed error.
     """
+    if plan_held:
+        return "clash · held · not spent"
     if retry_due:
         return "align · due"
     try:
@@ -1129,15 +1149,16 @@ def yahoo_fail_streak_vs_budget(
     *,
     retry_due: bool,
     retry_remain_sec: int | None,
+    plan_held: bool = False,
 ) -> str:
     """Streak vs fetch-budget spend when N× already spoke (xang1234 #640).
 
     Chronic ``N×`` alone hid whether discovery is still spending Yahoo fetch
     budget or holding unused capacity in fail backoff. Cooling (remain > 0)
     clashes with a hot streak (counter ≠ live spend). Retry due aligns
-    (about to spend / spending again). Streak <2 / missing remain while not
-    due stay silent. Returns ``clash · held · not spent`` / ``align · due`` /
-    ``""``.
+    (about to spend / spending again). Plan held never aligns due.
+    Streak <2 / missing remain while not due stay silent. Returns
+    ``clash · held · not spent`` / ``align · due`` / ``""``.
     """
     try:
         n = int(streak)
@@ -1148,6 +1169,7 @@ def yahoo_fail_streak_vs_budget(
     return _yahoo_fail_budget_spend_bit(
         retry_due=retry_due,
         retry_remain_sec=retry_remain_sec,
+        plan_held=plan_held,
     )
 
 
@@ -1156,6 +1178,7 @@ def yahoo_fail_error_vs_budget(
     *,
     retry_due: bool,
     retry_remain_sec: int | None,
+    plan_held: bool = False,
 ) -> str:
     """Typed last-error vs fetch-budget on the first fail (xang1234 #640).
 
@@ -1171,6 +1194,7 @@ def yahoo_fail_error_vs_budget(
     return _yahoo_fail_budget_spend_bit(
         retry_due=retry_due,
         retry_remain_sec=retry_remain_sec,
+        plan_held=plan_held or klass == "plan",
     )
 
 
@@ -1328,11 +1352,16 @@ def yahoo_discovery_due_from_meta(
     xang1234: a failed fetch does not inherit the success-age throttle.
     xang1234 dfb6a86: after a failed fetch, wait ``fail_backoff_hours`` before
     retrying (missing fail stamp → retry immediately).
+    FinRobot #119: a ``plan`` fail stays out of the auto-retry circuit —
+    backoff expiry must not mark discovery due against a billing wall.
     """
     if not isinstance(meta, dict):
         return True
     status = str(meta.get("last_yahoo_discovery_status") or "").strip().lower()
     if status == "failed":
+        # Plan entitlement ≠ flake — never auto-due (desk: retry held · plan).
+        if yahoo_fail_plan_held(meta):
+            return False
         remain = yahoo_fail_retry_remaining_sec(
             meta, now=now, fail_backoff_hours=fail_backoff_hours
         )
