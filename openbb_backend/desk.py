@@ -1229,8 +1229,11 @@ def build_screener_opportunity_counts(
     portfolio AI speak-both-sides after junk share (unique/dup sides
     parity).     When junk+ok sides already spoke, also lean clash/align
     (``junk vs ok align · hot|thin`` / ``quiet|strong``, or clash when
-    exactly one lean spoke at 50/50) — unique/dup lean parity; junk vs ok
-    share Δ still deferred. When junk already spoke, also name which
+    exactly one lean spoke at 50/50) — unique/dup lean parity. When lean
+    already spoke, also junk−ok pp Δ then lean vs Δ then Δ lead · junk|ok
+    when ±pp ≠ 0, then Δ lead size · N× (louder%÷quieter%) and sides
+    louder/quieter % (unique/dup Δ lead size parity; zero quieter silent).
+    When junk already spoke, also name which
     scan lists hold junk (``in rec · crypto · brk``) — total N junk ≠
     which sleeve is damaged (xang1234 #531 market-pointer + #540
     damaged-artifact visibility).     When ≥2 lists hold junk and one is
@@ -1316,6 +1319,9 @@ def build_screener_opportunity_counts(
         "junk_vs_ok_lean_vs_delta": "",
         "junk_vs_ok_lean_vs_delta_warn": False,
         "junk_vs_ok_delta_lead": "",
+        "junk_vs_ok_delta_lead_size": None,
+        "junk_vs_ok_delta_lead_size_louder_pct": None,
+        "junk_vs_ok_delta_lead_size_quieter_pct": None,
         "lean_moods": "",
         "lean_moods_warn": False,
         "delta_moods": "",
@@ -1546,6 +1552,9 @@ def build_screener_opportunity_counts(
     junk_vs_ok_lean_vs_delta = ""
     junk_vs_ok_lean_vs_delta_warn = False
     junk_vs_ok_delta_lead = ""
+    junk_vs_ok_delta_lead_size: float | None = None
+    junk_vs_ok_delta_lead_size_louder_pct: float | None = None
+    junk_vs_ok_delta_lead_size_quieter_pct: float | None = None
     junk_lists = ""
     junk_list_lead = ""
     junk_list_lead_name = ""
@@ -1673,12 +1682,27 @@ def build_screener_opportunity_counts(
                     junk_vs_ok_lean_vs_delta_warn = True
                 # Signed pp alone hid which side owns the spread
                 # (unique/dup Δ lead + soft-allow short Δ lead parity).
-                # 0pp stays silent; lead size nest still deferred.
+                # 0pp stays silent. Lead name ≠ how many times louder
+                # owns quieter (unique/dup Δ lead size parity); zero
+                # quieter (all-junk) stays silent on size.
                 if junk_vs_ok_delta_pp is not None:
                     if junk_vs_ok_delta_pp > 0:
                         junk_vs_ok_delta_lead = "junk"
                     elif junk_vs_ok_delta_pp < 0:
                         junk_vs_ok_delta_lead = "ok"
+                if (
+                    junk_vs_ok_delta_lead
+                    and junk_share_pct is not None
+                    and ok_share_pct is not None
+                ):
+                    louder = max(junk_share_pct, ok_share_pct)
+                    quieter = min(junk_share_pct, ok_share_pct)
+                    if quieter > 0:
+                        junk_vs_ok_delta_lead_size = round(
+                            louder / quieter, 2
+                        )
+                        junk_vs_ok_delta_lead_size_louder_pct = louder
+                        junk_vs_ok_delta_lead_size_quieter_pct = quieter
             else:
                 junk_vs_ok_lean_vs_delta = "clash · lean · Δ mid"
                 junk_vs_ok_lean_vs_delta_warn = True
@@ -1745,6 +1769,19 @@ def build_screener_opportunity_counts(
                 )
             if junk_vs_ok_delta_lead:
                 lean_extras.append(f"Δ lead · {junk_vs_ok_delta_lead}")
+            if junk_vs_ok_delta_lead_size is not None:
+                lean_extras.append(
+                    f"Δ lead size · {junk_vs_ok_delta_lead_size:g}×"
+                )
+            if (
+                junk_vs_ok_delta_lead_size_louder_pct is not None
+                and junk_vs_ok_delta_lead_size_quieter_pct is not None
+            ):
+                lean_extras.append(
+                    "Δ lead size sides · louder "
+                    f"{junk_vs_ok_delta_lead_size_louder_pct:g}% · quieter "
+                    f"{junk_vs_ok_delta_lead_size_quieter_pct:g}%"
+                )
         if junk_list_lead_vs_lean:
             lean_extras.append(f"lead/lean {junk_list_lead_vs_lean}")
         for lean_extra in lean_extras:
@@ -1906,6 +1943,13 @@ def build_screener_opportunity_counts(
         "junk_vs_ok_lean_vs_delta": junk_vs_ok_lean_vs_delta,
         "junk_vs_ok_lean_vs_delta_warn": junk_vs_ok_lean_vs_delta_warn,
         "junk_vs_ok_delta_lead": junk_vs_ok_delta_lead,
+        "junk_vs_ok_delta_lead_size": junk_vs_ok_delta_lead_size,
+        "junk_vs_ok_delta_lead_size_louder_pct": (
+            junk_vs_ok_delta_lead_size_louder_pct
+        ),
+        "junk_vs_ok_delta_lead_size_quieter_pct": (
+            junk_vs_ok_delta_lead_size_quieter_pct
+        ),
         "lean_moods": lean_moods,
         "lean_moods_warn": lean_moods_warn,
         "delta_moods": delta_moods,
