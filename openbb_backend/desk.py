@@ -1315,6 +1315,7 @@ def build_screener_opportunity_counts(
         "junk_vs_ok_delta_severity": "",
         "junk_vs_ok_lean_vs_delta": "",
         "junk_vs_ok_lean_vs_delta_warn": False,
+        "junk_vs_ok_delta_lead": "",
         "lean_moods": "",
         "lean_moods_warn": False,
         "delta_moods": "",
@@ -1544,6 +1545,7 @@ def build_screener_opportunity_counts(
     junk_vs_ok_delta_severity = ""
     junk_vs_ok_lean_vs_delta = ""
     junk_vs_ok_lean_vs_delta_warn = False
+    junk_vs_ok_delta_lead = ""
     junk_lists = ""
     junk_list_lead = ""
     junk_list_lead_name = ""
@@ -1669,6 +1671,14 @@ def build_screener_opportunity_counts(
                     and junk_vs_ok.startswith("align · hot|thin")
                 ):
                     junk_vs_ok_lean_vs_delta_warn = True
+                # Signed pp alone hid which side owns the spread
+                # (unique/dup Δ lead + soft-allow short Δ lead parity).
+                # 0pp stays silent; lead size nest still deferred.
+                if junk_vs_ok_delta_pp is not None:
+                    if junk_vs_ok_delta_pp > 0:
+                        junk_vs_ok_delta_lead = "junk"
+                    elif junk_vs_ok_delta_pp < 0:
+                        junk_vs_ok_delta_lead = "ok"
             else:
                 junk_vs_ok_lean_vs_delta = "clash · lean · Δ mid"
                 junk_vs_ok_lean_vs_delta_warn = True
@@ -1733,6 +1743,8 @@ def build_screener_opportunity_counts(
                 lean_extras.append(
                     f"lean vs Δ {junk_vs_ok_lean_vs_delta}"
                 )
+            if junk_vs_ok_delta_lead:
+                lean_extras.append(f"Δ lead · {junk_vs_ok_delta_lead}")
         if junk_list_lead_vs_lean:
             lean_extras.append(f"lead/lean {junk_list_lead_vs_lean}")
         for lean_extra in lean_extras:
@@ -1893,6 +1905,7 @@ def build_screener_opportunity_counts(
         "junk_vs_ok_delta_severity": junk_vs_ok_delta_severity,
         "junk_vs_ok_lean_vs_delta": junk_vs_ok_lean_vs_delta,
         "junk_vs_ok_lean_vs_delta_warn": junk_vs_ok_lean_vs_delta_warn,
+        "junk_vs_ok_delta_lead": junk_vs_ok_delta_lead,
         "lean_moods": lean_moods,
         "lean_moods_warn": lean_moods_warn,
         "delta_moods": delta_moods,
@@ -31791,7 +31804,12 @@ def load_desk_snapshot(
         {
             "title": "Screener junk vs ok lean",
             "from": "xang1234/stock-screener + portfolio AI (unique/dup lean parity)",
-            "note": "When junk+ok sides already spoke, weight_lean speaks junk vs ok align · hot|thin / quiet|strong, or clash when exactly one lean spoke (50/50); share Δ still deferred.",
+            "note": "When junk+ok sides already spoke, weight_lean speaks junk vs ok align · hot|thin / quiet|strong, or clash when exactly one lean spoke (50/50); share Δ + lean vs Δ + Δ lead · junk|ok shipped (lead size still deferred).",
+        },
+        {
+            "title": "Screener junk vs ok Δ lead",
+            "from": "xang1234/stock-screener + portfolio AI (unique/dup Δ lead + soft-allow short Δ lead)",
+            "note": "When junk vs ok lean/Δ already spoke and ±pp ≠ 0, weight_lean speaks Δ lead · junk|ok — signed spread ≠ which side owns damage vs usable Total; 0pp silent; lead size nest still deferred.",
         },
         {
             "title": "Screener junk list pointer",
