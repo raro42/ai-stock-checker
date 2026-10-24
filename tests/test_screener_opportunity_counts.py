@@ -208,6 +208,10 @@ def test_empty_and_non_mapping():
     assert empty["junk_vs_ok_lean_vs_delta_warn"] is False
     assert empty["lean_moods"] == ""
     assert empty["lean_moods_warn"] is False
+    assert empty["delta_moods"] == ""
+    assert empty["delta_moods_warn"] is False
+    assert empty["lean_vs_delta_moods"] == ""
+    assert empty["lean_vs_delta_moods_warn"] is False
     assert empty["weight_lean_meta"] == "quiet"
     assert empty["lists_populated"] == 0
     assert empty["weight"] == "row slots"
@@ -950,6 +954,10 @@ def test_overlap_unique_vs_dup_delta_mid_silent():
     assert c["tone"] == "warn"
     assert c["lean_moods"] == ""
     assert c["lean_moods_warn"] is False
+    assert c["delta_moods"] == ""
+    assert c["delta_moods_warn"] is False
+    assert c["lean_vs_delta_moods"] == ""
+    assert c["lean_vs_delta_moods_warn"] is False
 
 
 def test_screener_weight_lean_meta_lean_moods_warn():
@@ -976,6 +984,33 @@ def test_screener_weight_lean_meta_lean_moods_warn():
             n_junk=1,
         )
         == "align · both clash"
+    )
+    # Lean vs Δ moods warn preferred over lean moods / Δ moods.
+    assert (
+        screener_weight_lean_meta(
+            lean_vs_delta_moods="clash · lean align · Δ clash",
+            lean_vs_delta_moods_warn=True,
+            lean_moods="align · both align",
+            lean_moods_warn=False,
+            delta_moods="clash · junk/ok wide · unique/dup thin",
+            delta_moods_warn=True,
+            n_junk=2,
+            weight_lean=(
+                "lean moods align · both align · Δ moods "
+                "clash · junk/ok wide · unique/dup thin · "
+                "lean vs Δ moods clash · lean align · Δ clash"
+            ),
+        )
+        == "clash · moods · Δ moods · lean/Δ moods · Δ"
+    )
+    assert (
+        screener_weight_lean_meta(
+            delta_moods="align · both wide",
+            delta_moods_warn=True,
+            n_junk=1,
+            weight_lean="Δ moods align · both wide",
+        )
+        == "align · both wide · Δ moods"
     )
 
 
@@ -1004,6 +1039,9 @@ def test_overlap_and_junk_lean_moods_align():
     assert c["lean_moods"] == "align · both align"
     assert c["lean_moods_warn"] is False
     assert "lean moods align · both align" in c["weight_lean"]
+    # Junk Δ mid (≈11pp) → no Δ moods; lean vs Δ moods silent.
+    assert c["delta_moods"] == ""
+    assert c["lean_vs_delta_moods"] == ""
     assert c["tone"] == "warn"  # junk always warns
 
 
@@ -1027,5 +1065,87 @@ def test_overlap_and_junk_lean_moods_clash():
     assert c["lean_moods"] == "clash · junk/ok align · unique/dup clash"
     assert c["lean_moods_warn"] is True
     assert "lean moods clash · junk/ok align · unique/dup clash" in c["weight_lean"]
+    # 50/50 unique/dup → lean/Δ align · thin (0pp); junk quiet|strong → wide.
+    assert c["unique_vs_dup_lean_vs_delta"] == "align · thin"
+    assert c["junk_vs_ok_lean_vs_delta"] == "align · wide"
+    assert c["delta_moods"] == "clash · junk/ok wide · unique/dup thin"
+    assert c["delta_moods_warn"] is True
+    assert c["lean_vs_delta_moods"] == "align · both clash"
+    assert c["lean_vs_delta_moods_warn"] is True
+    assert c["weight_lean_meta"].startswith("align · both clash")
+    assert c["tone"] == "warn"
+
+
+def test_overlap_and_junk_delta_moods_both_wide():
+    """Both junk/ok + unique/dup lean/Δ align wide → Δ moods both wide (warn)."""
+    c = build_screener_opportunity_counts(
+        {
+            # 4 object · 3 unique · 1 dup → 75% strong|quiet · Δ +50 wide
+            "recommendations": [
+                {"symbol": "NVDA"},
+                {"symbol": "AAPL"},
+                "j1",
+                "j2",
+                "j3",
+            ],
+            "crypto_leaders": [{"symbol": "BTC-USD"}, "j4"],
+            # 6 junk · 4 ok → 60% hot · 40% thin · Δ +20 wide
+            "stock_breakouts": [{"symbol": "NVDA"}, "j5", "j6"],
+        }
+    )
+    assert c["n_total"] == 4
+    assert c["n_unique"] == 3
+    assert c["n_dup"] == 1
+    assert c["n_junk"] == 6
+    assert c["unique_vs_dup"] == "align · strong|quiet"
+    assert c["unique_vs_dup_lean_vs_delta"] == "align · wide"
+    assert c["junk_vs_ok"] == "align · hot|thin"
+    assert c["junk_vs_ok_lean_vs_delta"] == "align · wide"
+    assert c["lean_moods"] == "align · both align"
+    assert c["lean_moods_warn"] is False
+    assert c["delta_moods"] == "align · both wide"
+    assert c["delta_moods_warn"] is True
+    assert c["lean_vs_delta_moods"] == "align · both align"
+    assert c["lean_vs_delta_moods_warn"] is False
+    assert "Δ moods align · both wide" in c["weight_lean"]
+    assert "lean vs Δ moods align · both align" in c["weight_lean"]
+    assert c["weight_lean_meta"].startswith("align · both wide")
+    assert c["tone"] == "warn"
+
+
+def test_overlap_and_junk_delta_moods_clash():
+    """Junk/ok lean/Δ thin vs unique/dup lean/Δ wide → Δ moods clash."""
+    # Unique 3/4 = 75% strong|quiet · Δ +50 → lean/Δ align · wide.
+    # Junk 4/8 = 50% hot · 50% ok · Δ 0 → lean/Δ align · thin
+    # (junk lean ≠ ok lean → junk/ok clash verb; Δ still thin).
+    c = build_screener_opportunity_counts(
+        {
+            "recommendations": [
+                {"symbol": "NVDA"},
+                {"symbol": "AAPL"},
+                "j1",
+                "j2",
+            ],
+            "crypto_leaders": [{"symbol": "BTC-USD"}, "j3"],
+            "stock_breakouts": [{"symbol": "NVDA"}, "j4"],
+        }
+    )
+    assert c["n_total"] == 4
+    assert c["n_unique"] == 3
+    assert c["n_dup"] == 1
+    assert c["n_junk"] == 4
+    assert c["unique_vs_dup"] == "align · strong|quiet"
+    assert c["unique_vs_dup_lean_vs_delta"] == "align · wide"
+    assert c["junk_vs_ok"] == "clash · junk hot · ok ok"
+    assert c["junk_vs_ok_lean_vs_delta"] == "align · thin"
+    assert c["lean_moods"] == "clash · junk/ok clash · unique/dup align"
+    assert c["lean_moods_warn"] is True
+    assert c["delta_moods"] == "clash · junk/ok thin · unique/dup wide"
+    assert c["delta_moods_warn"] is True
+    assert c["lean_vs_delta_moods"] == "align · both clash"
+    assert c["lean_vs_delta_moods_warn"] is True
+    assert "Δ moods clash · junk/ok thin · unique/dup wide" in c["weight_lean"]
+    assert "lean vs Δ moods align · both clash" in c["weight_lean"]
+    # Multi-list junk lead/lean clash owns the chip before lean/Δ moods.
     assert c["weight_lean_meta"].startswith("clash")
     assert c["tone"] == "warn"
