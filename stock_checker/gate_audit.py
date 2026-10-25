@@ -1108,6 +1108,33 @@ def soft_allow_short_delta_lead_moods(
     )
 
 
+def soft_allow_short_lean_vs_delta_lead_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Lean moods verb vs Δ lead moods verb (display only).
+
+    Returns ``(bit, warn)``. When both lean moods and Δ lead moods
+    already spoke: same → ``align · both align|clash``; crossed →
+    ``clash · lean … · Δ lead …``. Missing either side silent.
+    Dual-clash + crossed warn; both-align speaks, no warn. Lean verb
+    match alone hid whether ownership polarity agrees with lean
+    agreement (Screener lean vs Δ lead moods + FinRobot + portfolio AI
+    speak-both-sides after short Δ lead moods). Prefixed
+    ``short lean vs Δ lead moods`` in the glance bit so lean vs Δ moods
+    and bare Δ lead moods stay distinct. Not a gate.
+    """
+    lean_moods, _ = soft_allow_short_lean_moods(events)
+    delta_lead_moods, _ = soft_allow_short_delta_lead_moods(events)
+    lean_v = _short_lean_verb(lean_moods)
+    delta_lead_v = _short_lean_verb(delta_lead_moods)
+    if not lean_v or not delta_lead_v:
+        return "", False
+    if lean_v == delta_lead_v:
+        # Dual-clash agreement ≠ calm confirm (share/lean both-clash).
+        return f"align · both {lean_v}", lean_v == "clash"
+    return f"clash · lean {lean_v} · Δ lead {delta_lead_v}", True
+
+
 def soft_allow_short_history_last_vs_share(
     events: list[dict[str, Any]] | None,
     *,
@@ -1862,7 +1889,12 @@ def format_soft_allow_short_history_bit(
     ``short Δ lead moods align|clash`` follows so side-by-side lead
     names alone cannot hide whether ownership polarity agrees
     (Screener junk/unique Δ lead moods + FinRobot + portfolio AI
-    speak-both-sides; adverse = short|bench · healthy = gap|young).
+    speak-both-sides; adverse = short|bench · healthy = gap|young);
+    when lean moods + Δ lead moods already spoke,
+    ``short lean vs Δ lead moods align|clash`` follows so lean verb
+    match alone cannot hide whether ownership polarity agrees with lean
+    agreement (Screener lean vs Δ lead moods + FinRobot + portfolio AI
+    speak-both-sides).
     When last freshness extremes + lean already spoke, ``short last/lean
     align|clash`` follows so age labels + lean labels alone cannot hide
     age≠lean (gap last/lean parity); when last/lead + last/lean already
@@ -2157,6 +2189,18 @@ def format_soft_allow_short_history_bit(
             if delta_lead_moods:
                 head = (
                     f"{head} · short Δ lead moods {delta_lead_moods}"
+                )
+            # Lean verb match alone hid whether ownership polarity
+            # agrees with lean agreement (Screener lean vs Δ lead moods
+            # + FinRobot + portfolio AI speak-both-sides after Δ lead
+            # moods).
+            lean_vs_delta_lead_moods, _ = (
+                soft_allow_short_lean_vs_delta_lead_moods(events)
+            )
+            if lean_vs_delta_lead_moods:
+                head = (
+                    f"{head} · short lean vs Δ lead moods "
+                    f"{lean_vs_delta_lead_moods}"
                 )
             last_vs_lean, _ = soft_allow_short_history_last_vs_lean(
                 events, now=now
