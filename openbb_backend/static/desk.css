@@ -579,8 +579,58 @@ a:active {
   color: var(--down);
 }
 
+.scan-fresh-pin.warn {
+  color: var(--down);
+}
+
 .scan-fresh-when {
   color: var(--muted);
+}
+
+/* Opportunity latest-pin lean fold (MonsterDeveloper declutter). */
+.scan-fresh-pin-lean {
+  margin: 0.25rem 0 0.15rem;
+  padding: 0;
+  border: 0;
+}
+
+.scan-fresh-pin-lean > summary {
+  cursor: pointer;
+  color: var(--link);
+  font-family: var(--font-body, system-ui, sans-serif);
+  font-size: 0.78rem;
+  list-style: none;
+}
+
+.scan-fresh-pin-lean > summary::-webkit-details-marker {
+  display: none;
+}
+
+.scan-fresh-pin-lean > summary .meta {
+  margin-left: 0.25rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.scan-fresh-pin-lean.warn > summary,
+.scan-fresh-pin-lean.warn > summary .meta {
+  color: var(--down);
+}
+
+.scan-fresh-pin-lean[open] > summary {
+  margin-bottom: 0.15rem;
+}
+
+.scan-fresh-pin-lean-body {
+  margin: 0;
+  font-family: var(--font-data, ui-monospace, monospace);
+  font-size: 0.78rem;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.scan-fresh-pin-lean-body.warn {
+  color: var(--down);
 }
 
 .breadth-glance .sub {

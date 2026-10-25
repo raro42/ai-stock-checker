@@ -1311,6 +1311,11 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
             scan_time,
             archive_pin=str(archive_res.get("pin") or ""),
             archive_pin_bit=str(archive_res.get("bit") or ""),
+            archive_pin_bit_core=str(
+                archive_res.get("bit_core") or archive_res.get("bit") or ""
+            ),
+            archive_pin_lean=str(archive_res.get("pin_lean") or ""),
+            archive_pin_lean_warn=bool(archive_res.get("pin_lean_warn")),
             archive_pin_warn=bool(archive_res.get("warn")),
         ),
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),

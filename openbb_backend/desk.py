@@ -1006,6 +1006,11 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "fallback": False,
         "warn": False,
         "bit": "",
+        # Strip shows bit_core; lean/Δ/lag-relationship cascade sits in pin_lean
+        # (MonsterDeveloper fold parity — full bit stays joined for tests).
+        "bit_core": "",
+        "pin_lean": "",
+        "pin_lean_warn": False,
         "behind": 0,
         "behind_share_pct": None,
         "behind_share_severity": "",
@@ -1030,6 +1035,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
+        out["bit_core"] = out["bit"]
         out["warn"] = True
         return out
 
@@ -1222,35 +1228,78 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             sev_bit = f" · {sev}" if sev else ""
             pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
             lean_bit = (
-                f" · behind vs pin {behind_vs_pin}" if behind_vs_pin else ""
+                f"behind vs pin {behind_vs_pin}" if behind_vs_pin else ""
             )
             delta_bit = ""
             if delta_sev and delta_pp is not None:
                 sign = f"+{delta_pp}" if delta_pp > 0 else f"{delta_pp}"
-                delta_bit = f" · Δ {delta_sev} · {sign}pp"
+                delta_bit = f"Δ {delta_sev} · {sign}pp"
             lean_vs_delta_bit = (
-                f" · lean vs Δ {lean_vs_delta}" if lean_vs_delta else ""
+                f"lean vs Δ {lean_vs_delta}" if lean_vs_delta else ""
             )
             lag_bit = f" · {lag_label}" if lag_label else ""
             lag_vs_share_bit = (
-                f" · lag/share {lag_vs_share}" if lag_vs_share else ""
+                f"lag/share {lag_vs_share}" if lag_vs_share else ""
             )
             lag_share_vs_lean_bit = (
-                f" · lag/share vs lean {lag_share_vs_lean}"
+                f"lag/share vs lean {lag_share_vs_lean}"
                 if lag_share_vs_lean
                 else ""
             )
             lag_share_lean_vs_delta_bit = (
-                f" · lag/share↔lean vs lean↔Δ {lag_share_lean_vs_delta}"
+                f"lag/share↔lean vs lean↔Δ {lag_share_lean_vs_delta}"
                 if lag_share_lean_vs_delta
                 else ""
             )
+            # Fold body: lean/Δ + lag relationships (lag age stays on bit_core).
+            pin_lean = " · ".join(
+                p
+                for p in (
+                    lean_bit,
+                    delta_bit,
+                    lean_vs_delta_bit,
+                    lag_vs_share_bit,
+                    lag_share_vs_lean_bit,
+                    lag_share_lean_vs_delta_bit,
+                )
+                if p
+            )
+            pin_lean_warn = bool(
+                behind_vs_pin_warn
+                or lean_vs_delta_warn
+                or lag_vs_share_warn
+                or lag_share_vs_lean_warn
+                or lag_share_lean_vs_delta_warn
+            )
+            # Strip: counts + pin→newest lag + fallback (MonsterDeveloper core).
+            bit_core = (
+                f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
+                f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
+                f"{lag_bit} · fallback"
+            )
+            # Full bit keeps historical order: counts · lean/Δ · lag ·
+            # lag-rel · fallback (tests assert this join).
+            lean_prefix = ""
+            if lean_bit:
+                lean_prefix += f" · {lean_bit}"
+            if delta_bit:
+                lean_prefix += f" · {delta_bit}"
+            if lean_vs_delta_bit:
+                lean_prefix += f" · {lean_vs_delta_bit}"
+            lag_rel = ""
+            if lag_vs_share_bit:
+                lag_rel += f" · {lag_vs_share_bit}"
+            if lag_share_vs_lean_bit:
+                lag_rel += f" · {lag_share_vs_lean_bit}"
+            if lag_share_lean_vs_delta_bit:
+                lag_rel += f" · {lag_share_lean_vs_delta_bit}"
+            out["bit_core"] = bit_core
+            out["pin_lean"] = pin_lean
+            out["pin_lean_warn"] = pin_lean_warn
             out["bit"] = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
-                f"{lean_bit}{delta_bit}{lean_vs_delta_bit}{lag_bit}"
-                f"{lag_vs_share_bit}{lag_share_vs_lean_bit}"
-                f"{lag_share_lean_vs_delta_bit} · fallback"
+                f"{lean_prefix}{lag_bit}{lag_rel} · fallback"
             )
             return out
         out["pin"] = "latest"
@@ -1264,8 +1313,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         out["path"] = newest
         out["fallback"] = True
         out["bit"] = f"latest {pin} · fallback"
+        out["bit_core"] = out["bit"]
         return out
     out["bit"] = f"latest {pin}"
+    out["bit_core"] = out["bit"]
     return out
 
 
@@ -1276,6 +1327,9 @@ def build_scan_freshness(
     scan_interval_sec: int = 900,
     archive_pin: str = "",
     archive_pin_bit: str = "",
+    archive_pin_bit_core: str = "",
+    archive_pin_lean: str = "",
+    archive_pin_lean_warn: bool = False,
     archive_pin_warn: bool = False,
 ) -> dict[str, Any]:
     """Scan archive age honesty (RyanJHamby cache-freshness pattern; display only).
@@ -1298,22 +1352,31 @@ def build_scan_freshness(
     when both gaps already spoke (portfolio AI speak-both-sides after
     side-by-side Δ labels), and ``runner · US|Xetra · 50%`` on the calmer
     sleeve when it already spoke (worst size alone hid runner ownership).
-    ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing,
-    dangling, or stale (``latest stale · N behind · [hot|quiet ·] P% ·
-    vs M pin · [strong|thin ·] Q% · lag Nd · fallback`` when the live
-    pin lags N newer timestamped publishes — behind÷timestamped hot ≥50%
-    · quiet ≤25%; remaining at-or-behind-pin as vs pin strong ≥75% · thin
-    <50%; pin→newest stamp lag when both filenames parse — Screener junk
-    vs ok sides + FinRobot age) and the desk fell back (xang1234 #682 /
-    #685 readiness pin + portfolio AI count≠share / speak-both-sides).
+    ``archive_pin_bit`` / ``archive_pin_bit_core`` speak when
+    ``opportunities_latest`` is missing, dangling, or stale (``latest
+    stale · N behind · [hot|quiet ·] P% · vs M pin · [strong|thin ·] Q% ·
+    lag Nd · fallback`` when the live pin lags N newer timestamped
+    publishes — behind÷timestamped hot ≥50% · quiet ≤25%; remaining
+    at-or-behind-pin as vs pin strong ≥75% · thin <50%; pin→newest stamp
+    lag when both filenames parse — Screener junk vs ok sides + FinRobot
+    age) and the desk fell back (xang1234 #682 / #685 readiness pin +
+    portfolio AI count≠share / speak-both-sides). Lean/Δ / lag-relationship
+    cascade sits in ``archive_pin_lean`` under a desk fold (MonsterDeveloper
+    weight/streak lean parity — age_label alone hid keep-newest).
     Not an entry gate.
     """
     pin = str(archive_pin or "").strip().casefold()
     pin_bit = str(archive_pin_bit or "").strip()
-    pin_warn = bool(archive_pin_warn) or bool(pin_bit)
+    pin_bit_core = str(archive_pin_bit_core or "").strip() or pin_bit
+    pin_lean = str(archive_pin_lean or "").strip()
+    pin_lean_warn = bool(archive_pin_lean_warn)
+    pin_warn = bool(archive_pin_warn) or bool(pin_bit) or bool(pin_bit_core)
     pin_fields = {
         "archive_pin": pin,
         "archive_pin_bit": pin_bit,
+        "archive_pin_bit_core": pin_bit_core,
+        "archive_pin_lean": pin_lean,
+        "archive_pin_lean_warn": pin_lean_warn,
         "archive_pin_warn": pin_warn,
     }
     empty = {
@@ -32984,10 +33047,20 @@ def load_desk_snapshot(
             scan_interval_sec=scan_interval_sec,
             archive_pin=str(archive_res.get("pin") or ""),
             archive_pin_bit=str(archive_res.get("bit") or ""),
+            archive_pin_bit_core=str(
+                archive_res.get("bit_core") or archive_res.get("bit") or ""
+            ),
+            archive_pin_lean=str(archive_res.get("pin_lean") or ""),
+            archive_pin_lean_warn=bool(archive_res.get("pin_lean_warn")),
             archive_pin_warn=bool(archive_res.get("warn")),
         ),
         "archive_pin": str(archive_res.get("pin") or ""),
         "archive_pin_bit": str(archive_res.get("bit") or ""),
+        "archive_pin_bit_core": str(
+            archive_res.get("bit_core") or archive_res.get("bit") or ""
+        ),
+        "archive_pin_lean": str(archive_res.get("pin_lean") or ""),
+        "archive_pin_lean_warn": bool(archive_res.get("pin_lean_warn")),
         "archive_pin_warn": bool(archive_res.get("warn")),
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,

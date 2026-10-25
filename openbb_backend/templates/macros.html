@@ -31,10 +31,18 @@
 {% macro scan_freshness(snap) -%}
 {% set fresh = snap.scan_freshness if snap.scan_freshness is mapping else {} %}
 {% if fresh.ready %}
+{% set pin_core = fresh.archive_pin_bit_core|default(fresh.archive_pin_bit|default('')) %}
+{% set pin_lean = fresh.archive_pin_lean|default('') %}
+{% set pin_lean_warn = fresh.archive_pin_lean_warn|default(false) %}
 <p class="scan-fresh {{ fresh.tone }}" title="{{ fresh.scan_time }}">
   <span class="scan-fresh-tone">{{ fresh.tone }}</span>
   <span class="pretrade-sep" aria-hidden="true">·</span>
   <span class="scan-fresh-body">{{ fresh.age_label or fresh.line }}</span>
+  {# age_label alone hid keep-newest pin — speak core when age already owns the body #}
+  {% if pin_core and fresh.age_label %}
+  <span class="pretrade-sep" aria-hidden="true">·</span>
+  <span class="scan-fresh-pin{% if fresh.archive_pin_warn %} warn{% endif %}">{{ pin_core }}</span>
+  {% endif %}
   {% if fresh.provenance_bit %}
   <span class="pretrade-sep" aria-hidden="true">·</span>
   <span class="scan-fresh-prov{% if fresh.provenance != 'live' %} warn{% endif %}">{{ fresh.provenance_bit }}</span>
@@ -48,6 +56,12 @@
   <span class="scan-fresh-when">{{ fresh.scan_time }}</span>
   {% endif %}
 </p>
+{% if pin_lean %}
+<details class="scan-fresh-pin-lean{% if pin_lean_warn %} warn{% endif %}"{% if pin_lean_warn %} open{% endif %}>
+  <summary>pin lean <span class="meta">{% if pin_lean_warn %}warn{% else %}quiet{% endif %}</span></summary>
+  <p class="scan-fresh-pin-lean-body{% if pin_lean_warn %} warn{% endif %}">{{ pin_lean }}</p>
+</details>
+{% endif %}
 {% endif %}
 {%- endmacro %}
 
