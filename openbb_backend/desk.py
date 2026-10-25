@@ -917,8 +917,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     """Prefer ``opportunities_latest``; fall back to newest timestamped publish.
 
     Silent fallback hid a missing/dangling readiness pin the way xang1234
-    #682 lost the newest auto scan under prune. Display fields only — not
-    an entry gate.
+    #682 lost the newest auto scan under prune. A live latest that still
+    points behind a newer timestamped publish is the same keep-newest miss
+    (#685) — speak ``latest stale · fallback`` and read the newest. Display
+    fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
@@ -934,7 +936,18 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         out["warn"] = True
         return out
 
+    candidates = sorted(arch.glob("opportunities_2*.json"))
+    newest = candidates[-1] if candidates else None
+
     if latest.exists():
+        resolved = latest.resolve()
+        if newest is not None and newest.resolve() != resolved:
+            out["pin"] = "stale"
+            out["path"] = newest
+            out["fallback"] = True
+            out["warn"] = True
+            out["bit"] = "latest stale · fallback"
+            return out
         out["pin"] = "latest"
         out["path"] = latest
         return out
@@ -942,9 +955,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     pin = "dangling" if latest.is_symlink() else "missing"
     out["pin"] = pin
     out["warn"] = True
-    candidates = sorted(arch.glob("opportunities_2*.json"))
-    if candidates:
-        out["path"] = candidates[-1]
+    if newest is not None:
+        out["path"] = newest
         out["fallback"] = True
         out["bit"] = f"latest {pin} · fallback"
         return out
@@ -981,8 +993,9 @@ def build_scan_freshness(
     when both gaps already spoke (portfolio AI speak-both-sides after
     side-by-side Δ labels), and ``runner · US|Xetra · 50%`` on the calmer
     sleeve when it already spoke (worst size alone hid runner ownership).
-    ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing or
-    dangling and the desk fell back (xang1234 #682 readiness pin).
+    ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing,
+    dangling, or stale (behind a newer timestamped publish) and the desk
+    fell back (xang1234 #682 / #685 readiness pin).
     Not an entry gate.
     """
     pin = str(archive_pin or "").strip().casefold()

@@ -54,6 +54,24 @@ def test_resolve_falls_back_when_latest_dangling(tmp_path: Path) -> None:
     assert Path(res["path"]) == kept
 
 
+def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
+    """Live latest behind a newer timestamped publish → keep-newest (#685)."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text('{"old": true}')
+    newer = arch / "opportunities_20260201_120000.json"
+    newer.write_text('{"new": true}')
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "stale"
+    assert res["fallback"] is True
+    assert res["warn"] is True
+    assert res["bit"] == "latest stale · fallback"
+    assert Path(res["path"]) == newer
+
+
 def test_resolve_missing_archive_speaks_pin() -> None:
     res = resolve_opportunities_archive("/tmp/asc-no-such-desk-data")
     assert res["pin"] == "missing"
@@ -92,3 +110,19 @@ def test_scan_freshness_pin_only_when_no_scan_time() -> None:
     assert g["ready"] is True
     assert g["tone"] == "stale"
     assert g["line"] == "latest dangling"
+
+
+def test_scan_freshness_speaks_stale_pin_bit() -> None:
+    now = datetime(2026, 10, 25, 12, 0, tzinfo=timezone.utc)
+    when = (now - timedelta(minutes=10)).isoformat()
+    g = build_scan_freshness(
+        when,
+        now=now,
+        archive_pin="stale",
+        archive_pin_bit="latest stale · fallback",
+        archive_pin_warn=True,
+    )
+    assert "latest stale · fallback" in g["line"]
+    assert " · fresh · " in g["line"]
+    assert g["tone"] == "aging"
+    assert g["archive_pin"] == "stale"
