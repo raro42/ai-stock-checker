@@ -1135,6 +1135,33 @@ def soft_allow_short_lean_vs_delta_lead_moods(
     return f"clash · lean {lean_v} · Δ lead {delta_lead_v}", True
 
 
+def soft_allow_short_delta_vs_delta_lead_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Δ moods verb vs Δ lead moods verb (display only).
+
+    Returns ``(bit, warn)``. When both Δ moods and Δ lead moods already
+    spoke: same → ``align · both align|clash``; crossed →
+    ``clash · Δ … · Δ lead …``. Missing either side silent. Dual-clash
+    + crossed warn; both-align speaks, no warn. Ownership-spread mood
+    match alone hid whether ownership polarity agrees with Δ severity
+    (Screener Δ vs Δ lead moods + FinRobot + portfolio AI
+    speak-both-sides after short lean vs Δ lead moods). Prefixed
+    ``short Δ vs Δ lead moods`` in the glance bit so lean vs Δ lead
+    moods + bare Δ moods / Δ lead moods stay distinct. Not a gate.
+    """
+    delta_moods, _ = soft_allow_short_delta_moods(events)
+    delta_lead_moods, _ = soft_allow_short_delta_lead_moods(events)
+    delta_v = _short_lean_verb(delta_moods)
+    delta_lead_v = _short_lean_verb(delta_lead_moods)
+    if not delta_v or not delta_lead_v:
+        return "", False
+    if delta_v == delta_lead_v:
+        # Dual-clash agreement ≠ calm confirm (share/lean both-clash).
+        return f"align · both {delta_v}", delta_v == "clash"
+    return f"clash · Δ {delta_v} · Δ lead {delta_lead_v}", True
+
+
 def soft_allow_short_history_last_vs_share(
     events: list[dict[str, Any]] | None,
     *,
@@ -2201,6 +2228,18 @@ def format_soft_allow_short_history_bit(
                 head = (
                     f"{head} · short lean vs Δ lead moods "
                     f"{lean_vs_delta_lead_moods}"
+                )
+            # Ownership-spread mood match alone hid whether ownership
+            # polarity agrees with Δ severity (Screener Δ vs Δ lead
+            # moods + FinRobot + portfolio AI speak-both-sides after
+            # lean vs Δ lead moods).
+            delta_vs_delta_lead_moods, _ = (
+                soft_allow_short_delta_vs_delta_lead_moods(events)
+            )
+            if delta_vs_delta_lead_moods:
+                head = (
+                    f"{head} · short Δ vs Δ lead moods "
+                    f"{delta_vs_delta_lead_moods}"
                 )
             last_vs_lean, _ = soft_allow_short_history_last_vs_lean(
                 events, now=now
