@@ -978,7 +978,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% ·
     vs M pin · [strong|thin ·] Q% · behind vs pin align|clash ·
     Δ wide|thin · ±Npp · lean vs Δ align|clash ·
-    lag Nd · fresh|aging|stale · fallback``
+    lag Nd · fresh|aging|stale · lag/share align|clash · fallback``
     (portfolio AI count≠share: bare N behind hid ownership of the miss;
     behind% alone hid remaining at-or-behind-pin publishes — Screener
     junk vs ok sides; sides alone hid lean agreement — Screener junk vs
@@ -986,7 +986,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     unique share Δ + Window A sleeve; count+% alone hid whether the pin
     is hours or weeks behind the newest — FinRobot age + xang1234
     keep-newest; bare ``lag Nd`` hid same-session race vs multi-day
-    miss — FinRobot fresh/aging/stale triad) and read the newest.
+    miss — FinRobot fresh/aging/stale triad; lag severity + behind share
+    alone hid whether age matches ownership heat — soft-allow last/share
+    + FinRobot / portfolio AI speak-both-sides) and read the newest.
     Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
@@ -1012,6 +1014,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "pin_lag_sec": None,
         "pin_lag_label": "",
         "pin_lag_severity": "",
+        "pin_lag_vs_share": "",
+        "pin_lag_vs_share_warn": False,
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1107,6 +1111,19 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 lag_sec = (new_stamp - pin_stamp).total_seconds()
                 lag_sev = _pin_lag_severity(lag_sec)
                 lag_label = _format_pin_lag(lag_sec, severity=lag_sev)
+            # Lag severity ≠ behind-share heat (soft-allow last/share).
+            # Extremes only: fresh↔hot / stale↔quiet align; crossed clash
+            # warns; aging / mid share stay silent.
+            lag_vs_share = ""
+            lag_vs_share_warn = False
+            if lag_sev in {"fresh", "stale"} and sev in {"hot", "quiet"}:
+                live_age = lag_sev == "fresh"
+                hot_share = sev == "hot"
+                if live_age == hot_share:
+                    lag_vs_share = f"align · {lag_sev} · {sev}"
+                else:
+                    lag_vs_share = f"clash · {lag_sev} · {sev}"
+                    lag_vs_share_warn = True
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
@@ -1126,6 +1143,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["pin_lag_sec"] = lag_sec
             out["pin_lag_label"] = lag_label
             out["pin_lag_severity"] = lag_sev
+            out["pin_lag_vs_share"] = lag_vs_share
+            out["pin_lag_vs_share_warn"] = lag_vs_share_warn
             sev_bit = f" · {sev}" if sev else ""
             pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
             lean_bit = (
@@ -1139,10 +1158,14 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 f" · lean vs Δ {lean_vs_delta}" if lean_vs_delta else ""
             )
             lag_bit = f" · {lag_label}" if lag_label else ""
+            lag_vs_share_bit = (
+                f" · lag/share {lag_vs_share}" if lag_vs_share else ""
+            )
             out["bit"] = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
-                f"{lean_bit}{delta_bit}{lean_vs_delta_bit}{lag_bit} · fallback"
+                f"{lean_bit}{delta_bit}{lean_vs_delta_bit}{lag_bit}"
+                f"{lag_vs_share_bit} · fallback"
             )
             return out
         out["pin"] = "latest"
