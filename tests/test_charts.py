@@ -785,5 +785,5 @@ def test_chart_payload_falls_back_when_latest_stale(tmp_path: Path, monkeypatch)
     assert sf["archive_pin"] == "stale"
     assert (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
-        "lag 31d · fallback"
+        "behind vs pin clash · behind hot · pin ok · lag 31d · fallback"
     ) in sf["line"]

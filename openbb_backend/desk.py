@@ -953,12 +953,14 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     #682 lost the newest auto scan under prune. A live latest that still
     points behind a newer timestamped publish is the same keep-newest miss
     (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% ·
-    vs M pin · [strong|thin ·] Q% · lag Nd · fallback`` (portfolio AI
-    count≠share: bare N behind hid ownership of the miss; behind% alone
-    hid remaining at-or-behind-pin publishes — Screener junk vs ok sides
-    parity; count+% alone hid whether the pin is hours or weeks behind
-    the newest — FinRobot age + xang1234 keep-newest) and read the
-    newest. Display fields only — not an entry gate.
+    vs M pin · [strong|thin ·] Q% · behind vs pin align|clash ·
+    lag Nd · fallback`` (portfolio AI count≠share: bare N behind hid
+    ownership of the miss; behind% alone hid remaining at-or-behind-pin
+    publishes — Screener junk vs ok sides; sides alone hid lean agreement
+    — Screener junk vs ok lean; count+% alone hid whether the pin is
+    hours or weeks behind the newest — FinRobot age + xang1234
+    keep-newest) and read the newest. Display fields only — not an
+    entry gate.
     """
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
@@ -974,6 +976,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "pin_side": 0,
         "pin_share_pct": None,
         "pin_share_severity": "",
+        "behind_vs_pin": "",
+        "behind_vs_pin_warn": False,
         "pin_lag_sec": None,
         "pin_lag_label": "",
     }
@@ -1011,6 +1015,27 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 pin_sev = "thin"
             else:
                 pin_sev = ""
+            # Sides alone hid lean agreement (Screener junk vs ok lean).
+            behind_lean = sev in {"hot", "quiet"}
+            pin_lean = pin_sev in {"strong", "thin"}
+            behind_vs_pin = ""
+            behind_vs_pin_warn = False
+            pin_mood = pin_sev or "ok"
+            if behind_lean and pin_lean:
+                matched = (sev == "hot" and pin_sev == "thin") or (
+                    sev == "quiet" and pin_sev == "strong"
+                )
+                if matched:
+                    behind_vs_pin = f"align · {sev}|{pin_sev}"
+                else:
+                    behind_vs_pin = (
+                        f"clash · behind {sev} · pin {pin_mood}"
+                    )
+                    behind_vs_pin_warn = True
+            elif behind_lean != pin_lean:
+                behind_vs_pin = f"clash · behind {sev or 'ok'} · pin {pin_mood}"
+                if sev == "hot" or pin_sev == "thin":
+                    behind_vs_pin_warn = True
             pin_stamp = _opportunity_archive_stamp(resolved)
             new_stamp = _opportunity_archive_stamp(newest)
             lag_sec: float | None = None
@@ -1032,15 +1057,20 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["pin_side"] = pin_side
             out["pin_share_pct"] = pin_share_pct
             out["pin_share_severity"] = pin_sev
+            out["behind_vs_pin"] = behind_vs_pin
+            out["behind_vs_pin_warn"] = behind_vs_pin_warn
             out["pin_lag_sec"] = lag_sec
             out["pin_lag_label"] = lag_label
             sev_bit = f" · {sev}" if sev else ""
             pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
+            lean_bit = (
+                f" · behind vs pin {behind_vs_pin}" if behind_vs_pin else ""
+            )
             lag_bit = f" · {lag_label}" if lag_label else ""
             out["bit"] = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
-                f"{lag_bit} · fallback"
+                f"{lean_bit}{lag_bit} · fallback"
             )
             return out
         out["pin"] = "latest"
