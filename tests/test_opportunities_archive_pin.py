@@ -68,8 +68,28 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
     assert res["pin"] == "stale"
     assert res["fallback"] is True
     assert res["warn"] is True
-    assert res["bit"] == "latest stale · fallback"
+    assert res["behind"] == 1
+    assert res["bit"] == "latest stale · 1 behind · fallback"
     assert Path(res["path"]) == newer
+
+
+def test_resolve_stale_speaks_behind_count(tmp_path: Path) -> None:
+    """Bare stale hid how many publishes sit ahead (portfolio AI count≠share)."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text('{"old": true}')
+    mid = arch / "opportunities_20260115_120000.json"
+    mid.write_text('{"mid": true}')
+    newest = arch / "opportunities_20260201_120000.json"
+    newest.write_text('{"new": true}')
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "stale"
+    assert res["behind"] == 2
+    assert res["bit"] == "latest stale · 2 behind · fallback"
+    assert Path(res["path"]) == newest
 
 
 def test_resolve_missing_archive_speaks_pin() -> None:
@@ -119,10 +139,10 @@ def test_scan_freshness_speaks_stale_pin_bit() -> None:
         when,
         now=now,
         archive_pin="stale",
-        archive_pin_bit="latest stale · fallback",
+        archive_pin_bit="latest stale · 2 behind · fallback",
         archive_pin_warn=True,
     )
-    assert "latest stale · fallback" in g["line"]
+    assert "latest stale · 2 behind · fallback" in g["line"]
     assert " · fresh · " in g["line"]
     assert g["tone"] == "aging"
     assert g["archive_pin"] == "stale"

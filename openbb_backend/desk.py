@@ -919,8 +919,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     Silent fallback hid a missing/dangling readiness pin the way xang1234
     #682 lost the newest auto scan under prune. A live latest that still
     points behind a newer timestamped publish is the same keep-newest miss
-    (#685) — speak ``latest stale · fallback`` and read the newest. Display
-    fields only — not an entry gate.
+    (#685) — speak ``latest stale · N behind · fallback`` (portfolio AI
+    count≠share: bare stale hid how many publishes sit ahead) and read the
+    newest. Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
@@ -930,6 +931,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "fallback": False,
         "warn": False,
         "bit": "",
+        "behind": 0,
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -942,11 +944,17 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     if latest.exists():
         resolved = latest.resolve()
         if newest is not None and newest.resolve() != resolved:
+            behind = 0
+            for cand in reversed(candidates):
+                if cand.resolve() == resolved:
+                    break
+                behind += 1
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
             out["warn"] = True
-            out["bit"] = "latest stale · fallback"
+            out["behind"] = behind
+            out["bit"] = f"latest stale · {behind} behind · fallback"
             return out
         out["pin"] = "latest"
         out["path"] = latest
@@ -994,8 +1002,9 @@ def build_scan_freshness(
     side-by-side Δ labels), and ``runner · US|Xetra · 50%`` on the calmer
     sleeve when it already spoke (worst size alone hid runner ownership).
     ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing,
-    dangling, or stale (behind a newer timestamped publish) and the desk
-    fell back (xang1234 #682 / #685 readiness pin).
+    dangling, or stale (``latest stale · N behind · fallback`` when the
+    live pin lags N newer timestamped publishes) and the desk fell back
+    (xang1234 #682 / #685 readiness pin + portfolio AI count≠share).
     Not an entry gate.
     """
     pin = str(archive_pin or "").strip().casefold()
