@@ -913,15 +913,20 @@ def memory_peer_short_clock_clash(
     return f"peer short · {label} {peer} · short {short}", True
 
 
+# Stale opportunities_latest: behind÷timestamped publishes (junk-share parity).
+ARCHIVE_PIN_BEHIND_SHARE_HOT = 50.0
+ARCHIVE_PIN_BEHIND_SHARE_QUIET = 25.0
+
+
 def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     """Prefer ``opportunities_latest``; fall back to newest timestamped publish.
 
     Silent fallback hid a missing/dangling readiness pin the way xang1234
     #682 lost the newest auto scan under prune. A live latest that still
     points behind a newer timestamped publish is the same keep-newest miss
-    (#685) — speak ``latest stale · N behind · fallback`` (portfolio AI
-    count≠share: bare stale hid how many publishes sit ahead) and read the
-    newest. Display fields only — not an entry gate.
+    (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% · fallback``
+    (portfolio AI count≠share: bare N behind hid ownership of the miss) and
+    read the newest. Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
@@ -932,6 +937,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "warn": False,
         "bit": "",
         "behind": 0,
+        "behind_share_pct": None,
+        "behind_share_severity": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -949,12 +956,25 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 if cand.resolve() == resolved:
                     break
                 behind += 1
+            total = len(candidates)
+            share_pct = int(round(100.0 * behind / total)) if total else 0
+            if share_pct >= ARCHIVE_PIN_BEHIND_SHARE_HOT:
+                sev = "hot"
+            elif share_pct <= ARCHIVE_PIN_BEHIND_SHARE_QUIET:
+                sev = "quiet"
+            else:
+                sev = ""
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
             out["warn"] = True
             out["behind"] = behind
-            out["bit"] = f"latest stale · {behind} behind · fallback"
+            out["behind_share_pct"] = share_pct
+            out["behind_share_severity"] = sev
+            sev_bit = f" · {sev}" if sev else ""
+            out["bit"] = (
+                f"latest stale · {behind} behind{sev_bit} · {share_pct}% · fallback"
+            )
             return out
         out["pin"] = "latest"
         out["path"] = latest
@@ -1002,8 +1022,9 @@ def build_scan_freshness(
     side-by-side Δ labels), and ``runner · US|Xetra · 50%`` on the calmer
     sleeve when it already spoke (worst size alone hid runner ownership).
     ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing,
-    dangling, or stale (``latest stale · N behind · fallback`` when the
-    live pin lags N newer timestamped publishes) and the desk fell back
+    dangling, or stale (``latest stale · N behind · [hot|quiet ·] P% ·
+    fallback`` when the live pin lags N newer timestamped publishes —
+    behind÷timestamped; hot ≥50% · quiet ≤25%) and the desk fell back
     (xang1234 #682 / #685 readiness pin + portfolio AI count≠share).
     Not an entry gate.
     """
