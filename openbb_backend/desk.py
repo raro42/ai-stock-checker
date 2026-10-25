@@ -918,6 +918,32 @@ ARCHIVE_PIN_BEHIND_SHARE_HOT = 50.0
 ARCHIVE_PIN_BEHIND_SHARE_QUIET = 25.0
 ARCHIVE_PIN_PIN_SHARE_STRONG = 75.0
 ARCHIVE_PIN_PIN_SHARE_THIN = 50.0
+_OPP_ARCHIVE_STAMP_RE = re.compile(r"^opportunities_(\d{8})_(\d{6})\.json$")
+
+
+def _opportunity_archive_stamp(path: Path) -> datetime | None:
+    """Parse ``opportunities_YYYYMMDD_HHMMSS.json`` as UTC (display only)."""
+    m = _OPP_ARCHIVE_STAMP_RE.match(path.name)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(
+            f"{m.group(1)}{m.group(2)}", "%Y%m%d%H%M%S"
+        ).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def _format_pin_lag(lag_sec: float) -> str:
+    """Compact pin→newest lag (display only; lag ≠ age-vs-now)."""
+    sec = max(0, int(lag_sec))
+    if sec < 60:
+        return "lag <1m"
+    if sec < 3600:
+        return f"lag {sec // 60}m"
+    if sec < 36 * 3600:
+        return f"lag {sec // 3600}h"
+    return f"lag {sec // 86400}d"
 
 
 def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
@@ -927,10 +953,12 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     #682 lost the newest auto scan under prune. A live latest that still
     points behind a newer timestamped publish is the same keep-newest miss
     (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% ·
-    vs M pin · [strong|thin ·] Q% · fallback`` (portfolio AI count≠share:
-    bare N behind hid ownership of the miss; behind% alone hid remaining
-    at-or-behind-pin publishes — Screener junk vs ok sides parity) and
-    read the newest. Display fields only — not an entry gate.
+    vs M pin · [strong|thin ·] Q% · lag Nd · fallback`` (portfolio AI
+    count≠share: bare N behind hid ownership of the miss; behind% alone
+    hid remaining at-or-behind-pin publishes — Screener junk vs ok sides
+    parity; count+% alone hid whether the pin is hours or weeks behind
+    the newest — FinRobot age + xang1234 keep-newest) and read the
+    newest. Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
@@ -946,6 +974,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "pin_side": 0,
         "pin_share_pct": None,
         "pin_share_severity": "",
+        "pin_lag_sec": None,
+        "pin_lag_label": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -981,6 +1011,17 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 pin_sev = "thin"
             else:
                 pin_sev = ""
+            pin_stamp = _opportunity_archive_stamp(resolved)
+            new_stamp = _opportunity_archive_stamp(newest)
+            lag_sec: float | None = None
+            lag_label = ""
+            if (
+                pin_stamp is not None
+                and new_stamp is not None
+                and new_stamp > pin_stamp
+            ):
+                lag_sec = (new_stamp - pin_stamp).total_seconds()
+                lag_label = _format_pin_lag(lag_sec)
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
@@ -991,11 +1032,15 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["pin_side"] = pin_side
             out["pin_share_pct"] = pin_share_pct
             out["pin_share_severity"] = pin_sev
+            out["pin_lag_sec"] = lag_sec
+            out["pin_lag_label"] = lag_label
             sev_bit = f" · {sev}" if sev else ""
             pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
+            lag_bit = f" · {lag_label}" if lag_label else ""
             out["bit"] = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
-                f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}% · fallback"
+                f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
+                f"{lag_bit} · fallback"
             )
             return out
         out["pin"] = "latest"
@@ -1045,10 +1090,11 @@ def build_scan_freshness(
     sleeve when it already spoke (worst size alone hid runner ownership).
     ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing,
     dangling, or stale (``latest stale · N behind · [hot|quiet ·] P% ·
-    vs M pin · [strong|thin ·] Q% · fallback`` when the live pin lags N
-    newer timestamped publishes — behind÷timestamped hot ≥50% · quiet
-    ≤25%; remaining at-or-behind-pin as vs pin strong ≥75% · thin <50% —
-    Screener junk vs ok sides) and the desk fell back (xang1234 #682 /
+    vs M pin · [strong|thin ·] Q% · lag Nd · fallback`` when the live
+    pin lags N newer timestamped publishes — behind÷timestamped hot ≥50%
+    · quiet ≤25%; remaining at-or-behind-pin as vs pin strong ≥75% · thin
+    <50%; pin→newest stamp lag when both filenames parse — Screener junk
+    vs ok sides + FinRobot age) and the desk fell back (xang1234 #682 /
     #685 readiness pin + portfolio AI count≠share / speak-both-sides).
     Not an entry gate.
     """

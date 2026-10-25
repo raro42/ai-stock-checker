@@ -74,8 +74,11 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
     assert res["pin_side"] == 1
     assert res["pin_share_pct"] == 50
     assert res["pin_share_severity"] == ""
+    assert res["pin_lag_label"] == "lag 31d"
+    assert res["pin_lag_sec"] == 31 * 86400
     assert res["bit"] == (
-        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · fallback"
+        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
+        "lag 31d · fallback"
     )
     assert Path(res["path"]) == newer
 
@@ -100,8 +103,10 @@ def test_resolve_stale_speaks_behind_count(tmp_path: Path) -> None:
     assert res["pin_side"] == 1
     assert res["pin_share_pct"] == 33
     assert res["pin_share_severity"] == "thin"
+    assert res["pin_lag_label"] == "lag 31d"
     assert res["bit"] == (
-        "latest stale · 2 behind · hot · 67% · vs 1 pin · thin · 33% · fallback"
+        "latest stale · 2 behind · hot · 67% · vs 1 pin · thin · 33% · "
+        "lag 31d · fallback"
     )
     assert Path(res["path"]) == newest
 
@@ -134,11 +139,34 @@ def test_resolve_stale_behind_share_quiet(tmp_path: Path) -> None:
     assert res["pin_side"] == 5
     assert res["pin_share_pct"] == 83
     assert res["pin_share_severity"] == "strong"
+    assert res["pin_lag_label"] == "lag 24h"
     assert res["bit"] == (
         "latest stale · 1 behind · quiet · 17% · "
-        "vs 5 pin · strong · 83% · fallback"
+        "vs 5 pin · strong · 83% · lag 24h · fallback"
     )
     assert Path(res["path"]).name == "opportunities_20260106_120000.json"
+
+
+def test_resolve_stale_speaks_pin_lag_hours(tmp_path: Path) -> None:
+    """Count+% alone hid whether the pin is hours or weeks behind newest."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_100000.json"
+    pinned.write_text('{"old": true}')
+    newer = arch / "opportunities_20260101_160000.json"
+    newer.write_text('{"new": true}')
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "stale"
+    assert res["behind"] == 1
+    assert res["pin_lag_label"] == "lag 6h"
+    assert res["pin_lag_sec"] == 6 * 3600
+    assert res["bit"] == (
+        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
+        "lag 6h · fallback"
+    )
+    assert Path(res["path"]) == newer
 
 
 def test_resolve_missing_archive_speaks_pin() -> None:
@@ -190,13 +218,13 @@ def test_scan_freshness_speaks_stale_pin_bit() -> None:
         archive_pin="stale",
         archive_pin_bit=(
             "latest stale · 2 behind · hot · 67% · "
-            "vs 1 pin · thin · 33% · fallback"
+            "vs 1 pin · thin · 33% · lag 31d · fallback"
         ),
         archive_pin_warn=True,
     )
     assert (
         "latest stale · 2 behind · hot · 67% · "
-        "vs 1 pin · thin · 33% · fallback"
+        "vs 1 pin · thin · 33% · lag 31d · fallback"
     ) in g["line"]
     assert " · fresh · " in g["line"]
     assert g["tone"] == "aging"
@@ -242,7 +270,8 @@ def test_opportunities_markdown_falls_back_when_latest_stale(tmp_path: Path) -> 
     assert "NEW" in body
     assert "OLD" not in body
     assert (
-        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · fallback"
+        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
+        "lag 31d · fallback"
     ) in body
 
 
@@ -263,5 +292,6 @@ def test_opportunities_markdown_prefers_txt_twin_of_resolved(tmp_path: Path) -> 
     assert "KEEP" in body
     assert "OLD" not in body
     assert (
-        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · fallback"
+        "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
+        "lag 31d · fallback"
     ) in body
