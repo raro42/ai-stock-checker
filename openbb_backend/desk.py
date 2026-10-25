@@ -921,6 +921,10 @@ ARCHIVE_PIN_PIN_SHARE_THIN = 50.0
 # behind%−pin% share Δ (Screener junk/unique + Window A sleeve parity).
 ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_WIDE_PP = 20.0
 ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_THIN_PP = 10.0
+# Pin→newest stamp lag triad (FinRobot age + cash-print fresh/aging/stale).
+# Duration alone hid same-session race vs multi-day keep-newest miss.
+ARCHIVE_PIN_LAG_FRESH_HOURS = 2.0
+ARCHIVE_PIN_LAG_AGING_HOURS = 36.0
 _OPP_ARCHIVE_STAMP_RE = re.compile(r"^opportunities_(\d{8})_(\d{6})\.json$")
 
 
@@ -937,16 +941,32 @@ def _opportunity_archive_stamp(path: Path) -> datetime | None:
         return None
 
 
-def _format_pin_lag(lag_sec: float) -> str:
-    """Compact pin→newest lag (display only; lag ≠ age-vs-now)."""
+def _pin_lag_severity(lag_sec: float) -> str:
+    """fresh|aging|stale for pin→newest stamp lag (display only)."""
+    if lag_sec < ARCHIVE_PIN_LAG_FRESH_HOURS * 3600:
+        return "fresh"
+    if lag_sec < ARCHIVE_PIN_LAG_AGING_HOURS * 3600:
+        return "aging"
+    return "stale"
+
+
+def _format_pin_lag(lag_sec: float, *, severity: str = "") -> str:
+    """Compact pin→newest lag (display only; lag ≠ age-vs-now).
+
+    When ``severity`` is set, speak ``lag Nd · stale`` so duration alone
+    does not hide same-session race vs multi-day keep-newest miss.
+    """
     sec = max(0, int(lag_sec))
     if sec < 60:
-        return "lag <1m"
-    if sec < 3600:
-        return f"lag {sec // 60}m"
-    if sec < 36 * 3600:
-        return f"lag {sec // 3600}h"
-    return f"lag {sec // 86400}d"
+        dur = "lag <1m"
+    elif sec < 3600:
+        dur = f"lag {sec // 60}m"
+    elif sec < 36 * 3600:
+        dur = f"lag {sec // 3600}h"
+    else:
+        dur = f"lag {sec // 86400}d"
+    sev = str(severity or "").strip()
+    return f"{dur} · {sev}" if sev else dur
 
 
 def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
@@ -957,15 +977,17 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     points behind a newer timestamped publish is the same keep-newest miss
     (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% ·
     vs M pin · [strong|thin ·] Q% · behind vs pin align|clash ·
-    Δ wide|thin · ±Npp · lean vs Δ align|clash · lag Nd · fallback``
+    Δ wide|thin · ±Npp · lean vs Δ align|clash ·
+    lag Nd · fresh|aging|stale · fallback``
     (portfolio AI count≠share: bare N behind hid ownership of the miss;
     behind% alone hid remaining at-or-behind-pin publishes — Screener
     junk vs ok sides; sides alone hid lean agreement — Screener junk vs
     ok lean; lean alone hid how far behind%−pin% sits — Screener junk /
     unique share Δ + Window A sleeve; count+% alone hid whether the pin
     is hours or weeks behind the newest — FinRobot age + xang1234
-    keep-newest) and read the newest. Display fields only — not an
-    entry gate.
+    keep-newest; bare ``lag Nd`` hid same-session race vs multi-day
+    miss — FinRobot fresh/aging/stale triad) and read the newest.
+    Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
@@ -989,6 +1011,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "behind_vs_pin_lean_vs_delta_warn": False,
         "pin_lag_sec": None,
         "pin_lag_label": "",
+        "pin_lag_severity": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1075,13 +1098,15 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             new_stamp = _opportunity_archive_stamp(newest)
             lag_sec: float | None = None
             lag_label = ""
+            lag_sev = ""
             if (
                 pin_stamp is not None
                 and new_stamp is not None
                 and new_stamp > pin_stamp
             ):
                 lag_sec = (new_stamp - pin_stamp).total_seconds()
-                lag_label = _format_pin_lag(lag_sec)
+                lag_sev = _pin_lag_severity(lag_sec)
+                lag_label = _format_pin_lag(lag_sec, severity=lag_sev)
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
@@ -1100,6 +1125,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["behind_vs_pin_lean_vs_delta_warn"] = lean_vs_delta_warn
             out["pin_lag_sec"] = lag_sec
             out["pin_lag_label"] = lag_label
+            out["pin_lag_severity"] = lag_sev
             sev_bit = f" · {sev}" if sev else ""
             pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
             lean_bit = (

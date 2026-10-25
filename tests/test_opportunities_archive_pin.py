@@ -81,12 +81,13 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
     assert res["behind_vs_pin_delta_severity"] == "thin"
     assert res["behind_vs_pin_lean_vs_delta"] == "align · thin"
     assert res["behind_vs_pin_lean_vs_delta_warn"] is False
-    assert res["pin_lag_label"] == "lag 31d"
+    assert res["pin_lag_label"] == "lag 31d · stale"
+    assert res["pin_lag_severity"] == "stale"
     assert res["pin_lag_sec"] == 31 * 86400
     assert res["bit"] == (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
-        "lean vs Δ align · thin · lag 31d · fallback"
+        "lean vs Δ align · thin · lag 31d · stale · fallback"
     )
     assert Path(res["path"]) == newer
 
@@ -118,11 +119,12 @@ def test_resolve_stale_speaks_behind_count(tmp_path: Path) -> None:
     assert res["behind_vs_pin_lean_vs_delta"] == "align · wide"
     # Adverse align · hot|thin + Δ wide (Screener junk vs ok lean/Δ).
     assert res["behind_vs_pin_lean_vs_delta_warn"] is True
-    assert res["pin_lag_label"] == "lag 31d"
+    assert res["pin_lag_label"] == "lag 31d · stale"
+    assert res["pin_lag_severity"] == "stale"
     assert res["bit"] == (
         "latest stale · 2 behind · hot · 67% · vs 1 pin · thin · 33% · "
         "behind vs pin align · hot|thin · Δ wide · +34pp · "
-        "lean vs Δ align · wide · lag 31d · fallback"
+        "lean vs Δ align · wide · lag 31d · stale · fallback"
     )
     assert Path(res["path"]) == newest
 
@@ -162,11 +164,12 @@ def test_resolve_stale_behind_share_quiet(tmp_path: Path) -> None:
     assert res["behind_vs_pin_lean_vs_delta"] == "align · wide"
     # Favorable quiet|strong stays calm on lean vs Δ even when Δ is wide.
     assert res["behind_vs_pin_lean_vs_delta_warn"] is False
-    assert res["pin_lag_label"] == "lag 24h"
+    assert res["pin_lag_label"] == "lag 24h · aging"
+    assert res["pin_lag_severity"] == "aging"
     assert res["bit"] == (
         "latest stale · 1 behind · quiet · 17% · "
         "vs 5 pin · strong · 83% · behind vs pin align · quiet|strong · "
-        "Δ wide · -66pp · lean vs Δ align · wide · lag 24h · fallback"
+        "Δ wide · -66pp · lean vs Δ align · wide · lag 24h · aging · fallback"
     )
     assert Path(res["path"]).name == "opportunities_20260106_120000.json"
 
@@ -188,14 +191,33 @@ def test_resolve_stale_speaks_pin_lag_hours(tmp_path: Path) -> None:
     assert res["behind_vs_pin_delta_pp"] == 0
     assert res["behind_vs_pin_delta_severity"] == "thin"
     assert res["behind_vs_pin_lean_vs_delta"] == "align · thin"
-    assert res["pin_lag_label"] == "lag 6h"
+    assert res["pin_lag_label"] == "lag 6h · aging"
+    assert res["pin_lag_severity"] == "aging"
     assert res["pin_lag_sec"] == 6 * 3600
     assert res["bit"] == (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
-        "lean vs Δ align · thin · lag 6h · fallback"
+        "lean vs Δ align · thin · lag 6h · aging · fallback"
     )
     assert Path(res["path"]) == newer
+
+
+def test_resolve_stale_speaks_pin_lag_fresh(tmp_path: Path) -> None:
+    """Bare lag duration hid same-session race vs multi-day miss (FinRobot)."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text('{"old": true}')
+    newer = arch / "opportunities_20260101_130000.json"
+    newer.write_text('{"new": true}')
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "stale"
+    assert res["pin_lag_sec"] == 3600
+    assert res["pin_lag_severity"] == "fresh"
+    assert res["pin_lag_label"] == "lag 1h · fresh"
+    assert "lag 1h · fresh · fallback" in res["bit"]
 
 
 def test_resolve_missing_archive_speaks_pin() -> None:
@@ -248,14 +270,14 @@ def test_scan_freshness_speaks_stale_pin_bit() -> None:
         archive_pin_bit=(
             "latest stale · 2 behind · hot · 67% · "
             "vs 1 pin · thin · 33% · behind vs pin align · hot|thin · "
-            "Δ wide · +34pp · lean vs Δ align · wide · lag 31d · fallback"
+            "Δ wide · +34pp · lean vs Δ align · wide · lag 31d · stale · fallback"
         ),
         archive_pin_warn=True,
     )
     assert (
         "latest stale · 2 behind · hot · 67% · "
         "vs 1 pin · thin · 33% · behind vs pin align · hot|thin · "
-        "Δ wide · +34pp · lean vs Δ align · wide · lag 31d · fallback"
+        "Δ wide · +34pp · lean vs Δ align · wide · lag 31d · stale · fallback"
     ) in g["line"]
     assert " · fresh · " in g["line"]
     assert g["tone"] == "aging"
@@ -303,7 +325,7 @@ def test_opportunities_markdown_falls_back_when_latest_stale(tmp_path: Path) -> 
     assert (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
-        "lean vs Δ align · thin · lag 31d · fallback"
+        "lean vs Δ align · thin · lag 31d · stale · fallback"
     ) in body
 
 
@@ -326,5 +348,5 @@ def test_opportunities_markdown_prefers_txt_twin_of_resolved(tmp_path: Path) -> 
     assert (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
-        "lean vs Δ align · thin · lag 31d · fallback"
+        "lean vs Δ align · thin · lag 31d · stale · fallback"
     ) in body
