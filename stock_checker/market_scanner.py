@@ -733,15 +733,78 @@ class MarketScanner:
             return None, None
 
     def cleanup_old_archives(self, archive_dir: Path, keep_days: int = 7) -> int:
-        """Delete timestamped opportunity archives older than keep_days. Keep latest symlinks."""
+        """Delete timestamped opportunity archives older than keep_days.
+
+        Always keep ``*_latest`` names, the resolved targets of latest
+        symlinks (and their .json/.txt twins), and the single newest
+        timestamped pair — age prune must not dangle ``*_latest`` or wipe
+        the only publish (xang1234 #682 keep-newest-auto adapted).
+        """
         import time as time_mod
 
         if not archive_dir.exists():
             return 0
         cutoff = time_mod.time() - (keep_days * 86400)
-        removed = 0
+        try:
+            archive_root = archive_dir.resolve()
+        except OSError:
+            archive_root = archive_dir
+
+        protected: set[Path] = set()
+
+        def _protect(path: Path) -> None:
+            try:
+                resolved = path.resolve()
+            except OSError:
+                return
+            try:
+                if not resolved.exists():
+                    return
+                if resolved.parent.resolve() != archive_root:
+                    return
+            except OSError:
+                return
+            protected.add(resolved)
+            twin = (
+                resolved.with_suffix(".txt")
+                if resolved.suffix == ".json"
+                else resolved.with_suffix(".json")
+            )
+            try:
+                if twin.exists() and twin.parent.resolve() == archive_root:
+                    protected.add(twin.resolve())
+            except OSError:
+                pass
+
+        for latest_name in (
+            "opportunities_latest.json",
+            "opportunities_latest.txt",
+        ):
+            latest = archive_dir / latest_name
+            if latest.is_symlink() or latest.is_file():
+                _protect(latest)
+
+        candidates: list[Path] = []
         for path in archive_dir.glob("opportunities_*.json"):
             if path.name.endswith("_latest.json") or "latest" in path.name:
+                continue
+            candidates.append(path)
+
+        if candidates:
+            try:
+                newest = max(candidates, key=lambda p: p.stat().st_mtime)
+            except OSError:
+                newest = None
+            if newest is not None:
+                _protect(newest)
+
+        removed = 0
+        for path in candidates:
+            try:
+                resolved = path.resolve()
+            except OSError:
+                resolved = path
+            if resolved in protected:
                 continue
             try:
                 if path.stat().st_mtime < cutoff:
