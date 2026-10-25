@@ -913,11 +913,53 @@ def memory_peer_short_clock_clash(
     return f"peer short · {label} {peer} · short {short}", True
 
 
+def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
+    """Prefer ``opportunities_latest``; fall back to newest timestamped publish.
+
+    Silent fallback hid a missing/dangling readiness pin the way xang1234
+    #682 lost the newest auto scan under prune. Display fields only — not
+    an entry gate.
+    """
+    arch = Path(data_dir) / "archive"
+    latest = arch / "opportunities_latest.json"
+    out: dict[str, Any] = {
+        "path": latest,
+        "pin": "missing",
+        "fallback": False,
+        "warn": False,
+        "bit": "",
+    }
+    if not arch.is_dir():
+        out["bit"] = "latest missing"
+        out["warn"] = True
+        return out
+
+    if latest.exists():
+        out["pin"] = "latest"
+        out["path"] = latest
+        return out
+
+    pin = "dangling" if latest.is_symlink() else "missing"
+    out["pin"] = pin
+    out["warn"] = True
+    candidates = sorted(arch.glob("opportunities_2*.json"))
+    if candidates:
+        out["path"] = candidates[-1]
+        out["fallback"] = True
+        out["bit"] = f"latest {pin} · fallback"
+        return out
+    out["bit"] = f"latest {pin}"
+    return out
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
     now: Optional[datetime] = None,
     scan_interval_sec: int = 900,
+    archive_pin: str = "",
+    archive_pin_bit: str = "",
+    archive_pin_warn: bool = False,
 ) -> dict[str, Any]:
     """Scan archive age honesty (RyanJHamby cache-freshness pattern; display only).
 
@@ -939,8 +981,18 @@ def build_scan_freshness(
     when both gaps already spoke (portfolio AI speak-both-sides after
     side-by-side Δ labels), and ``runner · US|Xetra · 50%`` on the calmer
     sleeve when it already spoke (worst size alone hid runner ownership).
+    ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing or
+    dangling and the desk fell back (xang1234 #682 readiness pin).
     Not an entry gate.
     """
+    pin = str(archive_pin or "").strip().casefold()
+    pin_bit = str(archive_pin_bit or "").strip()
+    pin_warn = bool(archive_pin_warn) or bool(pin_bit)
+    pin_fields = {
+        "archive_pin": pin,
+        "archive_pin_bit": pin_bit,
+        "archive_pin_warn": pin_warn,
+    }
     empty = {
         "ready": False,
         "tone": "unknown",
@@ -963,17 +1015,28 @@ def build_scan_freshness(
         "scan_vs_cash_clash_delta_vs_sleeve": "",
         "scan_vs_cash_clash_delta_vs_sleeve_warn": False,
         "scan_vs_cash_clash_runner": "",
+        **pin_fields,
     }
     raw = str(scan_time or "").strip()
     if not raw:
+        if pin_bit:
+            return {
+                **empty,
+                "ready": True,
+                "tone": "stale",
+                "line": pin_bit,
+            }
         return empty
     when = _parse_book_ts(raw)
     if when is None:
+        line = f"Scan {raw} · age unknown"
+        if pin_bit:
+            line = f"{line} · {pin_bit}"
         return {
             **empty,
             "ready": True,
-            "tone": "unknown",
-            "line": f"Scan {raw} · age unknown",
+            "tone": "stale" if pin_warn else "unknown",
+            "line": line,
             "scan_time": raw,
         }
     clock = now or datetime.now(timezone.utc)
@@ -1025,9 +1088,19 @@ def build_scan_freshness(
         line = f"{line} · {provenance_bit}"
     if clash:
         line = f"{line} · {clash}"
+    if pin_bit:
+        line = f"{line} · {pin_bit}"
+    # Pin warn escalates display tone without rewriting age band labels
+    # (fresh content ≠ a live latest pin — xang1234 #682 readiness).
+    display_tone = tone
+    if pin_warn:
+        if tone == "fresh":
+            display_tone = "aging"
+        elif tone != "stale":
+            display_tone = "stale"
     return {
         "ready": True,
-        "tone": tone,
+        "tone": display_tone,
         "age_sec": int(age_sec),
         "age_label": age_label,
         "line": line,
@@ -1042,6 +1115,7 @@ def build_scan_freshness(
         "scan_vs_cash_clash_delta_vs_sleeve_warn": delta_vs_sleeve_warn,
         "scan_vs_cash_clash_runner": runner_band,
         **print_meta,
+        **pin_fields,
     }
 
 
@@ -31562,13 +31636,8 @@ def load_desk_snapshot(
     watchdog_path = data_dir / "watchdog" / "status.txt"
     watchdog = watchdog_path.read_text().strip() if watchdog_path.exists() else ""
 
-    opp_path = data_dir / "archive" / "opportunities_latest.json"
-    if not opp_path.exists():
-        arch = data_dir / "archive"
-        candidates = (
-            sorted(arch.glob("opportunities_2*.json")) if arch.exists() else []
-        )
-        opp_path = candidates[-1] if candidates else opp_path
+    archive_res = resolve_opportunities_archive(data_dir)
+    opp_path = Path(archive_res["path"])
     opportunities = _load_json(opp_path, {})
 
     cash = float(portfolio.get("cash") or 0)
@@ -32590,7 +32659,13 @@ def load_desk_snapshot(
         "scan_freshness": build_scan_freshness(
             scan_time_raw,
             scan_interval_sec=scan_interval_sec,
+            archive_pin=str(archive_res.get("pin") or ""),
+            archive_pin_bit=str(archive_res.get("bit") or ""),
+            archive_pin_warn=bool(archive_res.get("warn")),
         ),
+        "archive_pin": str(archive_res.get("pin") or ""),
+        "archive_pin_bit": str(archive_res.get("bit") or ""),
+        "archive_pin_warn": bool(archive_res.get("warn")),
         "scanned_symbols": scanned_count,
         "scan_history_symbols": len(hist_scanned) if isinstance(hist_scanned, dict) else 0,
         "last_full_cycle": last_full or "",

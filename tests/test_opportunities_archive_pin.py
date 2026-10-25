@@ -1,0 +1,94 @@
+"""Opportunity archive latest-pin honesty (xang1234 #682 readiness)."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from openbb_backend.desk import build_scan_freshness, resolve_opportunities_archive
+
+
+def test_resolve_prefers_latest_symlink(tmp_path: Path) -> None:
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    target = arch / "opportunities_20260101_120000.json"
+    target.write_text("{}")
+    (arch / "opportunities_latest.json").symlink_to(target.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "latest"
+    assert res["fallback"] is False
+    assert res["warn"] is False
+    assert res["bit"] == ""
+    assert Path(res["path"]).resolve() == target.resolve()
+
+
+def test_resolve_falls_back_when_latest_missing(tmp_path: Path) -> None:
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    older = arch / "opportunities_20260101_120000.json"
+    older.write_text("{}")
+    newer = arch / "opportunities_20260201_120000.json"
+    newer.write_text('{"n": 1}')
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "missing"
+    assert res["fallback"] is True
+    assert res["warn"] is True
+    assert res["bit"] == "latest missing · fallback"
+    assert Path(res["path"]) == newer
+
+
+def test_resolve_falls_back_when_latest_dangling(tmp_path: Path) -> None:
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    (arch / "opportunities_latest.json").symlink_to("opportunities_gone.json")
+    kept = arch / "opportunities_20260301_000000.json"
+    kept.write_text("{}")
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "dangling"
+    assert res["fallback"] is True
+    assert res["warn"] is True
+    assert res["bit"] == "latest dangling · fallback"
+    assert Path(res["path"]) == kept
+
+
+def test_resolve_missing_archive_speaks_pin() -> None:
+    res = resolve_opportunities_archive("/tmp/asc-no-such-desk-data")
+    assert res["pin"] == "missing"
+    assert res["warn"] is True
+    assert res["bit"] == "latest missing"
+    assert res["fallback"] is False
+
+
+def test_scan_freshness_speaks_archive_pin_bit() -> None:
+    now = datetime(2026, 10, 25, 12, 0, tzinfo=timezone.utc)
+    when = (now - timedelta(minutes=10)).isoformat()
+    g = build_scan_freshness(
+        when,
+        now=now,
+        archive_pin="missing",
+        archive_pin_bit="latest missing · fallback",
+        archive_pin_warn=True,
+    )
+    assert g["ready"] is True
+    assert g["archive_pin"] == "missing"
+    assert g["archive_pin_bit"] == "latest missing · fallback"
+    assert g["archive_pin_warn"] is True
+    assert "latest missing · fallback" in g["line"]
+    # Age band on the line stays fresh; display tone escalates for CSS.
+    assert " · fresh · " in g["line"]
+    assert g["tone"] == "aging"
+
+
+def test_scan_freshness_pin_only_when_no_scan_time() -> None:
+    g = build_scan_freshness(
+        None,
+        archive_pin="dangling",
+        archive_pin_bit="latest dangling",
+        archive_pin_warn=True,
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "stale"
+    assert g["line"] == "latest dangling"
