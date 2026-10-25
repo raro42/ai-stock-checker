@@ -721,3 +721,66 @@ def test_charts_js_escapes_tip_free_text() -> None:
         "&lt;img src=x onerror=alert(1)&gt;"
     )
     assert escape_html("ACME & Co \"A\"") == "ACME &amp; Co &quot;A&quot;"
+
+
+def test_chart_payload_falls_back_when_latest_missing(tmp_path: Path, monkeypatch):
+    """Charts keep-newest parity with desk (xang1234 #682/#685)."""
+    from openbb_backend.charts import _load_opportunities
+
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    arch = tmp_path / "archive"
+    (arch / "opportunities_latest.json").unlink()
+    (arch / "opportunities_20260201_120000.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-10-25T11:00:00+00:00",
+                "stock_breakouts": [{"symbol": "NVDA", "price": 100.0}],
+            }
+        )
+    )
+
+    opp, pin = _load_opportunities(tmp_path)
+    assert pin["pin"] == "missing"
+    assert pin["fallback"] is True
+    assert opp.get("scan_time") == "2026-10-25T11:00:00+00:00"
+    assert opp["stock_breakouts"][0]["symbol"] == "NVDA"
+
+    payload = load_chart_payload(tmp_path)
+    sf = payload["scan_freshness"]
+    assert sf["archive_pin"] == "missing"
+    assert "latest missing · fallback" in sf["archive_pin_bit"]
+    assert "latest missing · fallback" in sf["line"]
+
+
+def test_chart_payload_falls_back_when_latest_stale(tmp_path: Path, monkeypatch):
+    """Live latest behind a newer publish → Charts reads newest + speaks stale."""
+    from openbb_backend.charts import _load_opportunities
+
+    _seed(tmp_path)
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    arch = tmp_path / "archive"
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text(json.dumps({"scan_time": "2026-01-01T12:00:00+00:00"}))
+    (arch / "opportunities_20260201_120000.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-10-25T11:30:00+00:00",
+                "stock_breakouts": [{"symbol": "MSFT", "price": 400.0}],
+            }
+        )
+    )
+    (arch / "opportunities_latest.json").unlink()
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    opp, pin = _load_opportunities(tmp_path)
+    assert pin["pin"] == "stale"
+    assert pin["behind"] == 1
+    assert opp["stock_breakouts"][0]["symbol"] == "MSFT"
+
+    payload = load_chart_payload(tmp_path)
+    sf = payload["scan_freshness"]
+    assert sf["archive_pin"] == "stale"
+    assert "latest stale · 1 behind · fallback" in sf["line"]

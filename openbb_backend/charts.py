@@ -33,6 +33,22 @@ def _load_json(path: Path, default: Any) -> Any:
     return doc
 
 
+def _load_opportunities(data_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Prefer opportunities_latest; fall back like desk (xang1234 #682/#685).
+
+    Charts used to hard-read ``opportunities_latest.json`` only — a missing,
+    dangling, or stale pin hid the newest publish that desk already falls
+    back to. Returns ``(opportunities, archive_res)``.
+    """
+    from openbb_backend.desk import resolve_opportunities_archive
+
+    archive_res = resolve_opportunities_archive(data_dir)
+    opp = _load_json(Path(archive_res["path"]), {})
+    if not isinstance(opp, dict):
+        opp = {}
+    return opp, archive_res
+
+
 def _parse_chart_points(raw: Any) -> list[dict[str, Any]]:
     """Parse advertised chart points — presence alone is not enough.
 
@@ -354,7 +370,7 @@ def build_price_panels(
     holds_raw = portfolio.get("holdings")
     holdings = list(holds_raw.keys()) if isinstance(holds_raw, dict) else []
     # Also include top scan breakouts for color
-    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
+    opp, _pin = _load_opportunities(data_dir)
     breakouts = opp.get("stock_breakouts")
     extras: list[str] = []
     if isinstance(breakouts, list):
@@ -417,7 +433,7 @@ def build_from_buy_panels(
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     entry_times = _load_json(data_dir / "entry_times.json", {})
-    opportunities = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
+    opportunities, _pin = _load_opportunities(data_dir)
     from openbb_backend.desk import _prices_from_scan
 
     marks = _prices_from_scan(opportunities)
@@ -722,8 +738,8 @@ def _mark_coverage_from_data(
     from openbb_backend.desk import _prices_from_scan, build_mark_coverage
 
     holdings_raw = portfolio.get("holdings") or {}
-    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
-    prices = _prices_from_scan(opp) if isinstance(opp, dict) else {}
+    opp, _pin = _load_opportunities(data_dir)
+    prices = _prices_from_scan(opp)
     rows: list[dict[str, Any]] = []
     if isinstance(holdings_raw, dict):
         for sym, qty in holdings_raw.items():
@@ -1113,9 +1129,7 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     entry_times = _load_json(data_dir / "entry_times.json", {})
     if not isinstance(entry_times, dict):
         entry_times = {}
-    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
-    if not isinstance(opp, dict):
-        opp = {}
+    opp, _pin = _load_opportunities(data_dir)
     cfg = load_trader_config(data_dir)
     min_hold_s = max(4.0, float(cfg.get("min_hold_hours") or 24)) * 3600.0
     holdings = portfolio.get("holdings") or {}
@@ -1273,10 +1287,8 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     )
     from stock_checker.risk_halts import pretrade_status
 
-    opp = _load_json(data_dir / "archive" / "opportunities_latest.json", {})
-    scan_time = ""
-    if isinstance(opp, dict):
-        scan_time = str(opp.get("scan_time") or "")
+    opp, archive_res = _load_opportunities(data_dir)
+    scan_time = str(opp.get("scan_time") or "")
     portfolio = _load_json(data_dir / "portfolio.json", {})
     if not isinstance(portfolio, dict):
         portfolio = {}
@@ -1295,7 +1307,12 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
             _latest_scan_breadth_pulse(data_dir),
             history=_scan_breadth_history_rows(data_dir),
         ),
-        "scan_freshness": build_scan_freshness(scan_time),
+        "scan_freshness": build_scan_freshness(
+            scan_time,
+            archive_pin=str(archive_res.get("pin") or ""),
+            archive_pin_bit=str(archive_res.get("bit") or ""),
+            archive_pin_warn=bool(archive_res.get("warn")),
+        ),
         "pretrade_glance": build_pretrade_glance(pretrade_level, pretrade_notes),
         "next_buy_glance": _next_buy_glance_from_portfolio(data_dir, portfolio),
         "soft_allow_glance": _soft_allow_glance_from_data(
@@ -1324,13 +1341,9 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(data_dir),
         "atr_display_glance": build_atr_display_glance(
-            (
-                scan_list_rows(opp.get("crypto_leaders"))
-                + scan_list_rows(opp.get("stock_breakouts"))
-                + scan_list_rows(opp.get("recommendations"))
-            )
-            if isinstance(opp, dict)
-            else []
+            scan_list_rows(opp.get("crypto_leaders"))
+            + scan_list_rows(opp.get("stock_breakouts"))
+            + scan_list_rows(opp.get("recommendations"))
         ),
         "entry_slots_glance": build_entry_slots_glance(),
         "promote_contract_glance": _promote_contract_glance_from_config(data_dir),
