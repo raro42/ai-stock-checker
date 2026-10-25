@@ -146,3 +146,63 @@ def test_scan_freshness_speaks_stale_pin_bit() -> None:
     assert " · fresh · " in g["line"]
     assert g["tone"] == "aging"
     assert g["archive_pin"] == "stale"
+
+
+def test_opportunities_markdown_prefers_latest(tmp_path: Path) -> None:
+    from openbb_backend.main import _opportunities_markdown_body
+
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    target = arch / "opportunities_20260101_120000.json"
+    target.write_text(
+        '{"recommendations":[{"symbol":"AAPL","asset_class":"stock",'
+        '"score":40,"reasoning":"ok"}]}'
+    )
+    (arch / "opportunities_latest.json").symlink_to(target.name)
+
+    body = _opportunities_markdown_body(tmp_path)
+    assert "AAPL" in body
+    assert "Archive pin" not in body
+
+
+def test_opportunities_markdown_falls_back_when_latest_stale(tmp_path: Path) -> None:
+    """Widget hard-read of opportunities_latest hid keep-newest (#682/#685)."""
+    from openbb_backend.main import _opportunities_markdown_body
+
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text(
+        '{"recommendations":[{"symbol":"OLD","asset_class":"stock",'
+        '"score":1,"reasoning":"stale pin"}]}'
+    )
+    newer = arch / "opportunities_20260201_120000.json"
+    newer.write_text(
+        '{"recommendations":[{"symbol":"NEW","asset_class":"stock",'
+        '"score":99,"reasoning":"keep newest"}]}'
+    )
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    body = _opportunities_markdown_body(tmp_path)
+    assert "NEW" in body
+    assert "OLD" not in body
+    assert "latest stale · 1 behind · fallback" in body
+
+
+def test_opportunities_markdown_prefers_txt_twin_of_resolved(tmp_path: Path) -> None:
+    from openbb_backend.main import _opportunities_markdown_body
+
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    newer = arch / "opportunities_20260201_120000.json"
+    newer.write_text('{"recommendations":[]}')
+    (arch / "opportunities_20260201_120000.txt").write_text("# From twin txt\nKEEP")
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text("{}")
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+    (arch / "opportunities_latest.txt").write_text("# Stale twin\nOLD")
+
+    body = _opportunities_markdown_body(tmp_path)
+    assert "KEEP" in body
+    assert "OLD" not in body
+    assert "latest stale · 1 behind · fallback" in body

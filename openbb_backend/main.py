@@ -33,6 +33,7 @@ from openbb_backend.desk import (
     load_desk_snapshot,
     load_json_checked,
     load_jsonl_checked,
+    resolve_opportunities_archive,
     scan_breadth_pulse_for_day,
 )
 from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
@@ -645,27 +646,48 @@ def trades_table(
     return rows
 
 
-@app.get("/opportunities_markdown")
-def opportunities_markdown(
-    x_api_key: Optional[str] = Header(default=None, alias="X-API-KEY"),
-):
-    """Latest archived opportunities (if present)."""
-    _check_key(x_api_key)
-    latest = DATA_DIR / "archive" / "opportunities_latest.txt"
-    if latest.exists():
-        return PlainTextResponse(latest.read_text()[:12000])
-    latest_json = DATA_DIR / "archive" / "opportunities_latest.json"
-    if latest_json.exists():
-        data = _load_json(latest_json, {})
+def _opportunities_markdown_body(data_dir: Path) -> str:
+    """Prefer opportunities_latest; fall back like desk (xang1234 #682/#685).
+
+    Hard-reading ``opportunities_latest.txt``/``.json`` alone hid a missing,
+    dangling, or stale pin that desk/Charts already fall back from.
+    """
+    archive_res = resolve_opportunities_archive(data_dir)
+    path = Path(archive_res["path"])
+    pin_bit = str(archive_res.get("bit") or "").strip()
+    prefix = f"_Archive pin: {pin_bit}_\n\n" if pin_bit else ""
+
+    txt = path.with_suffix(".txt") if path.suffix.lower() == ".json" else path
+    if txt.is_file():
+        body = txt.read_text()[:12000]
+        return f"{prefix}{body}" if prefix else body
+
+    if path.is_file():
+        data = _load_json(path, {})
+        if not isinstance(data, dict):
+            data = {}
         recs = data.get("recommendations") or []
         lines = ["# Latest opportunities", ""]
         for r in recs[:15]:
+            if not isinstance(r, dict):
+                continue
             lines.append(
                 f"- **{r.get('symbol')}** ({r.get('asset_class')}) "
                 f"score={r.get('score')} — {r.get('reasoning')}"
             )
-        return PlainTextResponse("\n".join(lines) or "# No recommendations")
-    return PlainTextResponse("# No opportunity archive yet\nRun intelligent-trader scans first.")
+        body = "\n".join(lines) if recs else "# No recommendations"
+        return f"{prefix}{body}" if prefix else body
+
+    return "# No opportunity archive yet\nRun intelligent-trader scans first."
+
+
+@app.get("/opportunities_markdown")
+def opportunities_markdown(
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-KEY"),
+):
+    """Latest archived opportunities (keep-newest parity with desk)."""
+    _check_key(x_api_key)
+    return PlainTextResponse(_opportunities_markdown_body(DATA_DIR))
 
 
 @app.get("/health")
