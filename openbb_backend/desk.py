@@ -2931,6 +2931,21 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short lean vs Δ moods",
     ),
+    # Pair Δ lead polarity vs bench/young Δ lead polarity (Screener
+    # junk/unique Δ lead moods + FinRobot + portfolio AI
+    # speak-both-sides). Prefixed ``short Δ lead moods`` so
+    # ``short Δ moods`` severity match + bare ``short Δ lead`` stay
+    # distinct. Verb + both/crossed ride so ``align · both adverse`` is
+    # not a silent confirm of dual damage ownership.
+    (
+        re.compile(
+            r"^short Δ lead moods (align|clash)"
+            r"(?: · (both (?:adverse|healthy))"
+            r"| · (short/gap (?:short|gap))"
+            r" · (bench/young (?:bench|young)))?"
+        ),
+        "short Δ lead moods",
+    ),
     # Short cursor age vs symbol last-vs-lead (gap last/lead freshness
     # parity). Distinct ``short last/lead`` prefix so gate/gap
     # ``last/lead`` is not treated as the young/short relationship.
@@ -3370,6 +3385,7 @@ def build_soft_allow_glance(
         soft_allow_short_delta_moods,
         soft_allow_short_lean_moods,
         soft_allow_short_lean_vs_delta_moods,
+        soft_allow_short_delta_lead_moods,
         soft_allow_short_history_last_vs_share,
         soft_allow_short_history_last_vs_ring_share,
         soft_allow_short_history_last_vs_lean,
@@ -3503,6 +3519,8 @@ def build_soft_allow_glance(
         "short_history_lean_moods_warn": False,
         "short_history_lean_vs_delta_moods": "",
         "short_history_lean_vs_delta_moods_warn": False,
+        "short_history_delta_lead_moods": "",
+        "short_history_delta_lead_moods_warn": False,
         "short_history_vs_gap_delta_lead": "",
         "short_history_last_vs_share": "",
         "short_history_last_vs_share_warn": False,
@@ -4023,6 +4041,10 @@ def build_soft_allow_glance(
         short_history_lean_vs_delta_moods,
         short_history_lean_vs_delta_moods_warn,
     ) = soft_allow_short_lean_vs_delta_moods(rows)
+    (
+        short_history_delta_lead_moods,
+        short_history_delta_lead_moods_warn,
+    ) = soft_allow_short_delta_lead_moods(rows)
     short_history_last_vs_share, short_history_last_vs_share_warn = (
         soft_allow_short_history_last_vs_share(rows, now=now)
     )
@@ -4578,6 +4600,7 @@ def build_soft_allow_glance(
         or short_history_delta_moods_warn
         or short_history_lean_moods_warn
         or short_history_lean_vs_delta_moods_warn
+        or short_history_delta_lead_moods_warn
         or short_history_last_vs_bench_young_warn
         or short_history_last_lead_vs_bench_young_warn
         or short_history_last_share_vs_bench_young_warn
@@ -4786,6 +4809,7 @@ def build_soft_allow_glance(
         or short_history_delta_moods_warn
         or short_history_lean_moods_warn
         or short_history_lean_vs_delta_moods_warn
+        or short_history_delta_lead_moods_warn
         or short_history_vs_scan_clash_warn
         or short_history_vs_cash_clock_clash_warn
         or short_history_vs_memory_clock_clash_warn
@@ -4980,6 +5004,10 @@ def build_soft_allow_glance(
         "short_history_lean_vs_delta_moods": short_history_lean_vs_delta_moods,
         "short_history_lean_vs_delta_moods_warn": (
             short_history_lean_vs_delta_moods_warn
+        ),
+        "short_history_delta_lead_moods": short_history_delta_lead_moods,
+        "short_history_delta_lead_moods_warn": (
+            short_history_delta_lead_moods_warn
         ),
         "short_history_last_vs_share": short_history_last_vs_share,
         "short_history_last_vs_share_warn": short_history_last_vs_share_warn,

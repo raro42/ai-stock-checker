@@ -1260,15 +1260,20 @@ def test_soft_allow_glance_short_delta_moods() -> None:
     assert g["short_history_lean_moods_warn"] is False
     assert g["short_history_lean_vs_delta_moods"] == "align · both align"
     assert g["short_history_lean_vs_delta_moods_warn"] is False
+    assert g["short_history_delta_lead_moods"] == "align · both adverse"
+    assert g["short_history_delta_lead_moods_warn"] is True
     assert "short Δ moods align · both wide" in g["short_history_bit"]
     assert "short lean moods align · both align" in g["short_history_bit"]
     assert "short lean vs Δ moods align · both align" in g["short_history_bit"]
+    assert "short Δ lead moods align · both adverse" in g["short_history_bit"]
     assert "short Δ moods align · both wide" in g["line"]
     assert "short lean moods align · both align" in g["line"]
     assert "short lean vs Δ moods align · both align" in g["line"]
+    assert "short Δ lead moods align · both adverse" in g["line"]
     assert "short Δ moods align · both wide" in g["soft_lean"]
     assert "short lean moods align · both align" in g["soft_lean"]
     assert "short lean vs Δ moods align · both align" in g["soft_lean"]
+    assert "short Δ lead moods align · both adverse" in g["soft_lean"]
     assert g["tone"] == "warn"
     assert g["soft_lean_warn"] is True
     # Pair wide + bench/young thin → clash (Yahoo share vs gap crossed).
@@ -1317,6 +1322,9 @@ def test_soft_allow_glance_short_delta_moods() -> None:
     assert "short lean vs Δ moods clash · lean align · Δ clash" in (
         clash["short_history_bit"]
     )
+    assert clash["short_history_delta_lead_moods"] == "align · both adverse"
+    assert clash["short_history_delta_lead_moods_warn"] is True
+    assert "short Δ lead moods align · both adverse" in clash["short_history_bit"]
 
 
 def test_soft_allow_glance_short_lead_vs_bench_young() -> None:
