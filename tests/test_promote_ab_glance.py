@@ -471,6 +471,11 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         "closes lean vs Δ lead moods align · both clash"
     )
     assert clash["lean_vs_delta_lead_moods_warn"] is True
+    # Δ moods align + Δ lead clash → Δ vs Δ lead moods clash.
+    assert clash["delta_vs_delta_lead_moods_bit"] == (
+        "closes Δ vs Δ lead moods clash · Δ align · Δ lead clash"
+    )
+    assert clash["delta_vs_delta_lead_moods_warn"] is True
     assert clash["lean_bit"] == (
         "closes clash · fills crypto-heavy · closes quiet · 0%"
         " · closes vs 4 stock · strong · 100%"
@@ -482,12 +487,14 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         " · closes lean moods clash · fills clash · closes align"
         " · closes lean vs Δ moods clash · lean clash · Δ align"
         " · closes lean vs Δ lead moods align · both clash"
+        " · closes Δ vs Δ lead moods clash · Δ align · Δ lead clash"
     )
     assert clash["warn"] is True
     # Matching fill+close → speak-both-sides agree (not silent confirm).
     # Matching lean verbs → lean moods both align (does not warn).
     # Lean moods + Δ moods both align → lean vs Δ moods both align (no warn).
     # Lean moods align + Δ lead agree → lean vs Δ lead moods both align.
+    # Δ moods align + Δ lead agree → Δ vs Δ lead moods both align.
     agree = window_a_close_sleeve_mix(
         {"crypto_closes": 6, "stock_closes": 0},
         fill_severity="crypto_only",
@@ -524,6 +531,10 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         "closes lean vs Δ lead moods align · both align"
     )
     assert agree["lean_vs_delta_lead_moods_warn"] is False
+    assert agree["delta_vs_delta_lead_moods_bit"] == (
+        "closes Δ vs Δ lead moods align · both align"
+    )
+    assert agree["delta_vs_delta_lead_moods_warn"] is False
     assert agree["lean_bit"] == (
         "closes agree · closes hot · 100% · closes vs 0 stock · thin · 0%"
         " · closes crypto vs stock align · hot|thin"
@@ -533,6 +544,7 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         " · closes lean moods align · both align"
         " · closes lean vs Δ moods align · both align"
         " · closes lean vs Δ lead moods align · both align"
+        " · closes Δ vs Δ lead moods align · both align"
     )
     assert agree["warn"] is True  # crypto-only closes + adverse Δ still warn
     # Severity label clash can still share a crypto Δ lead (heavy≠only).
@@ -540,6 +552,7 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     # Matching lean verbs still speak lean moods both align.
     # Lean moods align + Δ moods clash → lean vs Δ moods clash (warns).
     # Lean moods align + Δ lead agree → lean vs Δ lead moods both align.
+    # Δ moods clash + Δ lead agree → Δ vs Δ lead moods clash.
     sev_clash_lead_agree = window_a_close_sleeve_mix(
         {"crypto_closes": 6, "stock_closes": 0},
         fill_severity="crypto_heavy",
@@ -570,13 +583,17 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         "closes lean vs Δ lead moods align · both align"
     )
     assert sev_clash_lead_agree["lean_vs_delta_lead_moods_warn"] is False
+    assert sev_clash_lead_agree["delta_vs_delta_lead_moods_bit"] == (
+        "closes Δ vs Δ lead moods clash · Δ clash · Δ lead align"
+    )
+    assert sev_clash_lead_agree["delta_vs_delta_lead_moods_warn"] is True
     # Half-mix closes: absolute 3/3 alone hid ownership — speak mid %.
     # Sides alone hid lean: crypto hot + stock mid → clash · stock ok.
     # Lean alone hid Δ: 0pp → closes lean/Δ clash · lean · Δ mid.
     # Mid-Δ clash → no closes Δ lead / moods (signed pp alone ≠ owner).
     # Fill+close both lean clash → lean moods both clash (warns).
     # No Δ moods → lean vs Δ moods silent (need both relationships).
-    # No Δ lead vs fills → lean vs Δ lead moods silent.
+    # No Δ lead vs fills → lean vs Δ lead moods / Δ vs Δ lead moods silent.
     mid = window_a_close_sleeve_mix(
         {"crypto_closes": 3, "stock_closes": 3},
         fill_severity="mixed",
@@ -606,6 +623,8 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert mid["lean_vs_delta_moods_warn"] is False
     assert mid["lean_vs_delta_lead_moods_bit"] == ""
     assert mid["lean_vs_delta_lead_moods_warn"] is False
+    assert mid["delta_vs_delta_lead_moods_bit"] == ""
+    assert mid["delta_vs_delta_lead_moods_warn"] is False
     assert mid["lean_bit"] == (
         "closes agree · closes hot · 50% · closes vs 3 stock · 50%"
         " · closes crypto vs stock clash · crypto hot · stock ok"
@@ -673,6 +692,11 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         "closes lean vs Δ lead moods clash · lean align · Δ lead clash"
     )
     assert sample["close_sleeve_lean_vs_delta_lead_moods_warn"] is True
+    # Δ moods align + Δ lead clash → Δ vs Δ lead moods clash.
+    assert sample["close_sleeve_delta_vs_delta_lead_moods_bit"] == (
+        "closes Δ vs Δ lead moods clash · Δ align · Δ lead clash"
+    )
+    assert sample["close_sleeve_delta_vs_delta_lead_moods_warn"] is True
     assert sample["close_sleeve_lean_bit"] == (
         "closes clash · fills crypto-heavy · closes quiet · 0%"
         " · closes vs 4 stock · strong · 100%"
@@ -684,6 +708,7 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         " · closes lean moods align · both align"
         " · closes lean vs Δ moods align · both align"
         " · closes lean vs Δ lead moods clash · lean align · Δ lead clash"
+        " · closes Δ vs Δ lead moods clash · Δ align · Δ lead clash"
     )
     assert sample["close_sleeve_warn"] is True
     assert sample["sleeve_lean_bit"].startswith(
@@ -696,7 +721,8 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         " · closes Δ moods align · both wide"
         " · closes lean moods align · both align"
         " · closes lean vs Δ moods align · both align"
-        " · closes lean vs Δ lead moods clash · lean align · Δ lead clash ·"
+        " · closes lean vs Δ lead moods clash · lean align · Δ lead clash"
+        " · closes Δ vs Δ lead moods clash · Δ align · Δ lead clash ·"
     )
     assert "closes%" in window_a_sleeve_lean_meta(
         sample["sleeve_lean_bit"], warn=True
@@ -719,6 +745,9 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         sample["sleeve_lean_bit"]
     )
     assert "closes lean vs Δ lead moods clash · lean align · Δ lead clash" in (
+        sample["sleeve_lean_bit"]
+    )
+    assert "closes Δ vs Δ lead moods clash · Δ align · Δ lead clash" in (
         sample["sleeve_lean_bit"]
     )
     assert format_window_a_close_sleeve_core_bit(sample) == (
@@ -766,6 +795,10 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert "closes lean vs Δ moods align · both align" in g["a_sleeve_lean"]
     assert (
         "closes lean vs Δ lead moods clash · lean align · Δ lead clash"
+        in g["a_sleeve_lean"]
+    )
+    assert (
+        "closes Δ vs Δ lead moods clash · Δ align · Δ lead clash"
         in g["a_sleeve_lean"]
     )
     assert "closes quiet · 0%" not in g["line"]
