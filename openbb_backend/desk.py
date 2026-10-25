@@ -918,6 +918,9 @@ ARCHIVE_PIN_BEHIND_SHARE_HOT = 50.0
 ARCHIVE_PIN_BEHIND_SHARE_QUIET = 25.0
 ARCHIVE_PIN_PIN_SHARE_STRONG = 75.0
 ARCHIVE_PIN_PIN_SHARE_THIN = 50.0
+# behind%−pin% share Δ (Screener junk/unique + Window A sleeve parity).
+ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_WIDE_PP = 20.0
+ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_THIN_PP = 10.0
 _OPP_ARCHIVE_STAMP_RE = re.compile(r"^opportunities_(\d{8})_(\d{6})\.json$")
 
 
@@ -954,11 +957,13 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     points behind a newer timestamped publish is the same keep-newest miss
     (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% ·
     vs M pin · [strong|thin ·] Q% · behind vs pin align|clash ·
-    lag Nd · fallback`` (portfolio AI count≠share: bare N behind hid
-    ownership of the miss; behind% alone hid remaining at-or-behind-pin
-    publishes — Screener junk vs ok sides; sides alone hid lean agreement
-    — Screener junk vs ok lean; count+% alone hid whether the pin is
-    hours or weeks behind the newest — FinRobot age + xang1234
+    Δ wide|thin · ±Npp · lean vs Δ align|clash · lag Nd · fallback``
+    (portfolio AI count≠share: bare N behind hid ownership of the miss;
+    behind% alone hid remaining at-or-behind-pin publishes — Screener
+    junk vs ok sides; sides alone hid lean agreement — Screener junk vs
+    ok lean; lean alone hid how far behind%−pin% sits — Screener junk /
+    unique share Δ + Window A sleeve; count+% alone hid whether the pin
+    is hours or weeks behind the newest — FinRobot age + xang1234
     keep-newest) and read the newest. Display fields only — not an
     entry gate.
     """
@@ -978,6 +983,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "pin_share_severity": "",
         "behind_vs_pin": "",
         "behind_vs_pin_warn": False,
+        "behind_vs_pin_delta_pp": None,
+        "behind_vs_pin_delta_severity": "",
+        "behind_vs_pin_lean_vs_delta": "",
+        "behind_vs_pin_lean_vs_delta_warn": False,
         "pin_lag_sec": None,
         "pin_lag_label": "",
     }
@@ -1036,6 +1045,32 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 behind_vs_pin = f"clash · behind {sev or 'ok'} · pin {pin_mood}"
                 if sev == "hot" or pin_sev == "thin":
                     behind_vs_pin_warn = True
+            # Lean alone hid how far behind%−pin% sits (Screener junk /
+            # unique share Δ + Window A sleeve parity). Mid band silent
+            # on Δ bit → lean vs Δ clash · lean · Δ mid. Adverse
+            # align · hot|thin + Δ wide warns; quiet|strong stays calm.
+            delta_pp: int | None = None
+            delta_sev = ""
+            lean_vs_delta = ""
+            lean_vs_delta_warn = False
+            if behind_vs_pin:
+                raw_delta = share_pct - pin_share_pct
+                abs_delta = abs(raw_delta)
+                if abs_delta >= ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_WIDE_PP:
+                    delta_pp = raw_delta
+                    delta_sev = "wide"
+                elif abs_delta < ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_THIN_PP:
+                    delta_pp = raw_delta
+                    delta_sev = "thin"
+                if delta_sev:
+                    lean_vs_delta = f"align · {delta_sev}"
+                    if delta_sev == "wide" and behind_vs_pin.startswith(
+                        "align · hot|thin"
+                    ):
+                        lean_vs_delta_warn = True
+                else:
+                    lean_vs_delta = "clash · lean · Δ mid"
+                    lean_vs_delta_warn = True
             pin_stamp = _opportunity_archive_stamp(resolved)
             new_stamp = _opportunity_archive_stamp(newest)
             lag_sec: float | None = None
@@ -1059,6 +1094,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["pin_share_severity"] = pin_sev
             out["behind_vs_pin"] = behind_vs_pin
             out["behind_vs_pin_warn"] = behind_vs_pin_warn
+            out["behind_vs_pin_delta_pp"] = delta_pp
+            out["behind_vs_pin_delta_severity"] = delta_sev
+            out["behind_vs_pin_lean_vs_delta"] = lean_vs_delta
+            out["behind_vs_pin_lean_vs_delta_warn"] = lean_vs_delta_warn
             out["pin_lag_sec"] = lag_sec
             out["pin_lag_label"] = lag_label
             sev_bit = f" · {sev}" if sev else ""
@@ -1066,11 +1105,18 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             lean_bit = (
                 f" · behind vs pin {behind_vs_pin}" if behind_vs_pin else ""
             )
+            delta_bit = ""
+            if delta_sev and delta_pp is not None:
+                sign = f"+{delta_pp}" if delta_pp > 0 else f"{delta_pp}"
+                delta_bit = f" · Δ {delta_sev} · {sign}pp"
+            lean_vs_delta_bit = (
+                f" · lean vs Δ {lean_vs_delta}" if lean_vs_delta else ""
+            )
             lag_bit = f" · {lag_label}" if lag_label else ""
             out["bit"] = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
-                f"{lean_bit}{lag_bit} · fallback"
+                f"{lean_bit}{delta_bit}{lean_vs_delta_bit}{lag_bit} · fallback"
             )
             return out
         out["pin"] = "latest"
