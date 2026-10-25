@@ -223,6 +223,8 @@ def test_empty_and_non_mapping():
     assert empty["lean_vs_delta_moods_warn"] is False
     assert empty["delta_lead_moods"] == ""
     assert empty["delta_lead_moods_warn"] is False
+    assert empty["lean_vs_delta_lead_moods"] == ""
+    assert empty["lean_vs_delta_lead_moods_warn"] is False
     assert empty["weight_lean_meta"] == "quiet"
     assert empty["lists_populated"] == 0
     assert empty["weight"] == "row slots"
@@ -992,6 +994,8 @@ def test_overlap_unique_vs_dup_delta_mid_silent():
     assert c["lean_vs_delta_moods_warn"] is False
     assert c["delta_lead_moods"] == ""
     assert c["delta_lead_moods_warn"] is False
+    assert c["lean_vs_delta_lead_moods"] == ""
+    assert c["lean_vs_delta_lead_moods_warn"] is False
 
 
 def test_screener_weight_lean_meta_lean_moods_warn():
@@ -1146,12 +1150,20 @@ def test_overlap_and_junk_delta_moods_both_wide():
     assert c["unique_vs_dup_delta_lead"] == "unique"
     assert c["delta_lead_moods"] == "clash · junk/ok junk · unique/dup unique"
     assert c["delta_lead_moods_warn"] is True
+    # lean moods both-align vs Δ lead moods clash → lean vs Δ lead clash
+    assert c["lean_vs_delta_lead_moods"] == (
+        "clash · lean align · Δ lead clash"
+    )
+    assert c["lean_vs_delta_lead_moods_warn"] is True
     assert "Δ moods align · both wide" in c["weight_lean"]
     assert "lean vs Δ moods align · both align" in c["weight_lean"]
     assert "Δ lead moods clash · junk/ok junk · unique/dup unique" in c[
         "weight_lean"
     ]
-    # Δ lead moods warn preferred over Δ moods wide chip.
+    assert "lean vs Δ lead moods clash · lean align · Δ lead clash" in c[
+        "weight_lean"
+    ]
+    # lean vs Δ lead moods warn preferred over Δ lead moods / Δ moods.
     assert c["weight_lean_meta"].startswith("clash")
     assert c["tone"] == "warn"
 
@@ -1187,10 +1199,12 @@ def test_overlap_and_junk_delta_moods_clash():
     assert c["delta_moods_warn"] is True
     assert c["lean_vs_delta_moods"] == "align · both clash"
     assert c["lean_vs_delta_moods_warn"] is True
-    # Junk Δ 0pp → no junk Δ lead → Δ lead moods silent.
+    # Junk Δ 0pp → no junk Δ lead → Δ lead moods + lean vs Δ lead silent.
     assert c["junk_vs_ok_delta_lead"] == ""
     assert c["delta_lead_moods"] == ""
     assert c["delta_lead_moods_warn"] is False
+    assert c["lean_vs_delta_lead_moods"] == ""
+    assert c["lean_vs_delta_lead_moods_warn"] is False
     assert "Δ moods clash · junk/ok thin · unique/dup wide" in c["weight_lean"]
     assert "lean vs Δ moods align · both clash" in c["weight_lean"]
     # Multi-list junk lead/lean clash owns the chip before lean/Δ moods.
@@ -1222,6 +1236,11 @@ def test_overlap_and_junk_delta_lead_moods_both_healthy():
     assert c["delta_lead_moods"] == "align · both healthy"
     assert c["delta_lead_moods_warn"] is False
     assert "Δ lead moods align · both healthy" in c["weight_lean"]
+    # lean moods both-align + Δ lead moods both-align → lean vs Δ lead align
+    assert c["lean_moods"] == "align · both align"
+    assert c["lean_vs_delta_lead_moods"] == "align · both align"
+    assert c["lean_vs_delta_lead_moods_warn"] is False
+    assert "lean vs Δ lead moods align · both align" in c["weight_lean"]
 
 
 def test_overlap_and_junk_delta_lead_moods_both_adverse():
@@ -1258,6 +1277,25 @@ def test_overlap_and_junk_delta_lead_moods_both_adverse():
     assert c["delta_lead_moods_warn"] is True
     assert "Δ lead moods align · both adverse" in c["weight_lean"]
     assert c["tone"] == "warn"
+    # Δ lead moods verb is still "align" (both adverse) — lean vs Δ lead
+    # only warns on dual-clash or crossed verbs, not on adverse band.
+    assert c["lean_moods"]
+    lean_v = (
+        "align"
+        if c["lean_moods"].startswith("align ·")
+        else "clash"
+        if c["lean_moods"].startswith("clash ·")
+        else ""
+    )
+    assert lean_v in {"align", "clash"}
+    if lean_v == "align":
+        assert c["lean_vs_delta_lead_moods"] == "align · both align"
+        assert c["lean_vs_delta_lead_moods_warn"] is False
+    else:
+        assert c["lean_vs_delta_lead_moods"] == (
+            "clash · lean clash · Δ lead align"
+        )
+        assert c["lean_vs_delta_lead_moods_warn"] is True
 
 
 def test_screener_weight_lean_meta_delta_lead_moods_warn():
@@ -1285,4 +1323,35 @@ def test_screener_weight_lean_meta_delta_lead_moods_warn():
             n_junk=1,
         )
         == "align · both adverse"
+    )
+
+
+def test_screener_weight_lean_meta_lean_vs_delta_lead_moods_warn():
+    """lean vs Δ lead moods warn owns the chip before lean vs Δ moods."""
+    assert (
+        screener_weight_lean_meta(
+            lean_vs_delta_lead_moods="clash · lean align · Δ lead clash",
+            lean_vs_delta_lead_moods_warn=True,
+            lean_vs_delta_moods="align · both clash",
+            lean_vs_delta_moods_warn=True,
+            delta_lead_moods="clash · junk/ok junk · unique/dup unique",
+            delta_lead_moods_warn=True,
+            n_junk=2,
+            weight_lean=(
+                "lean vs Δ moods align · both clash · "
+                "Δ lead moods clash · junk/ok junk · unique/dup unique · "
+                "lean vs Δ lead moods clash · lean align · Δ lead clash"
+            ),
+        )
+        # Cap 4: lean/Δ moods · Δ lead moods · lean/Δ lead moods · lead
+        # (trailing ``Δ lead clash`` on the lean-vs bit).
+        == "clash · lean/Δ moods · Δ lead moods · lean/Δ lead moods · lead"
+    )
+    assert (
+        screener_weight_lean_meta(
+            lean_vs_delta_lead_moods="align · both clash",
+            lean_vs_delta_lead_moods_warn=True,
+            n_junk=1,
+        )
+        == "align · both clash"
     )
