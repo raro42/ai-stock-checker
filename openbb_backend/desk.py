@@ -979,7 +979,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     vs M pin · [strong|thin ·] Q% · behind vs pin align|clash ·
     Δ wide|thin · ±Npp · lean vs Δ align|clash ·
     lag Nd · fresh|aging|stale · lag/share align|clash ·
-    lag/share vs lean align|clash · fallback``
+    lag/share vs lean align|clash ·
+    lag/share↔lean vs lean↔Δ align|clash · fallback``
     (portfolio AI count≠share: bare N behind hid ownership of the miss;
     behind% alone hid remaining at-or-behind-pin publishes — Screener
     junk vs ok sides; sides alone hid lean agreement — Screener junk vs
@@ -991,7 +992,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     alone hid whether age matches ownership heat — soft-allow last/share
     + FinRobot / portfolio AI speak-both-sides; lag/share + lean alone
     hid whether the two *relationships* agree — Screener lean vs Δ moods
-    + soft-allow short lean vs Δ moods) and read the newest.
+    + soft-allow short lean vs Δ moods; lag/share↔lean + lean↔Δ alone
+    hid whether those two *meta* relationships agree — Screener lean vs
+    Δ moods + soft-allow short lean vs Δ moods + portfolio AI
+    speak-both-sides) and read the newest.
     Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
@@ -1021,6 +1025,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "pin_lag_vs_share_warn": False,
         "pin_lag_share_vs_lean": "",
         "pin_lag_share_vs_lean_warn": False,
+        "pin_lag_share_lean_vs_delta": "",
+        "pin_lag_share_lean_vs_delta_warn": False,
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1157,6 +1163,35 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                         f"clash · lag/share {lag_share_v} · lean {lean_v}"
                     )
                     lag_share_vs_lean_warn = True
+            # Lag/share↔lean + lean↔Δ alone hid whether those two *meta*
+            # relationships agree (Screener lean vs Δ moods + soft-allow
+            # short lean vs Δ moods). Both-clash + crossed warn;
+            # both-align calm; missing either silent.
+            lag_share_lean_vs_delta = ""
+            lag_share_lean_vs_delta_warn = False
+            lsl_v = (
+                "align"
+                if lag_share_vs_lean.startswith("align")
+                else "clash"
+                if lag_share_vs_lean.startswith("clash")
+                else ""
+            )
+            lvd_v = (
+                "align"
+                if lean_vs_delta.startswith("align")
+                else "clash"
+                if lean_vs_delta.startswith("clash")
+                else ""
+            )
+            if lsl_v and lvd_v:
+                if lsl_v == lvd_v:
+                    lag_share_lean_vs_delta = f"align · both {lsl_v}"
+                    lag_share_lean_vs_delta_warn = lsl_v == "clash"
+                else:
+                    lag_share_lean_vs_delta = (
+                        f"clash · lag/share↔lean {lsl_v} · lean↔Δ {lvd_v}"
+                    )
+                    lag_share_lean_vs_delta_warn = True
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
@@ -1180,6 +1215,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["pin_lag_vs_share_warn"] = lag_vs_share_warn
             out["pin_lag_share_vs_lean"] = lag_share_vs_lean
             out["pin_lag_share_vs_lean_warn"] = lag_share_vs_lean_warn
+            out["pin_lag_share_lean_vs_delta"] = lag_share_lean_vs_delta
+            out["pin_lag_share_lean_vs_delta_warn"] = (
+                lag_share_lean_vs_delta_warn
+            )
             sev_bit = f" · {sev}" if sev else ""
             pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
             lean_bit = (
@@ -1201,11 +1240,17 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 if lag_share_vs_lean
                 else ""
             )
+            lag_share_lean_vs_delta_bit = (
+                f" · lag/share↔lean vs lean↔Δ {lag_share_lean_vs_delta}"
+                if lag_share_lean_vs_delta
+                else ""
+            )
             out["bit"] = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
                 f"{lean_bit}{delta_bit}{lean_vs_delta_bit}{lag_bit}"
-                f"{lag_vs_share_bit}{lag_share_vs_lean_bit} · fallback"
+                f"{lag_vs_share_bit}{lag_share_vs_lean_bit}"
+                f"{lag_share_lean_vs_delta_bit} · fallback"
             )
             return out
         out["pin"] = "latest"

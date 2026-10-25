@@ -90,12 +90,16 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
     # lag/share clash + lean clash → both-clash (Screener lean vs Δ moods).
     assert res["pin_lag_share_vs_lean"] == "align · both clash"
     assert res["pin_lag_share_vs_lean_warn"] is True
+    # both-clash meta-align vs lean↔Δ align → calm both-align (verbs match).
+    assert res["pin_lag_share_lean_vs_delta"] == "align · both align"
+    assert res["pin_lag_share_lean_vs_delta_warn"] is False
     assert res["bit"] == (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
-        "lag/share vs lean align · both clash · fallback"
+        "lag/share vs lean align · both clash · "
+        "lag/share↔lean vs lean↔Δ align · both align · fallback"
     )
     assert Path(res["path"]) == newer
 
@@ -136,12 +140,19 @@ def test_resolve_stale_speaks_behind_count(tmp_path: Path) -> None:
         "clash · lag/share clash · lean align"
     )
     assert res["pin_lag_share_vs_lean_warn"] is True
+    # meta-clash vs lean↔Δ align → crossed warn.
+    assert res["pin_lag_share_lean_vs_delta"] == (
+        "clash · lag/share↔lean clash · lean↔Δ align"
+    )
+    assert res["pin_lag_share_lean_vs_delta_warn"] is True
     assert res["bit"] == (
         "latest stale · 2 behind · hot · 67% · vs 1 pin · thin · 33% · "
         "behind vs pin align · hot|thin · Δ wide · +34pp · "
         "lean vs Δ align · wide · lag 31d · stale · "
         "lag/share clash · stale · hot · "
-        "lag/share vs lean clash · lag/share clash · lean align · fallback"
+        "lag/share vs lean clash · lag/share clash · lean align · "
+        "lag/share↔lean vs lean↔Δ clash · lag/share↔lean clash · "
+        "lean↔Δ align · fallback"
     )
     assert Path(res["path"]) == newest
 
@@ -183,11 +194,14 @@ def test_resolve_stale_behind_share_quiet(tmp_path: Path) -> None:
     assert res["behind_vs_pin_lean_vs_delta_warn"] is False
     assert res["pin_lag_label"] == "lag 24h · aging"
     assert res["pin_lag_severity"] == "aging"
-    # aging lag stays silent on lag/share (extremes only) → vs lean silent.
+    # aging lag stays silent on lag/share (extremes only) → vs lean silent
+    # → meta vs lean↔Δ silent (missing lag/share↔lean).
     assert res["pin_lag_vs_share"] == ""
     assert res["pin_lag_vs_share_warn"] is False
     assert res["pin_lag_share_vs_lean"] == ""
     assert res["pin_lag_share_vs_lean_warn"] is False
+    assert res["pin_lag_share_lean_vs_delta"] == ""
+    assert res["pin_lag_share_lean_vs_delta_warn"] is False
     assert res["bit"] == (
         "latest stale · 1 behind · quiet · 17% · "
         "vs 5 pin · strong · 83% · behind vs pin align · quiet|strong · "
@@ -220,6 +234,8 @@ def test_resolve_stale_speaks_pin_lag_hours(tmp_path: Path) -> None:
     assert res["pin_lag_vs_share_warn"] is False
     assert res["pin_lag_share_vs_lean"] == ""
     assert res["pin_lag_share_vs_lean_warn"] is False
+    assert res["pin_lag_share_lean_vs_delta"] == ""
+    assert res["pin_lag_share_lean_vs_delta_warn"] is False
     assert res["bit"] == (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
@@ -251,9 +267,16 @@ def test_resolve_stale_speaks_pin_lag_fresh(tmp_path: Path) -> None:
         "clash · lag/share align · lean clash"
     )
     assert res["pin_lag_share_vs_lean_warn"] is True
+    # meta-clash vs lean↔Δ align → crossed warn.
+    assert res["pin_lag_share_lean_vs_delta"] == (
+        "clash · lag/share↔lean clash · lean↔Δ align"
+    )
+    assert res["pin_lag_share_lean_vs_delta_warn"] is True
     assert (
         "lag 1h · fresh · lag/share align · fresh · hot · "
-        "lag/share vs lean clash · lag/share align · lean clash · fallback"
+        "lag/share vs lean clash · lag/share align · lean clash · "
+        "lag/share↔lean vs lean↔Δ clash · lag/share↔lean clash · "
+        "lean↔Δ align · fallback"
     ) in res["bit"]
 
 
@@ -364,7 +387,8 @@ def test_opportunities_markdown_falls_back_when_latest_stale(tmp_path: Path) -> 
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
-        "lag/share vs lean align · both clash · fallback"
+        "lag/share vs lean align · both clash · "
+        "lag/share↔lean vs lean↔Δ align · both align · fallback"
     ) in body
 
 
@@ -389,5 +413,6 @@ def test_opportunities_markdown_prefers_txt_twin_of_resolved(tmp_path: Path) -> 
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
-        "lag/share vs lean align · both clash · fallback"
+        "lag/share vs lean align · both clash · "
+        "lag/share↔lean vs lean↔Δ align · both align · fallback"
     ) in body

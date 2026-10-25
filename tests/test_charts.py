@@ -788,5 +788,6 @@ def test_chart_payload_falls_back_when_latest_stale(tmp_path: Path, monkeypatch)
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
-        "lag/share vs lean align · both clash · fallback"
+        "lag/share vs lean align · both clash · "
+        "lag/share↔lean vs lean↔Δ align · both align · fallback"
     ) in sf["line"]
