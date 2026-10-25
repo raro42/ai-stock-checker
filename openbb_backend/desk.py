@@ -916,6 +916,8 @@ def memory_peer_short_clock_clash(
 # Stale opportunities_latest: behind÷timestamped publishes (junk-share parity).
 ARCHIVE_PIN_BEHIND_SHARE_HOT = 50.0
 ARCHIVE_PIN_BEHIND_SHARE_QUIET = 25.0
+ARCHIVE_PIN_PIN_SHARE_STRONG = 75.0
+ARCHIVE_PIN_PIN_SHARE_THIN = 50.0
 
 
 def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
@@ -924,8 +926,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     Silent fallback hid a missing/dangling readiness pin the way xang1234
     #682 lost the newest auto scan under prune. A live latest that still
     points behind a newer timestamped publish is the same keep-newest miss
-    (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% · fallback``
-    (portfolio AI count≠share: bare N behind hid ownership of the miss) and
+    (#685) — speak ``latest stale · N behind · [hot|quiet ·] P% ·
+    vs M pin · [strong|thin ·] Q% · fallback`` (portfolio AI count≠share:
+    bare N behind hid ownership of the miss; behind% alone hid remaining
+    at-or-behind-pin publishes — Screener junk vs ok sides parity) and
     read the newest. Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
@@ -939,6 +943,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "behind": 0,
         "behind_share_pct": None,
         "behind_share_severity": "",
+        "pin_side": 0,
+        "pin_share_pct": None,
+        "pin_share_severity": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -958,12 +965,22 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 behind += 1
             total = len(candidates)
             share_pct = int(round(100.0 * behind / total)) if total else 0
+            pin_side = max(0, total - behind)
+            pin_share_pct = (
+                int(round(100.0 * pin_side / total)) if total else 0
+            )
             if share_pct >= ARCHIVE_PIN_BEHIND_SHARE_HOT:
                 sev = "hot"
             elif share_pct <= ARCHIVE_PIN_BEHIND_SHARE_QUIET:
                 sev = "quiet"
             else:
                 sev = ""
+            if pin_share_pct >= ARCHIVE_PIN_PIN_SHARE_STRONG:
+                pin_sev = "strong"
+            elif pin_share_pct < ARCHIVE_PIN_PIN_SHARE_THIN:
+                pin_sev = "thin"
+            else:
+                pin_sev = ""
             out["pin"] = "stale"
             out["path"] = newest
             out["fallback"] = True
@@ -971,9 +988,14 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["behind"] = behind
             out["behind_share_pct"] = share_pct
             out["behind_share_severity"] = sev
+            out["pin_side"] = pin_side
+            out["pin_share_pct"] = pin_share_pct
+            out["pin_share_severity"] = pin_sev
             sev_bit = f" · {sev}" if sev else ""
+            pin_sev_bit = f" · {pin_sev}" if pin_sev else ""
             out["bit"] = (
-                f"latest stale · {behind} behind{sev_bit} · {share_pct}% · fallback"
+                f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
+                f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}% · fallback"
             )
             return out
         out["pin"] = "latest"
@@ -1023,9 +1045,11 @@ def build_scan_freshness(
     sleeve when it already spoke (worst size alone hid runner ownership).
     ``archive_pin_bit`` speaks when ``opportunities_latest`` is missing,
     dangling, or stale (``latest stale · N behind · [hot|quiet ·] P% ·
-    fallback`` when the live pin lags N newer timestamped publishes —
-    behind÷timestamped; hot ≥50% · quiet ≤25%) and the desk fell back
-    (xang1234 #682 / #685 readiness pin + portfolio AI count≠share).
+    vs M pin · [strong|thin ·] Q% · fallback`` when the live pin lags N
+    newer timestamped publishes — behind÷timestamped hot ≥50% · quiet
+    ≤25%; remaining at-or-behind-pin as vs pin strong ≥75% · thin <50% —
+    Screener junk vs ok sides) and the desk fell back (xang1234 #682 /
+    #685 readiness pin + portfolio AI count≠share / speak-both-sides).
     Not an entry gate.
     """
     pin = str(archive_pin or "").strip().casefold()
