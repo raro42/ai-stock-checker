@@ -969,6 +969,29 @@ def _format_pin_lag(lag_sec: float, *, severity: str = "") -> str:
     return f"{dur} · {sev}" if sev else dur
 
 
+def _heal_archive_pin_after_fallback(
+    out: dict[str, Any], archive_dir: Path
+) -> dict[str, Any]:
+    """Keep-newest as action on desk open (xang1234 #685).
+
+    Cleanup already heals after prune; desk resolve also retargets so
+    hard-readers of ``opportunities_latest`` do not stay behind until the
+    next scan. Speak ``healed`` instead of ``fallback`` when the pin was
+    fixed — honesty for this request, clean pin for the next.
+    """
+    from stock_checker.opportunity_archive import heal_opportunities_latest_pin
+
+    if not out.get("fallback"):
+        return out
+    if heal_opportunities_latest_pin(archive_dir):
+        out["healed"] = True
+        for key in ("bit", "bit_core"):
+            val = str(out.get(key) or "")
+            if val.endswith(" · fallback"):
+                out[key] = val[: -len(" · fallback")] + " · healed"
+    return out
+
+
 def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     """Prefer ``opportunities_latest``; fall back to newest timestamped publish.
 
@@ -980,7 +1003,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     Δ wide|thin · ±Npp · lean vs Δ align|clash ·
     lag Nd · fresh|aging|stale · lag/share align|clash ·
     lag/share vs lean align|clash ·
-    lag/share↔lean vs lean↔Δ align|clash · fallback``
+    lag/share↔lean vs lean↔Δ align|clash · healed``
     (portfolio AI count≠share: bare N behind hid ownership of the miss;
     behind% alone hid remaining at-or-behind-pin publishes — Screener
     junk vs ok sides; sides alone hid lean agreement — Screener junk vs
@@ -995,7 +1018,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     + soft-allow short lean vs Δ moods; lag/share↔lean + lean↔Δ alone
     hid whether those two *meta* relationships agree — Screener lean vs
     Δ moods + soft-allow short lean vs Δ moods + portfolio AI
-    speak-both-sides) and read the newest.
+    speak-both-sides) and read the newest; desk also retargets the pin
+    so hard-readers match keep-newest without waiting for cleanup.
     Display fields only — not an entry gate.
     """
     arch = Path(data_dir) / "archive"
@@ -1004,6 +1028,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "path": latest,
         "pin": "missing",
         "fallback": False,
+        "healed": False,
         "warn": False,
         "bit": "",
         # Strip shows bit_core; lean/Δ/lag-relationship cascade sits in pin_lean
@@ -1271,14 +1296,14 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 or lag_share_vs_lean_warn
                 or lag_share_lean_vs_delta_warn
             )
-            # Strip: counts + pin→newest lag + fallback (MonsterDeveloper core).
+            # Strip: counts + pin→newest lag + fallback/healed (MonsterDeveloper).
             bit_core = (
                 f"latest stale · {behind} behind{sev_bit} · {share_pct}% · "
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
                 f"{lag_bit} · fallback"
             )
             # Full bit keeps historical order: counts · lean/Δ · lag ·
-            # lag-rel · fallback (tests assert this join).
+            # lag-rel · fallback|healed (tests assert this join).
             lean_prefix = ""
             if lean_bit:
                 lean_prefix += f" · {lean_bit}"
@@ -1301,7 +1326,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 f"vs {pin_side} pin{pin_sev_bit} · {pin_share_pct}%"
                 f"{lean_prefix}{lag_bit}{lag_rel} · fallback"
             )
-            return out
+            return _heal_archive_pin_after_fallback(out, arch)
         out["pin"] = "latest"
         out["path"] = latest
         return out
@@ -1314,7 +1339,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         out["fallback"] = True
         out["bit"] = f"latest {pin} · fallback"
         out["bit_core"] = out["bit"]
-        return out
+        return _heal_archive_pin_after_fallback(out, arch)
     out["bit"] = f"latest {pin}"
     out["bit_core"] = out["bit"]
     return out

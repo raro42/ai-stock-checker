@@ -34,9 +34,17 @@ def test_resolve_falls_back_when_latest_missing(tmp_path: Path) -> None:
     res = resolve_opportunities_archive(tmp_path)
     assert res["pin"] == "missing"
     assert res["fallback"] is True
+    assert res["healed"] is True
     assert res["warn"] is True
-    assert res["bit"] == "latest missing · fallback"
+    assert res["bit"] == "latest missing · healed"
     assert Path(res["path"]) == newer
+    # Desk heal retargets so hard-readers match keep-newest next open.
+    assert (arch / "opportunities_latest.json").resolve() == newer.resolve()
+    again = resolve_opportunities_archive(tmp_path)
+    assert again["pin"] == "latest"
+    assert again["fallback"] is False
+    assert again["healed"] is False
+    assert again["bit"] == ""
 
 
 def test_resolve_falls_back_when_latest_dangling(tmp_path: Path) -> None:
@@ -49,9 +57,11 @@ def test_resolve_falls_back_when_latest_dangling(tmp_path: Path) -> None:
     res = resolve_opportunities_archive(tmp_path)
     assert res["pin"] == "dangling"
     assert res["fallback"] is True
+    assert res["healed"] is True
     assert res["warn"] is True
-    assert res["bit"] == "latest dangling · fallback"
+    assert res["bit"] == "latest dangling · healed"
     assert Path(res["path"]) == kept
+    assert (arch / "opportunities_latest.json").resolve() == kept.resolve()
 
 
 def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
@@ -67,6 +77,7 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
     res = resolve_opportunities_archive(tmp_path)
     assert res["pin"] == "stale"
     assert res["fallback"] is True
+    assert res["healed"] is True
     assert res["warn"] is True
     assert res["behind"] == 1
     assert res["behind_share_pct"] == 50
@@ -99,11 +110,11 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
         "lag/share vs lean align · both clash · "
-        "lag/share↔lean vs lean↔Δ align · both align · fallback"
+        "lag/share↔lean vs lean↔Δ align · both align · healed"
     )
     assert res["bit_core"] == (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
-        "lag 31d · stale · fallback"
+        "lag 31d · stale · healed"
     )
     assert res["pin_lean"] == (
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
@@ -113,6 +124,7 @@ def test_resolve_falls_back_when_latest_stale(tmp_path: Path) -> None:
     )
     assert res["pin_lean_warn"] is True
     assert Path(res["path"]) == newer
+    assert (arch / "opportunities_latest.json").resolve() == newer.resolve()
 
 
 def test_resolve_stale_speaks_behind_count(tmp_path: Path) -> None:
@@ -163,11 +175,11 @@ def test_resolve_stale_speaks_behind_count(tmp_path: Path) -> None:
         "lag/share clash · stale · hot · "
         "lag/share vs lean clash · lag/share clash · lean align · "
         "lag/share↔lean vs lean↔Δ clash · lag/share↔lean clash · "
-        "lean↔Δ align · fallback"
+        "lean↔Δ align · healed"
     )
     assert res["bit_core"] == (
         "latest stale · 2 behind · hot · 67% · vs 1 pin · thin · 33% · "
-        "lag 31d · stale · fallback"
+        "lag 31d · stale · healed"
     )
     assert res["pin_lean"] == (
         "behind vs pin align · hot|thin · Δ wide · +34pp · "
@@ -228,11 +240,11 @@ def test_resolve_stale_behind_share_quiet(tmp_path: Path) -> None:
     assert res["bit"] == (
         "latest stale · 1 behind · quiet · 17% · "
         "vs 5 pin · strong · 83% · behind vs pin align · quiet|strong · "
-        "Δ wide · -66pp · lean vs Δ align · wide · lag 24h · aging · fallback"
+        "Δ wide · -66pp · lean vs Δ align · wide · lag 24h · aging · healed"
     )
     assert res["bit_core"] == (
         "latest stale · 1 behind · quiet · 17% · "
-        "vs 5 pin · strong · 83% · lag 24h · aging · fallback"
+        "vs 5 pin · strong · 83% · lag 24h · aging · healed"
     )
     assert res["pin_lean"] == (
         "behind vs pin align · quiet|strong · Δ wide · -66pp · "
@@ -271,7 +283,7 @@ def test_resolve_stale_speaks_pin_lag_hours(tmp_path: Path) -> None:
     assert res["bit"] == (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
-        "lean vs Δ align · thin · lag 6h · aging · fallback"
+        "lean vs Δ align · thin · lag 6h · aging · healed"
     )
     assert Path(res["path"]) == newer
 
@@ -308,7 +320,7 @@ def test_resolve_stale_speaks_pin_lag_fresh(tmp_path: Path) -> None:
         "lag 1h · fresh · lag/share align · fresh · hot · "
         "lag/share vs lean clash · lag/share align · lean clash · "
         "lag/share↔lean vs lean↔Δ clash · lag/share↔lean clash · "
-        "lean↔Δ align · fallback"
+        "lean↔Δ align · healed"
     ) in res["bit"]
 
 
@@ -327,14 +339,14 @@ def test_scan_freshness_speaks_archive_pin_bit() -> None:
         when,
         now=now,
         archive_pin="missing",
-        archive_pin_bit="latest missing · fallback",
+        archive_pin_bit="latest missing · healed",
         archive_pin_warn=True,
     )
     assert g["ready"] is True
     assert g["archive_pin"] == "missing"
-    assert g["archive_pin_bit"] == "latest missing · fallback"
+    assert g["archive_pin_bit"] == "latest missing · healed"
     assert g["archive_pin_warn"] is True
-    assert "latest missing · fallback" in g["line"]
+    assert "latest missing · healed" in g["line"]
     # Age band on the line stays fresh; display tone escalates for CSS.
     assert " · fresh · " in g["line"]
     assert g["tone"] == "aging"
@@ -358,11 +370,11 @@ def test_scan_freshness_speaks_stale_pin_bit() -> None:
     full_bit = (
         "latest stale · 2 behind · hot · 67% · "
         "vs 1 pin · thin · 33% · behind vs pin align · hot|thin · "
-        "Δ wide · +34pp · lean vs Δ align · wide · lag 31d · stale · fallback"
+        "Δ wide · +34pp · lean vs Δ align · wide · lag 31d · stale · healed"
     )
     bit_core = (
         "latest stale · 2 behind · hot · 67% · "
-        "vs 1 pin · thin · 33% · lag 31d · stale · fallback"
+        "vs 1 pin · thin · 33% · lag 31d · stale · healed"
     )
     pin_lean = (
         "behind vs pin align · hot|thin · Δ wide · +34pp · "
@@ -431,7 +443,7 @@ def test_opportunities_markdown_falls_back_when_latest_stale(tmp_path: Path) -> 
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
         "lag/share vs lean align · both clash · "
-        "lag/share↔lean vs lean↔Δ align · both align · fallback"
+        "lag/share↔lean vs lean↔Δ align · both align · healed"
     ) in body
 
 
@@ -457,5 +469,5 @@ def test_opportunities_markdown_prefers_txt_twin_of_resolved(tmp_path: Path) -> 
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
         "lag/share vs lean align · both clash · "
-        "lag/share↔lean vs lean↔Δ align · both align · fallback"
+        "lag/share↔lean vs lean↔Δ align · both align · healed"
     ) in body

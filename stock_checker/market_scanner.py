@@ -739,49 +739,15 @@ class MarketScanner:
         Desk already falls back when ``opportunities_latest`` is missing,
         dangling, or stale — but leaving the pin behind still hid the
         current auto scan from hard-readers (xang1234 #685 keep-newest).
-        Cleanup heals the pin after prune so the readiness name matches
-        the newest publish. Filename sort matches desk resolve (not mtime).
+        Cleanup + desk resolve heal so the readiness name matches the
+        newest publish. Filename sort matches desk resolve (not mtime).
         Returns True when a pin was created or retargeted.
         """
-        if not archive_dir.is_dir():
-            return False
-        candidates = sorted(archive_dir.glob("opportunities_2*.json"))
-        if not candidates:
-            return False
-        newest = candidates[-1]
-        healed = False
-        for latest_name, target in (
-            ("opportunities_latest.json", newest),
-            (
-                "opportunities_latest.txt",
-                newest.with_suffix(".txt")
-                if newest.with_suffix(".txt").exists()
-                else None,
-            ),
-        ):
-            if target is None or not target.exists():
-                continue
-            latest = archive_dir / latest_name
-            need = True
-            if latest.is_symlink() or latest.is_file():
-                try:
-                    need = (not latest.exists()) or (
-                        latest.resolve() != target.resolve()
-                    )
-                except OSError:
-                    need = True
-            if not need:
-                continue
-            try:
-                if latest.exists() or latest.is_symlink():
-                    latest.unlink()
-                latest.symlink_to(target.name)
-                healed = True
-            except OSError as exc:
-                print(f"⚠️  Could not heal {latest_name}: {exc}")
-        if healed:
-            print(f"📌 Healed opportunities_latest → {newest.name}")
-        return healed
+        from stock_checker.opportunity_archive import (
+            heal_opportunities_latest_pin as _heal,
+        )
+
+        return _heal(archive_dir)
 
     def cleanup_old_archives(self, archive_dir: Path, keep_days: int = 7) -> int:
         """Delete timestamped opportunity archives older than keep_days.

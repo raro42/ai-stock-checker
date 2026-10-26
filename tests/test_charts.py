@@ -744,18 +744,19 @@ def test_chart_payload_falls_back_when_latest_missing(tmp_path: Path, monkeypatc
     opp, pin = _load_opportunities(tmp_path)
     assert pin["pin"] == "missing"
     assert pin["fallback"] is True
+    assert pin["healed"] is True
+    assert "latest missing · healed" in pin["bit"]
     assert opp.get("scan_time") == "2026-10-25T11:00:00+00:00"
     assert opp["stock_breakouts"][0]["symbol"] == "NVDA"
-
+    # Resolve heals the pin — next Charts open is quiet for hard-readers.
     payload = load_chart_payload(tmp_path)
     sf = payload["scan_freshness"]
-    assert sf["archive_pin"] == "missing"
-    assert "latest missing · fallback" in sf["archive_pin_bit"]
-    assert "latest missing · fallback" in sf["line"]
+    assert sf["archive_pin"] == "latest"
+    assert sf.get("archive_pin_bit") in ("", None)
 
 
 def test_chart_payload_falls_back_when_latest_stale(tmp_path: Path, monkeypatch):
-    """Live latest behind a newer publish → Charts reads newest + speaks stale."""
+    """Live latest behind a newer publish → Charts reads newest + heals pin."""
     from openbb_backend.charts import _load_opportunities
 
     _seed(tmp_path)
@@ -778,16 +779,19 @@ def test_chart_payload_falls_back_when_latest_stale(tmp_path: Path, monkeypatch)
     opp, pin = _load_opportunities(tmp_path)
     assert pin["pin"] == "stale"
     assert pin["behind"] == 1
+    assert pin["healed"] is True
     assert opp["stock_breakouts"][0]["symbol"] == "MSFT"
-
-    payload = load_chart_payload(tmp_path)
-    sf = payload["scan_freshness"]
-    assert sf["archive_pin"] == "stale"
     assert (
         "latest stale · 1 behind · hot · 50% · vs 1 pin · 50% · "
         "behind vs pin clash · behind hot · pin ok · Δ thin · 0pp · "
         "lean vs Δ align · thin · lag 31d · stale · "
         "lag/share clash · stale · hot · "
         "lag/share vs lean align · both clash · "
-        "lag/share↔lean vs lean↔Δ align · both align · fallback"
-    ) in sf["line"]
+        "lag/share↔lean vs lean↔Δ align · both align · healed"
+    ) in pin["bit"]
+
+    # After heal, payload resolve is keep-newest clean.
+    payload = load_chart_payload(tmp_path)
+    sf = payload["scan_freshness"]
+    assert sf["archive_pin"] == "latest"
+    assert opp["stock_breakouts"][0]["symbol"] == "MSFT"
