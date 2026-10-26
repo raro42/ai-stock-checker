@@ -66,14 +66,16 @@ def test_cleanup_keeps_latest_symlink_target(tmp_path: Path):
     (archive / "opportunities_latest.txt").symlink_to(pinned_txt.name)
 
     removed = scanner.cleanup_old_archives(archive, keep_days=7)
-    # Symlink target + newest protected; middle stray pair is pruned.
+    # Symlink target + newest protected; middle stray pair is pruned;
+    # #685 heal retargets *_latest to newest (stale pin no longer left).
     assert removed == 1
     assert pinned.exists()
     assert pinned_txt.exists()
     assert newest.exists()
     assert not stray.exists()
     assert not stray_txt.exists()
-    assert (archive / "opportunities_latest.json").resolve() == pinned.resolve()
+    assert (archive / "opportunities_latest.json").resolve() == newest.resolve()
+    assert (archive / "opportunities_latest.txt").resolve() == newest_txt.resolve()
 
 
 def test_cleanup_keeps_newest_when_all_past_cutoff(tmp_path: Path):
@@ -102,3 +104,39 @@ def test_cleanup_keeps_newest_when_all_past_cutoff(tmp_path: Path):
     assert not older_txt.exists()
     assert newest.exists()
     assert newest_txt.exists()
+    assert (archive / "opportunities_latest.json").resolve() == newest.resolve()
+    assert (archive / "opportunities_latest.txt").resolve() == newest_txt.resolve()
+
+
+def test_heal_opportunities_latest_pin_stale_dangling_missing(tmp_path: Path):
+    """#685: retarget missing / dangling / stale *_latest to newest."""
+    archive = tmp_path / "archive"
+    archive.mkdir()
+    older = archive / "opportunities_20200101_000000.json"
+    older.write_text('{"old": true}')
+    (archive / "opportunities_20200101_000000.txt").write_text("old")
+    newest = archive / "opportunities_20200201_120000.json"
+    newest.write_text('{"new": true}')
+    newest_txt = archive / "opportunities_20200201_120000.txt"
+    newest_txt.write_text("new")
+
+    # Stale pin → heal to newest.
+    (archive / "opportunities_latest.json").symlink_to(older.name)
+    assert MarketScanner.heal_opportunities_latest_pin(archive) is True
+    assert (archive / "opportunities_latest.json").resolve() == newest.resolve()
+    assert (archive / "opportunities_latest.txt").resolve() == newest_txt.resolve()
+    # Already on newest → no-op.
+    assert MarketScanner.heal_opportunities_latest_pin(archive) is False
+
+    # Dangling → heal.
+    (archive / "opportunities_latest.json").unlink()
+    (archive / "opportunities_latest.json").symlink_to("opportunities_gone.json")
+    assert MarketScanner.heal_opportunities_latest_pin(archive) is True
+    assert (archive / "opportunities_latest.json").resolve() == newest.resolve()
+
+    # Missing → create.
+    (archive / "opportunities_latest.json").unlink()
+    (archive / "opportunities_latest.txt").unlink()
+    assert MarketScanner.heal_opportunities_latest_pin(archive) is True
+    assert (archive / "opportunities_latest.json").resolve() == newest.resolve()
+    assert (archive / "opportunities_latest.txt").resolve() == newest_txt.resolve()

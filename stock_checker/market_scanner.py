@@ -732,13 +732,66 @@ class MarketScanner:
             traceback.print_exc()
             return None, None
 
+    @staticmethod
+    def heal_opportunities_latest_pin(archive_dir: Path) -> bool:
+        """Retarget ``*_latest`` to the newest timestamped publish when behind.
+
+        Desk already falls back when ``opportunities_latest`` is missing,
+        dangling, or stale — but leaving the pin behind still hid the
+        current auto scan from hard-readers (xang1234 #685 keep-newest).
+        Cleanup heals the pin after prune so the readiness name matches
+        the newest publish. Filename sort matches desk resolve (not mtime).
+        Returns True when a pin was created or retargeted.
+        """
+        if not archive_dir.is_dir():
+            return False
+        candidates = sorted(archive_dir.glob("opportunities_2*.json"))
+        if not candidates:
+            return False
+        newest = candidates[-1]
+        healed = False
+        for latest_name, target in (
+            ("opportunities_latest.json", newest),
+            (
+                "opportunities_latest.txt",
+                newest.with_suffix(".txt")
+                if newest.with_suffix(".txt").exists()
+                else None,
+            ),
+        ):
+            if target is None or not target.exists():
+                continue
+            latest = archive_dir / latest_name
+            need = True
+            if latest.is_symlink() or latest.is_file():
+                try:
+                    need = (not latest.exists()) or (
+                        latest.resolve() != target.resolve()
+                    )
+                except OSError:
+                    need = True
+            if not need:
+                continue
+            try:
+                if latest.exists() or latest.is_symlink():
+                    latest.unlink()
+                latest.symlink_to(target.name)
+                healed = True
+            except OSError as exc:
+                print(f"⚠️  Could not heal {latest_name}: {exc}")
+        if healed:
+            print(f"📌 Healed opportunities_latest → {newest.name}")
+        return healed
+
     def cleanup_old_archives(self, archive_dir: Path, keep_days: int = 7) -> int:
         """Delete timestamped opportunity archives older than keep_days.
 
         Always keep ``*_latest`` names, the resolved targets of latest
         symlinks (and their .json/.txt twins), and the single newest
         timestamped pair — age prune must not dangle ``*_latest`` or wipe
-        the only publish (xang1234 #682 keep-newest-auto adapted).
+        the only publish (xang1234 #682 keep-newest-auto adapted). After
+        prune, retarget ``*_latest`` to the newest publish when behind
+        (#685 heal — display fallback alone left the pin stale).
         """
         import time as time_mod
 
@@ -816,6 +869,7 @@ class MarketScanner:
                 print(f"⚠️  Could not remove archive {path.name}: {exc}")
         if removed:
             print(f"🧹 Removed {removed} archive pair(s) older than {keep_days} days")
+        self.heal_opportunities_latest_pin(archive_dir)
         return removed
 
     def identify_best_opportunities(self) -> Dict:
