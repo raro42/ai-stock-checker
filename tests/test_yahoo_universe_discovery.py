@@ -12,6 +12,7 @@ from stock_checker.yahoo_universe_discovery import (
     screen_payload_failed,
     screens_bundle_failed,
     set_yahoo_discovery_error,
+    yahoo_discovery_claim_drop_share,
     yahoo_discovery_error_class,
     yahoo_fail_error_also_bit,
     yahoo_fail_error_also_counts,
@@ -1142,6 +1143,21 @@ def test_fetch_yahoo_screen_refuses_second_while_hung(monkeypatch):
         assert calls["n"] == 1
     finally:
         release.set()
+
+
+def test_yahoo_discovery_claim_drop_share_bands():
+    """portfolio AI count≠share after absolute claim drops (xang1234 #726)."""
+    assert yahoo_discovery_claim_drop_share(0) == ("", None, "")
+    assert yahoo_discovery_claim_drop_share(-1) == ("", None, "")
+    # 1/3 ≈ 33% mid · 2/3 ≈ 67% hot · custom denom quiet.
+    assert yahoo_discovery_claim_drop_share(1) == ("33%", 33, "ok")
+    assert yahoo_discovery_claim_drop_share(2) == ("hot · 67%", 67, "hot")
+    assert yahoo_discovery_claim_drop_share(3) == ("hot · 100%", 100, "hot")
+    assert yahoo_discovery_claim_drop_share(1, screen_count=8) == (
+        "quiet · 12%",
+        12,
+        "quiet",
+    )
 
 
 def test_release_dead_yahoo_screen_claims_drops_finished():

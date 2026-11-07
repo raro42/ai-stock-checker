@@ -24412,9 +24412,11 @@ def build_universe_discovery_glance(
     Mid Δ stays silent.
     When the last movers spend released finished/stale single-flight claims,
     speak ``N claim drop`` (xang1234 #726 Ops release visibility — a zombie
-    hang was cleared before the bundle; zero stays silent). Sits after the
-    fail class / before the screen fraction on fail, and before
-    ``discovery-only`` on success.
+    hang was cleared before the bundle; zero stays silent). When drops spoke,
+    also speak ownership of the mover roster ``hot|quiet · P%`` (portfolio AI
+    count≠share; hot ≥50% · quiet ≤25%; mid shows % only; hot escalates a
+    fresh tone to aging). Sits after the fail class / before the screen
+    fraction on fail, and before ``discovery-only`` on success.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -24422,6 +24424,7 @@ def build_universe_discovery_glance(
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
+        yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drops,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
@@ -24549,9 +24552,20 @@ def build_universe_discovery_glance(
     yahoo_failed = yahoo_status == "failed"
     fail_streak = yahoo_fail_streak(uni_meta)
     claim_drops = yahoo_discovery_claim_drops(uni_meta)
-    claim_drop_bit = (
-        f" · {claim_drops} claim drop" if claim_drops > 0 else ""
-    )
+    (
+        claim_drop_share_bit,
+        claim_drop_share_pct,
+        claim_drop_share_severity,
+    ) = yahoo_discovery_claim_drop_share(claim_drops)
+    if claim_drops > 0:
+        share_suffix = (
+            f" · {claim_drop_share_bit}" if claim_drop_share_bit else ""
+        )
+        claim_drop_bit = f" · {claim_drops} claim drop{share_suffix}"
+        if claim_drop_share_severity == "hot" and tone == "fresh":
+            tone = "aging"
+    else:
+        claim_drop_bit = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25325,6 +25339,8 @@ def build_universe_discovery_glance(
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
         "last_yahoo_claim_drops": claim_drops,
+        "last_yahoo_claim_drop_share_pct": claim_drop_share_pct,
+        "last_yahoo_claim_drop_share_severity": claim_drop_share_severity,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }

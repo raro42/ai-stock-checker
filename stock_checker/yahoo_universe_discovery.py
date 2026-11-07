@@ -159,6 +159,9 @@ YAHOO_FAIL_ERROR_CLASSES: frozenset[str] = frozenset(
 # Hidden spend side of a timeout↔inflight mix (count flag ≠ ownership).
 YAHOO_FAIL_ALSO_SHARE_HOT = 50
 YAHOO_FAIL_ALSO_SHARE_QUIET = 25
+# Claim-drop ownership of the mover screen roster (count ≠ share).
+YAHOO_CLAIM_DROP_SHARE_HOT = 50
+YAHOO_CLAIM_DROP_SHARE_QUIET = 25
 # Named class owns the mix when its share of timeout+inflight is this high.
 YAHOO_FAIL_ALSO_WINNER_STRONG = 75
 # Hidden% − winner% after mix lean spoke (labels ≠ how far the shares sit).
@@ -300,6 +303,41 @@ def yahoo_discovery_claim_drops(meta: Any) -> int:
         return max(0, int(meta.get("last_yahoo_claim_drops") or 0))
     except (TypeError, ValueError):
         return 0
+
+
+def yahoo_discovery_claim_drop_share(
+    drops: int,
+    *,
+    screen_count: int | None = None,
+) -> tuple[str, int | None, str]:
+    """Claim-drop ownership of the mover screen roster (portfolio AI count≠share).
+
+    Absolute ``N claim drop`` hid whether one zombie or most of the bundle
+    was cleared before spend. Share uses ``len(DEFAULT_SCREENS)`` unless
+    ``screen_count`` is passed. ``hot`` ≥50% · ``quiet`` ≤25% · mid shows
+    the percent only. Zero / junk → silent. Returns ``(bit, pct, severity)``
+    ready to append after the count (``hot · 67%``).
+    """
+    try:
+        n = max(0, int(drops))
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return "", None, ""
+    try:
+        denom = (
+            len(DEFAULT_SCREENS)
+            if screen_count is None
+            else max(1, int(screen_count))
+        )
+    except (TypeError, ValueError):
+        denom = len(DEFAULT_SCREENS)
+    pct = int(round(100.0 * min(n, denom) / denom))
+    if pct >= YAHOO_CLAIM_DROP_SHARE_HOT:
+        return f"hot · {pct}%", pct, "hot"
+    if pct <= YAHOO_CLAIM_DROP_SHARE_QUIET:
+        return f"quiet · {pct}%", pct, "quiet"
+    return f"{pct}%", pct, "ok"
 
 
 def yahoo_discovery_error_class(meta: Any) -> str:

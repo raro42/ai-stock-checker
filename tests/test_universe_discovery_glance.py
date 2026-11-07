@@ -1109,7 +1109,7 @@ def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
 
 
 def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
-    """xang1234 #726: Ops release visibility on success path."""
+    """xang1234 #726 + portfolio AI: count + hot share on success path."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
     last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
     (tmp_path / "stock_universe.json").write_text(
@@ -1128,8 +1128,12 @@ def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_claim_drops"] == 2
-    assert "2 claim drop" in g["line"]
+    assert g["last_yahoo_claim_drop_share_pct"] == 67
+    assert g["last_yahoo_claim_drop_share_severity"] == "hot"
+    assert "2 claim drop · hot · 67%" in g["line"]
     assert g["line"].index("2 claim drop") < g["line"].index("discovery-only")
+    # Hot claim share escalates a fresh cache tone.
+    assert g["tone"] == "aging"
 
 
 def test_universe_discovery_glance_claim_drop_on_fail(tmp_path) -> None:
@@ -1156,7 +1160,9 @@ def test_universe_discovery_glance_claim_drop_on_fail(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_claim_drops"] == 1
-    assert "1 claim drop" in g["line_core"]
+    assert g["last_yahoo_claim_drop_share_pct"] == 33
+    assert g["last_yahoo_claim_drop_share_severity"] == "ok"
+    assert "1 claim drop · 33%" in g["line_core"]
     assert g["line_core"].index("empty") < g["line_core"].index("1 claim drop")
     assert g["line_core"].index("1 claim drop") < g["line_core"].index("0/3")
 
