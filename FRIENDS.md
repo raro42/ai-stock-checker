@@ -85,6 +85,12 @@ advisory (typed `pass` / `hold` / `reject`) when someone sets `LAYA_BASE_URL` +
 To try it on your own host: [docs/LAYA.md](docs/LAYA.md). Live veto stays deferred until
 promote A/B honesty + a calm paper sample.
 
+## Competing paper books (planned)
+
+Friends want separate paper accounts and a leaderboard ([GitHub #4](https://github.com/raro42/ai-stock-checker/issues/4)).
+**Plan only — awaiting human signoff:** [docs/MULTI_ACCOUNT.md](docs/MULTI_ACCOUNT.md).
+Until then the shared desk is still **one** book under `data/portfolio.json`.
+
 ## Rules of the group
 
 1. Paper trade only until a strategy survives **walk-forward vs SPY under live-shaped fees** **and** a calm paper month.
