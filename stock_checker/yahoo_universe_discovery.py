@@ -325,12 +325,39 @@ def set_yahoo_discovery_claim_drops(
     return n
 
 
+def set_yahoo_discovery_claim_live(meta: dict[str, Any], live: int) -> int:
+    """Persist how many screen claims stay held after the last spend.
+
+    Alive workers inside the claim TTL are not released (xang1234 #726
+    single-flight) — a later catch-up of that screen is refused until TTL.
+    Absolute claim-drop / ok screens alone hid a stuck hung worker once
+    other screens went green (xang1234 history: stuck asset not silent).
+    Junk / negative → 0. Returns the stored count.
+    """
+    try:
+        n = max(0, int(live))
+    except (TypeError, ValueError):
+        n = 0
+    meta["last_yahoo_claim_live"] = n
+    return n
+
+
 def yahoo_discovery_claim_drops(meta: Any) -> int:
     """Read last claim-release count; junk / missing → 0."""
     if not isinstance(meta, dict):
         return 0
     try:
         return max(0, int(meta.get("last_yahoo_claim_drops") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def yahoo_discovery_claim_live(meta: Any) -> int:
+    """Read last still-held screen claim count; junk / missing → 0."""
+    if not isinstance(meta, dict):
+        return 0
+    try:
+        return max(0, int(meta.get("last_yahoo_claim_live") or 0))
     except (TypeError, ValueError):
         return 0
 
@@ -1652,6 +1679,34 @@ def release_dead_yahoo_screen_claims(
     return released, dead, stale
 
 
+def count_live_yahoo_screen_claims(
+    *,
+    max_age_sec: float | None = None,
+    now: float | None = None,
+) -> int:
+    """Count alive workers still inside the claim TTL (display/ops).
+
+    Does not mutate the map. Finished / stale zombies are not live —
+    ``release_dead_yahoo_screen_claims`` clears those. A hung screen that
+    timed out but is still inside TTL stays live and blocks that name
+    (xang1234 stuck-asset honesty after other screens go green).
+    """
+    ceiling = (
+        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
+        if max_age_sec is None
+        else max(1.0, float(max_age_sec))
+    )
+    clock = time.monotonic() if now is None else float(now)
+    live = 0
+    with _yahoo_screen_inflight_lock:
+        for entry in _yahoo_screen_inflight.values():
+            worker, started = entry
+            age = clock - float(started)
+            if worker.is_alive() and age < ceiling:
+                live += 1
+    return live
+
+
 def fetch_yahoo_screen_symbols(
     screen: str,
     *,
@@ -1751,11 +1806,14 @@ def discover_yahoo_mover_report(
     per_screen: int = DEFAULT_MOVER_COUNT,
     timeout_sec: int | None = None,
 ) -> tuple[List[str], int, int, int, int, int, int, int]:
-    """Symbols plus ok / failed / timeout / inflight / claim-drop counts.
+    """Symbols plus ok / failed / timeout / inflight / claim counts.
 
     Claim drops (xang1234 #726): finished or stale single-flight claims
     released before this bundle — Ops can see a zombie was cleared.
-    Trailing ints are ``claim_drops``, ``claim_dead``, ``claim_stale``.
+    Claim live (xang1234 stuck-asset honesty): alive workers still inside
+    TTL after the bundle — a hung screen is not silent once peers succeed.
+    Trailing ints are ``claim_drops``, ``claim_dead``, ``claim_stale``,
+    ``claim_live``.
     """
     # Sweep finished/stale claims before the bundle so a prior hung screen
     # does not poison the first name in the list (xang1234 #726).
@@ -1789,6 +1847,7 @@ def discover_yahoo_mover_report(
                 continue
             seen.add(sym)
             out.append(sym)
+    claim_live = count_live_yahoo_screen_claims()
     return (
         out,
         ok,
@@ -1798,6 +1857,7 @@ def discover_yahoo_mover_report(
         claim_drops,
         claim_dead,
         claim_stale,
+        claim_live,
     )
 
 
@@ -1807,7 +1867,7 @@ def discover_yahoo_mover_symbols(
     per_screen: int = DEFAULT_MOVER_COUNT,
 ) -> List[str]:
     """Union of symbols across screens, stable order, de-duplicated."""
-    symbols, _ok, _failed, _timeouts, _inflight, _drops, _dead, _stale = (
+    symbols, _ok, _failed, _timeouts, _inflight, _drops, _dead, _stale, _live = (
         discover_yahoo_mover_report(screens=screens, per_screen=per_screen)
     )
     return symbols

@@ -381,6 +381,7 @@ class StockUniverseManager:
             screens_bundle_failed,
             screens_bundle_partial,
             set_yahoo_discovery_claim_drops,
+            set_yahoo_discovery_claim_live,
             set_yahoo_discovery_error,
             set_yahoo_discovery_error_sides,
             yahoo_fail_plan_held,
@@ -420,6 +421,7 @@ class StockUniverseManager:
         claim_drops = 0
         claim_dead = 0
         claim_stale = 0
+        claim_live = 0
         try:
             report = discover_yahoo_mover_report(per_screen=per_screen)
             symbols = report[0]
@@ -433,6 +435,8 @@ class StockUniverseManager:
             if len(report) > 7:
                 claim_dead = report[6]
                 claim_stale = report[7]
+            if len(report) > 8:
+                claim_live = report[8]
         except Exception as e:
             print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
             meta["last_yahoo_discovery_status"] = "failed"
@@ -442,6 +446,7 @@ class StockUniverseManager:
             meta["last_yahoo_prune_skipped"] = False
             # Exception path never reached the pre-bundle sweep.
             set_yahoo_discovery_claim_drops(meta, 0)
+            set_yahoo_discovery_claim_live(meta, 0)
             # xang1234 #639: fail stamp alone hid repeated dead fetches;
             # last-error class names why (inflight/timeout/http/empty/error).
             set_yahoo_discovery_error(meta, classify_yahoo_discovery_error(e))
@@ -458,6 +463,8 @@ class StockUniverseManager:
         set_yahoo_discovery_claim_drops(
             meta, claim_drops, dead=claim_dead, stale=claim_stale
         )
+        # xang1234 stuck-asset honesty: hung screen still held after peers.
+        set_yahoo_discovery_claim_live(meta, claim_live)
         if screens_bundle_failed(screens_ok, screens_failed):
             # xang1234: failed / majority-blocked fetch → reuse seed; do not
             # stamp cache fresh; discard leftover quotes from a thin screen.

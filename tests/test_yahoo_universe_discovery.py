@@ -937,6 +937,7 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
         drops,
         dead,
         stale,
+        live,
     ) = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
@@ -948,6 +949,7 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
     assert drops == 0
     assert dead == 0
     assert stale == 0
+    assert live == 0
     assert screens_bundle_failed(ok, failed) is True
 
 
@@ -970,6 +972,7 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
         drops,
         dead,
         stale,
+        live,
     ) = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
@@ -981,6 +984,7 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
     assert drops == 0
     assert dead == 0
     assert stale == 0
+    assert live == 0
     assert (
         classify_yahoo_discovery_error(
             screens_ok=ok, screens_failed=failed, timeout_fails=timeouts
@@ -1372,10 +1376,12 @@ def test_discover_yahoo_mover_report_returns_claim_drops(monkeypatch):
         drops,
         dead,
         stale,
+        live,
     ) = discover_yahoo_mover_report(screens=("day_gainers",), per_screen=5)
     assert drops == 1
     assert dead == 1
     assert stale == 0
+    assert live == 0
     with yud._yahoo_screen_inflight_lock:
         assert "dead_bundle" not in yud._yahoo_screen_inflight
 
@@ -1433,3 +1439,108 @@ def test_fetch_yahoo_screen_releases_stale_claim(monkeypatch):
         release.set()
         with yud._yahoo_screen_inflight_lock:
             yud._yahoo_screen_inflight.pop("stale_claim", None)
+
+
+def test_count_live_yahoo_screen_claims_inside_ttl():
+    """xang1234 stuck-asset: alive worker inside TTL counts as live."""
+    import threading
+    import time
+
+    from stock_checker import yahoo_universe_discovery as yud
+
+    release = threading.Event()
+
+    def _hang() -> None:
+        release.wait(5)
+
+    worker = threading.Thread(target=_hang, daemon=True)
+    worker.start()
+    try:
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight.clear()
+            yud._yahoo_screen_inflight["live_probe"] = (
+                worker,
+                time.monotonic(),
+            )
+        assert yud.count_live_yahoo_screen_claims(max_age_sec=120.0) == 1
+        # Past TTL → not live (stale release path owns that).
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight["live_probe"] = (
+                worker,
+                time.monotonic() - 999.0,
+            )
+        assert yud.count_live_yahoo_screen_claims(max_age_sec=10.0) == 0
+    finally:
+        release.set()
+        worker.join(1)
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight.clear()
+
+
+def test_set_yahoo_discovery_claim_live_bands():
+    from stock_checker.yahoo_universe_discovery import (
+        set_yahoo_discovery_claim_live,
+        yahoo_discovery_claim_live,
+    )
+
+    meta: dict = {}
+    assert set_yahoo_discovery_claim_live(meta, 2) == 2
+    assert yahoo_discovery_claim_live(meta) == 2
+    assert set_yahoo_discovery_claim_live(meta, -1) == 0
+    assert yahoo_discovery_claim_live(meta) == 0
+    assert yahoo_discovery_claim_live(None) == 0
+    assert yahoo_discovery_claim_live({"last_yahoo_claim_live": "x"}) == 0
+
+
+def test_discover_yahoo_mover_report_returns_claim_live(monkeypatch):
+    """Hung worker left after timeout still counts as claim live."""
+    import threading
+    import time
+
+    from stock_checker import yahoo_universe_discovery as yud
+
+    release = threading.Event()
+
+    def _hang() -> None:
+        release.wait(5)
+
+    worker = threading.Thread(target=_hang, daemon=True)
+    worker.start()
+
+    def hang_fetch(screen: str, *, count: int = 25, timeout_sec=None):
+        # Mimic join timeout: leave a live claim for this screen.
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight[str(screen)] = (
+                worker,
+                time.monotonic(),
+            )
+        raise TimeoutError(f"yahoo screen {screen} timed out after 1s")
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
+        hang_fetch,
+    )
+    try:
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight.clear()
+        (
+            _syms,
+            _ok,
+            failed,
+            timeouts,
+            _inflight,
+            _drops,
+            _dead,
+            _stale,
+            live,
+        ) = discover_yahoo_mover_report(
+            screens=("day_gainers",), per_screen=5
+        )
+        assert failed == 1
+        assert timeouts == 1
+        assert live == 1
+    finally:
+        release.set()
+        worker.join(1)
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight.clear()

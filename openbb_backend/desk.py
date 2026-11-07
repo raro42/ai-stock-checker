@@ -24418,7 +24418,10 @@ def build_universe_discovery_glance(
     fresh tone to aging) and remaining screens ``vs N kept · strong|thin · P%``.
     After that, name release reasons ``dead`` / ``stale`` / ``N dead · M stale``
     (xang1234 history: say what each release did — absolute N alone hid finished
-    leftovers vs hung zombies; stale escalates a fresh tone to aging). Sits
+    leftovers vs hung zombies; stale escalates a fresh tone to aging). When a
+    hung worker is still inside the claim TTL after the bundle, speak
+    ``N claim live`` (xang1234 stuck-asset honesty — peers going green must
+    not hide a blocked screen; zero silent; escalates fresh → aging). Sits
     after the fail class / before the screen fraction on fail, and before
     ``discovery-only`` on success.
     Buys still need regime/RS/breadth/fees. Not a new gate.
@@ -24434,6 +24437,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drops,
+        yahoo_discovery_claim_live,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
         yahoo_fail_retry_remaining_sec,
@@ -24560,6 +24564,7 @@ def build_universe_discovery_glance(
     yahoo_failed = yahoo_status == "failed"
     fail_streak = yahoo_fail_streak(uni_meta)
     claim_drops = yahoo_discovery_claim_drops(uni_meta)
+    claim_live = yahoo_discovery_claim_live(uni_meta)
     (
         claim_drop_share_bit,
         claim_drop_share_pct,
@@ -24622,6 +24627,13 @@ def build_universe_discovery_glance(
         claim_drop_reason_lead_name = ""
         claim_drop_reason_lead_pct = None
         claim_drop_reason_sample_gap = ""
+    # xang1234 stuck-asset honesty: hung worker still held after peers go green.
+    if claim_live > 0:
+        claim_live_bit = f" · {claim_live} claim live"
+        if tone == "fresh":
+            tone = "aging"
+    else:
+        claim_live_bit = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25150,7 +25162,7 @@ def build_universe_discovery_glance(
         # Full join keeps streak before retry (test order).
         full_core = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{err_bit}{claim_drop_bit}"
+            f"Yahoo fail{err_bit}{claim_drop_bit}{claim_live_bit}"
             f"{error_vs_seed_bit}{error_vs_fail_bit}"
             f"{error_seed_vs_fail_bit}{error_vs_budget_bit}{error_sf_budget_bit}"
             f"{frac}{streak_bit}"
@@ -25178,7 +25190,7 @@ def build_universe_discovery_glance(
         )
         line_core = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{err_class}{claim_drop_bit}"
+            f"Yahoo fail{err_class}{claim_drop_bit}{claim_live_bit}"
             f"{frac}{streak_bit}"
             f"{retry} · {seed_bit}{fail_bit}"
         )
@@ -25204,7 +25216,7 @@ def build_universe_discovery_glance(
             drop_bit = f" · dropped {last_dropped} · {drop_venue}"
         line = (
             f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone}"
-            f"{drop_bit}{claim_drop_bit} · discovery-only"
+            f"{drop_bit}{claim_drop_bit}{claim_live_bit} · discovery-only"
         )
         if len(line) > 128:
             line = line[:127] + "…"
@@ -25407,6 +25419,7 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_drop_reason_sample_gap": (
             claim_drop_reason_sample_gap or None
         ),
+        "last_yahoo_claim_live": claim_live,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }
