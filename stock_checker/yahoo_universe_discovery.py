@@ -370,6 +370,69 @@ def yahoo_discovery_claim_drop_reasons(
     return f"{dead} dead · {stale} stale", dead, stale
 
 
+def yahoo_discovery_claim_drop_reason_lead(
+    dead: int,
+    stale: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among dead vs stale claim-drop reasons (display only).
+
+    Absolute ``N dead · M stale`` hid which release reason owns the sweep
+    (Screener junk-list lead / soft-allow gap-symbol lead + portfolio AI
+    count≠share + xang1234 multi-meter). Returns ``(bit, name, share_pct)``.
+    Both sides must be >0 and total ≥2; strict lead → ``lead stale · N%``;
+    ties / sole-side / junk → silent (use
+    ``yahoo_discovery_claim_drop_reason_sample_gap`` for ``tied``).
+    """
+    try:
+        n_dead = max(0, int(dead))
+    except (TypeError, ValueError):
+        n_dead = 0
+    try:
+        n_stale = max(0, int(stale))
+    except (TypeError, ValueError):
+        n_stale = 0
+    total = n_dead + n_stale
+    if total < 2 or n_dead <= 0 or n_stale <= 0:
+        return "", "", None
+    if n_dead == n_stale:
+        return "", "", None
+    if n_stale > n_dead:
+        name, n = "stale", n_stale
+    else:
+        name, n = "dead", n_dead
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def yahoo_discovery_claim_drop_reason_sample_gap(
+    dead: int,
+    stale: int,
+) -> str:
+    """Speak ``tied`` when dead/stale both spoke with no strict lead.
+
+    ≥2 reasons with equal dead and stale speaks ``tied`` after the reason
+    bit (soft-allow / Screener junk-list sample-gap parity). Lead cases /
+    sole-side / zero stay silent on gap. Absolute sides alone hid that a
+    50/50 release has no owner. Display only.
+    """
+    try:
+        n_dead = max(0, int(dead))
+    except (TypeError, ValueError):
+        n_dead = 0
+    try:
+        n_stale = max(0, int(stale))
+    except (TypeError, ValueError):
+        n_stale = 0
+    if n_dead <= 0 or n_stale <= 0:
+        return ""
+    lead_bit, _name, _share = yahoo_discovery_claim_drop_reason_lead(
+        n_dead, n_stale
+    )
+    if lead_bit:
+        return ""
+    return "tied"
+
+
 def yahoo_discovery_claim_drop_share(
     drops: int,
     *,

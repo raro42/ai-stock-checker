@@ -24428,6 +24428,8 @@ def build_universe_discovery_glance(
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
+        yahoo_discovery_claim_drop_reason_lead,
+        yahoo_discovery_claim_drop_reason_sample_gap,
         yahoo_discovery_claim_drop_reasons,
         yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drop_vs_kept,
@@ -24574,6 +24576,16 @@ def build_universe_discovery_glance(
         claim_drop_dead_n,
         claim_drop_stale_n,
     ) = yahoo_discovery_claim_drop_reasons(uni_meta)
+    (
+        claim_drop_reason_lead_bit,
+        claim_drop_reason_lead_name,
+        claim_drop_reason_lead_pct,
+    ) = yahoo_discovery_claim_drop_reason_lead(
+        claim_drop_dead_n, claim_drop_stale_n
+    )
+    claim_drop_reason_sample_gap = yahoo_discovery_claim_drop_reason_sample_gap(
+        claim_drop_dead_n, claim_drop_stale_n
+    )
     if claim_drops > 0:
         share_suffix = (
             f" · {claim_drop_share_bit}" if claim_drop_share_bit else ""
@@ -24581,9 +24593,16 @@ def build_universe_discovery_glance(
         kept_suffix = (
             f" · {claim_drop_vs_kept_bit}" if claim_drop_vs_kept_bit else ""
         )
-        reason_suffix = (
-            f" · {claim_drop_reason_bit}" if claim_drop_reason_bit else ""
-        )
+        # When lead/tied spoke, drop absolute dead/stale from the line
+        # (fields keep counts) so the 128-char clip keeps ownership.
+        if claim_drop_reason_lead_bit:
+            reason_suffix = f" · {claim_drop_reason_lead_bit}"
+        elif claim_drop_reason_sample_gap:
+            reason_suffix = f" · {claim_drop_reason_sample_gap}"
+        elif claim_drop_reason_bit:
+            reason_suffix = f" · {claim_drop_reason_bit}"
+        else:
+            reason_suffix = ""
         claim_drop_bit = (
             f" · {claim_drops} claim drop"
             f"{share_suffix}{kept_suffix}{reason_suffix}"
@@ -24599,6 +24618,10 @@ def build_universe_discovery_glance(
         claim_drop_kept_severity = ""
         claim_drop_dead_n = 0
         claim_drop_stale_n = 0
+        claim_drop_reason_lead_bit = ""
+        claim_drop_reason_lead_name = ""
+        claim_drop_reason_lead_pct = None
+        claim_drop_reason_sample_gap = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25379,6 +25402,11 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_drop_kept_severity": claim_drop_kept_severity,
         "last_yahoo_claim_drop_dead": claim_drop_dead_n,
         "last_yahoo_claim_drop_stale": claim_drop_stale_n,
+        "last_yahoo_claim_drop_reason_lead": claim_drop_reason_lead_name or None,
+        "last_yahoo_claim_drop_reason_lead_pct": claim_drop_reason_lead_pct,
+        "last_yahoo_claim_drop_reason_sample_gap": (
+            claim_drop_reason_sample_gap or None
+        ),
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }

@@ -1137,10 +1137,13 @@ def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
     assert g["last_yahoo_claim_drop_kept_severity"] == "thin"
     assert g["last_yahoo_claim_drop_dead"] == 1
     assert g["last_yahoo_claim_drop_stale"] == 1
+    assert g["last_yahoo_claim_drop_reason_lead"] is None
+    assert g["last_yahoo_claim_drop_reason_sample_gap"] == "tied"
     assert (
-        "2 claim drop · hot · 67% · vs 1 kept · thin · 33% · 1 dead · 1 stale"
+        "2 claim drop · hot · 67% · vs 1 kept · thin · 33% · tied"
         in g["line"]
     )
+    assert "1 dead · 1 stale" not in g["line"]
     assert g["line"].index("2 claim drop") < g["line"].index("discovery-only")
     # Hot claim share escalates a fresh cache tone.
     assert g["tone"] == "aging"
@@ -1179,9 +1182,44 @@ def test_universe_discovery_glance_claim_drop_on_fail(tmp_path) -> None:
     assert g["last_yahoo_claim_drop_kept_severity"] == "ok"
     assert g["last_yahoo_claim_drop_dead"] == 0
     assert g["last_yahoo_claim_drop_stale"] == 1
+    assert g["last_yahoo_claim_drop_reason_lead"] is None
+    assert g["last_yahoo_claim_drop_reason_sample_gap"] is None
     assert "1 claim drop · 33% · vs 2 kept · 67% · stale" in g["line_core"]
+    assert "lead" not in g["line_core"].split("stale", 1)[-1]
     assert g["line_core"].index("empty") < g["line_core"].index("1 claim drop")
     assert g["line_core"].index("1 claim drop") < g["line_core"].index("0/3")
+
+
+def test_universe_discovery_glance_claim_drop_reason_lead(tmp_path) -> None:
+    """xang1234 multi-meter: strict dead/stale lead after reason sides."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_drops": 3,
+                    "last_yahoo_claim_drops_dead": 1,
+                    "last_yahoo_claim_drops_stale": 2,
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_drop_dead"] == 1
+    assert g["last_yahoo_claim_drop_stale"] == 2
+    assert g["last_yahoo_claim_drop_reason_lead"] == "stale"
+    assert g["last_yahoo_claim_drop_reason_lead_pct"] == 67
+    assert g["last_yahoo_claim_drop_reason_sample_gap"] is None
+    assert "lead stale · 67%" in g["line"]
+    assert "1 dead · 2 stale" not in g["line"]
+    # Stale side still escalates a fresh cache tone.
+    assert g["tone"] == "aging"
 
 
 def test_universe_discovery_glance_dropped_movers_speaks_venue(tmp_path) -> None:

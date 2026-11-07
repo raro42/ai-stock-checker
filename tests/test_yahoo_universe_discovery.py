@@ -1249,6 +1249,32 @@ def test_yahoo_discovery_claim_drop_reasons_bands():
     ) == ("1 dead · 2 stale", 1, 2)
 
 
+def test_yahoo_discovery_claim_drop_reason_lead_bands():
+    """xang1234 multi-meter + portfolio AI after absolute dead/stale."""
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_claim_drop_reason_lead,
+        yahoo_discovery_claim_drop_reason_sample_gap,
+    )
+
+    assert yahoo_discovery_claim_drop_reason_lead(0, 0) == ("", "", None)
+    assert yahoo_discovery_claim_drop_reason_lead(2, 0) == ("", "", None)
+    assert yahoo_discovery_claim_drop_reason_lead(0, 2) == ("", "", None)
+    assert yahoo_discovery_claim_drop_reason_lead(1, 1) == ("", "", None)
+    assert yahoo_discovery_claim_drop_reason_sample_gap(1, 1) == "tied"
+    assert yahoo_discovery_claim_drop_reason_sample_gap(2, 0) == ""
+    assert yahoo_discovery_claim_drop_reason_lead(1, 2) == (
+        "lead stale · 67%",
+        "stale",
+        67,
+    )
+    assert yahoo_discovery_claim_drop_reason_sample_gap(1, 2) == ""
+    assert yahoo_discovery_claim_drop_reason_lead(3, 1) == (
+        "lead dead · 75%",
+        "dead",
+        75,
+    )
+
+
 def test_release_dead_yahoo_screen_claims_drops_finished():
     """xang1234 #726: finished worker must not keep a claim."""
     import threading
