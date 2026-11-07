@@ -1330,6 +1330,92 @@ def test_universe_discovery_glance_claim_live_legacy_silent_screens(
     assert "1 claim live · 33% · vs 2 free · 67%" in g["line"]
     assert "last " not in g["line"]
     assert " in " not in g["line"]
+    assert g["last_yahoo_claim_drop_vs_live_lead"] is None
+    assert "drop/live" not in g["line"]
+    assert "lead drop" not in g["line"]
+    assert "lead live" not in g["line"]
+
+
+def test_universe_discovery_glance_claim_drop_vs_live_lead(tmp_path) -> None:
+    """xang1234 multi-meter: drop vs live lead after both claim bits."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_drops": 2,
+                    "last_yahoo_claim_drops_dead": 2,
+                    "last_yahoo_claim_drops_stale": 0,
+                    "last_yahoo_claim_live": 1,
+                    "last_yahoo_claim_live_screens": ["day_gainers"],
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_drops"] == 2
+    assert g["last_yahoo_claim_live"] == 1
+    assert g["last_yahoo_claim_drop_vs_live_lead"] == "drop"
+    assert g["last_yahoo_claim_drop_vs_live_lead_pct"] == 67
+    assert g["last_yahoo_claim_drop_vs_live_sample_gap"] is None
+    # Fields keep share nests; line omits them so lead survives the 128 clip.
+    assert g["last_yahoo_claim_drop_share_pct"] == 67
+    assert g["last_yahoo_claim_live_share_pct"] == 33
+    assert "hot · 67%" not in g["line"]
+    assert "vs 1 kept" not in g["line"]
+    assert "vs 2 free" not in g["line"]
+    assert (
+        "2 claim drop · dead · 1 claim live · last gainers · lead drop · 67%"
+        in g["line"]
+    )
+    assert g["line"].index("claim live") < g["line"].index("lead drop")
+    assert g["line"].index("lead drop") < g["line"].index("discovery-only")
+    assert "drop/live tied" not in g["line"]
+    assert g["tone"] == "aging"
+
+
+def test_universe_discovery_glance_claim_drop_vs_live_tied(tmp_path) -> None:
+    """Equal drop+live speaks drop/live tied (distinct from screen tied)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_drops": 1,
+                    "last_yahoo_claim_drops_dead": 0,
+                    "last_yahoo_claim_drops_stale": 1,
+                    "last_yahoo_claim_live": 1,
+                    "last_yahoo_claim_live_screens": ["day_losers"],
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_drop_vs_live_lead"] is None
+    assert g["last_yahoo_claim_drop_vs_live_sample_gap"] == "drop/live tied"
+    assert g["last_yahoo_claim_drop_share_pct"] == 33
+    assert g["last_yahoo_claim_live_free_n"] == 2
+    assert "vs 2 kept" not in g["line"]
+    assert "vs 2 free" not in g["line"]
+    assert (
+        "1 claim drop · stale · 1 claim live · last losers · drop/live tied"
+        in g["line"]
+    )
+    assert g["line"].index("claim live") < g["line"].index("drop/live tied")
+    assert "lead drop" not in g["line"]
+    assert "lead live" not in g["line"]
 
 
 def test_universe_discovery_glance_dropped_movers_speaks_venue(tmp_path) -> None:

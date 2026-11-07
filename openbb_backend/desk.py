@@ -24425,9 +24425,15 @@ def build_universe_discovery_glance(
     live already spoke, also speak ownership ``hot|quiet · P%`` (portfolio
     AI count≠share after absolute live; claim-drop share parity) and
     remaining free screens ``vs N free · [strong|thin] · P%`` (claim-drop
-    vs kept parity; all-live thin 0%). Multi named stuck screens also
+    vs kept parity; all-live thin 0%).     Multi named stuck screens also
     speak ``tied`` after ``in …`` (junk-list / claim-drop reason sample-gap
-    parity — equal one-claim sleeves have no owner). Sits after the fail
+    parity — equal one-claim sleeves have no owner).     When both drop and live
+    spoke, also speak ``lead drop|live · N%`` or ``drop/live tied`` after the
+    live bit (xang1234 multi-meter + portfolio AI speak-both-sides — absolute
+    drop beside live hid which claim activity owns the sweep; ``drop/live``
+    prefix keeps tied distinct from screen ``tied``; share/kept/free nests
+    leave the line so the 128-char clip keeps ownership — fields retain %).
+    Sits after the fail
     class / before the screen fraction on fail, and before
     ``discovery-only`` on success. Buys still need regime/RS/breadth/fees.
     Not a new gate.
@@ -24442,6 +24448,8 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_reasons,
         yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drop_vs_kept,
+        yahoo_discovery_claim_drop_vs_live_lead,
+        yahoo_discovery_claim_drop_vs_live_sample_gap,
         yahoo_discovery_claim_drops,
         yahoo_discovery_claim_live,
         yahoo_discovery_claim_live_screen_sample_gap,
@@ -24692,6 +24700,49 @@ def build_universe_discovery_glance(
         claim_live_free_severity = ""
         claim_live_screen_labels = []
         claim_live_screen_sample_gap = ""
+    # xang1234 multi-meter + portfolio AI: drop beside live hid which owns
+    # claim activity (release leftovers vs still-stuck). Prefixed tied so
+    # screen sample ``tied`` stays distinct.
+    (
+        claim_drop_vs_live_lead_bit,
+        claim_drop_vs_live_lead_name,
+        claim_drop_vs_live_lead_pct,
+    ) = yahoo_discovery_claim_drop_vs_live_lead(claim_drops, claim_live)
+    claim_drop_vs_live_sample_gap = yahoo_discovery_claim_drop_vs_live_sample_gap(
+        claim_drops, claim_live
+    )
+    if claim_drop_vs_live_lead_bit:
+        claim_drop_vs_live_bit = f" · {claim_drop_vs_live_lead_bit}"
+    elif claim_drop_vs_live_sample_gap:
+        claim_drop_vs_live_bit = f" · {claim_drop_vs_live_sample_gap}"
+    else:
+        claim_drop_vs_live_bit = ""
+        claim_drop_vs_live_lead_name = ""
+        claim_drop_vs_live_lead_pct = None
+        claim_drop_vs_live_sample_gap = ""
+    # Clip priority: when drop+live ownership spoke, drop roster share nests
+    # from the line (fields keep %) so the 128-char clip keeps lead/tied.
+    if claim_drop_vs_live_bit and claim_drops > 0 and claim_live > 0:
+        if claim_drop_reason_lead_bit:
+            reason_suffix = f" · {claim_drop_reason_lead_bit}"
+        elif claim_drop_reason_sample_gap:
+            reason_suffix = f" · {claim_drop_reason_sample_gap}"
+        elif claim_drop_reason_bit:
+            reason_suffix = f" · {claim_drop_reason_bit}"
+        else:
+            reason_suffix = ""
+        claim_drop_bit = f" · {claim_drops} claim drop{reason_suffix}"
+        screens_suffix = (
+            f" · {claim_live_screens_bit}" if claim_live_screens_bit else ""
+        )
+        gap_suffix = (
+            f" · {claim_live_screen_sample_gap}"
+            if claim_live_screen_sample_gap
+            else ""
+        )
+        claim_live_bit = (
+            f" · {claim_live} claim live{screens_suffix}{gap_suffix}"
+        )
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25221,6 +25272,7 @@ def build_universe_discovery_glance(
         full_core = (
             f"US+DE · Yahoo ≤{per} · "
             f"Yahoo fail{err_bit}{claim_drop_bit}{claim_live_bit}"
+            f"{claim_drop_vs_live_bit}"
             f"{error_vs_seed_bit}{error_vs_fail_bit}"
             f"{error_seed_vs_fail_bit}{error_vs_budget_bit}{error_sf_budget_bit}"
             f"{frac}{streak_bit}"
@@ -25249,6 +25301,7 @@ def build_universe_discovery_glance(
         line_core = (
             f"US+DE · Yahoo ≤{per} · "
             f"Yahoo fail{err_class}{claim_drop_bit}{claim_live_bit}"
+            f"{claim_drop_vs_live_bit}"
             f"{frac}{streak_bit}"
             f"{retry} · {seed_bit}{fail_bit}"
         )
@@ -25274,7 +25327,8 @@ def build_universe_discovery_glance(
             drop_bit = f" · dropped {last_dropped} · {drop_venue}"
         line = (
             f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone}"
-            f"{drop_bit}{claim_drop_bit}{claim_live_bit} · discovery-only"
+            f"{drop_bit}{claim_drop_bit}{claim_live_bit}"
+            f"{claim_drop_vs_live_bit} · discovery-only"
         )
         if len(line) > 128:
             line = line[:127] + "…"
@@ -25487,6 +25541,13 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_live_free_n": claim_live_free_n,
         "last_yahoo_claim_live_free_pct": claim_live_free_pct,
         "last_yahoo_claim_live_free_severity": claim_live_free_severity,
+        "last_yahoo_claim_drop_vs_live_lead": (
+            claim_drop_vs_live_lead_name or None
+        ),
+        "last_yahoo_claim_drop_vs_live_lead_pct": claim_drop_vs_live_lead_pct,
+        "last_yahoo_claim_drop_vs_live_sample_gap": (
+            claim_drop_vs_live_sample_gap or None
+        ),
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }

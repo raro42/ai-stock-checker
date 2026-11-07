@@ -514,6 +514,40 @@ def yahoo_discovery_claim_drop_reasons(
     return f"{dead} dead · {stale} stale", dead, stale
 
 
+def _claim_two_side_lead(
+    left: int,
+    right: int,
+    *,
+    left_name: str,
+    right_name: str,
+) -> tuple[str, str, int | None]:
+    """Strict lead between two positive claim-side counts (display only).
+
+    Both sides must be >0 and total ≥2; strict lead → ``lead NAME · N%``;
+    ties / sole-side / junk → silent. Shared by dead/stale reason lead and
+    drop/live activity lead.
+    """
+    try:
+        n_left = max(0, int(left))
+    except (TypeError, ValueError):
+        n_left = 0
+    try:
+        n_right = max(0, int(right))
+    except (TypeError, ValueError):
+        n_right = 0
+    total = n_left + n_right
+    if total < 2 or n_left <= 0 or n_right <= 0:
+        return "", "", None
+    if n_left == n_right:
+        return "", "", None
+    if n_right > n_left:
+        name, n = right_name, n_right
+    else:
+        name, n = left_name, n_left
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
 def yahoo_discovery_claim_drop_reason_lead(
     dead: int,
     stale: int,
@@ -527,25 +561,9 @@ def yahoo_discovery_claim_drop_reason_lead(
     ties / sole-side / junk → silent (use
     ``yahoo_discovery_claim_drop_reason_sample_gap`` for ``tied``).
     """
-    try:
-        n_dead = max(0, int(dead))
-    except (TypeError, ValueError):
-        n_dead = 0
-    try:
-        n_stale = max(0, int(stale))
-    except (TypeError, ValueError):
-        n_stale = 0
-    total = n_dead + n_stale
-    if total < 2 or n_dead <= 0 or n_stale <= 0:
-        return "", "", None
-    if n_dead == n_stale:
-        return "", "", None
-    if n_stale > n_dead:
-        name, n = "stale", n_stale
-    else:
-        name, n = "dead", n_dead
-    share = int(round(100.0 * n / total))
-    return f"lead {name} · {share}%", name, share
+    return _claim_two_side_lead(
+        dead, stale, left_name="dead", right_name="stale"
+    )
 
 
 def yahoo_discovery_claim_drop_reason_sample_gap(
@@ -575,6 +593,53 @@ def yahoo_discovery_claim_drop_reason_sample_gap(
     if lead_bit:
         return ""
     return "tied"
+
+
+def yahoo_discovery_claim_drop_vs_live_lead(
+    drops: int,
+    live: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among claim-drop vs claim-live counts (display only).
+
+    Absolute ``N claim drop`` beside ``M claim live`` hid which claim
+    activity owns the sweep (release leftovers vs still-stuck screens —
+    xang1234 multi-meter + portfolio AI speak-both-sides after both bits).
+    Returns ``(bit, name, share_pct)``. Both sides must be >0 and total ≥2;
+    strict lead → ``lead drop · N%`` / ``lead live · N%``; ties / sole-side
+    / junk → silent (use ``yahoo_discovery_claim_drop_vs_live_sample_gap``).
+    """
+    return _claim_two_side_lead(
+        drops, live, left_name="drop", right_name="live"
+    )
+
+
+def yahoo_discovery_claim_drop_vs_live_sample_gap(
+    drops: int,
+    live: int,
+) -> str:
+    """Speak ``drop/live tied`` when both sides spoke with no strict lead.
+
+    Prefixed ``drop/live`` so the bit stays distinct from claim-live screen
+    ``tied`` after ``in …``. Lead cases / sole-side / zero stay silent.
+    Absolute drop+live alone hid that a 50/50 claim activity has no owner.
+    Display only.
+    """
+    try:
+        n_drops = max(0, int(drops))
+    except (TypeError, ValueError):
+        n_drops = 0
+    try:
+        n_live = max(0, int(live))
+    except (TypeError, ValueError):
+        n_live = 0
+    if n_drops <= 0 or n_live <= 0:
+        return ""
+    lead_bit, _name, _share = yahoo_discovery_claim_drop_vs_live_lead(
+        n_drops, n_live
+    )
+    if lead_bit:
+        return ""
+    return "drop/live tied"
 
 
 def yahoo_discovery_claim_drop_share(

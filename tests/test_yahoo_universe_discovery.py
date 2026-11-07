@@ -1300,6 +1300,32 @@ def test_yahoo_discovery_claim_drop_reasons_bands():
     ) == ("1 dead · 2 stale", 1, 2)
 
 
+def test_yahoo_discovery_claim_drop_vs_live_lead_bands():
+    """xang1234 multi-meter + portfolio AI after absolute drop beside live."""
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_claim_drop_vs_live_lead,
+        yahoo_discovery_claim_drop_vs_live_sample_gap,
+    )
+
+    assert yahoo_discovery_claim_drop_vs_live_lead(0, 0) == ("", "", None)
+    assert yahoo_discovery_claim_drop_vs_live_lead(2, 0) == ("", "", None)
+    assert yahoo_discovery_claim_drop_vs_live_lead(0, 2) == ("", "", None)
+    assert yahoo_discovery_claim_drop_vs_live_lead(1, 1) == ("", "", None)
+    assert yahoo_discovery_claim_drop_vs_live_sample_gap(1, 1) == "drop/live tied"
+    assert yahoo_discovery_claim_drop_vs_live_sample_gap(2, 0) == ""
+    assert yahoo_discovery_claim_drop_vs_live_lead(2, 1) == (
+        "lead drop · 67%",
+        "drop",
+        67,
+    )
+    assert yahoo_discovery_claim_drop_vs_live_lead(1, 2) == (
+        "lead live · 67%",
+        "live",
+        67,
+    )
+    assert yahoo_discovery_claim_drop_vs_live_sample_gap(2, 1) == ""
+
+
 def test_yahoo_discovery_claim_drop_reason_lead_bands():
     """xang1234 multi-meter + portfolio AI after absolute dead/stale."""
     from stock_checker.yahoo_universe_discovery import (
