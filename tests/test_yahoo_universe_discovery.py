@@ -15,6 +15,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_drop_share,
     yahoo_discovery_claim_drop_vs_kept,
     yahoo_discovery_claim_live_share,
+    yahoo_discovery_claim_live_vs_free,
     yahoo_discovery_error_class,
     yahoo_fail_error_also_bit,
     yahoo_fail_error_also_counts,
@@ -1227,6 +1228,37 @@ def test_yahoo_discovery_claim_drop_vs_kept_bands():
     )
     assert yahoo_discovery_claim_drop_vs_kept(1, screen_count=8) == (
         "vs 7 kept · strong · 88%",
+        7,
+        88,
+        "strong",
+    )
+
+
+def test_yahoo_discovery_claim_live_vs_free_bands():
+    """portfolio AI speak-both-sides after claim-live share (xang1234 stuck)."""
+    assert yahoo_discovery_claim_live_vs_free(0) == ("", None, None, "")
+    assert yahoo_discovery_claim_live_vs_free(-1) == ("", None, None, "")
+    # 1/3 free 67% mid · 2/3 free 33% thin · all-live thin 0 · custom strong.
+    assert yahoo_discovery_claim_live_vs_free(1) == (
+        "vs 2 free · 67%",
+        2,
+        67,
+        "ok",
+    )
+    assert yahoo_discovery_claim_live_vs_free(2) == (
+        "vs 1 free · thin · 33%",
+        1,
+        33,
+        "thin",
+    )
+    assert yahoo_discovery_claim_live_vs_free(3) == (
+        "vs 0 free · thin · 0%",
+        0,
+        0,
+        "thin",
+    )
+    assert yahoo_discovery_claim_live_vs_free(1, screen_count=8) == (
+        "vs 7 free · strong · 88%",
         7,
         88,
         "strong",

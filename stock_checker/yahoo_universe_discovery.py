@@ -510,6 +510,48 @@ def yahoo_discovery_claim_drop_share(
     return f"{pct}%", pct, "ok"
 
 
+def _yahoo_discovery_claim_vs_remainder(
+    held: int,
+    *,
+    noun: str,
+    screen_count: int | None = None,
+) -> tuple[str, int | None, int | None, str]:
+    """Remaining screens opposite a held claim count (display only).
+
+    Shared by claim-drop→kept and claim-live→free. Zero / junk held →
+    silent. Remainder = denom − min(held, denom); ``strong`` ≥75% ·
+    ``thin`` <50% · mid shows the percent only. All-held →
+    ``vs 0 {noun} · thin · 0%``.
+    """
+    try:
+        n = max(0, int(held))
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return "", None, None, ""
+    label = str(noun or "").strip() or "kept"
+    try:
+        denom = (
+            len(DEFAULT_SCREENS)
+            if screen_count is None
+            else max(1, int(screen_count))
+        )
+    except (TypeError, ValueError):
+        denom = len(DEFAULT_SCREENS)
+    rem = max(0, denom - min(n, denom))
+    pct = int(round(100.0 * rem / denom))
+    if pct >= YAHOO_CLAIM_DROP_KEPT_SHARE_STRONG:
+        severity = "strong"
+        bit = f"vs {rem} {label} · strong · {pct}%"
+    elif pct < YAHOO_CLAIM_DROP_KEPT_SHARE_THIN:
+        severity = "thin"
+        bit = f"vs {rem} {label} · thin · {pct}%"
+    else:
+        severity = "ok"
+        bit = f"vs {rem} {label} · {pct}%"
+    return bit, rem, pct, severity
+
+
 def yahoo_discovery_claim_drop_vs_kept(
     drops: int,
     *,
@@ -524,32 +566,28 @@ def yahoo_discovery_claim_drop_vs_kept(
     ``strong`` ≥75% · ``thin`` <50% · mid shows the percent only.
     All-drop → ``vs 0 kept · thin · 0%``.
     """
-    try:
-        n = max(0, int(drops))
-    except (TypeError, ValueError):
-        n = 0
-    if n <= 0:
-        return "", None, None, ""
-    try:
-        denom = (
-            len(DEFAULT_SCREENS)
-            if screen_count is None
-            else max(1, int(screen_count))
-        )
-    except (TypeError, ValueError):
-        denom = len(DEFAULT_SCREENS)
-    kept = max(0, denom - min(n, denom))
-    pct = int(round(100.0 * kept / denom))
-    if pct >= YAHOO_CLAIM_DROP_KEPT_SHARE_STRONG:
-        severity = "strong"
-        bit = f"vs {kept} kept · strong · {pct}%"
-    elif pct < YAHOO_CLAIM_DROP_KEPT_SHARE_THIN:
-        severity = "thin"
-        bit = f"vs {kept} kept · thin · {pct}%"
-    else:
-        severity = "ok"
-        bit = f"vs {kept} kept · {pct}%"
-    return bit, kept, pct, severity
+    return _yahoo_discovery_claim_vs_remainder(
+        drops, noun="kept", screen_count=screen_count
+    )
+
+
+def yahoo_discovery_claim_live_vs_free(
+    live: int,
+    *,
+    screen_count: int | None = None,
+) -> tuple[str, int | None, int | None, str]:
+    """Remaining free screens when claim-live share already spoke (display only).
+
+    Absolute live% alone hid whether peers were free after a hung worker
+    (claim-drop vs kept / Screener junk vs ok + portfolio AI speak-both-sides
+    + xang1234 stuck-asset). Returns ``(bit, free_n, free_pct, severity)``.
+    Zero / junk live → silent. Free = denom − min(live, denom);
+    ``strong`` ≥75% · ``thin`` <50% · mid shows the percent only.
+    All-live → ``vs 0 free · thin · 0%``.
+    """
+    return _yahoo_discovery_claim_vs_remainder(
+        live, noun="free", screen_count=screen_count
+    )
 
 
 def yahoo_discovery_error_class(meta: Any) -> str:

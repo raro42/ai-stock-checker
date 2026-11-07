@@ -24423,9 +24423,10 @@ def build_universe_discovery_glance(
     ``N claim live`` (xang1234 stuck-asset honesty — peers going green must
     not hide a blocked screen; zero silent; escalates fresh → aging). When
     live already spoke, also speak ownership ``hot|quiet · P%`` (portfolio
-    AI count≠share after absolute live; claim-drop share parity). Sits
-    after the fail class / before the screen fraction on fail, and before
-    ``discovery-only`` on success.
+    AI count≠share after absolute live; claim-drop share parity) and
+    remaining free screens ``vs N free · [strong|thin] · P%`` (claim-drop
+    vs kept parity; all-live thin 0%). Sits after the fail class / before
+    the screen fraction on fail, and before ``discovery-only`` on success.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -24441,6 +24442,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drops,
         yahoo_discovery_claim_live,
         yahoo_discovery_claim_live_share,
+        yahoo_discovery_claim_live_vs_free,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
         yahoo_fail_retry_remaining_sec,
@@ -24632,22 +24634,37 @@ def build_universe_discovery_glance(
         claim_drop_reason_sample_gap = ""
     # xang1234 stuck-asset honesty: hung worker still held after peers go green.
     # portfolio AI count≠share: absolute live hid one vs most of the roster.
+    # portfolio AI speak-both-sides: live% alone hid free peers (vs kept parity).
     (
         claim_live_share_bit,
         claim_live_share_pct,
         claim_live_share_severity,
     ) = yahoo_discovery_claim_live_share(claim_live)
+    (
+        claim_live_vs_free_bit,
+        claim_live_free_n,
+        claim_live_free_pct,
+        claim_live_free_severity,
+    ) = yahoo_discovery_claim_live_vs_free(claim_live)
     if claim_live > 0:
         live_share_suffix = (
             f" · {claim_live_share_bit}" if claim_live_share_bit else ""
         )
-        claim_live_bit = f" · {claim_live} claim live{live_share_suffix}"
+        free_suffix = (
+            f" · {claim_live_vs_free_bit}" if claim_live_vs_free_bit else ""
+        )
+        claim_live_bit = (
+            f" · {claim_live} claim live{live_share_suffix}{free_suffix}"
+        )
         if tone == "fresh":
             tone = "aging"
     else:
         claim_live_bit = ""
         claim_live_share_pct = None
         claim_live_share_severity = ""
+        claim_live_free_n = None
+        claim_live_free_pct = None
+        claim_live_free_severity = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25436,6 +25453,9 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_live": claim_live,
         "last_yahoo_claim_live_share_pct": claim_live_share_pct,
         "last_yahoo_claim_live_share_severity": claim_live_share_severity,
+        "last_yahoo_claim_live_free_n": claim_live_free_n,
+        "last_yahoo_claim_live_free_pct": claim_live_free_pct,
+        "last_yahoo_claim_live_free_severity": claim_live_free_severity,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }

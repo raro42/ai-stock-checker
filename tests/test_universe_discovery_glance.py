@@ -1246,7 +1246,10 @@ def test_universe_discovery_glance_claim_live_stuck(tmp_path) -> None:
     assert g["last_yahoo_claim_live"] == 1
     assert g["last_yahoo_claim_live_share_pct"] == 33
     assert g["last_yahoo_claim_live_share_severity"] == "ok"
-    assert "1 claim live · 33%" in g["line"]
+    assert g["last_yahoo_claim_live_free_n"] == 2
+    assert g["last_yahoo_claim_live_free_pct"] == 67
+    assert g["last_yahoo_claim_live_free_severity"] == "ok"
+    assert "1 claim live · 33% · vs 2 free · 67%" in g["line"]
     assert g["line"].index("1 claim live") < g["line"].index("discovery-only")
     # Live hung claim escalates a fresh cache tone.
     assert g["tone"] == "aging"
@@ -1274,7 +1277,10 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
     assert g["last_yahoo_claim_live"] == 2
     assert g["last_yahoo_claim_live_share_pct"] == 67
     assert g["last_yahoo_claim_live_share_severity"] == "hot"
-    assert "2 claim live · hot · 67%" in g["line"]
+    assert g["last_yahoo_claim_live_free_n"] == 1
+    assert g["last_yahoo_claim_live_free_pct"] == 33
+    assert g["last_yahoo_claim_live_free_severity"] == "thin"
+    assert "2 claim live · hot · 67% · vs 1 free · thin · 33%" in g["line"]
     assert g["tone"] == "aging"
 
 
