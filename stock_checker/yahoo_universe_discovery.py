@@ -438,6 +438,32 @@ def yahoo_discovery_claim_live_screens(
     return f"in {' · '.join(labels)}", labels
 
 
+def yahoo_discovery_claim_live_screen_sample_gap(
+    labels: Sequence[str] | None,
+) -> str:
+    """Speak ``tied`` when ≥2 named stuck screens (display only).
+
+    Multi ``in gainers · losers`` alone hid that equal one-claim sleeves
+    have no owner (Screener junk-list / claim-drop reason sample-gap +
+    soft-allow / LAYA ``_decision_sample_gap`` parity + portfolio AI
+    speak-both-sides). Sole ``last …`` / empty / junk stay silent on gap
+    (each hung preset is one claim — no strict lead among equals).
+    """
+    if not isinstance(labels, (list, tuple)):
+        return ""
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in labels:
+        label = str(item or "").strip()
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        cleaned.append(label)
+    if len(cleaned) < 2:
+        return ""
+    return "tied"
+
+
 def yahoo_discovery_claim_live_share(
     live: int,
     *,

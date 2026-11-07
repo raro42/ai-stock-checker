@@ -1524,6 +1524,28 @@ def test_count_live_yahoo_screen_claims_inside_ttl():
             yud._yahoo_screen_inflight.clear()
 
 
+def test_yahoo_discovery_claim_live_screen_sample_gap_bands():
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_claim_live_screen_sample_gap,
+    )
+
+    assert yahoo_discovery_claim_live_screen_sample_gap(None) == ""
+    assert yahoo_discovery_claim_live_screen_sample_gap([]) == ""
+    assert yahoo_discovery_claim_live_screen_sample_gap(["gainers"]) == ""
+    assert yahoo_discovery_claim_live_screen_sample_gap(
+        ["gainers", "gainers"]
+    ) == ""
+    assert yahoo_discovery_claim_live_screen_sample_gap(
+        ["gainers", "losers"]
+    ) == "tied"
+    assert yahoo_discovery_claim_live_screen_sample_gap(
+        ["gainers", "losers", "actives"]
+    ) == "tied"
+    assert yahoo_discovery_claim_live_screen_sample_gap(
+        ["gainers", "", "losers"]
+    ) == "tied"
+
+
 def test_set_yahoo_discovery_claim_live_bands():
     from stock_checker.yahoo_universe_discovery import (
         set_yahoo_discovery_claim_live,

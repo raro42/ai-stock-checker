@@ -24425,9 +24425,12 @@ def build_universe_discovery_glance(
     live already spoke, also speak ownership ``hot|quiet · P%`` (portfolio
     AI count≠share after absolute live; claim-drop share parity) and
     remaining free screens ``vs N free · [strong|thin] · P%`` (claim-drop
-    vs kept parity; all-live thin 0%). Sits after the fail class / before
-    the screen fraction on fail, and before ``discovery-only`` on success.
-    Buys still need regime/RS/breadth/fees. Not a new gate.
+    vs kept parity; all-live thin 0%). Multi named stuck screens also
+    speak ``tied`` after ``in …`` (junk-list / claim-drop reason sample-gap
+    parity — equal one-claim sleeves have no owner). Sits after the fail
+    class / before the screen fraction on fail, and before
+    ``discovery-only`` on success. Buys still need regime/RS/breadth/fees.
+    Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
         DEFAULT_MOVER_COUNT,
@@ -24441,6 +24444,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drops,
         yahoo_discovery_claim_live,
+        yahoo_discovery_claim_live_screen_sample_gap,
         yahoo_discovery_claim_live_screens,
         yahoo_discovery_claim_live_share,
         yahoo_discovery_claim_live_vs_free,
@@ -24637,6 +24641,7 @@ def build_universe_discovery_glance(
     # portfolio AI count≠share: absolute live hid one vs most of the roster.
     # portfolio AI speak-both-sides: live% alone hid free peers (vs kept parity).
     # xang1234 say-what-blocks: absolute N hid which preset is stuck (last/in).
+    # xang1234 sample honesty: multi named sleeves with no owner speak tied.
     (
         claim_live_share_bit,
         claim_live_share_pct,
@@ -24652,10 +24657,19 @@ def build_universe_discovery_glance(
         claim_live_screens_bit,
         claim_live_screen_labels,
     ) = yahoo_discovery_claim_live_screens(uni_meta)
+    claim_live_screen_sample_gap = yahoo_discovery_claim_live_screen_sample_gap(
+        claim_live_screen_labels
+    )
     if claim_live > 0:
-        # Name before share/% so the 128-char clip keeps which screen is stuck.
+        # Name before share/% so the 128-char clip keeps which screen is stuck;
+        # tied right after names (before %) so multi-sleeve no-owner stays.
         screens_suffix = (
             f" · {claim_live_screens_bit}" if claim_live_screens_bit else ""
+        )
+        gap_suffix = (
+            f" · {claim_live_screen_sample_gap}"
+            if claim_live_screen_sample_gap
+            else ""
         )
         live_share_suffix = (
             f" · {claim_live_share_bit}" if claim_live_share_bit else ""
@@ -24665,7 +24679,7 @@ def build_universe_discovery_glance(
         )
         claim_live_bit = (
             f" · {claim_live} claim live"
-            f"{screens_suffix}{live_share_suffix}{free_suffix}"
+            f"{screens_suffix}{gap_suffix}{live_share_suffix}{free_suffix}"
         )
         if tone == "fresh":
             tone = "aging"
@@ -24677,6 +24691,7 @@ def build_universe_discovery_glance(
         claim_live_free_pct = None
         claim_live_free_severity = ""
         claim_live_screen_labels = []
+        claim_live_screen_sample_gap = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25464,6 +25479,9 @@ def build_universe_discovery_glance(
         ),
         "last_yahoo_claim_live": claim_live,
         "last_yahoo_claim_live_screens": list(claim_live_screen_labels or []),
+        "last_yahoo_claim_live_screen_sample_gap": (
+            claim_live_screen_sample_gap or None
+        ),
         "last_yahoo_claim_live_share_pct": claim_live_share_pct,
         "last_yahoo_claim_live_share_severity": claim_live_share_severity,
         "last_yahoo_claim_live_free_n": claim_live_free_n,
