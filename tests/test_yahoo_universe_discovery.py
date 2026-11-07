@@ -926,7 +926,7 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         boom,
     )
-    symbols, ok, failed, timeouts, inflight = discover_yahoo_mover_report(
+    symbols, ok, failed, timeouts, inflight, drops = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
     assert symbols == []
@@ -934,6 +934,7 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
     assert failed == 2
     assert timeouts == 0
     assert inflight == 0
+    assert drops == 0
     assert screens_bundle_failed(ok, failed) is True
 
 
@@ -947,7 +948,7 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         hang,
     )
-    symbols, ok, failed, timeouts, inflight = discover_yahoo_mover_report(
+    symbols, ok, failed, timeouts, inflight, drops = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
     assert symbols == []
@@ -955,6 +956,7 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
     assert failed == 2
     assert timeouts == 2
     assert inflight == 0
+    assert drops == 0
     assert (
         classify_yahoo_discovery_error(
             screens_ok=ok, screens_failed=failed, timeout_fails=timeouts
@@ -1167,6 +1169,41 @@ def test_release_dead_yahoo_screen_claims_drops_finished():
     with yud._yahoo_screen_inflight_lock:
         assert "dead_probe" not in yud._yahoo_screen_inflight
         assert yud._yahoo_screen_inflight == {}
+
+
+def test_discover_yahoo_mover_report_returns_claim_drops(monkeypatch):
+    """xang1234 #726: pre-bundle sweep count reaches Ops via report[5]."""
+    import threading
+    import time
+
+    from stock_checker import yahoo_universe_discovery as yud
+
+    done = threading.Event()
+
+    def _noop() -> None:
+        done.set()
+
+    worker = threading.Thread(target=_noop, daemon=True)
+    worker.start()
+    done.wait(1)
+    worker.join(1)
+    with yud._yahoo_screen_inflight_lock:
+        yud._yahoo_screen_inflight.clear()
+        yud._yahoo_screen_inflight["dead_bundle"] = (worker, time.monotonic())
+
+    def boom(screen: str, *, count: int = 25, timeout_sec=None):
+        raise YahooScreenEmptyError(screen)
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
+        boom,
+    )
+    _syms, _ok, _failed, _timeouts, _inflight, drops = discover_yahoo_mover_report(
+        screens=("day_gainers",), per_screen=5
+    )
+    assert drops == 1
+    with yud._yahoo_screen_inflight_lock:
+        assert "dead_bundle" not in yud._yahoo_screen_inflight
 
 
 def test_fetch_yahoo_screen_releases_stale_claim(monkeypatch):

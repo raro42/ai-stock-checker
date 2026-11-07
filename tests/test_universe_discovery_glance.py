@@ -1104,6 +1104,61 @@ def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
     assert g["last_yahoo_dropped_venue"] is None
     assert "dropped 4 · US" in g["line"]
     assert g["tone"] == "fresh"
+    assert g["last_yahoo_claim_drops"] == 0
+    assert "claim drop" not in g["line"]
+
+
+def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
+    """xang1234 #726: Ops release visibility on success path."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_drops": 2,
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_drops"] == 2
+    assert "2 claim drop" in g["line"]
+    assert g["line"].index("2 claim drop") < g["line"].index("discovery-only")
+
+
+def test_universe_discovery_glance_claim_drop_on_fail(tmp_path) -> None:
+    """xang1234 #726: claim drop after fail class, before screen fraction."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    fail = (now - timedelta(minutes=10)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": fail,
+                    "last_yahoo_discovery_error": "empty",
+                    "last_yahoo_claim_drops": 1,
+                    "last_yahoo_screens_ok": 0,
+                    "last_yahoo_screens_failed": 3,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_drops"] == 1
+    assert "1 claim drop" in g["line_core"]
+    assert g["line_core"].index("empty") < g["line_core"].index("1 claim drop")
+    assert g["line_core"].index("1 claim drop") < g["line_core"].index("0/3")
 
 
 def test_universe_discovery_glance_dropped_movers_speaks_venue(tmp_path) -> None:

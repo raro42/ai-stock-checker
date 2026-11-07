@@ -282,6 +282,26 @@ def clear_yahoo_discovery_error(meta: dict[str, Any]) -> None:
     meta.pop("last_yahoo_inflight_fails", None)
 
 
+def set_yahoo_discovery_claim_drops(meta: dict[str, Any], drops: int) -> int:
+    """Persist how many dead/stale screen claims the last spend released."""
+    try:
+        n = max(0, int(drops))
+    except (TypeError, ValueError):
+        n = 0
+    meta["last_yahoo_claim_drops"] = n
+    return n
+
+
+def yahoo_discovery_claim_drops(meta: Any) -> int:
+    """Read last claim-release count; junk / missing → 0."""
+    if not isinstance(meta, dict):
+        return 0
+    try:
+        return max(0, int(meta.get("last_yahoo_claim_drops") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def yahoo_discovery_error_class(meta: Any) -> str:
     """Read allowlisted last-error class; unknown / missing → ``\"\"``."""
     if not isinstance(meta, dict):
@@ -1515,11 +1535,15 @@ def discover_yahoo_mover_report(
     screens: Sequence[str] = DEFAULT_SCREENS,
     per_screen: int = DEFAULT_MOVER_COUNT,
     timeout_sec: int | None = None,
-) -> tuple[List[str], int, int, int, int]:
-    """Symbols plus ok / failed / fresh-timeout / still-in-flight counts."""
+) -> tuple[List[str], int, int, int, int, int]:
+    """Symbols plus ok / failed / timeout / inflight / claim-drop counts.
+
+    Claim drops (xang1234 #726): finished or stale single-flight claims
+    released before this bundle — Ops can see a zombie was cleared.
+    """
     # Sweep finished/stale claims before the bundle so a prior hung screen
     # does not poison the first name in the list (xang1234 #726).
-    release_dead_yahoo_screen_claims()
+    claim_drops = release_dead_yahoo_screen_claims()
     out: list[str] = []
     seen: set[str] = set()
     ok = 0
@@ -1549,7 +1573,7 @@ def discover_yahoo_mover_report(
                 continue
             seen.add(sym)
             out.append(sym)
-    return out, ok, failed, timeouts, inflight
+    return out, ok, failed, timeouts, inflight, claim_drops
 
 
 def discover_yahoo_mover_symbols(
@@ -1558,8 +1582,8 @@ def discover_yahoo_mover_symbols(
     per_screen: int = DEFAULT_MOVER_COUNT,
 ) -> List[str]:
     """Union of symbols across screens, stable order, de-duplicated."""
-    symbols, _ok, _failed, _timeouts, _inflight = discover_yahoo_mover_report(
-        screens=screens, per_screen=per_screen
+    symbols, _ok, _failed, _timeouts, _inflight, _drops = (
+        discover_yahoo_mover_report(screens=screens, per_screen=per_screen)
     )
     return symbols
 

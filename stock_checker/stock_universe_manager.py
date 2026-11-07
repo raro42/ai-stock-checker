@@ -380,6 +380,7 @@ class StockUniverseManager:
             discover_yahoo_mover_report,
             screens_bundle_failed,
             screens_bundle_partial,
+            set_yahoo_discovery_claim_drops,
             set_yahoo_discovery_error,
             set_yahoo_discovery_error_sides,
             yahoo_fail_plan_held,
@@ -416,6 +417,7 @@ class StockUniverseManager:
         screens_failed = 0
         timeout_fails = 0
         inflight_fails = 0
+        claim_drops = 0
         try:
             report = discover_yahoo_mover_report(per_screen=per_screen)
             symbols = report[0]
@@ -424,6 +426,8 @@ class StockUniverseManager:
             timeout_fails = report[3]
             if len(report) > 4:
                 inflight_fails = report[4]
+            if len(report) > 5:
+                claim_drops = report[5]
         except Exception as e:
             print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
             meta["last_yahoo_discovery_status"] = "failed"
@@ -431,6 +435,8 @@ class StockUniverseManager:
             meta["last_yahoo_screens_ok"] = 0
             meta["last_yahoo_screens_failed"] = 0
             meta["last_yahoo_prune_skipped"] = False
+            # Exception path never reached the pre-bundle sweep.
+            set_yahoo_discovery_claim_drops(meta, 0)
             # xang1234 #639: fail stamp alone hid repeated dead fetches;
             # last-error class names why (inflight/timeout/http/empty/error).
             set_yahoo_discovery_error(meta, classify_yahoo_discovery_error(e))
@@ -443,6 +449,8 @@ class StockUniverseManager:
 
         meta["last_yahoo_screens_ok"] = int(screens_ok)
         meta["last_yahoo_screens_failed"] = int(screens_failed)
+        # xang1234 #726: Ops console release visibility — speak zombie drops.
+        set_yahoo_discovery_claim_drops(meta, claim_drops)
         if screens_bundle_failed(screens_ok, screens_failed):
             # xang1234: failed / majority-blocked fetch → reuse seed; do not
             # stamp cache fresh; discard leftover quotes from a thin screen.

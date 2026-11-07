@@ -63,6 +63,7 @@ def test_discover_yahoo_movers_empty_does_not_stamp_cache(tmp_path: Path, monkey
         assert n in mgr.universe["stocks"]
     assert meta.get("last_yahoo_screens_ok") == 0
     assert meta.get("last_yahoo_screens_failed") == 3
+    assert meta.get("last_yahoo_claim_drops") == 0
     # Cooling hold: second call must not dispatch / bump (#642 not spent).
     assert mgr.discover_yahoo_movers(force=True) == 0
     assert mgr.universe["meta"]["yahoo_discovery_fail_streak"] == 1

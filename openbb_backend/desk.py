@@ -24410,6 +24410,11 @@ def build_universe_discovery_glance(
     ``align · wide`` or ``clash`` when the open is a warned relationship
     (share-vs-gap before a lean-only half mix).
     Mid Δ stays silent.
+    When the last movers spend released finished/stale single-flight claims,
+    speak ``N claim drop`` (xang1234 #726 Ops release visibility — a zombie
+    hang was cleared before the bundle; zero stays silent). Sits after the
+    fail class / before the screen fraction on fail, and before
+    ``discovery-only`` on success.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -24417,6 +24422,7 @@ def build_universe_discovery_glance(
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
+        yahoo_discovery_claim_drops,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
         yahoo_fail_retry_remaining_sec,
@@ -24542,6 +24548,10 @@ def build_universe_discovery_glance(
 
     yahoo_failed = yahoo_status == "failed"
     fail_streak = yahoo_fail_streak(uni_meta)
+    claim_drops = yahoo_discovery_claim_drops(uni_meta)
+    claim_drop_bit = (
+        f" · {claim_drops} claim drop" if claim_drops > 0 else ""
+    )
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25070,7 +25080,8 @@ def build_universe_discovery_glance(
         # Full join keeps streak before retry (test order).
         full_core = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{err_bit}{error_vs_seed_bit}{error_vs_fail_bit}"
+            f"Yahoo fail{err_bit}{claim_drop_bit}"
+            f"{error_vs_seed_bit}{error_vs_fail_bit}"
             f"{error_seed_vs_fail_bit}{error_vs_budget_bit}{error_sf_budget_bit}"
             f"{frac}{streak_bit}"
             f"{streak_vs_seed_bit}"
@@ -25097,7 +25108,7 @@ def build_universe_discovery_glance(
         )
         line_core = (
             f"US+DE · Yahoo ≤{per} · "
-            f"Yahoo fail{err_class}"
+            f"Yahoo fail{err_class}{claim_drop_bit}"
             f"{frac}{streak_bit}"
             f"{retry} · {seed_bit}{fail_bit}"
         )
@@ -25123,7 +25134,7 @@ def build_universe_discovery_glance(
             drop_bit = f" · dropped {last_dropped} · {drop_venue}"
         line = (
             f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone}"
-            f"{drop_bit} · discovery-only"
+            f"{drop_bit}{claim_drop_bit} · discovery-only"
         )
         if len(line) > 128:
             line = line[:127] + "…"
@@ -25313,6 +25324,7 @@ def build_universe_discovery_glance(
         "seed_vs_fail_lean_vs_delta": seed_vs_fail_lean_vs_delta,
         "last_yahoo_screens_ok": screens_ok,
         "last_yahoo_screens_failed": screens_failed,
+        "last_yahoo_claim_drops": claim_drops,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }
