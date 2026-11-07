@@ -1130,7 +1130,10 @@ def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
     assert g["last_yahoo_claim_drops"] == 2
     assert g["last_yahoo_claim_drop_share_pct"] == 67
     assert g["last_yahoo_claim_drop_share_severity"] == "hot"
-    assert "2 claim drop · hot · 67%" in g["line"]
+    assert g["last_yahoo_claim_drop_kept_n"] == 1
+    assert g["last_yahoo_claim_drop_kept_pct"] == 33
+    assert g["last_yahoo_claim_drop_kept_severity"] == "thin"
+    assert "2 claim drop · hot · 67% · vs 1 kept · thin · 33%" in g["line"]
     assert g["line"].index("2 claim drop") < g["line"].index("discovery-only")
     # Hot claim share escalates a fresh cache tone.
     assert g["tone"] == "aging"
@@ -1162,7 +1165,10 @@ def test_universe_discovery_glance_claim_drop_on_fail(tmp_path) -> None:
     assert g["last_yahoo_claim_drops"] == 1
     assert g["last_yahoo_claim_drop_share_pct"] == 33
     assert g["last_yahoo_claim_drop_share_severity"] == "ok"
-    assert "1 claim drop · 33%" in g["line_core"]
+    assert g["last_yahoo_claim_drop_kept_n"] == 2
+    assert g["last_yahoo_claim_drop_kept_pct"] == 67
+    assert g["last_yahoo_claim_drop_kept_severity"] == "ok"
+    assert "1 claim drop · 33% · vs 2 kept · 67%" in g["line_core"]
     assert g["line_core"].index("empty") < g["line_core"].index("1 claim drop")
     assert g["line_core"].index("1 claim drop") < g["line_core"].index("0/3")
 

@@ -162,6 +162,9 @@ YAHOO_FAIL_ALSO_SHARE_QUIET = 25
 # Claim-drop ownership of the mover screen roster (count ≠ share).
 YAHOO_CLAIM_DROP_SHARE_HOT = 50
 YAHOO_CLAIM_DROP_SHARE_QUIET = 25
+# Remaining screens after claim drop spoke (share ≠ usable roster).
+YAHOO_CLAIM_DROP_KEPT_SHARE_STRONG = 75
+YAHOO_CLAIM_DROP_KEPT_SHARE_THIN = 50
 # Named class owns the mix when its share of timeout+inflight is this high.
 YAHOO_FAIL_ALSO_WINNER_STRONG = 75
 # Hidden% − winner% after mix lean spoke (labels ≠ how far the shares sit).
@@ -338,6 +341,48 @@ def yahoo_discovery_claim_drop_share(
     if pct <= YAHOO_CLAIM_DROP_SHARE_QUIET:
         return f"quiet · {pct}%", pct, "quiet"
     return f"{pct}%", pct, "ok"
+
+
+def yahoo_discovery_claim_drop_vs_kept(
+    drops: int,
+    *,
+    screen_count: int | None = None,
+) -> tuple[str, int | None, int | None, str]:
+    """Remaining screens when claim-drop share already spoke (display only).
+
+    Absolute drop% alone hid whether the mover roster still had usable
+    screens (Screener junk vs ok / soft-allow gap vs other + portfolio AI
+    speak-both-sides). Returns ``(bit, kept_n, kept_pct, severity)``.
+    Zero / junk drops → silent. Kept = denom − min(drops, denom);
+    ``strong`` ≥75% · ``thin`` <50% · mid shows the percent only.
+    All-drop → ``vs 0 kept · thin · 0%``.
+    """
+    try:
+        n = max(0, int(drops))
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return "", None, None, ""
+    try:
+        denom = (
+            len(DEFAULT_SCREENS)
+            if screen_count is None
+            else max(1, int(screen_count))
+        )
+    except (TypeError, ValueError):
+        denom = len(DEFAULT_SCREENS)
+    kept = max(0, denom - min(n, denom))
+    pct = int(round(100.0 * kept / denom))
+    if pct >= YAHOO_CLAIM_DROP_KEPT_SHARE_STRONG:
+        severity = "strong"
+        bit = f"vs {kept} kept · strong · {pct}%"
+    elif pct < YAHOO_CLAIM_DROP_KEPT_SHARE_THIN:
+        severity = "thin"
+        bit = f"vs {kept} kept · thin · {pct}%"
+    else:
+        severity = "ok"
+        bit = f"vs {kept} kept · {pct}%"
+    return bit, kept, pct, severity
 
 
 def yahoo_discovery_error_class(meta: Any) -> str:

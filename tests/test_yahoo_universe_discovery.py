@@ -13,6 +13,7 @@ from stock_checker.yahoo_universe_discovery import (
     screens_bundle_failed,
     set_yahoo_discovery_error,
     yahoo_discovery_claim_drop_share,
+    yahoo_discovery_claim_drop_vs_kept,
     yahoo_discovery_error_class,
     yahoo_fail_error_also_bit,
     yahoo_fail_error_also_counts,
@@ -1157,6 +1158,37 @@ def test_yahoo_discovery_claim_drop_share_bands():
         "quiet · 12%",
         12,
         "quiet",
+    )
+
+
+def test_yahoo_discovery_claim_drop_vs_kept_bands():
+    """portfolio AI speak-both-sides after claim-drop share (xang1234 #726)."""
+    assert yahoo_discovery_claim_drop_vs_kept(0) == ("", None, None, "")
+    assert yahoo_discovery_claim_drop_vs_kept(-1) == ("", None, None, "")
+    # 1/3 kept 67% mid · 2/3 kept 33% thin · all-drop thin 0 · custom strong.
+    assert yahoo_discovery_claim_drop_vs_kept(1) == (
+        "vs 2 kept · 67%",
+        2,
+        67,
+        "ok",
+    )
+    assert yahoo_discovery_claim_drop_vs_kept(2) == (
+        "vs 1 kept · thin · 33%",
+        1,
+        33,
+        "thin",
+    )
+    assert yahoo_discovery_claim_drop_vs_kept(3) == (
+        "vs 0 kept · thin · 0%",
+        0,
+        0,
+        "thin",
+    )
+    assert yahoo_discovery_claim_drop_vs_kept(1, screen_count=8) == (
+        "vs 7 kept · strong · 88%",
+        7,
+        88,
+        "strong",
     )
 
 

@@ -24425,6 +24425,7 @@ def build_universe_discovery_glance(
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
         yahoo_discovery_claim_drop_share,
+        yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drops,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
@@ -24557,15 +24558,29 @@ def build_universe_discovery_glance(
         claim_drop_share_pct,
         claim_drop_share_severity,
     ) = yahoo_discovery_claim_drop_share(claim_drops)
+    (
+        claim_drop_vs_kept_bit,
+        claim_drop_kept_n,
+        claim_drop_kept_pct,
+        claim_drop_kept_severity,
+    ) = yahoo_discovery_claim_drop_vs_kept(claim_drops)
     if claim_drops > 0:
         share_suffix = (
             f" · {claim_drop_share_bit}" if claim_drop_share_bit else ""
         )
-        claim_drop_bit = f" · {claim_drops} claim drop{share_suffix}"
+        kept_suffix = (
+            f" · {claim_drop_vs_kept_bit}" if claim_drop_vs_kept_bit else ""
+        )
+        claim_drop_bit = (
+            f" · {claim_drops} claim drop{share_suffix}{kept_suffix}"
+        )
         if claim_drop_share_severity == "hot" and tone == "fresh":
             tone = "aging"
     else:
         claim_drop_bit = ""
+        claim_drop_kept_n = None
+        claim_drop_kept_pct = None
+        claim_drop_kept_severity = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25341,6 +25356,9 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_drops": claim_drops,
         "last_yahoo_claim_drop_share_pct": claim_drop_share_pct,
         "last_yahoo_claim_drop_share_severity": claim_drop_share_severity,
+        "last_yahoo_claim_drop_kept_n": claim_drop_kept_n,
+        "last_yahoo_claim_drop_kept_pct": claim_drop_kept_pct,
+        "last_yahoo_claim_drop_kept_severity": claim_drop_kept_severity,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }
