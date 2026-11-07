@@ -993,7 +993,7 @@ def _heal_archive_pin_after_fallback(
 
 
 def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
-    """Prefer ``opportunities_latest``; fall back to newest timestamped publish.
+    """Prefer ``opportunities_latest``; fall back to newest *usable* publish.
 
     Silent fallback hid a missing/dangling readiness pin the way xang1234
     #682 lost the newest auto scan under prune. A live latest that still
@@ -1020,8 +1020,17 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     Δ moods + soft-allow short lean vs Δ moods + portfolio AI
     speak-both-sides) and read the newest; desk also retargets the pin
     so hard-readers match keep-newest without waiting for cleanup.
-    Display fields only — not an entry gate.
+
+    Malformed / wrong-container JSON is refused for keep-newest (xang1234
+    8d447fa refuse-malformed session + 40a968e skip-damaged artifact) —
+    speak ``latest damaged · healed`` and never promote junk over a good
+    older publish. Display fields only — not an entry gate.
     """
+    from stock_checker.opportunity_archive import (
+        opportunity_publish_usable,
+        usable_opportunity_publishes,
+    )
+
     arch = Path(data_dir) / "archive"
     latest = arch / "opportunities_latest.json"
     out: dict[str, Any] = {
@@ -1064,11 +1073,25 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         out["warn"] = True
         return out
 
-    candidates = sorted(arch.glob("opportunities_2*.json"))
+    # Keep-newest + behind meters index usable object publishes only —
+    # truncated / list / null JSON must not look newer than a good book.
+    candidates = usable_opportunity_publishes(arch)
     newest = candidates[-1] if candidates else None
 
     if latest.exists():
         resolved = latest.resolve()
+        if not opportunity_publish_usable(resolved):
+            out["pin"] = "damaged"
+            out["warn"] = True
+            if newest is not None:
+                out["path"] = newest
+                out["fallback"] = True
+                out["bit"] = "latest damaged · fallback"
+                out["bit_core"] = out["bit"]
+                return _heal_archive_pin_after_fallback(out, arch)
+            out["bit"] = "latest damaged"
+            out["bit_core"] = out["bit"]
+            return out
         if newest is not None and newest.resolve() != resolved:
             behind = 0
             for cand in reversed(candidates):

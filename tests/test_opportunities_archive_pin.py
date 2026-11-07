@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from openbb_backend.desk import build_scan_freshness, resolve_opportunities_archive
+from stock_checker.opportunity_archive import heal_opportunities_latest_pin
 
 
 def test_resolve_prefers_latest_symlink(tmp_path: Path) -> None:
@@ -471,3 +472,59 @@ def test_opportunities_markdown_prefers_txt_twin_of_resolved(tmp_path: Path) -> 
         "lag/share vs lean align · both clash · "
         "lag/share↔lean vs lean↔Δ align · both align · healed"
     ) in body
+
+
+def test_heal_skips_malformed_newest_publish(tmp_path: Path) -> None:
+    """xang1234 8d447fa: refuse malformed session — pin usable older only."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    good = arch / "opportunities_20260101_120000.json"
+    good.write_text('{"ok": true}')
+    good_txt = arch / "opportunities_20260101_120000.txt"
+    good_txt.write_text("good")
+    junk = arch / "opportunities_20260201_120000.json"
+    junk.write_text("{not-json")
+    (arch / "opportunities_20260201_120000.txt").write_text("junk")
+    (arch / "opportunities_latest.json").symlink_to(good.name)
+    (arch / "opportunities_latest.txt").symlink_to(good_txt.name)
+
+    assert heal_opportunities_latest_pin(arch) is False
+    assert (arch / "opportunities_latest.json").resolve() == good.resolve()
+    assert (arch / "opportunities_latest.txt").resolve() == good_txt.resolve()
+
+
+def test_resolve_heals_damaged_latest_pin(tmp_path: Path) -> None:
+    """Damaged pin target → speak damaged + heal to newest usable object."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    good = arch / "opportunities_20260101_120000.json"
+    good.write_text('{"ok": true}')
+    junk = arch / "opportunities_20260201_120000.json"
+    junk.write_text("[]")  # wrong container ≠ usable book
+    (arch / "opportunities_latest.json").symlink_to(junk.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "damaged"
+    assert res["fallback"] is True
+    assert res["healed"] is True
+    assert res["warn"] is True
+    assert res["bit"] == "latest damaged · healed"
+    assert Path(res["path"]).resolve() == good.resolve()
+    assert (arch / "opportunities_latest.json").resolve() == good.resolve()
+
+
+def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
+    """Valid pin is not stale when only newer publishes are damaged."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text('{"pin": true}')
+    (arch / "opportunities_20260201_120000.json").write_text("{truncated")
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "latest"
+    assert res["fallback"] is False
+    assert res["warn"] is False
+    assert res["bit"] == ""
+    assert Path(res["path"]).resolve() == pinned.resolve()
