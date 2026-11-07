@@ -378,6 +378,7 @@ class StockUniverseManager:
             clear_yahoo_discovery_error,
             clear_yahoo_fail_streak,
             discover_yahoo_mover_report,
+            list_live_yahoo_screen_claims,
             screens_bundle_failed,
             screens_bundle_partial,
             set_yahoo_discovery_claim_drops,
@@ -446,7 +447,7 @@ class StockUniverseManager:
             meta["last_yahoo_prune_skipped"] = False
             # Exception path never reached the pre-bundle sweep.
             set_yahoo_discovery_claim_drops(meta, 0)
-            set_yahoo_discovery_claim_live(meta, 0)
+            set_yahoo_discovery_claim_live(meta, 0, screens=())
             # xang1234 #639: fail stamp alone hid repeated dead fetches;
             # last-error class names why (inflight/timeout/http/empty/error).
             set_yahoo_discovery_error(meta, classify_yahoo_discovery_error(e))
@@ -464,7 +465,13 @@ class StockUniverseManager:
             meta, claim_drops, dead=claim_dead, stale=claim_stale
         )
         # xang1234 stuck-asset honesty: hung screen still held after peers.
-        set_yahoo_discovery_claim_live(meta, claim_live)
+        # Name which presets block catch-up (say what a stuck asset blocks).
+        live_screens = list_live_yahoo_screen_claims() if claim_live else []
+        if live_screens:
+            claim_live = len(live_screens)
+        set_yahoo_discovery_claim_live(
+            meta, claim_live, screens=live_screens
+        )
         if screens_bundle_failed(screens_ok, screens_failed):
             # xang1234: failed / majority-blocked fetch → reuse seed; do not
             # stamp cache fresh; discard leftover quotes from a thin screen.

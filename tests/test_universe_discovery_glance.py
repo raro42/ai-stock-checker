@@ -1236,6 +1236,7 @@ def test_universe_discovery_glance_claim_live_stuck(tmp_path) -> None:
                     "last_yahoo_discovery": last,
                     "last_yahoo_added": 1,
                     "last_yahoo_claim_live": 1,
+                    "last_yahoo_claim_live_screens": ["day_gainers"],
                     "last_yahoo_discovery_status": "ok",
                 },
             }
@@ -1244,12 +1245,17 @@ def test_universe_discovery_glance_claim_live_stuck(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_claim_live"] == 1
+    assert g["last_yahoo_claim_live_screens"] == ["gainers"]
     assert g["last_yahoo_claim_live_share_pct"] == 33
     assert g["last_yahoo_claim_live_share_severity"] == "ok"
     assert g["last_yahoo_claim_live_free_n"] == 2
     assert g["last_yahoo_claim_live_free_pct"] == 67
     assert g["last_yahoo_claim_live_free_severity"] == "ok"
-    assert "1 claim live · 33% · vs 2 free · 67%" in g["line"]
+    assert (
+        "1 claim live · last gainers · 33% · vs 2 free · 67%" in g["line"]
+    )
+    assert g["line"].index("1 claim live") < g["line"].index("last gainers")
+    assert g["line"].index("last gainers") < g["line"].index("33%")
     assert g["line"].index("1 claim live") < g["line"].index("discovery-only")
     # Live hung claim escalates a fresh cache tone.
     assert g["tone"] == "aging"
@@ -1267,6 +1273,10 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
                     "last_yahoo_discovery": last,
                     "last_yahoo_added": 1,
                     "last_yahoo_claim_live": 2,
+                    "last_yahoo_claim_live_screens": [
+                        "day_gainers",
+                        "day_losers",
+                    ],
                     "last_yahoo_discovery_status": "ok",
                 },
             }
@@ -1275,13 +1285,45 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_claim_live"] == 2
+    assert g["last_yahoo_claim_live_screens"] == ["gainers", "losers"]
     assert g["last_yahoo_claim_live_share_pct"] == 67
     assert g["last_yahoo_claim_live_share_severity"] == "hot"
     assert g["last_yahoo_claim_live_free_n"] == 1
     assert g["last_yahoo_claim_live_free_pct"] == 33
     assert g["last_yahoo_claim_live_free_severity"] == "thin"
-    assert "2 claim live · hot · 67% · vs 1 free · thin · 33%" in g["line"]
+    assert (
+        "2 claim live · in gainers · losers · hot · 67% · vs 1 free · thin · 33%"
+        in g["line"]
+    )
     assert g["tone"] == "aging"
+
+
+def test_universe_discovery_glance_claim_live_legacy_silent_screens(
+    tmp_path,
+) -> None:
+    """Count-only meta (no screen list) stays silent on last/in names."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_live": 1,
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_live"] == 1
+    assert g["last_yahoo_claim_live_screens"] == []
+    assert "1 claim live · 33% · vs 2 free · 67%" in g["line"]
+    assert "last " not in g["line"]
+    assert " in " not in g["line"]
 
 
 def test_universe_discovery_glance_dropped_movers_speaks_venue(tmp_path) -> None:

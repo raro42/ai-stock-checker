@@ -325,13 +325,20 @@ def set_yahoo_discovery_claim_drops(
     return n
 
 
-def set_yahoo_discovery_claim_live(meta: dict[str, Any], live: int) -> int:
+def set_yahoo_discovery_claim_live(
+    meta: dict[str, Any],
+    live: int,
+    *,
+    screens: Sequence[str] | None = None,
+) -> int:
     """Persist how many screen claims stay held after the last spend.
 
     Alive workers inside the claim TTL are not released (xang1234 #726
     single-flight) — a later catch-up of that screen is refused until TTL.
     Absolute claim-drop / ok screens alone hid a stuck hung worker once
     other screens went green (xang1234 history: stuck asset not silent).
+    Optional ``screens`` names which presets are still held (xang1234:
+    say what a stuck asset blocks — absolute N alone hid the sleeve).
     Junk / negative → 0. Returns the stored count.
     """
     try:
@@ -339,6 +346,20 @@ def set_yahoo_discovery_claim_live(meta: dict[str, Any], live: int) -> int:
     except (TypeError, ValueError):
         n = 0
     meta["last_yahoo_claim_live"] = n
+    if n <= 0:
+        meta["last_yahoo_claim_live_screens"] = []
+        return 0
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in screens or ():
+        label = _claim_live_screen_short(raw)
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        cleaned.append(label)
+        if len(cleaned) >= n:
+            break
+    meta["last_yahoo_claim_live_screens"] = cleaned
     return n
 
 
@@ -360,6 +381,61 @@ def yahoo_discovery_claim_live(meta: Any) -> int:
         return max(0, int(meta.get("last_yahoo_claim_live") or 0))
     except (TypeError, ValueError):
         return 0
+
+
+# Compact Ops labels — full Yahoo preset names blow the Universe clip.
+_CLAIM_LIVE_SCREEN_SHORT: dict[str, str] = {
+    "day_gainers": "gainers",
+    "day_losers": "losers",
+    "most_actives": "actives",
+}
+
+
+def _claim_live_screen_short(raw: Any) -> str:
+    """Map a Yahoo screen key to a short Ops label; junk → \"\"."""
+    key = str(raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not key:
+        return ""
+    if key in _CLAIM_LIVE_SCREEN_SHORT:
+        return _CLAIM_LIVE_SCREEN_SHORT[key]
+    # Unknown preset: keep a short token (≤12) so glance stays readable.
+    token = re.sub(r"[^a-z0-9_]+", "", key)
+    if not token:
+        return ""
+    return token[:12]
+
+
+def yahoo_discovery_claim_live_screens(
+    meta: Any,
+) -> tuple[str, list[str]]:
+    """Name stuck screens when claim live already spoke (display only).
+
+    Absolute ``N claim live`` hid which preset still blocks catch-up
+    (xang1234 history: say what a stuck asset blocks + Screener junk-list
+    pointer + soft-allow gap ``last SYM``). Sole → ``last gainers``;
+    multi → ``in gainers · losers``; missing / zero → silent. Returns
+    ``(bit, labels)``.
+    """
+    n = yahoo_discovery_claim_live(meta)
+    if n <= 0 or not isinstance(meta, dict):
+        return "", []
+    raw = meta.get("last_yahoo_claim_live_screens")
+    labels: list[str] = []
+    seen: set[str] = set()
+    if isinstance(raw, (list, tuple)):
+        for item in raw:
+            label = _claim_live_screen_short(item)
+            if not label or label in seen:
+                continue
+            seen.add(label)
+            labels.append(label)
+            if len(labels) >= n:
+                break
+    if not labels:
+        return "", []
+    if len(labels) == 1:
+        return f"last {labels[0]}", labels
+    return f"in {' · '.join(labels)}", labels
 
 
 def yahoo_discovery_claim_live_share(
@@ -1732,6 +1808,35 @@ def release_dead_yahoo_screen_claims(
     return released, dead, stale
 
 
+def list_live_yahoo_screen_claims(
+    *,
+    max_age_sec: float | None = None,
+    now: float | None = None,
+) -> list[str]:
+    """Screen keys still held by alive workers inside the claim TTL.
+
+    Oldest claim first (most stuck). Does not mutate the map. Finished /
+    stale zombies are omitted — ``release_dead_yahoo_screen_claims`` clears
+    those. Used so Ops can name which preset blocks catch-up (xang1234:
+    say what a stuck asset blocks).
+    """
+    ceiling = (
+        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
+        if max_age_sec is None
+        else max(1.0, float(max_age_sec))
+    )
+    clock = time.monotonic() if now is None else float(now)
+    held: list[tuple[float, str]] = []
+    with _yahoo_screen_inflight_lock:
+        for key, entry in _yahoo_screen_inflight.items():
+            worker, started = entry
+            age = clock - float(started)
+            if worker.is_alive() and age < ceiling:
+                held.append((float(started), str(key)))
+    held.sort()
+    return [name for _started, name in held]
+
+
 def count_live_yahoo_screen_claims(
     *,
     max_age_sec: float | None = None,
@@ -1744,20 +1849,7 @@ def count_live_yahoo_screen_claims(
     timed out but is still inside TTL stays live and blocks that name
     (xang1234 stuck-asset honesty after other screens go green).
     """
-    ceiling = (
-        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
-        if max_age_sec is None
-        else max(1.0, float(max_age_sec))
-    )
-    clock = time.monotonic() if now is None else float(now)
-    live = 0
-    with _yahoo_screen_inflight_lock:
-        for entry in _yahoo_screen_inflight.values():
-            worker, started = entry
-            age = clock - float(started)
-            if worker.is_alive() and age < ceiling:
-                live += 1
-    return live
+    return len(list_live_yahoo_screen_claims(max_age_sec=max_age_sec, now=now))
 
 
 def fetch_yahoo_screen_symbols(

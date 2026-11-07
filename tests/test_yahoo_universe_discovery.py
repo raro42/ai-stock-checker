@@ -1528,15 +1528,40 @@ def test_set_yahoo_discovery_claim_live_bands():
     from stock_checker.yahoo_universe_discovery import (
         set_yahoo_discovery_claim_live,
         yahoo_discovery_claim_live,
+        yahoo_discovery_claim_live_screens,
     )
 
     meta: dict = {}
     assert set_yahoo_discovery_claim_live(meta, 2) == 2
     assert yahoo_discovery_claim_live(meta) == 2
+    assert meta.get("last_yahoo_claim_live_screens") == []
+    assert set_yahoo_discovery_claim_live(
+        meta, 1, screens=("day_gainers", "day_losers")
+    ) == 1
+    assert meta["last_yahoo_claim_live_screens"] == ["gainers"]
+    assert yahoo_discovery_claim_live_screens(meta) == (
+        "last gainers",
+        ["gainers"],
+    )
+    assert set_yahoo_discovery_claim_live(
+        meta,
+        2,
+        screens=("day_gainers", "most_actives", "day_losers"),
+    ) == 2
+    assert meta["last_yahoo_claim_live_screens"] == ["gainers", "actives"]
+    assert yahoo_discovery_claim_live_screens(meta) == (
+        "in gainers · actives",
+        ["gainers", "actives"],
+    )
     assert set_yahoo_discovery_claim_live(meta, -1) == 0
     assert yahoo_discovery_claim_live(meta) == 0
+    assert meta.get("last_yahoo_claim_live_screens") == []
+    assert yahoo_discovery_claim_live_screens(meta) == ("", [])
     assert yahoo_discovery_claim_live(None) == 0
     assert yahoo_discovery_claim_live({"last_yahoo_claim_live": "x"}) == 0
+    assert yahoo_discovery_claim_live_screens(
+        {"last_yahoo_claim_live": 1}
+    ) == ("", [])
 
 
 def test_discover_yahoo_mover_report_returns_claim_live(monkeypatch):
@@ -1586,6 +1611,7 @@ def test_discover_yahoo_mover_report_returns_claim_live(monkeypatch):
         assert failed == 1
         assert timeouts == 1
         assert live == 1
+        assert yud.list_live_yahoo_screen_claims() == ["day_gainers"]
     finally:
         release.set()
         worker.join(1)

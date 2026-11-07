@@ -24441,6 +24441,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drops,
         yahoo_discovery_claim_live,
+        yahoo_discovery_claim_live_screens,
         yahoo_discovery_claim_live_share,
         yahoo_discovery_claim_live_vs_free,
         yahoo_discovery_due_from_meta,
@@ -24635,6 +24636,7 @@ def build_universe_discovery_glance(
     # xang1234 stuck-asset honesty: hung worker still held after peers go green.
     # portfolio AI count≠share: absolute live hid one vs most of the roster.
     # portfolio AI speak-both-sides: live% alone hid free peers (vs kept parity).
+    # xang1234 say-what-blocks: absolute N hid which preset is stuck (last/in).
     (
         claim_live_share_bit,
         claim_live_share_pct,
@@ -24646,7 +24648,15 @@ def build_universe_discovery_glance(
         claim_live_free_pct,
         claim_live_free_severity,
     ) = yahoo_discovery_claim_live_vs_free(claim_live)
+    (
+        claim_live_screens_bit,
+        claim_live_screen_labels,
+    ) = yahoo_discovery_claim_live_screens(uni_meta)
     if claim_live > 0:
+        # Name before share/% so the 128-char clip keeps which screen is stuck.
+        screens_suffix = (
+            f" · {claim_live_screens_bit}" if claim_live_screens_bit else ""
+        )
         live_share_suffix = (
             f" · {claim_live_share_bit}" if claim_live_share_bit else ""
         )
@@ -24654,7 +24664,8 @@ def build_universe_discovery_glance(
             f" · {claim_live_vs_free_bit}" if claim_live_vs_free_bit else ""
         )
         claim_live_bit = (
-            f" · {claim_live} claim live{live_share_suffix}{free_suffix}"
+            f" · {claim_live} claim live"
+            f"{screens_suffix}{live_share_suffix}{free_suffix}"
         )
         if tone == "fresh":
             tone = "aging"
@@ -24665,6 +24676,7 @@ def build_universe_discovery_glance(
         claim_live_free_n = None
         claim_live_free_pct = None
         claim_live_free_severity = ""
+        claim_live_screen_labels = []
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25451,6 +25463,7 @@ def build_universe_discovery_glance(
             claim_drop_reason_sample_gap or None
         ),
         "last_yahoo_claim_live": claim_live,
+        "last_yahoo_claim_live_screens": list(claim_live_screen_labels or []),
         "last_yahoo_claim_live_share_pct": claim_live_share_pct,
         "last_yahoo_claim_live_share_severity": claim_live_share_severity,
         "last_yahoo_claim_live_free_n": claim_live_free_n,
