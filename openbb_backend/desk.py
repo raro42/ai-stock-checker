@@ -24421,7 +24421,9 @@ def build_universe_discovery_glance(
     leftovers vs hung zombies; stale escalates a fresh tone to aging). When a
     hung worker is still inside the claim TTL after the bundle, speak
     ``N claim live`` (xang1234 stuck-asset honesty — peers going green must
-    not hide a blocked screen; zero silent; escalates fresh → aging). Sits
+    not hide a blocked screen; zero silent; escalates fresh → aging). When
+    live already spoke, also speak ownership ``hot|quiet · P%`` (portfolio
+    AI count≠share after absolute live; claim-drop share parity). Sits
     after the fail class / before the screen fraction on fail, and before
     ``discovery-only`` on success.
     Buys still need regime/RS/breadth/fees. Not a new gate.
@@ -24438,6 +24440,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drops,
         yahoo_discovery_claim_live,
+        yahoo_discovery_claim_live_share,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
         yahoo_fail_retry_remaining_sec,
@@ -24628,12 +24631,23 @@ def build_universe_discovery_glance(
         claim_drop_reason_lead_pct = None
         claim_drop_reason_sample_gap = ""
     # xang1234 stuck-asset honesty: hung worker still held after peers go green.
+    # portfolio AI count≠share: absolute live hid one vs most of the roster.
+    (
+        claim_live_share_bit,
+        claim_live_share_pct,
+        claim_live_share_severity,
+    ) = yahoo_discovery_claim_live_share(claim_live)
     if claim_live > 0:
-        claim_live_bit = f" · {claim_live} claim live"
+        live_share_suffix = (
+            f" · {claim_live_share_bit}" if claim_live_share_bit else ""
+        )
+        claim_live_bit = f" · {claim_live} claim live{live_share_suffix}"
         if tone == "fresh":
             tone = "aging"
     else:
         claim_live_bit = ""
+        claim_live_share_pct = None
+        claim_live_share_severity = ""
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25420,6 +25434,8 @@ def build_universe_discovery_glance(
             claim_drop_reason_sample_gap or None
         ),
         "last_yahoo_claim_live": claim_live,
+        "last_yahoo_claim_live_share_pct": claim_live_share_pct,
+        "last_yahoo_claim_live_share_severity": claim_live_share_severity,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }

@@ -14,6 +14,7 @@ from stock_checker.yahoo_universe_discovery import (
     set_yahoo_discovery_error,
     yahoo_discovery_claim_drop_share,
     yahoo_discovery_claim_drop_vs_kept,
+    yahoo_discovery_claim_live_share,
     yahoo_discovery_error_class,
     yahoo_fail_error_also_bit,
     yahoo_fail_error_also_counts,
@@ -1181,6 +1182,20 @@ def test_yahoo_discovery_claim_drop_share_bands():
     assert yahoo_discovery_claim_drop_share(2) == ("hot · 67%", 67, "hot")
     assert yahoo_discovery_claim_drop_share(3) == ("hot · 100%", 100, "hot")
     assert yahoo_discovery_claim_drop_share(1, screen_count=8) == (
+        "quiet · 12%",
+        12,
+        "quiet",
+    )
+
+
+def test_yahoo_discovery_claim_live_share_bands():
+    """portfolio AI count≠share after absolute claim live (xang1234 stuck)."""
+    assert yahoo_discovery_claim_live_share(0) == ("", None, "")
+    assert yahoo_discovery_claim_live_share(-1) == ("", None, "")
+    assert yahoo_discovery_claim_live_share(1) == ("33%", 33, "ok")
+    assert yahoo_discovery_claim_live_share(2) == ("hot · 67%", 67, "hot")
+    assert yahoo_discovery_claim_live_share(3) == ("hot · 100%", 100, "hot")
+    assert yahoo_discovery_claim_live_share(1, screen_count=8) == (
         "quiet · 12%",
         12,
         "quiet",

@@ -362,6 +362,21 @@ def yahoo_discovery_claim_live(meta: Any) -> int:
         return 0
 
 
+def yahoo_discovery_claim_live_share(
+    live: int,
+    *,
+    screen_count: int | None = None,
+) -> tuple[str, int | None, str]:
+    """Claim-live ownership of the mover screen roster (portfolio AI count≠share).
+
+    Absolute ``N claim live`` hid whether one hung screen or most of the
+    bundle was still held after peers went green (xang1234 stuck-asset +
+    claim-drop share parity). Same hot≥50% / quiet≤25% bands as claim-drop
+    share. Zero / junk → silent. Returns ``(bit, pct, severity)``.
+    """
+    return yahoo_discovery_claim_drop_share(live, screen_count=screen_count)
+
+
 def yahoo_discovery_claim_drop_reasons(
     meta: Any,
 ) -> tuple[str, int, int]:

@@ -1244,9 +1244,37 @@ def test_universe_discovery_glance_claim_live_stuck(tmp_path) -> None:
     )
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_claim_live"] == 1
-    assert "1 claim live" in g["line"]
+    assert g["last_yahoo_claim_live_share_pct"] == 33
+    assert g["last_yahoo_claim_live_share_severity"] == "ok"
+    assert "1 claim live · 33%" in g["line"]
     assert g["line"].index("1 claim live") < g["line"].index("discovery-only")
     # Live hung claim escalates a fresh cache tone.
+    assert g["tone"] == "aging"
+
+
+def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
+    """portfolio AI count≠share: 2/3 live is hot ownership of the roster."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_live": 2,
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_live"] == 2
+    assert g["last_yahoo_claim_live_share_pct"] == 67
+    assert g["last_yahoo_claim_live_share_severity"] == "hot"
+    assert "2 claim live · hot · 67%" in g["line"]
     assert g["tone"] == "aging"
 
 
