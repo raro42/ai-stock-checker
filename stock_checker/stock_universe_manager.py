@@ -418,6 +418,8 @@ class StockUniverseManager:
         timeout_fails = 0
         inflight_fails = 0
         claim_drops = 0
+        claim_dead = 0
+        claim_stale = 0
         try:
             report = discover_yahoo_mover_report(per_screen=per_screen)
             symbols = report[0]
@@ -428,6 +430,9 @@ class StockUniverseManager:
                 inflight_fails = report[4]
             if len(report) > 5:
                 claim_drops = report[5]
+            if len(report) > 7:
+                claim_dead = report[6]
+                claim_stale = report[7]
         except Exception as e:
             print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
             meta["last_yahoo_discovery_status"] = "failed"
@@ -450,7 +455,9 @@ class StockUniverseManager:
         meta["last_yahoo_screens_ok"] = int(screens_ok)
         meta["last_yahoo_screens_failed"] = int(screens_failed)
         # xang1234 #726: Ops console release visibility — speak zombie drops.
-        set_yahoo_discovery_claim_drops(meta, claim_drops)
+        set_yahoo_discovery_claim_drops(
+            meta, claim_drops, dead=claim_dead, stale=claim_stale
+        )
         if screens_bundle_failed(screens_ok, screens_failed):
             # xang1234: failed / majority-blocked fetch → reuse seed; do not
             # stamp cache fresh; discard leftover quotes from a thin screen.

@@ -288,13 +288,40 @@ def clear_yahoo_discovery_error(meta: dict[str, Any]) -> None:
     meta.pop("last_yahoo_inflight_fails", None)
 
 
-def set_yahoo_discovery_claim_drops(meta: dict[str, Any], drops: int) -> int:
-    """Persist how many dead/stale screen claims the last spend released."""
+def set_yahoo_discovery_claim_drops(
+    meta: dict[str, Any],
+    drops: int,
+    *,
+    dead: int = 0,
+    stale: int = 0,
+) -> int:
+    """Persist how many dead/stale screen claims the last spend released.
+
+    ``dead`` = finished worker · ``stale`` = live zombie past claim TTL
+    (xang1234 history: say what each release did — absolute N alone hid why).
+    """
     try:
         n = max(0, int(drops))
     except (TypeError, ValueError):
         n = 0
+    try:
+        n_dead = max(0, int(dead))
+    except (TypeError, ValueError):
+        n_dead = 0
+    try:
+        n_stale = max(0, int(stale))
+    except (TypeError, ValueError):
+        n_stale = 0
+    if n <= 0:
+        meta["last_yahoo_claim_drops"] = 0
+        meta["last_yahoo_claim_drops_dead"] = 0
+        meta["last_yahoo_claim_drops_stale"] = 0
+        return 0
+    n_dead = min(n_dead, n)
+    n_stale = min(n_stale, n - n_dead)
     meta["last_yahoo_claim_drops"] = n
+    meta["last_yahoo_claim_drops_dead"] = n_dead
+    meta["last_yahoo_claim_drops_stale"] = n_stale
     return n
 
 
@@ -306,6 +333,41 @@ def yahoo_discovery_claim_drops(meta: Any) -> int:
         return max(0, int(meta.get("last_yahoo_claim_drops") or 0))
     except (TypeError, ValueError):
         return 0
+
+
+def yahoo_discovery_claim_drop_reasons(
+    meta: Any,
+) -> tuple[str, int, int]:
+    """Dead vs stale sides when claim drops already spoke (display only).
+
+    Absolute ``N claim drop`` hid whether a finished worker leftover or a
+    hung zombie was cleared (xang1234 history: say what each release did).
+    Returns ``(bit, dead, stale)``. Zero total / both sides zero → silent
+    (legacy meta without reason keys stays quiet). All-dead → ``dead``;
+    all-stale → ``stale``; mix → ``N dead · M stale``.
+    """
+    if not isinstance(meta, dict):
+        return "", 0, 0
+    total = yahoo_discovery_claim_drops(meta)
+    if total <= 0:
+        return "", 0, 0
+    try:
+        dead = max(0, int(meta.get("last_yahoo_claim_drops_dead") or 0))
+    except (TypeError, ValueError):
+        dead = 0
+    try:
+        stale = max(0, int(meta.get("last_yahoo_claim_drops_stale") or 0))
+    except (TypeError, ValueError):
+        stale = 0
+    dead = min(dead, total)
+    stale = min(stale, total - dead)
+    if dead <= 0 and stale <= 0:
+        return "", 0, 0
+    if dead > 0 and stale <= 0:
+        return ("dead" if dead == total else f"{dead} dead"), dead, 0
+    if stale > 0 and dead <= 0:
+        return ("stale" if stale == total else f"{stale} stale"), 0, stale
+    return f"{dead} dead · {stale} stale", dead, stale
 
 
 def yahoo_discovery_claim_drop_share(
@@ -1496,10 +1558,11 @@ def release_dead_yahoo_screen_claims(
     *,
     max_age_sec: float | None = None,
     now: float | None = None,
-) -> int:
+) -> tuple[int, int, int]:
     """Drop finished or stale Yahoo screen claims (xang1234 #726).
 
-    Returns how many claims were released. Alive workers younger than the
+    Returns ``(released, dead, stale)``. ``dead`` = finished worker;
+    ``stale`` = live zombie past claim TTL. Alive workers younger than the
     claim TTL stay held so a second spend is refused.
     """
     ceiling = (
@@ -1509,15 +1572,21 @@ def release_dead_yahoo_screen_claims(
     )
     clock = time.monotonic() if now is None else float(now)
     released = 0
+    dead = 0
+    stale = 0
     with _yahoo_screen_inflight_lock:
         for key, entry in list(_yahoo_screen_inflight.items()):
             worker, started = entry
             age = clock - float(started)
             if worker.is_alive() and age < ceiling:
                 continue
+            if worker.is_alive():
+                stale += 1
+            else:
+                dead += 1
             _yahoo_screen_inflight.pop(key, None)
             released += 1
-    return released
+    return released, dead, stale
 
 
 def fetch_yahoo_screen_symbols(
@@ -1618,15 +1687,16 @@ def discover_yahoo_mover_report(
     screens: Sequence[str] = DEFAULT_SCREENS,
     per_screen: int = DEFAULT_MOVER_COUNT,
     timeout_sec: int | None = None,
-) -> tuple[List[str], int, int, int, int, int]:
+) -> tuple[List[str], int, int, int, int, int, int, int]:
     """Symbols plus ok / failed / timeout / inflight / claim-drop counts.
 
     Claim drops (xang1234 #726): finished or stale single-flight claims
     released before this bundle — Ops can see a zombie was cleared.
+    Trailing ints are ``claim_drops``, ``claim_dead``, ``claim_stale``.
     """
     # Sweep finished/stale claims before the bundle so a prior hung screen
     # does not poison the first name in the list (xang1234 #726).
-    claim_drops = release_dead_yahoo_screen_claims()
+    claim_drops, claim_dead, claim_stale = release_dead_yahoo_screen_claims()
     out: list[str] = []
     seen: set[str] = set()
     ok = 0
@@ -1656,7 +1726,16 @@ def discover_yahoo_mover_report(
                 continue
             seen.add(sym)
             out.append(sym)
-    return out, ok, failed, timeouts, inflight, claim_drops
+    return (
+        out,
+        ok,
+        failed,
+        timeouts,
+        inflight,
+        claim_drops,
+        claim_dead,
+        claim_stale,
+    )
 
 
 def discover_yahoo_mover_symbols(
@@ -1665,7 +1744,7 @@ def discover_yahoo_mover_symbols(
     per_screen: int = DEFAULT_MOVER_COUNT,
 ) -> List[str]:
     """Union of symbols across screens, stable order, de-duplicated."""
-    symbols, _ok, _failed, _timeouts, _inflight, _drops = (
+    symbols, _ok, _failed, _timeouts, _inflight, _drops, _dead, _stale = (
         discover_yahoo_mover_report(screens=screens, per_screen=per_screen)
     )
     return symbols

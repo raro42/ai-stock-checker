@@ -928,7 +928,16 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         boom,
     )
-    symbols, ok, failed, timeouts, inflight, drops = discover_yahoo_mover_report(
+    (
+        symbols,
+        ok,
+        failed,
+        timeouts,
+        inflight,
+        drops,
+        dead,
+        stale,
+    ) = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
     assert symbols == []
@@ -937,6 +946,8 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
     assert timeouts == 0
     assert inflight == 0
     assert drops == 0
+    assert dead == 0
+    assert stale == 0
     assert screens_bundle_failed(ok, failed) is True
 
 
@@ -950,7 +961,16 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         hang,
     )
-    symbols, ok, failed, timeouts, inflight, drops = discover_yahoo_mover_report(
+    (
+        symbols,
+        ok,
+        failed,
+        timeouts,
+        inflight,
+        drops,
+        dead,
+        stale,
+    ) = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
     assert symbols == []
@@ -959,6 +979,8 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
     assert timeouts == 2
     assert inflight == 0
     assert drops == 0
+    assert dead == 0
+    assert stale == 0
     assert (
         classify_yahoo_discovery_error(
             screens_ok=ok, screens_failed=failed, timeout_fails=timeouts
@@ -1192,6 +1214,41 @@ def test_yahoo_discovery_claim_drop_vs_kept_bands():
     )
 
 
+def test_yahoo_discovery_claim_drop_reasons_bands():
+    """xang1234 history: say dead vs stale after absolute claim drops."""
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_claim_drop_reasons,
+    )
+
+    assert yahoo_discovery_claim_drop_reasons(None) == ("", 0, 0)
+    assert yahoo_discovery_claim_drop_reasons({}) == ("", 0, 0)
+    # Legacy meta with count only stays silent on reason.
+    assert yahoo_discovery_claim_drop_reasons(
+        {"last_yahoo_claim_drops": 2}
+    ) == ("", 0, 0)
+    assert yahoo_discovery_claim_drop_reasons(
+        {
+            "last_yahoo_claim_drops": 2,
+            "last_yahoo_claim_drops_dead": 2,
+            "last_yahoo_claim_drops_stale": 0,
+        }
+    ) == ("dead", 2, 0)
+    assert yahoo_discovery_claim_drop_reasons(
+        {
+            "last_yahoo_claim_drops": 1,
+            "last_yahoo_claim_drops_dead": 0,
+            "last_yahoo_claim_drops_stale": 1,
+        }
+    ) == ("stale", 0, 1)
+    assert yahoo_discovery_claim_drop_reasons(
+        {
+            "last_yahoo_claim_drops": 3,
+            "last_yahoo_claim_drops_dead": 1,
+            "last_yahoo_claim_drops_stale": 2,
+        }
+    ) == ("1 dead · 2 stale", 1, 2)
+
+
 def test_release_dead_yahoo_screen_claims_drops_finished():
     """xang1234 #726: finished worker must not keep a claim."""
     import threading
@@ -1213,14 +1270,48 @@ def test_release_dead_yahoo_screen_claims_drops_finished():
         # Prior hung-screen tests may leave finished claims — clear first.
         yud._yahoo_screen_inflight.clear()
         yud._yahoo_screen_inflight["dead_probe"] = (worker, time.monotonic())
-    assert yud.release_dead_yahoo_screen_claims() == 1
+    assert yud.release_dead_yahoo_screen_claims() == (1, 1, 0)
     with yud._yahoo_screen_inflight_lock:
         assert "dead_probe" not in yud._yahoo_screen_inflight
         assert yud._yahoo_screen_inflight == {}
 
 
+def test_release_dead_yahoo_screen_claims_drops_stale():
+    """xang1234 #726: live zombie past TTL releases as stale, not dead."""
+    import threading
+    import time
+
+    from stock_checker import yahoo_universe_discovery as yud
+
+    release = threading.Event()
+
+    def _hang() -> None:
+        release.wait(5)
+
+    worker = threading.Thread(target=_hang, daemon=True)
+    worker.start()
+    try:
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight.clear()
+            # Started far enough in the past that TTL is expired.
+            yud._yahoo_screen_inflight["stale_probe"] = (
+                worker,
+                time.monotonic() - 999.0,
+            )
+        assert yud.release_dead_yahoo_screen_claims(max_age_sec=10.0) == (
+            1,
+            0,
+            1,
+        )
+        with yud._yahoo_screen_inflight_lock:
+            assert "stale_probe" not in yud._yahoo_screen_inflight
+    finally:
+        release.set()
+        worker.join(1)
+
+
 def test_discover_yahoo_mover_report_returns_claim_drops(monkeypatch):
-    """xang1234 #726: pre-bundle sweep count reaches Ops via report[5]."""
+    """xang1234 #726: pre-bundle sweep count reaches Ops via report[5:]."""
     import threading
     import time
 
@@ -1246,10 +1337,19 @@ def test_discover_yahoo_mover_report_returns_claim_drops(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         boom,
     )
-    _syms, _ok, _failed, _timeouts, _inflight, drops = discover_yahoo_mover_report(
-        screens=("day_gainers",), per_screen=5
-    )
+    (
+        _syms,
+        _ok,
+        _failed,
+        _timeouts,
+        _inflight,
+        drops,
+        dead,
+        stale,
+    ) = discover_yahoo_mover_report(screens=("day_gainers",), per_screen=5)
     assert drops == 1
+    assert dead == 1
+    assert stale == 0
     with yud._yahoo_screen_inflight_lock:
         assert "dead_bundle" not in yud._yahoo_screen_inflight
 

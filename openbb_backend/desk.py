@@ -24415,8 +24415,12 @@ def build_universe_discovery_glance(
     hang was cleared before the bundle; zero stays silent). When drops spoke,
     also speak ownership of the mover roster ``hot|quiet · P%`` (portfolio AI
     count≠share; hot ≥50% · quiet ≤25%; mid shows % only; hot escalates a
-    fresh tone to aging). Sits after the fail class / before the screen
-    fraction on fail, and before ``discovery-only`` on success.
+    fresh tone to aging) and remaining screens ``vs N kept · strong|thin · P%``.
+    After that, name release reasons ``dead`` / ``stale`` / ``N dead · M stale``
+    (xang1234 history: say what each release did — absolute N alone hid finished
+    leftovers vs hung zombies; stale escalates a fresh tone to aging). Sits
+    after the fail class / before the screen fraction on fail, and before
+    ``discovery-only`` on success.
     Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
@@ -24424,6 +24428,7 @@ def build_universe_discovery_glance(
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
         yahoo_cache_freshness,
+        yahoo_discovery_claim_drop_reasons,
         yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drops,
@@ -24564,6 +24569,11 @@ def build_universe_discovery_glance(
         claim_drop_kept_pct,
         claim_drop_kept_severity,
     ) = yahoo_discovery_claim_drop_vs_kept(claim_drops)
+    (
+        claim_drop_reason_bit,
+        claim_drop_dead_n,
+        claim_drop_stale_n,
+    ) = yahoo_discovery_claim_drop_reasons(uni_meta)
     if claim_drops > 0:
         share_suffix = (
             f" · {claim_drop_share_bit}" if claim_drop_share_bit else ""
@@ -24571,16 +24581,24 @@ def build_universe_discovery_glance(
         kept_suffix = (
             f" · {claim_drop_vs_kept_bit}" if claim_drop_vs_kept_bit else ""
         )
+        reason_suffix = (
+            f" · {claim_drop_reason_bit}" if claim_drop_reason_bit else ""
+        )
         claim_drop_bit = (
-            f" · {claim_drops} claim drop{share_suffix}{kept_suffix}"
+            f" · {claim_drops} claim drop"
+            f"{share_suffix}{kept_suffix}{reason_suffix}"
         )
         if claim_drop_share_severity == "hot" and tone == "fresh":
+            tone = "aging"
+        elif claim_drop_stale_n > 0 and tone == "fresh":
             tone = "aging"
     else:
         claim_drop_bit = ""
         claim_drop_kept_n = None
         claim_drop_kept_pct = None
         claim_drop_kept_severity = ""
+        claim_drop_dead_n = 0
+        claim_drop_stale_n = 0
     fail_error = yahoo_discovery_error_class(uni_meta) if yahoo_failed else ""
     timeout_fails_n, inflight_fails_n = (
         yahoo_discovery_error_sides(uni_meta) if yahoo_failed else (0, 0)
@@ -25359,6 +25377,8 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_drop_kept_n": claim_drop_kept_n,
         "last_yahoo_claim_drop_kept_pct": claim_drop_kept_pct,
         "last_yahoo_claim_drop_kept_severity": claim_drop_kept_severity,
+        "last_yahoo_claim_drop_dead": claim_drop_dead_n,
+        "last_yahoo_claim_drop_stale": claim_drop_stale_n,
         "screens_bit": screens_bit,
         "seed_freshness": seed_freshness,
     }
