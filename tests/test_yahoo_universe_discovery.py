@@ -1140,3 +1140,85 @@ def test_fetch_yahoo_screen_refuses_second_while_hung(monkeypatch):
         assert calls["n"] == 1
     finally:
         release.set()
+
+
+def test_release_dead_yahoo_screen_claims_drops_finished():
+    """xang1234 #726: finished worker must not keep a claim."""
+    import threading
+    import time
+
+    from stock_checker import yahoo_universe_discovery as yud
+
+    done = threading.Event()
+
+    def _noop() -> None:
+        done.set()
+
+    worker = threading.Thread(target=_noop, daemon=True)
+    worker.start()
+    done.wait(1)
+    worker.join(1)
+    assert not worker.is_alive()
+    with yud._yahoo_screen_inflight_lock:
+        # Prior hung-screen tests may leave finished claims — clear first.
+        yud._yahoo_screen_inflight.clear()
+        yud._yahoo_screen_inflight["dead_probe"] = (worker, time.monotonic())
+    assert yud.release_dead_yahoo_screen_claims() == 1
+    with yud._yahoo_screen_inflight_lock:
+        assert "dead_probe" not in yud._yahoo_screen_inflight
+        assert yud._yahoo_screen_inflight == {}
+
+
+def test_fetch_yahoo_screen_releases_stale_claim(monkeypatch):
+    """xang1234 #726: stale zombie claim releases so catch-up can spend."""
+    import threading
+    import time
+
+    import pytest
+
+    from stock_checker import yahoo_universe_discovery as yud
+
+    release = threading.Event()
+    calls = {"n": 0}
+
+    class _YF:
+        @staticmethod
+        def screen(screen, count=25):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                release.wait(5)
+                return {"quotes": []}
+            return {
+                "quotes": [
+                    {"symbol": "MSFT"},
+                    {"symbol": "AAPL"},
+                    {"symbol": "NVDA"},
+                    {"symbol": "GOOG"},
+                    {"symbol": "AMZN"},
+                ]
+            }
+
+    monkeypatch.setitem(__import__("sys").modules, "yfinance", _YF)
+    try:
+        with pytest.raises(TimeoutError, match="timed out after"):
+            yud.fetch_yahoo_screen_symbols(
+                "stale_claim", count=5, timeout_sec=1, claim_max_sec=30
+            )
+        # Force the held claim past the TTL without waiting wall clock.
+        with yud._yahoo_screen_inflight_lock:
+            held = yud._yahoo_screen_inflight.get("stale_claim")
+            assert held is not None
+            worker, _started = held
+            yud._yahoo_screen_inflight["stale_claim"] = (
+                worker,
+                time.monotonic() - 60.0,
+            )
+        out = yud.fetch_yahoo_screen_symbols(
+            "stale_claim", count=5, timeout_sec=1, claim_max_sec=30
+        )
+        assert calls["n"] == 2
+        assert "MSFT" in out
+    finally:
+        release.set()
+        with yud._yahoo_screen_inflight_lock:
+            yud._yahoo_screen_inflight.pop("stale_claim", None)

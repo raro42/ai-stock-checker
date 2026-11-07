@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, List, Sequence
 
@@ -26,10 +27,16 @@ DEFAULT_YAHOO_FAIL_BACKOFF_HOURS = 1
 # xang1234 #639: bound hung Yahoo screens (feedparser/requests had no timeout
 # and looked like quiet empty forever). Per-screen join ceiling for yf.screen.
 DEFAULT_YAHOO_SCREEN_TIMEOUT_SEC = 20
-# Join ceiling does not kill a hung yf.screen thread. One live worker per
-# screen name — a later scan must not start a second fetch while the first
-# is still blocked (xang1234 #639 bound hung requests + #642 not-spent).
-_yahoo_screen_inflight: dict[str, threading.Thread] = {}
+# xang1234 #726: release a pipeline claim when no worker usefully holds the
+# stage. Join ceiling does not kill a hung yf.screen thread; without a TTL a
+# zombie claim blocked that screen until container restart. Cap claim age so
+# catch-up scans can spend again (orphan daemon may linger — hung ≠ forever).
+DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC = 120
+# One live worker per screen name — a later scan must not start a second
+# fetch while the first is still inside the claim window (xang1234 #639
+# bound hung requests + #642 not-spent + #726 dead-chain-claim).
+# Value: (worker, monotonic start).
+_yahoo_screen_inflight: dict[str, tuple[threading.Thread, float]] = {}
 _yahoo_screen_inflight_lock = threading.Lock()
 DEFAULT_SCREENS: tuple[str, ...] = ("day_gainers", "day_losers", "most_actives")
 # xang1234: a mostly empty snapshot is a failed fetch, not a quiet day.
@@ -1382,11 +1389,40 @@ def yahoo_discovery_due_from_meta(
         return True
 
 
+def release_dead_yahoo_screen_claims(
+    *,
+    max_age_sec: float | None = None,
+    now: float | None = None,
+) -> int:
+    """Drop finished or stale Yahoo screen claims (xang1234 #726).
+
+    Returns how many claims were released. Alive workers younger than the
+    claim TTL stay held so a second spend is refused.
+    """
+    ceiling = (
+        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
+        if max_age_sec is None
+        else max(1.0, float(max_age_sec))
+    )
+    clock = time.monotonic() if now is None else float(now)
+    released = 0
+    with _yahoo_screen_inflight_lock:
+        for key, entry in list(_yahoo_screen_inflight.items()):
+            worker, started = entry
+            age = clock - float(started)
+            if worker.is_alive() and age < ceiling:
+                continue
+            _yahoo_screen_inflight.pop(key, None)
+            released += 1
+    return released
+
+
 def fetch_yahoo_screen_symbols(
     screen: str,
     *,
     count: int = DEFAULT_MOVER_COUNT,
     timeout_sec: int | None = None,
+    claim_max_sec: float | None = None,
 ) -> List[str]:
     """
     Return tradeable equity symbols from a yfinance predefined screen.
@@ -1394,7 +1430,9 @@ def fetch_yahoo_screen_symbols(
     Network call — wrap in try/except at call sites. Offline tests should mock.
     xang1234 #639: join ceiling so a hung Yahoo cannot stall the scan loop;
     timeout raises ``TimeoutError`` (not quiet empty). A still-live worker
-    blocks a second dispatch for the same screen (hung ≠ another spend).
+    inside the claim TTL blocks a second dispatch for the same screen
+    (hung ≠ another spend). xang1234 #726: dead or stale claims release so a
+    zombie hang cannot block that screen until container restart.
     """
     import yfinance as yf
 
@@ -1403,6 +1441,11 @@ def fetch_yahoo_screen_symbols(
         DEFAULT_YAHOO_SCREEN_TIMEOUT_SEC
         if timeout_sec is None
         else max(1, int(timeout_sec))
+    )
+    claim_ceiling = (
+        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
+        if claim_max_sec is None
+        else max(1.0, float(claim_max_sec))
     )
     screen_key = str(screen or "").strip() or "screen"
     box: dict[str, Any] = {}
@@ -1418,11 +1461,16 @@ def fetch_yahoo_screen_symbols(
     )
     with _yahoo_screen_inflight_lock:
         prev = _yahoo_screen_inflight.get(screen_key)
-        if prev is not None and prev.is_alive():
-            raise TimeoutError(
-                f"yahoo screen {screen_key} still in flight — timed out"
-            )
-        _yahoo_screen_inflight[screen_key] = worker
+        if prev is not None:
+            prev_worker, started = prev
+            age = time.monotonic() - float(started)
+            if prev_worker.is_alive() and age < claim_ceiling:
+                raise TimeoutError(
+                    f"yahoo screen {screen_key} still in flight — timed out"
+                )
+            # Dead thread or stale zombie claim — release before new spend.
+            _yahoo_screen_inflight.pop(screen_key, None)
+        _yahoo_screen_inflight[screen_key] = (worker, time.monotonic())
     worker.start()
     try:
         worker.join(timeout=float(limit))
@@ -1433,7 +1481,8 @@ def fetch_yahoo_screen_symbols(
     finally:
         if not worker.is_alive():
             with _yahoo_screen_inflight_lock:
-                if _yahoo_screen_inflight.get(screen_key) is worker:
+                held = _yahoo_screen_inflight.get(screen_key)
+                if held is not None and held[0] is worker:
                     _yahoo_screen_inflight.pop(screen_key, None)
     if "error" in box:
         err = box["error"]
@@ -1468,6 +1517,9 @@ def discover_yahoo_mover_report(
     timeout_sec: int | None = None,
 ) -> tuple[List[str], int, int, int, int]:
     """Symbols plus ok / failed / fresh-timeout / still-in-flight counts."""
+    # Sweep finished/stale claims before the bundle so a prior hung screen
+    # does not poison the first name in the list (xang1234 #726).
+    release_dead_yahoo_screen_claims()
     out: list[str] = []
     seen: set[str] = set()
     ok = 0
