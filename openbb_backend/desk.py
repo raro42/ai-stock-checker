@@ -6363,14 +6363,42 @@ def listed_fund_overlap_vs_other_sample_gap(
     return "overlap/other tied"
 
 
+def listed_fund_overlap_vs_conc(
+    share_severity: str,
+    concentration_warn: bool | None,
+) -> tuple[str, bool]:
+    """Speak Funds share extremes vs Conc clear|warn (display only).
+
+    Conc names the largest single weight; Funds names same-theme ETF/ETC
+    doubles. Extreme share (hot ≥50% · quiet ≤25%) beside Conc tone —
+    ``clash · funds hot · Conc clear`` when theme doubles own the book
+    while the single-name cap looks fine, or ``clash · funds quiet ·
+    Conc warn`` the other way; matching extremes speak ``align``. Mid
+    share / unknown Conc stay silent. Portfolio AI speak-both-sides after
+    bare Conc hid theme doubles (tradermonty theme-detector). Not a gate.
+    """
+    sev = str(share_severity or "").strip().casefold()
+    if sev not in {"hot", "quiet"} or concentration_warn is None:
+        return "", False
+    conc_label = "Conc warn" if concentration_warn else "Conc clear"
+    funds_label = f"funds {sev}"
+    if (sev == "hot" and not concentration_warn) or (
+        sev == "quiet" and concentration_warn
+    ):
+        return f"clash · {funds_label} · {conc_label}", True
+    return f"align · {funds_label} · {conc_label}", False
+
+
 # Quiet Funds lean chip names spoken stages (Charts bars / pin lean inventory).
 # Longer prefixes first so ``lead overlap`` ≠ bare ``lead``.
-_LISTED_FUND_OVERLAP_LEAN_NAME_CAP = 3
+_LISTED_FUND_OVERLAP_LEAN_NAME_CAP = 4
 _LISTED_FUND_OVERLAP_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ other\b"), "vs other"),
     (re.compile(r"^overlap/other tied\b"), "tied"),
     (re.compile(r"^lead overlap\b"), "overlap"),
     (re.compile(r"^lead other\b"), "other"),
+    (re.compile(r"^clash · funds\b"), "Conc"),
+    (re.compile(r"^align · funds\b"), "Conc"),
 )
 
 
@@ -6405,6 +6433,8 @@ def listed_fund_overlap_lean_meta(lean: str, *, warn: bool = False) -> str:
 
 def build_listed_fund_overlap_glance(
     holdings: list[Any] | None,
+    *,
+    concentration_warn: bool | None = None,
 ) -> dict[str, Any]:
     """Same-theme ETF/ETC doubles on the open book (display only).
 
@@ -6423,11 +6453,15 @@ def build_listed_fund_overlap_glance(
     and both counts are >0, also speak ``lead overlap|other · N%`` or
     ``overlap/other tied`` so absolute sides do not hide which slot owns
     the book — opportunity / Charts spoken-vs-fresh lead + portfolio AI
-    count≠share. Theme + share stay on the primary strip; vs-other /
-    ownership lead sit under a Funds lean fold (MonsterDeveloper Charts
-    bars lean parity — share alone hid peers / lead); ``lean_meta`` names
-    spoken stages. Full ``bit`` stays joined for tests. Zero / sole-theme
-    stays silent. Not a new entry gate.
+    count≠share. When share extremes already spoke and Conc tone is known
+    (``concentration_warn`` True/False; None silent), also speak
+    ``clash|align · funds hot|quiet · Conc clear|warn`` under the lean
+    fold so bare Conc clear does not hide theme doubles that own the book
+    — portfolio AI speak-both-sides after Conc alone. Theme + share stay
+    on the primary strip; vs-other / ownership / Conc sit under a Funds
+    lean fold (MonsterDeveloper Charts bars lean parity); ``lean_meta``
+    names spoken stages. Full ``bit`` stays joined for tests. Zero /
+    sole-theme stays silent. Not a new entry gate.
     """
     from stock_checker.listed_funds import (
         listed_fund_theme_label,
@@ -6459,6 +6493,9 @@ def build_listed_fund_overlap_glance(
         "vs_other_lead_name": "",
         "vs_other_lead_pct": None,
         "vs_other_sample_gap": "",
+        "vs_conc": "",
+        "vs_conc_warn": False,
+        "concentration_warn": None,
     }
     if holdings is None or not isinstance(holdings, list):
         return empty
@@ -6506,6 +6543,8 @@ def build_listed_fund_overlap_glance(
     vs_other_lead_pct: int | None = None
     vs_other_sample_gap = ""
     vs_other_own_bit = ""
+    vs_conc = ""
+    vs_conc_warn = False
     if n_book > 0 and n_overlap > 0:
         share_pct = round(100.0 * n_overlap / n_book)
         if share_pct >= LISTED_FUND_OVERLAP_SHARE_HOT:
@@ -6534,6 +6573,9 @@ def build_listed_fund_overlap_glance(
             n_overlap, n_other
         )
         vs_other_own_bit = vs_other_lead or vs_other_sample_gap
+        vs_conc, vs_conc_warn = listed_fund_overlap_vs_conc(
+            share_severity, concentration_warn
+        )
     bit_core = " · ".join(core_bits)
     if len(bit_core) > 96:
         # Keep lead theme + share on the strip; drop trailing themes.
@@ -6548,6 +6590,8 @@ def build_listed_fund_overlap_glance(
         lean_parts.append(other_bit)
     if vs_other_own_bit:
         lean_parts.append(vs_other_own_bit)
+    if vs_conc:
+        lean_parts.append(vs_conc)
     lean = " · ".join(lean_parts)
     bit = f"{bit_core} · {lean}" if lean else bit_core
     lean_warn = True  # ready overlap always warns (theme doubles)
@@ -6576,6 +6620,9 @@ def build_listed_fund_overlap_glance(
         "vs_other_lead_name": vs_other_lead_name,
         "vs_other_lead_pct": vs_other_lead_pct,
         "vs_other_sample_gap": vs_other_sample_gap,
+        "vs_conc": vs_conc,
+        "vs_conc_warn": vs_conc_warn,
+        "concentration_warn": concentration_warn,
     }
 
 
@@ -33671,6 +33718,16 @@ def load_desk_snapshot(
     )
     mark_coverage = build_mark_coverage(rows)
     ledger_health = build_ledger_health(data_dir)
+    concentration_glance = build_concentration_glance(book_risk)
+    conc_tone = str(concentration_glance.get("tone") or "")
+    listed_fund_conc_warn: bool | None = (
+        bool(concentration_glance.get("warn"))
+        if concentration_glance.get("ready") and conc_tone in {"clear", "warn"}
+        else None
+    )
+    listed_fund_overlap_glance = build_listed_fund_overlap_glance(
+        rows, concentration_warn=listed_fund_conc_warn
+    )
     mark_base = {
         "live": "Marks from live quotes + latest scan.",
         "live+scan": "Marks from live quotes + latest scan.",
@@ -33717,8 +33774,8 @@ def load_desk_snapshot(
         "next_buy_glance": build_next_buy_glance(entry_size),
         "book_risk": book_risk,
         "book_risk_glance": build_book_risk_glance(book_risk),
-        "concentration_glance": build_concentration_glance(book_risk),
-        "listed_fund_overlap_glance": build_listed_fund_overlap_glance(rows),
+        "concentration_glance": concentration_glance,
+        "listed_fund_overlap_glance": listed_fund_overlap_glance,
         "soft_allows": soft_allows,
         "ai_debates": ai_debates,
         "soft_allow_glance": soft_allow_glance,

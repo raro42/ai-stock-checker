@@ -1226,6 +1226,8 @@ def _concentration_glance_from_portfolio(
 
 def _listed_fund_overlap_glance_from_portfolio(
     portfolio: dict[str, Any],
+    *,
+    concentration_glance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Same-theme ETF/ETC doubles from open holdings (display only)."""
     from openbb_backend.desk import build_listed_fund_overlap_glance
@@ -1242,7 +1244,16 @@ def _listed_fund_overlap_glance_from_portfolio(
                 sym = str(row or "").strip()
             if sym:
                 symbols.append(sym)
-    return build_listed_fund_overlap_glance(symbols)
+    conc = concentration_glance if isinstance(concentration_glance, dict) else {}
+    conc_tone = str(conc.get("tone") or "")
+    conc_warn: bool | None = (
+        bool(conc.get("warn"))
+        if conc.get("ready") and conc_tone in {"clear", "warn"}
+        else None
+    )
+    return build_listed_fund_overlap_glance(
+        symbols, concentration_warn=conc_warn
+    )
 
 
 def _book_risk_report_from_portfolio(
@@ -1774,6 +1785,9 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
     laya_tone, debate_tone = memory_advisory_clock_tones(data_dir)
     price_panels = build_price_panels(data_dir)
+    concentration_glance = _concentration_glance_from_portfolio(
+        data_dir, portfolio
+    )
 
     payload = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1837,9 +1851,9 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "book_limits_glance": _book_limits_glance_from_config(data_dir),
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
-        "concentration_glance": _concentration_glance_from_portfolio(data_dir, portfolio),
+        "concentration_glance": concentration_glance,
         "listed_fund_overlap_glance": _listed_fund_overlap_glance_from_portfolio(
-            portfolio
+            portfolio, concentration_glance=concentration_glance
         ),
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
         "loop_cadence_glance": _loop_cadence_glance_from_config(data_dir),

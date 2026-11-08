@@ -10,6 +10,7 @@ from stock_checker.listed_funds import (
 from openbb_backend.desk import (
     build_listed_fund_overlap_glance,
     listed_fund_overlap_lean_meta,
+    listed_fund_overlap_vs_conc,
     listed_fund_overlap_vs_other_lead,
     listed_fund_overlap_vs_other_sample_gap,
     load_desk_snapshot,
@@ -66,6 +67,24 @@ def test_listed_fund_overlap_vs_other_lead_helpers() -> None:
     assert listed_fund_overlap_vs_other_sample_gap(2, 0) == ""
 
 
+def test_listed_fund_overlap_vs_conc() -> None:
+    bit, warn = listed_fund_overlap_vs_conc("hot", False)
+    assert bit == "clash · funds hot · Conc clear"
+    assert warn is True
+    bit, warn = listed_fund_overlap_vs_conc("hot", True)
+    assert bit == "align · funds hot · Conc warn"
+    assert warn is False
+    bit, warn = listed_fund_overlap_vs_conc("quiet", True)
+    assert bit == "clash · funds quiet · Conc warn"
+    assert warn is True
+    bit, warn = listed_fund_overlap_vs_conc("quiet", False)
+    assert bit == "align · funds quiet · Conc clear"
+    assert warn is False
+    assert listed_fund_overlap_vs_conc("", False) == ("", False)
+    assert listed_fund_overlap_vs_conc("hot", None) == ("", False)
+    assert listed_fund_overlap_vs_conc("mid", False) == ("", False)
+
+
 def test_listed_fund_overlap_lean_meta() -> None:
     assert listed_fund_overlap_lean_meta("") == "quiet"
     quiet = listed_fund_overlap_lean_meta(
@@ -79,6 +98,11 @@ def test_listed_fund_overlap_lean_meta() -> None:
     )
     assert warn.startswith("warn")
     assert "vs other" in warn
+    conc = listed_fund_overlap_lean_meta(
+        "clash · funds hot · Conc clear", warn=True
+    )
+    assert conc.startswith("warn")
+    assert "Conc" in conc
 
 
 def test_listed_fund_overlap_glance_warn() -> None:
@@ -136,6 +160,40 @@ def test_listed_fund_overlap_glance_share_hot() -> None:
     # Sole-side (all overlap) stays silent on ownership lead.
     assert g["vs_other_lead"] == ""
     assert g["vs_other_sample_gap"] == ""
+    # Unknown Conc stays silent.
+    assert g["vs_conc"] == ""
+    assert g["concentration_warn"] is None
+
+
+def test_listed_fund_overlap_glance_vs_conc_clash() -> None:
+    g = build_listed_fund_overlap_glance(
+        ["GLD", "4GLD.DE"], concentration_warn=False
+    )
+    assert g["ready"] is True
+    assert g["share_severity"] == "hot"
+    assert g["vs_conc"] == "clash · funds hot · Conc clear"
+    assert g["vs_conc_warn"] is True
+    assert "clash · funds hot · Conc clear" in g["lean"]
+    assert "Conc clear" not in g["line"]
+    assert "Conc" in g["lean_meta"]
+    align = build_listed_fund_overlap_glance(
+        ["GLD", "4GLD.DE"], concentration_warn=True
+    )
+    assert align["vs_conc"] == "align · funds hot · Conc warn"
+    assert align["vs_conc_warn"] is False
+    # Mid share stays silent on Conc even when Conc is known.
+    mid = build_listed_fund_overlap_glance(
+        [
+            {"symbol": "GLD"},
+            {"symbol": "4GLD.DE"},
+            {"symbol": "AAPL"},
+            {"symbol": "MSFT"},
+            {"symbol": "NVDA"},
+        ],
+        concentration_warn=False,
+    )
+    assert mid["share_severity"] == ""
+    assert mid["vs_conc"] == ""
 
 
 def test_listed_fund_overlap_glance_share_quiet() -> None:
@@ -202,6 +260,11 @@ def test_listed_fund_overlap_in_snapshot(tmp_path) -> None:
     assert g["ready"] is True
     assert g["theme"] == "gold"
     assert "GLD" in g["line"]
+    # Hot theme share + Conc clear (small lots vs cash) → clash under lean.
+    assert g["share_severity"] == "hot"
+    assert snap["concentration_glance"]["warn"] is False
+    assert g["vs_conc"] == "clash · funds hot · Conc clear"
+    assert "clash · funds hot · Conc clear" in g["lean"]
 
 
 def test_listed_fund_overlap_in_chart_payload(tmp_path) -> None:
@@ -214,7 +277,11 @@ def test_listed_fund_overlap_in_chart_payload(tmp_path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "trades.jsonl").write_text("", encoding="utf-8")
-    g = load_chart_payload(tmp_path)["listed_fund_overlap_glance"]
+    payload = load_chart_payload(tmp_path)
+    g = payload["listed_fund_overlap_glance"]
     assert g["ready"] is True
     assert g["theme"] == "us_equity"
     assert "US equity" in g["line"]
+    assert g["share_severity"] == "hot"
+    assert payload["concentration_glance"]["warn"] is False
+    assert g["vs_conc"] == "clash · funds hot · Conc clear"
