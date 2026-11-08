@@ -2,8 +2,12 @@
 """
 Risk management system for intelligent trading.
 Implements stop-loss, position sizing, and drawdown protection.
+
+Display/quarantine helper (A10) — not the live entry sizer. Still refuse
+non-finite / impossible Kelly inputs (tradermonty a1d65fd).
 """
 
+import math
 from typing import Dict, Optional, Tuple
 
 
@@ -54,6 +58,20 @@ class RiskManager:
         Returns:
             Number of shares to buy
         """
+        if (
+            not math.isfinite(portfolio_value)
+            or not math.isfinite(current_price)
+            or not math.isfinite(signal_strength)
+            or portfolio_value <= 0
+            or current_price <= 0
+            or signal_strength < 0
+        ):
+            return 0
+        if volatility is not None and (
+            not math.isfinite(volatility) or volatility < 0
+        ):
+            return 0
+
         # Base position size
         base_size = portfolio_value * self.max_position_size
 
@@ -233,13 +251,27 @@ class RiskManager:
             avg_loss: Average loss amount
 
         Returns:
-            Optimal position size fraction (0-1)
+            Optimal position size fraction (0-1). 0 when inputs are
+            non-finite or win_rate is not strictly between 0 and 1
+            (perfect WR made full Kelly 100% of equity — tradermonty a1d65fd).
         """
-        if avg_loss == 0 or win_rate == 0:
-            return self.max_position_size
+        if (
+            not math.isfinite(win_rate)
+            or not math.isfinite(avg_win)
+            or not math.isfinite(avg_loss)
+            or not (0.0 < win_rate < 1.0)
+            or avg_win <= 0
+            or avg_loss <= 0
+        ):
+            return 0.0
 
         win_loss_ratio = avg_win / avg_loss
+        if not math.isfinite(win_loss_ratio) or win_loss_ratio <= 0:
+            return 0.0
+
         kelly = (win_rate * win_loss_ratio - (1 - win_rate)) / win_loss_ratio
+        if not math.isfinite(kelly):
+            return 0.0
 
         # Apply half-Kelly for safety
         kelly = kelly * 0.5

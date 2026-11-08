@@ -3208,7 +3208,43 @@ def test_window_a_closes_kelly_triad() -> None:
     assert neg["closes_kelly_pct"] == -80.0
     assert neg["closes_kelly_neg"] is True
     assert neg["closes_kelly_thin"] is False
+    assert neg["closes_kelly_refuse"] is False
     assert neg["closes_kelly_bit"] == "A Kelly neg · −80%"
+
+    # WR=100% → refuse (perfect hit rate ≠ size fraction; tradermonty a1d65fd)
+    refuse = window_a_sample_readiness(
+        {
+            "trades": 8,
+            "buys": 4,
+            "sells": 4,
+            "wins": 4,
+            "losses": 0,
+            "payoff_ratio": 2.0,
+        }
+    )
+    assert refuse["closes_kelly_refuse"] is True
+    assert refuse["closes_kelly_neg"] is True
+    assert refuse["closes_kelly_pct"] is None
+    assert refuse["closes_kelly_severity"] == "refuse"
+    assert refuse["closes_kelly_bit"] == "A Kelly refuse · WR 100%"
+    assert format_window_a_closes_kelly_bit(refuse) == refuse["closes_kelly_bit"]
+    assert refuse["closes_half_kelly_bit"] == ""
+    assert refuse["closes_practical_kelly_bit"] == ""
+
+    # WR=0% with payoff → refuse (win_rate must be strictly inside (0,1))
+    refuse0 = window_a_sample_readiness(
+        {
+            "trades": 8,
+            "buys": 4,
+            "sells": 4,
+            "wins": 0,
+            "losses": 4,
+            "payoff_ratio": 2.0,
+        }
+    )
+    assert refuse0["closes_kelly_refuse"] is True
+    assert refuse0["closes_kelly_pct"] is None
+    assert refuse0["closes_kelly_bit"] == "A Kelly refuse · WR 0%"
 
 
 def test_promote_ab_glance_closes_kelly_neg_warns_but_ready() -> None:
@@ -3970,8 +4006,8 @@ def test_window_a_quarter_kelly_vs_conc_cap() -> None:
         "closes_quarter_kelly_cap_bit"
     ]
 
-    # 100% WR · payoff 2 → Kelly 100 → quarter 25 vs 30 → match (δ=-5)
-    match = window_a_sample_readiness(
+    # 100% WR · payoff 2 → Kelly refuse (tradermonty a1d65fd); no quarter nest
+    refuse = window_a_sample_readiness(
         {
             "trades": 8,
             "buys": 4,
@@ -3981,12 +4017,30 @@ def test_window_a_quarter_kelly_vs_conc_cap() -> None:
             "payoff_ratio": 2.0,
         }
     )
-    assert match["closes_kelly_pct"] == 100.0
-    assert match["closes_quarter_kelly_pct"] == 25.0
-    assert match["closes_quarter_kelly_vs_cap"] == "match"
-    assert match["closes_quarter_kelly_cap_under"] is False
+    assert refuse["closes_kelly_refuse"] is True
+    assert refuse["closes_kelly_pct"] is None
+    assert refuse["closes_kelly_bit"] == "A Kelly refuse · WR 100%"
+    assert refuse["closes_quarter_kelly_pct"] is None
+    assert refuse["closes_quarter_kelly_cap_bit"] == ""
+
+    # 80% WR · payoff 2 → Kelly 70 → quarter 17.5 vs 30 → under
+    match = window_a_sample_readiness(
+        {
+            "trades": 10,
+            "buys": 5,
+            "sells": 5,
+            "wins": 4,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+        }
+    )
+    assert match["closes_kelly_pct"] == 70.0
+    assert match["closes_quarter_kelly_pct"] == 17.5
+    assert match["closes_quarter_kelly_vs_cap"] == "under"
+    assert match["closes_quarter_kelly_cap_under"] is True
     assert match["closes_quarter_kelly_cap_bit"] == (
-        "A quarter-Kelly vs cap match · 25% vs 30%"
+        "A quarter-Kelly vs cap under · 17.5% vs 30%"
     )
 
 

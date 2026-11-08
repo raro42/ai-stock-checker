@@ -7,6 +7,7 @@ Calm streak unlocks compose default — A/B measures fee-adjusted live edge.
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -2496,6 +2497,7 @@ def window_a_sample_readiness(
         "closes_kelly_severity": "",
         "closes_kelly_thin": False,
         "closes_kelly_neg": False,
+        "closes_kelly_refuse": False,
         "closes_half_kelly_pct": None,
         "closes_half_kelly_sizer_pct": None,
         "closes_half_kelly_vs": "",
@@ -3412,39 +3414,65 @@ def window_a_sample_readiness(
     # f* = p − (1−p)/R. WR vs BE ≠ the equity fraction the edge supports.
     # Full Kelly only — not half-Kelly and not the live cash sizer.
     # neg ≤0 and thin <5% warn only (still ready for B).
+    # tradermonty position-sizer a1d65fd: refuse non-finite inputs and
+    # win_rate∉(0,1) — WR=100% made full Kelly 100% of equity with no warning.
     closes_kelly_pct: float | None = None
     closes_kelly_bit = ""
     closes_kelly_severity = ""
     closes_kelly_thin = False
     closes_kelly_neg = False
+    closes_kelly_refuse = False
     if (
         closes_win_rate_pct is not None
         and closes_payoff_ratio is not None
         and closes_payoff_ratio > 0
     ):
         p = closes_win_rate_pct / 100.0
-        kelly = p - ((1.0 - p) / closes_payoff_ratio)
-        closes_kelly_pct = round(kelly * 100.0, 1)
-        abs_k = abs(closes_kelly_pct)
-        if abs(abs_k - round(abs_k)) < 0.05:
-            num = f"{int(round(abs_k))}"
+        r = float(closes_payoff_ratio)
+        if not math.isfinite(p) or not math.isfinite(r):
+            closes_kelly_refuse = True
+            closes_kelly_neg = True  # reuse warn plumbing
+            closes_kelly_severity = "refuse"
+            closes_kelly_bit = "A Kelly refuse · non-finite"
+        elif not (0.0 < p < 1.0):
+            closes_kelly_refuse = True
+            closes_kelly_neg = True  # reuse warn plumbing
+            closes_kelly_severity = "refuse"
+            wr_s = (
+                f"{int(round(closes_win_rate_pct))}%"
+                if abs(closes_win_rate_pct - round(closes_win_rate_pct)) < 0.05
+                else f"{closes_win_rate_pct:.1f}%"
+            )
+            closes_kelly_bit = f"A Kelly refuse · WR {wr_s}"
         else:
-            num = f"{abs_k:.1f}"
-        if closes_kelly_pct < 0:
-            closes_kelly_neg = True
-            closes_kelly_bit = f"A Kelly neg · −{num}%"
-        elif closes_kelly_pct == 0:
-            closes_kelly_neg = True
-            closes_kelly_bit = "A Kelly neg · 0%"
-        elif closes_kelly_pct < WINDOW_A_KELLY_THIN_PCT:
-            closes_kelly_severity = "thin"
-            closes_kelly_thin = True
-            closes_kelly_bit = f"A Kelly thin · {num}%"
-        elif closes_kelly_pct >= WINDOW_A_KELLY_STRONG_PCT:
-            closes_kelly_severity = "strong"
-            closes_kelly_bit = f"A Kelly strong · {num}%"
-        else:
-            closes_kelly_bit = f"A Kelly · {num}%"
+            kelly = p - ((1.0 - p) / r)
+            if not math.isfinite(kelly):
+                closes_kelly_refuse = True
+                closes_kelly_neg = True
+                closes_kelly_severity = "refuse"
+                closes_kelly_bit = "A Kelly refuse · non-finite"
+            else:
+                closes_kelly_pct = round(kelly * 100.0, 1)
+                abs_k = abs(closes_kelly_pct)
+                if abs(abs_k - round(abs_k)) < 0.05:
+                    num = f"{int(round(abs_k))}"
+                else:
+                    num = f"{abs_k:.1f}"
+                if closes_kelly_pct < 0:
+                    closes_kelly_neg = True
+                    closes_kelly_bit = f"A Kelly neg · −{num}%"
+                elif closes_kelly_pct == 0:
+                    closes_kelly_neg = True
+                    closes_kelly_bit = "A Kelly neg · 0%"
+                elif closes_kelly_pct < WINDOW_A_KELLY_THIN_PCT:
+                    closes_kelly_severity = "thin"
+                    closes_kelly_thin = True
+                    closes_kelly_bit = f"A Kelly thin · {num}%"
+                elif closes_kelly_pct >= WINDOW_A_KELLY_STRONG_PCT:
+                    closes_kelly_severity = "strong"
+                    closes_kelly_bit = f"A Kelly strong · {num}%"
+                else:
+                    closes_kelly_bit = f"A Kelly · {num}%"
 
     # Portfolio AI half-Kelly vs the live ~10% cash sizer.
     # Practitioners size at half of full Kelly. The desk uses ~10% of cash.
@@ -5447,6 +5475,7 @@ def window_a_sample_readiness(
         "closes_kelly_severity": closes_kelly_severity,
         "closes_kelly_thin": closes_kelly_thin,
         "closes_kelly_neg": closes_kelly_neg,
+        "closes_kelly_refuse": closes_kelly_refuse,
         "closes_half_kelly_pct": closes_half_kelly_pct,
         "closes_half_kelly_sizer_pct": closes_half_kelly_sizer_pct,
         "closes_half_kelly_vs": closes_half_kelly_vs,
