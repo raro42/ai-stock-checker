@@ -155,6 +155,49 @@ def opportunity_damaged_vs_ok_lean(
     return "", False
 
 
+def opportunity_damaged_vs_ok_delta(
+    damaged_share_pct: float | int | None,
+    ok_share_pct: float | int | None,
+    *,
+    lean_bit: str = "",
+    wide_pp: float = 20.0,
+    thin_pp: float = 10.0,
+) -> tuple[int | None, str, str, bool]:
+    """Share Δ after damaged vs ok lean (display only).
+
+    Lean alone hid how far ``damaged% − ok%`` sits (Screener junk vs ok
+    share Δ + behind-vs-pin Δ + portfolio AI count≠spread). Requires lean
+    already spoke. Wide ≥``wide_pp`` · thin <``thin_pp`` · mid →
+    ``lean vs Δ clash · lean · Δ mid`` (warn). Adverse
+    ``align · hot|thin`` + Δ wide warns; ``quiet|strong`` stays calm.
+
+    Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    """
+    if not str(lean_bit or "").strip():
+        return None, "", "", False
+    if damaged_share_pct is None or ok_share_pct is None:
+        return None, "", "", False
+    try:
+        dmg = float(damaged_share_pct)
+        ok = float(ok_share_pct)
+    except (TypeError, ValueError):
+        return None, "", "", False
+    raw = int(round(dmg - ok))
+    abs_delta = abs(raw)
+    delta_sev = ""
+    if abs_delta >= wide_pp:
+        delta_sev = "wide"
+    elif abs_delta < thin_pp:
+        delta_sev = "thin"
+    if delta_sev:
+        lean_vs_delta = f"align · {delta_sev}"
+        lean_vs_delta_warn = delta_sev == "wide" and str(lean_bit).startswith(
+            "damaged vs ok align · hot|thin"
+        )
+        return raw, delta_sev, lean_vs_delta, lean_vs_delta_warn
+    return raw, "", "clash · lean · Δ mid", True
+
+
 def newest_usable_opportunity_publish(archive_dir: Path) -> Path | None:
     """Newest filename among usable timestamped publishes (or None)."""
     usable = usable_opportunity_publishes(archive_dir)

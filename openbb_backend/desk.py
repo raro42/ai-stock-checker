@@ -1033,11 +1033,14 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     xang1234 market-history multi-meter). When damaged+ok severity bands
     already spoke, also put ``damaged vs ok align|clash · …`` in
     ``pin_lean`` (Screener junk vs ok lean — sides alone hid lean agreement;
-    fold keeps the scan-freshness core clip short). Display fields only —
-    not an entry gate.
+    fold keeps the scan-freshness core clip short). When lean already spoke,
+    also speak ``Δ wide|thin · ±Npp`` + ``lean vs Δ …`` so lean alone does
+    not hide how far damaged%−ok% sits (Screener junk vs ok share Δ +
+    behind-vs-pin Δ). Display fields only — not an entry gate.
     """
     from stock_checker.opportunity_archive import (
         damaged_opportunity_publish_count,
+        opportunity_damaged_vs_ok_delta,
         opportunity_damaged_vs_ok_lead,
         opportunity_damaged_vs_ok_lean,
         opportunity_damaged_vs_ok_sample_gap,
@@ -1091,6 +1094,10 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "damaged_vs_ok_sample_gap": "",
         "damaged_vs_ok_lean": "",
         "damaged_vs_ok_lean_warn": False,
+        "damaged_vs_ok_delta_pp": None,
+        "damaged_vs_ok_delta_severity": "",
+        "damaged_vs_ok_lean_vs_delta": "",
+        "damaged_vs_ok_lean_vs_delta_warn": False,
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1406,6 +1413,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         # (claim-drop vs live lead + xang1234 market-history multi-meter).
         # Severity bands alone hid lean agreement — Screener junk vs ok lean
         # sits in pin_lean (MonsterDeveloper fold) so bit_core stays short.
+        # Lean alone hid damaged%−ok% spread — Screener junk vs ok share Δ +
+        # behind-vs-pin Δ after lean (adverse hot|thin + Δ wide warns).
         if n_damaged > 0:
             sev = str(out.get("damaged_share_severity") or "")
             pct = out.get("damaged_share_pct")
@@ -1434,12 +1443,35 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             bit_core = f"{n_damaged} damaged{sev_bit}{pct_bit}{ok_bit}{own_bit}"
             out["bit_core"] = bit_core
             if lean_bit:
+                (
+                    delta_pp,
+                    delta_sev,
+                    lean_vs_delta,
+                    lean_vs_delta_warn,
+                ) = opportunity_damaged_vs_ok_delta(
+                    pct,
+                    ok_pct,
+                    lean_bit=lean_bit,
+                    wide_pp=ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_WIDE_PP,
+                    thin_pp=ARCHIVE_PIN_BEHIND_VS_PIN_DELTA_THIN_PP,
+                )
                 out["damaged_vs_ok_lean"] = lean_bit
                 out["damaged_vs_ok_lean_warn"] = lean_warn
-                out["pin_lean"] = lean_bit
-                out["pin_lean_warn"] = lean_warn
-                # Full bit keeps lean joined for tests; strip shows bit_core.
-                out["bit"] = f"{bit_core} · {lean_bit}"
+                out["damaged_vs_ok_delta_pp"] = delta_pp
+                out["damaged_vs_ok_delta_severity"] = delta_sev
+                out["damaged_vs_ok_lean_vs_delta"] = lean_vs_delta
+                out["damaged_vs_ok_lean_vs_delta_warn"] = lean_vs_delta_warn
+                pin_parts = [lean_bit]
+                if delta_sev and delta_pp is not None:
+                    sign = f"+{delta_pp}" if delta_pp > 0 else f"{delta_pp}"
+                    pin_parts.append(f"Δ {delta_sev} · {sign}pp")
+                if lean_vs_delta:
+                    pin_parts.append(f"lean vs Δ {lean_vs_delta}")
+                pin_lean = " · ".join(pin_parts)
+                out["pin_lean"] = pin_lean
+                out["pin_lean_warn"] = bool(lean_warn or lean_vs_delta_warn)
+                # Full bit keeps lean/Δ joined for tests; strip shows bit_core.
+                out["bit"] = f"{bit_core} · {pin_lean}"
             else:
                 out["bit"] = bit_core
             out["warn"] = True

@@ -8,6 +8,7 @@ from pathlib import Path
 from openbb_backend.desk import build_scan_freshness, resolve_opportunities_archive
 from stock_checker.opportunity_archive import (
     heal_opportunities_latest_pin,
+    opportunity_damaged_vs_ok_delta,
     opportunity_damaged_vs_ok_lead,
     opportunity_damaged_vs_ok_lean,
     opportunity_damaged_vs_ok_sample_gap,
@@ -548,12 +549,19 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
         "damaged vs ok clash · damaged hot · ok ok"
     )
     assert res["damaged_vs_ok_lean_warn"] is True
-    assert res["pin_lean"] == res["damaged_vs_ok_lean"]
-    assert res["pin_lean_warn"] is True
+    # 50/50 → 0pp thin (abs <10); lean vs Δ align · thin (mid is 10–19pp).
+    assert res["damaged_vs_ok_delta_pp"] == 0
+    assert res["damaged_vs_ok_delta_severity"] == "thin"
+    assert res["damaged_vs_ok_lean_vs_delta"] == "align · thin"
+    assert res["damaged_vs_ok_lean_vs_delta_warn"] is False
+    assert res["pin_lean"] == (
+        f"{res['damaged_vs_ok_lean']} · Δ thin · 0pp · lean vs Δ align · thin"
+    )
+    assert res["pin_lean_warn"] is True  # lean clash still warns
     assert res["bit_core"] == (
         "1 damaged · hot · 50% · vs 1 ok · 50% · damaged/ok tied"
     )
-    assert res["bit"] == f"{res['bit_core']} · {res['damaged_vs_ok_lean']}"
+    assert res["bit"] == f"{res['bit_core']} · {res['pin_lean']}"
     assert Path(res["path"]).resolve() == pinned.resolve()
 
 
@@ -590,12 +598,19 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
         "damaged vs ok align · quiet|strong"
     )
     assert res["damaged_vs_ok_lean_warn"] is False
-    assert res["pin_lean"] == res["damaged_vs_ok_lean"]
+    # 20−80 = −60pp wide; favorable quiet|strong stays calm on Δ warn.
+    assert res["damaged_vs_ok_delta_pp"] == -60
+    assert res["damaged_vs_ok_delta_severity"] == "wide"
+    assert res["damaged_vs_ok_lean_vs_delta"] == "align · wide"
+    assert res["damaged_vs_ok_lean_vs_delta_warn"] is False
+    assert res["pin_lean"] == (
+        f"{res['damaged_vs_ok_lean']} · Δ wide · -60pp · lean vs Δ align · wide"
+    )
     assert res["pin_lean_warn"] is False
     assert res["bit_core"] == (
         "1 damaged · quiet · 20% · vs 4 ok · strong · 80% · lead ok · 80%"
     )
-    assert res["bit"] == f"{res['bit_core']} · {res['damaged_vs_ok_lean']}"
+    assert res["bit"] == f"{res['bit_core']} · {res['pin_lean']}"
     assert res["warn"] is True
 
 
@@ -628,12 +643,19 @@ def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
         "damaged vs ok align · hot|thin"
     )
     assert res["damaged_vs_ok_lean_warn"] is False
-    assert res["pin_lean"] == res["damaged_vs_ok_lean"]
-    assert res["pin_lean_warn"] is False
+    # 75−25 = +50pp wide; adverse hot|thin + Δ wide warns.
+    assert res["damaged_vs_ok_delta_pp"] == 50
+    assert res["damaged_vs_ok_delta_severity"] == "wide"
+    assert res["damaged_vs_ok_lean_vs_delta"] == "align · wide"
+    assert res["damaged_vs_ok_lean_vs_delta_warn"] is True
+    assert res["pin_lean"] == (
+        f"{res['damaged_vs_ok_lean']} · Δ wide · +50pp · lean vs Δ align · wide"
+    )
+    assert res["pin_lean_warn"] is True
     assert res["bit_core"] == (
         "3 damaged · hot · 75% · vs 1 ok · thin · 25% · lead damaged · 75%"
     )
-    assert res["bit"] == f"{res['bit_core']} · {res['damaged_vs_ok_lean']}"
+    assert res["bit"] == f"{res['bit_core']} · {res['pin_lean']}"
     assert res["warn"] is True
 
 
@@ -681,3 +703,45 @@ def test_opportunity_damaged_vs_ok_lean_helpers() -> None:
 
     assert opportunity_damaged_vs_ok_lean("", "") == ("", False)
     assert opportunity_damaged_vs_ok_lean("ok", "ok") == ("", False)
+
+
+def test_opportunity_damaged_vs_ok_delta_helpers() -> None:
+    """Wide / thin / mid + adverse hot|thin warn for damaged vs ok share Δ."""
+    lean_fav = "damaged vs ok align · quiet|strong"
+    pp, sev, lvd, warn = opportunity_damaged_vs_ok_delta(
+        20, 80, lean_bit=lean_fav
+    )
+    assert (pp, sev, lvd, warn) == (-60, "wide", "align · wide", False)
+
+    lean_adv = "damaged vs ok align · hot|thin"
+    pp, sev, lvd, warn = opportunity_damaged_vs_ok_delta(
+        75, 25, lean_bit=lean_adv
+    )
+    assert (pp, sev, lvd, warn) == (50, "wide", "align · wide", True)
+
+    lean_clash = "damaged vs ok clash · damaged hot · ok ok"
+    # 0pp is thin (abs <10), not mid.
+    pp, sev, lvd, warn = opportunity_damaged_vs_ok_delta(
+        50, 50, lean_bit=lean_clash
+    )
+    assert (pp, sev, lvd, warn) == (0, "thin", "align · thin", False)
+
+    # Mid band (10≤abs<20) → lean vs Δ clash · lean · Δ mid.
+    pp, sev, lvd, warn = opportunity_damaged_vs_ok_delta(
+        55, 45, lean_bit=lean_clash
+    )
+    assert (pp, sev, lvd, warn) == (10, "", "clash · lean · Δ mid", True)
+
+    # Thin spread (<10pp) when lean spoke.
+    pp, sev, lvd, warn = opportunity_damaged_vs_ok_delta(
+        52, 48, lean_bit=lean_clash
+    )
+    assert (pp, sev, lvd, warn) == (4, "thin", "align · thin", False)
+
+    # No lean → silent.
+    assert opportunity_damaged_vs_ok_delta(75, 25, lean_bit="") == (
+        None,
+        "",
+        "",
+        False,
+    )
