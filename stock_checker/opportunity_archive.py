@@ -227,6 +227,36 @@ def opportunity_damaged_vs_ok_delta_lead(
     return "damaged" if pp > 0 else "ok"
 
 
+def opportunity_damaged_vs_ok_delta_lead_size(
+    damaged_share_pct: float | int | None,
+    ok_share_pct: float | int | None,
+    *,
+    delta_lead: str = "",
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after Δ lead (display only).
+
+    When ``delta_lead`` already spoke (``damaged|ok``) and both shares are
+    known, ``Δ lead size · N×`` is louder%÷quieter%; zero quieter (all one
+    side) stays silent. Lead name ≠ magnitude (Screener junk vs ok /
+    unique vs dup Δ lead size + portfolio AI count≠share). Returns
+    ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
+    """
+    if str(delta_lead or "").strip().casefold() not in {"damaged", "ok"}:
+        return None, None, None
+    if damaged_share_pct is None or ok_share_pct is None:
+        return None, None, None
+    try:
+        dmg = float(damaged_share_pct)
+        ok = float(ok_share_pct)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(dmg, ok)
+    quieter = min(dmg, ok)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def newest_usable_opportunity_publish(archive_dir: Path) -> Path | None:
     """Newest filename among usable timestamped publishes (or None)."""
     usable = usable_opportunity_publishes(archive_dir)

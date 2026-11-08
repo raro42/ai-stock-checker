@@ -10,6 +10,7 @@ from stock_checker.opportunity_archive import (
     heal_opportunities_latest_pin,
     opportunity_damaged_vs_ok_delta,
     opportunity_damaged_vs_ok_delta_lead,
+    opportunity_damaged_vs_ok_delta_lead_size,
     opportunity_damaged_vs_ok_lead,
     opportunity_damaged_vs_ok_lean,
     opportunity_damaged_vs_ok_sample_gap,
@@ -555,8 +556,11 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_delta_severity"] == "thin"
     assert res["damaged_vs_ok_lean_vs_delta"] == "align · thin"
     assert res["damaged_vs_ok_lean_vs_delta_warn"] is False
-    # 0pp thin → Δ lead silent (signed zero has no owner).
+    # 0pp thin → Δ lead silent (signed zero has no owner); size stays silent.
     assert res["damaged_vs_ok_delta_lead"] == ""
+    assert res["damaged_vs_ok_delta_lead_size"] is None
+    assert res["damaged_vs_ok_delta_lead_size_louder_pct"] is None
+    assert res["damaged_vs_ok_delta_lead_size_quieter_pct"] is None
     assert res["pin_lean"] == (
         f"{res['damaged_vs_ok_lean']} · Δ thin · 0pp · lean vs Δ align · thin"
     )
@@ -607,9 +611,15 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_lean_vs_delta"] == "align · wide"
     assert res["damaged_vs_ok_lean_vs_delta_warn"] is False
     assert res["damaged_vs_ok_delta_lead"] == "ok"
+    # 80÷20 = 4×; lead name ≠ how many times louder owns quieter.
+    assert res["damaged_vs_ok_delta_lead_size"] == 4.0
+    assert res["damaged_vs_ok_delta_lead_size_louder_pct"] == 80
+    assert res["damaged_vs_ok_delta_lead_size_quieter_pct"] == 20
     assert res["pin_lean"] == (
         f"{res['damaged_vs_ok_lean']} · Δ wide · -60pp · "
-        "lean vs Δ align · wide · Δ lead · ok"
+        "lean vs Δ align · wide · Δ lead · ok · "
+        "Δ lead size · 4× · "
+        "Δ lead size sides · louder 80% · quieter 20%"
     )
     assert res["pin_lean_warn"] is False
     assert res["bit_core"] == (
@@ -654,9 +664,15 @@ def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_lean_vs_delta"] == "align · wide"
     assert res["damaged_vs_ok_lean_vs_delta_warn"] is True
     assert res["damaged_vs_ok_delta_lead"] == "damaged"
+    # 75÷25 = 3×; lead name ≠ magnitude.
+    assert res["damaged_vs_ok_delta_lead_size"] == 3.0
+    assert res["damaged_vs_ok_delta_lead_size_louder_pct"] == 75
+    assert res["damaged_vs_ok_delta_lead_size_quieter_pct"] == 25
     assert res["pin_lean"] == (
         f"{res['damaged_vs_ok_lean']} · Δ wide · +50pp · "
-        "lean vs Δ align · wide · Δ lead · damaged"
+        "lean vs Δ align · wide · Δ lead · damaged · "
+        "Δ lead size · 3× · "
+        "Δ lead size sides · louder 75% · quieter 25%"
     )
     assert res["pin_lean_warn"] is True
     assert res["bit_core"] == (
@@ -794,3 +810,23 @@ def test_opportunity_damaged_vs_ok_delta_lead_helpers() -> None:
         )
         == ""
     )
+
+
+def test_opportunity_damaged_vs_ok_delta_lead_size_helpers() -> None:
+    """Louder÷quieter after Δ lead; missing lead / zero quieter silent."""
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        75, 25, delta_lead="damaged"
+    ) == (3.0, 75.0, 25.0)
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        20, 80, delta_lead="ok"
+    ) == (4.0, 80.0, 20.0)
+    # No lead / zero quieter / missing shares → silent.
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        75, 25, delta_lead=""
+    ) == (None, None, None)
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        100, 0, delta_lead="damaged"
+    ) == (None, None, None)
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        None, 25, delta_lead="damaged"
+    ) == (None, None, None)

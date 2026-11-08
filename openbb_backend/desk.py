@@ -1039,12 +1039,16 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     behind-vs-pin Δ). When lean vs Δ already spoke with a Δ and ±pp ≠ 0,
     also speak ``Δ lead · damaged|ok`` so signed pp alone does not hide
     which slot type owns the spread (Screener unique vs dup / Yahoo mix /
-    Window A sleeve Δ lead). Display fields only — not an entry gate.
+    Window A sleeve Δ lead). When Δ lead already spoke and quieter% > 0,
+    also speak ``Δ lead size · N×`` + ``Δ lead size sides · louder N% ·
+    quieter M%`` so lead name ≠ magnitude (Screener junk vs ok Δ lead
+    size). Display fields only — not an entry gate.
     """
     from stock_checker.opportunity_archive import (
         damaged_opportunity_publish_count,
         opportunity_damaged_vs_ok_delta,
         opportunity_damaged_vs_ok_delta_lead,
+        opportunity_damaged_vs_ok_delta_lead_size,
         opportunity_damaged_vs_ok_lead,
         opportunity_damaged_vs_ok_lean,
         opportunity_damaged_vs_ok_sample_gap,
@@ -1103,6 +1107,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "damaged_vs_ok_lean_vs_delta": "",
         "damaged_vs_ok_lean_vs_delta_warn": False,
         "damaged_vs_ok_delta_lead": "",
+        "damaged_vs_ok_delta_lead_size": None,
+        "damaged_vs_ok_delta_lead_size_louder_pct": None,
+        "damaged_vs_ok_delta_lead_size_quieter_pct": None,
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1422,6 +1429,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         # behind-vs-pin Δ after lean (adverse hot|thin + Δ wide warns).
         # Signed pp alone hid which slot owns the spread — Δ lead after
         # lean vs Δ (unique vs dup / Yahoo mix / Window A sleeve parity).
+        # Lead name ≠ magnitude — Δ lead size · N× (louder%÷quieter%) +
+        # sides louder/quieter % (Screener junk vs ok Δ lead size parity).
         if n_damaged > 0:
             sev = str(out.get("damaged_share_severity") or "")
             pct = out.get("damaged_share_pct")
@@ -1474,6 +1483,16 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                     lean_vs_delta=lean_vs_delta,
                 )
                 out["damaged_vs_ok_delta_lead"] = delta_lead
+                size, louder_pct, quieter_pct = (
+                    opportunity_damaged_vs_ok_delta_lead_size(
+                        pct,
+                        ok_pct,
+                        delta_lead=delta_lead,
+                    )
+                )
+                out["damaged_vs_ok_delta_lead_size"] = size
+                out["damaged_vs_ok_delta_lead_size_louder_pct"] = louder_pct
+                out["damaged_vs_ok_delta_lead_size_quieter_pct"] = quieter_pct
                 pin_parts = [lean_bit]
                 if delta_sev and delta_pp is not None:
                     sign = f"+{delta_pp}" if delta_pp > 0 else f"{delta_pp}"
@@ -1482,6 +1501,13 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                     pin_parts.append(f"lean vs Δ {lean_vs_delta}")
                 if delta_lead:
                     pin_parts.append(f"Δ lead · {delta_lead}")
+                if size is not None:
+                    pin_parts.append(f"Δ lead size · {size:g}×")
+                if louder_pct is not None and quieter_pct is not None:
+                    pin_parts.append(
+                        "Δ lead size sides · louder "
+                        f"{louder_pct:g}% · quieter {quieter_pct:g}%"
+                    )
                 pin_lean = " · ".join(pin_parts)
                 out["pin_lean"] = pin_lean
                 out["pin_lean_warn"] = bool(lean_warn or lean_vs_delta_warn)
