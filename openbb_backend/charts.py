@@ -344,6 +344,65 @@ def chart_price_bars_vs_fresh(
     return f"vs {fresh} fresh · {sev_bit}", fresh, fresh_pct, severity
 
 
+def chart_price_bars_spoken_vs_fresh_lead(
+    n_spoken: int,
+    n_fresh: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among spoken vs fresh panel counts (display only).
+
+    Absolute ``N bars aging|stale`` beside ``vs M fresh`` hid which slot
+    owns the book (opportunity damaged vs ok lead / Yahoo claim-drop vs
+    live + portfolio AI count≠share + xang1234 multi-meter). Both sides
+    must be >0 and total ≥2; strict lead → ``lead spoken · N%`` /
+    ``lead fresh · N%``; ties / sole-side → silent (use
+    ``chart_price_bars_spoken_vs_fresh_sample_gap`` for ``spoken/fresh tied``).
+    """
+    try:
+        spoken = max(0, int(n_spoken))
+    except (TypeError, ValueError):
+        spoken = 0
+    try:
+        fresh = max(0, int(n_fresh))
+    except (TypeError, ValueError):
+        fresh = 0
+    total = spoken + fresh
+    if total < 2 or spoken <= 0 or fresh <= 0 or spoken == fresh:
+        return "", "", None
+    if spoken > fresh:
+        name, n = "spoken", spoken
+    else:
+        name, n = "fresh", fresh
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def chart_price_bars_spoken_vs_fresh_sample_gap(
+    n_spoken: int,
+    n_fresh: int,
+) -> str:
+    """Speak ``spoken/fresh tied`` when both sides spoke with no strict lead.
+
+    Prefixed so the bit stays distinct from ``aging/stale tied``. Lead /
+    sole-side / zero stay silent. Display only.
+    """
+    try:
+        spoken = max(0, int(n_spoken))
+    except (TypeError, ValueError):
+        spoken = 0
+    try:
+        fresh = max(0, int(n_fresh))
+    except (TypeError, ValueError):
+        fresh = 0
+    if spoken <= 0 or fresh <= 0:
+        return ""
+    lead_bit, _name, _share = chart_price_bars_spoken_vs_fresh_lead(
+        spoken, fresh
+    )
+    if lead_bit:
+        return ""
+    return "spoken/fresh tied"
+
+
 def chart_last_bar_meta(
     points: list[dict[str, Any]],
     *,
@@ -482,11 +541,14 @@ def chart_price_bars_glance(
     book — speak ownership share (portfolio AI count≠share + xang1234 multi-meter).
     When spoken share already spoke, also speak ``vs N fresh · [strong|thin] ·
     P%`` so spoken% ≠ silent empty fresh peers (Screener junk vs ok / Yahoo
-    claim-drop vs kept). When both aging and stale spoke, also speak
-    ``lead stale|aging · N%`` or ``aging/stale tied`` so absolute sides ≠
-    silent ownership. After a strict lead, also speak ``lead size · N×`` +
-    sides so name/% ≠ magnitude. Zero spoken stays silent. Not a scoring
-    veto / not a new entry gate.
+    claim-drop vs kept). When vs-fresh already spoke and both spoken + fresh
+    counts are >0, also speak ``lead spoken|fresh · N%`` or
+    ``spoken/fresh tied`` so absolute sides ≠ silent book ownership. When both
+    aging and stale spoke, also speak ``lead stale|aging · N%`` or
+    ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
+    aging/stale lead, also speak ``lead size · N×`` + sides so name/% ≠
+    magnitude. Zero spoken stays silent. Not a scoring veto / not a new entry
+    gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -504,6 +566,10 @@ def chart_price_bars_glance(
         "vs_fresh_n": None,
         "vs_fresh_share_pct": None,
         "vs_fresh_severity": "",
+        "spoken_vs_fresh_lead": "",
+        "spoken_vs_fresh_lead_name": "",
+        "spoken_vs_fresh_lead_share_pct": None,
+        "spoken_vs_fresh_sample_gap": "",
         "aging_stale_lead": "",
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
@@ -548,6 +614,16 @@ def chart_price_bars_glance(
     vs_fresh_bit, vs_fresh_n, vs_fresh_pct, vs_fresh_sev = (
         chart_price_bars_vs_fresh(n_spoken, n_fresh, n_panels)
     )
+    sf_lead_bit, sf_lead_name, sf_lead_share = (
+        chart_price_bars_spoken_vs_fresh_lead(n_spoken, n_fresh)
+        if vs_fresh_bit
+        else ("", "", None)
+    )
+    sf_sample_gap = (
+        chart_price_bars_spoken_vs_fresh_sample_gap(n_spoken, n_fresh)
+        if vs_fresh_bit
+        else ""
+    )
     lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
         n_aging, n_stale
     )
@@ -556,9 +632,12 @@ def chart_price_bars_glance(
         n_aging, n_stale, lead_name=lead_name
     )
     own_bit = lead_bit or sample_gap
+    sf_own = sf_lead_bit or sf_sample_gap
     bit = f"{count_bit} · {share_bit}"
     if vs_fresh_bit:
         bit = f"{bit} · {vs_fresh_bit}"
+    if sf_own:
+        bit = f"{bit} · {sf_own}"
     if own_bit:
         bit = f"{bit} · {own_bit}"
     if size is not None and louder_n is not None and quieter_n is not None:
@@ -590,6 +669,10 @@ def chart_price_bars_glance(
         "vs_fresh_n": vs_fresh_n,
         "vs_fresh_share_pct": vs_fresh_pct,
         "vs_fresh_severity": vs_fresh_sev,
+        "spoken_vs_fresh_lead": sf_lead_bit,
+        "spoken_vs_fresh_lead_name": sf_lead_name,
+        "spoken_vs_fresh_lead_share_pct": sf_lead_share,
+        "spoken_vs_fresh_sample_gap": sf_sample_gap,
         "aging_stale_lead": lead_bit,
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,
