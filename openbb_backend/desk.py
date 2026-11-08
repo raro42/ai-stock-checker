@@ -1036,11 +1036,15 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     fold keeps the scan-freshness core clip short). When lean already spoke,
     also speak ``Δ wide|thin · ±Npp`` + ``lean vs Δ …`` so lean alone does
     not hide how far damaged%−ok% sits (Screener junk vs ok share Δ +
-    behind-vs-pin Δ). Display fields only — not an entry gate.
+    behind-vs-pin Δ). When lean vs Δ already spoke with a Δ and ±pp ≠ 0,
+    also speak ``Δ lead · damaged|ok`` so signed pp alone does not hide
+    which slot type owns the spread (Screener unique vs dup / Yahoo mix /
+    Window A sleeve Δ lead). Display fields only — not an entry gate.
     """
     from stock_checker.opportunity_archive import (
         damaged_opportunity_publish_count,
         opportunity_damaged_vs_ok_delta,
+        opportunity_damaged_vs_ok_delta_lead,
         opportunity_damaged_vs_ok_lead,
         opportunity_damaged_vs_ok_lean,
         opportunity_damaged_vs_ok_sample_gap,
@@ -1098,6 +1102,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "damaged_vs_ok_delta_severity": "",
         "damaged_vs_ok_lean_vs_delta": "",
         "damaged_vs_ok_lean_vs_delta_warn": False,
+        "damaged_vs_ok_delta_lead": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1415,6 +1420,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         # sits in pin_lean (MonsterDeveloper fold) so bit_core stays short.
         # Lean alone hid damaged%−ok% spread — Screener junk vs ok share Δ +
         # behind-vs-pin Δ after lean (adverse hot|thin + Δ wide warns).
+        # Signed pp alone hid which slot owns the spread — Δ lead after
+        # lean vs Δ (unique vs dup / Yahoo mix / Window A sleeve parity).
         if n_damaged > 0:
             sev = str(out.get("damaged_share_severity") or "")
             pct = out.get("damaged_share_pct")
@@ -1461,12 +1468,20 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 out["damaged_vs_ok_delta_severity"] = delta_sev
                 out["damaged_vs_ok_lean_vs_delta"] = lean_vs_delta
                 out["damaged_vs_ok_lean_vs_delta_warn"] = lean_vs_delta_warn
+                delta_lead = opportunity_damaged_vs_ok_delta_lead(
+                    delta_pp,
+                    delta_sev,
+                    lean_vs_delta=lean_vs_delta,
+                )
+                out["damaged_vs_ok_delta_lead"] = delta_lead
                 pin_parts = [lean_bit]
                 if delta_sev and delta_pp is not None:
                     sign = f"+{delta_pp}" if delta_pp > 0 else f"{delta_pp}"
                     pin_parts.append(f"Δ {delta_sev} · {sign}pp")
                 if lean_vs_delta:
                     pin_parts.append(f"lean vs Δ {lean_vs_delta}")
+                if delta_lead:
+                    pin_parts.append(f"Δ lead · {delta_lead}")
                 pin_lean = " · ".join(pin_parts)
                 out["pin_lean"] = pin_lean
                 out["pin_lean_warn"] = bool(lean_warn or lean_vs_delta_warn)

@@ -198,6 +198,35 @@ def opportunity_damaged_vs_ok_delta(
     return raw, "", "clash · lean · Δ mid", True
 
 
+def opportunity_damaged_vs_ok_delta_lead(
+    delta_pp: int | None,
+    delta_severity: str,
+    *,
+    lean_vs_delta: str = "",
+) -> str:
+    """Name which slot type owns a spoken damaged vs ok Δ (display only).
+
+    When lean vs Δ already spoke with a Δ (wide|thin) and ±pp ≠ 0,
+    positive ``damaged% − ok%`` → ``damaged``; negative → ``ok``. Mid-Δ
+    clash / 0pp stay silent. Signed pp alone hid which archive slot type
+    owns the spread (Screener unique vs dup / Yahoo mix / Window A sleeve
+    Δ lead + portfolio AI speak-both-sides). Returns ``damaged|ok`` / ``\"\"``.
+    """
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
+        return ""
+    if delta_pp is None:
+        return ""
+    try:
+        pp = int(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if pp == 0:
+        return ""
+    return "damaged" if pp > 0 else "ok"
+
+
 def newest_usable_opportunity_publish(archive_dir: Path) -> Path | None:
     """Newest filename among usable timestamped publishes (or None)."""
     usable = usable_opportunity_publishes(archive_dir)

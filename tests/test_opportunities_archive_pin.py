@@ -9,6 +9,7 @@ from openbb_backend.desk import build_scan_freshness, resolve_opportunities_arch
 from stock_checker.opportunity_archive import (
     heal_opportunities_latest_pin,
     opportunity_damaged_vs_ok_delta,
+    opportunity_damaged_vs_ok_delta_lead,
     opportunity_damaged_vs_ok_lead,
     opportunity_damaged_vs_ok_lean,
     opportunity_damaged_vs_ok_sample_gap,
@@ -554,6 +555,8 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_delta_severity"] == "thin"
     assert res["damaged_vs_ok_lean_vs_delta"] == "align · thin"
     assert res["damaged_vs_ok_lean_vs_delta_warn"] is False
+    # 0pp thin → Δ lead silent (signed zero has no owner).
+    assert res["damaged_vs_ok_delta_lead"] == ""
     assert res["pin_lean"] == (
         f"{res['damaged_vs_ok_lean']} · Δ thin · 0pp · lean vs Δ align · thin"
     )
@@ -603,8 +606,10 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_delta_severity"] == "wide"
     assert res["damaged_vs_ok_lean_vs_delta"] == "align · wide"
     assert res["damaged_vs_ok_lean_vs_delta_warn"] is False
+    assert res["damaged_vs_ok_delta_lead"] == "ok"
     assert res["pin_lean"] == (
-        f"{res['damaged_vs_ok_lean']} · Δ wide · -60pp · lean vs Δ align · wide"
+        f"{res['damaged_vs_ok_lean']} · Δ wide · -60pp · "
+        "lean vs Δ align · wide · Δ lead · ok"
     )
     assert res["pin_lean_warn"] is False
     assert res["bit_core"] == (
@@ -648,8 +653,10 @@ def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_delta_severity"] == "wide"
     assert res["damaged_vs_ok_lean_vs_delta"] == "align · wide"
     assert res["damaged_vs_ok_lean_vs_delta_warn"] is True
+    assert res["damaged_vs_ok_delta_lead"] == "damaged"
     assert res["pin_lean"] == (
-        f"{res['damaged_vs_ok_lean']} · Δ wide · +50pp · lean vs Δ align · wide"
+        f"{res['damaged_vs_ok_lean']} · Δ wide · +50pp · "
+        "lean vs Δ align · wide · Δ lead · damaged"
     )
     assert res["pin_lean_warn"] is True
     assert res["bit_core"] == (
@@ -744,4 +751,46 @@ def test_opportunity_damaged_vs_ok_delta_helpers() -> None:
         "",
         "",
         False,
+    )
+
+
+def test_opportunity_damaged_vs_ok_delta_lead_helpers() -> None:
+    """Name which side owns a spoken damaged vs ok Δ; mid/0 silent."""
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            50, "wide", lean_vs_delta="align · wide"
+        )
+        == "damaged"
+    )
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            -60, "wide", lean_vs_delta="align · wide"
+        )
+        == "ok"
+    )
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            4, "thin", lean_vs_delta="align · thin"
+        )
+        == "damaged"
+    )
+    # 0pp / mid clash / missing lean-vs-Δ stay silent.
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            0, "thin", lean_vs_delta="align · thin"
+        )
+        == ""
+    )
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            10, "", lean_vs_delta="clash · lean · Δ mid"
+        )
+        == ""
+    )
+    assert opportunity_damaged_vs_ok_delta_lead(50, "wide") == ""
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            None, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
     )
