@@ -1073,6 +1073,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "damaged": 0,
         "damaged_share_pct": None,
         "damaged_share_severity": "",
+        "ok": 0,
+        "ok_share_pct": None,
+        "ok_share_severity": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1087,6 +1090,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     n_damaged = damaged_opportunity_publish_count(arch)
     out["damaged"] = n_damaged
     n_usable = len(candidates)
+    out["ok"] = n_usable
     n_slots = n_usable + n_damaged
     if n_damaged > 0 and n_slots > 0:
         dmg_share = int(round(100.0 * n_damaged / n_slots))
@@ -1095,6 +1099,13 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             out["damaged_share_severity"] = "hot"
         elif dmg_share <= ARCHIVE_PIN_BEHIND_SHARE_QUIET:
             out["damaged_share_severity"] = "quiet"
+        # Junk% alone hid usable Total (Screener junk vs ok / claim-drop vs kept).
+        ok_share = int(round(100.0 * n_usable / n_slots))
+        out["ok_share_pct"] = ok_share
+        if ok_share >= ARCHIVE_PIN_PIN_SHARE_STRONG:
+            out["ok_share_severity"] = "strong"
+        elif ok_share < ARCHIVE_PIN_PIN_SHARE_THIN:
+            out["ok_share_severity"] = "thin"
 
     if latest.exists():
         resolved = latest.resolve()
@@ -1372,13 +1383,22 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         out["path"] = latest
         # Usable pin current — still speak skipped junk so silent filter
         # ≠ a clean archive (Screener N junk · share after refuse-malformed).
+        # When damaged share spoke, also name remaining object slots
+        # (vs N ok · [strong|thin] · P%) so damaged% ≠ silent empty Total —
+        # Screener junk vs ok / claim-drop vs kept + portfolio AI speak-both-sides.
         if n_damaged > 0:
             sev = str(out.get("damaged_share_severity") or "")
             pct = out.get("damaged_share_pct")
             sev_bit = f" · {sev}" if sev else ""
             pct_bit = f" · {pct}%" if pct is not None else ""
+            ok_n = int(out.get("ok") or 0)
+            ok_sev = str(out.get("ok_share_severity") or "")
+            ok_pct = out.get("ok_share_pct")
+            ok_sev_bit = f" · {ok_sev}" if ok_sev else ""
+            ok_pct_bit = f" · {ok_pct}%" if ok_pct is not None else ""
+            ok_bit = f" · vs {ok_n} ok{ok_sev_bit}{ok_pct_bit}"
             out["warn"] = True
-            out["bit"] = f"{n_damaged} damaged{sev_bit}{pct_bit}"
+            out["bit"] = f"{n_damaged} damaged{sev_bit}{pct_bit}{ok_bit}"
             out["bit_core"] = out["bit"]
         return out
 

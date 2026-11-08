@@ -533,7 +533,10 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
     assert res["damaged"] == 1
     assert res["damaged_share_pct"] == 50
     assert res["damaged_share_severity"] == "hot"
-    assert res["bit"] == "1 damaged · hot · 50%"
+    assert res["ok"] == 1
+    assert res["ok_share_pct"] == 50
+    assert res["ok_share_severity"] == ""
+    assert res["bit"] == "1 damaged · hot · 50% · vs 1 ok · 50%"
     assert Path(res["path"]).resolve() == pinned.resolve()
 
 
@@ -560,5 +563,34 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
     assert res["damaged"] == 1
     assert res["damaged_share_pct"] == 20
     assert res["damaged_share_severity"] == "quiet"
-    assert res["bit"] == "1 damaged · quiet · 20%"
+    assert res["ok"] == 4
+    assert res["ok_share_pct"] == 80
+    assert res["ok_share_severity"] == "strong"
+    assert res["bit"] == "1 damaged · quiet · 20% · vs 4 ok · strong · 80%"
+    assert res["warn"] is True
+
+
+def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
+    """All-but-one damaged → vs 1 ok · thin (Screener junk vs ok parity)."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    pinned = arch / "opportunities_20260101_120000.json"
+    pinned.write_text('{"pin": true}')
+    (arch / "opportunities_latest.json").symlink_to(pinned.name)
+    for stamp in (
+        "20260102_120000",
+        "20260103_120000",
+        "20260104_120000",
+    ):
+        (arch / f"opportunities_{stamp}.json").write_text("{truncated")
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "latest"
+    assert res["damaged"] == 3
+    assert res["damaged_share_pct"] == 75
+    assert res["damaged_share_severity"] == "hot"
+    assert res["ok"] == 1
+    assert res["ok_share_pct"] == 25
+    assert res["ok_share_severity"] == "thin"
+    assert res["bit"] == "3 damaged · hot · 75% · vs 1 ok · thin · 25%"
     assert res["warn"] is True
