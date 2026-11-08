@@ -1127,6 +1127,7 @@ a:active {
 .rebuy-cooldown-glance,
 .daily-loss-glance,
 .concentration-glance,
+.listed-fund-overlap-glance,
 .post-sl-cooldown-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
@@ -1158,6 +1159,7 @@ a:active {
 .rebuy-cooldown-glance-line,
 .daily-loss-glance-line,
 .concentration-glance-line,
+.listed-fund-overlap-glance-line,
 .post-sl-cooldown-glance-line {
   margin: 0;
   font-size: 0.92rem;
@@ -1190,6 +1192,7 @@ a:active {
 .rebuy-cooldown-glance-tone,
 .daily-loss-glance-tone,
 .concentration-glance-tone,
+.listed-fund-overlap-glance-tone,
 .post-sl-cooldown-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
@@ -1262,6 +1265,9 @@ a:active {
 .concentration-glance-tone.clear,
 .concentration-glance-tone.off,
 .concentration-glance-tone.flat,
+.listed-fund-overlap-glance-tone.clear,
+.listed-fund-overlap-glance-tone.off,
+.listed-fund-overlap-glance-tone.flat,
 .post-sl-cooldown-glance-tone.clear,
 .post-sl-cooldown-glance-tone.off,
 .post-sl-cooldown-glance-tone.flat {
@@ -1282,6 +1288,7 @@ a:active {
 .daily-loss-glance-tone.warn,
 .daily-loss-glance-tone.halt,
 .concentration-glance-tone.warn,
+.listed-fund-overlap-glance-tone.warn,
 .post-sl-cooldown-glance-tone.active {
   color: var(--down);
 }
@@ -1358,12 +1365,14 @@ a:active {
 .rebuy-cooldown-glance-body,
 .daily-loss-glance-body,
 .concentration-glance-body,
+.listed-fund-overlap-glance-body,
 .post-sl-cooldown-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
 }
 
-.concentration-glance-body.warn {
+.concentration-glance-body.warn,
+.listed-fund-overlap-glance-body.warn {
   color: var(--down);
 }
 
@@ -1392,6 +1401,7 @@ a:active {
 .rebuy-cooldown-glance-link,
 .daily-loss-glance-link,
 .concentration-glance-link,
+.listed-fund-overlap-glance-link,
 .post-sl-cooldown-glance-link {
   font-size: 0.85rem;
 }
@@ -1421,6 +1431,7 @@ a:active {
 .rebuy-cooldown-glance .sub,
 .daily-loss-glance .sub,
 .concentration-glance .sub,
+.listed-fund-overlap-glance .sub,
 .post-sl-cooldown-glance .sub {
   margin: 0.35rem 0 0;
 }

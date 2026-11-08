@@ -6061,6 +6061,7 @@ _POLICY_HONESTY_FOLD_LABELS: tuple[tuple[str, str], ...] = (
     ("equity_hours_glance", "Hours"),
     ("daily_loss_glance", "day loss"),
     ("concentration_glance", "conc"),
+    ("listed_fund_overlap_glance", "fund overlap"),
     ("min_hold_lock_glance", "min-hold"),
     ("rebuy_cooldown_glance", "rebuy"),
     ("post_sl_cooldown_glance", "post-SL"),
@@ -6274,6 +6275,75 @@ def build_concentration_glance(
         "cap_pct": cap,
         "headroom_pp": round(headroom, 1),
         "warn": warn,
+    }
+
+
+def build_listed_fund_overlap_glance(
+    holdings: list[Any] | None,
+) -> dict[str, Any]:
+    """Same-theme ETF/ETC doubles on the open book (display only).
+
+    Concentration names the largest single weight. This line speaks when the
+    book holds ≥2 curated funds that share an economic theme (e.g. GLD +
+    4GLD.DE gold, SPY + SXR8.DE US equity) — tradermonty theme-detector
+    merge-duplicate ETF holdings + portfolio AI speak-both-sides. Zero /
+    sole-theme stays silent. Not a new entry gate.
+    """
+    from stock_checker.listed_funds import (
+        listed_fund_theme_label,
+        listed_fund_theme_overlaps,
+    )
+
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "warn": False,
+        "theme": "",
+        "themes": [],
+        "symbols": [],
+        "count": 0,
+    }
+    if holdings is None or not isinstance(holdings, list):
+        return empty
+    symbols: list[str] = []
+    for row in holdings:
+        if isinstance(row, dict):
+            sym = str(row.get("symbol") or "").strip()
+        else:
+            sym = str(row or "").strip()
+        if sym:
+            symbols.append(sym)
+    overlaps = listed_fund_theme_overlaps(symbols)
+    if not overlaps:
+        return empty
+    bits: list[str] = []
+    theme_bits: list[str] = []
+    all_syms: list[str] = []
+    for theme, syms in overlaps:
+        label = listed_fund_theme_label(theme)
+        theme_bits.append(theme)
+        all_syms.extend(syms)
+        shown = " · ".join(syms[:3])
+        if len(syms) > 3:
+            shown = f"{shown} · +{len(syms) - 3}"
+        bits.append(f"{len(syms)} {label} · {shown}")
+    lead_theme, lead_syms = overlaps[0]
+    line = " · ".join(bits)
+    if len(line) > 96:
+        # Keep the lead overlap; drop trailing theme bits first.
+        line = bits[0]
+        if len(line) > 96:
+            line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": "warn",
+        "line": line,
+        "warn": True,
+        "theme": lead_theme,
+        "themes": theme_bits,
+        "symbols": all_syms,
+        "count": len(lead_syms),
     }
 
 
@@ -33416,6 +33486,7 @@ def load_desk_snapshot(
         "book_risk": book_risk,
         "book_risk_glance": build_book_risk_glance(book_risk),
         "concentration_glance": build_concentration_glance(book_risk),
+        "listed_fund_overlap_glance": build_listed_fund_overlap_glance(rows),
         "soft_allows": soft_allows,
         "ai_debates": ai_debates,
         "soft_allow_glance": soft_allow_glance,

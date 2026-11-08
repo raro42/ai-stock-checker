@@ -1063,6 +1063,31 @@
 {%- endmacro %}
 
 
+{# Same-theme ETF/ETC doubles on the open book (display only). #}
+{% macro listed_fund_overlap_glance(
+  snap,
+  heading_id='listed-fund-overlap-glance-h',
+  link_href='/desk/book',
+  link_label='Book →',
+  sub='Curated funds that share an economic theme (gold, silver, US equity). Display only — not a new gate.'
+) -%}
+{% set glance = snap.listed_fund_overlap_glance if snap.listed_fund_overlap_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="listed-fund-overlap-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Listed fund overlap</h2>
+  <p class="listed-fund-overlap-glance-line">
+    <span class="listed-fund-overlap-glance-tone {{ glance.tone }}">Funds</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="listed-fund-overlap-glance-body{% if glance.warn %} warn{% endif %}">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="listed-fund-overlap-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Post-SL buy cooldown (display only). Derived from last stop-loss sell. #}
 {% macro post_sl_cooldown_glance(
   snap,
