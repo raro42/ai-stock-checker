@@ -5,7 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from openbb_backend.desk import build_scan_freshness, resolve_opportunities_archive
+from openbb_backend.desk import (
+    archive_pin_lean_meta,
+    build_scan_freshness,
+    resolve_opportunities_archive,
+)
 from stock_checker.opportunity_archive import (
     heal_opportunities_latest_pin,
     opportunity_damaged_vs_ok_delta,
@@ -406,6 +410,39 @@ def test_scan_freshness_speaks_stale_pin_bit() -> None:
     assert g["archive_pin_bit_core"] == bit_core
     assert g["archive_pin_lean"] == pin_lean
     assert g["archive_pin_lean_warn"] is True
+    # Bare warn hid which ladder stages spoke (Screener weight lean meta).
+    assert g["archive_pin_lean_meta"] == "warn · behind · Δ · lean"
+
+
+def test_archive_pin_lean_meta_names_spoken_stages() -> None:
+    """Quiet/warn chip names pin-lean stages (not a static cascade)."""
+    assert archive_pin_lean_meta("") == "quiet"
+    quiet = (
+        "damaged vs ok align · quiet|strong · Δ wide · -60pp · "
+        "lean vs Δ align · wide · Δ lead · ok · "
+        "Δ lead size · 4× · "
+        "Δ lead size sides · louder 80% · quieter 20%"
+    )
+    assert archive_pin_lean_meta(quiet) == (
+        "quiet · 6 folds · damaged · Δ · lean · lead · +2"
+    )
+    behind = (
+        "behind vs pin align · hot|thin · Δ wide · +34pp · "
+        "lean vs Δ align · wide · lag/share align · both thin"
+    )
+    assert archive_pin_lean_meta(behind) == (
+        "quiet · 4 folds · behind · Δ · lean · lag/share"
+    )
+    clash = (
+        "damaged vs ok clash · damaged hot · ok ok · Δ thin · 0pp · "
+        "lean vs Δ align · thin"
+    )
+    assert archive_pin_lean_meta(clash, warn=True) == (
+        "clash · damaged · Δ · lean"
+    )
+    assert archive_pin_lean_meta(behind, warn=True) == (
+        "warn · behind · Δ · lean · lag/share"
+    )
 
 
 def test_opportunities_markdown_prefers_latest(tmp_path: Path) -> None:

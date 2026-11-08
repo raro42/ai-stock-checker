@@ -1532,6 +1532,53 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     return out
 
 
+# Quiet pin-lean chip names spoken stages (Screener weight / soft-allow
+# inventory). Longer prefixes first so ``Δ lead size sides`` ≠ ``Δ lead``.
+_ARCHIVE_PIN_LEAN_NAME_CAP = 4
+_ARCHIVE_PIN_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^damaged vs ok\b"), "damaged"),
+    (re.compile(r"^behind vs pin\b"), "behind"),
+    (re.compile(r"^lag/share↔lean vs lean↔Δ\b"), "lag/share↔lean"),
+    (re.compile(r"^lag/share vs lean\b"), "lag/share lean"),
+    (re.compile(r"^lag/share\b"), "lag/share"),
+    (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ lead size sides\b"), "sides"),
+    (re.compile(r"^Δ lead size\b"), "size"),
+    (re.compile(r"^Δ lead\b"), "lead"),
+    (re.compile(r"^Δ "), "Δ"),
+)
+
+
+def archive_pin_lean_meta(pin_lean: str, *, warn: bool = False) -> str:
+    """Summary chip for opportunity latest-pin lean fold (display only).
+
+    Quiet names stages that spoke (``quiet · N folds · damaged · Δ · lean ·
+    lead`` / ``behind · Δ · lean · lag/share``) so bare ``quiet`` does not
+    claim size/sides/lag when those bits are absent — Screener weight lean
+    + soft-allow lean meta + Yahoo mix inventory parity after MonsterDeveloper
+    fold hid the ladder. Warned folds speak ``clash`` / ``warn`` and append
+    the clipped stages. Not a gate.
+    """
+    lean = str(pin_lean or "").strip()
+    if not lean:
+        return "quiet"
+    if warn:
+        lean_l = lean.lower()
+        sev = "clash" if "clash" in lean_l else "warn"
+        stage_tail = _quiet_inventory_chip(
+            lean,
+            _ARCHIVE_PIN_LEAN_STAGE_RES,
+            cap=_ARCHIVE_PIN_LEAN_NAME_CAP,
+            quiet=False,
+        )
+        if stage_tail:
+            return f"{sev} · {stage_tail}"
+        return sev
+    return _quiet_inventory_chip(
+        lean, _ARCHIVE_PIN_LEAN_STAGE_RES, cap=_ARCHIVE_PIN_LEAN_NAME_CAP
+    )
+
+
 def build_scan_freshness(
     scan_time: Any,
     *,
@@ -1574,7 +1621,9 @@ def build_scan_freshness(
     age) and the desk fell back (xang1234 #682 / #685 readiness pin +
     portfolio AI count≠share / speak-both-sides). Lean/Δ / lag-relationship
     cascade sits in ``archive_pin_lean`` under a desk fold (MonsterDeveloper
-    weight/streak lean parity — age_label alone hid keep-newest).
+    weight/streak lean parity — age_label alone hid keep-newest); fold
+    summary ``archive_pin_lean_meta`` names spoken stages so bare quiet
+    ≠ a full ladder.
     Not an entry gate.
     """
     pin = str(archive_pin or "").strip().casefold()
@@ -1589,6 +1638,9 @@ def build_scan_freshness(
         "archive_pin_bit_core": pin_bit_core,
         "archive_pin_lean": pin_lean,
         "archive_pin_lean_warn": pin_lean_warn,
+        "archive_pin_lean_meta": archive_pin_lean_meta(
+            pin_lean, warn=pin_lean_warn
+        ),
         "archive_pin_warn": pin_warn,
     }
     empty = {

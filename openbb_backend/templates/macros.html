@@ -58,7 +58,7 @@
 </p>
 {% if pin_lean %}
 <details class="scan-fresh-pin-lean{% if pin_lean_warn %} warn{% endif %}"{% if pin_lean_warn %} open{% endif %}>
-  <summary>pin lean <span class="meta">{% if pin_lean_warn %}warn{% else %}quiet{% endif %}</span></summary>
+  <summary>pin lean <span class="meta">{{ fresh.archive_pin_lean_meta|default('quiet') }}</span></summary>
   <p class="scan-fresh-pin-lean-body{% if pin_lean_warn %} warn{% endif %}">{{ pin_lean }}</p>
 </details>
 {% endif %}
