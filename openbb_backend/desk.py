@@ -6304,6 +6304,65 @@ LISTED_FUND_OVERLAP_OTHER_SHARE_STRONG = 75.0
 LISTED_FUND_OVERLAP_OTHER_SHARE_THIN = 50.0
 
 
+def listed_fund_overlap_vs_other_lead(
+    n_overlap: int,
+    n_other: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among theme-overlap vs other name counts (display only).
+
+    Absolute ``N gold`` beside ``vs M other`` hid which slot owns the book
+    (opportunity damaged vs ok lead / chart spoken vs fresh + portfolio AI
+    count≠share + xang1234 multi-meter). Both sides must be >0 and total ≥2;
+    strict lead → ``lead overlap · N%`` / ``lead other · N%``; ties /
+    sole-side → silent (use ``listed_fund_overlap_vs_other_sample_gap`` for
+    ``overlap/other tied``). Not a new entry gate.
+    """
+    try:
+        overlap = max(0, int(n_overlap))
+    except (TypeError, ValueError):
+        overlap = 0
+    try:
+        other = max(0, int(n_other))
+    except (TypeError, ValueError):
+        other = 0
+    total = overlap + other
+    if total < 2 or overlap <= 0 or other <= 0 or overlap == other:
+        return "", "", None
+    if overlap > other:
+        name, n = "overlap", overlap
+    else:
+        name, n = "other", other
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def listed_fund_overlap_vs_other_sample_gap(
+    n_overlap: int,
+    n_other: int,
+) -> str:
+    """Speak ``overlap/other tied`` when both sides spoke with no strict lead.
+
+    Prefixed so the bit stays distinct from multi-theme ``tied``. Lead /
+    sole-side / zero stay silent. Display only.
+    """
+    try:
+        overlap = max(0, int(n_overlap))
+    except (TypeError, ValueError):
+        overlap = 0
+    try:
+        other = max(0, int(n_other))
+    except (TypeError, ValueError):
+        other = 0
+    if overlap <= 0 or other <= 0:
+        return ""
+    lead_bit, _name, _share = listed_fund_overlap_vs_other_lead(
+        overlap, other
+    )
+    if lead_bit:
+        return ""
+    return "overlap/other tied"
+
+
 def build_listed_fund_overlap_glance(
     holdings: list[Any] | None,
 ) -> dict[str, Any]:
@@ -6320,8 +6379,11 @@ def build_listed_fund_overlap_glance(
     ``vs N other · [strong|thin] · P%`` (strong ≥75% · thin <50%;
     all-overlap ``vs 0 other · thin · 0%``) so overlap% alone does not
     hide usable non-theme peers — Screener junk vs ok / Yahoo claim-drop
-    vs kept + portfolio AI speak-both-sides. Zero / sole-theme stays
-    silent. Not a new entry gate.
+    vs kept + portfolio AI speak-both-sides. When vs-other already spoke
+    and both counts are >0, also speak ``lead overlap|other · N%`` or
+    ``overlap/other tied`` so absolute sides do not hide which slot owns
+    the book — opportunity / Charts spoken-vs-fresh lead + portfolio AI
+    count≠share. Zero / sole-theme stays silent. Not a new entry gate.
     """
     from stock_checker.listed_funds import (
         listed_fund_theme_label,
@@ -6344,6 +6406,10 @@ def build_listed_fund_overlap_glance(
         "n_other": 0,
         "other_share_pct": None,
         "other_share_severity": "",
+        "vs_other_lead": "",
+        "vs_other_lead_name": "",
+        "vs_other_lead_pct": None,
+        "vs_other_sample_gap": "",
     }
     if holdings is None or not isinstance(holdings, list):
         return empty
@@ -6386,6 +6452,11 @@ def build_listed_fund_overlap_glance(
     other_share_pct: float | None = None
     other_share_severity = ""
     other_bit = ""
+    vs_other_lead = ""
+    vs_other_lead_name = ""
+    vs_other_lead_pct: int | None = None
+    vs_other_sample_gap = ""
+    vs_other_own_bit = ""
     if n_book > 0 and n_overlap > 0:
         share_pct = round(100.0 * n_overlap / n_book)
         if share_pct >= LISTED_FUND_OVERLAP_SHARE_HOT:
@@ -6408,14 +6479,25 @@ def build_listed_fund_overlap_glance(
         else:
             other_bit = f"vs {n_other} other · {int(other_share_pct)}%"
         bits.append(other_bit)
+        vs_other_lead, vs_other_lead_name, vs_other_lead_pct = (
+            listed_fund_overlap_vs_other_lead(n_overlap, n_other)
+        )
+        vs_other_sample_gap = listed_fund_overlap_vs_other_sample_gap(
+            n_overlap, n_other
+        )
+        vs_other_own_bit = vs_other_lead or vs_other_sample_gap
+        if vs_other_own_bit:
+            bits.append(vs_other_own_bit)
     line = " · ".join(bits)
     if len(line) > 96:
-        # Keep lead overlap + share + vs-other; drop trailing theme bits first.
+        # Keep lead theme + share + vs-other + ownership; drop trailing themes.
         keep = [bits[0]]
         if share_bit:
             keep.append(share_bit)
         if other_bit:
             keep.append(other_bit)
+        if vs_other_own_bit:
+            keep.append(vs_other_own_bit)
         line = " · ".join(keep)
         if len(line) > 96:
             line = line[:95] + "…"
@@ -6435,6 +6517,10 @@ def build_listed_fund_overlap_glance(
         "n_other": n_other,
         "other_share_pct": other_share_pct,
         "other_share_severity": other_share_severity,
+        "vs_other_lead": vs_other_lead,
+        "vs_other_lead_name": vs_other_lead_name,
+        "vs_other_lead_pct": vs_other_lead_pct,
+        "vs_other_sample_gap": vs_other_sample_gap,
     }
 
 

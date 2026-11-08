@@ -7,7 +7,12 @@ from stock_checker.listed_funds import (
     listed_fund_theme,
     listed_fund_theme_overlaps,
 )
-from openbb_backend.desk import build_listed_fund_overlap_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    build_listed_fund_overlap_glance,
+    listed_fund_overlap_vs_other_lead,
+    listed_fund_overlap_vs_other_sample_gap,
+    load_desk_snapshot,
+)
 
 
 def test_listed_fund_themes() -> None:
@@ -44,6 +49,22 @@ def test_listed_fund_overlap_glance_silent() -> None:
     )["ready"] is False
 
 
+def test_listed_fund_overlap_vs_other_lead_helpers() -> None:
+    bit, name, pct = listed_fund_overlap_vs_other_lead(2, 3)
+    assert bit == "lead other · 60%"
+    assert name == "other"
+    assert pct == 60
+    assert listed_fund_overlap_vs_other_sample_gap(2, 3) == ""
+    bit, name, pct = listed_fund_overlap_vs_other_lead(3, 2)
+    assert bit == "lead overlap · 60%"
+    assert name == "overlap"
+    assert pct == 60
+    assert listed_fund_overlap_vs_other_lead(2, 2) == ("", "", None)
+    assert listed_fund_overlap_vs_other_sample_gap(2, 2) == "overlap/other tied"
+    assert listed_fund_overlap_vs_other_lead(2, 0) == ("", "", None)
+    assert listed_fund_overlap_vs_other_sample_gap(2, 0) == ""
+
+
 def test_listed_fund_overlap_glance_warn() -> None:
     g = build_listed_fund_overlap_glance(
         [
@@ -73,6 +94,12 @@ def test_listed_fund_overlap_glance_warn() -> None:
     assert g["other_share_pct"] == 60
     assert g["other_share_severity"] == ""
     assert "vs 3 other · 60%" in g["line"]
+    # 2 overlap vs 3 other → other owns the book.
+    assert g["vs_other_lead"] == "lead other · 60%"
+    assert g["vs_other_lead_name"] == "other"
+    assert g["vs_other_lead_pct"] == 60
+    assert g["vs_other_sample_gap"] == ""
+    assert "lead other · 60%" in g["line"]
 
 
 def test_listed_fund_overlap_glance_share_hot() -> None:
@@ -85,6 +112,9 @@ def test_listed_fund_overlap_glance_share_hot() -> None:
     assert g["other_share_pct"] == 0
     assert g["other_share_severity"] == "thin"
     assert "vs 0 other · thin · 0%" in g["line"]
+    # Sole-side (all overlap) stays silent on ownership lead.
+    assert g["vs_other_lead"] == ""
+    assert g["vs_other_sample_gap"] == ""
 
 
 def test_listed_fund_overlap_glance_share_quiet() -> None:
@@ -100,6 +130,21 @@ def test_listed_fund_overlap_glance_share_quiet() -> None:
     assert g["other_share_pct"] == 75
     assert g["other_share_severity"] == "strong"
     assert "vs 6 other · strong · 75%" in g["line"]
+    assert g["vs_other_lead"] == "lead other · 75%"
+    assert g["vs_other_lead_name"] == "other"
+    assert "lead other · 75%" in g["line"]
+
+
+def test_listed_fund_overlap_glance_vs_other_tied() -> None:
+    g = build_listed_fund_overlap_glance(
+        ["GLD", "4GLD.DE", "AAPL", "MSFT"]
+    )
+    assert g["ready"] is True
+    assert g["n_overlap"] == 2
+    assert g["n_other"] == 2
+    assert g["vs_other_lead"] == ""
+    assert g["vs_other_sample_gap"] == "overlap/other tied"
+    assert "overlap/other tied" in g["line"]
 
 
 def test_listed_fund_overlap_glance_multi_theme() -> None:
@@ -117,6 +162,8 @@ def test_listed_fund_overlap_glance_multi_theme() -> None:
     assert g["n_other"] == 0
     assert g["other_share_severity"] == "thin"
     assert "vs 0 other · thin · 0%" in g["line"]
+    assert g["vs_other_lead"] == ""
+    assert g["vs_other_sample_gap"] == ""
 
 
 def test_listed_fund_overlap_in_snapshot(tmp_path) -> None:
