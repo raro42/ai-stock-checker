@@ -32,15 +32,33 @@ def opportunity_publish_usable(path: Path) -> bool:
     return isinstance(doc, dict)
 
 
-def usable_opportunity_publishes(archive_dir: Path) -> list[Path]:
-    """Timestamped opportunity JSON objects, oldest→newest by filename."""
+def timestamped_opportunity_publishes(archive_dir: Path) -> list[Path]:
+    """All timestamped opportunity JSON paths, oldest→newest by filename."""
     if not archive_dir.is_dir():
         return []
+    return sorted(archive_dir.glob("opportunities_2*.json"))
+
+
+def usable_opportunity_publishes(archive_dir: Path) -> list[Path]:
+    """Timestamped opportunity JSON objects, oldest→newest by filename."""
     return [
         p
-        for p in sorted(archive_dir.glob("opportunities_2*.json"))
+        for p in timestamped_opportunity_publishes(archive_dir)
         if opportunity_publish_usable(p)
     ]
+
+
+def damaged_opportunity_publish_count(archive_dir: Path) -> int:
+    """Count timestamped publishes that are not usable JSON objects.
+
+    Silent skip ≠ hide damage — desk speaks this so keep-newest refuse
+    does not look like a clean archive (xang1234 40a968e + Screener junk).
+    """
+    return sum(
+        1
+        for p in timestamped_opportunity_publishes(archive_dir)
+        if not opportunity_publish_usable(p)
+    )
 
 
 def newest_usable_opportunity_publish(archive_dir: Path) -> Path | None:

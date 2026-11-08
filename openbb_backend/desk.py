@@ -1024,9 +1024,13 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     Malformed / wrong-container JSON is refused for keep-newest (xang1234
     8d447fa refuse-malformed session + 40a968e skip-damaged artifact) —
     speak ``latest damaged · healed`` and never promote junk over a good
-    older publish. Display fields only — not an entry gate.
+    older publish. When the pin itself is fine but the archive still holds
+    skipped junk, speak ``N damaged · [hot|quiet ·] P%`` (Screener junk
+    share + portfolio AI count≠share — silent usable-filter ≠ clean book).
+    Display fields only — not an entry gate.
     """
     from stock_checker.opportunity_archive import (
+        damaged_opportunity_publish_count,
         opportunity_publish_usable,
         usable_opportunity_publishes,
     )
@@ -1066,6 +1070,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "pin_lag_share_vs_lean_warn": False,
         "pin_lag_share_lean_vs_delta": "",
         "pin_lag_share_lean_vs_delta_warn": False,
+        "damaged": 0,
+        "damaged_share_pct": None,
+        "damaged_share_severity": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1077,6 +1084,17 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     # truncated / list / null JSON must not look newer than a good book.
     candidates = usable_opportunity_publishes(arch)
     newest = candidates[-1] if candidates else None
+    n_damaged = damaged_opportunity_publish_count(arch)
+    out["damaged"] = n_damaged
+    n_usable = len(candidates)
+    n_slots = n_usable + n_damaged
+    if n_damaged > 0 and n_slots > 0:
+        dmg_share = int(round(100.0 * n_damaged / n_slots))
+        out["damaged_share_pct"] = dmg_share
+        if dmg_share >= ARCHIVE_PIN_BEHIND_SHARE_HOT:
+            out["damaged_share_severity"] = "hot"
+        elif dmg_share <= ARCHIVE_PIN_BEHIND_SHARE_QUIET:
+            out["damaged_share_severity"] = "quiet"
 
     if latest.exists():
         resolved = latest.resolve()
@@ -1352,6 +1370,16 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             return _heal_archive_pin_after_fallback(out, arch)
         out["pin"] = "latest"
         out["path"] = latest
+        # Usable pin current — still speak skipped junk so silent filter
+        # ≠ a clean archive (Screener N junk · share after refuse-malformed).
+        if n_damaged > 0:
+            sev = str(out.get("damaged_share_severity") or "")
+            pct = out.get("damaged_share_pct")
+            sev_bit = f" · {sev}" if sev else ""
+            pct_bit = f" · {pct}%" if pct is not None else ""
+            out["warn"] = True
+            out["bit"] = f"{n_damaged} damaged{sev_bit}{pct_bit}"
+            out["bit_core"] = out["bit"]
         return out
 
     pin = "dangling" if latest.is_symlink() else "missing"

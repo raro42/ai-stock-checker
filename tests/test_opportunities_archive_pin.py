@@ -514,7 +514,11 @@ def test_resolve_heals_damaged_latest_pin(tmp_path: Path) -> None:
 
 
 def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
-    """Valid pin is not stale when only newer publishes are damaged."""
+    """Valid pin is not stale when only newer publishes are damaged.
+
+    Still speaks skipped junk — silent usable-filter ≠ clean archive
+    (xang1234 40a968e + Screener junk share).
+    """
     arch = tmp_path / "archive"
     arch.mkdir()
     pinned = arch / "opportunities_20260101_120000.json"
@@ -525,6 +529,36 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
     res = resolve_opportunities_archive(tmp_path)
     assert res["pin"] == "latest"
     assert res["fallback"] is False
-    assert res["warn"] is False
-    assert res["bit"] == ""
+    assert res["warn"] is True
+    assert res["damaged"] == 1
+    assert res["damaged_share_pct"] == 50
+    assert res["damaged_share_severity"] == "hot"
+    assert res["bit"] == "1 damaged · hot · 50%"
     assert Path(res["path"]).resolve() == pinned.resolve()
+
+
+def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
+    """Quiet damaged share when junk is a small slice of the archive."""
+    arch = tmp_path / "archive"
+    arch.mkdir()
+    newest_ok = None
+    for stamp in (
+        "20260101_120000",
+        "20260102_120000",
+        "20260103_120000",
+        "20260104_120000",
+    ):
+        newest_ok = arch / f"opportunities_{stamp}.json"
+        newest_ok.write_text('{"ok": true}')
+    assert newest_ok is not None
+    (arch / "opportunities_latest.json").symlink_to(newest_ok.name)
+    # One junk among 5 slots → 20% quiet (not newer than the pin).
+    (arch / "opportunities_20260103_180000.json").write_text("[]")
+
+    res = resolve_opportunities_archive(tmp_path)
+    assert res["pin"] == "latest"
+    assert res["damaged"] == 1
+    assert res["damaged_share_pct"] == 20
+    assert res["damaged_share_severity"] == "quiet"
+    assert res["bit"] == "1 damaged · quiet · 20%"
+    assert res["warn"] is True
