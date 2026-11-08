@@ -615,8 +615,33 @@
       var label = document.createElement("span");
       label.className = "chart-legend-label";
       var nameBit = p.name && p.name !== p.symbol ? " — " + p.name : "";
-      label.textContent = p.symbol + " " + pctLabel(p.change_pct);
-      label.title = p.symbol + nameBit + " · " + pctLabel(p.change_pct);
+      // tradermonty #675: speak aging/stale last daily bar (fresh stays quiet).
+      var barBit = "";
+      if (p.bar_freshness === "stale" || p.bar_freshness === "aging") {
+        barBit = " · bars " + p.bar_freshness;
+      }
+      label.textContent = p.symbol + " " + pctLabel(p.change_pct) + barBit;
+      var barTitle = "";
+      if (p.last_bar) {
+        barTitle =
+          " · last bar " +
+          p.last_bar +
+          (p.bar_age_label ? " · " + p.bar_age_label : "") +
+          (p.bar_freshness ? " · " + p.bar_freshness : "");
+      }
+      label.title =
+        p.symbol + nameBit + " · " + pctLabel(p.change_pct) + barTitle;
+      if (barBit) {
+        li.setAttribute(
+          "aria-label",
+          "Highlight " +
+            p.symbol +
+            ", " +
+            pctLabel(p.change_pct) +
+            ", bars " +
+            p.bar_freshness
+        );
+      }
       li.appendChild(swatch);
       li.appendChild(label);
       list.appendChild(li);

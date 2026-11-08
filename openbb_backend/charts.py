@@ -288,6 +288,56 @@ def hold_chart_interval(span_hours: float, *, is_crypto: bool = False) -> str:
     return "1d"
 
 
+# Daily chart last-bar age (display only). Same bands as desk cash_print:
+# fresh <12h · aging <36h · else stale (weekend / missed session).
+# tradermonty #675 rejects stale daily bars before scoring — we speak only.
+CHART_BAR_FRESH_HOURS = 12
+CHART_BAR_AGING_HOURS = 36
+
+
+def chart_last_bar_meta(
+    points: list[dict[str, Any]],
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Last daily close age band for chart honesty (display only).
+
+    Scan/Yahoo cache age ≠ whether the plotted close is a completed session.
+    Missing/unparseable stamps stay silent.
+    """
+    empty: dict[str, Any] = {
+        "last_bar": "",
+        "bar_age_sec": None,
+        "bar_freshness": "",
+        "bar_age_label": "",
+    }
+    if not points:
+        return empty
+    ts = _parse_trade_ts(str(points[-1].get("t") or ""))
+    if ts is None:
+        return empty
+    clock = now or datetime.now(timezone.utc)
+    age = max(0.0, (clock - ts).total_seconds())
+    if age < CHART_BAR_FRESH_HOURS * 3600:
+        band = "fresh"
+    elif age < CHART_BAR_AGING_HOURS * 3600:
+        band = "aging"
+    else:
+        band = "stale"
+    if age < 3600:
+        label = f"{int(age // 60)}m ago"
+    elif age < 36 * 3600:
+        label = f"{int(age // 3600)}h ago"
+    else:
+        label = f"{int(age // 86400)}d ago"
+    return {
+        "last_bar": ts.strftime("%Y-%m-%d"),
+        "bar_age_sec": int(age),
+        "bar_freshness": band,
+        "bar_age_label": label,
+    }
+
+
 def fetch_price_history(
     symbol: str,
     data_dir: Path,
@@ -406,6 +456,7 @@ def build_price_panels(
         if len(indexed) < 2:
             continue
         last = indexed[-1]
+        bar_meta = chart_last_bar_meta(indexed)
         panels.append(
             {
                 "symbol": sym,
@@ -413,6 +464,7 @@ def build_price_panels(
                 "points": indexed,
                 "last": last["close"],
                 "change_pct": round(last["rebased"] - 100, 2),
+                **bar_meta,
             }
         )
     return panels

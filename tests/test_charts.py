@@ -429,6 +429,73 @@ def test_chart_payload_breadth_glance_from_daily(tmp_path: Path, monkeypatch):
     assert glance["full_universe"] is False
 
 
+def test_chart_last_bar_meta_fresh_aging_stale():
+    """tradermonty #675 display-only: last daily close age band."""
+    from datetime import datetime, timezone
+
+    from openbb_backend.charts import chart_last_bar_meta
+
+    now = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
+    fresh = chart_last_bar_meta(
+        [{"t": "2026-11-08T10:00:00Z", "close": 100}], now=now
+    )
+    assert fresh["bar_freshness"] == "fresh"
+    assert fresh["last_bar"] == "2026-11-08"
+    assert fresh["bar_age_label"]
+
+    aging = chart_last_bar_meta(
+        [{"t": "2026-11-07T10:00:00Z", "close": 100}], now=now
+    )
+    assert aging["bar_freshness"] == "aging"
+
+    stale = chart_last_bar_meta(
+        [{"t": "2026-11-01T00:00:00Z", "close": 100}], now=now
+    )
+    assert stale["bar_freshness"] == "stale"
+    assert stale["last_bar"] == "2026-11-01"
+    assert chart_last_bar_meta([])["bar_freshness"] == ""
+    assert chart_last_bar_meta([{"t": "nope", "close": 1}])["bar_freshness"] == ""
+
+
+def test_price_panels_speak_stale_last_bar(tmp_path: Path, monkeypatch):
+    """Relative-price panels carry last-bar freshness (display only)."""
+    from openbb_backend.charts import build_price_panels
+
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": 90000,
+                "holdings": {"AAPL": 5},
+                "avg_buy_price": {"AAPL": 100},
+            }
+        )
+    )
+    (tmp_path / "archive").mkdir(parents=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text("{}")
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    (cache / "AAPL.json").write_text(
+        json.dumps(
+            {
+                "symbol": "AAPL",
+                "interval": "1d",
+                "fetched_at": 9e12,
+                "points": [
+                    {"t": "2026-10-01T00:00:00Z", "close": 100},
+                    {"t": "2026-10-02T00:00:00Z", "close": 105},
+                ],
+            }
+        )
+    )
+    panels = build_price_panels(tmp_path, live=False)
+    assert len(panels) == 1
+    assert panels[0]["last_bar"] == "2026-10-02"
+    assert panels[0]["bar_freshness"] == "stale"
+    assert panels[0]["bar_age_label"]
+
+
 def test_price_history_skips_nan(tmp_path: Path, monkeypatch):
     from openbb_backend.charts import fetch_price_history
 
