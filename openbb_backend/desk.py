@@ -6281,6 +6281,8 @@ def build_concentration_glance(
 # Theme-overlap names ÷ open book. Hot ≥50% · quiet ≤25% (count ≠ share).
 LISTED_FUND_OVERLAP_SHARE_HOT = 50.0
 LISTED_FUND_OVERLAP_SHARE_QUIET = 25.0
+LISTED_FUND_OVERLAP_OTHER_SHARE_STRONG = 75.0
+LISTED_FUND_OVERLAP_OTHER_SHARE_THIN = 50.0
 
 
 def build_listed_fund_overlap_glance(
@@ -6295,7 +6297,12 @@ def build_listed_fund_overlap_glance(
     overlap already spoke, also speak book ownership ``hot|quiet · P%``
     (overlap names ÷ open names; mid shows % only) so absolute ``N gold``
     ≠ most of the book — portfolio AI count≠share + xang1234 share
-    severity. Zero / sole-theme stays silent. Not a new entry gate.
+    severity. When share already spoke, also speak remaining names
+    ``vs N other · [strong|thin] · P%`` (strong ≥75% · thin <50%;
+    all-overlap ``vs 0 other · thin · 0%``) so overlap% alone does not
+    hide usable non-theme peers — Screener junk vs ok / Yahoo claim-drop
+    vs kept + portfolio AI speak-both-sides. Zero / sole-theme stays
+    silent. Not a new entry gate.
     """
     from stock_checker.listed_funds import (
         listed_fund_theme_label,
@@ -6315,6 +6322,9 @@ def build_listed_fund_overlap_glance(
         "n_overlap": 0,
         "share_pct": None,
         "share_severity": "",
+        "n_other": 0,
+        "other_share_pct": None,
+        "other_share_severity": "",
     }
     if holdings is None or not isinstance(holdings, list):
         return empty
@@ -6353,6 +6363,10 @@ def build_listed_fund_overlap_glance(
     share_pct: float | None = None
     share_severity = ""
     share_bit = ""
+    n_other = 0
+    other_share_pct: float | None = None
+    other_share_severity = ""
+    other_bit = ""
     if n_book > 0 and n_overlap > 0:
         share_pct = round(100.0 * n_overlap / n_book)
         if share_pct >= LISTED_FUND_OVERLAP_SHARE_HOT:
@@ -6364,12 +6378,25 @@ def build_listed_fund_overlap_glance(
         else:
             share_bit = f"{int(share_pct)}%"
         bits.append(share_bit)
+        n_other = max(0, n_book - n_overlap)
+        other_share_pct = round(100.0 * n_other / n_book)
+        if other_share_pct >= LISTED_FUND_OVERLAP_OTHER_SHARE_STRONG:
+            other_share_severity = "strong"
+            other_bit = f"vs {n_other} other · strong · {int(other_share_pct)}%"
+        elif other_share_pct < LISTED_FUND_OVERLAP_OTHER_SHARE_THIN:
+            other_share_severity = "thin"
+            other_bit = f"vs {n_other} other · thin · {int(other_share_pct)}%"
+        else:
+            other_bit = f"vs {n_other} other · {int(other_share_pct)}%"
+        bits.append(other_bit)
     line = " · ".join(bits)
     if len(line) > 96:
-        # Keep lead overlap + share; drop trailing theme bits first.
+        # Keep lead overlap + share + vs-other; drop trailing theme bits first.
         keep = [bits[0]]
         if share_bit:
             keep.append(share_bit)
+        if other_bit:
+            keep.append(other_bit)
         line = " · ".join(keep)
         if len(line) > 96:
             line = line[:95] + "…"
@@ -6386,6 +6413,9 @@ def build_listed_fund_overlap_glance(
         "n_overlap": n_overlap,
         "share_pct": share_pct,
         "share_severity": share_severity,
+        "n_other": n_other,
+        "other_share_pct": other_share_pct,
+        "other_share_severity": other_share_severity,
     }
 
 

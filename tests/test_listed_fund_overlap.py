@@ -68,6 +68,11 @@ def test_listed_fund_overlap_glance_warn() -> None:
     assert g["share_pct"] == 40
     assert g["share_severity"] == ""
     assert "40%" in g["line"]
+    # Remaining non-theme names after share (3/5 → mid % only).
+    assert g["n_other"] == 3
+    assert g["other_share_pct"] == 60
+    assert g["other_share_severity"] == ""
+    assert "vs 3 other · 60%" in g["line"]
 
 
 def test_listed_fund_overlap_glance_share_hot() -> None:
@@ -76,6 +81,10 @@ def test_listed_fund_overlap_glance_share_hot() -> None:
     assert g["share_pct"] == 100
     assert g["share_severity"] == "hot"
     assert "hot · 100%" in g["line"]
+    assert g["n_other"] == 0
+    assert g["other_share_pct"] == 0
+    assert g["other_share_severity"] == "thin"
+    assert "vs 0 other · thin · 0%" in g["line"]
 
 
 def test_listed_fund_overlap_glance_share_quiet() -> None:
@@ -87,6 +96,10 @@ def test_listed_fund_overlap_glance_share_quiet() -> None:
     assert g["share_pct"] == 25
     assert g["share_severity"] == "quiet"
     assert "quiet · 25%" in g["line"]
+    assert g["n_other"] == 6
+    assert g["other_share_pct"] == 75
+    assert g["other_share_severity"] == "strong"
+    assert "vs 6 other · strong · 75%" in g["line"]
 
 
 def test_listed_fund_overlap_glance_multi_theme() -> None:
@@ -101,6 +114,9 @@ def test_listed_fund_overlap_glance_multi_theme() -> None:
     assert g["share_pct"] == 100
     assert g["share_severity"] == "hot"
     assert "hot · 100%" in g["line"]
+    assert g["n_other"] == 0
+    assert g["other_share_severity"] == "thin"
+    assert "vs 0 other · thin · 0%" in g["line"]
 
 
 def test_listed_fund_overlap_in_snapshot(tmp_path) -> None:
