@@ -766,6 +766,48 @@ a:active {
   margin: 0.35rem 0 0;
 }
 
+.price-bars-glance .price-bars-lean {
+  margin: 0.45rem 0 0;
+  font-size: 0.85rem;
+}
+
+.price-bars-glance .price-bars-lean > summary {
+  cursor: pointer;
+  font-family: var(--font-data);
+  color: var(--muted);
+  list-style: none;
+}
+
+.price-bars-glance .price-bars-lean > summary::-webkit-details-marker {
+  display: none;
+}
+
+.price-bars-glance .price-bars-lean > summary .meta {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.price-bars-glance .price-bars-lean.warn > summary,
+.price-bars-glance .price-bars-lean.warn > summary .meta {
+  color: var(--down);
+}
+
+.price-bars-glance .price-bars-lean[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
+.price-bars-glance .price-bars-lean-body {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 0.85rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.price-bars-glance .price-bars-lean-body.warn {
+  color: var(--down);
+}
+
 .book-risk-glance .sub {
   margin: 0.35rem 0 0;
 }

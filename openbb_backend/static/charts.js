@@ -1672,7 +1672,8 @@
 
   function renderPriceBarsGlance(payload) {
     var glance = payload && payload.price_bars_glance;
-    if (!glance || !glance.ready || !(glance.line || glance.bit)) return;
+    if (!glance || !glance.ready || !(glance.line || glance.bit_core || glance.bit))
+      return;
     var wrap = document.createElement("section");
     wrap.className = "price-bars-glance";
     wrap.setAttribute("aria-labelledby", "charts-price-bars-h");
@@ -1694,9 +1695,32 @@
     line.appendChild(sep1);
     var body = document.createElement("span");
     body.className = "price-bars-glance-body";
-    body.textContent = String(glance.line || glance.bit);
+    body.textContent = String(
+      glance.line || glance.bit_core || glance.bit
+    );
     line.appendChild(body);
     wrap.appendChild(line);
+    if (glance.lean) {
+      var leanWarn = !!glance.lean_warn;
+      var leanFold = document.createElement("details");
+      leanFold.className = "price-bars-lean" + (leanWarn ? " warn" : "");
+      if (leanWarn) leanFold.open = true;
+      var leanSummary = document.createElement("summary");
+      leanSummary.appendChild(document.createTextNode("bars lean "));
+      var leanMeta = document.createElement("span");
+      leanMeta.className = "meta";
+      leanMeta.textContent = glance.lean_meta
+        ? String(glance.lean_meta)
+        : "quiet";
+      leanSummary.appendChild(leanMeta);
+      leanFold.appendChild(leanSummary);
+      var leanBody = document.createElement("p");
+      leanBody.className =
+        "price-bars-lean-body" + (leanWarn ? " warn" : "");
+      leanBody.textContent = String(glance.lean);
+      leanFold.appendChild(leanBody);
+      wrap.appendChild(leanFold);
+    }
     var sub = document.createElement("p");
     sub.className = "sub";
     sub.textContent =

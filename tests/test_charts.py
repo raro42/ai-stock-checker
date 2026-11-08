@@ -466,6 +466,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_aging_stale_lead_size,
         chart_price_bars_aging_stale_sample_gap,
         chart_price_bars_glance,
+        chart_price_bars_lean_meta,
         chart_price_bars_spoken_vs_fresh_lead,
         chart_price_bars_spoken_vs_fresh_sample_gap,
         chart_price_bars_vs_fresh,
@@ -489,17 +490,24 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert hot["spoken_share_pct"] == 66.7
     assert hot["spoken_share_severity"] == "hot"
     assert hot["tone"] == "warn"
+    assert hot["bit_core"] == "2 bars stale · hot · 66.7%"
+    assert hot["line"] == hot["bit_core"]
     assert "2 bars stale" in hot["bit"]
     assert "hot · 66.7%" in hot["bit"]
     assert hot["vs_fresh"] == "vs 1 fresh · thin · 33.3%"
     assert hot["vs_fresh_severity"] == "thin"
     assert "vs 1 fresh · thin · 33.3%" in hot["bit"]
+    assert "vs 1 fresh · thin · 33.3%" in hot["lean"]
     assert hot["spoken_vs_fresh_lead"] == "lead spoken · 67%"
     assert hot["spoken_vs_fresh_lead_name"] == "spoken"
     assert "lead spoken · 67%" in hot["bit"]
     assert hot["bit"].index("vs 1 fresh") < hot["bit"].index("lead spoken")
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
+    assert hot["lean_warn"] is True
+    assert hot["lean_meta"].startswith("warn ·")
+    assert "vs fresh" in hot["lean_meta"]
+    assert "spoken" in hot["lean_meta"]
 
     mixed = chart_price_bars_glance(
         [
@@ -510,18 +518,23 @@ def test_chart_price_bars_glance_share_after_spoken():
         ]
     )
     assert mixed["bit"].startswith("1 aging · 1 stale")
+    assert mixed["bit_core"].startswith("1 aging · 1 stale")
     assert mixed["spoken_share_pct"] == 50.0
     assert mixed["spoken_share_severity"] == "hot"
     assert mixed["vs_fresh"] == "vs 2 fresh · 50%"
     assert mixed["vs_fresh_severity"] == ""  # mid
     assert mixed["spoken_vs_fresh_sample_gap"] == "spoken/fresh tied"
     assert "spoken/fresh tied" in mixed["bit"]
+    assert "spoken/fresh tied" in mixed["lean"]
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
     assert mixed["bit"].index("spoken/fresh tied") < mixed["bit"].index(
         "aging/stale tied"
     )
     assert mixed["aging_stale_lead_size"] is None  # tied → no size
+    assert mixed["lean_warn"] is True
+    assert "sf tied" in mixed["lean_meta"]
+    assert "as tied" in mixed["lean_meta"]
 
     lead = chart_price_bars_glance(
         [
@@ -535,6 +548,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["aging_stale_lead_name"] == "stale"
     assert lead["aging_stale_lead_share_pct"] == 67
     assert "lead stale · 67%" in lead["bit"]
+    assert "lead stale · 67%" in lead["lean"]
     assert lead["vs_fresh"] == "vs 1 fresh · thin · 25%"
     assert lead["spoken_vs_fresh_lead"] == "lead spoken · 75%"
     assert "lead spoken · 75%" in lead["bit"]
@@ -545,6 +559,11 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["aging_stale_lead_size_quieter"] == 1
     assert "lead size · 2×" in lead["bit"]
     assert "lead size sides · louder 2 · quieter 1" in lead["bit"]
+    assert "lead size · 2×" in lead["lean"]
+    assert lead["lean_meta"].startswith("warn ·")
+    assert "size" in lead["lean_meta"]
+    # Cap 4 stages → sides clipped as +1 (Screener / pin lean inventory).
+    assert "+1" in lead["lean_meta"] or "sides" in lead["lean_meta"]
 
     all_spoken = chart_price_bars_glance(
         [
@@ -599,6 +618,12 @@ def test_chart_price_bars_glance_share_after_spoken():
         "spoken/fresh tied"
     )
     assert chart_price_bars_spoken_vs_fresh_lead(3, 0)[0] == ""
+    assert chart_price_bars_lean_meta("") == "quiet"
+    assert chart_price_bars_lean_meta(
+        "vs 1 fresh · thin · 25% · lead spoken · 75% · lead stale · 67% · "
+        "lead size · 2× · lead size sides · louder 2 · quieter 1",
+        warn=True,
+    ).startswith("warn ·")
 
     quiet = chart_price_bars_glance(
         [
@@ -610,15 +635,35 @@ def test_chart_price_bars_glance_share_after_spoken():
         ]
     )
     assert quiet["spoken_share_severity"] == "quiet"
+    assert quiet["bit_core"] == "1 bars aging · quiet · 20%"
+    assert quiet["line"] == quiet["bit_core"]
     assert "1 bars aging" in quiet["bit"]
     assert "quiet · 20%" in quiet["bit"]
     assert quiet["vs_fresh"] == "vs 4 fresh · strong · 80%"
     assert "vs 4 fresh · strong · 80%" in quiet["bit"]
+    assert "vs 4 fresh · strong · 80%" in quiet["lean"]
     assert quiet["spoken_vs_fresh_lead"] == "lead fresh · 80%"
     assert "lead fresh · 80%" in quiet["bit"]
     assert quiet["tone"] == "aging"
+    assert quiet["lean_warn"] is False
+    assert quiet["lean_meta"].startswith("quiet ·")
+    assert "fresh lead" in quiet["lean_meta"]
     assert quiet["aging_stale_lead"] == ""
     assert quiet["aging_stale_lead_size"] is None
+
+
+def test_charts_js_price_bars_lean_fold() -> None:
+    """Charts must fold ownership/lead cascade under bars lean (desk fold parity)."""
+    src = (
+        Path(__file__).resolve().parents[1] / "openbb_backend" / "static" / "charts.js"
+    ).read_text()
+    assert "if (glance.lean)" in src
+    assert "glance.lean_warn" in src
+    assert "glance.lean_meta" in src
+    assert '"price-bars-lean"' in src
+    assert '"price-bars-lean-body"' in src
+    assert "bars lean " in src
+    assert "renderPriceBarsGlance" in src
 
 
 def test_price_panels_speak_stale_last_bar(tmp_path: Path, monkeypatch):

@@ -532,6 +532,51 @@ def chart_price_bars_aging_stale_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+# Quiet price-bars lean chip names spoken stages (Screener / pin lean inventory).
+# Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead stale``.
+_PRICE_BARS_LEAN_NAME_CAP = 4
+_PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^vs \d+ fresh\b"), "vs fresh"),
+    (re.compile(r"^spoken/fresh tied\b"), "sf tied"),
+    (re.compile(r"^lead spoken\b"), "spoken"),
+    (re.compile(r"^lead fresh\b"), "fresh lead"),
+    (re.compile(r"^aging/stale tied\b"), "as tied"),
+    (re.compile(r"^lead size sides\b"), "sides"),
+    (re.compile(r"^lead size\b"), "size"),
+    (re.compile(r"^lead stale\b"), "stale"),
+    (re.compile(r"^lead aging\b"), "aging"),
+)
+
+
+def chart_price_bars_lean_meta(lean: str, *, warn: bool = False) -> str:
+    """Summary chip for Charts price-bars lean fold (display only).
+
+    Quiet names stages that spoke (``quiet · N folds · vs fresh · spoken ·
+    size``) so bare ``quiet`` does not claim lead/size when those bits are
+    absent — Screener weight / opportunity pin lean meta + MonsterDeveloper
+    fold inventory after ownership cascade hid the ladder. Warned folds speak
+    ``warn`` and append the clipped stages. Not a gate.
+    """
+    from stock_checker.yahoo_universe_discovery import _quiet_inventory_chip
+
+    text = str(lean or "").strip()
+    if not text:
+        return "quiet"
+    if warn:
+        stage_tail = _quiet_inventory_chip(
+            text,
+            _PRICE_BARS_LEAN_STAGE_RES,
+            cap=_PRICE_BARS_LEAN_NAME_CAP,
+            quiet=False,
+        )
+        if stage_tail:
+            return f"warn · {stage_tail}"
+        return "warn"
+    return _quiet_inventory_chip(
+        text, _PRICE_BARS_LEAN_STAGE_RES, cap=_PRICE_BARS_LEAN_NAME_CAP
+    )
+
+
 def chart_price_bars_glance(
     panels: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -547,13 +592,20 @@ def chart_price_bars_glance(
     aging and stale spoke, also speak ``lead stale|aging · N%`` or
     ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
     aging/stale lead, also speak ``lead size · N×`` + sides so name/% ≠
-    magnitude. Zero spoken stays silent. Not a scoring veto / not a new entry
+    magnitude. Ownership/lead cascade sits in ``lean`` under a Charts fold
+    (MonsterDeveloper weight/sleeve lean parity — share alone hid vs-fresh /
+    lead / size); ``lean_meta`` names spoken stages. Full ``bit`` stays joined
+    for tests. Zero spoken stays silent. Not a scoring veto / not a new entry
     gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
         "bit": "",
+        "bit_core": "",
         "line": "",
+        "lean": "",
+        "lean_warn": False,
+        "lean_meta": "quiet",
         "tone": "flat",
         "n_panels": 0,
         "n_fresh": 0,
@@ -633,18 +685,21 @@ def chart_price_bars_glance(
     )
     own_bit = lead_bit or sample_gap
     sf_own = sf_lead_bit or sf_sample_gap
-    bit = f"{count_bit} · {share_bit}"
+    bit_core = f"{count_bit} · {share_bit}"
+    lean_parts: list[str] = []
     if vs_fresh_bit:
-        bit = f"{bit} · {vs_fresh_bit}"
+        lean_parts.append(vs_fresh_bit)
     if sf_own:
-        bit = f"{bit} · {sf_own}"
+        lean_parts.append(sf_own)
     if own_bit:
-        bit = f"{bit} · {own_bit}"
+        lean_parts.append(own_bit)
     if size is not None and louder_n is not None and quieter_n is not None:
-        bit = (
-            f"{bit} · lead size · {size:g}× · "
+        lean_parts.append(f"lead size · {size:g}×")
+        lean_parts.append(
             f"lead size sides · louder {louder_n} · quieter {quieter_n}"
         )
+    lean = " · ".join(lean_parts)
+    bit = f"{bit_core} · {lean}" if lean else bit_core
     tone = "flat"
     if n_stale or spoken_share_severity == "hot":
         tone = "warn"
@@ -653,10 +708,15 @@ def chart_price_bars_glance(
     # Thin fresh remainder escalates warn when share was already hot/aging.
     if vs_fresh_sev == "thin" and tone == "flat":
         tone = "aging"
+    lean_warn = tone == "warn"
     return {
         "ready": True,
         "bit": bit,
-        "line": bit,
+        "bit_core": bit_core,
+        "line": bit_core,
+        "lean": lean,
+        "lean_warn": lean_warn,
+        "lean_meta": chart_price_bars_lean_meta(lean, warn=lean_warn),
         "tone": tone,
         "n_panels": n_panels,
         "n_fresh": n_fresh,
