@@ -6363,6 +6363,46 @@ def listed_fund_overlap_vs_other_sample_gap(
     return "overlap/other tied"
 
 
+# Quiet Funds lean chip names spoken stages (Charts bars / pin lean inventory).
+# Longer prefixes first so ``lead overlap`` ≠ bare ``lead``.
+_LISTED_FUND_OVERLAP_LEAN_NAME_CAP = 3
+_LISTED_FUND_OVERLAP_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^vs \d+ other\b"), "vs other"),
+    (re.compile(r"^overlap/other tied\b"), "tied"),
+    (re.compile(r"^lead overlap\b"), "overlap"),
+    (re.compile(r"^lead other\b"), "other"),
+)
+
+
+def listed_fund_overlap_lean_meta(lean: str, *, warn: bool = False) -> str:
+    """Summary chip for Funds theme-overlap lean fold (display only).
+
+    Quiet names stages that spoke (``quiet · N folds · vs other · other``)
+    so bare ``quiet`` does not claim ownership lead when absent —
+    Charts price-bars / opportunity pin lean meta + MonsterDeveloper fold
+    inventory after share alone hid vs-other / lead. Warned folds speak
+    ``warn`` and append the clipped stages. Not a gate.
+    """
+    text = str(lean or "").strip()
+    if not text:
+        return "quiet"
+    if warn:
+        stage_tail = _quiet_inventory_chip(
+            text,
+            _LISTED_FUND_OVERLAP_LEAN_STAGE_RES,
+            cap=_LISTED_FUND_OVERLAP_LEAN_NAME_CAP,
+            quiet=False,
+        )
+        if stage_tail:
+            return f"warn · {stage_tail}"
+        return "warn"
+    return _quiet_inventory_chip(
+        text,
+        _LISTED_FUND_OVERLAP_LEAN_STAGE_RES,
+        cap=_LISTED_FUND_OVERLAP_LEAN_NAME_CAP,
+    )
+
+
 def build_listed_fund_overlap_glance(
     holdings: list[Any] | None,
 ) -> dict[str, Any]:
@@ -6383,7 +6423,11 @@ def build_listed_fund_overlap_glance(
     and both counts are >0, also speak ``lead overlap|other · N%`` or
     ``overlap/other tied`` so absolute sides do not hide which slot owns
     the book — opportunity / Charts spoken-vs-fresh lead + portfolio AI
-    count≠share. Zero / sole-theme stays silent. Not a new entry gate.
+    count≠share. Theme + share stay on the primary strip; vs-other /
+    ownership lead sit under a Funds lean fold (MonsterDeveloper Charts
+    bars lean parity — share alone hid peers / lead); ``lean_meta`` names
+    spoken stages. Full ``bit`` stays joined for tests. Zero / sole-theme
+    stays silent. Not a new entry gate.
     """
     from stock_checker.listed_funds import (
         listed_fund_theme_label,
@@ -6393,7 +6437,12 @@ def build_listed_fund_overlap_glance(
     empty: dict[str, Any] = {
         "ready": False,
         "tone": "flat",
+        "bit": "",
+        "bit_core": "",
         "line": "",
+        "lean": "",
+        "lean_warn": False,
+        "lean_meta": "quiet",
         "warn": False,
         "theme": "",
         "themes": [],
@@ -6430,7 +6479,7 @@ def build_listed_fund_overlap_glance(
     overlaps = listed_fund_theme_overlaps(symbols)
     if not overlaps:
         return empty
-    bits: list[str] = []
+    core_bits: list[str] = []
     theme_bits: list[str] = []
     all_syms: list[str] = []
     for theme, syms in overlaps:
@@ -6440,7 +6489,7 @@ def build_listed_fund_overlap_glance(
         shown = " · ".join(syms[:3])
         if len(syms) > 3:
             shown = f"{shown} · +{len(syms) - 3}"
-        bits.append(f"{len(syms)} {label} · {shown}")
+        core_bits.append(f"{len(syms)} {label} · {shown}")
     lead_theme, lead_syms = overlaps[0]
     n_book = len(symbols)
     # Themes are exclusive per symbol — all_syms has no cross-theme dups.
@@ -6467,7 +6516,7 @@ def build_listed_fund_overlap_glance(
             share_bit = f"quiet · {int(share_pct)}%"
         else:
             share_bit = f"{int(share_pct)}%"
-        bits.append(share_bit)
+        core_bits.append(share_bit)
         n_other = max(0, n_book - n_overlap)
         other_share_pct = round(100.0 * n_other / n_book)
         if other_share_pct >= LISTED_FUND_OVERLAP_OTHER_SHARE_STRONG:
@@ -6478,7 +6527,6 @@ def build_listed_fund_overlap_glance(
             other_bit = f"vs {n_other} other · thin · {int(other_share_pct)}%"
         else:
             other_bit = f"vs {n_other} other · {int(other_share_pct)}%"
-        bits.append(other_bit)
         vs_other_lead, vs_other_lead_name, vs_other_lead_pct = (
             listed_fund_overlap_vs_other_lead(n_overlap, n_other)
         )
@@ -6486,25 +6534,32 @@ def build_listed_fund_overlap_glance(
             n_overlap, n_other
         )
         vs_other_own_bit = vs_other_lead or vs_other_sample_gap
-        if vs_other_own_bit:
-            bits.append(vs_other_own_bit)
-    line = " · ".join(bits)
-    if len(line) > 96:
-        # Keep lead theme + share + vs-other + ownership; drop trailing themes.
-        keep = [bits[0]]
+    bit_core = " · ".join(core_bits)
+    if len(bit_core) > 96:
+        # Keep lead theme + share on the strip; drop trailing themes.
+        keep = [core_bits[0]]
         if share_bit:
             keep.append(share_bit)
-        if other_bit:
-            keep.append(other_bit)
-        if vs_other_own_bit:
-            keep.append(vs_other_own_bit)
-        line = " · ".join(keep)
-        if len(line) > 96:
-            line = line[:95] + "…"
+        bit_core = " · ".join(keep)
+        if len(bit_core) > 96:
+            bit_core = bit_core[:95] + "…"
+    lean_parts: list[str] = []
+    if other_bit:
+        lean_parts.append(other_bit)
+    if vs_other_own_bit:
+        lean_parts.append(vs_other_own_bit)
+    lean = " · ".join(lean_parts)
+    bit = f"{bit_core} · {lean}" if lean else bit_core
+    lean_warn = True  # ready overlap always warns (theme doubles)
     return {
         "ready": True,
         "tone": "warn",
-        "line": line,
+        "bit": bit,
+        "bit_core": bit_core,
+        "line": bit_core,
+        "lean": lean,
+        "lean_warn": lean_warn,
+        "lean_meta": listed_fund_overlap_lean_meta(lean, warn=lean_warn),
         "warn": True,
         "theme": lead_theme,
         "themes": theme_bits,
