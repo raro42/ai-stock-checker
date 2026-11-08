@@ -461,7 +461,11 @@ def test_chart_last_bar_meta_fresh_aging_stale():
 
 def test_chart_price_bars_glance_share_after_spoken():
     """Book-level aging|stale ownership after per-legend bits (display only)."""
-    from openbb_backend.charts import chart_price_bars_glance
+    from openbb_backend.charts import (
+        chart_price_bars_aging_stale_lead,
+        chart_price_bars_aging_stale_sample_gap,
+        chart_price_bars_glance,
+    )
 
     assert chart_price_bars_glance([])["ready"] is False
     assert chart_price_bars_glance(
@@ -483,6 +487,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert hot["tone"] == "warn"
     assert "2 bars stale" in hot["bit"]
     assert "hot · 66.7%" in hot["bit"]
+    assert hot["aging_stale_lead"] == ""  # sole-side silent
 
     mixed = chart_price_bars_glance(
         [
@@ -495,6 +500,26 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert mixed["bit"].startswith("1 aging · 1 stale")
     assert mixed["spoken_share_pct"] == 50.0
     assert mixed["spoken_share_severity"] == "hot"
+    assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
+    assert "aging/stale tied" in mixed["bit"]
+
+    lead = chart_price_bars_glance(
+        [
+            {"bar_freshness": "aging"},
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "fresh"},
+        ]
+    )
+    assert lead["aging_stale_lead"] == "lead stale · 67%"
+    assert lead["aging_stale_lead_name"] == "stale"
+    assert lead["aging_stale_lead_share_pct"] == 67
+    assert "lead stale · 67%" in lead["bit"]
+    assert lead["aging_stale_sample_gap"] == ""
+
+    assert chart_price_bars_aging_stale_lead(2, 1)[0] == "lead aging · 67%"
+    assert chart_price_bars_aging_stale_sample_gap(1, 1) == "aging/stale tied"
+    assert chart_price_bars_aging_stale_lead(3, 0)[0] == ""
 
     quiet = chart_price_bars_glance(
         [
@@ -509,6 +534,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "1 bars aging" in quiet["bit"]
     assert "quiet · 20%" in quiet["bit"]
     assert quiet["tone"] == "aging"
+    assert quiet["aging_stale_lead"] == ""
 
 
 def test_price_panels_speak_stale_last_bar(tmp_path: Path, monkeypatch):

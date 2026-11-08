@@ -342,6 +342,62 @@ def chart_last_bar_meta(
     }
 
 
+def chart_price_bars_aging_stale_lead(
+    n_aging: int,
+    n_stale: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among aging vs stale spoken bars (display only).
+
+    Absolute ``N aging · M stale`` hid which band owns the spoken set
+    (Yahoo claim-drop dead/stale lead + portfolio AI count≠share +
+    xang1234 multi-meter). Both sides must be >0 and total ≥2; strict lead
+    → ``lead stale · N%`` / ``lead aging · N%``; ties / sole-side → silent
+    (use ``chart_price_bars_aging_stale_sample_gap`` for ``aging/stale tied``).
+    """
+    try:
+        aging = max(0, int(n_aging))
+    except (TypeError, ValueError):
+        aging = 0
+    try:
+        stale = max(0, int(n_stale))
+    except (TypeError, ValueError):
+        stale = 0
+    total = aging + stale
+    if total < 2 or aging <= 0 or stale <= 0 or aging == stale:
+        return "", "", None
+    if stale > aging:
+        name, n = "stale", stale
+    else:
+        name, n = "aging", aging
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def chart_price_bars_aging_stale_sample_gap(
+    n_aging: int,
+    n_stale: int,
+) -> str:
+    """Speak ``aging/stale tied`` when both bands spoke with no strict lead.
+
+    Prefixed so the bit stays distinct from other glance ``tied`` chips.
+    Lead / sole-side / zero stay silent. Display only.
+    """
+    try:
+        aging = max(0, int(n_aging))
+    except (TypeError, ValueError):
+        aging = 0
+    try:
+        stale = max(0, int(n_stale))
+    except (TypeError, ValueError):
+        stale = 0
+    if aging <= 0 or stale <= 0:
+        return ""
+    lead_bit, _name, _share = chart_price_bars_aging_stale_lead(aging, stale)
+    if lead_bit:
+        return ""
+    return "aging/stale tied"
+
+
 def chart_price_bars_glance(
     panels: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -349,7 +405,9 @@ def chart_price_bars_glance(
 
     Absolute ``N bars stale`` alone hid one hung panel vs most of the relative
     book — speak ownership share (portfolio AI count≠share + xang1234 multi-meter).
-    Zero spoken stays silent. Not a scoring veto / not a new entry gate.
+    When both aging and stale spoke, also speak ``lead stale|aging · N%`` or
+    ``aging/stale tied`` so absolute sides ≠ silent ownership. Zero spoken
+    stays silent. Not a scoring veto / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -363,6 +421,10 @@ def chart_price_bars_glance(
         "n_spoken": 0,
         "spoken_share_pct": None,
         "spoken_share_severity": "",
+        "aging_stale_lead": "",
+        "aging_stale_lead_name": "",
+        "aging_stale_lead_share_pct": None,
+        "aging_stale_sample_gap": "",
     }
     if not isinstance(panels, list) or not panels:
         return empty
@@ -397,7 +459,14 @@ def chart_price_bars_glance(
     else:
         spoken_share_severity = ""
         share_bit = f"{spoken_share_pct:g}%"
+    lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
+        n_aging, n_stale
+    )
+    sample_gap = chart_price_bars_aging_stale_sample_gap(n_aging, n_stale)
+    own_bit = lead_bit or sample_gap
     bit = f"{count_bit} · {share_bit}"
+    if own_bit:
+        bit = f"{bit} · {own_bit}"
     tone = "flat"
     if n_stale or spoken_share_severity == "hot":
         tone = "warn"
@@ -415,6 +484,10 @@ def chart_price_bars_glance(
         "n_spoken": n_spoken,
         "spoken_share_pct": spoken_share_pct,
         "spoken_share_severity": spoken_share_severity,
+        "aging_stale_lead": lead_bit,
+        "aging_stale_lead_name": lead_name,
+        "aging_stale_lead_share_pct": lead_share,
+        "aging_stale_sample_gap": sample_gap,
     }
 
 
