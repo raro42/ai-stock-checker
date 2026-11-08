@@ -398,6 +398,36 @@ def chart_price_bars_aging_stale_sample_gap(
     return "aging/stale tied"
 
 
+def chart_price_bars_aging_stale_lead_size(
+    n_aging: int,
+    n_stale: int,
+    *,
+    lead_name: str = "",
+) -> tuple[float | None, int | None, int | None]:
+    """How many times louder owns quieter after aging/stale lead (display only).
+
+    When ``lead_name`` already spoke (``aging|stale``) and both counts are
+    >0, ``lead size · N×`` is louder÷quieter; zero quieter stays silent.
+    Lead name/% ≠ magnitude (opportunity / Screener Δ lead size + portfolio
+    AI count≠share). Returns ``(size, louder_n, quieter_n)`` or all-None.
+    """
+    if str(lead_name or "").strip().casefold() not in {"aging", "stale"}:
+        return None, None, None
+    try:
+        aging = max(0, int(n_aging))
+    except (TypeError, ValueError):
+        aging = 0
+    try:
+        stale = max(0, int(n_stale))
+    except (TypeError, ValueError):
+        stale = 0
+    quieter = min(aging, stale)
+    louder = max(aging, stale)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def chart_price_bars_glance(
     panels: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -406,8 +436,9 @@ def chart_price_bars_glance(
     Absolute ``N bars stale`` alone hid one hung panel vs most of the relative
     book — speak ownership share (portfolio AI count≠share + xang1234 multi-meter).
     When both aging and stale spoke, also speak ``lead stale|aging · N%`` or
-    ``aging/stale tied`` so absolute sides ≠ silent ownership. Zero spoken
-    stays silent. Not a scoring veto / not a new entry gate.
+    ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
+    lead, also speak ``lead size · N×`` + sides so name/% ≠ magnitude. Zero
+    spoken stays silent. Not a scoring veto / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -425,6 +456,9 @@ def chart_price_bars_glance(
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
         "aging_stale_sample_gap": "",
+        "aging_stale_lead_size": None,
+        "aging_stale_lead_size_louder": None,
+        "aging_stale_lead_size_quieter": None,
     }
     if not isinstance(panels, list) or not panels:
         return empty
@@ -463,10 +497,18 @@ def chart_price_bars_glance(
         n_aging, n_stale
     )
     sample_gap = chart_price_bars_aging_stale_sample_gap(n_aging, n_stale)
+    size, louder_n, quieter_n = chart_price_bars_aging_stale_lead_size(
+        n_aging, n_stale, lead_name=lead_name
+    )
     own_bit = lead_bit or sample_gap
     bit = f"{count_bit} · {share_bit}"
     if own_bit:
         bit = f"{bit} · {own_bit}"
+    if size is not None and louder_n is not None and quieter_n is not None:
+        bit = (
+            f"{bit} · lead size · {size:g}× · "
+            f"lead size sides · louder {louder_n} · quieter {quieter_n}"
+        )
     tone = "flat"
     if n_stale or spoken_share_severity == "hot":
         tone = "warn"
@@ -488,6 +530,9 @@ def chart_price_bars_glance(
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,
         "aging_stale_sample_gap": sample_gap,
+        "aging_stale_lead_size": size,
+        "aging_stale_lead_size_louder": louder_n,
+        "aging_stale_lead_size_quieter": quieter_n,
     }
 
 

@@ -463,6 +463,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     """Book-level aging|stale ownership after per-legend bits (display only)."""
     from openbb_backend.charts import (
         chart_price_bars_aging_stale_lead,
+        chart_price_bars_aging_stale_lead_size,
         chart_price_bars_aging_stale_sample_gap,
         chart_price_bars_glance,
     )
@@ -488,6 +489,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "2 bars stale" in hot["bit"]
     assert "hot · 66.7%" in hot["bit"]
     assert hot["aging_stale_lead"] == ""  # sole-side silent
+    assert hot["aging_stale_lead_size"] is None
 
     mixed = chart_price_bars_glance(
         [
@@ -502,6 +504,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert mixed["spoken_share_severity"] == "hot"
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
+    assert mixed["aging_stale_lead_size"] is None  # tied → no size
 
     lead = chart_price_bars_glance(
         [
@@ -516,10 +519,35 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["aging_stale_lead_share_pct"] == 67
     assert "lead stale · 67%" in lead["bit"]
     assert lead["aging_stale_sample_gap"] == ""
+    assert lead["aging_stale_lead_size"] == 2.0
+    assert lead["aging_stale_lead_size_louder"] == 2
+    assert lead["aging_stale_lead_size_quieter"] == 1
+    assert "lead size · 2×" in lead["bit"]
+    assert "lead size sides · louder 2 · quieter 1" in lead["bit"]
 
     assert chart_price_bars_aging_stale_lead(2, 1)[0] == "lead aging · 67%"
     assert chart_price_bars_aging_stale_sample_gap(1, 1) == "aging/stale tied"
     assert chart_price_bars_aging_stale_lead(3, 0)[0] == ""
+    assert chart_price_bars_aging_stale_lead_size(2, 1, lead_name="aging") == (
+        2.0,
+        2,
+        1,
+    )
+    assert chart_price_bars_aging_stale_lead_size(3, 1, lead_name="aging") == (
+        3.0,
+        3,
+        1,
+    )
+    assert chart_price_bars_aging_stale_lead_size(1, 1, lead_name="") == (
+        None,
+        None,
+        None,
+    )
+    assert chart_price_bars_aging_stale_lead_size(2, 0, lead_name="aging") == (
+        None,
+        None,
+        None,
+    )
 
     quiet = chart_price_bars_glance(
         [
@@ -535,6 +563,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "quiet · 20%" in quiet["bit"]
     assert quiet["tone"] == "aging"
     assert quiet["aging_stale_lead"] == ""
+    assert quiet["aging_stale_lead_size"] is None
 
 
 def test_price_panels_speak_stale_last_bar(tmp_path: Path, monkeypatch):
