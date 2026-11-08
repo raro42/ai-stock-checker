@@ -120,6 +120,41 @@ def opportunity_damaged_vs_ok_sample_gap(damaged: int, ok: int) -> str:
     return "damaged/ok tied"
 
 
+def opportunity_damaged_vs_ok_lean(
+    damaged_severity: str,
+    ok_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of damaged vs ok share bands (display only).
+
+    Absolute sides + ownership lead hid whether the two *severity* bands
+    agree (Screener ``junk vs ok`` lean + portfolio AI speak-both-sides).
+    Align when ``hot|thin`` or ``quiet|strong``; clash when exactly one
+    lean spoke or the pair disagrees. Adverse clash (damaged hot / ok thin
+    mismatch, or sole hot/thin) warns. Mid both silent. Desk keeps this in
+    ``pin_lean`` so the scan-freshness core clip stays short.
+    """
+    dmg = str(damaged_severity or "").strip().casefold()
+    ok = str(ok_severity or "").strip().casefold()
+    dmg_lean = dmg in {"hot", "quiet"}
+    ok_lean = ok in {"strong", "thin"}
+    if dmg_lean and ok_lean:
+        matched = (dmg == "hot" and ok == "thin") or (
+            dmg == "quiet" and ok == "strong"
+        )
+        if matched:
+            return f"damaged vs ok align · {dmg}|{ok}", False
+        return f"damaged vs ok clash · damaged {dmg} · ok {ok}", True
+    if dmg_lean != ok_lean:
+        dmg_label = dmg if dmg_lean else (dmg or "ok")
+        ok_label = ok if ok_lean else (ok or "ok")
+        warn = dmg == "hot" or ok == "thin"
+        return (
+            f"damaged vs ok clash · damaged {dmg_label} · ok {ok_label}",
+            warn,
+        )
+    return "", False
+
+
 def newest_usable_opportunity_publish(archive_dir: Path) -> Path | None:
     """Newest filename among usable timestamped publishes (or None)."""
     usable = usable_opportunity_publishes(archive_dir)

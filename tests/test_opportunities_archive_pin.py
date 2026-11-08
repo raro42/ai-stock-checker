@@ -9,6 +9,7 @@ from openbb_backend.desk import build_scan_freshness, resolve_opportunities_arch
 from stock_checker.opportunity_archive import (
     heal_opportunities_latest_pin,
     opportunity_damaged_vs_ok_lead,
+    opportunity_damaged_vs_ok_lean,
     opportunity_damaged_vs_ok_sample_gap,
 )
 
@@ -542,9 +543,17 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
     assert res["ok_share_severity"] == ""
     assert res["damaged_vs_ok_lead"] == ""
     assert res["damaged_vs_ok_sample_gap"] == "damaged/ok tied"
-    assert res["bit"] == (
+    # 50/50 → damaged hot · ok mid → sole lean clash (Screener junk vs ok).
+    assert res["damaged_vs_ok_lean"] == (
+        "damaged vs ok clash · damaged hot · ok ok"
+    )
+    assert res["damaged_vs_ok_lean_warn"] is True
+    assert res["pin_lean"] == res["damaged_vs_ok_lean"]
+    assert res["pin_lean_warn"] is True
+    assert res["bit_core"] == (
         "1 damaged · hot · 50% · vs 1 ok · 50% · damaged/ok tied"
     )
+    assert res["bit"] == f"{res['bit_core']} · {res['damaged_vs_ok_lean']}"
     assert Path(res["path"]).resolve() == pinned.resolve()
 
 
@@ -577,9 +586,16 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_lead"] == "ok"
     assert res["damaged_vs_ok_lead_pct"] == 80
     assert res["damaged_vs_ok_sample_gap"] == ""
-    assert res["bit"] == (
+    assert res["damaged_vs_ok_lean"] == (
+        "damaged vs ok align · quiet|strong"
+    )
+    assert res["damaged_vs_ok_lean_warn"] is False
+    assert res["pin_lean"] == res["damaged_vs_ok_lean"]
+    assert res["pin_lean_warn"] is False
+    assert res["bit_core"] == (
         "1 damaged · quiet · 20% · vs 4 ok · strong · 80% · lead ok · 80%"
     )
+    assert res["bit"] == f"{res['bit_core']} · {res['damaged_vs_ok_lean']}"
     assert res["warn"] is True
 
 
@@ -608,9 +624,16 @@ def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
     assert res["damaged_vs_ok_lead"] == "damaged"
     assert res["damaged_vs_ok_lead_pct"] == 75
     assert res["damaged_vs_ok_sample_gap"] == ""
-    assert res["bit"] == (
+    assert res["damaged_vs_ok_lean"] == (
+        "damaged vs ok align · hot|thin"
+    )
+    assert res["damaged_vs_ok_lean_warn"] is False
+    assert res["pin_lean"] == res["damaged_vs_ok_lean"]
+    assert res["pin_lean_warn"] is False
+    assert res["bit_core"] == (
         "3 damaged · hot · 75% · vs 1 ok · thin · 25% · lead damaged · 75%"
     )
+    assert res["bit"] == f"{res['bit_core']} · {res['damaged_vs_ok_lean']}"
     assert res["warn"] is True
 
 
@@ -632,3 +655,29 @@ def test_opportunity_damaged_vs_ok_lead_helpers() -> None:
     assert opportunity_damaged_vs_ok_lead(2, 0) == ("", "", None)
     assert opportunity_damaged_vs_ok_sample_gap(2, 0) == ""
     assert opportunity_damaged_vs_ok_lead(0, 0) == ("", "", None)
+
+
+def test_opportunity_damaged_vs_ok_lean_helpers() -> None:
+    """Align / clash / mid-silent for damaged vs ok severity lean."""
+    bit, warn = opportunity_damaged_vs_ok_lean("hot", "thin")
+    assert bit == "damaged vs ok align · hot|thin"
+    assert warn is False
+
+    bit, warn = opportunity_damaged_vs_ok_lean("quiet", "strong")
+    assert bit == "damaged vs ok align · quiet|strong"
+    assert warn is False
+
+    bit, warn = opportunity_damaged_vs_ok_lean("hot", "strong")
+    assert bit == "damaged vs ok clash · damaged hot · ok strong"
+    assert warn is True
+
+    bit, warn = opportunity_damaged_vs_ok_lean("hot", "")
+    assert bit == "damaged vs ok clash · damaged hot · ok ok"
+    assert warn is True
+
+    bit, warn = opportunity_damaged_vs_ok_lean("quiet", "")
+    assert bit == "damaged vs ok clash · damaged quiet · ok ok"
+    assert warn is False
+
+    assert opportunity_damaged_vs_ok_lean("", "") == ("", False)
+    assert opportunity_damaged_vs_ok_lean("ok", "ok") == ("", False)

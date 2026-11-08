@@ -1030,12 +1030,16 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     portfolio AI count≠share — silent usable-filter ≠ clean book). When both
     sides spoke, also speak ``lead damaged|ok · N%`` or ``damaged/ok tied``
     so absolute sides alone do not hide ownership (claim-drop vs live lead +
-    xang1234 market-history multi-meter). Display fields only — not an
-    entry gate.
+    xang1234 market-history multi-meter). When damaged+ok severity bands
+    already spoke, also put ``damaged vs ok align|clash · …`` in
+    ``pin_lean`` (Screener junk vs ok lean — sides alone hid lean agreement;
+    fold keeps the scan-freshness core clip short). Display fields only —
+    not an entry gate.
     """
     from stock_checker.opportunity_archive import (
         damaged_opportunity_publish_count,
         opportunity_damaged_vs_ok_lead,
+        opportunity_damaged_vs_ok_lean,
         opportunity_damaged_vs_ok_sample_gap,
         opportunity_publish_usable,
         usable_opportunity_publishes,
@@ -1085,6 +1089,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "damaged_vs_ok_lead": "",
         "damaged_vs_ok_lead_pct": None,
         "damaged_vs_ok_sample_gap": "",
+        "damaged_vs_ok_lean": "",
+        "damaged_vs_ok_lean_warn": False,
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1398,6 +1404,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         # When both sides spoke, also name ownership lead / tied so absolute
         # counts alone do not hide which slot type owns the archive
         # (claim-drop vs live lead + xang1234 market-history multi-meter).
+        # Severity bands alone hid lean agreement — Screener junk vs ok lean
+        # sits in pin_lean (MonsterDeveloper fold) so bit_core stays short.
         if n_damaged > 0:
             sev = str(out.get("damaged_share_severity") or "")
             pct = out.get("damaged_share_pct")
@@ -1422,9 +1430,19 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                 own_bit = f" · {gap_bit}"
             else:
                 own_bit = ""
+            lean_bit, lean_warn = opportunity_damaged_vs_ok_lean(sev, ok_sev)
+            bit_core = f"{n_damaged} damaged{sev_bit}{pct_bit}{ok_bit}{own_bit}"
+            out["bit_core"] = bit_core
+            if lean_bit:
+                out["damaged_vs_ok_lean"] = lean_bit
+                out["damaged_vs_ok_lean_warn"] = lean_warn
+                out["pin_lean"] = lean_bit
+                out["pin_lean_warn"] = lean_warn
+                # Full bit keeps lean joined for tests; strip shows bit_core.
+                out["bit"] = f"{bit_core} · {lean_bit}"
+            else:
+                out["bit"] = bit_core
             out["warn"] = True
-            out["bit"] = f"{n_damaged} damaged{sev_bit}{pct_bit}{ok_bit}{own_bit}"
-            out["bit_core"] = out["bit"]
         return out
 
     pin = "dangling" if latest.is_symlink() else "missing"
