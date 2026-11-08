@@ -61,6 +61,65 @@ def damaged_opportunity_publish_count(archive_dir: Path) -> int:
     )
 
 
+def opportunity_damaged_vs_ok_lead(
+    damaged: int,
+    ok: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among damaged vs ok publish counts (display only).
+
+    Absolute ``N damaged`` beside ``vs M ok`` hid which slot type owns the
+    archive (xang1234 market-history skip-damaged + claim-drop vs live lead +
+    portfolio AI count≠share). Both sides must be >0 and total ≥2; strict
+    lead → ``lead damaged · N%`` / ``lead ok · N%``; ties / sole-side →
+    silent (use ``opportunity_damaged_vs_ok_sample_gap`` for tied).
+    """
+    try:
+        n_dmg = max(0, int(damaged))
+    except (TypeError, ValueError):
+        n_dmg = 0
+    try:
+        n_ok = max(0, int(ok))
+    except (TypeError, ValueError):
+        n_ok = 0
+    total = n_dmg + n_ok
+    if total < 2 or n_dmg <= 0 or n_ok <= 0:
+        return "", "", None
+    if n_dmg == n_ok:
+        return "", "", None
+    if n_dmg > n_ok:
+        name, n = "damaged", n_dmg
+    else:
+        name, n = "ok", n_ok
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def opportunity_damaged_vs_ok_sample_gap(damaged: int, ok: int) -> str:
+    """Speak ``damaged/ok tied`` when both sides spoke with no strict lead.
+
+    Prefixed so the bit stays distinct from Yahoo claim ``tied`` /
+    ``drop/live tied``. Lead cases / sole-side / zero stay silent.
+    Absolute damaged+ok alone hid that a 50/50 archive has no owner.
+    Display only.
+    """
+    lead_bit, _name, _share = opportunity_damaged_vs_ok_lead(damaged, ok)
+    if lead_bit:
+        return ""
+    try:
+        n_dmg = max(0, int(damaged))
+    except (TypeError, ValueError):
+        n_dmg = 0
+    try:
+        n_ok = max(0, int(ok))
+    except (TypeError, ValueError):
+        n_ok = 0
+    if n_dmg <= 0 or n_ok <= 0:
+        return ""
+    if n_dmg != n_ok:
+        return ""
+    return "damaged/ok tied"
+
+
 def newest_usable_opportunity_publish(archive_dir: Path) -> Path | None:
     """Newest filename among usable timestamped publishes (or None)."""
     usable = usable_opportunity_publishes(archive_dir)

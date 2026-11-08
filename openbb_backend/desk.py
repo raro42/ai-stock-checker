@@ -1022,15 +1022,21 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     so hard-readers match keep-newest without waiting for cleanup.
 
     Malformed / wrong-container JSON is refused for keep-newest (xang1234
-    8d447fa refuse-malformed session + 40a968e skip-damaged artifact) —
-    speak ``latest damaged · healed`` and never promote junk over a good
-    older publish. When the pin itself is fine but the archive still holds
-    skipped junk, speak ``N damaged · [hot|quiet ·] P%`` (Screener junk
-    share + portfolio AI count≠share — silent usable-filter ≠ clean book).
-    Display fields only — not an entry gate.
+    8d447fa refuse-malformed session + 40a968e skip-damaged artifact /
+    market-history refuse) — speak ``latest damaged · healed`` and never
+    promote junk over a good older publish. When the pin itself is fine but
+    the archive still holds skipped junk, speak ``N damaged · [hot|quiet ·]
+    P%`` then ``vs N ok · [strong|thin ·] P%`` (Screener junk share +
+    portfolio AI count≠share — silent usable-filter ≠ clean book). When both
+    sides spoke, also speak ``lead damaged|ok · N%`` or ``damaged/ok tied``
+    so absolute sides alone do not hide ownership (claim-drop vs live lead +
+    xang1234 market-history multi-meter). Display fields only — not an
+    entry gate.
     """
     from stock_checker.opportunity_archive import (
         damaged_opportunity_publish_count,
+        opportunity_damaged_vs_ok_lead,
+        opportunity_damaged_vs_ok_sample_gap,
         opportunity_publish_usable,
         usable_opportunity_publishes,
     )
@@ -1076,6 +1082,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         "ok": 0,
         "ok_share_pct": None,
         "ok_share_severity": "",
+        "damaged_vs_ok_lead": "",
+        "damaged_vs_ok_lead_pct": None,
+        "damaged_vs_ok_sample_gap": "",
     }
     if not arch.is_dir():
         out["bit"] = "latest missing"
@@ -1386,6 +1395,9 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
         # When damaged share spoke, also name remaining object slots
         # (vs N ok · [strong|thin] · P%) so damaged% ≠ silent empty Total —
         # Screener junk vs ok / claim-drop vs kept + portfolio AI speak-both-sides.
+        # When both sides spoke, also name ownership lead / tied so absolute
+        # counts alone do not hide which slot type owns the archive
+        # (claim-drop vs live lead + xang1234 market-history multi-meter).
         if n_damaged > 0:
             sev = str(out.get("damaged_share_severity") or "")
             pct = out.get("damaged_share_pct")
@@ -1397,8 +1409,21 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             ok_sev_bit = f" · {ok_sev}" if ok_sev else ""
             ok_pct_bit = f" · {ok_pct}%" if ok_pct is not None else ""
             ok_bit = f" · vs {ok_n} ok{ok_sev_bit}{ok_pct_bit}"
+            lead_bit, lead_name, lead_pct = opportunity_damaged_vs_ok_lead(
+                n_damaged, ok_n
+            )
+            gap_bit = opportunity_damaged_vs_ok_sample_gap(n_damaged, ok_n)
+            if lead_bit:
+                out["damaged_vs_ok_lead"] = lead_name
+                out["damaged_vs_ok_lead_pct"] = lead_pct
+                own_bit = f" · {lead_bit}"
+            elif gap_bit:
+                out["damaged_vs_ok_sample_gap"] = gap_bit
+                own_bit = f" · {gap_bit}"
+            else:
+                own_bit = ""
             out["warn"] = True
-            out["bit"] = f"{n_damaged} damaged{sev_bit}{pct_bit}{ok_bit}"
+            out["bit"] = f"{n_damaged} damaged{sev_bit}{pct_bit}{ok_bit}{own_bit}"
             out["bit_core"] = out["bit"]
         return out
 

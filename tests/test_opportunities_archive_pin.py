@@ -6,7 +6,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from openbb_backend.desk import build_scan_freshness, resolve_opportunities_archive
-from stock_checker.opportunity_archive import heal_opportunities_latest_pin
+from stock_checker.opportunity_archive import (
+    heal_opportunities_latest_pin,
+    opportunity_damaged_vs_ok_lead,
+    opportunity_damaged_vs_ok_sample_gap,
+)
 
 
 def test_resolve_prefers_latest_symlink(tmp_path: Path) -> None:
@@ -536,7 +540,11 @@ def test_resolve_ignores_malformed_newer_for_stale(tmp_path: Path) -> None:
     assert res["ok"] == 1
     assert res["ok_share_pct"] == 50
     assert res["ok_share_severity"] == ""
-    assert res["bit"] == "1 damaged · hot · 50% · vs 1 ok · 50%"
+    assert res["damaged_vs_ok_lead"] == ""
+    assert res["damaged_vs_ok_sample_gap"] == "damaged/ok tied"
+    assert res["bit"] == (
+        "1 damaged · hot · 50% · vs 1 ok · 50% · damaged/ok tied"
+    )
     assert Path(res["path"]).resolve() == pinned.resolve()
 
 
@@ -566,12 +574,17 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
     assert res["ok"] == 4
     assert res["ok_share_pct"] == 80
     assert res["ok_share_severity"] == "strong"
-    assert res["bit"] == "1 damaged · quiet · 20% · vs 4 ok · strong · 80%"
+    assert res["damaged_vs_ok_lead"] == "ok"
+    assert res["damaged_vs_ok_lead_pct"] == 80
+    assert res["damaged_vs_ok_sample_gap"] == ""
+    assert res["bit"] == (
+        "1 damaged · quiet · 20% · vs 4 ok · strong · 80% · lead ok · 80%"
+    )
     assert res["warn"] is True
 
 
 def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
-    """All-but-one damaged → vs 1 ok · thin (Screener junk vs ok parity)."""
+    """All-but-one damaged → vs 1 ok · thin + lead damaged (ownership)."""
     arch = tmp_path / "archive"
     arch.mkdir()
     pinned = arch / "opportunities_20260101_120000.json"
@@ -592,5 +605,30 @@ def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
     assert res["ok"] == 1
     assert res["ok_share_pct"] == 25
     assert res["ok_share_severity"] == "thin"
-    assert res["bit"] == "3 damaged · hot · 75% · vs 1 ok · thin · 25%"
+    assert res["damaged_vs_ok_lead"] == "damaged"
+    assert res["damaged_vs_ok_lead_pct"] == 75
+    assert res["damaged_vs_ok_sample_gap"] == ""
+    assert res["bit"] == (
+        "3 damaged · hot · 75% · vs 1 ok · thin · 25% · lead damaged · 75%"
+    )
     assert res["warn"] is True
+
+
+def test_opportunity_damaged_vs_ok_lead_helpers() -> None:
+    """Lead / tied / sole-side silence for damaged vs ok ownership."""
+    bit, name, pct = opportunity_damaged_vs_ok_lead(3, 1)
+    assert bit == "lead damaged · 75%"
+    assert name == "damaged"
+    assert pct == 75
+    assert opportunity_damaged_vs_ok_sample_gap(3, 1) == ""
+
+    bit, name, pct = opportunity_damaged_vs_ok_lead(1, 4)
+    assert bit == "lead ok · 80%"
+    assert name == "ok"
+    assert pct == 80
+
+    assert opportunity_damaged_vs_ok_lead(1, 1) == ("", "", None)
+    assert opportunity_damaged_vs_ok_sample_gap(1, 1) == "damaged/ok tied"
+    assert opportunity_damaged_vs_ok_lead(2, 0) == ("", "", None)
+    assert opportunity_damaged_vs_ok_sample_gap(2, 0) == ""
+    assert opportunity_damaged_vs_ok_lead(0, 0) == ("", "", None)
