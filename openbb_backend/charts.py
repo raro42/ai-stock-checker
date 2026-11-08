@@ -293,6 +293,10 @@ def hold_chart_interval(span_hours: float, *, is_crypto: bool = False) -> str:
 # tradermonty #675 rejects stale daily bars before scoring — we speak only.
 CHART_BAR_FRESH_HOURS = 12
 CHART_BAR_AGING_HOURS = 36
+# Book-level aging|stale ownership of relative-price panels (display only).
+# Same hot/quiet bands as Screener junk share / Yahoo claim-drop share.
+CHART_BARS_SPOKEN_SHARE_HOT = 50.0
+CHART_BARS_SPOKEN_SHARE_QUIET = 25.0
 
 
 def chart_last_bar_meta(
@@ -335,6 +339,82 @@ def chart_last_bar_meta(
         "bar_age_sec": int(age),
         "bar_freshness": band,
         "bar_age_label": label,
+    }
+
+
+def chart_price_bars_glance(
+    panels: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Book-level last-bar aging|stale after per-legend bits (display only).
+
+    Absolute ``N bars stale`` alone hid one hung panel vs most of the relative
+    book — speak ownership share (portfolio AI count≠share + xang1234 multi-meter).
+    Zero spoken stays silent. Not a scoring veto / not a new entry gate.
+    """
+    empty: dict[str, Any] = {
+        "ready": False,
+        "bit": "",
+        "line": "",
+        "tone": "flat",
+        "n_panels": 0,
+        "n_fresh": 0,
+        "n_aging": 0,
+        "n_stale": 0,
+        "n_spoken": 0,
+        "spoken_share_pct": None,
+        "spoken_share_severity": "",
+    }
+    if not isinstance(panels, list) or not panels:
+        return empty
+    n_fresh = n_aging = n_stale = 0
+    for p in panels:
+        if not isinstance(p, dict):
+            continue
+        band = str(p.get("bar_freshness") or "")
+        if band == "fresh":
+            n_fresh += 1
+        elif band == "aging":
+            n_aging += 1
+        elif band == "stale":
+            n_stale += 1
+    n_panels = n_fresh + n_aging + n_stale
+    n_spoken = n_aging + n_stale
+    if n_panels <= 0 or n_spoken <= 0:
+        return {**empty, "n_panels": n_panels, "n_fresh": n_fresh}
+    if n_aging and n_stale:
+        count_bit = f"{n_aging} aging · {n_stale} stale"
+    elif n_stale:
+        count_bit = f"{n_stale} bars stale"
+    else:
+        count_bit = f"{n_aging} bars aging"
+    spoken_share_pct = round(100.0 * n_spoken / n_panels, 1)
+    if spoken_share_pct >= CHART_BARS_SPOKEN_SHARE_HOT:
+        spoken_share_severity = "hot"
+        share_bit = f"hot · {spoken_share_pct:g}%"
+    elif spoken_share_pct <= CHART_BARS_SPOKEN_SHARE_QUIET:
+        spoken_share_severity = "quiet"
+        share_bit = f"quiet · {spoken_share_pct:g}%"
+    else:
+        spoken_share_severity = ""
+        share_bit = f"{spoken_share_pct:g}%"
+    bit = f"{count_bit} · {share_bit}"
+    tone = "flat"
+    if n_stale or spoken_share_severity == "hot":
+        tone = "warn"
+    elif n_aging:
+        tone = "aging"
+    return {
+        "ready": True,
+        "bit": bit,
+        "line": bit,
+        "tone": tone,
+        "n_panels": n_panels,
+        "n_fresh": n_fresh,
+        "n_aging": n_aging,
+        "n_stale": n_stale,
+        "n_spoken": n_spoken,
+        "spoken_share_pct": spoken_share_pct,
+        "spoken_share_severity": spoken_share_severity,
     }
 
 
@@ -1347,13 +1427,15 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     initial = float(portfolio.get("initial_cash") or 0)
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
     laya_tone, debate_tone = memory_advisory_clock_tones(data_dir)
+    price_panels = build_price_panels(data_dir)
 
     payload = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "equity": build_equity_curve(data_dir),
         "unrealized": build_unrealized_curve(data_dir),
         "allocation": build_allocation(data_dir),
-        "prices": build_price_panels(data_dir),
+        "prices": price_panels,
+        "price_bars_glance": chart_price_bars_glance(price_panels),
         "from_buy": build_from_buy_panels(data_dir),
         "breadth_glance": build_breadth_glance(
             _latest_scan_breadth_pulse(data_dir),

@@ -1670,6 +1670,41 @@
     appendGlance(wrap);
   }
 
+  function renderPriceBarsGlance(payload) {
+    var glance = payload && payload.price_bars_glance;
+    if (!glance || !glance.ready || !(glance.line || glance.bit)) return;
+    var wrap = document.createElement("section");
+    wrap.className = "price-bars-glance";
+    wrap.setAttribute("aria-labelledby", "charts-price-bars-h");
+    var h = document.createElement("h2");
+    h.id = "charts-price-bars-h";
+    h.className = "visually-hidden";
+    h.textContent = "Relative price bar freshness";
+    wrap.appendChild(h);
+    var line = document.createElement("p");
+    line.className = "price-bars-glance-line";
+    var tone = document.createElement("span");
+    tone.className = "price-bars-glance-tone " + (glance.tone || "flat");
+    tone.textContent = "Bars";
+    line.appendChild(tone);
+    var sep1 = document.createElement("span");
+    sep1.className = "pretrade-sep";
+    sep1.setAttribute("aria-hidden", "true");
+    sep1.textContent = "·";
+    line.appendChild(sep1);
+    var body = document.createElement("span");
+    body.className = "price-bars-glance-body";
+    body.textContent = String(glance.line || glance.bit);
+    line.appendChild(body);
+    wrap.appendChild(line);
+    var sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent =
+      "Relative-price last daily close age across the book — legend still names each symbol. Display only; not a gate.";
+    wrap.appendChild(sub);
+    appendGlance(wrap);
+  }
+
   function renderLedgerHealthGlance(payload) {
     var glance = payload && payload.ledger_health;
     if (!glance || !glance.ready || !(glance.line || glance.bit)) return;
@@ -3620,6 +3655,7 @@
     renderBookPostureGlance(payload);
     renderBookRiskGlance(payload);
     renderMarkCoverageGlance(payload);
+    renderPriceBarsGlance(payload);
     renderLedgerHealthGlance(payload);
 
     /* MonsterDeveloper + xang1234: collapse long policy wall (parity with HTML screens). */

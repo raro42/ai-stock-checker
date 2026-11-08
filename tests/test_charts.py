@@ -68,6 +68,8 @@ def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     assert payload["mark_coverage"]["ready"] is True
     assert payload["mark_coverage"]["severity"] == "none"
     assert payload["mark_coverage"]["line"] == "price coverage none · 0/1"
+    assert "price_bars_glance" in payload
+    assert payload["price_bars_glance"]["ready"] is False
     assert payload["ledger_health"]["ready"] is True
     assert payload["ledger_health"]["severity"] == "ok"
     assert payload["ledger_health"]["line"] == "ledger ok"
@@ -455,6 +457,58 @@ def test_chart_last_bar_meta_fresh_aging_stale():
     assert stale["last_bar"] == "2026-11-01"
     assert chart_last_bar_meta([])["bar_freshness"] == ""
     assert chart_last_bar_meta([{"t": "nope", "close": 1}])["bar_freshness"] == ""
+
+
+def test_chart_price_bars_glance_share_after_spoken():
+    """Book-level aging|stale ownership after per-legend bits (display only)."""
+    from openbb_backend.charts import chart_price_bars_glance
+
+    assert chart_price_bars_glance([])["ready"] is False
+    assert chart_price_bars_glance(
+        [{"bar_freshness": "fresh"}, {"bar_freshness": "fresh"}]
+    )["ready"] is False
+
+    hot = chart_price_bars_glance(
+        [
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "fresh"},
+        ]
+    )
+    assert hot["ready"] is True
+    assert hot["n_stale"] == 2
+    assert hot["n_spoken"] == 2
+    assert hot["spoken_share_pct"] == 66.7
+    assert hot["spoken_share_severity"] == "hot"
+    assert hot["tone"] == "warn"
+    assert "2 bars stale" in hot["bit"]
+    assert "hot · 66.7%" in hot["bit"]
+
+    mixed = chart_price_bars_glance(
+        [
+            {"bar_freshness": "aging"},
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "fresh"},
+            {"bar_freshness": "fresh"},
+        ]
+    )
+    assert mixed["bit"].startswith("1 aging · 1 stale")
+    assert mixed["spoken_share_pct"] == 50.0
+    assert mixed["spoken_share_severity"] == "hot"
+
+    quiet = chart_price_bars_glance(
+        [
+            {"bar_freshness": "aging"},
+            {"bar_freshness": "fresh"},
+            {"bar_freshness": "fresh"},
+            {"bar_freshness": "fresh"},
+            {"bar_freshness": "fresh"},
+        ]
+    )
+    assert quiet["spoken_share_severity"] == "quiet"
+    assert "1 bars aging" in quiet["bit"]
+    assert "quiet · 20%" in quiet["bit"]
+    assert quiet["tone"] == "aging"
 
 
 def test_price_panels_speak_stale_last_bar(tmp_path: Path, monkeypatch):

@@ -706,6 +706,7 @@ a:active {
 }
 
 .mark-coverage-glance,
+.price-bars-glance,
 .ledger-health-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
@@ -713,6 +714,7 @@ a:active {
 }
 
 .mark-coverage-glance-line,
+.price-bars-glance-line,
 .ledger-health-glance-line {
   margin: 0;
   font-size: 0.92rem;
@@ -721,6 +723,7 @@ a:active {
 }
 
 .mark-coverage-glance-tone,
+.price-bars-glance-tone,
 .ledger-health-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
@@ -730,16 +733,23 @@ a:active {
 }
 
 .mark-coverage-glance-tone.ok,
+.price-bars-glance-tone.ok,
 .ledger-health-glance-tone.ok {
   color: var(--up);
 }
 
 .mark-coverage-glance-tone.warn,
+.price-bars-glance-tone.warn,
 .ledger-health-glance-tone.warn {
   color: var(--down);
 }
 
+.price-bars-glance-tone.aging {
+  color: var(--brass, #b08d57);
+}
+
 .mark-coverage-glance-body,
+.price-bars-glance-body,
 .ledger-health-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
@@ -751,6 +761,7 @@ a:active {
 }
 
 .mark-coverage-glance .sub,
+.price-bars-glance .sub,
 .ledger-health-glance .sub {
   margin: 0.35rem 0 0;
 }
