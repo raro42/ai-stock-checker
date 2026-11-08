@@ -297,6 +297,51 @@ CHART_BAR_AGING_HOURS = 36
 # Same hot/quiet bands as Screener junk share / Yahoo claim-drop share.
 CHART_BARS_SPOKEN_SHARE_HOT = 50.0
 CHART_BARS_SPOKEN_SHARE_QUIET = 25.0
+# Remaining fresh after spoken share (display only) — Screener ok / claim
+# vs-kept bands: strong ≥75% · thin <50%.
+CHART_BARS_FRESH_SHARE_STRONG = 75.0
+CHART_BARS_FRESH_SHARE_THIN = 50.0
+
+
+def chart_price_bars_vs_fresh(
+    n_spoken: int,
+    n_fresh: int,
+    n_panels: int,
+) -> tuple[str, int | None, float | None, str]:
+    """Remaining fresh panels when spoken share already spoke (display only).
+
+    Spoken% alone hid usable fresh peers (Screener junk vs ok / Yahoo
+    claim-drop vs kept + portfolio AI speak-both-sides). Returns
+    ``(bit, fresh_n, fresh_pct, severity)``. Zero spoken → silent.
+    All-spoken → ``vs 0 fresh · thin · 0%``. ``strong`` ≥75% · ``thin``
+    <50% · mid shows the percent only.
+    """
+    try:
+        spoken = max(0, int(n_spoken))
+    except (TypeError, ValueError):
+        spoken = 0
+    try:
+        fresh = max(0, int(n_fresh))
+    except (TypeError, ValueError):
+        fresh = 0
+    try:
+        panels = max(0, int(n_panels))
+    except (TypeError, ValueError):
+        panels = 0
+    if spoken <= 0 or panels <= 0:
+        return "", None, None, ""
+    fresh = min(fresh, panels)
+    fresh_pct = round(100.0 * fresh / panels, 1)
+    if fresh_pct >= CHART_BARS_FRESH_SHARE_STRONG:
+        severity = "strong"
+        sev_bit = f"strong · {fresh_pct:g}%"
+    elif fresh_pct < CHART_BARS_FRESH_SHARE_THIN:
+        severity = "thin"
+        sev_bit = f"thin · {fresh_pct:g}%"
+    else:
+        severity = ""
+        sev_bit = f"{fresh_pct:g}%"
+    return f"vs {fresh} fresh · {sev_bit}", fresh, fresh_pct, severity
 
 
 def chart_last_bar_meta(
@@ -435,10 +480,13 @@ def chart_price_bars_glance(
 
     Absolute ``N bars stale`` alone hid one hung panel vs most of the relative
     book — speak ownership share (portfolio AI count≠share + xang1234 multi-meter).
-    When both aging and stale spoke, also speak ``lead stale|aging · N%`` or
-    ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
-    lead, also speak ``lead size · N×`` + sides so name/% ≠ magnitude. Zero
-    spoken stays silent. Not a scoring veto / not a new entry gate.
+    When spoken share already spoke, also speak ``vs N fresh · [strong|thin] ·
+    P%`` so spoken% ≠ silent empty fresh peers (Screener junk vs ok / Yahoo
+    claim-drop vs kept). When both aging and stale spoke, also speak
+    ``lead stale|aging · N%`` or ``aging/stale tied`` so absolute sides ≠
+    silent ownership. After a strict lead, also speak ``lead size · N×`` +
+    sides so name/% ≠ magnitude. Zero spoken stays silent. Not a scoring
+    veto / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -452,6 +500,10 @@ def chart_price_bars_glance(
         "n_spoken": 0,
         "spoken_share_pct": None,
         "spoken_share_severity": "",
+        "vs_fresh": "",
+        "vs_fresh_n": None,
+        "vs_fresh_share_pct": None,
+        "vs_fresh_severity": "",
         "aging_stale_lead": "",
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
@@ -493,6 +545,9 @@ def chart_price_bars_glance(
     else:
         spoken_share_severity = ""
         share_bit = f"{spoken_share_pct:g}%"
+    vs_fresh_bit, vs_fresh_n, vs_fresh_pct, vs_fresh_sev = (
+        chart_price_bars_vs_fresh(n_spoken, n_fresh, n_panels)
+    )
     lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
         n_aging, n_stale
     )
@@ -502,6 +557,8 @@ def chart_price_bars_glance(
     )
     own_bit = lead_bit or sample_gap
     bit = f"{count_bit} · {share_bit}"
+    if vs_fresh_bit:
+        bit = f"{bit} · {vs_fresh_bit}"
     if own_bit:
         bit = f"{bit} · {own_bit}"
     if size is not None and louder_n is not None and quieter_n is not None:
@@ -513,6 +570,9 @@ def chart_price_bars_glance(
     if n_stale or spoken_share_severity == "hot":
         tone = "warn"
     elif n_aging:
+        tone = "aging"
+    # Thin fresh remainder escalates warn when share was already hot/aging.
+    if vs_fresh_sev == "thin" and tone == "flat":
         tone = "aging"
     return {
         "ready": True,
@@ -526,6 +586,10 @@ def chart_price_bars_glance(
         "n_spoken": n_spoken,
         "spoken_share_pct": spoken_share_pct,
         "spoken_share_severity": spoken_share_severity,
+        "vs_fresh": vs_fresh_bit,
+        "vs_fresh_n": vs_fresh_n,
+        "vs_fresh_share_pct": vs_fresh_pct,
+        "vs_fresh_severity": vs_fresh_sev,
         "aging_stale_lead": lead_bit,
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,

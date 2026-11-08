@@ -466,6 +466,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_aging_stale_lead_size,
         chart_price_bars_aging_stale_sample_gap,
         chart_price_bars_glance,
+        chart_price_bars_vs_fresh,
     )
 
     assert chart_price_bars_glance([])["ready"] is False
@@ -488,6 +489,9 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert hot["tone"] == "warn"
     assert "2 bars stale" in hot["bit"]
     assert "hot · 66.7%" in hot["bit"]
+    assert hot["vs_fresh"] == "vs 1 fresh · thin · 33.3%"
+    assert hot["vs_fresh_severity"] == "thin"
+    assert "vs 1 fresh · thin · 33.3%" in hot["bit"]
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
 
@@ -502,6 +506,8 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert mixed["bit"].startswith("1 aging · 1 stale")
     assert mixed["spoken_share_pct"] == 50.0
     assert mixed["spoken_share_severity"] == "hot"
+    assert mixed["vs_fresh"] == "vs 2 fresh · 50%"
+    assert mixed["vs_fresh_severity"] == ""  # mid
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
     assert mixed["aging_stale_lead_size"] is None  # tied → no size
@@ -518,6 +524,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["aging_stale_lead_name"] == "stale"
     assert lead["aging_stale_lead_share_pct"] == 67
     assert "lead stale · 67%" in lead["bit"]
+    assert lead["vs_fresh"] == "vs 1 fresh · thin · 25%"
     assert lead["aging_stale_sample_gap"] == ""
     assert lead["aging_stale_lead_size"] == 2.0
     assert lead["aging_stale_lead_size_louder"] == 2
@@ -548,6 +555,20 @@ def test_chart_price_bars_glance_share_after_spoken():
         None,
         None,
     )
+    assert chart_price_bars_vs_fresh(2, 1, 3) == (
+        "vs 1 fresh · thin · 33.3%",
+        1,
+        33.3,
+        "thin",
+    )
+    assert chart_price_bars_vs_fresh(1, 4, 5)[0] == "vs 4 fresh · strong · 80%"
+    assert chart_price_bars_vs_fresh(3, 0, 3) == (
+        "vs 0 fresh · thin · 0%",
+        0,
+        0.0,
+        "thin",
+    )
+    assert chart_price_bars_vs_fresh(0, 2, 2) == ("", None, None, "")
 
     quiet = chart_price_bars_glance(
         [
@@ -561,6 +582,8 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert quiet["spoken_share_severity"] == "quiet"
     assert "1 bars aging" in quiet["bit"]
     assert "quiet · 20%" in quiet["bit"]
+    assert quiet["vs_fresh"] == "vs 4 fresh · strong · 80%"
+    assert "vs 4 fresh · strong · 80%" in quiet["bit"]
     assert quiet["tone"] == "aging"
     assert quiet["aging_stale_lead"] == ""
     assert quiet["aging_stale_lead_size"] is None
