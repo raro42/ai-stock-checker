@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 from typing import Any, Dict, List, Optional
 from .risk_manager import RiskManager
 from .fees import (
@@ -10,6 +11,33 @@ from .fees import (
     free_legs_for_preset,
     rates_for_preset,
 )
+
+# Paper desk is long-only (tradermonty #681 reject unsupported equity shorts).
+UNSUPPORTED_SHORT_REASON = "Unsupported short — long-only book"
+
+
+def long_only_quantity_ok(quantity: Any) -> bool:
+    """True when qty is a finite positive number (no shorts / zero / NaN)."""
+    try:
+        q = float(quantity)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(q) and q > 0
+
+
+def unsupported_short_symbols(holdings: Any) -> List[str]:
+    """Symbols with non-positive qty in a holdings map (corrupt / short ledger)."""
+    if not isinstance(holdings, dict):
+        return []
+    out: List[str] = []
+    for sym, qty in holdings.items():
+        name = str(sym or "").strip()
+        if not name:
+            continue
+        if long_only_quantity_ok(qty):
+            continue
+        out.append(name.upper())
+    return sorted(set(out))
 
 
 class Portfolio:
@@ -171,12 +199,30 @@ class Portfolio:
                 holdings_value += quantity * current_prices[symbol]
         return holdings_value
 
-    def can_buy(self, symbol: str, price: float, quantity: float) -> bool:
-        """Check if we have enough cash to buy."""
+    def can_buy(
+        self,
+        symbol: str,
+        price: float,
+        quantity: float,
+        timestamp: str = "",
+    ) -> bool:
+        """Check if we have enough cash to buy (long-only; qty must be > 0)."""
+        if not long_only_quantity_ok(quantity):
+            return False
         cost = price * quantity
         commission = self.commission_for(cost, timestamp)
         total_cost = cost + commission
         return self.cash >= total_cost
+
+    @staticmethod
+    def _refuse_short(quantity: float) -> Optional[Dict[str, Any]]:
+        if long_only_quantity_ok(quantity):
+            return None
+        return {
+            "success": False,
+            "reason": UNSUPPORTED_SHORT_REASON,
+            "quantity_requested": quantity,
+        }
 
     def buy(
         self,
@@ -192,6 +238,10 @@ class Portfolio:
 
         Returns transaction details or None if insufficient funds.
         """
+        refused = self._refuse_short(quantity)
+        if refused:
+            return refused
+
         cost = price * quantity
         commission = self.commission_for(cost, timestamp)
         total_cost = cost + commission
@@ -246,7 +296,9 @@ class Portfolio:
         return {"success": True, "transaction": transaction}
 
     def can_sell(self, symbol: str, quantity: float) -> bool:
-        """Check if we have enough shares to sell."""
+        """Check if we have enough shares to sell (long-only; no short opens)."""
+        if not long_only_quantity_ok(quantity):
+            return False
         return symbol in self.holdings and self.holdings[symbol] >= quantity
 
     def sell(
@@ -263,6 +315,9 @@ class Portfolio:
 
         Returns transaction details or None if insufficient shares.
         """
+        refused = self._refuse_short(quantity)
+        if refused:
+            return refused
         if not self.can_sell(symbol, quantity):
             return {
                 "success": False,

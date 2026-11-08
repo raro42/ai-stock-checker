@@ -2914,8 +2914,12 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
 
     tradermonty #411: name a malformed shard. Do not show an empty book as truth.
     A thin trades file keeps good rows and says the ledger is partial (#416).
-    Missing both files stays silent. Not an entry gate.
+    Non-positive holdings speak ``N short refuse`` — paper desk is long-only
+    (tradermonty #681 reject unsupported equity shorts). Missing both files
+    stays silent. Not an entry gate.
     """
+    from stock_checker.portfolio import unsupported_short_symbols
+
     empty = {
         "ready": False,
         "tone": "flat",
@@ -2926,9 +2930,11 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "trades_state": "missing",
         "bad_lines": 0,
         "good_lines": 0,
+        "short_count": 0,
+        "short_symbols": [],
     }
     root = Path(data_dir)
-    _port_doc, port = load_json_checked(root / "portfolio.json", {})
+    port_doc, port = load_json_checked(root / "portfolio.json", {})
     _rows, trades = load_jsonl_checked(root / "trades.jsonl")
     port_state = str(port.get("state") or "missing")
     trades_state = str(trades.get("state") or "missing")
@@ -2960,6 +2966,17 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         severity = "bad"
         problems.append("trades unreadable")
 
+    short_syms: list[str] = []
+    if port_state == "ok" and isinstance(port_doc, dict):
+        short_syms = unsupported_short_symbols(port_doc.get("holdings"))
+        if short_syms:
+            severity = "bad"
+            n = len(short_syms)
+            shown = " · ".join(short_syms[:3])
+            if n > 3:
+                shown = f"{shown} · +{n - 3}"
+            problems.append(f"{n} short refuse · {shown}")
+
     if severity == "ok":
         bit = "ledger ok"
     else:
@@ -2974,6 +2991,8 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "trades_state": trades_state,
         "bad_lines": bad_lines,
         "good_lines": int(trades.get("good") or 0),
+        "short_count": len(short_syms),
+        "short_symbols": short_syms,
     }
 
 

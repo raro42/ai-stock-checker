@@ -97,3 +97,20 @@ def test_ledger_missing_portfolio_with_fills_is_thin(tmp_path: Path) -> None:
     g = build_ledger_health(tmp_path)
     assert g["severity"] == "thin"
     assert g["line"] == "ledger thin · no portfolio"
+
+
+def test_ledger_short_holdings_refuse(tmp_path: Path) -> None:
+    """tradermonty #681: non-positive holdings → short refuse on ledger glance."""
+    import json
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 1000, "holdings": {"AAPL": 10, "TSLA": -3, "ZERO": 0}})
+    )
+    (tmp_path / "trades.jsonl").write_text('{"type":"BUY","symbol":"AAPL"}\n')
+    g = build_ledger_health(tmp_path)
+    assert g["severity"] == "bad"
+    assert g["tone"] == "warn"
+    assert g["short_count"] == 2
+    assert g["short_symbols"] == ["TSLA", "ZERO"]
+    assert "2 short refuse" in g["line"]
+    assert "TSLA" in g["line"]
