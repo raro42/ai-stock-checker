@@ -46,7 +46,13 @@ def test_listed_fund_overlap_glance_silent() -> None:
 
 def test_listed_fund_overlap_glance_warn() -> None:
     g = build_listed_fund_overlap_glance(
-        [{"symbol": "gld"}, {"symbol": "4GLD.DE"}, {"symbol": "AAPL"}]
+        [
+            {"symbol": "gld"},
+            {"symbol": "4GLD.DE"},
+            {"symbol": "AAPL"},
+            {"symbol": "MSFT"},
+            {"symbol": "NVDA"},
+        ]
     )
     assert g["ready"] is True
     assert g["tone"] == "warn"
@@ -56,6 +62,31 @@ def test_listed_fund_overlap_glance_warn() -> None:
     assert "2 gold" in g["line"]
     assert "GLD" in g["line"]
     assert "4GLD.DE" in g["line"]
+    # 2 of 5 names → mid band shows % only (count ≠ share).
+    assert g["n_book"] == 5
+    assert g["n_overlap"] == 2
+    assert g["share_pct"] == 40
+    assert g["share_severity"] == ""
+    assert "40%" in g["line"]
+
+
+def test_listed_fund_overlap_glance_share_hot() -> None:
+    g = build_listed_fund_overlap_glance(["GLD", "4GLD.DE"])
+    assert g["ready"] is True
+    assert g["share_pct"] == 100
+    assert g["share_severity"] == "hot"
+    assert "hot · 100%" in g["line"]
+
+
+def test_listed_fund_overlap_glance_share_quiet() -> None:
+    book = ["GLD", "4GLD.DE", "AAPL", "MSFT", "NVDA", "META", "AMZN", "TSLA"]
+    g = build_listed_fund_overlap_glance(book)
+    assert g["ready"] is True
+    assert g["n_book"] == 8
+    assert g["n_overlap"] == 2
+    assert g["share_pct"] == 25
+    assert g["share_severity"] == "quiet"
+    assert "quiet · 25%" in g["line"]
 
 
 def test_listed_fund_overlap_glance_multi_theme() -> None:
@@ -66,6 +97,10 @@ def test_listed_fund_overlap_glance_multi_theme() -> None:
     assert "US equity" in g["line"]
     assert "gold" in g["line"]
     assert set(g["themes"]) == {"us_equity", "gold"}
+    assert g["n_overlap"] == 4
+    assert g["share_pct"] == 100
+    assert g["share_severity"] == "hot"
+    assert "hot · 100%" in g["line"]
 
 
 def test_listed_fund_overlap_in_snapshot(tmp_path) -> None:

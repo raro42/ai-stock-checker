@@ -6278,6 +6278,11 @@ def build_concentration_glance(
     }
 
 
+# Theme-overlap names ÷ open book. Hot ≥50% · quiet ≤25% (count ≠ share).
+LISTED_FUND_OVERLAP_SHARE_HOT = 50.0
+LISTED_FUND_OVERLAP_SHARE_QUIET = 25.0
+
+
 def build_listed_fund_overlap_glance(
     holdings: list[Any] | None,
 ) -> dict[str, Any]:
@@ -6286,8 +6291,11 @@ def build_listed_fund_overlap_glance(
     Concentration names the largest single weight. This line speaks when the
     book holds ≥2 curated funds that share an economic theme (e.g. GLD +
     4GLD.DE gold, SPY + SXR8.DE US equity) — tradermonty theme-detector
-    merge-duplicate ETF holdings + portfolio AI speak-both-sides. Zero /
-    sole-theme stays silent. Not a new entry gate.
+    merge-duplicate ETF holdings + portfolio AI speak-both-sides. When
+    overlap already spoke, also speak book ownership ``hot|quiet · P%``
+    (overlap names ÷ open names; mid shows % only) so absolute ``N gold``
+    ≠ most of the book — portfolio AI count≠share + xang1234 share
+    severity. Zero / sole-theme stays silent. Not a new entry gate.
     """
     from stock_checker.listed_funds import (
         listed_fund_theme_label,
@@ -6303,17 +6311,27 @@ def build_listed_fund_overlap_glance(
         "themes": [],
         "symbols": [],
         "count": 0,
+        "n_book": 0,
+        "n_overlap": 0,
+        "share_pct": None,
+        "share_severity": "",
     }
     if holdings is None or not isinstance(holdings, list):
         return empty
     symbols: list[str] = []
+    seen_book: set[str] = set()
     for row in holdings:
         if isinstance(row, dict):
             sym = str(row.get("symbol") or "").strip()
         else:
             sym = str(row or "").strip()
-        if sym:
-            symbols.append(sym)
+        if not sym:
+            continue
+        key = sym.upper()
+        if key in seen_book:
+            continue
+        seen_book.add(key)
+        symbols.append(sym)
     overlaps = listed_fund_theme_overlaps(symbols)
     if not overlaps:
         return empty
@@ -6329,10 +6347,30 @@ def build_listed_fund_overlap_glance(
             shown = f"{shown} · +{len(syms) - 3}"
         bits.append(f"{len(syms)} {label} · {shown}")
     lead_theme, lead_syms = overlaps[0]
+    n_book = len(symbols)
+    # Themes are exclusive per symbol — all_syms has no cross-theme dups.
+    n_overlap = len(all_syms)
+    share_pct: float | None = None
+    share_severity = ""
+    share_bit = ""
+    if n_book > 0 and n_overlap > 0:
+        share_pct = round(100.0 * n_overlap / n_book)
+        if share_pct >= LISTED_FUND_OVERLAP_SHARE_HOT:
+            share_severity = "hot"
+            share_bit = f"hot · {int(share_pct)}%"
+        elif share_pct <= LISTED_FUND_OVERLAP_SHARE_QUIET:
+            share_severity = "quiet"
+            share_bit = f"quiet · {int(share_pct)}%"
+        else:
+            share_bit = f"{int(share_pct)}%"
+        bits.append(share_bit)
     line = " · ".join(bits)
     if len(line) > 96:
-        # Keep the lead overlap; drop trailing theme bits first.
-        line = bits[0]
+        # Keep lead overlap + share; drop trailing theme bits first.
+        keep = [bits[0]]
+        if share_bit:
+            keep.append(share_bit)
+        line = " · ".join(keep)
         if len(line) > 96:
             line = line[:95] + "…"
     return {
@@ -6344,6 +6382,10 @@ def build_listed_fund_overlap_glance(
         "themes": theme_bits,
         "symbols": all_syms,
         "count": len(lead_syms),
+        "n_book": n_book,
+        "n_overlap": n_overlap,
+        "share_pct": share_pct,
+        "share_severity": share_severity,
     }
 
 
