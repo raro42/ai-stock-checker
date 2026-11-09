@@ -30117,7 +30117,7 @@ POSTMORTEM_UNMATCHED_SHARE_QUIET = 25.0
 POSTMORTEM_MATCHED_SHARE_STRONG = 75.0
 POSTMORTEM_MATCHED_SHARE_THIN = 50.0
 
-_POSTMORTEM_UNMATCHED_LEAN_NAME_CAP = 4
+_POSTMORTEM_UNMATCHED_LEAN_NAME_CAP = 5
 _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ matched\b"), "vs matched"),
     (re.compile(r"^unmatched/matched tied\b"), "tied"),
@@ -30126,6 +30126,8 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
     (re.compile(r"^lead matched\b"), "matched"),
+    (re.compile(r"^unmatched vs matched align\b"), "align"),
+    (re.compile(r"^unmatched vs matched clash\b"), "clash"),
 )
 
 
@@ -30225,6 +30227,47 @@ def postmortem_unmatched_vs_matched_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def postmortem_unmatched_vs_matched_lean(
+    unmatched_severity: str,
+    matched_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of unmatched vs matched share bands (display only).
+
+    Absolute sides + ownership lead + lead size hid whether the two
+    *severity* bands agree (opportunity damaged vs ok lean / Screener junk
+    vs ok lean + portfolio AI speak-both-sides + xang1234 severity). Align
+    when ``hot|thin`` or ``quiet|strong``; clash when exactly one lean spoke
+    or the pair disagrees. Adverse clash (unmatched hot / matched thin
+    mismatch, or sole hot/thin) warns. Mid both silent. Lives under the
+    postmortem lean fold so the 96-char primary clip stays short. Not a
+    new entry gate.
+    """
+    um = str(unmatched_severity or "").strip().casefold()
+    mt = str(matched_severity or "").strip().casefold()
+    um_lean = um in {"hot", "quiet"}
+    mt_lean = mt in {"strong", "thin"}
+    if um_lean and mt_lean:
+        matched = (um == "hot" and mt == "thin") or (
+            um == "quiet" and mt == "strong"
+        )
+        if matched:
+            return f"unmatched vs matched align · {um}|{mt}", False
+        return (
+            f"unmatched vs matched clash · unmatched {um} · matched {mt}",
+            True,
+        )
+    if um_lean != mt_lean:
+        um_label = um if um_lean else (um or "ok")
+        mt_label = mt if mt_lean else (mt or "ok")
+        warn = um == "hot" or mt == "thin"
+        return (
+            "unmatched vs matched clash · unmatched "
+            f"{um_label} · matched {mt_label}",
+            warn,
+        )
+    return "", False
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -30278,7 +30321,11 @@ def build_postmortem_glance(
     slot owns the closed-round roster (short-refuse vs long lead parity).
     When lead already spoke and quieter count >0, also speak
     ``lead size · N×`` + ``lead size sides · louder N · quieter M`` so name/%
-    ≠ magnitude (short-refuse vs long lead size parity).
+    ≠ magnitude (short-refuse vs long lead size parity). When both share
+    severity bands already spoke, also speak
+    ``unmatched vs matched align · hot|thin`` / ``quiet|strong`` or
+    ``clash · unmatched … · matched …`` so sides/lead/size alone do not hide
+    severity agreement (opportunity damaged vs ok lean + Screener junk vs ok).
     """
     from stock_checker.trade_postmortem import is_unmatched_postmortem
 
@@ -30304,6 +30351,8 @@ def build_postmortem_glance(
         "vs_matched_lead_size": None,
         "vs_matched_lead_size_louder": None,
         "vs_matched_lead_size_quieter": None,
+        "vs_matched_lean": "",
+        "vs_matched_lean_warn": False,
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
@@ -30335,6 +30384,8 @@ def build_postmortem_glance(
     vs_matched_lead_size: float | None = None
     vs_matched_lead_size_louder: int | None = None
     vs_matched_lead_size_quieter: int | None = None
+    vs_matched_lean = ""
+    vs_matched_lean_warn = False
     if unmatched_count > 0 and n_rounds > 0:
         unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
         if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
@@ -30394,6 +30445,15 @@ def build_postmortem_glance(
                 f"{vs_matched_lead_size_louder} · quieter "
                 f"{vs_matched_lead_size_quieter}"
             )
+        vs_matched_lean, vs_matched_lean_warn = (
+            postmortem_unmatched_vs_matched_lean(
+                unmatched_share_severity, matched_share_severity
+            )
+        )
+        if vs_matched_lean:
+            lean_parts.append(vs_matched_lean)
+            if vs_matched_lean_warn:
+                lean_warn = True
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -30466,6 +30526,8 @@ def build_postmortem_glance(
         "vs_matched_lead_size": vs_matched_lead_size,
         "vs_matched_lead_size_louder": vs_matched_lead_size_louder,
         "vs_matched_lead_size_quieter": vs_matched_lead_size_quieter,
+        "vs_matched_lean": vs_matched_lean,
+        "vs_matched_lean_warn": vs_matched_lean_warn,
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
