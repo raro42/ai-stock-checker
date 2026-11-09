@@ -10,6 +10,7 @@ from openbb_backend.desk import (
     ledger_short_lean_meta,
     ledger_short_vs_long_delta,
     ledger_short_vs_long_delta_lead,
+    ledger_short_vs_long_delta_lead_size,
     ledger_short_vs_long_lead,
     ledger_short_vs_long_lead_size,
     ledger_short_vs_long_lean,
@@ -153,6 +154,13 @@ def test_ledger_short_holdings_refuse(tmp_path: Path) -> None:
     assert g["vs_long_lean_vs_delta_warn"] is True
     assert g["vs_long_delta_lead"] == "short"
     assert "Δ lead · short" in g["lean"]
+    # 67% vs 33% → Δ lead size ~2.03× (name ≠ magnitude).
+    assert g["vs_long_delta_lead_size"] == 2.03
+    assert g["vs_long_delta_lead_size_louder_pct"] == 67
+    assert g["vs_long_delta_lead_size_quieter_pct"] == 33
+    assert "Δ lead size · 2.03×" in g["lean"]
+    assert "Δ lead size sides · louder 67% · quieter 33%" in g["lean"]
+    assert "Δ lead size" not in g["line"]
     assert g["lean_warn"] is True
     assert "vs long" in g["lean_meta"]
     assert "short" in g["lean_meta"]
@@ -207,9 +215,14 @@ def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
     assert g["vs_long_lean_vs_delta_warn"] is False
     assert "Δ wide · -50pp" in g["lean"]
     assert "lean vs Δ align · wide" in g["lean"]
-    # −50pp → long owns the spread.
+    # −50pp → long owns the spread; 75÷25 → Δ lead size 3×.
     assert g["vs_long_delta_lead"] == "long"
     assert "Δ lead · long" in g["lean"]
+    assert g["vs_long_delta_lead_size"] == 3.0
+    assert g["vs_long_delta_lead_size_louder_pct"] == 75
+    assert g["vs_long_delta_lead_size_quieter_pct"] == 25
+    assert "Δ lead size · 3×" in g["lean"]
+    assert "Δ lead size sides · louder 75% · quieter 25%" in g["lean"]
     assert "vs 6 long" not in g["line"]
     assert g["lean_warn"] is False
     assert g["lean_meta"].startswith("quiet")
@@ -267,6 +280,7 @@ def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
     assert g["vs_long_delta_severity"] == ""
     assert g["vs_long_lean_vs_delta"] == ""
     assert g["vs_long_delta_lead"] == ""
+    assert g["vs_long_delta_lead_size"] is None
     assert g["lean_warn"] is False
 
 
@@ -300,6 +314,11 @@ def test_ledger_short_refuse_vs_long_all_short(tmp_path: Path) -> None:
     # +100pp → short owns the spread (even when sole-side count lead silent).
     assert g["vs_long_delta_lead"] == "short"
     assert "Δ lead · short" in g["lean"]
+    # Quieter% is 0 → Δ lead size silent (all-short).
+    assert g["vs_long_delta_lead_size"] is None
+    assert g["vs_long_delta_lead_size_louder_pct"] is None
+    assert g["vs_long_delta_lead_size_quieter_pct"] is None
+    assert "Δ lead size" not in g["lean"]
     assert g["lean_warn"] is True
     assert "vs 0 long" not in g["line"]
     # Sole-side (all short) stays silent on ownership lead / size.
@@ -349,8 +368,9 @@ def test_ledger_short_refuse_vs_long_tied(tmp_path: Path) -> None:
     assert g["vs_long_lean_vs_delta_warn"] is False
     assert "Δ thin · 0pp" in g["lean"]
     assert "lean vs Δ align · thin" in g["lean"]
-    # 0pp → Δ lead silent.
+    # 0pp → Δ lead / size silent.
     assert g["vs_long_delta_lead"] == ""
+    assert g["vs_long_delta_lead_size"] is None
     assert "Δ lead" not in g["lean"]
     assert g["lean_warn"] is True
     assert "clash" in g["lean_meta"]
@@ -456,6 +476,24 @@ def test_ledger_short_vs_long_delta_helpers() -> None:
         )
         == ""
     )
+    size, louder, quieter = ledger_short_vs_long_delta_lead_size(
+        25, 75, delta_lead="long"
+    )
+    assert size == 3.0
+    assert louder == 75
+    assert quieter == 25
+    size, louder, quieter = ledger_short_vs_long_delta_lead_size(
+        67, 33, delta_lead="short"
+    )
+    assert size == 2.03
+    assert louder == 67
+    assert quieter == 33
+    assert ledger_short_vs_long_delta_lead_size(
+        100, 0, delta_lead="short"
+    ) == (None, None, None)
+    assert ledger_short_vs_long_delta_lead_size(
+        67, 33, delta_lead=""
+    ) == (None, None, None)
 
 
 def test_ledger_short_lean_meta() -> None:

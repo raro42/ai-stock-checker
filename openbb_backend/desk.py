@@ -2924,7 +2924,7 @@ _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ long\b"), "vs long"),
     (re.compile(r"^short/long tied\b"), "tied"),
     # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead short``
-    # and ``Δ lead`` ≠ bare ``Δ`` / ``lean vs Δ``.
+    # and ``Δ lead size sides`` ≠ ``Δ lead size`` ≠ ``Δ lead`` ≠ bare ``Δ``.
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead short\b"), "short"),
@@ -2932,6 +2932,8 @@ _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^short vs long align\b"), "align"),
     (re.compile(r"^short vs long clash\b"), "clash"),
     (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ lead size sides\b"), "sides"),
+    (re.compile(r"^Δ lead size\b"), "size"),
     (re.compile(r"^Δ lead\b"), "lead"),
     (re.compile(r"^Δ "), "Δ"),
 )
@@ -3140,6 +3142,38 @@ def ledger_short_vs_long_delta_lead(
     return "short" if pp > 0 else "long"
 
 
+def ledger_short_vs_long_delta_lead_size(
+    short_share_pct: float | int | None,
+    long_share_pct: float | int | None,
+    *,
+    delta_lead: str = "",
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after Δ lead (display only).
+
+    When ``delta_lead`` already spoke (``short|long``) and both shares are
+    known, ``Δ lead size · N×`` is louder%÷quieter%; zero quieter
+    (all-short / all-long) stays silent. Lead name ≠ magnitude (unmatched
+    vs matched / opportunity damaged vs ok / Screener junk vs ok Δ lead
+    size + portfolio AI count≠share). Returns
+    ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``. Not a
+    new entry gate.
+    """
+    if str(delta_lead or "").strip().casefold() not in {"short", "long"}:
+        return None, None, None
+    if short_share_pct is None or long_share_pct is None:
+        return None, None, None
+    try:
+        sh = float(short_share_pct)
+        lo = float(long_share_pct)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(sh, lo)
+    quieter = min(sh, lo)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for ledger short-refuse lean fold (display only).
 
@@ -3196,10 +3230,14 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     When lean already spoke, also speak ``Δ wide|thin · ±Npp`` +
     ``lean vs Δ align · wide|thin`` / ``clash · lean · Δ mid`` so lean
     alone does not hide short%−long% spread (unmatched / Screener junk
-    vs ok share Δ). When lean vs Δ already spoke with a non-zero Δ, also
+    vs ok share Δ).     When lean vs Δ already spoke with a non-zero Δ, also
     speak ``Δ lead · short|long`` so signed ±pp alone does not hide which
     slot owns the spread (unmatched / opportunity / Screener Δ lead).
-    Missing both files stays silent. Not an entry gate.
+    When Δ lead already spoke and quieter% > 0, also speak
+    ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
+    so lead name alone does not hide how many times louder owns quieter
+    (unmatched / opportunity / Screener Δ lead size). Missing both files
+    stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -3238,6 +3276,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lean_vs_delta": "",
         "vs_long_lean_vs_delta_warn": False,
         "vs_long_delta_lead": "",
+        "vs_long_delta_lead_size": None,
+        "vs_long_delta_lead_size_louder_pct": None,
+        "vs_long_delta_lead_size_quieter_pct": None,
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -3293,6 +3334,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     vs_long_lean_vs_delta = ""
     vs_long_lean_vs_delta_warn = False
     vs_long_delta_lead = ""
+    vs_long_delta_lead_size: float | None = None
+    vs_long_delta_lead_size_louder_pct: float | None = None
+    vs_long_delta_lead_size_quieter_pct: float | None = None
     lean = ""
     lean_warn = False
     if port_state == "ok" and isinstance(port_doc, dict):
@@ -3409,6 +3453,28 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                     )
                     if vs_long_delta_lead:
                         lean_parts.append(f"Δ lead · {vs_long_delta_lead}")
+                    (
+                        vs_long_delta_lead_size,
+                        vs_long_delta_lead_size_louder_pct,
+                        vs_long_delta_lead_size_quieter_pct,
+                    ) = ledger_short_vs_long_delta_lead_size(
+                        short_share_pct,
+                        long_share_pct,
+                        delta_lead=vs_long_delta_lead,
+                    )
+                    if vs_long_delta_lead_size is not None:
+                        lean_parts.append(
+                            f"Δ lead size · {vs_long_delta_lead_size:g}×"
+                        )
+                    if (
+                        vs_long_delta_lead_size_louder_pct is not None
+                        and vs_long_delta_lead_size_quieter_pct is not None
+                    ):
+                        lean_parts.append(
+                            "Δ lead size sides · louder "
+                            f"{vs_long_delta_lead_size_louder_pct:g}% · quieter "
+                            f"{vs_long_delta_lead_size_quieter_pct:g}%"
+                        )
                 lean = " · ".join(lean_parts)
             problems.append(short_bit)
 
@@ -3452,6 +3518,13 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lean_vs_delta": vs_long_lean_vs_delta,
         "vs_long_lean_vs_delta_warn": vs_long_lean_vs_delta_warn,
         "vs_long_delta_lead": vs_long_delta_lead,
+        "vs_long_delta_lead_size": vs_long_delta_lead_size,
+        "vs_long_delta_lead_size_louder_pct": (
+            vs_long_delta_lead_size_louder_pct
+        ),
+        "vs_long_delta_lead_size_quieter_pct": (
+            vs_long_delta_lead_size_quieter_pct
+        ),
     }
 
 
