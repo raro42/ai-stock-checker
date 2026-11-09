@@ -2916,7 +2916,7 @@ LEDGER_SHORT_SHARE_QUIET = 25.0
 LEDGER_SHORT_LONG_SHARE_STRONG = 75.0
 LEDGER_SHORT_LONG_SHARE_THIN = 50.0
 
-_LEDGER_SHORT_LEAN_NAME_CAP = 4
+_LEDGER_SHORT_LEAN_NAME_CAP = 5
 _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ long\b"), "vs long"),
     (re.compile(r"^short/long tied\b"), "tied"),
@@ -2925,6 +2925,8 @@ _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead short\b"), "short"),
     (re.compile(r"^lead long\b"), "long"),
+    (re.compile(r"^short vs long align\b"), "align"),
+    (re.compile(r"^short vs long clash\b"), "clash"),
 )
 
 
@@ -3016,6 +3018,45 @@ def ledger_short_vs_long_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def ledger_short_vs_long_lean(
+    short_severity: str,
+    long_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of short-refuse vs long share bands (display only).
+
+    Absolute sides + ownership lead + lead size hid whether the two
+    *severity* bands agree (unmatched vs matched lean / Screener junk vs ok
+    lean + portfolio AI speak-both-sides + xang1234 severity). Align when
+    ``hot|thin`` or ``quiet|strong``; clash when exactly one lean spoke or
+    the pair disagrees. Adverse clash (short hot / long thin mismatch, or
+    sole hot/thin) warns. Mid both silent. Lives under the ledger short
+    lean fold so the primary chip stays short. Not a new entry gate.
+    """
+    sh = str(short_severity or "").strip().casefold()
+    lg = str(long_severity or "").strip().casefold()
+    sh_lean = sh in {"hot", "quiet"}
+    lg_lean = lg in {"strong", "thin"}
+    if sh_lean and lg_lean:
+        matched = (sh == "hot" and lg == "thin") or (
+            sh == "quiet" and lg == "strong"
+        )
+        if matched:
+            return f"short vs long align · {sh}|{lg}", False
+        return (
+            f"short vs long clash · short {sh} · long {lg}",
+            True,
+        )
+    if sh_lean != lg_lean:
+        sh_label = sh if sh_lean else (sh or "ok")
+        lg_label = lg if lg_lean else (lg or "ok")
+        warn = sh == "hot" or lg == "thin"
+        return (
+            f"short vs long clash · short {sh_label} · long {lg_label}",
+            warn,
+        )
+    return "", False
+
+
 def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for ledger short-refuse lean fold (display only).
 
@@ -3065,7 +3106,11 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     not hide which slot owns the map (Funds vs-other lead). When lead
     already spoke, also speak ``lead size · N×`` + ``lead size sides ·
     louder N · quieter M`` so name/% ≠ magnitude (Charts aging/stale lead
-    size). Missing both files stays silent. Not an entry gate.
+    size). When both share severity bands already spoke, also speak
+    ``short vs long align · hot|thin`` / ``quiet|strong`` or
+    ``clash · short … · long …`` so sides/lead/size alone do not hide
+    severity agreement (unmatched vs matched lean + Screener junk vs ok).
+    Missing both files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -3097,6 +3142,8 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lead_size": None,
         "vs_long_lead_size_louder": None,
         "vs_long_lead_size_quieter": None,
+        "vs_long_lean": "",
+        "vs_long_lean_warn": False,
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -3145,6 +3192,8 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     vs_long_lead_size: float | None = None
     vs_long_lead_size_louder: int | None = None
     vs_long_lead_size_quieter: int | None = None
+    vs_long_lean = ""
+    vs_long_lean_warn = False
     lean = ""
     lean_warn = False
     if port_state == "ok" and isinstance(port_doc, dict):
@@ -3219,6 +3268,13 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                         f"{vs_long_lead_size_louder} · quieter "
                         f"{vs_long_lead_size_quieter}"
                     )
+                vs_long_lean, vs_long_lean_warn = ledger_short_vs_long_lean(
+                    short_share_severity, long_share_severity
+                )
+                if vs_long_lean:
+                    lean_parts.append(vs_long_lean)
+                    if vs_long_lean_warn:
+                        lean_warn = True
                 lean = " · ".join(lean_parts)
             problems.append(short_bit)
 
@@ -3255,6 +3311,8 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lead_size": vs_long_lead_size,
         "vs_long_lead_size_louder": vs_long_lead_size_louder,
         "vs_long_lead_size_quieter": vs_long_lead_size_quieter,
+        "vs_long_lean": vs_long_lean,
+        "vs_long_lean_warn": vs_long_lean_warn,
     }
 
 
