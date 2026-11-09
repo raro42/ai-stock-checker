@@ -9,6 +9,7 @@ from openbb_backend.desk import (
     build_ledger_health,
     ledger_short_lean_meta,
     ledger_short_vs_long_lead,
+    ledger_short_vs_long_lead_size,
     ledger_short_vs_long_sample_gap,
     load_json_checked,
     load_jsonl_checked,
@@ -132,11 +133,20 @@ def test_ledger_short_holdings_refuse(tmp_path: Path) -> None:
     assert g["vs_long_lead_pct"] == 67
     assert g["vs_long_sample_gap"] == ""
     assert "lead short · 67%" in g["lean"]
+    # 2 short vs 1 long → lead size 2× (name/% ≠ magnitude).
+    assert g["vs_long_lead_size"] == 2.0
+    assert g["vs_long_lead_size_louder"] == 2
+    assert g["vs_long_lead_size_quieter"] == 1
+    assert "lead size · 2×" in g["lean"]
+    assert "lead size sides · louder 2 · quieter 1" in g["lean"]
+    assert "lead size" not in g["line"]
     assert "vs 1 long" not in g["line"]
     assert "vs 1 long" in g["bit"]
     assert g["lean_warn"] is True
     assert "vs long" in g["lean_meta"]
     assert "short" in g["lean_meta"]
+    assert "size" in g["lean_meta"]
+    assert "sides" in g["lean_meta"]
 
 
 def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
@@ -168,10 +178,17 @@ def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
     assert g["vs_long_lead_name"] == "long"
     assert g["vs_long_lead_pct"] == 75
     assert "lead long · 75%" in g["lean"]
+    # 6 long vs 2 short → lead size 3×.
+    assert g["vs_long_lead_size"] == 3.0
+    assert g["vs_long_lead_size_louder"] == 6
+    assert g["vs_long_lead_size_quieter"] == 2
+    assert "lead size · 3×" in g["lean"]
+    assert "lead size sides · louder 6 · quieter 2" in g["lean"]
     assert "vs 6 long" not in g["line"]
     assert g["lean_warn"] is False
     assert g["lean_meta"].startswith("quiet")
     assert "long" in g["lean_meta"]
+    assert "size" in g["lean_meta"]
 
 
 def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
@@ -210,6 +227,11 @@ def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
     assert g["vs_long_lead_name"] == "long"
     assert g["vs_long_lead_pct"] == 60
     assert "lead long · 60%" in g["lean"]
+    # 3 long vs 2 short → lead size 1.5×.
+    assert g["vs_long_lead_size"] == 1.5
+    assert g["vs_long_lead_size_louder"] == 3
+    assert g["vs_long_lead_size_quieter"] == 2
+    assert "lead size · 1.5×" in g["lean"]
     assert g["lean_warn"] is False
 
 
@@ -232,9 +254,10 @@ def test_ledger_short_refuse_vs_long_all_short(tmp_path: Path) -> None:
     assert g["lean"] == "vs 0 long · thin · 0%"
     assert g["lean_warn"] is True
     assert "vs 0 long" not in g["line"]
-    # Sole-side (all short) stays silent on ownership lead.
+    # Sole-side (all short) stays silent on ownership lead / size.
     assert g["vs_long_lead"] == ""
     assert g["vs_long_sample_gap"] == ""
+    assert g["vs_long_lead_size"] is None
 
 
 def test_ledger_short_refuse_vs_long_tied(tmp_path: Path) -> None:
@@ -263,6 +286,9 @@ def test_ledger_short_refuse_vs_long_tied(tmp_path: Path) -> None:
     assert "short/long tied" in g["lean"]
     assert "short/long tied" not in g["line"]
     assert "tied" in g["lean_meta"]
+    # Tied → no lead size.
+    assert g["vs_long_lead_size"] is None
+    assert "lead size" not in g["lean"]
 
 
 def test_ledger_short_vs_long_lead_helpers() -> None:
@@ -278,19 +304,50 @@ def test_ledger_short_vs_long_lead_helpers() -> None:
     assert ledger_short_vs_long_sample_gap(2, 2) == "short/long tied"
     assert ledger_short_vs_long_lead(2, 0) == ("", "", None)
     assert ledger_short_vs_long_sample_gap(2, 0) == ""
+    assert ledger_short_vs_long_lead_size(2, 1, lead_name="short") == (
+        2.0,
+        2,
+        1,
+    )
+    assert ledger_short_vs_long_lead_size(6, 2, lead_name="long") == (
+        3.0,
+        6,
+        2,
+    )
+    assert ledger_short_vs_long_lead_size(3, 2, lead_name="long") == (
+        1.5,
+        3,
+        2,
+    )
+    assert ledger_short_vs_long_lead_size(2, 2, lead_name="") == (
+        None,
+        None,
+        None,
+    )
+    assert ledger_short_vs_long_lead_size(2, 0, lead_name="short") == (
+        None,
+        None,
+        None,
+    )
 
 
 def test_ledger_short_lean_meta() -> None:
     assert ledger_short_lean_meta("") == "quiet"
     quiet = ledger_short_lean_meta(
-        "vs 6 long · strong · 75% · lead long · 75%"
+        "vs 6 long · strong · 75% · lead long · 75% · "
+        "lead size · 3× · lead size sides · louder 6 · quieter 2"
     )
     assert quiet.startswith("quiet")
     assert "vs long" in quiet
     assert "long" in quiet
+    assert "size" in quiet
+    assert "sides" in quiet
     warn = ledger_short_lean_meta(
-        "vs 1 long · thin · 33% · lead short · 67%", warn=True
+        "vs 1 long · thin · 33% · lead short · 67% · "
+        "lead size · 2× · lead size sides · louder 2 · quieter 1",
+        warn=True,
     )
     assert warn.startswith("warn")
     assert "vs long" in warn
     assert "short" in warn
+    assert "size" in warn

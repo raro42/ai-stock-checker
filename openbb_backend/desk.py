@@ -2920,6 +2920,9 @@ _LEDGER_SHORT_LEAN_NAME_CAP = 4
 _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ long\b"), "vs long"),
     (re.compile(r"^short/long tied\b"), "tied"),
+    # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead short``.
+    (re.compile(r"^lead size sides\b"), "sides"),
+    (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead short\b"), "short"),
     (re.compile(r"^lead long\b"), "long"),
 )
@@ -2982,6 +2985,37 @@ def ledger_short_vs_long_sample_gap(
     return "short/long tied"
 
 
+def ledger_short_vs_long_lead_size(
+    n_short: int,
+    n_long: int,
+    *,
+    lead_name: str = "",
+) -> tuple[float | None, int | None, int | None]:
+    """How many times louder owns quieter after short/long lead (display only).
+
+    When ``lead_name`` already spoke (``short|long``) and both counts are
+    >0, ``lead size · N×`` is louder÷quieter; zero quieter stays silent.
+    Lead name/% ≠ magnitude (Charts aging/stale lead size + portfolio AI
+    count≠share + xang1234 multi-meter). Returns ``(size, louder_n,
+    quieter_n)`` or all-None. Not a new entry gate.
+    """
+    if str(lead_name or "").strip().casefold() not in {"short", "long"}:
+        return None, None, None
+    try:
+        short_n = max(0, int(n_short))
+    except (TypeError, ValueError):
+        short_n = 0
+    try:
+        long_n = max(0, int(n_long))
+    except (TypeError, ValueError):
+        long_n = 0
+    quieter = min(short_n, long_n)
+    louder = max(short_n, long_n)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for ledger short-refuse lean fold (display only).
 
@@ -3028,8 +3062,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     portfolio AI speak-both-sides; MonsterDeveloper fold keeps the primary
     chip short. When both short + long counts are >0, also speak
     ``lead short|long · N%`` or ``short/long tied`` so absolute sides do
-    not hide which slot owns the map (Funds vs-other lead). Missing both
-    files stays silent. Not an entry gate.
+    not hide which slot owns the map (Funds vs-other lead). When lead
+    already spoke, also speak ``lead size · N×`` + ``lead size sides ·
+    louder N · quieter M`` so name/% ≠ magnitude (Charts aging/stale lead
+    size). Missing both files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -3058,6 +3094,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lead_name": "",
         "vs_long_lead_pct": None,
         "vs_long_sample_gap": "",
+        "vs_long_lead_size": None,
+        "vs_long_lead_size_louder": None,
+        "vs_long_lead_size_quieter": None,
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -3103,6 +3142,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     vs_long_lead_name = ""
     vs_long_lead_pct: int | None = None
     vs_long_sample_gap = ""
+    vs_long_lead_size: float | None = None
+    vs_long_lead_size_louder: int | None = None
+    vs_long_lead_size_quieter: int | None = None
     lean = ""
     lean_warn = False
     if port_state == "ok" and isinstance(port_doc, dict):
@@ -3159,6 +3201,24 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                 vs_long_own = vs_long_lead or vs_long_sample_gap
                 if vs_long_own:
                     lean_parts.append(vs_long_own)
+                (
+                    vs_long_lead_size,
+                    vs_long_lead_size_louder,
+                    vs_long_lead_size_quieter,
+                ) = ledger_short_vs_long_lead_size(
+                    n, n_long, lead_name=vs_long_lead_name
+                )
+                if (
+                    vs_long_lead_size is not None
+                    and vs_long_lead_size_louder is not None
+                    and vs_long_lead_size_quieter is not None
+                ):
+                    lean_parts.append(f"lead size · {vs_long_lead_size:g}×")
+                    lean_parts.append(
+                        "lead size sides · louder "
+                        f"{vs_long_lead_size_louder} · quieter "
+                        f"{vs_long_lead_size_quieter}"
+                    )
                 lean = " · ".join(lean_parts)
             problems.append(short_bit)
 
@@ -3192,6 +3252,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lead_name": vs_long_lead_name,
         "vs_long_lead_pct": vs_long_lead_pct,
         "vs_long_sample_gap": vs_long_sample_gap,
+        "vs_long_lead_size": vs_long_lead_size,
+        "vs_long_lead_size_louder": vs_long_lead_size_louder,
+        "vs_long_lead_size_quieter": vs_long_lead_size_quieter,
     }
 
 
