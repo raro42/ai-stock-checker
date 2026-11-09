@@ -30057,14 +30057,18 @@ def build_improve_tick_glance(
     data_dir: Path | str | None,
     *,
     now: datetime | None = None,
+    scan_time: Any = None,
+    scan_interval_sec: int = 900,
 ) -> dict[str, Any]:
     """Last Cursor improve tick age (tradermonty #678; display only).
 
     Overnight product improve is hourly. Cadence floors already cover scan/trade
     sleep — this line names whether the improve worker itself printed recently
     (``Nh ago · fresh|aging|stale``), and failed ``rc`` when the last end line
-    is non-zero. Missing logs stay silent so hosts without overnight loops do
-    not warn. Not a webhook / not a new entry gate.
+    is non-zero. When the scan-archive band disagrees with improve age, speak
+    ``clash · scan fresh|aging|stale`` (LAYA/soft-allow vs scan; a fresh scan
+    does not make a stale improve tick live). Missing logs stay silent so hosts
+    without overnight loops do not warn. Not a webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30076,6 +30080,8 @@ def build_improve_tick_glance(
         "rc": None,
         "source": "",
         "failed": False,
+        "scan_freshness": "",
+        "scan_clash": "",
     }
     if data_dir is None:
         return empty
@@ -30151,11 +30157,32 @@ def build_improve_tick_glance(
     if failed:
         tone = "warn"
     age_label = _format_age_short(age)
+    scan_freshness = ""
+    if scan_time:
+        scan_pack = build_scan_freshness(
+            scan_time, now=clock, scan_interval_sec=scan_interval_sec
+        )
+        scan_freshness = str(scan_pack.get("tone") or "")
+        if scan_freshness == "unknown":
+            scan_freshness = ""
+    scan_clash = (
+        _clock_clash(freshness, scan=scan_freshness) if scan_freshness else ""
+    )
+    clash_tone = _clock_clash_tone(
+        freshness, scan_clash, scan=scan_freshness
+    )
+    if clash_tone == "stale":
+        tone = "warn"
+    elif clash_tone == "aging" and tone == "ok":
+        tone = "aging"
     bits = [age_label, freshness]
     if failed:
         bits.append(f"rc={rc}")
     elif rc == 0:
         bits.append("ok")
+    # Age before clash so the 96-char clip keeps improve age (LAYA parity).
+    if scan_clash:
+        bits.append(scan_clash)
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -30169,6 +30196,8 @@ def build_improve_tick_glance(
         "rc": rc,
         "source": source,
         "failed": failed,
+        "scan_freshness": scan_freshness,
+        "scan_clash": scan_clash,
     }
 
 
@@ -35200,7 +35229,11 @@ def load_desk_snapshot(
             post_sl_epoch,
         ),
         "loop_cadence_glance": build_loop_cadence_glance(runtime),
-        "improve_tick_glance": build_improve_tick_glance(data_dir),
+        "improve_tick_glance": build_improve_tick_glance(
+            data_dir,
+            scan_time=scan_time_raw,
+            scan_interval_sec=scan_interval_sec,
+        ),
         "fee_allowance_glance": build_fee_allowance_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(
             fees,

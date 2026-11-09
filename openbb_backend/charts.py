@@ -1483,11 +1483,23 @@ def _loop_cadence_glance_from_config(_data_dir: Path) -> dict[str, Any]:
     )
 
 
-def _improve_tick_glance_from_data(data_dir: Path) -> dict[str, Any]:
+def _improve_tick_glance_from_data(
+    data_dir: Path, *, scan_time: str = ""
+) -> dict[str, Any]:
     """Last Cursor improve tick age — match desk overnight honesty."""
     from openbb_backend.desk import build_improve_tick_glance
+    from stock_checker.trader_config import load_trader_config
 
-    return build_improve_tick_glance(data_dir)
+    cfg = load_trader_config(data_dir)
+    try:
+        scan_m = int(cfg.get("scan_interval_min") or 15)
+    except (TypeError, ValueError):
+        scan_m = 15
+    return build_improve_tick_glance(
+        data_dir,
+        scan_time=scan_time,
+        scan_interval_sec=max(60, scan_m * 60),
+    )
 
 
 def _ai_mode_glance_from_config(data_dir: Path) -> dict[str, Any]:
@@ -1870,7 +1882,9 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "listed_fund_overlap_glance": listed_fund_overlap_glance,
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
         "loop_cadence_glance": _loop_cadence_glance_from_config(data_dir),
-        "improve_tick_glance": _improve_tick_glance_from_data(data_dir),
+        "improve_tick_glance": _improve_tick_glance_from_data(
+            data_dir, scan_time=scan_time
+        ),
         "fee_allowance_glance": _fee_allowance_glance_from_data(data_dir),
         "fee_burn_glance": _fee_burn_glance_from_portfolio(data_dir, portfolio),
         "stuck_capital_glance": _stuck_capital_glance_from_data(data_dir),
