@@ -2912,6 +2912,42 @@ def build_mark_coverage(
 # Short-refuse book ownership (portfolio AI count≠share after absolute N).
 LEDGER_SHORT_SHARE_HOT = 50.0
 LEDGER_SHORT_SHARE_QUIET = 25.0
+# Remaining long names after short share (Screener junk vs ok / Funds vs other).
+LEDGER_SHORT_LONG_SHARE_STRONG = 75.0
+LEDGER_SHORT_LONG_SHARE_THIN = 50.0
+
+_LEDGER_SHORT_LEAN_NAME_CAP = 4
+_LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^vs \d+ long\b"), "vs long"),
+)
+
+
+def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
+    """Summary chip for ledger short-refuse lean fold (display only).
+
+    Quiet names stages that spoke (``quiet · 1 folds · vs long``) so bare
+    ``quiet`` does not claim long remainder when absent — Funds / Charts
+    lean inventory + MonsterDeveloper fold after share alone hid peers.
+    Warned folds speak ``warn`` and append the clipped stages. Not a gate.
+    """
+    text = str(lean or "").strip()
+    if not text:
+        return "quiet"
+    if warn:
+        stage_tail = _quiet_inventory_chip(
+            text,
+            _LEDGER_SHORT_LEAN_STAGE_RES,
+            cap=_LEDGER_SHORT_LEAN_NAME_CAP,
+            quiet=False,
+        )
+        if stage_tail:
+            return f"warn · {stage_tail}"
+        return "warn"
+    return _quiet_inventory_chip(
+        text,
+        _LEDGER_SHORT_LEAN_STAGE_RES,
+        cap=_LEDGER_SHORT_LEAN_NAME_CAP,
+    )
 
 
 def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
@@ -2923,8 +2959,13 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     (tradermonty #681 reject unsupported equity shorts). When short refuse
     already spoke, also speak book ownership ``hot|quiet · P%`` (short names
     ÷ holding names; mid shows % only) so absolute ``N short refuse`` ≠ most
-    of the book — portfolio AI count≠share + xang1234 share severity.
-    Missing both files stays silent. Not an entry gate.
+    of the book — portfolio AI count≠share + xang1234 share severity. When
+    share already spoke, also speak remaining long names
+    ``vs N long · [strong|thin] · P%`` under a lean fold (strong ≥75% ·
+    thin <50%; all-short ``vs 0 long · thin · 0%``) so short% alone does
+    not hide usable long peers — Screener junk vs ok / Funds vs other +
+    portfolio AI speak-both-sides; MonsterDeveloper fold keeps the primary
+    chip short. Missing both files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -2934,6 +2975,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "severity": "",
         "bit": "",
         "line": "",
+        "lean": "",
+        "lean_warn": False,
+        "lean_meta": "quiet",
         "portfolio_state": "missing",
         "trades_state": "missing",
         "bad_lines": 0,
@@ -2943,6 +2987,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "n_book": 0,
         "short_share_pct": None,
         "short_share_severity": "",
+        "n_long": 0,
+        "long_share_pct": None,
+        "long_share_severity": "",
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -2981,6 +3028,11 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     n_book = 0
     short_share_pct: float | None = None
     short_share_severity = ""
+    n_long = 0
+    long_share_pct: float | None = None
+    long_share_severity = ""
+    lean = ""
+    lean_warn = False
     if port_state == "ok" and isinstance(port_doc, dict):
         holdings = port_doc.get("holdings")
         short_syms = unsupported_short_symbols(holdings)
@@ -3009,18 +3061,36 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                     short_bit = f"{short_bit} · quiet · {int(short_share_pct)}%"
                 else:
                     short_bit = f"{short_bit} · {int(short_share_pct)}%"
+                # Speak long remainder only after share (count≠share peers).
+                n_long = max(0, n_book - n)
+                long_share_pct = round(100.0 * n_long / n_book)
+                if long_share_pct >= LEDGER_SHORT_LONG_SHARE_STRONG:
+                    long_share_severity = "strong"
+                    lean = (
+                        f"vs {n_long} long · strong · {int(long_share_pct)}%"
+                    )
+                elif long_share_pct < LEDGER_SHORT_LONG_SHARE_THIN:
+                    long_share_severity = "thin"
+                    lean = f"vs {n_long} long · thin · {int(long_share_pct)}%"
+                    lean_warn = True
+                else:
+                    lean = f"vs {n_long} long · {int(long_share_pct)}%"
             problems.append(short_bit)
 
     if severity == "ok":
-        bit = "ledger ok"
+        line = "ledger ok"
     else:
-        bit = f"ledger {severity} · " + " · ".join(problems)
+        line = f"ledger {severity} · " + " · ".join(problems)
+    bit = f"{line} · {lean}" if lean else line
     return {
         "ready": True,
         "tone": "ok" if severity == "ok" else "warn",
         "severity": severity,
         "bit": bit,
-        "line": bit,
+        "line": line,
+        "lean": lean,
+        "lean_warn": lean_warn,
+        "lean_meta": ledger_short_lean_meta(lean, warn=lean_warn),
         "portfolio_state": port_state,
         "trades_state": trades_state,
         "bad_lines": bad_lines,
@@ -3030,6 +3100,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "n_book": n_book,
         "short_share_pct": short_share_pct,
         "short_share_severity": short_share_severity,
+        "n_long": n_long,
+        "long_share_pct": long_share_pct,
+        "long_share_severity": long_share_severity,
     }
 
 

@@ -159,10 +159,13 @@
   heading_id='ledger-health-h',
   link_href='/desk/book',
   link_label='Book ledger →',
-  sub='portfolio.json and trades.jsonl parse check. Bad lines are dropped and named. Good rows stay. Not a gate.'
+  sub='portfolio.json and trades.jsonl parse check. Bad lines are dropped and named. Good rows stay. Short refuse vs long sits under ledger lean. Not a gate.'
 ) -%}
 {% set glance = snap.ledger_health if snap.ledger_health is mapping else {} %}
 {% if glance.ready %}
+{% set ledger_lean = glance.lean|default('') %}
+{% set ledger_lean_warn = glance.lean_warn|default(false) %}
+{% set ledger_lean_meta = glance.lean_meta|default('quiet') %}
 <section class="ledger-health-glance" aria-labelledby="{{ heading_id }}">
   <h2 id="{{ heading_id }}" class="visually-hidden">Ledger health</h2>
   <p class="ledger-health-glance-line">
@@ -172,6 +175,12 @@
     <span class="pretrade-sep" aria-hidden="true">·</span>
     <a class="ledger-health-glance-link" href="{{ link_href }}">{{ link_label }}</a>
   </p>
+  {% if ledger_lean %}
+  <details class="ledger-short-lean{% if ledger_lean_warn %} warn{% endif %}"{% if ledger_lean_warn %} open{% endif %}>
+    <summary>ledger lean <span class="meta">{{ ledger_lean_meta }}</span></summary>
+    <p class="ledger-short-lean-body{% if ledger_lean_warn %} warn{% endif %}">{{ ledger_lean }}</p>
+  </details>
+  {% endif %}
   <p class="sub">{{ sub }}</p>
 </section>
 {% endif %}
