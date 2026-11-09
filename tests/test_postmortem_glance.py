@@ -5,6 +5,8 @@ from __future__ import annotations
 from openbb_backend.desk import (
     build_postmortem_glance,
     postmortem_unmatched_lean_meta,
+    postmortem_unmatched_vs_matched_lead,
+    postmortem_unmatched_vs_matched_sample_gap,
 )
 
 
@@ -99,6 +101,9 @@ def test_postmortem_glance_unmatched_skips_pnl() -> None:
     assert g["matched_share_severity"] == "thin"
     assert g["lean"] == "vs 0 matched · thin · 0%"
     assert g["lean_warn"] is True
+    # Sole-side — no ownership lead when matched is 0.
+    assert g["vs_matched_lead"] == ""
+    assert g["vs_matched_sample_gap"] == ""
     assert "vs matched" in g["lean_meta"]
     assert "Unmatched · TSLA" in g["line"]
     assert "skipped" in g["line"]
@@ -134,14 +139,19 @@ def test_postmortem_glance_matched_beside_unmatched() -> None:
     assert g["unmatched_share_severity"] == "hot"
     assert g["matched_share_pct"] == 50
     assert g["matched_share_severity"] == ""
-    assert g["lean"] == "vs 1 matched · 50%"
+    # 1·1 → tied (no strict lead).
+    assert g["lean"] == "vs 1 matched · 50% · unmatched/matched tied"
+    assert g["vs_matched_lead"] == ""
+    assert g["vs_matched_sample_gap"] == "unmatched/matched tied"
     assert g["lean_warn"] is False
+    assert "tied" in g["lean_meta"]
     # Hot unmatched peers escalate a green last-exit strip.
     assert g["tone"] == "warn"
     assert "Last exit · AAPL" in g["line"]
     assert "+8.0%" in g["line"]
     assert "1 unmatched · skipped · hot · 50%" in g["line"]
     assert "vs 1 matched" not in g["line"]
+    assert "tied" not in g["line"]
 
 
 def test_postmortem_glance_unmatched_share_quiet() -> None:
@@ -178,11 +188,19 @@ def test_postmortem_glance_unmatched_share_quiet() -> None:
     assert g["unmatched_share_severity"] == "quiet"
     assert g["matched_share_pct"] == 83
     assert g["matched_share_severity"] == "strong"
-    assert g["lean"] == "vs 5 matched · strong · 83%"
+    assert g["lean"] == (
+        "vs 5 matched · strong · 83% · lead matched · 83%"
+    )
+    assert g["vs_matched_lead"] == "lead matched · 83%"
+    assert g["vs_matched_lead_name"] == "matched"
+    assert g["vs_matched_lead_pct"] == 83
+    assert g["vs_matched_sample_gap"] == ""
     assert g["lean_warn"] is False
+    assert "matched" in g["lean_meta"]
     assert g["tone"] == "up"
     assert "1 unmatched · skipped · quiet · 17%" in g["line"]
     assert "vs 5 matched" not in g["line"]
+    assert "lead matched" not in g["line"]
 
 
 def test_postmortem_glance_unmatched_share_mid() -> None:
@@ -214,22 +232,92 @@ def test_postmortem_glance_unmatched_share_mid() -> None:
     assert g["unmatched_share_severity"] == ""
     assert g["matched_share_pct"] == 67
     assert g["matched_share_severity"] == ""
-    assert g["lean"] == "vs 2 matched · 67%"
+    assert g["lean"] == "vs 2 matched · 67% · lead matched · 67%"
+    assert g["vs_matched_lead"] == "lead matched · 67%"
+    assert g["vs_matched_lead_name"] == "matched"
+    assert g["vs_matched_lead_pct"] == 67
     assert g["lean_warn"] is False
     assert g["tone"] == "up"
     assert "1 unmatched · skipped · 33%" in g["line"]
     assert "hot" not in g["line"]
     assert "quiet" not in g["line"]
     assert "vs 2 matched" not in g["line"]
+    assert "lead matched" not in g["line"]
+
+
+def test_postmortem_glance_unmatched_owns_roster() -> None:
+    """Unmatched majority beside matched closes → lead unmatched under lean."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "AAPL",
+                "exit_reason": "tp",
+                "held": "1d",
+                "profit_loss_pct": 8.0,
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "NVDA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["matched_count"] == 1
+    assert g["unmatched_count"] == 2
+    assert g["n_rounds"] == 3
+    assert g["unmatched_share_pct"] == 67
+    assert g["unmatched_share_severity"] == "hot"
+    assert g["matched_share_pct"] == 33
+    assert g["matched_share_severity"] == "thin"
+    assert g["lean"] == (
+        "vs 1 matched · thin · 33% · lead unmatched · 67%"
+    )
+    assert g["vs_matched_lead"] == "lead unmatched · 67%"
+    assert g["vs_matched_lead_name"] == "unmatched"
+    assert g["vs_matched_lead_pct"] == 67
+    assert g["lean_warn"] is True
+    assert "unmatched" in g["lean_meta"]
+    assert g["tone"] == "warn"
+    assert "lead unmatched" not in g["line"]
+
+
+def test_postmortem_unmatched_vs_matched_lead_helpers() -> None:
+    bit, name, pct = postmortem_unmatched_vs_matched_lead(2, 3)
+    assert bit == "lead matched · 60%"
+    assert name == "matched"
+    assert pct == 60
+    bit, name, pct = postmortem_unmatched_vs_matched_lead(3, 2)
+    assert bit == "lead unmatched · 60%"
+    assert name == "unmatched"
+    assert pct == 60
+    assert postmortem_unmatched_vs_matched_lead(2, 2) == ("", "", None)
+    assert postmortem_unmatched_vs_matched_lead(2, 0) == ("", "", None)
+    assert postmortem_unmatched_vs_matched_sample_gap(1, 1) == (
+        "unmatched/matched tied"
+    )
+    assert postmortem_unmatched_vs_matched_sample_gap(2, 1) == ""
+    assert postmortem_unmatched_vs_matched_sample_gap(2, 0) == ""
 
 
 def test_postmortem_unmatched_lean_meta() -> None:
     assert postmortem_unmatched_lean_meta("") == "quiet"
-    quiet = postmortem_unmatched_lean_meta("vs 5 matched · strong · 83%")
+    quiet = postmortem_unmatched_lean_meta(
+        "vs 5 matched · strong · 83% · lead matched · 83%"
+    )
     assert quiet.startswith("quiet")
     assert "vs matched" in quiet
+    assert "matched" in quiet
     warn = postmortem_unmatched_lean_meta(
         "vs 0 matched · thin · 0%", warn=True
     )
     assert warn.startswith("warn")
     assert "vs matched" in warn
+    tied = postmortem_unmatched_lean_meta(
+        "vs 1 matched · 50% · unmatched/matched tied"
+    )
+    assert "tied" in tied

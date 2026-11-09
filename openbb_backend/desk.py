@@ -30120,16 +30120,84 @@ POSTMORTEM_MATCHED_SHARE_THIN = 50.0
 _POSTMORTEM_UNMATCHED_LEAN_NAME_CAP = 4
 _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ matched\b"), "vs matched"),
+    (re.compile(r"^unmatched/matched tied\b"), "tied"),
+    (re.compile(r"^lead unmatched\b"), "unmatched"),
+    (re.compile(r"^lead matched\b"), "matched"),
 )
+
+
+def postmortem_unmatched_vs_matched_lead(
+    n_unmatched: int,
+    n_matched: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among unmatched vs matched closed-round counts (display only).
+
+    Absolute ``N unmatched`` beside ``vs M matched`` hid which slot owns the
+    postmortem roster (short-refuse vs long lead / Funds vs other + portfolio
+    AI count≠share + xang1234 multi-meter). Both sides must be >0 and total
+    ≥2; strict lead → ``lead unmatched · N%`` / ``lead matched · N%``; ties /
+    sole-side → silent (use ``postmortem_unmatched_vs_matched_sample_gap`` for
+    ``unmatched/matched tied``). Not a new entry gate.
+    """
+    try:
+        unmatched_n = max(0, int(n_unmatched))
+    except (TypeError, ValueError):
+        unmatched_n = 0
+    try:
+        matched_n = max(0, int(n_matched))
+    except (TypeError, ValueError):
+        matched_n = 0
+    total = unmatched_n + matched_n
+    if (
+        total < 2
+        or unmatched_n <= 0
+        or matched_n <= 0
+        or unmatched_n == matched_n
+    ):
+        return "", "", None
+    if unmatched_n > matched_n:
+        name, n = "unmatched", unmatched_n
+    else:
+        name, n = "matched", matched_n
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def postmortem_unmatched_vs_matched_sample_gap(
+    n_unmatched: int,
+    n_matched: int,
+) -> str:
+    """Speak ``unmatched/matched tied`` when both sides spoke with no strict lead.
+
+    Prefixed so the bit stays distinct from short-refuse ``short/long tied``.
+    Lead / sole-side / zero stay silent. Display only.
+    """
+    try:
+        unmatched_n = max(0, int(n_unmatched))
+    except (TypeError, ValueError):
+        unmatched_n = 0
+    try:
+        matched_n = max(0, int(n_matched))
+    except (TypeError, ValueError):
+        matched_n = 0
+    if unmatched_n <= 0 or matched_n <= 0:
+        return ""
+    lead_bit, _name, _share = postmortem_unmatched_vs_matched_lead(
+        unmatched_n, matched_n
+    )
+    if lead_bit:
+        return ""
+    return "unmatched/matched tied"
 
 
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
-    Quiet names stages that spoke (``quiet · 1 folds · vs matched``) so bare
-    ``quiet`` does not claim matched remainder when absent — ledger short lean
-    inventory + MonsterDeveloper fold after share alone hid peers. Warned
-    folds speak ``warn`` and append the clipped stages. Not a gate.
+    Quiet names stages that spoke (``quiet · N folds · vs matched · matched``)
+    so bare ``quiet`` does not claim matched remainder / ownership lead when
+    absent — ledger short lean inventory + MonsterDeveloper fold after share
+    alone hid peers. Warned folds speak ``warn`` and append the clipped
+    stages. Not a gate.
     """
     text = str(lean or "").strip()
     if not text:
@@ -30169,7 +30237,10 @@ def build_postmortem_glance(
     thin <50%; all-unmatched ``vs 0 matched · thin · 0%``) so unmatched% alone
     does not hide usable closed rounds — short-refuse vs long / Screener junk
     vs ok + portfolio AI speak-both-sides; MonsterDeveloper fold keeps the
-    96-char primary clip short.
+    96-char primary clip short. When vs-matched already spoke and both counts
+    are >0, also speak ``lead unmatched|matched · N%`` or
+    ``unmatched/matched tied`` under lean so absolute sides do not hide which
+    slot owns the closed-round roster (short-refuse vs long lead parity).
     """
     from stock_checker.trade_postmortem import is_unmatched_postmortem
 
@@ -30188,6 +30259,10 @@ def build_postmortem_glance(
         "unmatched_share_severity": "",
         "matched_share_pct": None,
         "matched_share_severity": "",
+        "vs_matched_lead": "",
+        "vs_matched_lead_name": "",
+        "vs_matched_lead_pct": None,
+        "vs_matched_sample_gap": "",
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
@@ -30212,6 +30287,10 @@ def build_postmortem_glance(
     matched_share_severity = ""
     lean = ""
     lean_warn = False
+    vs_matched_lead = ""
+    vs_matched_lead_name = ""
+    vs_matched_lead_pct: int | None = None
+    vs_matched_sample_gap = ""
     if unmatched_count > 0 and n_rounds > 0:
         unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
         if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
@@ -30224,19 +30303,34 @@ def build_postmortem_glance(
             share_bit = f"{int(unmatched_share_pct)}%"
         # Speak matched remainder only after share (count≠share peers).
         matched_share_pct = round(100.0 * matched_count / n_rounds)
+        lean_parts: list[str] = []
         if matched_share_pct >= POSTMORTEM_MATCHED_SHARE_STRONG:
             matched_share_severity = "strong"
-            lean = (
+            lean_parts.append(
                 f"vs {matched_count} matched · strong · {int(matched_share_pct)}%"
             )
         elif matched_share_pct < POSTMORTEM_MATCHED_SHARE_THIN:
             matched_share_severity = "thin"
-            lean = (
+            lean_parts.append(
                 f"vs {matched_count} matched · thin · {int(matched_share_pct)}%"
             )
             lean_warn = True
         else:
-            lean = f"vs {matched_count} matched · {int(matched_share_pct)}%"
+            lean_parts.append(
+                f"vs {matched_count} matched · {int(matched_share_pct)}%"
+            )
+        vs_matched_lead, vs_matched_lead_name, vs_matched_lead_pct = (
+            postmortem_unmatched_vs_matched_lead(
+                unmatched_count, matched_count
+            )
+        )
+        vs_matched_sample_gap = postmortem_unmatched_vs_matched_sample_gap(
+            unmatched_count, matched_count
+        )
+        vs_matched_own = vs_matched_lead or vs_matched_sample_gap
+        if vs_matched_own:
+            lean_parts.append(vs_matched_own)
+        lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
     exit_reason = str(latest.get("exit_reason") or "").strip()[:24]
@@ -30301,6 +30395,10 @@ def build_postmortem_glance(
         "unmatched_share_severity": unmatched_share_severity,
         "matched_share_pct": matched_share_pct,
         "matched_share_severity": matched_share_severity,
+        "vs_matched_lead": vs_matched_lead,
+        "vs_matched_lead_name": vs_matched_lead_name,
+        "vs_matched_lead_pct": vs_matched_lead_pct,
+        "vs_matched_sample_gap": vs_matched_sample_gap,
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
