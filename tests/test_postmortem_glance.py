@@ -86,9 +86,13 @@ def test_postmortem_glance_unmatched_skips_pnl() -> None:
     assert g["matched_count"] == 0
     assert g["unmatched_count"] == 1
     assert g["count"] == 0
+    assert g["n_rounds"] == 1
+    assert g["unmatched_share_pct"] == 100
+    assert g["unmatched_share_severity"] == "hot"
     assert "Unmatched · TSLA" in g["line"]
     assert "skipped" in g["line"]
     assert "no closed" in g["line"]
+    assert "hot · 100%" in g["line"]
     assert g["profit_loss_pct"] is None
     assert "+%" not in g["line"] and "-%" not in g["line"]
 
@@ -112,7 +116,80 @@ def test_postmortem_glance_matched_beside_unmatched() -> None:
     assert g["matched_count"] == 1
     assert g["unmatched_count"] == 1
     assert g["count"] == 1
-    assert g["tone"] == "up"
+    assert g["n_rounds"] == 2
+    assert g["unmatched_share_pct"] == 50
+    assert g["unmatched_share_severity"] == "hot"
+    # Hot unmatched peers escalate a green last-exit strip.
+    assert g["tone"] == "warn"
     assert "Last exit · AAPL" in g["line"]
     assert "+8.0%" in g["line"]
-    assert "1 unmatched · skipped" in g["line"]
+    assert "1 unmatched · skipped · hot · 50%" in g["line"]
+
+
+def test_postmortem_glance_unmatched_share_quiet() -> None:
+    """Quiet share when orphans are a small slice of closed rounds."""
+    rows = [
+        {
+            "symbol": "AAPL",
+            "exit_reason": "tp",
+            "held": "1d",
+            "profit_loss_pct": 8.0,
+        }
+    ]
+    for i, sym in enumerate(["MSFT", "NVDA", "META", "AMZN"]):
+        rows.append(
+            {
+                "symbol": sym,
+                "exit_reason": "tp",
+                "held": f"{i + 1}d",
+                "profit_loss_pct": 1.0,
+            }
+        )
+    rows.append(
+        {
+            "symbol": "TSLA",
+            "exit_reason": "unmatched",
+            "accounting": "skipped",
+        }
+    )
+    g = build_postmortem_glance(rows)
+    assert g["matched_count"] == 5
+    assert g["unmatched_count"] == 1
+    assert g["n_rounds"] == 6
+    assert g["unmatched_share_pct"] == 17
+    assert g["unmatched_share_severity"] == "quiet"
+    assert g["tone"] == "up"
+    assert "1 unmatched · skipped · quiet · 17%" in g["line"]
+
+
+def test_postmortem_glance_unmatched_share_mid() -> None:
+    """Mid band shows % only (not hot/quiet); tone stays on last exit."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "AAPL",
+                "exit_reason": "tp",
+                "held": "1d",
+                "profit_loss_pct": 8.0,
+            },
+            {
+                "symbol": "MSFT",
+                "exit_reason": "tp",
+                "held": "2d",
+                "profit_loss_pct": 3.0,
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["unmatched_count"] == 1
+    assert g["n_rounds"] == 3
+    assert g["unmatched_share_pct"] == 33
+    assert g["unmatched_share_severity"] == ""
+    assert g["tone"] == "up"
+    assert "1 unmatched · skipped · 33%" in g["line"]
+    assert "hot" not in g["line"]
+    assert "quiet" not in g["line"]

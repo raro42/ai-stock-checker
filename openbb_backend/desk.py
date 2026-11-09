@@ -30109,6 +30109,11 @@ def build_next_buy_glance(
     }
 
 
+# Unmatched postmortem ownership of closed-round roster (count≠share).
+POSTMORTEM_UNMATCHED_SHARE_HOT = 50.0
+POSTMORTEM_UNMATCHED_SHARE_QUIET = 25.0
+
+
 def build_postmortem_glance(
     postmortems: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -30118,7 +30123,10 @@ def build_postmortem_glance(
     so friends see recent paper memory before chasing scan adds. Not a gate.
     No MAE/MFE without a price path. Orphan SELLs (no open BUY lot) speak
     ``N unmatched · skipped`` without inventing P&L — tradermonty #689
-    historical-only legacy-short postmortems.
+    historical-only legacy-short postmortems. When unmatched already spoke,
+    also speak roster ownership ``hot|quiet · P%`` so absolute ``N unmatched``
+    ≠ most of the closed-round list (portfolio AI count≠share + xang1234
+    share severity after short-refuse / Screener junk share).
     """
     from stock_checker.trade_postmortem import is_unmatched_postmortem
 
@@ -30129,6 +30137,9 @@ def build_postmortem_glance(
         "count": 0,
         "matched_count": 0,
         "unmatched_count": 0,
+        "n_rounds": 0,
+        "unmatched_share_pct": None,
+        "unmatched_share_severity": "",
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
@@ -30143,8 +30154,22 @@ def build_postmortem_glance(
     ]
     if not rows:
         return empty
+    n_rounds = len(rows)
     unmatched_count = sum(1 for r in rows if is_unmatched_postmortem(r))
-    matched_count = len(rows) - unmatched_count
+    matched_count = n_rounds - unmatched_count
+    unmatched_share_pct: float | None = None
+    unmatched_share_severity = ""
+    share_bit = ""
+    if unmatched_count > 0 and n_rounds > 0:
+        unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
+        if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
+            unmatched_share_severity = "hot"
+            share_bit = f"hot · {int(unmatched_share_pct)}%"
+        elif unmatched_share_pct <= POSTMORTEM_UNMATCHED_SHARE_QUIET:
+            unmatched_share_severity = "quiet"
+            share_bit = f"quiet · {int(unmatched_share_pct)}%"
+        else:
+            share_bit = f"{int(unmatched_share_pct)}%"
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
     exit_reason = str(latest.get("exit_reason") or "").strip()[:24]
@@ -30173,6 +30198,9 @@ def build_postmortem_glance(
             tone = "up"
         else:
             tone = "down"
+        # Hot unmatched peers escalate a green/flat last-exit strip.
+        if unmatched_share_severity == "hot":
+            tone = "warn"
     if matched_count > 1:
         bits.append(f"{matched_count} closed")
     elif matched_count == 0 and unmatched_count > 0:
@@ -30180,7 +30208,14 @@ def build_postmortem_glance(
     # Sole unmatched already named on the lead bit; still speak count when
     # peers exist or the newest row is a matched exit beside orphans.
     if unmatched_count > 1 or (unmatched_count > 0 and not latest_unmatched):
-        bits.append(f"{unmatched_count} unmatched · skipped")
+        unmatched_bit = f"{unmatched_count} unmatched · skipped"
+        if share_bit:
+            unmatched_bit = f"{unmatched_bit} · {share_bit}"
+        bits.append(unmatched_bit)
+    elif unmatched_count > 0 and share_bit:
+        # Sole unmatched lead — share after skipped/no closed so 1 orphan
+        # still names ownership of the closed-round roster.
+        bits.append(share_bit)
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -30191,6 +30226,9 @@ def build_postmortem_glance(
         "count": matched_count,
         "matched_count": matched_count,
         "unmatched_count": unmatched_count,
+        "n_rounds": n_rounds,
+        "unmatched_share_pct": unmatched_share_pct,
+        "unmatched_share_severity": unmatched_share_severity,
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
