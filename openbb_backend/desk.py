@@ -30116,58 +30116,85 @@ def build_postmortem_glance(
 
     Book keeps the full FIFO postmortem list. Other screens get the newest exit
     so friends see recent paper memory before chasing scan adds. Not a gate.
-    No MAE/MFE without a price path.
+    No MAE/MFE without a price path. Orphan SELLs (no open BUY lot) speak
+    ``N unmatched · skipped`` without inventing P&L — tradermonty #689
+    historical-only legacy-short postmortems.
     """
+    from stock_checker.trade_postmortem import is_unmatched_postmortem
+
     empty = {
         "ready": False,
         "tone": "flat",
         "line": "",
         "count": 0,
+        "matched_count": 0,
+        "unmatched_count": 0,
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
+        "accounting": "",
     }
     if not isinstance(postmortems, list) or not postmortems:
         return empty
-    rows = [r for r in postmortems if isinstance(r, dict) and str(r.get("symbol") or "").strip()]
+    rows = [
+        r
+        for r in postmortems
+        if isinstance(r, dict) and str(r.get("symbol") or "").strip()
+    ]
     if not rows:
         return empty
+    unmatched_count = sum(1 for r in rows if is_unmatched_postmortem(r))
+    matched_count = len(rows) - unmatched_count
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
     exit_reason = str(latest.get("exit_reason") or "").strip()[:24]
     held = str(latest.get("held") or "").strip()
+    latest_unmatched = is_unmatched_postmortem(latest)
     try:
         pnl_pct = latest.get("profit_loss_pct")
         pnl_pct_f = float(pnl_pct) if pnl_pct is not None else None
     except (TypeError, ValueError):
         pnl_pct_f = None
-    count = len(rows)
-    bits = [f"Last exit · {sym}"]
-    if exit_reason:
-        bits.append(exit_reason)
-    if held:
-        bits.append(held)
-    if pnl_pct_f is not None:
-        bits.append(f"{pnl_pct_f:+.1f}%")
-    if count > 1:
-        bits.append(f"{count} closed")
+    if latest_unmatched:
+        pnl_pct_f = None
+        bits = [f"Unmatched · {sym}", "skipped"]
+        tone = "warn"
+    else:
+        bits = [f"Last exit · {sym}"]
+        if exit_reason:
+            bits.append(exit_reason)
+        if held:
+            bits.append(held)
+        if pnl_pct_f is not None:
+            bits.append(f"{pnl_pct_f:+.1f}%")
+        if pnl_pct_f is None:
+            tone = "flat"
+        elif pnl_pct_f >= 0:
+            tone = "up"
+        else:
+            tone = "down"
+    if matched_count > 1:
+        bits.append(f"{matched_count} closed")
+    elif matched_count == 0 and unmatched_count > 0:
+        bits.append("no closed")
+    # Sole unmatched already named on the lead bit; still speak count when
+    # peers exist or the newest row is a matched exit beside orphans.
+    if unmatched_count > 1 or (unmatched_count > 0 and not latest_unmatched):
+        bits.append(f"{unmatched_count} unmatched · skipped")
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
-    if pnl_pct_f is None:
-        tone = "flat"
-    elif pnl_pct_f >= 0:
-        tone = "up"
-    else:
-        tone = "down"
     return {
         "ready": True,
         "tone": tone,
         "line": line,
-        "count": count,
+        "count": matched_count,
+        "matched_count": matched_count,
+        "unmatched_count": unmatched_count,
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
+        "accounting": "skipped" if latest_unmatched else "",
     }
 
 

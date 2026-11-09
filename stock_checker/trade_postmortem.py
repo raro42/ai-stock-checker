@@ -2,6 +2,8 @@
 
 Inspired by tradermonty trader-memory / postmortem workflows — local ledger only.
 No MAE/MFE without a price path; do not invent excursion stats.
+SELL qty with no open BUY lot is historical-only (tradermonty #689): speak
+``unmatched`` with accounting skipped — never invent long-side P&L.
 """
 
 from __future__ import annotations
@@ -12,6 +14,10 @@ from typing import Any, Deque, Mapping, Optional
 
 QTY_EPS = 1e-9
 DEFAULT_LIMIT = 12
+# Orphan SELL remainder — long-only book has no open lot to close.
+UNMATCHED_SELL_REASON = "unmatched"
+UNMATCHED_SELL_NOTE = "No open lot — skipped accounting (long-only)"
+ACCOUNTING_SKIPPED = "skipped"
 
 
 def _parse_ts(raw: Any) -> Optional[datetime]:
@@ -144,7 +150,41 @@ def closed_rounds(
             if lot["qty"] <= QTY_EPS:
                 opens[sym].popleft()
 
+        # SELL left after FIFO — do not invent long P&L (legacy short /
+        # corrupt ledger / oversell). Historical-only row; state unchanged.
+        if remaining > QTY_EPS:
+            rounds.append(
+                {
+                    "symbol": sym,
+                    "quantity": remaining,
+                    "buy_price": None,
+                    "sell_price": sell_price,
+                    "buy_at": "",
+                    "sell_at": sell_ts,
+                    "held": "",
+                    "thesis": "",
+                    "strategy": "",
+                    "score": None,
+                    "confidence": None,
+                    "source": "",
+                    "exit_reason": UNMATCHED_SELL_REASON,
+                    "exit_note": UNMATCHED_SELL_NOTE,
+                    "profit_loss": None,
+                    "profit_loss_pct": None,
+                    "accounting": ACCOUNTING_SKIPPED,
+                }
+            )
+
     rounds.reverse()
     if limit > 0:
         return rounds[:limit]
     return rounds
+
+
+def is_unmatched_postmortem(row: Mapping[str, Any] | None) -> bool:
+    """True when a closed-round row skipped accounting (no open lot)."""
+    if not isinstance(row, Mapping):
+        return False
+    if str(row.get("accounting") or "").strip().casefold() == ACCOUNTING_SKIPPED:
+        return True
+    return str(row.get("exit_reason") or "").strip().casefold() == UNMATCHED_SELL_REASON

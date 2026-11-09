@@ -67,3 +67,52 @@ def test_postmortem_glance_line_cap() -> None:
     assert g["ready"] is True
     assert len(g["line"]) <= 96
     assert g["line"].endswith("…") or len(g["line"]) < 96
+
+
+def test_postmortem_glance_unmatched_skips_pnl() -> None:
+    """tradermonty #689: unmatched sell speaks skipped, not invented %."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+                "profit_loss_pct": None,
+            }
+        ]
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["matched_count"] == 0
+    assert g["unmatched_count"] == 1
+    assert g["count"] == 0
+    assert "Unmatched · TSLA" in g["line"]
+    assert "skipped" in g["line"]
+    assert "no closed" in g["line"]
+    assert g["profit_loss_pct"] is None
+    assert "+%" not in g["line"] and "-%" not in g["line"]
+
+
+def test_postmortem_glance_matched_beside_unmatched() -> None:
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "AAPL",
+                "exit_reason": "tp",
+                "held": "1d",
+                "profit_loss_pct": 8.0,
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["matched_count"] == 1
+    assert g["unmatched_count"] == 1
+    assert g["count"] == 1
+    assert g["tone"] == "up"
+    assert "Last exit · AAPL" in g["line"]
+    assert "+8.0%" in g["line"]
+    assert "1 unmatched · skipped" in g["line"]
