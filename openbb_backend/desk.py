@@ -30179,11 +30179,12 @@ POSTMORTEM_MATCHED_SHARE_THIN = 50.0
 POSTMORTEM_UNMATCHED_VS_MATCHED_DELTA_WIDE_PP = 20.0
 POSTMORTEM_UNMATCHED_VS_MATCHED_DELTA_THIN_PP = 10.0
 
-_POSTMORTEM_UNMATCHED_LEAN_NAME_CAP = 7
+_POSTMORTEM_UNMATCHED_LEAN_NAME_CAP = 8
 _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ matched\b"), "vs matched"),
     (re.compile(r"^unmatched/matched tied\b"), "tied"),
-    # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead unmatched``.
+    # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead unmatched``
+    # and ``Δ lead`` ≠ bare ``Δ``.
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
@@ -30191,6 +30192,7 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     (re.compile(r"^unmatched vs matched align\b"), "align"),
     (re.compile(r"^unmatched vs matched clash\b"), "clash"),
     (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ lead\b"), "lead"),
     (re.compile(r"^Δ "), "Δ"),
 )
 
@@ -30377,6 +30379,36 @@ def postmortem_unmatched_vs_matched_delta(
     return raw, "", "clash · lean · Δ mid", True
 
 
+def postmortem_unmatched_vs_matched_delta_lead(
+    delta_pp: int | None,
+    delta_severity: str,
+    *,
+    lean_vs_delta: str = "",
+) -> str:
+    """Name which slot owns a spoken unmatched vs matched Δ (display only).
+
+    When lean vs Δ already spoke with a Δ (wide|thin) and ±pp ≠ 0,
+    positive ``unmatched% − matched%`` → ``unmatched``; negative → ``matched``.
+    Mid-Δ clash / 0pp stay silent. Signed pp alone hid which closed-round
+    slot owns the spread (opportunity damaged vs ok / Screener junk vs ok Δ
+    lead + portfolio AI speak-both-sides + xang1234 multi-meter). Returns
+    ``unmatched|matched`` / ``\"\"``. Not a new entry gate.
+    """
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
+        return ""
+    if delta_pp is None:
+        return ""
+    try:
+        pp = int(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if pp == 0:
+        return ""
+    return "unmatched" if pp > 0 else "matched"
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -30437,7 +30469,10 @@ def build_postmortem_glance(
     severity agreement (opportunity damaged vs ok lean + Screener junk vs ok).
     When severity lean already spoke, also speak ``Δ wide|thin · ±Npp`` +
     ``lean vs Δ align|clash`` so lean alone does not hide unmatched%−matched%
-    spread (Screener junk vs ok / opportunity damaged vs ok share Δ).
+    spread (Screener junk vs ok / opportunity damaged vs ok share Δ). When lean
+    vs Δ already spoke with a non-zero Δ, also speak ``Δ lead · unmatched|matched``
+    so signed ±pp alone does not hide which slot owns the spread (opportunity /
+    Screener Δ lead parity).
     """
     from stock_checker.trade_postmortem import is_unmatched_postmortem
 
@@ -30469,6 +30504,7 @@ def build_postmortem_glance(
         "vs_matched_delta_severity": "",
         "vs_matched_lean_vs_delta": "",
         "vs_matched_lean_vs_delta_warn": False,
+        "vs_matched_delta_lead": "",
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
@@ -30506,6 +30542,7 @@ def build_postmortem_glance(
     vs_matched_delta_severity = ""
     vs_matched_lean_vs_delta = ""
     vs_matched_lean_vs_delta_warn = False
+    vs_matched_delta_lead = ""
     if unmatched_count > 0 and n_rounds > 0:
         unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
         if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
@@ -30602,6 +30639,13 @@ def build_postmortem_glance(
                 )
                 if vs_matched_lean_vs_delta_warn:
                     lean_warn = True
+            vs_matched_delta_lead = postmortem_unmatched_vs_matched_delta_lead(
+                vs_matched_delta_pp,
+                vs_matched_delta_severity,
+                lean_vs_delta=vs_matched_lean_vs_delta,
+            )
+            if vs_matched_delta_lead:
+                lean_parts.append(f"Δ lead · {vs_matched_delta_lead}")
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -30680,6 +30724,7 @@ def build_postmortem_glance(
         "vs_matched_delta_severity": vs_matched_delta_severity,
         "vs_matched_lean_vs_delta": vs_matched_lean_vs_delta,
         "vs_matched_lean_vs_delta_warn": vs_matched_lean_vs_delta_warn,
+        "vs_matched_delta_lead": vs_matched_delta_lead,
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
