@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from openbb_backend.desk import build_postmortem_glance
+from openbb_backend.desk import (
+    build_postmortem_glance,
+    postmortem_unmatched_lean_meta,
+)
 
 
 def test_postmortem_glance_empty() -> None:
@@ -30,6 +33,8 @@ def test_postmortem_glance_winner() -> None:
     assert "take_profit" in g["line"]
     assert "1.2d" in g["line"]
     assert "+8.1%" in g["line"]
+    assert g["lean"] == ""
+    assert g["lean_meta"] == "quiet"
 
 
 def test_postmortem_glance_loser_with_count() -> None:
@@ -50,6 +55,7 @@ def test_postmortem_glance_loser_with_count() -> None:
     assert "EXPE" in g["line"]
     assert "2 closed" in g["line"]
     assert "NTRA" not in g["line"]
+    assert g["lean"] == ""
 
 
 def test_postmortem_glance_line_cap() -> None:
@@ -89,10 +95,17 @@ def test_postmortem_glance_unmatched_skips_pnl() -> None:
     assert g["n_rounds"] == 1
     assert g["unmatched_share_pct"] == 100
     assert g["unmatched_share_severity"] == "hot"
+    assert g["matched_share_pct"] == 0
+    assert g["matched_share_severity"] == "thin"
+    assert g["lean"] == "vs 0 matched · thin · 0%"
+    assert g["lean_warn"] is True
+    assert "vs matched" in g["lean_meta"]
     assert "Unmatched · TSLA" in g["line"]
     assert "skipped" in g["line"]
     assert "no closed" in g["line"]
     assert "hot · 100%" in g["line"]
+    # Primary clip stays short — vs matched lives under lean.
+    assert "vs 0 matched" not in g["line"]
     assert g["profit_loss_pct"] is None
     assert "+%" not in g["line"] and "-%" not in g["line"]
 
@@ -119,11 +132,16 @@ def test_postmortem_glance_matched_beside_unmatched() -> None:
     assert g["n_rounds"] == 2
     assert g["unmatched_share_pct"] == 50
     assert g["unmatched_share_severity"] == "hot"
+    assert g["matched_share_pct"] == 50
+    assert g["matched_share_severity"] == ""
+    assert g["lean"] == "vs 1 matched · 50%"
+    assert g["lean_warn"] is False
     # Hot unmatched peers escalate a green last-exit strip.
     assert g["tone"] == "warn"
     assert "Last exit · AAPL" in g["line"]
     assert "+8.0%" in g["line"]
     assert "1 unmatched · skipped · hot · 50%" in g["line"]
+    assert "vs 1 matched" not in g["line"]
 
 
 def test_postmortem_glance_unmatched_share_quiet() -> None:
@@ -158,8 +176,13 @@ def test_postmortem_glance_unmatched_share_quiet() -> None:
     assert g["n_rounds"] == 6
     assert g["unmatched_share_pct"] == 17
     assert g["unmatched_share_severity"] == "quiet"
+    assert g["matched_share_pct"] == 83
+    assert g["matched_share_severity"] == "strong"
+    assert g["lean"] == "vs 5 matched · strong · 83%"
+    assert g["lean_warn"] is False
     assert g["tone"] == "up"
     assert "1 unmatched · skipped · quiet · 17%" in g["line"]
+    assert "vs 5 matched" not in g["line"]
 
 
 def test_postmortem_glance_unmatched_share_mid() -> None:
@@ -189,7 +212,24 @@ def test_postmortem_glance_unmatched_share_mid() -> None:
     assert g["n_rounds"] == 3
     assert g["unmatched_share_pct"] == 33
     assert g["unmatched_share_severity"] == ""
+    assert g["matched_share_pct"] == 67
+    assert g["matched_share_severity"] == ""
+    assert g["lean"] == "vs 2 matched · 67%"
+    assert g["lean_warn"] is False
     assert g["tone"] == "up"
     assert "1 unmatched · skipped · 33%" in g["line"]
     assert "hot" not in g["line"]
     assert "quiet" not in g["line"]
+    assert "vs 2 matched" not in g["line"]
+
+
+def test_postmortem_unmatched_lean_meta() -> None:
+    assert postmortem_unmatched_lean_meta("") == "quiet"
+    quiet = postmortem_unmatched_lean_meta("vs 5 matched · strong · 83%")
+    assert quiet.startswith("quiet")
+    assert "vs matched" in quiet
+    warn = postmortem_unmatched_lean_meta(
+        "vs 0 matched · thin · 0%", warn=True
+    )
+    assert warn.startswith("warn")
+    assert "vs matched" in warn

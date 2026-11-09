@@ -1268,10 +1268,13 @@
   heading_id='postmortem-glance-h',
   link_href='/desk/book#post-h',
   link_label='Book rounds →',
-  sub='Newest FIFO exit — thesis lives on Book. No MAE/MFE without a path. Not a gate.'
+  sub='Newest FIFO exit — thesis lives on Book. Unmatched vs matched sits under lean. No MAE/MFE without a path. Not a gate.'
 ) -%}
 {% set glance = snap.postmortem_glance if snap.postmortem_glance is mapping else {} %}
 {% if glance.ready %}
+{% set postmortem_lean = glance.lean|default('') %}
+{% set postmortem_lean_warn = glance.lean_warn|default(false) %}
+{% set postmortem_lean_meta = glance.lean_meta|default('quiet') %}
 <section class="postmortem-glance" aria-labelledby="{{ heading_id }}">
   <h2 id="{{ heading_id }}" class="visually-hidden">Last closed round</h2>
   <p class="postmortem-glance-line">
@@ -1281,6 +1284,12 @@
     <span class="pretrade-sep" aria-hidden="true">·</span>
     <a class="postmortem-glance-link" href="{{ link_href }}">{{ link_label }}</a>
   </p>
+  {% if postmortem_lean %}
+  <details class="postmortem-unmatched-lean{% if postmortem_lean_warn %} warn{% endif %}"{% if postmortem_lean_warn %} open{% endif %}>
+    <summary>exit lean <span class="meta">{{ postmortem_lean_meta }}</span></summary>
+    <p class="postmortem-unmatched-lean-body{% if postmortem_lean_warn %} warn{% endif %}">{{ postmortem_lean }}</p>
+  </details>
+  {% endif %}
   <p class="sub">{{ sub }}</p>
 </section>
 {% endif %}
