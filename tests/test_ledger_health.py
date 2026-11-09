@@ -8,6 +8,8 @@ from openbb_backend.charts import _load_jsonl
 from openbb_backend.desk import (
     build_ledger_health,
     ledger_short_lean_meta,
+    ledger_short_vs_long_lead,
+    ledger_short_vs_long_sample_gap,
     load_json_checked,
     load_jsonl_checked,
 )
@@ -124,11 +126,17 @@ def test_ledger_short_holdings_refuse(tmp_path: Path) -> None:
     assert g["n_long"] == 1
     assert g["long_share_pct"] == 33
     assert g["long_share_severity"] == "thin"
-    assert g["lean"] == "vs 1 long · thin · 33%"
+    assert "vs 1 long · thin · 33%" in g["lean"]
+    assert g["vs_long_lead"] == "lead short · 67%"
+    assert g["vs_long_lead_name"] == "short"
+    assert g["vs_long_lead_pct"] == 67
+    assert g["vs_long_sample_gap"] == ""
+    assert "lead short · 67%" in g["lean"]
     assert "vs 1 long" not in g["line"]
     assert "vs 1 long" in g["bit"]
     assert g["lean_warn"] is True
     assert "vs long" in g["lean_meta"]
+    assert "short" in g["lean_meta"]
 
 
 def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
@@ -151,14 +159,19 @@ def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
     assert g["short_share_severity"] == "quiet"
     assert "quiet · 25%" in g["line"]
     assert "2 short refuse" in g["line"]
-    # 6 long of 8 → strong; lean closed (not warn).
+    # 6 long of 8 → strong; lean closed (not warn); long owns the map.
     assert g["n_long"] == 6
     assert g["long_share_pct"] == 75
     assert g["long_share_severity"] == "strong"
-    assert g["lean"] == "vs 6 long · strong · 75%"
+    assert "vs 6 long · strong · 75%" in g["lean"]
+    assert g["vs_long_lead"] == "lead long · 75%"
+    assert g["vs_long_lead_name"] == "long"
+    assert g["vs_long_lead_pct"] == 75
+    assert "lead long · 75%" in g["lean"]
     assert "vs 6 long" not in g["line"]
     assert g["lean_warn"] is False
     assert g["lean_meta"].startswith("quiet")
+    assert "long" in g["lean_meta"]
 
 
 def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
@@ -188,11 +201,15 @@ def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
     assert "40%" in g["line"]
     assert "hot" not in g["line"]
     assert "quiet" not in g["line"]
-    # 3 long of 5 → mid vs-long (% only).
+    # 3 long of 5 → mid vs-long (% only); long owns the map.
     assert g["n_long"] == 3
     assert g["long_share_pct"] == 60
     assert g["long_share_severity"] == ""
-    assert g["lean"] == "vs 3 long · 60%"
+    assert "vs 3 long · 60%" in g["lean"]
+    assert g["vs_long_lead"] == "lead long · 60%"
+    assert g["vs_long_lead_name"] == "long"
+    assert g["vs_long_lead_pct"] == 60
+    assert "lead long · 60%" in g["lean"]
     assert g["lean_warn"] is False
 
 
@@ -215,13 +232,65 @@ def test_ledger_short_refuse_vs_long_all_short(tmp_path: Path) -> None:
     assert g["lean"] == "vs 0 long · thin · 0%"
     assert g["lean_warn"] is True
     assert "vs 0 long" not in g["line"]
+    # Sole-side (all short) stays silent on ownership lead.
+    assert g["vs_long_lead"] == ""
+    assert g["vs_long_sample_gap"] == ""
+
+
+def test_ledger_short_refuse_vs_long_tied(tmp_path: Path) -> None:
+    """Equal short/long counts speak short/long tied (no strict lead)."""
+    import json
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": 1000,
+                "holdings": {
+                    "TSLA": -1,
+                    "ZERO": 0,
+                    "AAPL": 1,
+                    "MSFT": 1,
+                },
+            }
+        )
+    )
+    (tmp_path / "trades.jsonl").write_text("{}\n")
+    g = build_ledger_health(tmp_path)
+    assert g["short_count"] == 2
+    assert g["n_long"] == 2
+    assert g["vs_long_lead"] == ""
+    assert g["vs_long_sample_gap"] == "short/long tied"
+    assert "short/long tied" in g["lean"]
+    assert "short/long tied" not in g["line"]
+    assert "tied" in g["lean_meta"]
+
+
+def test_ledger_short_vs_long_lead_helpers() -> None:
+    bit, name, pct = ledger_short_vs_long_lead(2, 3)
+    assert bit == "lead long · 60%"
+    assert name == "long"
+    assert pct == 60
+    bit, name, pct = ledger_short_vs_long_lead(3, 2)
+    assert bit == "lead short · 60%"
+    assert name == "short"
+    assert pct == 60
+    assert ledger_short_vs_long_lead(2, 2) == ("", "", None)
+    assert ledger_short_vs_long_sample_gap(2, 2) == "short/long tied"
+    assert ledger_short_vs_long_lead(2, 0) == ("", "", None)
+    assert ledger_short_vs_long_sample_gap(2, 0) == ""
 
 
 def test_ledger_short_lean_meta() -> None:
     assert ledger_short_lean_meta("") == "quiet"
-    quiet = ledger_short_lean_meta("vs 6 long · strong · 75%")
+    quiet = ledger_short_lean_meta(
+        "vs 6 long · strong · 75% · lead long · 75%"
+    )
     assert quiet.startswith("quiet")
     assert "vs long" in quiet
-    warn = ledger_short_lean_meta("vs 1 long · thin · 33%", warn=True)
+    assert "long" in quiet
+    warn = ledger_short_lean_meta(
+        "vs 1 long · thin · 33% · lead short · 67%", warn=True
+    )
     assert warn.startswith("warn")
     assert "vs long" in warn
+    assert "short" in warn

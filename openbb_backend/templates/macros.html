@@ -159,7 +159,7 @@
   heading_id='ledger-health-h',
   link_href='/desk/book',
   link_label='Book ledger →',
-  sub='portfolio.json and trades.jsonl parse check. Bad lines are dropped and named. Good rows stay. Short refuse vs long sits under ledger lean. Not a gate.'
+  sub='portfolio.json and trades.jsonl parse check. Bad lines are dropped and named. Good rows stay. Short refuse vs long + ownership lead sit under ledger lean. Not a gate.'
 ) -%}
 {% set glance = snap.ledger_health if snap.ledger_health is mapping else {} %}
 {% if glance.ready %}

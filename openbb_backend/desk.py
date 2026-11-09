@@ -2919,16 +2919,77 @@ LEDGER_SHORT_LONG_SHARE_THIN = 50.0
 _LEDGER_SHORT_LEAN_NAME_CAP = 4
 _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ long\b"), "vs long"),
+    (re.compile(r"^short/long tied\b"), "tied"),
+    (re.compile(r"^lead short\b"), "short"),
+    (re.compile(r"^lead long\b"), "long"),
 )
+
+
+def ledger_short_vs_long_lead(
+    n_short: int,
+    n_long: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among short-refuse vs long name counts (display only).
+
+    Absolute ``N short refuse`` beside ``vs M long`` hid which slot owns
+    the holding map (Funds overlap vs other lead / opportunity damaged vs
+    ok + portfolio AI count≠share + xang1234 multi-meter). Both sides must
+    be >0 and total ≥2; strict lead → ``lead short · N%`` / ``lead long ·
+    N%``; ties / sole-side → silent (use ``ledger_short_vs_long_sample_gap``
+    for ``short/long tied``). Not a new entry gate.
+    """
+    try:
+        short_n = max(0, int(n_short))
+    except (TypeError, ValueError):
+        short_n = 0
+    try:
+        long_n = max(0, int(n_long))
+    except (TypeError, ValueError):
+        long_n = 0
+    total = short_n + long_n
+    if total < 2 or short_n <= 0 or long_n <= 0 or short_n == long_n:
+        return "", "", None
+    if short_n > long_n:
+        name, n = "short", short_n
+    else:
+        name, n = "long", long_n
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def ledger_short_vs_long_sample_gap(
+    n_short: int,
+    n_long: int,
+) -> str:
+    """Speak ``short/long tied`` when both sides spoke with no strict lead.
+
+    Prefixed so the bit stays distinct from Funds ``overlap/other tied``.
+    Lead / sole-side / zero stay silent. Display only.
+    """
+    try:
+        short_n = max(0, int(n_short))
+    except (TypeError, ValueError):
+        short_n = 0
+    try:
+        long_n = max(0, int(n_long))
+    except (TypeError, ValueError):
+        long_n = 0
+    if short_n <= 0 or long_n <= 0:
+        return ""
+    lead_bit, _name, _share = ledger_short_vs_long_lead(short_n, long_n)
+    if lead_bit:
+        return ""
+    return "short/long tied"
 
 
 def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for ledger short-refuse lean fold (display only).
 
-    Quiet names stages that spoke (``quiet · 1 folds · vs long``) so bare
-    ``quiet`` does not claim long remainder when absent — Funds / Charts
-    lean inventory + MonsterDeveloper fold after share alone hid peers.
-    Warned folds speak ``warn`` and append the clipped stages. Not a gate.
+    Quiet names stages that spoke (``quiet · 1 folds · vs long · long``)
+    so bare ``quiet`` does not claim long remainder / ownership lead when
+    absent — Funds / Charts lean inventory + MonsterDeveloper fold after
+    share alone hid peers. Warned folds speak ``warn`` and append the
+    clipped stages. Not a gate.
     """
     text = str(lean or "").strip()
     if not text:
@@ -2965,7 +3026,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     thin <50%; all-short ``vs 0 long · thin · 0%``) so short% alone does
     not hide usable long peers — Screener junk vs ok / Funds vs other +
     portfolio AI speak-both-sides; MonsterDeveloper fold keeps the primary
-    chip short. Missing both files stays silent. Not an entry gate.
+    chip short. When both short + long counts are >0, also speak
+    ``lead short|long · N%`` or ``short/long tied`` so absolute sides do
+    not hide which slot owns the map (Funds vs-other lead). Missing both
+    files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -2990,6 +3054,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "n_long": 0,
         "long_share_pct": None,
         "long_share_severity": "",
+        "vs_long_lead": "",
+        "vs_long_lead_name": "",
+        "vs_long_lead_pct": None,
+        "vs_long_sample_gap": "",
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -3031,6 +3099,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     n_long = 0
     long_share_pct: float | None = None
     long_share_severity = ""
+    vs_long_lead = ""
+    vs_long_lead_name = ""
+    vs_long_lead_pct: int | None = None
+    vs_long_sample_gap = ""
     lean = ""
     lean_warn = False
     if port_state == "ok" and isinstance(port_doc, dict):
@@ -3064,17 +3136,30 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                 # Speak long remainder only after share (count≠share peers).
                 n_long = max(0, n_book - n)
                 long_share_pct = round(100.0 * n_long / n_book)
+                lean_parts: list[str] = []
                 if long_share_pct >= LEDGER_SHORT_LONG_SHARE_STRONG:
                     long_share_severity = "strong"
-                    lean = (
+                    lean_parts.append(
                         f"vs {n_long} long · strong · {int(long_share_pct)}%"
                     )
                 elif long_share_pct < LEDGER_SHORT_LONG_SHARE_THIN:
                     long_share_severity = "thin"
-                    lean = f"vs {n_long} long · thin · {int(long_share_pct)}%"
+                    lean_parts.append(
+                        f"vs {n_long} long · thin · {int(long_share_pct)}%"
+                    )
                     lean_warn = True
                 else:
-                    lean = f"vs {n_long} long · {int(long_share_pct)}%"
+                    lean_parts.append(
+                        f"vs {n_long} long · {int(long_share_pct)}%"
+                    )
+                vs_long_lead, vs_long_lead_name, vs_long_lead_pct = (
+                    ledger_short_vs_long_lead(n, n_long)
+                )
+                vs_long_sample_gap = ledger_short_vs_long_sample_gap(n, n_long)
+                vs_long_own = vs_long_lead or vs_long_sample_gap
+                if vs_long_own:
+                    lean_parts.append(vs_long_own)
+                lean = " · ".join(lean_parts)
             problems.append(short_bit)
 
     if severity == "ok":
@@ -3103,6 +3188,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "n_long": n_long,
         "long_share_pct": long_share_pct,
         "long_share_severity": long_share_severity,
+        "vs_long_lead": vs_long_lead,
+        "vs_long_lead_name": vs_long_lead_name,
+        "vs_long_lead_pct": vs_long_lead_pct,
+        "vs_long_sample_gap": vs_long_sample_gap,
     }
 
 
