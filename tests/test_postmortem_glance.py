@@ -5,6 +5,7 @@ from __future__ import annotations
 from openbb_backend.desk import (
     build_postmortem_glance,
     postmortem_unmatched_lean_meta,
+    postmortem_unmatched_vs_matched_delta,
     postmortem_unmatched_vs_matched_lead,
     postmortem_unmatched_vs_matched_lead_size,
     postmortem_unmatched_vs_matched_lean,
@@ -104,16 +105,22 @@ def test_postmortem_glance_unmatched_skips_pnl() -> None:
     assert g["lean"] == (
         "vs 0 matched · thin · 0%"
         " · unmatched vs matched align · hot|thin"
+        " · Δ wide · +100pp · lean vs Δ align · wide"
     )
     assert g["lean_warn"] is True
     assert g["vs_matched_lean"] == "unmatched vs matched align · hot|thin"
     assert g["vs_matched_lean_warn"] is False
+    assert g["vs_matched_delta_pp"] == 100
+    assert g["vs_matched_delta_severity"] == "wide"
+    assert g["vs_matched_lean_vs_delta"] == "align · wide"
+    assert g["vs_matched_lean_vs_delta_warn"] is True
     # Sole-side — no ownership lead / size when matched is 0.
     assert g["vs_matched_lead"] == ""
     assert g["vs_matched_sample_gap"] == ""
     assert g["vs_matched_lead_size"] is None
     assert "vs matched" in g["lean_meta"]
     assert "align" in g["lean_meta"]
+    assert "Δ" in g["lean_meta"]
     assert "Unmatched · TSLA" in g["line"]
     assert "skipped" in g["line"]
     assert "no closed" in g["line"]
@@ -149,9 +156,11 @@ def test_postmortem_glance_matched_beside_unmatched() -> None:
     assert g["matched_share_pct"] == 50
     assert g["matched_share_severity"] == ""
     # 1·1 → tied (no strict lead / size); hot vs mid matched → severity clash.
+    # 50−50 = 0pp → thin Δ (mid share band stays silent on severity lean only).
     assert g["lean"] == (
         "vs 1 matched · 50% · unmatched/matched tied"
         " · unmatched vs matched clash · unmatched hot · matched ok"
+        " · Δ thin · 0pp · lean vs Δ align · thin"
     )
     assert g["vs_matched_lead"] == ""
     assert g["vs_matched_sample_gap"] == "unmatched/matched tied"
@@ -160,9 +169,14 @@ def test_postmortem_glance_matched_beside_unmatched() -> None:
         "unmatched vs matched clash · unmatched hot · matched ok"
     )
     assert g["vs_matched_lean_warn"] is True
+    assert g["vs_matched_delta_pp"] == 0
+    assert g["vs_matched_delta_severity"] == "thin"
+    assert g["vs_matched_lean_vs_delta"] == "align · thin"
+    assert g["vs_matched_lean_vs_delta_warn"] is False
     assert g["lean_warn"] is True
     assert "tied" in g["lean_meta"]
     assert "clash" in g["lean_meta"]
+    assert "Δ" in g["lean_meta"]
     # Hot unmatched peers escalate a green last-exit strip.
     assert g["tone"] == "warn"
     assert "Last exit · AAPL" in g["line"]
@@ -171,6 +185,7 @@ def test_postmortem_glance_matched_beside_unmatched() -> None:
     assert "vs 1 matched" not in g["line"]
     assert "tied" not in g["line"]
     assert "clash" not in g["line"]
+    assert "Δ thin" not in g["line"]
 
 
 def test_postmortem_glance_unmatched_share_quiet() -> None:
@@ -211,6 +226,7 @@ def test_postmortem_glance_unmatched_share_quiet() -> None:
         "vs 5 matched · strong · 83% · lead matched · 83%"
         " · lead size · 5× · lead size sides · louder 5 · quieter 1"
         " · unmatched vs matched align · quiet|strong"
+        " · Δ wide · -66pp · lean vs Δ align · wide"
     )
     assert g["vs_matched_lead"] == "lead matched · 83%"
     assert g["vs_matched_lead_name"] == "matched"
@@ -223,16 +239,22 @@ def test_postmortem_glance_unmatched_share_quiet() -> None:
         "unmatched vs matched align · quiet|strong"
     )
     assert g["vs_matched_lean_warn"] is False
+    assert g["vs_matched_delta_pp"] == -66
+    assert g["vs_matched_delta_severity"] == "wide"
+    assert g["vs_matched_lean_vs_delta"] == "align · wide"
+    assert g["vs_matched_lean_vs_delta_warn"] is False
     assert g["lean_warn"] is False
     assert "matched" in g["lean_meta"]
     assert "size" in g["lean_meta"]
     assert "align" in g["lean_meta"]
+    assert "Δ" in g["lean_meta"]
     assert g["tone"] == "up"
     assert "1 unmatched · skipped · quiet · 17%" in g["line"]
     assert "vs 5 matched" not in g["line"]
     assert "lead matched" not in g["line"]
     assert "lead size" not in g["line"]
     assert "align" not in g["line"]
+    assert "Δ wide" not in g["line"]
 
 
 def test_postmortem_glance_unmatched_share_mid() -> None:
@@ -274,9 +296,12 @@ def test_postmortem_glance_unmatched_share_mid() -> None:
     assert g["vs_matched_lead_size"] == 2.0
     assert g["vs_matched_lead_size_louder"] == 2
     assert g["vs_matched_lead_size_quieter"] == 1
-    # Mid both → severity lean silent.
+    # Mid both → severity lean silent → share Δ stays silent too.
     assert g["vs_matched_lean"] == ""
     assert g["vs_matched_lean_warn"] is False
+    assert g["vs_matched_delta_pp"] is None
+    assert g["vs_matched_delta_severity"] == ""
+    assert g["vs_matched_lean_vs_delta"] == ""
     assert g["lean_warn"] is False
     assert g["tone"] == "up"
     assert "1 unmatched · skipped · 33%" in g["line"]
@@ -320,6 +345,7 @@ def test_postmortem_glance_unmatched_owns_roster() -> None:
         "vs 1 matched · thin · 33% · lead unmatched · 67%"
         " · lead size · 2× · lead size sides · louder 2 · quieter 1"
         " · unmatched vs matched align · hot|thin"
+        " · Δ wide · +34pp · lean vs Δ align · wide"
     )
     assert g["vs_matched_lead"] == "lead unmatched · 67%"
     assert g["vs_matched_lead_name"] == "unmatched"
@@ -329,14 +355,20 @@ def test_postmortem_glance_unmatched_owns_roster() -> None:
     assert g["vs_matched_lead_size_quieter"] == 1
     assert g["vs_matched_lean"] == "unmatched vs matched align · hot|thin"
     assert g["vs_matched_lean_warn"] is False
+    assert g["vs_matched_delta_pp"] == 34
+    assert g["vs_matched_delta_severity"] == "wide"
+    assert g["vs_matched_lean_vs_delta"] == "align · wide"
+    assert g["vs_matched_lean_vs_delta_warn"] is True
     assert g["lean_warn"] is True
     assert "unmatched" in g["lean_meta"]
     assert "size" in g["lean_meta"]
     assert "align" in g["lean_meta"]
+    assert "Δ" in g["lean_meta"]
     assert g["tone"] == "warn"
     assert "lead unmatched" not in g["line"]
     assert "lead size" not in g["line"]
     assert "align" not in g["line"]
+    assert "Δ wide" not in g["line"]
 
 
 def test_postmortem_unmatched_vs_matched_lead_helpers() -> None:
@@ -398,21 +430,67 @@ def test_postmortem_unmatched_vs_matched_lean_helpers() -> None:
     assert postmortem_unmatched_vs_matched_lean("ok", "ok") == ("", False)
 
 
+def test_postmortem_unmatched_vs_matched_delta_helpers() -> None:
+    """Wide / thin / mid + adverse hot|thin warn for unmatched vs matched Δ."""
+    lean = "unmatched vs matched align · hot|thin"
+    pp, sev, lvd, warn = postmortem_unmatched_vs_matched_delta(
+        67, 33, lean_bit=lean
+    )
+    assert pp == 34
+    assert sev == "wide"
+    assert lvd == "align · wide"
+    assert warn is True
+    pp, sev, lvd, warn = postmortem_unmatched_vs_matched_delta(
+        55, 45, lean_bit=lean
+    )
+    assert pp == 10
+    assert sev == ""
+    assert lvd == "clash · lean · Δ mid"
+    assert warn is True
+    pp, sev, lvd, warn = postmortem_unmatched_vs_matched_delta(
+        52, 48, lean_bit=lean
+    )
+    assert pp == 4
+    assert sev == "thin"
+    assert lvd == "align · thin"
+    assert warn is False
+    calm = "unmatched vs matched align · quiet|strong"
+    pp, sev, lvd, warn = postmortem_unmatched_vs_matched_delta(
+        20, 80, lean_bit=calm
+    )
+    assert pp == -60
+    assert sev == "wide"
+    assert lvd == "align · wide"
+    assert warn is False
+    assert postmortem_unmatched_vs_matched_delta(75, 25, lean_bit="") == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert postmortem_unmatched_vs_matched_delta(
+        None, 25, lean_bit=lean
+    ) == (None, "", "", False)
+
+
 def test_postmortem_unmatched_lean_meta() -> None:
     assert postmortem_unmatched_lean_meta("") == "quiet"
     quiet = postmortem_unmatched_lean_meta(
         "vs 5 matched · strong · 83% · lead matched · 83%"
         " · lead size · 5× · lead size sides · louder 5 · quieter 1"
         " · unmatched vs matched align · quiet|strong"
+        " · Δ wide · -66pp · lean vs Δ align · wide"
     )
     assert quiet.startswith("quiet")
     assert "vs matched" in quiet
     assert "matched" in quiet
     assert "size" in quiet
     assert "align" in quiet
+    assert "Δ" in quiet
     warn = postmortem_unmatched_lean_meta(
         "vs 0 matched · thin · 0%"
-        " · unmatched vs matched align · hot|thin",
+        " · unmatched vs matched align · hot|thin"
+        " · Δ wide · +100pp · lean vs Δ align · wide",
         warn=True,
     )
     assert warn.startswith("warn")
