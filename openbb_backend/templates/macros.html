@@ -1166,6 +1166,31 @@
 {%- endmacro %}
 
 
+{# Hourly Cursor improve tick age (display only). Missing overnight logs stay silent. #}
+{% macro improve_tick_glance(
+  snap,
+  heading_id='improve-tick-glance-h',
+  link_href='/desk/ops#logs-h',
+  link_label='Ops logs →',
+  sub='Last Cursor improve tick vs hourly cadence — fresh ≤75m · aging ≤3h · else stale. Failed rc warns. Not a gate.'
+) -%}
+{% set glance = snap.improve_tick_glance if snap.improve_tick_glance is mapping else {} %}
+{% if glance.ready %}
+<section class="improve-tick-glance" aria-labelledby="{{ heading_id }}">
+  <h2 id="{{ heading_id }}" class="visually-hidden">Improve tick</h2>
+  <p class="improve-tick-glance-line">
+    <span class="improve-tick-glance-tone {{ glance.tone }}">Improve</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <span class="improve-tick-glance-body">{{ glance.line }}</span>
+    <span class="pretrade-sep" aria-hidden="true">·</span>
+    <a class="improve-tick-glance-link" href="{{ link_href }}">{{ link_label }}</a>
+  </p>
+  <p class="sub">{{ sub }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+
 {# Revolut-like free legs left this month (display only). Crypto fees not modeled. #}
 {% macro fee_allowance_glance(
   snap,

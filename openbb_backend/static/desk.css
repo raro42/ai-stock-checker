@@ -1591,7 +1591,8 @@ a:active {
 
 .fee-allowance-glance,
 .fee-burn-glance,
-.loop-cadence-glance {
+.loop-cadence-glance,
+.improve-tick-glance {
   margin: 0 0 2.25rem;
   padding: 0 0 1rem;
   border-bottom: 1px solid var(--line);
@@ -1599,7 +1600,8 @@ a:active {
 
 .fee-allowance-glance-line,
 .fee-burn-glance-line,
-.loop-cadence-glance-line {
+.loop-cadence-glance-line,
+.improve-tick-glance-line {
   margin: 0;
   font-size: 0.92rem;
   color: var(--ink);
@@ -1608,7 +1610,8 @@ a:active {
 
 .fee-allowance-glance-tone,
 .fee-burn-glance-tone,
-.loop-cadence-glance-tone {
+.loop-cadence-glance-tone,
+.improve-tick-glance-tone {
   font-family: var(--font-data);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -1617,7 +1620,8 @@ a:active {
 
 .fee-allowance-glance-tone.spent,
 .fee-burn-glance-tone.warn,
-.loop-cadence-glance-tone.warn {
+.loop-cadence-glance-tone.warn,
+.improve-tick-glance-tone.warn {
   color: var(--down);
 }
 
@@ -1626,7 +1630,9 @@ a:active {
 .fee-allowance-glance-tone.flat,
 .fee-burn-glance-tone.quiet,
 .loop-cadence-glance-tone.ok,
-.loop-cadence-glance-tone.flat {
+.loop-cadence-glance-tone.flat,
+.improve-tick-glance-tone.ok,
+.improve-tick-glance-tone.flat {
   color: var(--muted);
 }
 
@@ -1634,22 +1640,29 @@ a:active {
   color: var(--muted);
 }
 
+.improve-tick-glance-tone.aging {
+  color: var(--accent);
+}
+
 .fee-allowance-glance-body,
 .fee-burn-glance-body,
-.loop-cadence-glance-body {
+.loop-cadence-glance-body,
+.improve-tick-glance-body {
   font-family: var(--font-data);
   color: var(--ink);
 }
 
 .fee-allowance-glance-link,
 .fee-burn-glance-link,
-.loop-cadence-glance-link {
+.loop-cadence-glance-link,
+.improve-tick-glance-link {
   font-size: 0.85rem;
 }
 
 .fee-allowance-glance .sub,
 .fee-burn-glance .sub,
-.loop-cadence-glance .sub {
+.loop-cadence-glance .sub,
+.improve-tick-glance .sub {
   margin: 0.35rem 0 0;
 }
 

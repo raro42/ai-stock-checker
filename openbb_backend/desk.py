@@ -6617,6 +6617,7 @@ _POLICY_HONESTY_FOLD_LABELS: tuple[tuple[str, str], ...] = (
     ("rebuy_cooldown_glance", "rebuy"),
     ("post_sl_cooldown_glance", "post-SL"),
     ("loop_cadence_glance", "cadence"),
+    ("improve_tick_glance", "improve"),
     ("crypto_policy_glance", "crypto"),
     ("book_limits_glance", "book"),
     ("fee_allowance_glance", "allowance"),
@@ -30006,6 +30007,171 @@ def build_loop_cadence_glance(
     }
 
 
+# Hourly improve loop heartbeat (display only). Cadence is 1h; fresh includes a
+# short boot buffer so a just-finished tick is not aging. Aging covers a missed
+# tick; stale means overnight keep-alive likely died (tradermonty #678 adapted
+# as desk honesty, not a webhook).
+IMPROVE_TICK_CURSOR_LOG = "run_cursor_improve.log"
+IMPROVE_TICK_LOOP_LOG = "run_improve_loop.log"
+IMPROVE_TICK_FRESH_SEC = 75 * 60
+IMPROVE_TICK_AGING_SEC = 3 * 3600
+_IMPROVE_TICK_END_RE = re.compile(
+    r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z)\s+cursor improve end(?:\s+rc=(?P<rc>-?\d+))?\b"
+)
+_IMPROVE_TICK_START_RE = re.compile(
+    r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z)\s+cursor improve start\b"
+)
+_IMPROVE_TICK_AGENT_RE = re.compile(
+    r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z)\s+AGENT_LOOP_TICK_improve\b"
+)
+
+
+def _parse_improve_tick_ts(raw: str) -> datetime | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text, "%Y-%m-%dT%H:%MZ").replace(
+            tzinfo=timezone.utc
+        )
+    except ValueError:
+        return None
+
+
+def _tail_improve_log_lines(path: Path, *, max_lines: int = 80) -> list[str]:
+    try:
+        if not path.is_file():
+            return []
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    if not raw:
+        return []
+    lines = raw.splitlines()
+    if len(lines) <= max_lines:
+        return lines
+    return lines[-max_lines:]
+
+
+def build_improve_tick_glance(
+    data_dir: Path | str | None,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Last Cursor improve tick age (tradermonty #678; display only).
+
+    Overnight product improve is hourly. Cadence floors already cover scan/trade
+    sleep — this line names whether the improve worker itself printed recently
+    (``Nh ago · fresh|aging|stale``), and failed ``rc`` when the last end line
+    is non-zero. Missing logs stay silent so hosts without overnight loops do
+    not warn. Not a webhook / not a new entry gate.
+    """
+    empty: dict[str, Any] = {
+        "ready": False,
+        "tone": "flat",
+        "line": "",
+        "age_sec": None,
+        "age_label": "",
+        "freshness": "",
+        "rc": None,
+        "source": "",
+        "failed": False,
+    }
+    if data_dir is None:
+        return empty
+    root = Path(data_dir)
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+
+    ts: datetime | None = None
+    rc: int | None = None
+    source = ""
+
+    cursor_path = root / IMPROVE_TICK_CURSOR_LOG
+    for line in reversed(_tail_improve_log_lines(cursor_path)):
+        m = _IMPROVE_TICK_END_RE.match(line.strip())
+        if m:
+            ts = _parse_improve_tick_ts(m.group("ts"))
+            if m.group("rc") is not None:
+                try:
+                    rc = int(m.group("rc"))
+                except ValueError:
+                    rc = None
+            source = "cursor end"
+            break
+        m = _IMPROVE_TICK_START_RE.match(line.strip())
+        if m and ts is None:
+            ts = _parse_improve_tick_ts(m.group("ts"))
+            source = "cursor start"
+            # keep scanning for a later end above; reversed so first hit wins
+            break
+
+    if ts is None:
+        loop_path = root / IMPROVE_TICK_LOOP_LOG
+        for line in reversed(_tail_improve_log_lines(loop_path)):
+            m = _IMPROVE_TICK_AGENT_RE.match(line.strip())
+            if not m:
+                continue
+            ts = _parse_improve_tick_ts(m.group("ts"))
+            source = "loop tick"
+            break
+
+    if ts is None:
+        # Last resort: log mtime so a truncated file still speaks age.
+        for name, label in (
+            (IMPROVE_TICK_CURSOR_LOG, "cursor log"),
+            (IMPROVE_TICK_LOOP_LOG, "loop log"),
+        ):
+            path = root / name
+            try:
+                if not path.is_file():
+                    continue
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            ts = datetime.fromtimestamp(mtime, tz=timezone.utc)
+            source = label
+            break
+
+    if ts is None:
+        return empty
+
+    age = max(0.0, (clock - ts).total_seconds())
+    if age < IMPROVE_TICK_FRESH_SEC:
+        freshness = "fresh"
+        tone = "ok"
+    elif age < IMPROVE_TICK_AGING_SEC:
+        freshness = "aging"
+        tone = "aging"
+    else:
+        freshness = "stale"
+        tone = "warn"
+    failed = rc is not None and rc != 0
+    if failed:
+        tone = "warn"
+    age_label = _format_age_short(age)
+    bits = [age_label, freshness]
+    if failed:
+        bits.append(f"rc={rc}")
+    elif rc == 0:
+        bits.append("ok")
+    line = " · ".join(bits)
+    if len(line) > 96:
+        line = line[:95] + "…"
+    return {
+        "ready": True,
+        "tone": tone,
+        "line": line,
+        "age_sec": int(age),
+        "age_label": age_label,
+        "freshness": freshness,
+        "rc": rc,
+        "source": source,
+        "failed": failed,
+    }
+
+
 def build_fee_allowance_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -35034,6 +35200,7 @@ def load_desk_snapshot(
             post_sl_epoch,
         ),
         "loop_cadence_glance": build_loop_cadence_glance(runtime),
+        "improve_tick_glance": build_improve_tick_glance(data_dir),
         "fee_allowance_glance": build_fee_allowance_glance(runtime),
         "fee_burn_glance": build_fee_burn_glance(
             fees,
