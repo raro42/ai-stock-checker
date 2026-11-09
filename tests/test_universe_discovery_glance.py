@@ -1083,6 +1083,7 @@ def test_universe_discovery_glance_in_chart_payload(tmp_path) -> None:
 
 
 def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
+    """xang1234 #702: drop count without venue evidence must not fabricate US."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
     last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
     (tmp_path / "stock_universe.json").write_text(
@@ -1102,8 +1103,10 @@ def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path, now=now)
     assert g["last_yahoo_dropped"] == 4
     assert g["last_yahoo_dropped_venue"] is None
-    assert "dropped 4 · US" in g["line"]
-    assert g["tone"] == "fresh"
+    assert "dropped 4 · venue missing" in g["line"]
+    assert "dropped 4 · US" not in g["line"]
+    # Missing venue evidence escalates fresh → aging (do not claim verified US).
+    assert g["tone"] == "aging"
     assert g["last_yahoo_claim_drops"] == 0
     assert "claim drop" not in g["line"]
 

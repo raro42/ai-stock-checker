@@ -26183,9 +26183,15 @@ def build_universe_discovery_glance(
         if prune_skipped:
             drop_bit = " · partial · skip prune"
         elif last_dropped is not None and last_dropped > 0:
-            # Yahoo US screens are the prune baseline (MIC-lite US, not Xetra).
-            drop_venue = last_dropped_venue or "US"
-            drop_bit = f" · dropped {last_dropped} · {drop_venue}"
+            # xang1234 #702 / 976d551: universe market evidence is required
+            # for a verified venue label. A flat default US cannot stand in
+            # when last_yahoo_dropped_venue is absent (legacy meta).
+            if last_dropped_venue:
+                drop_bit = f" · dropped {last_dropped} · {last_dropped_venue}"
+            else:
+                drop_bit = f" · dropped {last_dropped} · venue missing"
+                if tone == "fresh":
+                    tone = "aging"
         line = (
             f"US+DE · Yahoo ≤{per} · cache {age_label} · {tone}"
             f"{drop_bit}{claim_drop_bit}{claim_live_bit}"
