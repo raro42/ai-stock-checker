@@ -30053,6 +30053,28 @@ def _tail_improve_log_lines(path: Path, *, max_lines: int = 80) -> list[str]:
     return lines[-max_lines:]
 
 
+def improve_tick_source_speak(source: str) -> tuple[str, bool]:
+    """Speak degraded improve-clock source; primary ``cursor end`` stays silent.
+
+    Absolute age alone hid whether the clock was a finished tick, a start-only
+    hang, a loop wake print, or a truncated-file mtime guess — xang1234
+    claim-drop dead/stale reason + Yahoo claim-live screen names after silent
+    fallbacks. Returns ``(bit, escalate_fresh)``: start-only / log mtime bump
+    a green fresh tone to aging; loop tick speaks but does not escalate.
+    Display only — not a gate.
+    """
+    label = str(source or "").strip()
+    if not label or label == "cursor end":
+        return "", False
+    if label == "cursor start":
+        return "start only", True
+    if label == "loop tick":
+        return "loop tick", False
+    if label in {"cursor log", "loop log"}:
+        return "log mtime", True
+    return label, False
+
+
 def build_improve_tick_glance(
     data_dir: Path | str | None,
     *,
@@ -30065,10 +30087,13 @@ def build_improve_tick_glance(
     Overnight product improve is hourly. Cadence floors already cover scan/trade
     sleep — this line names whether the improve worker itself printed recently
     (``Nh ago · fresh|aging|stale``), and failed ``rc`` when the last end line
-    is non-zero. When the scan-archive band disagrees with improve age, speak
-    ``clash · scan fresh|aging|stale`` (LAYA/soft-allow vs scan; a fresh scan
-    does not make a stale improve tick live). Missing logs stay silent so hosts
-    without overnight loops do not warn. Not a webhook / not a new entry gate.
+    is non-zero. Degraded clocks speak ``start only`` / ``loop tick`` /
+    ``log mtime`` so a mtime guess is not mistaken for a finished tick
+    (xang1234 release-reason honesty). When the scan-archive band disagrees
+    with improve age, speak ``clash · scan fresh|aging|stale`` (LAYA/soft-allow
+    vs scan; a fresh scan does not make a stale improve tick live). Missing
+    logs stay silent so hosts without overnight loops do not warn. Not a
+    webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30079,6 +30104,8 @@ def build_improve_tick_glance(
         "freshness": "",
         "rc": None,
         "source": "",
+        "source_bit": "",
+        "source_escalate": False,
         "failed": False,
         "scan_freshness": "",
         "scan_clash": "",
@@ -30156,6 +30183,12 @@ def build_improve_tick_glance(
     failed = rc is not None and rc != 0
     if failed:
         tone = "warn"
+    source_bit, source_escalate = improve_tick_source_speak(source)
+    # Start-only / log mtime: a green fresh band alone looks like a finished
+    # tick — escalate to aging (Yahoo claim-drop stale parity). Failed rc and
+    # scan clash still win below.
+    if source_escalate and tone == "ok":
+        tone = "aging"
     age_label = _format_age_short(age)
     scan_freshness = ""
     if scan_time:
@@ -30180,6 +30213,9 @@ def build_improve_tick_glance(
         bits.append(f"rc={rc}")
     elif rc == 0:
         bits.append("ok")
+    # Source after status · before clash so the 96-char clip keeps age + reason.
+    if source_bit:
+        bits.append(source_bit)
     # Age before clash so the 96-char clip keeps improve age (LAYA parity).
     if scan_clash:
         bits.append(scan_clash)
@@ -30195,6 +30231,8 @@ def build_improve_tick_glance(
         "freshness": freshness,
         "rc": rc,
         "source": source,
+        "source_bit": source_bit,
+        "source_escalate": source_escalate,
         "failed": failed,
         "scan_freshness": scan_freshness,
         "scan_clash": scan_clash,

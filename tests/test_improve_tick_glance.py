@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from openbb_backend.desk import (
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
+    improve_tick_source_speak,
     load_desk_snapshot,
 )
 
@@ -38,9 +40,57 @@ def test_improve_tick_glance_fresh_ok(tmp_path: Path) -> None:
     assert g["failed"] is False
     assert g["rc"] == 0
     assert g["source"] == "cursor end"
+    assert g["source_bit"] == ""
+    assert g["source_escalate"] is False
     assert "fresh" in g["line"]
     assert "ok" in g["line"]
+    assert "start only" not in g["line"]
+    assert "log mtime" not in g["line"]
     assert g["age_sec"] == 14 * 60
+
+
+def test_improve_tick_source_speak() -> None:
+    assert improve_tick_source_speak("") == ("", False)
+    assert improve_tick_source_speak("cursor end") == ("", False)
+    assert improve_tick_source_speak("cursor start") == ("start only", True)
+    assert improve_tick_source_speak("loop tick") == ("loop tick", False)
+    assert improve_tick_source_speak("cursor log") == ("log mtime", True)
+    assert improve_tick_source_speak("loop log") == ("log mtime", True)
+
+
+def test_improve_tick_glance_start_only_speaks_and_ages(tmp_path: Path) -> None:
+    """Start without end is not a finished tick — speak + escalate fresh."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T20:46Z cursor improve start\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T21:00Z")
+    )
+    assert g["ready"] is True
+    assert g["source"] == "cursor start"
+    assert g["source_bit"] == "start only"
+    assert g["source_escalate"] is True
+    assert g["freshness"] == "fresh"
+    assert g["tone"] == "aging"
+    assert "start only" in g["line"]
+
+
+def test_improve_tick_glance_log_mtime_speaks_and_ages(tmp_path: Path) -> None:
+    """Truncated log mtime ≠ finished end — speak + escalate fresh."""
+    log = tmp_path / "run_cursor_improve.log"
+    log.write_text("garbage not a tick line\n", encoding="utf-8")
+    # Force mtime into the fresh window relative to fixed now.
+    now = _clock("2026-11-09T21:00Z")
+    os.utime(log, (now.timestamp() - 600, now.timestamp() - 600))
+    g = build_improve_tick_glance(tmp_path, now=now)
+    assert g["ready"] is True
+    assert g["source"] == "cursor log"
+    assert g["source_bit"] == "log mtime"
+    assert g["source_escalate"] is True
+    assert g["freshness"] == "fresh"
+    assert g["tone"] == "aging"
+    assert "log mtime" in g["line"]
 
 
 def test_improve_tick_glance_aging(tmp_path: Path) -> None:
@@ -84,8 +134,12 @@ def test_improve_tick_glance_loop_tick_fallback(tmp_path: Path) -> None:
     )
     assert g["ready"] is True
     assert g["source"] == "loop tick"
+    assert g["source_bit"] == "loop tick"
+    assert g["source_escalate"] is False
     assert g["freshness"] == "fresh"
+    assert g["tone"] == "ok"
     assert g["rc"] is None
+    assert "loop tick" in g["line"]
 
 
 def test_improve_tick_glance_vs_scan_clash(tmp_path: Path) -> None:
