@@ -2915,18 +2915,24 @@ LEDGER_SHORT_SHARE_QUIET = 25.0
 # Remaining long names after short share (Screener junk vs ok / Funds vs other).
 LEDGER_SHORT_LONG_SHARE_STRONG = 75.0
 LEDGER_SHORT_LONG_SHARE_THIN = 50.0
+# short% − long% after severity lean (unmatched / Screener junk vs ok share Δ).
+LEDGER_SHORT_VS_LONG_DELTA_WIDE_PP = 20.0
+LEDGER_SHORT_VS_LONG_DELTA_THIN_PP = 10.0
 
 _LEDGER_SHORT_LEAN_NAME_CAP = 5
 _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ long\b"), "vs long"),
     (re.compile(r"^short/long tied\b"), "tied"),
-    # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead short``.
+    # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead short``
+    # and ``lean vs Δ`` ≠ bare ``Δ``.
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead short\b"), "short"),
     (re.compile(r"^lead long\b"), "long"),
     (re.compile(r"^short vs long align\b"), "align"),
     (re.compile(r"^short vs long clash\b"), "clash"),
+    (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ "), "Δ"),
 )
 
 
@@ -3057,6 +3063,51 @@ def ledger_short_vs_long_lean(
     return "", False
 
 
+def ledger_short_vs_long_delta(
+    short_share_pct: float | int | None,
+    long_share_pct: float | int | None,
+    *,
+    lean_bit: str = "",
+    wide_pp: float = LEDGER_SHORT_VS_LONG_DELTA_WIDE_PP,
+    thin_pp: float = LEDGER_SHORT_VS_LONG_DELTA_THIN_PP,
+) -> tuple[int | None, str, str, bool]:
+    """Share Δ after short-refuse vs long lean (display only).
+
+    Lean alone hid how far ``short% − long%`` sits (unmatched vs matched
+    share Δ / Screener junk vs ok share Δ + portfolio AI count≠spread +
+    xang1234 severity). Requires lean already spoke. Wide ≥``wide_pp`` ·
+    thin <``thin_pp`` · mid → ``lean vs Δ clash · lean · Δ mid`` (warn).
+    Adverse ``align · hot|thin`` + Δ wide warns; ``quiet|strong`` stays
+    calm.
+
+    Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    Not a new entry gate.
+    """
+    if not str(lean_bit or "").strip():
+        return None, "", "", False
+    if short_share_pct is None or long_share_pct is None:
+        return None, "", "", False
+    try:
+        sh = float(short_share_pct)
+        lg = float(long_share_pct)
+    except (TypeError, ValueError):
+        return None, "", "", False
+    raw = int(round(sh - lg))
+    abs_delta = abs(raw)
+    delta_sev = ""
+    if abs_delta >= wide_pp:
+        delta_sev = "wide"
+    elif abs_delta < thin_pp:
+        delta_sev = "thin"
+    if delta_sev:
+        lean_vs_delta = f"align · {delta_sev}"
+        lean_vs_delta_warn = delta_sev == "wide" and str(lean_bit).startswith(
+            "short vs long align · hot|thin"
+        )
+        return raw, delta_sev, lean_vs_delta, lean_vs_delta_warn
+    return raw, "", "clash · lean · Δ mid", True
+
+
 def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for ledger short-refuse lean fold (display only).
 
@@ -3110,7 +3161,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     ``short vs long align · hot|thin`` / ``quiet|strong`` or
     ``clash · short … · long …`` so sides/lead/size alone do not hide
     severity agreement (unmatched vs matched lean + Screener junk vs ok).
-    Missing both files stays silent. Not an entry gate.
+    When lean already spoke, also speak ``Δ wide|thin · ±Npp`` +
+    ``lean vs Δ align · wide|thin`` / ``clash · lean · Δ mid`` so lean
+    alone does not hide short%−long% spread (unmatched / Screener junk
+    vs ok share Δ). Missing both files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -3144,6 +3198,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lead_size_quieter": None,
         "vs_long_lean": "",
         "vs_long_lean_warn": False,
+        "vs_long_delta_pp": None,
+        "vs_long_delta_severity": "",
+        "vs_long_lean_vs_delta": "",
+        "vs_long_lean_vs_delta_warn": False,
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -3194,6 +3252,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     vs_long_lead_size_quieter: int | None = None
     vs_long_lean = ""
     vs_long_lean_warn = False
+    vs_long_delta_pp: int | None = None
+    vs_long_delta_severity = ""
+    vs_long_lean_vs_delta = ""
+    vs_long_lean_vs_delta_warn = False
     lean = ""
     lean_warn = False
     if port_state == "ok" and isinstance(port_doc, dict):
@@ -3275,6 +3337,34 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                     lean_parts.append(vs_long_lean)
                     if vs_long_lean_warn:
                         lean_warn = True
+                    (
+                        vs_long_delta_pp,
+                        vs_long_delta_severity,
+                        vs_long_lean_vs_delta,
+                        vs_long_lean_vs_delta_warn,
+                    ) = ledger_short_vs_long_delta(
+                        short_share_pct,
+                        long_share_pct,
+                        lean_bit=vs_long_lean,
+                    )
+                    if (
+                        vs_long_delta_severity
+                        and vs_long_delta_pp is not None
+                    ):
+                        sign = (
+                            f"+{vs_long_delta_pp}"
+                            if vs_long_delta_pp > 0
+                            else f"{vs_long_delta_pp}"
+                        )
+                        lean_parts.append(
+                            f"Δ {vs_long_delta_severity} · {sign}pp"
+                        )
+                    if vs_long_lean_vs_delta:
+                        lean_parts.append(
+                            f"lean vs Δ {vs_long_lean_vs_delta}"
+                        )
+                        if vs_long_lean_vs_delta_warn:
+                            lean_warn = True
                 lean = " · ".join(lean_parts)
             problems.append(short_bit)
 
@@ -3313,6 +3403,10 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "vs_long_lead_size_quieter": vs_long_lead_size_quieter,
         "vs_long_lean": vs_long_lean,
         "vs_long_lean_warn": vs_long_lean_warn,
+        "vs_long_delta_pp": vs_long_delta_pp,
+        "vs_long_delta_severity": vs_long_delta_severity,
+        "vs_long_lean_vs_delta": vs_long_lean_vs_delta,
+        "vs_long_lean_vs_delta_warn": vs_long_lean_vs_delta_warn,
     }
 
 

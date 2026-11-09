@@ -8,6 +8,7 @@ from openbb_backend.charts import _load_jsonl
 from openbb_backend.desk import (
     build_ledger_health,
     ledger_short_lean_meta,
+    ledger_short_vs_long_delta,
     ledger_short_vs_long_lead,
     ledger_short_vs_long_lead_size,
     ledger_short_vs_long_lean,
@@ -189,6 +190,13 @@ def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
     assert g["vs_long_lean"] == "short vs long align · quiet|strong"
     assert g["vs_long_lean_warn"] is False
     assert "short vs long align · quiet|strong" in g["lean"]
+    # 25% − 75% = −50pp → wide Δ; quiet|strong stays calm on lean vs Δ.
+    assert g["vs_long_delta_pp"] == -50
+    assert g["vs_long_delta_severity"] == "wide"
+    assert g["vs_long_lean_vs_delta"] == "align · wide"
+    assert g["vs_long_lean_vs_delta_warn"] is False
+    assert "Δ wide · -50pp" in g["lean"]
+    assert "lean vs Δ align · wide" in g["lean"]
     assert "vs 6 long" not in g["line"]
     assert g["lean_warn"] is False
     assert g["lean_meta"].startswith("quiet")
@@ -238,9 +246,12 @@ def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
     assert g["vs_long_lead_size_louder"] == 3
     assert g["vs_long_lead_size_quieter"] == 2
     assert "lead size · 1.5×" in g["lean"]
-    # Mid short + mid long → both severity silent → lean silent.
+    # Mid short + mid long → both severity silent → lean silent → no Δ.
     assert g["vs_long_lean"] == ""
     assert g["vs_long_lean_warn"] is False
+    assert g["vs_long_delta_pp"] is None
+    assert g["vs_long_delta_severity"] == ""
+    assert g["vs_long_lean_vs_delta"] == ""
     assert g["lean_warn"] is False
 
 
@@ -264,6 +275,13 @@ def test_ledger_short_refuse_vs_long_all_short(tmp_path: Path) -> None:
     assert "short vs long align · hot|thin" in g["lean"]
     assert g["vs_long_lean"] == "short vs long align · hot|thin"
     assert g["vs_long_lean_warn"] is False
+    # 100% − 0% = +100pp → wide Δ; hot|thin + wide warns on lean vs Δ.
+    assert g["vs_long_delta_pp"] == 100
+    assert g["vs_long_delta_severity"] == "wide"
+    assert g["vs_long_lean_vs_delta"] == "align · wide"
+    assert g["vs_long_lean_vs_delta_warn"] is True
+    assert "Δ wide · +100pp" in g["lean"]
+    assert "lean vs Δ align · wide" in g["lean"]
     assert g["lean_warn"] is True
     assert "vs 0 long" not in g["line"]
     # Sole-side (all short) stays silent on ownership lead / size.
@@ -306,6 +324,13 @@ def test_ledger_short_refuse_vs_long_tied(tmp_path: Path) -> None:
     assert g["long_share_severity"] == ""
     assert g["vs_long_lean"] == "short vs long clash · short hot · long ok"
     assert g["vs_long_lean_warn"] is True
+    # 50% − 50% = 0pp → thin Δ; clash lean stays calm on lean vs Δ warn.
+    assert g["vs_long_delta_pp"] == 0
+    assert g["vs_long_delta_severity"] == "thin"
+    assert g["vs_long_lean_vs_delta"] == "align · thin"
+    assert g["vs_long_lean_vs_delta_warn"] is False
+    assert "Δ thin · 0pp" in g["lean"]
+    assert "lean vs Δ align · thin" in g["lean"]
     assert g["lean_warn"] is True
     assert "clash" in g["lean_meta"]
 
@@ -370,12 +395,41 @@ def test_ledger_short_vs_long_lean_helpers() -> None:
     assert ledger_short_vs_long_lean("ok", "ok") == ("", False)
 
 
+def test_ledger_short_vs_long_delta_helpers() -> None:
+    pp, sev, lvd, warn = ledger_short_vs_long_delta(
+        25, 75, lean_bit="short vs long align · quiet|strong"
+    )
+    assert (pp, sev, lvd, warn) == (-50, "wide", "align · wide", False)
+    pp, sev, lvd, warn = ledger_short_vs_long_delta(
+        100, 0, lean_bit="short vs long align · hot|thin"
+    )
+    assert (pp, sev, lvd, warn) == (100, "wide", "align · wide", True)
+    pp, sev, lvd, warn = ledger_short_vs_long_delta(
+        50, 50, lean_bit="short vs long clash · short hot · long ok"
+    )
+    assert (pp, sev, lvd, warn) == (0, "thin", "align · thin", False)
+    pp, sev, lvd, warn = ledger_short_vs_long_delta(
+        55, 45, lean_bit="short vs long align · quiet|strong"
+    )
+    assert (pp, sev, lvd, warn) == (10, "", "clash · lean · Δ mid", True)
+    assert ledger_short_vs_long_delta(75, 25, lean_bit="") == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert ledger_short_vs_long_delta(
+        None, 25, lean_bit="short vs long align · quiet|strong"
+    ) == (None, "", "", False)
+
+
 def test_ledger_short_lean_meta() -> None:
     assert ledger_short_lean_meta("") == "quiet"
     quiet = ledger_short_lean_meta(
         "vs 6 long · strong · 75% · lead long · 75% · "
         "lead size · 3× · lead size sides · louder 6 · quieter 2"
         " · short vs long align · quiet|strong"
+        " · Δ wide · -50pp · lean vs Δ align · wide"
     )
     assert quiet.startswith("quiet")
     assert "vs long" in quiet
@@ -386,7 +440,8 @@ def test_ledger_short_lean_meta() -> None:
     warn = ledger_short_lean_meta(
         "vs 1 long · thin · 33% · lead short · 67% · "
         "lead size · 2× · lead size sides · louder 2 · quieter 1"
-        " · short vs long clash · short hot · long thin",
+        " · short vs long clash · short hot · long thin"
+        " · Δ wide · +34pp · lean vs Δ align · wide",
         warn=True,
     )
     assert warn.startswith("warn")
