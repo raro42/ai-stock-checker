@@ -8,7 +8,9 @@ from stock_checker.listed_funds import (
     listed_fund_theme_overlaps,
 )
 from openbb_backend.desk import (
+    attach_concentration_funds_lean,
     build_listed_fund_overlap_glance,
+    concentration_funds_lean_meta,
     listed_fund_overlap_lean_meta,
     listed_fund_overlap_vs_conc,
     listed_fund_overlap_vs_other_lead,
@@ -103,6 +105,56 @@ def test_listed_fund_overlap_lean_meta() -> None:
     )
     assert conc.startswith("warn")
     assert "Conc" in conc
+
+
+def test_concentration_funds_lean_meta() -> None:
+    assert concentration_funds_lean_meta("") == "quiet"
+    quiet = concentration_funds_lean_meta(
+        "align · funds hot · Conc warn"
+    )
+    assert quiet.startswith("quiet")
+    assert "Funds" in quiet
+    warn = concentration_funds_lean_meta(
+        "clash · funds hot · Conc clear", warn=True
+    )
+    assert warn.startswith("warn")
+    assert "Funds" in warn
+
+
+def test_attach_concentration_funds_lean() -> None:
+    silent = attach_concentration_funds_lean(
+        {"ready": True, "tone": "clear", "line": "AAPL 10% · cap 30%", "warn": False},
+        {"ready": True, "vs_conc": "", "vs_conc_warn": False},
+    )
+    assert silent["lean"] == ""
+    assert silent["lean_meta"] == "quiet"
+    clash = attach_concentration_funds_lean(
+        {"ready": True, "tone": "clear", "line": "GLD 5% · cap 30%", "warn": False},
+        {
+            "ready": True,
+            "vs_conc": "clash · funds hot · Conc clear",
+            "vs_conc_warn": True,
+        },
+    )
+    assert clash["lean"] == "clash · funds hot · Conc clear"
+    assert clash["vs_funds"] == clash["lean"]
+    assert clash["lean_warn"] is True
+    assert clash["lean_meta"].startswith("warn")
+    assert "Funds" in clash["lean_meta"]
+    # Primary Conc line stays single-name headroom.
+    assert "funds hot" not in clash["line"]
+    align = attach_concentration_funds_lean(
+        {"ready": True, "tone": "warn", "line": "WARN · JPM 40%", "warn": True},
+        {
+            "ready": True,
+            "vs_conc": "align · funds hot · Conc warn",
+            "vs_conc_warn": False,
+        },
+    )
+    assert align["lean"] == "align · funds hot · Conc warn"
+    assert align["lean_warn"] is False
+    assert align["lean_meta"].startswith("quiet")
+    assert attach_concentration_funds_lean({"ready": False}, None)["lean"] == ""
 
 
 def test_listed_fund_overlap_glance_warn() -> None:
@@ -262,9 +314,16 @@ def test_listed_fund_overlap_in_snapshot(tmp_path) -> None:
     assert "GLD" in g["line"]
     # Hot theme share + Conc clear (small lots vs cash) → clash under lean.
     assert g["share_severity"] == "hot"
-    assert snap["concentration_glance"]["warn"] is False
+    conc = snap["concentration_glance"]
+    assert conc["warn"] is False
     assert g["vs_conc"] == "clash · funds hot · Conc clear"
     assert "clash · funds hot · Conc clear" in g["lean"]
+    # Conc lean speak-both-sides: same clash under Conc (primary line quiet).
+    assert conc["vs_funds"] == "clash · funds hot · Conc clear"
+    assert conc["lean"] == conc["vs_funds"]
+    assert conc["lean_warn"] is True
+    assert "Funds" in conc["lean_meta"]
+    assert "funds hot" not in conc["line"]
 
 
 def test_listed_fund_overlap_in_chart_payload(tmp_path) -> None:
@@ -283,5 +342,8 @@ def test_listed_fund_overlap_in_chart_payload(tmp_path) -> None:
     assert g["theme"] == "us_equity"
     assert "US equity" in g["line"]
     assert g["share_severity"] == "hot"
-    assert payload["concentration_glance"]["warn"] is False
+    conc = payload["concentration_glance"]
+    assert conc["warn"] is False
     assert g["vs_conc"] == "clash · funds hot · Conc clear"
+    assert conc["lean"] == "clash · funds hot · Conc clear"
+    assert conc["lean_warn"] is True

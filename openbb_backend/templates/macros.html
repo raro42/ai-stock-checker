@@ -1044,10 +1044,13 @@
   heading_id='concentration-glance-h',
   link_href='/desk/book',
   link_label='Book →',
-  sub='Largest name vs 30% equity entry cap — soft size limit on new fills. Not a new gate.'
+  sub='Largest name vs 30% equity entry cap — soft size limit on new fills. Funds clash/align under conc lean. Not a new gate.'
 ) -%}
 {% set glance = snap.concentration_glance if snap.concentration_glance is mapping else {} %}
 {% if glance.ready %}
+{% set conc_lean = glance.lean|default('') %}
+{% set conc_lean_warn = glance.lean_warn|default(false) %}
+{% set conc_lean_meta = glance.lean_meta|default('quiet') %}
 <section class="concentration-glance" aria-labelledby="{{ heading_id }}">
   <h2 id="{{ heading_id }}" class="visually-hidden">Concentration</h2>
   <p class="concentration-glance-line">
@@ -1057,6 +1060,12 @@
     <span class="pretrade-sep" aria-hidden="true">·</span>
     <a class="concentration-glance-link" href="{{ link_href }}">{{ link_label }}</a>
   </p>
+  {% if conc_lean %}
+  <details class="concentration-funds-lean{% if conc_lean_warn %} warn{% endif %}"{% if conc_lean_warn %} open{% endif %}>
+    <summary>conc lean <span class="meta">{{ conc_lean_meta }}</span></summary>
+    <p class="concentration-funds-lean-body{% if conc_lean_warn %} warn{% endif %}">{{ conc_lean }}</p>
+  </details>
+  {% endif %}
   <p class="sub">{{ sub }}</p>
 </section>
 {% endif %}

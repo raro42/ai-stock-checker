@@ -1167,13 +1167,15 @@ a:active {
   font-variant-numeric: tabular-nums;
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean {
+.listed-fund-overlap-glance .listed-fund-overlap-lean,
+.concentration-glance .concentration-funds-lean {
   margin: 0.25rem 0 0.15rem;
   padding: 0;
   border: 0;
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean > summary {
+.listed-fund-overlap-glance .listed-fund-overlap-lean > summary,
+.concentration-glance .concentration-funds-lean > summary {
   cursor: pointer;
   color: var(--link);
   font-family: var(--font-body, system-ui, sans-serif);
@@ -1181,26 +1183,32 @@ a:active {
   list-style: none;
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean > summary::-webkit-details-marker {
+.listed-fund-overlap-glance .listed-fund-overlap-lean > summary::-webkit-details-marker,
+.concentration-glance .concentration-funds-lean > summary::-webkit-details-marker {
   display: none;
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean > summary .meta {
+.listed-fund-overlap-glance .listed-fund-overlap-lean > summary .meta,
+.concentration-glance .concentration-funds-lean > summary .meta {
   margin-left: 0.25rem;
   color: var(--muted);
   font-size: 0.72rem;
 }
 
 .listed-fund-overlap-glance .listed-fund-overlap-lean.warn > summary,
-.listed-fund-overlap-glance .listed-fund-overlap-lean.warn > summary .meta {
+.listed-fund-overlap-glance .listed-fund-overlap-lean.warn > summary .meta,
+.concentration-glance .concentration-funds-lean.warn > summary,
+.concentration-glance .concentration-funds-lean.warn > summary .meta {
   color: var(--down);
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean[open] > summary {
+.listed-fund-overlap-glance .listed-fund-overlap-lean[open] > summary,
+.concentration-glance .concentration-funds-lean[open] > summary {
   margin-bottom: 0.15rem;
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean-body {
+.listed-fund-overlap-glance .listed-fund-overlap-lean-body,
+.concentration-glance .concentration-funds-lean-body {
   margin: 0;
   font-family: var(--font-data, ui-monospace, monospace);
   font-size: 0.78rem;
@@ -1208,7 +1216,8 @@ a:active {
   line-height: 1.35;
 }
 
-.listed-fund-overlap-glance .listed-fund-overlap-lean-body.warn {
+.listed-fund-overlap-glance .listed-fund-overlap-lean-body.warn,
+.concentration-glance .concentration-funds-lean-body.warn {
   color: var(--down);
 }
 

@@ -6389,6 +6389,80 @@ def listed_fund_overlap_vs_conc(
     return f"align · {funds_label} · {conc_label}", False
 
 
+# Quiet Conc lean chip names Funds clash/align (Funds lean Conc inventory).
+_CONCENTRATION_FUNDS_LEAN_NAME_CAP = 2
+_CONCENTRATION_FUNDS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^clash · funds\b"), "Funds"),
+    (re.compile(r"^align · funds\b"), "Funds"),
+)
+
+
+def concentration_funds_lean_meta(lean: str, *, warn: bool = False) -> str:
+    """Summary chip for Conc↔Funds lean fold (display only).
+
+    Quiet names the Funds stage when it spoke so bare ``quiet`` does not
+    claim a clash when absent — Funds lean meta + MonsterDeveloper fold
+    inventory after Conc alone hid theme doubles. Warned folds speak
+    ``warn`` and append the clipped stage. Not a gate.
+    """
+    text = str(lean or "").strip()
+    if not text:
+        return "quiet"
+    if warn:
+        stage_tail = _quiet_inventory_chip(
+            text,
+            _CONCENTRATION_FUNDS_LEAN_STAGE_RES,
+            cap=_CONCENTRATION_FUNDS_LEAN_NAME_CAP,
+            quiet=False,
+        )
+        if stage_tail:
+            return f"warn · {stage_tail}"
+        return "warn"
+    return _quiet_inventory_chip(
+        text,
+        _CONCENTRATION_FUNDS_LEAN_STAGE_RES,
+        cap=_CONCENTRATION_FUNDS_LEAN_NAME_CAP,
+    )
+
+
+def attach_concentration_funds_lean(
+    concentration: dict[str, Any] | None,
+    funds: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Copy Funds↔Conc clash/align onto Conc lean (display only).
+
+    Funds lean already speaks ``clash|align · funds … · Conc …``. Conc
+    strip alone stayed green while theme doubles owned the book —
+    portfolio AI speak-both-sides after bare Conc hid Funds hot
+    (tradermonty theme-detector). Reuses ``vs_conc`` from the Funds
+    glance; primary Conc line unchanged. Clash opens the lean; align
+    stays closed. Not a gate.
+    """
+    empty_lean = {
+        "lean": "",
+        "lean_warn": False,
+        "lean_meta": "quiet",
+        "vs_funds": "",
+        "vs_funds_warn": False,
+    }
+    out = dict(concentration) if isinstance(concentration, dict) else {}
+    if not out.get("ready"):
+        out.update(empty_lean)
+        return out
+    funds_g = funds if isinstance(funds, dict) else {}
+    vs = str(funds_g.get("vs_conc") or "").strip()
+    vs_warn = bool(funds_g.get("vs_conc_warn"))
+    if not vs:
+        out.update(empty_lean)
+        return out
+    out["vs_funds"] = vs
+    out["vs_funds_warn"] = vs_warn
+    out["lean"] = vs
+    out["lean_warn"] = vs_warn
+    out["lean_meta"] = concentration_funds_lean_meta(vs, warn=vs_warn)
+    return out
+
+
 # Quiet Funds lean chip names spoken stages (Charts bars / pin lean inventory).
 # Longer prefixes first so ``lead overlap`` ≠ bare ``lead``.
 _LISTED_FUND_OVERLAP_LEAN_NAME_CAP = 4
@@ -33727,6 +33801,9 @@ def load_desk_snapshot(
     )
     listed_fund_overlap_glance = build_listed_fund_overlap_glance(
         rows, concentration_warn=listed_fund_conc_warn
+    )
+    concentration_glance = attach_concentration_funds_lean(
+        concentration_glance, listed_fund_overlap_glance
     )
     mark_base = {
         "live": "Marks from live quotes + latest scan.",

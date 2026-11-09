@@ -1788,6 +1788,14 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     concentration_glance = _concentration_glance_from_portfolio(
         data_dir, portfolio
     )
+    listed_fund_overlap_glance = _listed_fund_overlap_glance_from_portfolio(
+        portfolio, concentration_glance=concentration_glance
+    )
+    from openbb_backend.desk import attach_concentration_funds_lean
+
+    concentration_glance = attach_concentration_funds_lean(
+        concentration_glance, listed_fund_overlap_glance
+    )
 
     payload = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1852,9 +1860,7 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
         "rebuy_cooldown_glance": _rebuy_cooldown_glance_from_data(data_dir),
         "daily_loss_glance": _daily_loss_glance_from_data(data_dir, portfolio),
         "concentration_glance": concentration_glance,
-        "listed_fund_overlap_glance": _listed_fund_overlap_glance_from_portfolio(
-            portfolio, concentration_glance=concentration_glance
-        ),
+        "listed_fund_overlap_glance": listed_fund_overlap_glance,
         "post_sl_cooldown_glance": _post_sl_cooldown_glance_from_data(data_dir),
         "loop_cadence_glance": _loop_cadence_glance_from_config(data_dir),
         "fee_allowance_glance": _fee_allowance_glance_from_data(data_dir),
