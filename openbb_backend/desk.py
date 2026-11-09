@@ -30121,6 +30121,9 @@ _POSTMORTEM_UNMATCHED_LEAN_NAME_CAP = 4
 _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ matched\b"), "vs matched"),
     (re.compile(r"^unmatched/matched tied\b"), "tied"),
+    # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead unmatched``.
+    (re.compile(r"^lead size sides\b"), "sides"),
+    (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
     (re.compile(r"^lead matched\b"), "matched"),
 )
@@ -30190,6 +30193,38 @@ def postmortem_unmatched_vs_matched_sample_gap(
     return "unmatched/matched tied"
 
 
+def postmortem_unmatched_vs_matched_lead_size(
+    n_unmatched: int,
+    n_matched: int,
+    *,
+    lead_name: str = "",
+) -> tuple[float | None, int | None, int | None]:
+    """How many times louder owns quieter after unmatched/matched lead.
+
+    When ``lead_name`` already spoke (``unmatched|matched``) and both counts
+    are >0, ``lead size · N×`` is louder÷quieter; zero quieter stays silent.
+    Lead name/% ≠ magnitude (short-refuse vs long lead size + Charts
+    aging/stale lead size + portfolio AI count≠share + xang1234 multi-meter).
+    Returns ``(size, louder_n, quieter_n)`` or all-None. Display only; not a
+    new entry gate.
+    """
+    if str(lead_name or "").strip().casefold() not in {"unmatched", "matched"}:
+        return None, None, None
+    try:
+        unmatched_n = max(0, int(n_unmatched))
+    except (TypeError, ValueError):
+        unmatched_n = 0
+    try:
+        matched_n = max(0, int(n_matched))
+    except (TypeError, ValueError):
+        matched_n = 0
+    quieter = min(unmatched_n, matched_n)
+    louder = max(unmatched_n, matched_n)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -30237,10 +30272,13 @@ def build_postmortem_glance(
     thin <50%; all-unmatched ``vs 0 matched · thin · 0%``) so unmatched% alone
     does not hide usable closed rounds — short-refuse vs long / Screener junk
     vs ok + portfolio AI speak-both-sides; MonsterDeveloper fold keeps the
-    96-char primary clip short. When vs-matched already spoke and both counts
+    96-char primary clip short.     When vs-matched already spoke and both counts
     are >0, also speak ``lead unmatched|matched · N%`` or
     ``unmatched/matched tied`` under lean so absolute sides do not hide which
     slot owns the closed-round roster (short-refuse vs long lead parity).
+    When lead already spoke and quieter count >0, also speak
+    ``lead size · N×`` + ``lead size sides · louder N · quieter M`` so name/%
+    ≠ magnitude (short-refuse vs long lead size parity).
     """
     from stock_checker.trade_postmortem import is_unmatched_postmortem
 
@@ -30263,6 +30301,9 @@ def build_postmortem_glance(
         "vs_matched_lead_name": "",
         "vs_matched_lead_pct": None,
         "vs_matched_sample_gap": "",
+        "vs_matched_lead_size": None,
+        "vs_matched_lead_size_louder": None,
+        "vs_matched_lead_size_quieter": None,
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
@@ -30291,6 +30332,9 @@ def build_postmortem_glance(
     vs_matched_lead_name = ""
     vs_matched_lead_pct: int | None = None
     vs_matched_sample_gap = ""
+    vs_matched_lead_size: float | None = None
+    vs_matched_lead_size_louder: int | None = None
+    vs_matched_lead_size_quieter: int | None = None
     if unmatched_count > 0 and n_rounds > 0:
         unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
         if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
@@ -30330,6 +30374,26 @@ def build_postmortem_glance(
         vs_matched_own = vs_matched_lead or vs_matched_sample_gap
         if vs_matched_own:
             lean_parts.append(vs_matched_own)
+        (
+            vs_matched_lead_size,
+            vs_matched_lead_size_louder,
+            vs_matched_lead_size_quieter,
+        ) = postmortem_unmatched_vs_matched_lead_size(
+            unmatched_count,
+            matched_count,
+            lead_name=vs_matched_lead_name,
+        )
+        if (
+            vs_matched_lead_size is not None
+            and vs_matched_lead_size_louder is not None
+            and vs_matched_lead_size_quieter is not None
+        ):
+            lean_parts.append(f"lead size · {vs_matched_lead_size:g}×")
+            lean_parts.append(
+                "lead size sides · louder "
+                f"{vs_matched_lead_size_louder} · quieter "
+                f"{vs_matched_lead_size_quieter}"
+            )
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -30399,6 +30463,9 @@ def build_postmortem_glance(
         "vs_matched_lead_name": vs_matched_lead_name,
         "vs_matched_lead_pct": vs_matched_lead_pct,
         "vs_matched_sample_gap": vs_matched_sample_gap,
+        "vs_matched_lead_size": vs_matched_lead_size,
+        "vs_matched_lead_size_louder": vs_matched_lead_size_louder,
+        "vs_matched_lead_size_quieter": vs_matched_lead_size_quieter,
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
