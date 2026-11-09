@@ -2909,14 +2909,22 @@ def build_mark_coverage(
     }
 
 
+# Short-refuse book ownership (portfolio AI count≠share after absolute N).
+LEDGER_SHORT_SHARE_HOT = 50.0
+LEDGER_SHORT_SHARE_QUIET = 25.0
+
+
 def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     """Report portfolio.json / trades.jsonl parse health (display only).
 
     tradermonty #411: name a malformed shard. Do not show an empty book as truth.
     A thin trades file keeps good rows and says the ledger is partial (#416).
     Non-positive holdings speak ``N short refuse`` — paper desk is long-only
-    (tradermonty #681 reject unsupported equity shorts). Missing both files
-    stays silent. Not an entry gate.
+    (tradermonty #681 reject unsupported equity shorts). When short refuse
+    already spoke, also speak book ownership ``hot|quiet · P%`` (short names
+    ÷ holding names; mid shows % only) so absolute ``N short refuse`` ≠ most
+    of the book — portfolio AI count≠share + xang1234 share severity.
+    Missing both files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -2932,6 +2940,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "good_lines": 0,
         "short_count": 0,
         "short_symbols": [],
+        "n_book": 0,
+        "short_share_pct": None,
+        "short_share_severity": "",
     }
     root = Path(data_dir)
     port_doc, port = load_json_checked(root / "portfolio.json", {})
@@ -2967,15 +2978,38 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         problems.append("trades unreadable")
 
     short_syms: list[str] = []
+    n_book = 0
+    short_share_pct: float | None = None
+    short_share_severity = ""
     if port_state == "ok" and isinstance(port_doc, dict):
-        short_syms = unsupported_short_symbols(port_doc.get("holdings"))
+        holdings = port_doc.get("holdings")
+        short_syms = unsupported_short_symbols(holdings)
+        if isinstance(holdings, dict):
+            n_book = len(
+                {
+                    str(sym or "").strip().upper()
+                    for sym in holdings
+                    if str(sym or "").strip()
+                }
+            )
         if short_syms:
             severity = "bad"
             n = len(short_syms)
             shown = " · ".join(short_syms[:3])
             if n > 3:
                 shown = f"{shown} · +{n - 3}"
-            problems.append(f"{n} short refuse · {shown}")
+            short_bit = f"{n} short refuse · {shown}"
+            if n_book > 0:
+                short_share_pct = round(100.0 * n / n_book)
+                if short_share_pct >= LEDGER_SHORT_SHARE_HOT:
+                    short_share_severity = "hot"
+                    short_bit = f"{short_bit} · hot · {int(short_share_pct)}%"
+                elif short_share_pct <= LEDGER_SHORT_SHARE_QUIET:
+                    short_share_severity = "quiet"
+                    short_bit = f"{short_bit} · quiet · {int(short_share_pct)}%"
+                else:
+                    short_bit = f"{short_bit} · {int(short_share_pct)}%"
+            problems.append(short_bit)
 
     if severity == "ok":
         bit = "ledger ok"
@@ -2993,6 +3027,9 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "good_lines": int(trades.get("good") or 0),
         "short_count": len(short_syms),
         "short_symbols": short_syms,
+        "n_book": n_book,
+        "short_share_pct": short_share_pct,
+        "short_share_severity": short_share_severity,
     }
 
 

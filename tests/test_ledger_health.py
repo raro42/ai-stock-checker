@@ -114,3 +114,59 @@ def test_ledger_short_holdings_refuse(tmp_path: Path) -> None:
     assert g["short_symbols"] == ["TSLA", "ZERO"]
     assert "2 short refuse" in g["line"]
     assert "TSLA" in g["line"]
+    # 2 of 3 names → hot share (count ≠ share).
+    assert g["n_book"] == 3
+    assert g["short_share_pct"] == 67
+    assert g["short_share_severity"] == "hot"
+    assert "hot · 67%" in g["line"]
+
+
+def test_ledger_short_refuse_share_quiet(tmp_path: Path) -> None:
+    """Quiet share when shorts are a small slice of the holding map."""
+    import json
+
+    holdings = {"TSLA": -1, "ZERO": 0}
+    for i, sym in enumerate(
+        ["AAPL", "MSFT", "NVDA", "META", "AMZN", "GOOG"]
+    ):
+        holdings[sym] = float(i + 1)
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 1000, "holdings": holdings})
+    )
+    (tmp_path / "trades.jsonl").write_text("{}\n")
+    g = build_ledger_health(tmp_path)
+    assert g["short_count"] == 2
+    assert g["n_book"] == 8
+    assert g["short_share_pct"] == 25
+    assert g["short_share_severity"] == "quiet"
+    assert "quiet · 25%" in g["line"]
+    assert "2 short refuse" in g["line"]
+
+
+def test_ledger_short_refuse_share_mid(tmp_path: Path) -> None:
+    """Mid band shows % only (not hot/quiet)."""
+    import json
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": 1000,
+                "holdings": {
+                    "TSLA": -1,
+                    "ZERO": 0,
+                    "AAPL": 1,
+                    "MSFT": 1,
+                    "NVDA": 1,
+                },
+            }
+        )
+    )
+    (tmp_path / "trades.jsonl").write_text("{}\n")
+    g = build_ledger_health(tmp_path)
+    assert g["short_count"] == 2
+    assert g["n_book"] == 5
+    assert g["short_share_pct"] == 40
+    assert g["short_share_severity"] == ""
+    assert "40%" in g["line"]
+    assert "hot" not in g["line"]
+    assert "quiet" not in g["line"]
