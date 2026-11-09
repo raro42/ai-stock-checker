@@ -30323,7 +30323,7 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     (re.compile(r"^vs \d+ matched\b"), "vs matched"),
     (re.compile(r"^unmatched/matched tied\b"), "tied"),
     # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead unmatched``
-    # and ``Δ lead`` ≠ bare ``Δ``.
+    # and ``Δ lead size sides`` ≠ ``Δ lead size`` ≠ ``Δ lead`` ≠ bare ``Δ``.
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
@@ -30331,6 +30331,8 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     (re.compile(r"^unmatched vs matched align\b"), "align"),
     (re.compile(r"^unmatched vs matched clash\b"), "clash"),
     (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ lead size sides\b"), "sides"),
+    (re.compile(r"^Δ lead size\b"), "size"),
     (re.compile(r"^Δ lead\b"), "lead"),
     (re.compile(r"^Δ "), "Δ"),
 )
@@ -30548,6 +30550,40 @@ def postmortem_unmatched_vs_matched_delta_lead(
     return "unmatched" if pp > 0 else "matched"
 
 
+def postmortem_unmatched_vs_matched_delta_lead_size(
+    unmatched_share_pct: float | int | None,
+    matched_share_pct: float | int | None,
+    *,
+    delta_lead: str = "",
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after Δ lead (display only).
+
+    When ``delta_lead`` already spoke (``unmatched|matched``) and both shares
+    are known, ``Δ lead size · N×`` is louder%÷quieter%; zero quieter
+    (all-unmatched / all-matched) stays silent. Lead name ≠ magnitude
+    (opportunity damaged vs ok / Screener junk vs ok Δ lead size + portfolio
+    AI count≠share). Returns ``(size, louder_pct, quieter_pct)`` or
+    ``(None, None, None)``. Not a new entry gate.
+    """
+    if str(delta_lead or "").strip().casefold() not in {
+        "unmatched",
+        "matched",
+    }:
+        return None, None, None
+    if unmatched_share_pct is None or matched_share_pct is None:
+        return None, None, None
+    try:
+        um = float(unmatched_share_pct)
+        mt = float(matched_share_pct)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(um, mt)
+    quieter = min(um, mt)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -30608,10 +30644,12 @@ def build_postmortem_glance(
     severity agreement (opportunity damaged vs ok lean + Screener junk vs ok).
     When severity lean already spoke, also speak ``Δ wide|thin · ±Npp`` +
     ``lean vs Δ align|clash`` so lean alone does not hide unmatched%−matched%
-    spread (Screener junk vs ok / opportunity damaged vs ok share Δ). When lean
+    spread (Screener junk vs ok / opportunity damaged vs ok share Δ).     When lean
     vs Δ already spoke with a non-zero Δ, also speak ``Δ lead · unmatched|matched``
     so signed ±pp alone does not hide which slot owns the spread (opportunity /
-    Screener Δ lead parity).
+    Screener Δ lead parity). When Δ lead already spoke and quieter% > 0, also
+    speak ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
+    so lead name ≠ magnitude (opportunity / Screener Δ lead size parity).
     """
     from stock_checker.trade_postmortem import is_unmatched_postmortem
 
@@ -30644,6 +30682,9 @@ def build_postmortem_glance(
         "vs_matched_lean_vs_delta": "",
         "vs_matched_lean_vs_delta_warn": False,
         "vs_matched_delta_lead": "",
+        "vs_matched_delta_lead_size": None,
+        "vs_matched_delta_lead_size_louder_pct": None,
+        "vs_matched_delta_lead_size_quieter_pct": None,
         "symbol": "",
         "exit_reason": "",
         "profit_loss_pct": None,
@@ -30682,6 +30723,9 @@ def build_postmortem_glance(
     vs_matched_lean_vs_delta = ""
     vs_matched_lean_vs_delta_warn = False
     vs_matched_delta_lead = ""
+    vs_matched_delta_lead_size: float | None = None
+    vs_matched_delta_lead_size_louder_pct: float | None = None
+    vs_matched_delta_lead_size_quieter_pct: float | None = None
     if unmatched_count > 0 and n_rounds > 0:
         unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
         if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
@@ -30785,6 +30829,28 @@ def build_postmortem_glance(
             )
             if vs_matched_delta_lead:
                 lean_parts.append(f"Δ lead · {vs_matched_delta_lead}")
+            (
+                vs_matched_delta_lead_size,
+                vs_matched_delta_lead_size_louder_pct,
+                vs_matched_delta_lead_size_quieter_pct,
+            ) = postmortem_unmatched_vs_matched_delta_lead_size(
+                unmatched_share_pct,
+                matched_share_pct,
+                delta_lead=vs_matched_delta_lead,
+            )
+            if vs_matched_delta_lead_size is not None:
+                lean_parts.append(
+                    f"Δ lead size · {vs_matched_delta_lead_size:g}×"
+                )
+            if (
+                vs_matched_delta_lead_size_louder_pct is not None
+                and vs_matched_delta_lead_size_quieter_pct is not None
+            ):
+                lean_parts.append(
+                    "Δ lead size sides · louder "
+                    f"{vs_matched_delta_lead_size_louder_pct:g}% · quieter "
+                    f"{vs_matched_delta_lead_size_quieter_pct:g}%"
+                )
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -30864,6 +30930,13 @@ def build_postmortem_glance(
         "vs_matched_lean_vs_delta": vs_matched_lean_vs_delta,
         "vs_matched_lean_vs_delta_warn": vs_matched_lean_vs_delta_warn,
         "vs_matched_delta_lead": vs_matched_delta_lead,
+        "vs_matched_delta_lead_size": vs_matched_delta_lead_size,
+        "vs_matched_delta_lead_size_louder_pct": (
+            vs_matched_delta_lead_size_louder_pct
+        ),
+        "vs_matched_delta_lead_size_quieter_pct": (
+            vs_matched_delta_lead_size_quieter_pct
+        ),
         "symbol": sym,
         "exit_reason": exit_reason,
         "profit_loss_pct": pnl_pct_f,
@@ -34418,12 +34491,17 @@ def load_desk_snapshot(
         {
             "title": "Screener junk vs ok lean",
             "from": "xang1234/stock-screener + portfolio AI (unique/dup lean parity)",
-            "note": "When junk+ok sides already spoke, weight_lean speaks junk vs ok align · hot|thin / quiet|strong, or clash when exactly one lean spoke (50/50); share Δ + lean vs Δ + Δ lead · junk|ok shipped (lead size still deferred).",
+            "note": "When junk+ok sides already spoke, weight_lean speaks junk vs ok align · hot|thin / quiet|strong, or clash when exactly one lean spoke (50/50); share Δ + lean vs Δ + Δ lead · junk|ok + Δ lead size shipped.",
         },
         {
             "title": "Screener junk vs ok Δ lead",
             "from": "xang1234/stock-screener + portfolio AI (unique/dup Δ lead + soft-allow short Δ lead)",
-            "note": "When junk vs ok lean/Δ already spoke and ±pp ≠ 0, weight_lean speaks Δ lead · junk|ok — signed spread ≠ which side owns damage vs usable Total; 0pp silent; lead size nest still deferred.",
+            "note": "When junk vs ok lean/Δ already spoke and ±pp ≠ 0, weight_lean speaks Δ lead · junk|ok — signed spread ≠ which side owns damage vs usable Total; 0pp silent; Δ lead size nest shipped below.",
+        },
+        {
+            "title": "Screener junk vs ok Δ lead size",
+            "from": "xang1234/stock-screener + portfolio AI (unique/dup Δ lead size)",
+            "note": "When junk vs ok Δ lead already spoke and quieter share > 0, weight_lean speaks Δ lead size · N× then Δ lead size sides · louder N% · quieter M% — lead name ≠ how many times louder owns quieter; all-junk quieter=0 silent.",
         },
         {
             "title": "Screener junk list pointer",
