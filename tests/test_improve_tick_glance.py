@@ -361,13 +361,20 @@ def test_improve_tick_lean_meta() -> None:
         improve_tick_lean_meta("stuck band · aging", stuck=True)
         == "hung · no result · sole · stuck band"
     )
-    # Gap sides present → still no result, but not sole.
+    # Sole gap sides (no stuck band) also names sole.
+    assert (
+        improve_tick_lean_meta(
+            "gap sides · improve aging · scan fresh", stuck=True
+        )
+        == "hung · no result · sole · gap sides"
+    )
+    # Gap sides + stuck band → few (Few dates vs Small sample; #747 / 9a12dc1).
     assert (
         improve_tick_lean_meta(
             "stuck band · aging · gap sides · improve aging · scan fresh",
             stuck=True,
         )
-        == "hung · no result · stuck band · gap sides"
+        == "hung · no result · few · stuck band · gap sides"
     )
     # Skip no-result with nothing listed (#747 nothing closed).
     assert improve_tick_lean_meta("", stuck=True) == "hung"

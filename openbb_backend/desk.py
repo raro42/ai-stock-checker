@@ -30435,8 +30435,10 @@ _IMPROVE_TICK_LEAN_NAME_CAP = 4
 # Explain-only hung stages are age/side labels — not meter verdicts.
 # When hung lean lists only these, meta speaks ``no result`` (xang1234 #746
 # "Nothing here is a result" / "No closed windows" when sample+pending are 0).
-# Sole stuck band names thin reason ``sole`` (xang1234 #747 Small sample);
-# skip ``no result`` when nothing is listed (#747 nothing closed).
+# Sole explain stage names thin reason ``sole`` (xang1234 #747 Small sample);
+# multiple explain-only stages name ``few`` (#747 / 9a12dc1 Few dates vs
+# Small sample — sides present ≠ a meter verdict); skip ``no result`` when
+# nothing is listed (#747 nothing closed).
 _IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
 
@@ -30458,11 +30460,12 @@ def improve_tick_lean_meta(
     When hung lean lists only explain-only stages (stuck band / gap sides)
     and no warn meters spoke, meta also speaks ``no result`` so an open
     age-band fold is not mistaken for a meter verdict (scoreboard
-    "Nothing here is a result"). Sole stuck band (no gap sides) also names
-    thin reason ``sole`` so one age label is not mistaken for a full explain
-    sample (xang1234 #747 / dd6b505 Small sample vs Few dates). Empty hung
-    lean skips ``no result`` (nothing listed ≠ a thin sample). Warn still
-    wins over hung. Not a gate.
+    "Nothing here is a result"). One explain stage names thin reason
+    ``sole`` (Small sample); two+ explain-only stages name ``few`` (Few
+    dates) so gap sides beside stuck band is not mistaken for a full
+    sample (xang1234 #747 / dd6b505 / 9a12dc1). Empty hung lean skips
+    ``no result`` (nothing listed ≠ a thin sample). Warn still wins over
+    hung. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30508,11 +30511,13 @@ def improve_tick_lean_meta(
         elif not stages:
             # Skip no-result with nothing listed (#747 nothing closed).
             sev = "hung"
-        elif stages == ["stuck band"]:
+        elif len(stages) == 1:
             # Sole explain stage — name thin reason (#747 Small sample).
             sev = "hung · no result · sole"
         else:
-            sev = "hung · no result"
+            # Multiple explain-only — Few dates vs Small sample (#747 /
+            # 9a12dc1). Gap sides beside stuck band ≠ a meter verdict.
+            sev = "hung · no result · few"
     else:
         sev = "quiet"
     if not stages:
