@@ -30432,6 +30432,10 @@ def improve_tick_fresher_polarity_vs_scan_meter_bits(
 
 
 _IMPROVE_TICK_LEAN_NAME_CAP = 4
+# Explain-only hung stages are age/side labels — not meter verdicts.
+# When hung lean lists only these, meta speaks ``no result`` (xang1234 #746
+# "Nothing here is a result" / "No closed windows" when sample+pending are 0).
+_IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
 
 def improve_tick_lean_meta(
@@ -30449,17 +30453,14 @@ def improve_tick_lean_meta(
     start open must not read ``quiet`` — that suggests nothing to inspect
     while the accordion is deliberately open (xang1234 #746 / 28be212 say
     no closed windows instead of ``0 pending`` when every pick dropped).
-    Warn still wins over hung. Not a gate.
+    When hung lean lists only explain-only stages (stuck band / gap sides)
+    and no warn meters spoke, meta also speaks ``no result`` so an open
+    age-band fold is not mistaken for a meter verdict (scoreboard
+    "Nothing here is a result"). Warn still wins over hung. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
         return "quiet"
-    if warn:
-        sev = "warn"
-    elif stuck:
-        sev = "hung"
-    else:
-        sev = "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
     if "fresher polarity vs scan-meter" in lean_l or (
@@ -30487,6 +30488,15 @@ def improve_tick_lean_meta(
         stages.append("fresher")
     if "gap sides" in lean_l:
         stages.append("gap sides")
+    if warn:
+        sev = "warn"
+    elif stuck:
+        has_meter = any(
+            s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages
+        )
+        sev = "hung" if has_meter else "hung · no result"
+    else:
+        sev = "quiet"
     if not stages:
         return sev
     named = stages[:_IMPROVE_TICK_LEAN_NAME_CAP]
@@ -30557,14 +30567,16 @@ def build_improve_tick_glance(
     scan-clash both spoke, lean also names ``stuck vs scan align · clash`` so
     absolute stuck beside scan clash does not hide meter agreement. When
     stuck already spoke, lean also names ``stuck band · aging|stale`` so
-    absolute stuck does not hide which age band holds. Hung stuck lean
+    absolute stuck does not hide which age band holds.     Hung stuck lean
     folds start open even when explain-only (xang1234 #745 all-dropped
     unfolded); lean meta speaks ``hung`` (not ``quiet``) on those open
     hung folds so the summary does not claim calm while stuck holds the
-    accordion open (xang1234 #746 no-closed vs ``0 pending``); lean meta
-    appends ``+N`` when stage names are clipped. Missing logs stay silent
-    so hosts without overnight loops do not warn. Not a webhook / not a
-    new entry gate.
+    accordion open (xang1234 #746 no-closed vs ``0 pending``); explain-only
+    hung (stuck band / gap sides alone) also speaks ``no result`` so an
+    open age-band fold is not mistaken for a meter verdict (scoreboard
+    "Nothing here is a result"); lean meta appends ``+N`` when stage names
+    are clipped. Missing logs stay silent so hosts without overnight loops
+    do not warn. Not a webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,

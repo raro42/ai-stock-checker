@@ -356,10 +356,19 @@ def test_improve_tick_lean_meta() -> None:
         == "quiet · stuck band"
     )
     # Hung open fold must not read quiet (xang1234 #746 no-closed honesty).
+    # Explain-only stuck band also speaks no result (scoreboard empty sample).
     assert (
         improve_tick_lean_meta("stuck band · aging", stuck=True)
-        == "hung · stuck band"
+        == "hung · no result · stuck band"
     )
+    assert (
+        improve_tick_lean_meta(
+            "stuck band · aging · gap sides · improve aging · scan fresh",
+            stuck=True,
+        )
+        == "hung · no result · stuck band · gap sides"
+    )
+    # Meter stages keep bare hung (stuck vs scan is a verdict, not empty).
     assert (
         improve_tick_lean_meta(
             "stuck vs scan align · clash · stuck band · aging",
@@ -367,7 +376,7 @@ def test_improve_tick_lean_meta() -> None:
         )
         == "hung · stuck vs scan · stuck band"
     )
-    # Warn still wins over hung.
+    # Warn still wins over hung / no result.
     assert (
         improve_tick_lean_meta(
             "fresher vs stuck clash · fresher improve · stuck",
@@ -527,9 +536,11 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "quiet" not in g["lean_meta"]
     assert "stuck band" not in g["line"]
     # Explain-only hung lean stays open (xang1234 #745 all-dropped);
-    # meta says hung not quiet (#746 no-closed honesty).
+    # meta says hung · no result not quiet (#746 empty-sample honesty).
     assert g["lean_warn"] is False
     assert g["lean_open"] is True
+    assert g["lean_meta"].startswith("hung · no result")
+    assert "quiet" not in g["lean_meta"]
 
 
 def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
