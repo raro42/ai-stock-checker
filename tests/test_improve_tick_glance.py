@@ -12,6 +12,7 @@ from openbb_backend.desk import (
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
     improve_tick_source_speak,
+    improve_tick_status_age_vs_scan_bits,
     improve_tick_status_vs_age_bits,
     load_desk_snapshot,
 )
@@ -78,6 +79,25 @@ def test_improve_tick_status_vs_age_bits() -> None:
     assert improve_tick_status_vs_age_bits(
         failed=True, rc=1, freshness="stale"
     ) == ("status/age align · fail · stale", False)
+
+
+def test_improve_tick_status_age_vs_scan_bits() -> None:
+    assert improve_tick_status_age_vs_scan_bits("", "clash · scan stale") == (
+        "",
+        False,
+    )
+    assert improve_tick_status_age_vs_scan_bits(
+        "status/age clash · ok · stale", ""
+    ) == ("", False)
+    assert improve_tick_status_age_vs_scan_bits(
+        "status/age clash · ok · stale", "clash · scan fresh"
+    ) == ("status/age vs scan align · clash", False)
+    assert improve_tick_status_age_vs_scan_bits(
+        "status/age clash · fail · fresh", "clash · scan stale"
+    ) == ("status/age vs scan align · clash", False)
+    assert improve_tick_status_age_vs_scan_bits(
+        "status/age align · fail · stale", "clash · scan fresh"
+    ) == ("clash · status/age align · scan fresh", True)
 
 
 def test_improve_tick_glance_start_only_speaks_and_ages(tmp_path: Path) -> None:
@@ -223,6 +243,60 @@ def test_improve_tick_glance_vs_scan_clash(tmp_path: Path) -> None:
     assert g["scan_clash"] == "clash · scan stale"
     assert "clash · scan stale" in g["line"]
     assert g["tone"] == "warn"
+    # Happy ok+fresh has no status/age bit → lean stays silent.
+    assert g["status_age_bit"] == ""
+    assert g["lean"] == ""
+
+
+def test_improve_tick_glance_status_age_vs_scan_align_clash(
+    tmp_path: Path,
+) -> None:
+    """ok·stale + scan clash → lean confirms both meters disagree."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T12:00Z cursor improve end rc=0\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T20:00Z"),
+        scan_time="2026-11-09T19:50:00+00:00",
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["freshness"] == "stale"
+    assert g["status_age_bit"] == "status/age clash · ok · stale"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_clash"] == "clash · scan fresh"
+    assert g["lean"] == "status/age vs scan align · clash"
+    assert g["lean_warn"] is False
+    assert g["lean_meta"] == "quiet"
+    # Lean stays off the primary clip.
+    assert "status/age vs scan" not in g["line"]
+
+
+def test_improve_tick_glance_status_age_align_vs_scan_clash(
+    tmp_path: Path,
+) -> None:
+    """fail·stale align + scan clash → lean warns moods disagree."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T12:00Z cursor improve end rc=1\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T20:00Z"),
+        scan_time="2026-11-09T19:50:00+00:00",
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["freshness"] == "stale"
+    assert g["status_age_bit"] == "status/age align · fail · stale"
+    assert g["scan_clash"] == "clash · scan fresh"
+    assert g["lean"] == "clash · status/age align · scan fresh"
+    assert g["lean_warn"] is True
+    assert g["lean_meta"] == "warn"
+    assert "status/age vs scan" not in g["line"]
+    assert "clash · status/age align" not in g["line"]
 
 
 def test_improve_tick_glance_vs_scan_same_band_silent(tmp_path: Path) -> None:
@@ -242,6 +316,7 @@ def test_improve_tick_glance_vs_scan_same_band_silent(tmp_path: Path) -> None:
     assert g["scan_clash"] == ""
     assert "clash" not in g["line"]
     assert g["tone"] == "ok"
+    assert g["lean"] == ""
 
 
 def test_improve_tick_glance_in_snapshot(tmp_path: Path) -> None:

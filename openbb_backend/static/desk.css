@@ -1170,7 +1170,8 @@ a:active {
 .listed-fund-overlap-glance .listed-fund-overlap-lean,
 .concentration-glance .concentration-funds-lean,
 .ledger-health-glance .ledger-short-lean,
-.postmortem-glance .postmortem-unmatched-lean {
+.postmortem-glance .postmortem-unmatched-lean,
+.improve-tick-glance .improve-tick-lean {
   margin: 0.25rem 0 0.15rem;
   padding: 0;
   border: 0;
@@ -1179,7 +1180,8 @@ a:active {
 .listed-fund-overlap-glance .listed-fund-overlap-lean > summary,
 .concentration-glance .concentration-funds-lean > summary,
 .ledger-health-glance .ledger-short-lean > summary,
-.postmortem-glance .postmortem-unmatched-lean > summary {
+.postmortem-glance .postmortem-unmatched-lean > summary,
+.improve-tick-glance .improve-tick-lean > summary {
   cursor: pointer;
   color: var(--link);
   font-family: var(--font-body, system-ui, sans-serif);
@@ -1190,14 +1192,16 @@ a:active {
 .listed-fund-overlap-glance .listed-fund-overlap-lean > summary::-webkit-details-marker,
 .concentration-glance .concentration-funds-lean > summary::-webkit-details-marker,
 .ledger-health-glance .ledger-short-lean > summary::-webkit-details-marker,
-.postmortem-glance .postmortem-unmatched-lean > summary::-webkit-details-marker {
+.postmortem-glance .postmortem-unmatched-lean > summary::-webkit-details-marker,
+.improve-tick-glance .improve-tick-lean > summary::-webkit-details-marker {
   display: none;
 }
 
 .listed-fund-overlap-glance .listed-fund-overlap-lean > summary .meta,
 .concentration-glance .concentration-funds-lean > summary .meta,
 .ledger-health-glance .ledger-short-lean > summary .meta,
-.postmortem-glance .postmortem-unmatched-lean > summary .meta {
+.postmortem-glance .postmortem-unmatched-lean > summary .meta,
+.improve-tick-glance .improve-tick-lean > summary .meta {
   margin-left: 0.25rem;
   color: var(--muted);
   font-size: 0.72rem;
@@ -1210,21 +1214,25 @@ a:active {
 .ledger-health-glance .ledger-short-lean.warn > summary,
 .ledger-health-glance .ledger-short-lean.warn > summary .meta,
 .postmortem-glance .postmortem-unmatched-lean.warn > summary,
-.postmortem-glance .postmortem-unmatched-lean.warn > summary .meta {
+.postmortem-glance .postmortem-unmatched-lean.warn > summary .meta,
+.improve-tick-glance .improve-tick-lean.warn > summary,
+.improve-tick-glance .improve-tick-lean.warn > summary .meta {
   color: var(--down);
 }
 
 .listed-fund-overlap-glance .listed-fund-overlap-lean[open] > summary,
 .concentration-glance .concentration-funds-lean[open] > summary,
 .ledger-health-glance .ledger-short-lean[open] > summary,
-.postmortem-glance .postmortem-unmatched-lean[open] > summary {
+.postmortem-glance .postmortem-unmatched-lean[open] > summary,
+.improve-tick-glance .improve-tick-lean[open] > summary {
   margin-bottom: 0.15rem;
 }
 
 .listed-fund-overlap-glance .listed-fund-overlap-lean-body,
 .concentration-glance .concentration-funds-lean-body,
 .ledger-health-glance .ledger-short-lean-body,
-.postmortem-glance .postmortem-unmatched-lean-body {
+.postmortem-glance .postmortem-unmatched-lean-body,
+.improve-tick-glance .improve-tick-lean-body {
   margin: 0;
   font-family: var(--font-data, ui-monospace, monospace);
   font-size: 0.78rem;
@@ -1235,7 +1243,8 @@ a:active {
 .listed-fund-overlap-glance .listed-fund-overlap-lean-body.warn,
 .concentration-glance .concentration-funds-lean-body.warn,
 .ledger-health-glance .ledger-short-lean-body.warn,
-.postmortem-glance .postmortem-unmatched-lean-body.warn {
+.postmortem-glance .postmortem-unmatched-lean-body.warn,
+.improve-tick-glance .improve-tick-lean-body.warn {
   color: var(--down);
 }
 

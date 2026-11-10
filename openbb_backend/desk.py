@@ -30104,6 +30104,39 @@ def improve_tick_status_vs_age_bits(
     return "", False
 
 
+def improve_tick_status_age_vs_scan_bits(
+    status_age_bit: str,
+    scan_clash: str,
+) -> tuple[str, bool]:
+    """Status/age mood vs scan-clash mood (display only).
+
+    Absolute ``status/age clash|align`` beside ``clash · scan …`` hid whether
+    the two meters *agree* — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 severity after status/age beside scan bands.
+    Both clash → ``status/age vs scan align · clash`` (confirm). status/age
+    align + scan clash → ``clash · status/age align · scan X`` (warn). Sole
+    side silent. Lives under improve lean fold so the 96-char primary clip
+    stays short. Not a gate.
+    """
+    sa = str(status_age_bit or "").strip()
+    sc = str(scan_clash or "").strip()
+    if not sa or not sc:
+        return "", False
+    sa_l = sa.casefold()
+    sc_l = sc.casefold()
+    scan_band = ""
+    marker = "scan "
+    idx = sc_l.find(marker)
+    if idx >= 0:
+        scan_band = sc[idx + len(marker) :].strip()
+    if "clash" in sa_l:
+        return "status/age vs scan align · clash", False
+    if "align" in sa_l:
+        band = scan_band or "clash"
+        return f"clash · status/age align · scan {band}", True
+    return "", False
+
+
 def build_improve_tick_glance(
     data_dir: Path | str | None,
     *,
@@ -30122,7 +30155,10 @@ def build_improve_tick_glance(
     speak ``status/age clash|align`` so a success label does not hide a stale
     clock (FinRobot edge/conf). When the scan-archive band disagrees with
     improve age, speak ``clash · scan fresh|aging|stale`` (LAYA/soft-allow vs
-    scan; a fresh scan does not make a stale improve tick live). Missing logs
+    scan; a fresh scan does not make a stale improve tick live). When both
+    status/age and scan-clash spoke, lean fold names mood agreement
+    (``status/age vs scan align · clash`` / ``clash · status/age align ·
+    scan …``) so absolute bits do not hide meter agreement. Missing logs
     stay silent so hosts without overnight loops do not warn. Not a webhook /
     not a new entry gate.
     """
@@ -30142,6 +30178,9 @@ def build_improve_tick_glance(
         "status_age_escalate": False,
         "scan_freshness": "",
         "scan_clash": "",
+        "lean": "",
+        "lean_warn": False,
+        "lean_meta": "quiet",
     }
     if data_dir is None:
         return empty
@@ -30260,6 +30299,12 @@ def build_improve_tick_glance(
     # Age before clash so the 96-char clip keeps improve age (LAYA parity).
     if scan_clash:
         bits.append(scan_clash)
+    lean, lean_warn = improve_tick_status_age_vs_scan_bits(
+        status_age_bit, scan_clash
+    )
+    lean_meta = "warn" if lean_warn else "quiet"
+    if lean_warn and tone == "ok":
+        tone = "aging"
     line = " · ".join(bits)
     if len(line) > 96:
         line = line[:95] + "…"
@@ -30279,6 +30324,9 @@ def build_improve_tick_glance(
         "status_age_escalate": status_age_escalate,
         "scan_freshness": scan_freshness,
         "scan_clash": scan_clash,
+        "lean": lean,
+        "lean_warn": lean_warn,
+        "lean_meta": lean_meta,
     }
 
 
