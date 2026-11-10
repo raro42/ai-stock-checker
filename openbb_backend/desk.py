@@ -30435,6 +30435,8 @@ _IMPROVE_TICK_LEAN_NAME_CAP = 4
 # Explain-only hung stages are age/side labels — not meter verdicts.
 # When hung lean lists only these, meta speaks ``no result`` (xang1234 #746
 # "Nothing here is a result" / "No closed windows" when sample+pending are 0).
+# Sole stuck band names thin reason ``sole`` (xang1234 #747 Small sample);
+# skip ``no result`` when nothing is listed (#747 nothing closed).
 _IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
 
@@ -30456,10 +30458,17 @@ def improve_tick_lean_meta(
     When hung lean lists only explain-only stages (stuck band / gap sides)
     and no warn meters spoke, meta also speaks ``no result`` so an open
     age-band fold is not mistaken for a meter verdict (scoreboard
-    "Nothing here is a result"). Warn still wins over hung. Not a gate.
+    "Nothing here is a result"). Sole stuck band (no gap sides) also names
+    thin reason ``sole`` so one age label is not mistaken for a full explain
+    sample (xang1234 #747 / dd6b505 Small sample vs Few dates). Empty hung
+    lean skips ``no result`` (nothing listed ≠ a thin sample). Warn still
+    wins over hung. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
+        # Skip no-result with nothing listed (xang1234 #747 nothing closed).
+        if stuck and not warn:
+            return "hung"
         return "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
@@ -30494,7 +30503,16 @@ def improve_tick_lean_meta(
         has_meter = any(
             s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages
         )
-        sev = "hung" if has_meter else "hung · no result"
+        if has_meter:
+            sev = "hung"
+        elif not stages:
+            # Skip no-result with nothing listed (#747 nothing closed).
+            sev = "hung"
+        elif stages == ["stuck band"]:
+            # Sole explain stage — name thin reason (#747 Small sample).
+            sev = "hung · no result · sole"
+        else:
+            sev = "hung · no result"
     else:
         sev = "quiet"
     if not stages:
@@ -30574,9 +30592,11 @@ def build_improve_tick_glance(
     accordion open (xang1234 #746 no-closed vs ``0 pending``); explain-only
     hung (stuck band / gap sides alone) also speaks ``no result`` so an
     open age-band fold is not mistaken for a meter verdict (scoreboard
-    "Nothing here is a result"); lean meta appends ``+N`` when stage names
-    are clipped. Missing logs stay silent so hosts without overnight loops
-    do not warn. Not a webhook / not a new entry gate.
+    "Nothing here is a result"); sole stuck band also names ``sole`` so one
+    age label is not mistaken for a full explain sample (xang1234 #747
+    Small sample); lean meta appends ``+N`` when stage names are clipped.
+    Missing logs stay silent so hosts without overnight loops do not warn.
+    Not a webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,

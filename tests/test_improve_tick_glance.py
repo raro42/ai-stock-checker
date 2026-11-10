@@ -356,11 +356,12 @@ def test_improve_tick_lean_meta() -> None:
         == "quiet · stuck band"
     )
     # Hung open fold must not read quiet (xang1234 #746 no-closed honesty).
-    # Explain-only stuck band also speaks no result (scoreboard empty sample).
+    # Sole stuck band names thin reason sole (#747 Small sample).
     assert (
         improve_tick_lean_meta("stuck band · aging", stuck=True)
-        == "hung · no result · stuck band"
+        == "hung · no result · sole · stuck band"
     )
+    # Gap sides present → still no result, but not sole.
     assert (
         improve_tick_lean_meta(
             "stuck band · aging · gap sides · improve aging · scan fresh",
@@ -368,6 +369,8 @@ def test_improve_tick_lean_meta() -> None:
         )
         == "hung · no result · stuck band · gap sides"
     )
+    # Skip no-result with nothing listed (#747 nothing closed).
+    assert improve_tick_lean_meta("", stuck=True) == "hung"
     # Meter stages keep bare hung (stuck vs scan is a verdict, not empty).
     assert (
         improve_tick_lean_meta(
@@ -536,10 +539,10 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "quiet" not in g["lean_meta"]
     assert "stuck band" not in g["line"]
     # Explain-only hung lean stays open (xang1234 #745 all-dropped);
-    # meta says hung · no result not quiet (#746 empty-sample honesty).
+    # sole stuck band → hung · no result · sole (#746/#747 sample honesty).
     assert g["lean_warn"] is False
     assert g["lean_open"] is True
-    assert g["lean_meta"].startswith("hung · no result")
+    assert g["lean_meta"].startswith("hung · no result · sole")
     assert "quiet" not in g["lean_meta"]
 
 
