@@ -30200,12 +30200,36 @@ def improve_tick_vs_scan_fresher_bits(
     return f"fresher scan · gap {gap_label}", True
 
 
+def improve_tick_vs_scan_fresher_gap_sides_bits(
+    improve_freshness: str,
+    scan_freshness: str,
+    fresher_bit: str,
+) -> tuple[str, bool]:
+    """Absolute band sides when fresher/gap already spoke (display only).
+
+    ``fresher improve · gap wide`` hid whether improve is fresh vs aging while
+    scan is stale — xang1234 lead size sides + portfolio AI count≠share after
+    gap label alone. ``gap sides · improve fresh · scan stale`` when fresher
+    already spoke. Missing fresher / unknown bands silent. Sides explain only
+    (no extra warn; fresher scan already escalates). Lives under improve lean
+    fold. Not a gate.
+    """
+    if not str(fresher_bit or "").strip():
+        return "", False
+    own = str(improve_freshness or "").strip().lower()
+    scan = str(scan_freshness or "").strip().lower()
+    if own not in _CLOCK_FRESH_RANK or scan not in _CLOCK_FRESH_RANK:
+        return "", False
+    return f"gap sides · improve {own} · scan {scan}", False
+
+
 def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for improve lean fold (display only).
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
-    source vs scan, and fresher/gap all live under the same fold. Not a gate.
+    source vs scan, fresher/gap, and gap sides all live under the same fold.
+    Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30217,11 +30241,13 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
         stages.append("status/age vs scan")
     if "source" in lean_l:
         stages.append("source vs scan")
-    if "fresher" in lean_l or "gap" in lean_l:
+    if "fresher" in lean_l:
         stages.append("fresher")
+    if "gap sides" in lean_l:
+        stages.append("gap sides")
     if not stages:
         return sev
-    return f"{sev} · {' · '.join(stages[:3])}"
+    return f"{sev} · {' · '.join(stages[:4])}"
 
 
 def build_improve_tick_glance(
@@ -30248,9 +30274,10 @@ def build_improve_tick_glance(
     scan …``); when degraded source and scan-clash spoke, lean names
     ``source vs scan align · clash`` / ``clash · source … · scan …``; when
     scan-clash spoke, lean also names ``fresher improve|scan · gap wide|thin``
-    so absolute clash does not hide which clock is ahead. Missing logs stay
-    silent so hosts without overnight loops do not warn. Not a webhook / not
-    a new entry gate.
+    so absolute clash does not hide which clock is ahead; when fresher spoke,
+    lean also names ``gap sides · improve X · scan Y`` so wide|thin does not
+    hide the absolute bands. Missing logs stay silent so hosts without
+    overnight loops do not warn. Not a webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30409,6 +30436,12 @@ def build_improve_tick_glance(
     if fr_lean:
         lean_parts.append(fr_lean)
         lean_warn = lean_warn or fr_warn
+    sides_lean, sides_warn = improve_tick_vs_scan_fresher_gap_sides_bits(
+        freshness, scan_freshness, fr_lean
+    )
+    if sides_lean:
+        lean_parts.append(sides_lean)
+        lean_warn = lean_warn or sides_warn
     lean = " · ".join(lean_parts)
     lean_meta = improve_tick_lean_meta(lean, warn=lean_warn)
     if lean_warn and tone == "ok":
