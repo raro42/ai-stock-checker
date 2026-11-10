@@ -30075,6 +30075,35 @@ def improve_tick_source_speak(source: str) -> tuple[str, bool]:
     return label, False
 
 
+def improve_tick_status_vs_age_bits(
+    *,
+    failed: bool,
+    rc: int | None,
+    freshness: str,
+) -> tuple[str, bool]:
+    """Typed rc status vs age extremes (display only).
+
+    ``ok`` beside ``stale`` (or ``fail`` beside ``fresh``) hid disagreement —
+    FinRobot edge/conf + portfolio AI speak-both-sides after absolute status
+    + age bands. Aging mid silent. Matching ``fail``+``stale`` speaks align
+    (confirm, no escalate). Happy ``ok``+``fresh`` stays silent so every
+    healthy tick is not cluttered. Returns ``(bit, escalate)``. Not a gate.
+    """
+    if rc is None:
+        return "", False
+    status = "fail" if failed else "ok"
+    band = str(freshness or "").strip().lower()
+    if band not in {"fresh", "stale"}:
+        return "", False
+    if status == "ok" and band == "stale":
+        return "status/age clash · ok · stale", True
+    if status == "fail" and band == "fresh":
+        return "status/age clash · fail · fresh", True
+    if status == "fail" and band == "stale":
+        return "status/age align · fail · stale", False
+    return "", False
+
+
 def build_improve_tick_glance(
     data_dir: Path | str | None,
     *,
@@ -30089,11 +30118,13 @@ def build_improve_tick_glance(
     (``Nh ago · fresh|aging|stale``), and failed ``rc`` when the last end line
     is non-zero. Degraded clocks speak ``start only`` / ``loop tick`` /
     ``log mtime`` so a mtime guess is not mistaken for a finished tick
-    (xang1234 release-reason honesty). When the scan-archive band disagrees
-    with improve age, speak ``clash · scan fresh|aging|stale`` (LAYA/soft-allow
-    vs scan; a fresh scan does not make a stale improve tick live). Missing
-    logs stay silent so hosts without overnight loops do not warn. Not a
-    webhook / not a new entry gate.
+    (xang1234 release-reason honesty). Typed ``ok``/``fail`` vs age extremes
+    speak ``status/age clash|align`` so a success label does not hide a stale
+    clock (FinRobot edge/conf). When the scan-archive band disagrees with
+    improve age, speak ``clash · scan fresh|aging|stale`` (LAYA/soft-allow vs
+    scan; a fresh scan does not make a stale improve tick live). Missing logs
+    stay silent so hosts without overnight loops do not warn. Not a webhook /
+    not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30107,6 +30138,8 @@ def build_improve_tick_glance(
         "source_bit": "",
         "source_escalate": False,
         "failed": False,
+        "status_age_bit": "",
+        "status_age_escalate": False,
         "scan_freshness": "",
         "scan_clash": "",
     }
@@ -30189,6 +30222,11 @@ def build_improve_tick_glance(
     # scan clash still win below.
     if source_escalate and tone == "ok":
         tone = "aging"
+    status_age_bit, status_age_escalate = improve_tick_status_vs_age_bits(
+        failed=failed, rc=rc, freshness=freshness
+    )
+    if status_age_escalate and tone == "ok":
+        tone = "aging"
     age_label = _format_age_short(age)
     scan_freshness = ""
     if scan_time:
@@ -30213,6 +30251,9 @@ def build_improve_tick_glance(
         bits.append(f"rc={rc}")
     elif rc == 0:
         bits.append("ok")
+    # Status/age after status · before source so the clip keeps polarity.
+    if status_age_bit:
+        bits.append(status_age_bit)
     # Source after status · before clash so the 96-char clip keeps age + reason.
     if source_bit:
         bits.append(source_bit)
@@ -30234,6 +30275,8 @@ def build_improve_tick_glance(
         "source_bit": source_bit,
         "source_escalate": source_escalate,
         "failed": failed,
+        "status_age_bit": status_age_bit,
+        "status_age_escalate": status_age_escalate,
         "scan_freshness": scan_freshness,
         "scan_clash": scan_clash,
     }

@@ -12,6 +12,7 @@ from openbb_backend.desk import (
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
     improve_tick_source_speak,
+    improve_tick_status_vs_age_bits,
     load_desk_snapshot,
 )
 
@@ -56,6 +57,27 @@ def test_improve_tick_source_speak() -> None:
     assert improve_tick_source_speak("loop tick") == ("loop tick", False)
     assert improve_tick_source_speak("cursor log") == ("log mtime", True)
     assert improve_tick_source_speak("loop log") == ("log mtime", True)
+
+
+def test_improve_tick_status_vs_age_bits() -> None:
+    assert improve_tick_status_vs_age_bits(
+        failed=False, rc=None, freshness="stale"
+    ) == ("", False)
+    assert improve_tick_status_vs_age_bits(
+        failed=False, rc=0, freshness="fresh"
+    ) == ("", False)
+    assert improve_tick_status_vs_age_bits(
+        failed=False, rc=0, freshness="aging"
+    ) == ("", False)
+    assert improve_tick_status_vs_age_bits(
+        failed=False, rc=0, freshness="stale"
+    ) == ("status/age clash · ok · stale", True)
+    assert improve_tick_status_vs_age_bits(
+        failed=True, rc=1, freshness="fresh"
+    ) == ("status/age clash · fail · fresh", True)
+    assert improve_tick_status_vs_age_bits(
+        failed=True, rc=1, freshness="stale"
+    ) == ("status/age align · fail · stale", False)
 
 
 def test_improve_tick_glance_start_only_speaks_and_ages(tmp_path: Path) -> None:
@@ -104,7 +126,45 @@ def test_improve_tick_glance_aging(tmp_path: Path) -> None:
     assert g["ready"] is True
     assert g["freshness"] == "aging"
     assert g["tone"] == "aging"
+    assert g["status_age_bit"] == ""
     assert IMPROVE_TICK_FRESH_SEC < g["age_sec"] < IMPROVE_TICK_AGING_SEC
+
+
+def test_improve_tick_glance_ok_stale_status_age_clash(tmp_path: Path) -> None:
+    """Success label beside stale age must speak clash (edge/conf parity)."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T12:00Z cursor improve end rc=0\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T20:00Z")
+    )
+    assert g["ready"] is True
+    assert g["freshness"] == "stale"
+    assert g["failed"] is False
+    assert g["rc"] == 0
+    assert g["status_age_bit"] == "status/age clash · ok · stale"
+    assert g["status_age_escalate"] is True
+    assert "status/age clash · ok · stale" in g["line"]
+    assert g["tone"] == "warn"
+    assert g["age_sec"] >= IMPROVE_TICK_AGING_SEC
+
+
+def test_improve_tick_glance_fail_fresh_status_age_clash(tmp_path: Path) -> None:
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T20:46Z cursor improve end rc=1\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T21:00Z")
+    )
+    assert g["ready"] is True
+    assert g["freshness"] == "fresh"
+    assert g["failed"] is True
+    assert g["status_age_bit"] == "status/age clash · fail · fresh"
+    assert g["status_age_escalate"] is True
+    assert "status/age clash · fail · fresh" in g["line"]
+    assert g["tone"] == "warn"
 
 
 def test_improve_tick_glance_stale_and_failed_rc(tmp_path: Path) -> None:
@@ -121,6 +181,9 @@ def test_improve_tick_glance_stale_and_failed_rc(tmp_path: Path) -> None:
     assert g["failed"] is True
     assert g["rc"] == 1
     assert "rc=1" in g["line"]
+    assert g["status_age_bit"] == "status/age align · fail · stale"
+    assert g["status_age_escalate"] is False
+    assert "status/age align · fail · stale" in g["line"]
     assert g["age_sec"] >= IMPROVE_TICK_AGING_SEC
 
 
