@@ -11,6 +11,7 @@ from openbb_backend.desk import (
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
+    improve_tick_fresher_vs_status_age_bits,
     improve_tick_lean_meta,
     improve_tick_source_speak,
     improve_tick_source_vs_scan_bits,
@@ -160,6 +161,30 @@ def test_improve_tick_vs_scan_fresher_gap_sides_bits() -> None:
     ) == ("gap sides · improve aging · scan fresh", False)
 
 
+def test_improve_tick_fresher_vs_status_age_bits() -> None:
+    assert improve_tick_fresher_vs_status_age_bits(
+        "", "status/age clash · ok · stale"
+    ) == ("", False)
+    assert improve_tick_fresher_vs_status_age_bits(
+        "fresher scan · gap wide", ""
+    ) == ("", False)
+    assert improve_tick_fresher_vs_status_age_bits(
+        "fresher scan · gap wide", "status/age clash · ok · stale"
+    ) == ("fresher vs status/age align", False)
+    assert improve_tick_fresher_vs_status_age_bits(
+        "fresher scan · gap wide", "status/age align · fail · stale"
+    ) == ("fresher vs status/age align", False)
+    assert improve_tick_fresher_vs_status_age_bits(
+        "fresher improve · gap thin", "status/age clash · fail · fresh"
+    ) == ("fresher vs status/age align", False)
+    assert improve_tick_fresher_vs_status_age_bits(
+        "fresher improve · gap wide", "status/age clash · ok · stale"
+    ) == ("fresher vs status/age clash · fresher improve · stale", True)
+    assert improve_tick_fresher_vs_status_age_bits(
+        "fresher scan · gap thin", "status/age clash · fail · fresh"
+    ) == ("fresher vs status/age clash · fresher scan · fresh", True)
+
+
 def test_improve_tick_lean_meta() -> None:
     assert improve_tick_lean_meta("") == "quiet"
     assert (
@@ -195,10 +220,15 @@ def test_improve_tick_lean_meta() -> None:
     assert (
         improve_tick_lean_meta(
             "status/age vs scan align · clash · fresher scan · gap wide"
-            " · gap sides · improve stale · scan fresh",
+            " · gap sides · improve stale · scan fresh"
+            " · fresher vs status/age align",
             warn=True,
         )
-        == "warn · status/age vs scan · fresher · gap sides"
+        == "warn · fresher vs status/age · status/age vs scan · fresher · gap sides"
+    )
+    assert (
+        improve_tick_lean_meta("fresher vs status/age align")
+        == "quiet · fresher vs status/age"
     )
 
 
@@ -379,9 +409,12 @@ def test_improve_tick_glance_status_age_vs_scan_align_clash(
     assert g["lean"] == (
         "status/age vs scan align · clash · fresher scan · gap wide"
         " · gap sides · improve stale · scan fresh"
+        " · fresher vs status/age align"
     )
     assert g["lean_warn"] is True
-    assert g["lean_meta"] == "warn · status/age vs scan · fresher · gap sides"
+    assert g["lean_meta"] == (
+        "warn · fresher vs status/age · status/age vs scan · fresher · gap sides"
+    )
     # Lean stays off the primary clip.
     assert "status/age vs scan" not in g["line"]
     assert "fresher" not in g["line"]
@@ -409,9 +442,12 @@ def test_improve_tick_glance_status_age_align_vs_scan_clash(
     assert g["lean"] == (
         "clash · status/age align · scan fresh · fresher scan · gap wide"
         " · gap sides · improve stale · scan fresh"
+        " · fresher vs status/age align"
     )
     assert g["lean_warn"] is True
-    assert g["lean_meta"] == "warn · status/age vs scan · fresher · gap sides"
+    assert g["lean_meta"] == (
+        "warn · fresher vs status/age · status/age vs scan · fresher · gap sides"
+    )
     assert "status/age vs scan" not in g["line"]
     assert "clash · status/age align" not in g["line"]
     assert "fresher" not in g["line"]

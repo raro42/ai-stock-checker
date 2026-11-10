@@ -30223,13 +30223,54 @@ def improve_tick_vs_scan_fresher_gap_sides_bits(
     return f"gap sides · improve {own} · scan {scan}", False
 
 
+def improve_tick_fresher_vs_status_age_bits(
+    fresher_bit: str,
+    status_age_bit: str,
+) -> tuple[str, bool]:
+    """Fresher ownership vs status/age polarity (display only).
+
+    Absolute ``fresher scan · gap wide`` beside ``status/age clash · ok ·
+    stale`` hid whether the ahead-clock agrees with the typed status/age
+    extreme — FinRobot edge/conf + portfolio AI speak-both-sides + xang1234
+    multi-meter after gap sides named bands alone. ``fresher scan`` +
+    status/age ``stale`` (or ``fresher improve`` + ``fresh``) →
+    ``fresher vs status/age align``. Opposite pairs →
+    ``fresher vs status/age clash · fresher X · Y`` (warn). Sole side /
+    missing extreme silent. Lives under improve lean fold. Not a gate.
+    """
+    fr = str(fresher_bit or "").strip()
+    sa = str(status_age_bit or "").strip()
+    if not fr or not sa:
+        return "", False
+    fr_l = fr.casefold()
+    sa_l = sa.casefold()
+    if "fresher scan" in fr_l:
+        who = "scan"
+    elif "fresher improve" in fr_l:
+        who = "improve"
+    else:
+        return "", False
+    if "stale" in sa_l:
+        age = "stale"
+    elif "fresh" in sa_l:
+        age = "fresh"
+    else:
+        return "", False
+    agree = (who == "scan" and age == "stale") or (
+        who == "improve" and age == "fresh"
+    )
+    if agree:
+        return "fresher vs status/age align", False
+    return f"fresher vs status/age clash · fresher {who} · {age}", True
+
+
 def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for improve lean fold (display only).
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
-    source vs scan, fresher/gap, and gap sides all live under the same fold.
-    Not a gate.
+    source vs scan, fresher/gap, gap sides, and fresher vs status/age all
+    live under the same fold. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30237,11 +30278,16 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     sev = "warn" if warn else "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
-    if "status/age" in lean_l:
+    if "fresher vs status/age" in lean_l:
+        stages.append("fresher vs status/age")
+    if (
+        "status/age vs scan" in lean_l
+        or "clash · status/age align" in lean_l
+    ):
         stages.append("status/age vs scan")
-    if "source" in lean_l:
+    if "source vs scan" in lean_l or "clash · source" in lean_l:
         stages.append("source vs scan")
-    if "fresher" in lean_l:
+    if "fresher improve · gap" in lean_l or "fresher scan · gap" in lean_l:
         stages.append("fresher")
     if "gap sides" in lean_l:
         stages.append("gap sides")
@@ -30276,8 +30322,10 @@ def build_improve_tick_glance(
     scan-clash spoke, lean also names ``fresher improve|scan · gap wide|thin``
     so absolute clash does not hide which clock is ahead; when fresher spoke,
     lean also names ``gap sides · improve X · scan Y`` so wide|thin does not
-    hide the absolute bands. Missing logs stay silent so hosts without
-    overnight loops do not warn. Not a webhook / not a new entry gate.
+    hide the absolute bands; when fresher and status/age both spoke, lean
+    also names ``fresher vs status/age align|clash`` so ahead-clock ownership
+    does not hide polarity agreement. Missing logs stay silent so hosts
+    without overnight loops do not warn. Not a webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30442,6 +30490,12 @@ def build_improve_tick_glance(
     if sides_lean:
         lean_parts.append(sides_lean)
         lean_warn = lean_warn or sides_warn
+    fsa_lean, fsa_warn = improve_tick_fresher_vs_status_age_bits(
+        fr_lean, status_age_bit
+    )
+    if fsa_lean:
+        lean_parts.append(fsa_lean)
+        lean_warn = lean_warn or fsa_warn
     lean = " · ".join(lean_parts)
     lean_meta = improve_tick_lean_meta(lean, warn=lean_warn)
     if lean_warn and tone == "ok":

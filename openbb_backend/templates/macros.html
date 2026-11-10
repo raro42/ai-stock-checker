@@ -1172,7 +1172,7 @@
   heading_id='improve-tick-glance-h',
   link_href='/desk/ops#logs-h',
   link_label='Ops logs →',
-  sub='Last Cursor improve tick vs hourly cadence — fresh ≤75m · aging ≤3h · else stale. Degraded clocks speak start only / loop tick / log mtime (mtime+start escalate fresh→aging). Clash vs scan archive when bands disagree. Status/age vs scan + source vs scan + fresher/gap lean under fold when meters spoke. Failed rc warns. Not a gate.'
+  sub='Last Cursor improve tick vs hourly cadence — fresh ≤75m · aging ≤3h · else stale. Degraded clocks speak start only / loop tick / log mtime (mtime+start escalate fresh→aging). Clash vs scan archive when bands disagree. Status/age vs scan + source vs scan + fresher/gap + gap sides + fresher vs status/age lean under fold when meters spoke. Failed rc warns. Not a gate.'
 ) -%}
 {% set glance = snap.improve_tick_glance if snap.improve_tick_glance is mapping else {} %}
 {% if glance.ready %}
