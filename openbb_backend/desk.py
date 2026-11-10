@@ -30443,6 +30443,25 @@ _IMPROVE_TICK_LEAN_NAME_CAP = 4
 _IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
 
+def _improve_tick_hung_thin_suffix(stages: list[str]) -> str:
+    """Hung thin/not-thin tail (display only).
+
+    Meter stage → `` · not thin`` (xang1234 b09fb49 / 1cd7968). Sole
+    explain → `` · no result · sole``; few explain-only → `` · no result ·
+    few`` (#747). Empty stages → ``""`` (skip no-result with nothing
+    listed). Shared under bare hung and ``warn · hung`` so warn does not
+    hide the thin/not-thin counterpart.
+    """
+    has_meter = any(s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages)
+    if has_meter:
+        return " · not thin"
+    if not stages:
+        return ""
+    if len(stages) == 1:
+        return " · no result · sole"
+    return " · no result · few"
+
+
 def improve_tick_lean_meta(
     lean: str, *, warn: bool = False, stuck: bool = False
 ) -> str:
@@ -30472,7 +30491,9 @@ def improve_tick_lean_meta(
     but a hung stuck tick keeps ``hung`` under warn
     (``warn · hung · …``) so a warn fold does not hide the stuck clock
     (portfolio AI speak-both-sides + FinRobot + xang1234 after bare warn
-    hid hung ownership). Not a gate.
+    hid hung ownership). Warn+hung also shares the thin/not-thin
+    counterpart (``warn · hung · not thin``) so bare ``warn · hung`` does
+    not hide that a meter stage already spoke. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30510,28 +30531,15 @@ def improve_tick_lean_meta(
         stages.append("fresher")
     if "gap sides" in lean_l:
         stages.append("gap sides")
+    hung_thin = _improve_tick_hung_thin_suffix(stages) if stuck else ""
     if warn and stuck:
-        # Warn leads; keep hung so stuck clock stays on the chip.
-        sev = "warn · hung"
+        # Warn leads; keep hung + thin/not-thin so stuck clock and meter
+        # honesty stay on the chip (b09fb49 under warn · hung).
+        sev = f"warn · hung{hung_thin}"
     elif warn:
         sev = "warn"
     elif stuck:
-        has_meter = any(
-            s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages
-        )
-        if has_meter:
-            # Meter stage spoke — share not-thin (b09fb49 / 1cd7968).
-            sev = "hung · not thin"
-        elif not stages:
-            # Skip no-result with nothing listed (#747 nothing closed).
-            sev = "hung"
-        elif len(stages) == 1:
-            # Sole explain stage — name thin reason (#747 Small sample).
-            sev = "hung · no result · sole"
-        else:
-            # Multiple explain-only — Few dates vs Small sample (#747 /
-            # 9a12dc1). Gap sides beside stuck band ≠ a meter verdict.
-            sev = "hung · no result · few"
+        sev = f"hung{hung_thin}"
     else:
         sev = "quiet"
     if not stages:
