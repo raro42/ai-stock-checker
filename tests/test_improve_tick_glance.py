@@ -11,6 +11,7 @@ from openbb_backend.desk import (
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
+    improve_tick_fresher_vs_source_bits,
     improve_tick_fresher_vs_status_age_bits,
     improve_tick_lean_meta,
     improve_tick_source_speak,
@@ -185,6 +186,40 @@ def test_improve_tick_fresher_vs_status_age_bits() -> None:
     ) == ("fresher vs status/age clash · fresher scan · fresh", True)
 
 
+def test_improve_tick_fresher_vs_source_bits() -> None:
+    assert improve_tick_fresher_vs_source_bits(
+        "", "start only", source_escalate=True
+    ) == ("", False)
+    assert improve_tick_fresher_vs_source_bits(
+        "fresher improve · gap wide", "", source_escalate=True
+    ) == ("", False)
+    assert improve_tick_fresher_vs_source_bits(
+        "fresher improve · gap wide",
+        "loop tick",
+        source_escalate=False,
+    ) == ("", False)
+    assert improve_tick_fresher_vs_source_bits(
+        "fresher scan · gap wide",
+        "start only",
+        source_escalate=True,
+    ) == ("fresher vs source align", False)
+    assert improve_tick_fresher_vs_source_bits(
+        "fresher scan · gap thin",
+        "log mtime",
+        source_escalate=True,
+    ) == ("fresher vs source align", False)
+    assert improve_tick_fresher_vs_source_bits(
+        "fresher improve · gap wide",
+        "start only",
+        source_escalate=True,
+    ) == ("fresher vs source clash · fresher improve · start only", True)
+    assert improve_tick_fresher_vs_source_bits(
+        "fresher improve · gap thin",
+        "log mtime",
+        source_escalate=True,
+    ) == ("fresher vs source clash · fresher improve · log mtime", True)
+
+
 def test_improve_tick_lean_meta() -> None:
     assert improve_tick_lean_meta("") == "quiet"
     assert (
@@ -229,6 +264,26 @@ def test_improve_tick_lean_meta() -> None:
     assert (
         improve_tick_lean_meta("fresher vs status/age align")
         == "quiet · fresher vs status/age"
+    )
+    assert (
+        improve_tick_lean_meta("fresher vs source align")
+        == "quiet · fresher vs source"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "fresher vs source clash · fresher improve · start only",
+            warn=True,
+        )
+        == "warn · fresher vs source"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "source vs scan align · clash · fresher improve · gap wide"
+            " · gap sides · improve fresh · scan stale"
+            " · fresher vs source clash · fresher improve · start only",
+            warn=True,
+        )
+        == "warn · fresher vs source · source vs scan · fresher · gap sides"
     )
 
 
@@ -475,12 +530,16 @@ def test_improve_tick_glance_source_vs_scan_align_clash(
     assert g["lean"] == (
         "source vs scan align · clash · fresher improve · gap wide"
         " · gap sides · improve fresh · scan stale"
+        " · fresher vs source clash · fresher improve · start only"
     )
-    assert g["lean_warn"] is False
-    assert g["lean_meta"] == "quiet · source vs scan · fresher · gap sides"
+    assert g["lean_warn"] is True
+    assert g["lean_meta"] == (
+        "warn · fresher vs source · source vs scan · fresher · gap sides"
+    )
     assert "source vs scan" not in g["line"]
     assert "fresher" not in g["line"]
     assert "gap sides" not in g["line"]
+    assert "fresher vs source" not in g["line"]
     assert "start only" in g["line"]
     assert "clash · scan stale" in g["line"]
 
@@ -507,10 +566,43 @@ def test_improve_tick_glance_loop_tick_vs_scan_clash(tmp_path: Path) -> None:
     )
     assert g["lean_warn"] is True
     assert g["lean_meta"] == "warn · source vs scan · fresher · gap sides"
+    # Calm loop tick stays silent on fresher vs source (escalate-only nest).
+    assert "fresher vs source" not in g["lean"]
     assert "clash · source loop tick" not in g["line"]
     assert "fresher" not in g["line"]
     assert "gap sides" not in g["line"]
     assert "loop tick" in g["line"]
+
+
+def test_improve_tick_glance_fresher_vs_source_align(tmp_path: Path) -> None:
+    """Stale hang + fresher scan → lean confirms both say improve is weak."""
+    log = tmp_path / "run_cursor_improve.log"
+    log.write_text("garbage not a tick line\n", encoding="utf-8")
+    now = _clock("2026-11-09T20:00Z")
+    # Stale mtime relative to now (≥3h).
+    os.utime(log, (now.timestamp() - 8 * 3600, now.timestamp() - 8 * 3600))
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=now,
+        scan_time="2026-11-09T19:50:00+00:00",
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["source_bit"] == "log mtime"
+    assert g["source_escalate"] is True
+    assert g["freshness"] == "stale"
+    assert g["scan_freshness"] == "fresh"
+    assert g["scan_clash"] == "clash · scan fresh"
+    assert "fresher vs source align" in g["lean"]
+    assert "fresher vs source clash" not in g["lean"]
+    assert g["lean"].startswith("source vs scan align · clash")
+    assert "fresher scan · gap wide" in g["lean"]
+    assert "gap sides · improve stale · scan fresh" in g["lean"]
+    # fresher scan still warns (ahead scan ≠ live improve); source align stays calm.
+    assert g["lean_warn"] is True
+    assert g["lean_meta"].startswith("warn · fresher vs source")
+    assert "fresher vs source" not in g["line"]
+    assert "log mtime" in g["line"]
 
 
 def test_improve_tick_glance_vs_scan_same_band_silent(tmp_path: Path) -> None:

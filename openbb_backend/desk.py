@@ -30264,13 +30264,48 @@ def improve_tick_fresher_vs_status_age_bits(
     return f"fresher vs status/age clash · fresher {who} · {age}", True
 
 
+def improve_tick_fresher_vs_source_bits(
+    fresher_bit: str,
+    source_bit: str,
+    *,
+    source_escalate: bool = False,
+) -> tuple[str, bool]:
+    """Fresher ownership vs degraded source polarity (display only).
+
+    Absolute ``fresher improve · gap wide`` beside ``start only`` / ``log
+    mtime`` hid whether the ahead-clock agrees with a hang/mtime guess —
+    FinRobot edge/conf + portfolio AI speak-both-sides + xang1234 multi-meter
+    after fresher vs status/age covered typed rc only. Escalate sources +
+    ``fresher scan`` → ``fresher vs source align`` (scan ahead confirms the
+    improve clock is untrustworthy). Escalate + ``fresher improve`` →
+    ``fresher vs source clash · fresher improve · start only|log mtime``
+    (warn — a fresh-looking hang is not a live tick). Calm ``loop tick`` /
+    finished ``cursor end`` / sole side silent (source vs scan already covers
+    calm wake). Lives under improve lean fold. Not a gate.
+    """
+    fr = str(fresher_bit or "").strip()
+    sb = str(source_bit or "").strip()
+    if not fr or not sb or not source_escalate:
+        return "", False
+    fr_l = fr.casefold()
+    if "fresher scan" in fr_l:
+        who = "scan"
+    elif "fresher improve" in fr_l:
+        who = "improve"
+    else:
+        return "", False
+    if who == "scan":
+        return "fresher vs source align", False
+    return f"fresher vs source clash · fresher improve · {sb}", True
+
+
 def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for improve lean fold (display only).
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
-    source vs scan, fresher/gap, gap sides, and fresher vs status/age all
-    live under the same fold. Not a gate.
+    source vs scan, fresher/gap, gap sides, fresher vs status/age, and
+    fresher vs source all live under the same fold. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30278,6 +30313,8 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     sev = "warn" if warn else "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
+    if "fresher vs source" in lean_l:
+        stages.append("fresher vs source")
     if "fresher vs status/age" in lean_l:
         stages.append("fresher vs status/age")
     if (
@@ -30324,8 +30361,11 @@ def build_improve_tick_glance(
     lean also names ``gap sides · improve X · scan Y`` so wide|thin does not
     hide the absolute bands; when fresher and status/age both spoke, lean
     also names ``fresher vs status/age align|clash`` so ahead-clock ownership
-    does not hide polarity agreement. Missing logs stay silent so hosts
-    without overnight loops do not warn. Not a webhook / not a new entry gate.
+    does not hide polarity agreement; when fresher and escalate source both
+    spoke, lean also names ``fresher vs source align|clash`` so a fresh-looking
+    hang/mtime guess does not claim live ownership. Missing logs stay silent
+    so hosts without overnight loops do not warn. Not a webhook / not a new
+    entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30496,6 +30536,12 @@ def build_improve_tick_glance(
     if fsa_lean:
         lean_parts.append(fsa_lean)
         lean_warn = lean_warn or fsa_warn
+    fsrc_lean, fsrc_warn = improve_tick_fresher_vs_source_bits(
+        fr_lean, source_bit, source_escalate=source_escalate
+    )
+    if fsrc_lean:
+        lean_parts.append(fsrc_lean)
+        lean_warn = lean_warn or fsrc_warn
     lean = " · ".join(lean_parts)
     lean_meta = improve_tick_lean_meta(lean, warn=lean_warn)
     if lean_warn and tone == "ok":
