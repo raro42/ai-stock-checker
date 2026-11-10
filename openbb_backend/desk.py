@@ -30137,6 +30137,62 @@ def improve_tick_status_age_vs_scan_bits(
     return "", False
 
 
+def improve_tick_source_vs_scan_bits(
+    source_bit: str,
+    scan_clash: str,
+    *,
+    source_escalate: bool = False,
+) -> tuple[str, bool]:
+    """Degraded improve-clock source vs scan-clash mood (display only).
+
+    Absolute ``start only`` / ``loop tick`` / ``log mtime`` beside
+    ``clash · scan …`` hid whether the fallback clock and scan archive
+    *agree* — FinRobot edge/conf + portfolio AI speak-both-sides + xang1234
+    severity after source beside scan bands. Finished ``cursor end`` ticks
+    use status/age vs scan instead (typed rc and source_bit are mutually
+    exclusive). Escalate sources + scan clash → ``source vs scan align ·
+    clash`` (confirm). Calm ``loop tick`` + scan clash → ``clash · source
+    loop tick · scan X`` (warn). Sole side silent. Lives under improve lean
+    fold so the 96-char primary clip stays short. Not a gate.
+    """
+    sb = str(source_bit or "").strip()
+    sc = str(scan_clash or "").strip()
+    if not sb or not sc:
+        return "", False
+    sc_l = sc.casefold()
+    scan_band = ""
+    marker = "scan "
+    idx = sc_l.find(marker)
+    if idx >= 0:
+        scan_band = sc[idx + len(marker) :].strip()
+    if source_escalate:
+        return "source vs scan align · clash", False
+    band = scan_band or "clash"
+    return f"clash · source {sb} · scan {band}", True
+
+
+def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
+    """Summary chip for improve lean fold (display only).
+
+    Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
+    inventory + Screener/opportunity lean meta after status/age vs scan and
+    source vs scan both live under the same fold. Not a gate.
+    """
+    lean_s = str(lean or "").strip()
+    if not lean_s:
+        return "quiet"
+    sev = "warn" if warn else "quiet"
+    lean_l = lean_s.casefold()
+    stages: list[str] = []
+    if "status/age" in lean_l:
+        stages.append("status/age vs scan")
+    if "source" in lean_l:
+        stages.append("source vs scan")
+    if not stages:
+        return sev
+    return f"{sev} · {' · '.join(stages[:2])}"
+
+
 def build_improve_tick_glance(
     data_dir: Path | str | None,
     *,
@@ -30158,9 +30214,11 @@ def build_improve_tick_glance(
     scan; a fresh scan does not make a stale improve tick live). When both
     status/age and scan-clash spoke, lean fold names mood agreement
     (``status/age vs scan align · clash`` / ``clash · status/age align ·
-    scan …``) so absolute bits do not hide meter agreement. Missing logs
-    stay silent so hosts without overnight loops do not warn. Not a webhook /
-    not a new entry gate.
+    scan …``); when degraded source and scan-clash spoke, lean names
+    ``source vs scan align · clash`` / ``clash · source … · scan …`` so
+    absolute bits do not hide meter agreement. Missing logs stay silent so
+    hosts without overnight loops do not warn. Not a webhook / not a new
+    entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30299,10 +30357,22 @@ def build_improve_tick_glance(
     # Age before clash so the 96-char clip keeps improve age (LAYA parity).
     if scan_clash:
         bits.append(scan_clash)
-    lean, lean_warn = improve_tick_status_age_vs_scan_bits(
+    lean_parts: list[str] = []
+    lean_warn = False
+    sa_lean, sa_warn = improve_tick_status_age_vs_scan_bits(
         status_age_bit, scan_clash
     )
-    lean_meta = "warn" if lean_warn else "quiet"
+    if sa_lean:
+        lean_parts.append(sa_lean)
+        lean_warn = lean_warn or sa_warn
+    src_lean, src_warn = improve_tick_source_vs_scan_bits(
+        source_bit, scan_clash, source_escalate=source_escalate
+    )
+    if src_lean:
+        lean_parts.append(src_lean)
+        lean_warn = lean_warn or src_warn
+    lean = " · ".join(lean_parts)
+    lean_meta = improve_tick_lean_meta(lean, warn=lean_warn)
     if lean_warn and tone == "ok":
         tone = "aging"
     line = " · ".join(bits)

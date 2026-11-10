@@ -11,7 +11,9 @@ from openbb_backend.desk import (
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
+    improve_tick_lean_meta,
     improve_tick_source_speak,
+    improve_tick_source_vs_scan_bits,
     improve_tick_status_age_vs_scan_bits,
     improve_tick_status_vs_age_bits,
     load_desk_snapshot,
@@ -98,6 +100,49 @@ def test_improve_tick_status_age_vs_scan_bits() -> None:
     assert improve_tick_status_age_vs_scan_bits(
         "status/age align · fail · stale", "clash · scan fresh"
     ) == ("clash · status/age align · scan fresh", True)
+
+
+def test_improve_tick_source_vs_scan_bits() -> None:
+    assert improve_tick_source_vs_scan_bits("", "clash · scan stale") == (
+        "",
+        False,
+    )
+    assert improve_tick_source_vs_scan_bits(
+        "start only", "", source_escalate=True
+    ) == ("", False)
+    assert improve_tick_source_vs_scan_bits(
+        "start only", "clash · scan stale", source_escalate=True
+    ) == ("source vs scan align · clash", False)
+    assert improve_tick_source_vs_scan_bits(
+        "log mtime", "clash · scan fresh", source_escalate=True
+    ) == ("source vs scan align · clash", False)
+    assert improve_tick_source_vs_scan_bits(
+        "loop tick", "clash · scan stale", source_escalate=False
+    ) == ("clash · source loop tick · scan stale", True)
+
+
+def test_improve_tick_lean_meta() -> None:
+    assert improve_tick_lean_meta("") == "quiet"
+    assert (
+        improve_tick_lean_meta("status/age vs scan align · clash")
+        == "quiet · status/age vs scan"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "clash · status/age align · scan fresh", warn=True
+        )
+        == "warn · status/age vs scan"
+    )
+    assert (
+        improve_tick_lean_meta("source vs scan align · clash")
+        == "quiet · source vs scan"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "clash · source loop tick · scan stale", warn=True
+        )
+        == "warn · source vs scan"
+    )
 
 
 def test_improve_tick_glance_start_only_speaks_and_ages(tmp_path: Path) -> None:
@@ -269,7 +314,7 @@ def test_improve_tick_glance_status_age_vs_scan_align_clash(
     assert g["scan_clash"] == "clash · scan fresh"
     assert g["lean"] == "status/age vs scan align · clash"
     assert g["lean_warn"] is False
-    assert g["lean_meta"] == "quiet"
+    assert g["lean_meta"] == "quiet · status/age vs scan"
     # Lean stays off the primary clip.
     assert "status/age vs scan" not in g["line"]
 
@@ -294,9 +339,58 @@ def test_improve_tick_glance_status_age_align_vs_scan_clash(
     assert g["scan_clash"] == "clash · scan fresh"
     assert g["lean"] == "clash · status/age align · scan fresh"
     assert g["lean_warn"] is True
-    assert g["lean_meta"] == "warn"
+    assert g["lean_meta"] == "warn · status/age vs scan"
     assert "status/age vs scan" not in g["line"]
     assert "clash · status/age align" not in g["line"]
+
+
+def test_improve_tick_glance_source_vs_scan_align_clash(
+    tmp_path: Path,
+) -> None:
+    """start-only + scan clash → lean confirms both meters disagree."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T20:46Z cursor improve start\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T21:00Z"),
+        scan_time="2026-11-09T12:00:00+00:00",
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["source_bit"] == "start only"
+    assert g["source_escalate"] is True
+    assert g["scan_clash"] == "clash · scan stale"
+    assert g["lean"] == "source vs scan align · clash"
+    assert g["lean_warn"] is False
+    assert g["lean_meta"] == "quiet · source vs scan"
+    assert "source vs scan" not in g["line"]
+    assert "start only" in g["line"]
+    assert "clash · scan stale" in g["line"]
+
+
+def test_improve_tick_glance_loop_tick_vs_scan_clash(tmp_path: Path) -> None:
+    """Calm loop-tick source + scan clash → lean warns moods disagree."""
+    (tmp_path / "run_improve_loop.log").write_text(
+        '2026-11-09T20:46Z AGENT_LOOP_TICK_improve {"prompt": "x"}\n',
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T21:00Z"),
+        scan_time="2026-11-09T12:00:00+00:00",
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["source_bit"] == "loop tick"
+    assert g["source_escalate"] is False
+    assert g["scan_clash"] == "clash · scan stale"
+    assert g["lean"] == "clash · source loop tick · scan stale"
+    assert g["lean_warn"] is True
+    assert g["lean_meta"] == "warn · source vs scan"
+    assert "clash · source loop tick" not in g["line"]
+    assert "loop tick" in g["line"]
 
 
 def test_improve_tick_glance_vs_scan_same_band_silent(tmp_path: Path) -> None:
