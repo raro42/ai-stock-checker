@@ -19,6 +19,7 @@ from openbb_backend.desk import (
     improve_tick_source_vs_scan_bits,
     improve_tick_status_age_vs_scan_bits,
     improve_tick_status_vs_age_bits,
+    improve_tick_stuck_band_bits,
     improve_tick_stuck_bits,
     improve_tick_stuck_vs_scan_bits,
     improve_tick_vs_scan_fresher_bits,
@@ -104,6 +105,19 @@ def test_improve_tick_stuck_vs_scan_bits() -> None:
     assert improve_tick_stuck_vs_scan_bits(
         "stuck", "clash · scan stale"
     ) == ("stuck vs scan align · clash", False)
+
+
+def test_improve_tick_stuck_band_bits() -> None:
+    assert improve_tick_stuck_band_bits("", "aging") == ("", False)
+    assert improve_tick_stuck_band_bits("stuck", "fresh") == ("", False)
+    assert improve_tick_stuck_band_bits("stuck", "aging") == (
+        "stuck band · aging",
+        False,
+    )
+    assert improve_tick_stuck_band_bits("stuck", "stale") == (
+        "stuck band · stale",
+        False,
+    )
 
 
 def test_improve_tick_status_vs_age_bits() -> None:
@@ -427,8 +441,11 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "stuck" in g["line"]
     # Failed leftover end must not own the clock (xang1234 0be5b49).
     assert "rc=1" not in g["line"]
-    # No scan → stuck vs scan lean silent.
+    # No scan → stuck vs scan lean silent; stuck band still explains age.
     assert "stuck vs scan" not in g["lean"]
+    assert "stuck band · aging" in g["lean"]
+    assert "stuck band" in g["lean_meta"]
+    assert "stuck band" not in g["line"]
 
 
 def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
@@ -449,10 +466,31 @@ def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
     assert g["scan_clash"]
     assert "stuck vs scan align · clash" in g["lean"]
     assert "source vs scan align · clash" in g["lean"]
+    assert "stuck band · aging" in g["lean"]
     assert "stuck vs scan" in g["lean_meta"]
-    # Primary clip keeps age · stuck; lean holds meter agreement.
+    assert "stuck band" in g["lean_meta"]
+    # Primary clip keeps age · stuck; lean holds meter agreement + band.
     assert "stuck" in g["line"]
     assert "stuck vs scan" not in g["line"]
+    assert "stuck band" not in g["line"]
+
+
+def test_improve_tick_glance_stuck_band_stale(tmp_path: Path) -> None:
+    """Stale hung escalate → lean speaks stuck band · stale."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T12:00Z cursor improve start\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T20:00Z")
+    )
+    assert g["ready"] is True
+    assert g["freshness"] == "stale"
+    assert g["stuck"] is True
+    assert "stuck band · stale" in g["lean"]
+    assert "stuck band" in g["lean_meta"]
+    assert "stuck" in g["line"]
+    assert "stuck band" not in g["line"]
 
 
 def test_improve_tick_glance_failed_end_stale_not_stuck(
