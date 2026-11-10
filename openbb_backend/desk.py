@@ -30449,9 +30449,8 @@ def _improve_tick_hung_thin_suffix(stages: list[str]) -> str:
     Meter stage → `` · not thin`` (xang1234 b09fb49 / 1cd7968). Sole
     explain → `` · no result · sole``; few explain-only → `` · no result ·
     few`` (#747). Empty stages → ``""`` (skip no-result with nothing
-    listed). Shared under bare hung, ``confirm · hung``, and
-    ``warn · hung`` so severity chips do not hide the thin/not-thin
-    counterpart.
+    listed). Shared under ``confirm · hung`` and ``warn · hung`` so
+    severity chips do not hide the thin/not-thin counterpart.
     """
     has_meter = any(s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages)
     if has_meter:
@@ -30494,18 +30493,22 @@ def improve_tick_lean_meta(
     (portfolio AI speak-both-sides + FinRobot + xang1234 after bare warn
     hid hung ownership). Warn+hung also shares the thin/not-thin
     counterpart (``warn · hung · not thin``) so bare ``warn · hung`` does
-    not hide that a meter stage already spoke. Calm hung meter lean
+    not hide that a meter stage already spoke.     Calm hung meter lean
     speaks ``confirm · hung · not thin`` — the speak-both-sides peer of
     ``warn · hung · not thin`` — so bare ``hung · not thin`` does not hide
     that meters already agreed (FinRobot edge/conf + portfolio AI after
-    warn·hung alone). Explain-only / empty hung stay bare ``hung`` (no
-    meter verdict to confirm). Not a gate.
+    warn·hung alone). Calm hung explain-only / empty also speak
+    ``confirm · hung · no result|confirm · hung`` — peers of
+    ``warn · hung · no result|warn · hung`` — so bare hung thin cards do
+    not hide calm ownership after warn alone named severity (portfolio AI
+    speak-both-sides + FinRobot + xang1234). Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
         # Skip no-result with nothing listed (xang1234 #747 nothing closed).
         if stuck and not warn:
-            return "hung"
+            # Confirm peer of warn · hung (speak-both-sides).
+            return "confirm · hung"
         if stuck and warn:
             # Warn leads; hung still named (speak-both-sides).
             return "warn · hung"
@@ -30538,18 +30541,16 @@ def improve_tick_lean_meta(
     if "gap sides" in lean_l:
         stages.append("gap sides")
     hung_thin = _improve_tick_hung_thin_suffix(stages) if stuck else ""
-    hung_has_meter = bool(hung_thin.startswith(" · not thin"))
     if warn and stuck:
         # Warn leads; keep hung + thin/not-thin so stuck clock and meter
         # honesty stay on the chip (b09fb49 under warn · hung).
         sev = f"warn · hung{hung_thin}"
     elif warn:
         sev = "warn"
-    elif stuck and hung_has_meter:
-        # Confirm peer of warn · hung · not thin (speak-both-sides).
-        sev = f"confirm · hung{hung_thin}"
     elif stuck:
-        sev = f"hung{hung_thin}"
+        # Confirm peer of warn · hung[+ thin] for meter, explain-only,
+        # and empty (speak-both-sides).
+        sev = f"confirm · hung{hung_thin}"
     else:
         sev = "quiet"
     if not stages:

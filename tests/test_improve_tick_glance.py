@@ -357,16 +357,18 @@ def test_improve_tick_lean_meta() -> None:
     )
     # Hung open fold must not read quiet (xang1234 #746 no-closed honesty).
     # Sole stuck band names thin reason sole (#747 Small sample).
+    # Calm hung explain-only speaks confirm · hung · no result (peer of
+    # warn · hung · no result).
     assert (
         improve_tick_lean_meta("stuck band · aging", stuck=True)
-        == "hung · no result · sole · stuck band"
+        == "confirm · hung · no result · sole · stuck band"
     )
     # Sole gap sides (no stuck band) also names sole.
     assert (
         improve_tick_lean_meta(
             "gap sides · improve aging · scan fresh", stuck=True
         )
-        == "hung · no result · sole · gap sides"
+        == "confirm · hung · no result · sole · gap sides"
     )
     # Gap sides + stuck band → few (Few dates vs Small sample; #747 / 9a12dc1).
     assert (
@@ -374,10 +376,11 @@ def test_improve_tick_lean_meta() -> None:
             "stuck band · aging · gap sides · improve aging · scan fresh",
             stuck=True,
         )
-        == "hung · no result · few · stuck band · gap sides"
+        == "confirm · hung · no result · few · stuck band · gap sides"
     )
-    # Skip no-result with nothing listed (#747 nothing closed).
-    assert improve_tick_lean_meta("", stuck=True) == "hung"
+    # Skip no-result with nothing listed (#747 nothing closed);
+    # confirm peer of warn · hung.
+    assert improve_tick_lean_meta("", stuck=True) == "confirm · hung"
     # Meter stages speak not thin (xang1234 b09fb49 cover a card that is
     # not thin + 1cd7968 share the small-sample rule). Calm hung meter
     # leans speak confirm · hung · not thin (speak-both-sides peer of
@@ -408,10 +411,11 @@ def test_improve_tick_lean_meta() -> None:
         )
         == "warn · hung · no result · sole · stuck band"
     )
-    # Explain-only hung stays bare hung (no meter to confirm).
+    # Explain-only calm hung keeps confirm · hung · no result (peer of
+    # warn · hung · no result — speak-both-sides).
     assert (
         improve_tick_lean_meta("stuck band · aging", stuck=True)
-        == "hung · no result · sole · stuck band"
+        == "confirm · hung · no result · sole · stuck band"
     )
     # Warn without stuck stays bare warn.
     assert (
@@ -569,14 +573,14 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "stuck vs scan" not in g["lean"]
     assert "stuck band · aging" in g["lean"]
     assert "stuck band" in g["lean_meta"]
-    assert g["lean_meta"].startswith("hung ·")
+    assert g["lean_meta"].startswith("confirm · hung ·")
     assert "quiet" not in g["lean_meta"]
     assert "stuck band" not in g["line"]
     # Explain-only hung lean stays open (xang1234 #745 all-dropped);
-    # sole stuck band → hung · no result · sole (#746/#747 sample honesty).
+    # sole stuck band → confirm · hung · no result · sole (peer of warn).
     assert g["lean_warn"] is False
     assert g["lean_open"] is True
-    assert g["lean_meta"].startswith("hung · no result · sole")
+    assert g["lean_meta"].startswith("confirm · hung · no result · sole")
     assert "quiet" not in g["lean_meta"]
 
 
