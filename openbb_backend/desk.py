@@ -30437,7 +30437,8 @@ _IMPROVE_TICK_LEAN_NAME_CAP = 4
 # "Nothing here is a result" / "No closed windows" when sample+pending are 0).
 # Sole explain stage names thin reason ``sole`` (xang1234 #747 Small sample);
 # multiple explain-only stages name ``few`` (#747 / 9a12dc1 Few dates vs
-# Small sample — sides present ≠ a meter verdict); skip ``no result`` when
+# Small sample — sides present ≠ a meter verdict); hung lean with a meter
+# stage speaks ``not thin`` (b09fb49 / 1cd7968); skip ``no result`` when
 # nothing is listed (#747 nothing closed).
 _IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
@@ -30463,7 +30464,10 @@ def improve_tick_lean_meta(
     "Nothing here is a result"). One explain stage names thin reason
     ``sole`` (Small sample); two+ explain-only stages name ``few`` (Few
     dates) so gap sides beside stuck band is not mistaken for a full
-    sample (xang1234 #747 / dd6b505 / 9a12dc1). Empty hung lean skips
+    sample (xang1234 #747 / dd6b505 / 9a12dc1). Hung lean with a meter
+    stage speaks ``not thin`` so sole/few thin cards have a positive
+    counterpart (xang1234 b09fb49 cover a card that is not thin +
+    1cd7968 share the small-sample rule). Empty hung lean skips
     ``no result`` (nothing listed ≠ a thin sample). Warn still wins over
     hung. Not a gate.
     """
@@ -30507,7 +30511,8 @@ def improve_tick_lean_meta(
             s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages
         )
         if has_meter:
-            sev = "hung"
+            # Meter stage spoke — share not-thin (b09fb49 / 1cd7968).
+            sev = "hung · not thin"
         elif not stages:
             # Skip no-result with nothing listed (#747 nothing closed).
             sev = "hung"

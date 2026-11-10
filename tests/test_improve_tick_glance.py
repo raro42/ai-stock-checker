@@ -378,13 +378,14 @@ def test_improve_tick_lean_meta() -> None:
     )
     # Skip no-result with nothing listed (#747 nothing closed).
     assert improve_tick_lean_meta("", stuck=True) == "hung"
-    # Meter stages keep bare hung (stuck vs scan is a verdict, not empty).
+    # Meter stages speak not thin (xang1234 b09fb49 cover a card that is
+    # not thin + 1cd7968 share the small-sample rule).
     assert (
         improve_tick_lean_meta(
             "stuck vs scan align · clash · stuck band · aging",
             stuck=True,
         )
-        == "hung · stuck vs scan · stuck band"
+        == "hung · not thin · stuck vs scan · stuck band"
     )
     # Warn still wins over hung / no result.
     assert (
@@ -580,6 +581,11 @@ def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
     assert "stuck vs scan" in g["lean_meta"]
     # Cap-4 meta +N still covers stuck band / fresher / gap sides in body.
     assert "+4" in g["lean_meta"] or "stuck band" in g["lean_meta"]
+    # Warn (fresher polarity) wins over hung · not thin; sole/few thin absent.
+    assert "no result" not in g["lean_meta"]
+    assert g["lean_meta"].startswith("warn ·") or g[
+        "lean_meta"
+    ].startswith("hung · not thin")
     # Primary clip keeps age · stuck; lean holds meter agreement + band.
     assert "stuck" in g["line"]
     assert "stuck vs scan" not in g["line"]
