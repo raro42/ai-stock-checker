@@ -116,9 +116,34 @@ def yahoo_cache_freshness(
 
 
 def _naive_utc(dt: datetime) -> datetime:
+    """Normalize to naive UTC wall-clock.
+
+    Aware values convert to UTC. Naive values are treated as UTC already
+    (legacy stamps + desk ``_parse_book_ts`` parity). Never compare a UTC
+    stamp against ``datetime.now()`` in a non-UTC process TZ — that is the
+    xang1234 #743 / #744 false-stuck lease bug.
+    """
     if dt.tzinfo is not None:
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
+
+
+def yahoo_stamp_utc_iso(now: datetime | None = None) -> str:
+    """UTC ISO stamp with ``Z`` for Yahoo discovery success/fail meta.
+
+    xang1234 #744: workers/API may disagree on process TZ; write lease /
+    heartbeat activity as aware UTC so age math cannot mark a fresh stamp
+    stuck. Naive ``datetime.now().isoformat()`` hid the zone.
+    """
+    clock = now if now is not None else datetime.now(timezone.utc)
+    return _naive_utc(clock).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def yahoo_clock_utc_naive(now: datetime | None = None) -> datetime:
+    """Clock for Yahoo discovery age / backoff (always naive UTC)."""
+    if now is None:
+        return datetime.now(timezone.utc).replace(tzinfo=None)
+    return _naive_utc(now)
 
 
 def yahoo_fail_streak(meta: Any) -> int:
@@ -1814,7 +1839,7 @@ def yahoo_fail_retry_remaining_sec(
     try:
         then = datetime.fromisoformat(fail_raw.replace("Z", "+00:00"))
         then = _naive_utc(then)
-        clock = _naive_utc(now) if now is not None else datetime.now()
+        clock = yahoo_clock_utc_naive(now)
         age_sec = max(0.0, (clock - then).total_seconds())
         limit = max(0, int(fail_backoff_hours)) * 3600.0
         return max(0, int(limit - age_sec))
@@ -1857,7 +1882,7 @@ def yahoo_discovery_due_from_meta(
     try:
         then = datetime.fromisoformat(last.replace("Z", "+00:00"))
         then = _naive_utc(then)
-        clock = _naive_utc(now) if now is not None else datetime.now()
+        clock = yahoo_clock_utc_naive(now)
         age_h = (clock - then).total_seconds() / 3600.0
         return age_h >= float(max(1, int(max_age_hours)))
     except (TypeError, ValueError):

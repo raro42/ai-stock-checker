@@ -387,6 +387,7 @@ class StockUniverseManager:
             set_yahoo_discovery_error_sides,
             yahoo_fail_plan_held,
             yahoo_fail_retry_remaining_sec,
+            yahoo_stamp_utc_iso,
         )
 
         meta = self.universe.setdefault("meta", {})
@@ -441,7 +442,7 @@ class StockUniverseManager:
         except Exception as e:
             print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
             meta["last_yahoo_discovery_status"] = "failed"
-            meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            meta["last_yahoo_discovery_fail"] = yahoo_stamp_utc_iso()
             meta["last_yahoo_screens_ok"] = 0
             meta["last_yahoo_screens_failed"] = 0
             meta["last_yahoo_prune_skipped"] = False
@@ -476,7 +477,7 @@ class StockUniverseManager:
             # xang1234: failed / majority-blocked fetch → reuse seed; do not
             # stamp cache fresh; discard leftover quotes from a thin screen.
             meta["last_yahoo_discovery_status"] = "failed"
-            meta["last_yahoo_discovery_fail"] = datetime.now().isoformat()
+            meta["last_yahoo_discovery_fail"] = yahoo_stamp_utc_iso()
             meta["last_yahoo_prune_skipped"] = False
             set_yahoo_discovery_error(
                 meta,
@@ -521,7 +522,7 @@ class StockUniverseManager:
             dropped = self.prune_dropped_yahoo_movers(
                 symbols, venue=YAHOO_MOVER_SNAPSHOT_VENUE
             )
-        meta["last_yahoo_discovery"] = datetime.now().isoformat()
+        meta["last_yahoo_discovery"] = yahoo_stamp_utc_iso()
         meta["last_yahoo_discovery_status"] = "ok"
         meta["last_yahoo_added"] = added
         meta["last_yahoo_dropped"] = dropped

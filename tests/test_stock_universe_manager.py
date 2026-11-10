@@ -57,6 +57,8 @@ def test_discover_yahoo_movers_empty_does_not_stamp_cache(tmp_path: Path, monkey
     assert meta["last_yahoo_discovery_status"] == "failed"
     assert meta["last_yahoo_added"] == 3
     assert "last_yahoo_discovery_fail" in meta
+    # xang1234 #744: fail lease stamped UTC Z (not naive local isoformat).
+    assert str(meta["last_yahoo_discovery_fail"]).endswith("Z")
     assert meta.get("yahoo_discovery_fail_streak") == 1
     assert meta.get("last_yahoo_discovery_error") == "empty"
     for n in names:
@@ -286,6 +288,7 @@ def test_discover_yahoo_movers_prunes_dropped_movers(tmp_path: Path, monkeypatch
     assert mgr.universe["meta"]["last_yahoo_dropped"] == 1
     assert mgr.universe["meta"]["last_yahoo_dropped_venue"] == "US"
     assert mgr.universe["meta"]["last_yahoo_discovery_status"] == "ok"
+    assert str(mgr.universe["meta"]["last_yahoo_discovery"]).endswith("Z")
     assert mgr.universe["meta"]["last_yahoo_prune_skipped"] is False
     # Success clears consecutive-fail streak (#639 last_success honesty).
     assert mgr.universe["meta"]["yahoo_discovery_fail_streak"] == 0

@@ -1050,6 +1050,44 @@ def test_yahoo_discovery_due_from_meta_failed_skips_throttle():
     assert yahoo_discovery_due_from_meta({}, now=now) is True
 
 
+def test_yahoo_stamp_utc_iso_and_cross_zone_age():
+    """xang1234 #743/#744: UTC stamps; naive local now must not skew age."""
+    from datetime import datetime, timedelta, timezone
+
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_clock_utc_naive,
+        yahoo_discovery_due_from_meta,
+        yahoo_fail_retry_remaining_sec,
+        yahoo_stamp_utc_iso,
+    )
+
+    utc_now = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
+    stamp = yahoo_stamp_utc_iso(utc_now)
+    assert stamp.endswith("Z")
+    assert stamp.startswith("2026-11-10T12:00")
+    # Aware non-UTC → still written as UTC Z.
+    cet = datetime(2026, 11, 10, 13, 0, tzinfo=timezone(timedelta(hours=1)))
+    assert yahoo_stamp_utc_iso(cet) == "2026-11-10T12:00:00Z"
+    assert yahoo_clock_utc_naive(cet) == datetime(2026, 11, 10, 12, 0)
+
+    # Fresh Z fail stamp stays inside backoff even if a caller passes a
+    # "local wall" that is five hours ahead of the UTC stamp (NY vs UTC).
+    fail = yahoo_stamp_utc_iso(utc_now - timedelta(minutes=15))
+    meta = {
+        "last_yahoo_discovery": "2026-11-09T12:00:00Z",
+        "last_yahoo_discovery_status": "failed",
+        "last_yahoo_discovery_fail": fail,
+    }
+    ny_ahead = datetime(2026, 11, 10, 17, 0)  # naive local-looking wall
+    # Without UTC normalize, age would look ~5h and backoff would expire.
+    assert yahoo_fail_retry_remaining_sec(meta, now=utc_now) == 45 * 60
+    assert yahoo_discovery_due_from_meta(meta, now=utc_now) is False
+    # Explicit UTC clock still wins when now is aware.
+    assert yahoo_discovery_due_from_meta(meta, now=utc_now) is False
+    # Naive wall passed as now is treated as UTC (legacy contract) — not local.
+    assert yahoo_clock_utc_naive(ny_ahead) == ny_ahead.replace(tzinfo=None)
+
+
 def test_yahoo_discovery_due_from_meta_fail_backoff():
     """xang1234 dfb6a86: do not refetch empty/dead Yahoo every scan."""
     from datetime import datetime, timezone
