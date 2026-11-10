@@ -16,6 +16,7 @@ from openbb_backend.desk import (
     improve_tick_source_vs_scan_bits,
     improve_tick_status_age_vs_scan_bits,
     improve_tick_status_vs_age_bits,
+    improve_tick_vs_scan_fresher_bits,
     load_desk_snapshot,
 )
 
@@ -121,6 +122,28 @@ def test_improve_tick_source_vs_scan_bits() -> None:
     ) == ("clash · source loop tick · scan stale", True)
 
 
+def test_improve_tick_vs_scan_fresher_bits() -> None:
+    assert improve_tick_vs_scan_fresher_bits("fresh", "stale", "") == (
+        "",
+        False,
+    )
+    assert improve_tick_vs_scan_fresher_bits(
+        "fresh", "fresh", "clash · scan fresh"
+    ) == ("", False)
+    assert improve_tick_vs_scan_fresher_bits(
+        "fresh", "stale", "clash · scan stale"
+    ) == ("fresher improve · gap wide", False)
+    assert improve_tick_vs_scan_fresher_bits(
+        "fresh", "aging", "clash · scan aging"
+    ) == ("fresher improve · gap thin", False)
+    assert improve_tick_vs_scan_fresher_bits(
+        "stale", "fresh", "clash · scan fresh"
+    ) == ("fresher scan · gap wide", True)
+    assert improve_tick_vs_scan_fresher_bits(
+        "aging", "fresh", "clash · scan fresh"
+    ) == ("fresher scan · gap thin", True)
+
+
 def test_improve_tick_lean_meta() -> None:
     assert improve_tick_lean_meta("") == "quiet"
     assert (
@@ -142,6 +165,17 @@ def test_improve_tick_lean_meta() -> None:
             "clash · source loop tick · scan stale", warn=True
         )
         == "warn · source vs scan"
+    )
+    assert (
+        improve_tick_lean_meta("fresher improve · gap wide")
+        == "quiet · fresher"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "status/age vs scan align · clash · fresher scan · gap wide",
+            warn=True,
+        )
+        == "warn · status/age vs scan · fresher"
     )
 
 
@@ -288,9 +322,12 @@ def test_improve_tick_glance_vs_scan_clash(tmp_path: Path) -> None:
     assert g["scan_clash"] == "clash · scan stale"
     assert "clash · scan stale" in g["line"]
     assert g["tone"] == "warn"
-    # Happy ok+fresh has no status/age bit → lean stays silent.
+    # Happy ok+fresh has no status/age bit → lean still names fresher/gap.
     assert g["status_age_bit"] == ""
-    assert g["lean"] == ""
+    assert g["lean"] == "fresher improve · gap wide"
+    assert g["lean_warn"] is False
+    assert g["lean_meta"] == "quiet · fresher"
+    assert "fresher" not in g["line"]
 
 
 def test_improve_tick_glance_status_age_vs_scan_align_clash(
@@ -312,11 +349,14 @@ def test_improve_tick_glance_status_age_vs_scan_align_clash(
     assert g["status_age_bit"] == "status/age clash · ok · stale"
     assert g["scan_freshness"] == "fresh"
     assert g["scan_clash"] == "clash · scan fresh"
-    assert g["lean"] == "status/age vs scan align · clash"
-    assert g["lean_warn"] is False
-    assert g["lean_meta"] == "quiet · status/age vs scan"
+    assert g["lean"] == (
+        "status/age vs scan align · clash · fresher scan · gap wide"
+    )
+    assert g["lean_warn"] is True
+    assert g["lean_meta"] == "warn · status/age vs scan · fresher"
     # Lean stays off the primary clip.
     assert "status/age vs scan" not in g["line"]
+    assert "fresher" not in g["line"]
 
 
 def test_improve_tick_glance_status_age_align_vs_scan_clash(
@@ -337,11 +377,14 @@ def test_improve_tick_glance_status_age_align_vs_scan_clash(
     assert g["freshness"] == "stale"
     assert g["status_age_bit"] == "status/age align · fail · stale"
     assert g["scan_clash"] == "clash · scan fresh"
-    assert g["lean"] == "clash · status/age align · scan fresh"
+    assert g["lean"] == (
+        "clash · status/age align · scan fresh · fresher scan · gap wide"
+    )
     assert g["lean_warn"] is True
-    assert g["lean_meta"] == "warn · status/age vs scan"
+    assert g["lean_meta"] == "warn · status/age vs scan · fresher"
     assert "status/age vs scan" not in g["line"]
     assert "clash · status/age align" not in g["line"]
+    assert "fresher" not in g["line"]
 
 
 def test_improve_tick_glance_source_vs_scan_align_clash(
@@ -362,10 +405,13 @@ def test_improve_tick_glance_source_vs_scan_align_clash(
     assert g["source_bit"] == "start only"
     assert g["source_escalate"] is True
     assert g["scan_clash"] == "clash · scan stale"
-    assert g["lean"] == "source vs scan align · clash"
+    assert g["lean"] == (
+        "source vs scan align · clash · fresher improve · gap wide"
+    )
     assert g["lean_warn"] is False
-    assert g["lean_meta"] == "quiet · source vs scan"
+    assert g["lean_meta"] == "quiet · source vs scan · fresher"
     assert "source vs scan" not in g["line"]
+    assert "fresher" not in g["line"]
     assert "start only" in g["line"]
     assert "clash · scan stale" in g["line"]
 
@@ -386,10 +432,13 @@ def test_improve_tick_glance_loop_tick_vs_scan_clash(tmp_path: Path) -> None:
     assert g["source_bit"] == "loop tick"
     assert g["source_escalate"] is False
     assert g["scan_clash"] == "clash · scan stale"
-    assert g["lean"] == "clash · source loop tick · scan stale"
+    assert g["lean"] == (
+        "clash · source loop tick · scan stale · fresher improve · gap wide"
+    )
     assert g["lean_warn"] is True
-    assert g["lean_meta"] == "warn · source vs scan"
+    assert g["lean_meta"] == "warn · source vs scan · fresher"
     assert "clash · source loop tick" not in g["line"]
+    assert "fresher" not in g["line"]
     assert "loop tick" in g["line"]
 
 
