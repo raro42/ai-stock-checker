@@ -14,6 +14,7 @@ from openbb_backend.desk import (
     improve_tick_fresher_polarity_vs_scan_meter_bits,
     improve_tick_fresher_vs_source_bits,
     improve_tick_fresher_vs_status_age_bits,
+    improve_tick_fresher_vs_stuck_bits,
     improve_tick_lean_meta,
     improve_tick_lean_open,
     improve_tick_source_speak,
@@ -275,6 +276,25 @@ def test_improve_tick_fresher_vs_source_bits() -> None:
     ) == ("fresher vs source clash · fresher improve · log mtime", True)
 
 
+def test_improve_tick_fresher_vs_stuck_bits() -> None:
+    assert improve_tick_fresher_vs_stuck_bits("", "stuck") == ("", False)
+    assert improve_tick_fresher_vs_stuck_bits(
+        "fresher scan · gap thin", ""
+    ) == ("", False)
+    assert improve_tick_fresher_vs_stuck_bits(
+        "fresher scan · gap thin", "stuck"
+    ) == ("fresher vs stuck align", False)
+    assert improve_tick_fresher_vs_stuck_bits(
+        "fresher scan · gap wide", "stuck"
+    ) == ("fresher vs stuck align", False)
+    assert improve_tick_fresher_vs_stuck_bits(
+        "fresher improve · gap thin", "stuck"
+    ) == ("fresher vs stuck clash · fresher improve · stuck", True)
+    assert improve_tick_fresher_vs_stuck_bits(
+        "fresher improve · gap wide", "stuck"
+    ) == ("fresher vs stuck clash · fresher improve · stuck", True)
+
+
 def test_improve_tick_fresher_polarity_vs_scan_meter_bits() -> None:
     assert improve_tick_fresher_polarity_vs_scan_meter_bits("", "fresher vs source align") == (
         "",
@@ -372,6 +392,17 @@ def test_improve_tick_lean_meta() -> None:
             warn=True,
         )
         == "warn · fresher vs source"
+    )
+    assert (
+        improve_tick_lean_meta("fresher vs stuck align")
+        == "quiet · fresher vs stuck"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "fresher vs stuck clash · fresher improve · stuck",
+            warn=True,
+        )
+        == "warn · fresher vs stuck"
     )
     assert (
         improve_tick_lean_meta(
@@ -496,13 +527,46 @@ def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
     assert "stuck vs scan align · clash" in g["lean"]
     assert "source vs scan align · clash" in g["lean"]
     assert "stuck band · aging" in g["lean"]
+    # Fresh scan ahead of hung aging improve → fresher vs stuck align.
+    assert "fresher scan" in g["lean"]
+    assert "fresher vs stuck align" in g["lean"]
+    assert "fresher vs source align" in g["lean"]
+    assert "fresher vs stuck" in g["lean_meta"]
     assert "stuck vs scan" in g["lean_meta"]
-    assert "stuck band" in g["lean_meta"]
+    # Cap-4 meta +N still covers stuck band / fresher / gap sides in body.
+    assert "+4" in g["lean_meta"] or "stuck band" in g["lean_meta"]
     # Primary clip keeps age · stuck; lean holds meter agreement + band.
     assert "stuck" in g["line"]
     assert "stuck vs scan" not in g["line"]
     assert "stuck band" not in g["line"]
+    assert "fresher vs stuck" not in g["line"]
     assert g["lean_open"] is True
+
+
+def test_improve_tick_glance_fresher_vs_stuck_clash(tmp_path: Path) -> None:
+    """Hung stuck claiming fresher than stale scan → lean warns."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T18:00Z cursor improve start\n",
+        encoding="utf-8",
+    )
+    # Improve aging (2h) vs scan stale (>36h at 900s interval → stale band).
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T20:00Z"),
+        scan_time=_clock("2026-11-08T00:00Z"),
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["stuck"] is True
+    assert g["freshness"] == "aging"
+    assert g["scan_freshness"] == "stale"
+    assert "fresher improve" in g["lean"]
+    assert "fresher vs stuck clash · fresher improve · stuck" in g["lean"]
+    assert "fresher vs source clash" in g["lean"]
+    assert "fresher vs stuck" in g["lean_meta"]
+    assert g["lean_warn"] is True
+    assert g["lean_open"] is True
+    assert "fresher vs stuck" not in g["line"]
 
 
 def test_improve_tick_glance_stuck_band_stale(tmp_path: Path) -> None:

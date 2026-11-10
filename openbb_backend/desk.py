@@ -30368,6 +30368,36 @@ def improve_tick_fresher_vs_source_bits(
     return f"fresher vs source clash · fresher improve · {sb}", True
 
 
+def improve_tick_fresher_vs_stuck_bits(
+    fresher_bit: str,
+    stuck_bit: str,
+) -> tuple[str, bool]:
+    """Fresher ownership vs hung Ops stuck flag (display only).
+
+    Absolute ``fresher improve · gap thin`` beside ``stuck`` hid whether the
+    ahead-clock agrees with a hung aging|stale escalate — FinRobot edge/conf
+    + portfolio AI speak-both-sides + xang1234 multi-meter after fresher vs
+    source named the degraded source but not the hung hold itself. ``fresher
+    scan`` + stuck → ``fresher vs stuck align`` (scan ahead confirms the hung
+    clock is not live). ``fresher improve`` + stuck →
+    ``fresher vs stuck clash · fresher improve · stuck`` (warn — a hung
+    escalate must not claim to lead the scan archive). Sole side / missing
+    stuck silent. Fresher vs source still covers fresh escalate (running);
+    stuck names the aging|stale hang specifically. Lives under improve lean
+    fold. Not a gate.
+    """
+    fr = str(fresher_bit or "").strip()
+    st = str(stuck_bit or "").strip()
+    if not fr or not st:
+        return "", False
+    fr_l = fr.casefold()
+    if "fresher scan" in fr_l:
+        return "fresher vs stuck align", False
+    if "fresher improve" in fr_l:
+        return "fresher vs stuck clash · fresher improve · stuck", True
+    return "", False
+
+
 def improve_tick_fresher_polarity_vs_scan_meter_bits(
     scan_meter_bit: str,
     fresher_polarity_bit: str,
@@ -30410,9 +30440,9 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
     source vs scan, stuck vs scan, stuck band, fresher/gap, gap sides,
-    fresher vs status/age, fresher vs source, and fresher polarity vs
-    scan-meter all live under the same fold. Cap clips names but appends
-    ``+N`` so the summary still labels by every stage the body lists
+    fresher vs status/age, fresher vs source, fresher vs stuck, and fresher
+    polarity vs scan-meter all live under the same fold. Cap clips names but
+    appends ``+N`` so the summary still labels by every stage the body lists
     (xang1234 #745 pending-fold count honesty). Not a gate.
     """
     lean_s = str(lean or "").strip()
@@ -30425,6 +30455,8 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
         "fresher polarity" in lean_l and "scan-meter" in lean_l
     ):
         stages.append("fresher polarity vs scan-meter")
+    if "fresher vs stuck" in lean_l:
+        stages.append("fresher vs stuck")
     if "fresher vs source" in lean_l:
         stages.append("fresher vs source")
     if "fresher vs status/age" in lean_l:
@@ -30720,8 +30752,15 @@ def build_improve_tick_glance(
     if fsrc_lean:
         lean_parts.append(fsrc_lean)
         lean_warn = lean_warn or fsrc_warn
+    fstuck_lean, fstuck_warn = improve_tick_fresher_vs_stuck_bits(
+        fr_lean, stuck_bit
+    )
+    if fstuck_lean:
+        lean_parts.append(fstuck_lean)
+        lean_warn = lean_warn or fstuck_warn
     scan_meter = sa_lean or src_lean or stuck_lean
-    fresher_pol = fsa_lean or fsrc_lean
+    # Prefer hung stuck polarity over bare escalate source when both spoke.
+    fresher_pol = fsa_lean or fstuck_lean or fsrc_lean
     fpm_lean, fpm_warn = improve_tick_fresher_polarity_vs_scan_meter_bits(
         scan_meter, fresher_pol
     )
