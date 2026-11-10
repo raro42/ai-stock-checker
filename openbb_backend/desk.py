@@ -30434,7 +30434,9 @@ def improve_tick_fresher_polarity_vs_scan_meter_bits(
 _IMPROVE_TICK_LEAN_NAME_CAP = 4
 
 
-def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
+def improve_tick_lean_meta(
+    lean: str, *, warn: bool = False, stuck: bool = False
+) -> str:
     """Summary chip for improve lean fold (display only).
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
@@ -30443,12 +30445,21 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     fresher vs status/age, fresher vs source, fresher vs stuck, and fresher
     polarity vs scan-meter all live under the same fold. Cap clips names but
     appends ``+N`` so the summary still labels by every stage the body lists
-    (xang1234 #745 pending-fold count honesty). Not a gate.
+    (xang1234 #745 pending-fold count honesty). Hung explain-only folds that
+    start open must not read ``quiet`` — that suggests nothing to inspect
+    while the accordion is deliberately open (xang1234 #746 / 28be212 say
+    no closed windows instead of ``0 pending`` when every pick dropped).
+    Warn still wins over hung. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
         return "quiet"
-    sev = "warn" if warn else "quiet"
+    if warn:
+        sev = "warn"
+    elif stuck:
+        sev = "hung"
+    else:
+        sev = "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
     if "fresher polarity vs scan-meter" in lean_l or (
@@ -30548,9 +30559,12 @@ def build_improve_tick_glance(
     stuck already spoke, lean also names ``stuck band · aging|stale`` so
     absolute stuck does not hide which age band holds. Hung stuck lean
     folds start open even when explain-only (xang1234 #745 all-dropped
-    unfolded); lean meta appends ``+N`` when stage names are clipped.
-    Missing logs stay silent so hosts without overnight loops do not warn.
-    Not a webhook / not a new entry gate.
+    unfolded); lean meta speaks ``hung`` (not ``quiet``) on those open
+    hung folds so the summary does not claim calm while stuck holds the
+    accordion open (xang1234 #746 no-closed vs ``0 pending``); lean meta
+    appends ``+N`` when stage names are clipped. Missing logs stay silent
+    so hosts without overnight loops do not warn. Not a webhook / not a
+    new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30768,8 +30782,10 @@ def build_improve_tick_glance(
         lean_parts.append(fpm_lean)
         lean_warn = lean_warn or fpm_warn
     lean = " · ".join(lean_parts)
-    lean_meta = improve_tick_lean_meta(lean, warn=lean_warn)
     stuck = bool(stuck_bit)
+    lean_meta = improve_tick_lean_meta(
+        lean, warn=lean_warn, stuck=stuck
+    )
     lean_open = improve_tick_lean_open(
         lean=lean, lean_warn=lean_warn, stuck=stuck
     )

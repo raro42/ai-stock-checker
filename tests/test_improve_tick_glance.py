@@ -355,6 +355,27 @@ def test_improve_tick_lean_meta() -> None:
         improve_tick_lean_meta("stuck band · aging")
         == "quiet · stuck band"
     )
+    # Hung open fold must not read quiet (xang1234 #746 no-closed honesty).
+    assert (
+        improve_tick_lean_meta("stuck band · aging", stuck=True)
+        == "hung · stuck band"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "stuck vs scan align · clash · stuck band · aging",
+            stuck=True,
+        )
+        == "hung · stuck vs scan · stuck band"
+    )
+    # Warn still wins over hung.
+    assert (
+        improve_tick_lean_meta(
+            "fresher vs stuck clash · fresher improve · stuck",
+            warn=True,
+            stuck=True,
+        )
+        == "warn · fresher vs stuck"
+    )
     assert (
         improve_tick_lean_meta("fresher improve · gap wide")
         == "quiet · fresher"
@@ -502,8 +523,11 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "stuck vs scan" not in g["lean"]
     assert "stuck band · aging" in g["lean"]
     assert "stuck band" in g["lean_meta"]
+    assert g["lean_meta"].startswith("hung ·")
+    assert "quiet" not in g["lean_meta"]
     assert "stuck band" not in g["line"]
-    # Explain-only hung lean stays open (xang1234 #745 all-dropped).
+    # Explain-only hung lean stays open (xang1234 #745 all-dropped);
+    # meta says hung not quiet (#746 no-closed honesty).
     assert g["lean_warn"] is False
     assert g["lean_open"] is True
 
