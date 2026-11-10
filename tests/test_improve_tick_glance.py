@@ -387,12 +387,23 @@ def test_improve_tick_lean_meta() -> None:
         )
         == "hung · not thin · stuck vs scan · stuck band"
     )
-    # Warn still wins over hung / no result.
+    # Warn leads; hung stuck still named (speak-both-sides).
     assert (
         improve_tick_lean_meta(
             "fresher vs stuck clash · fresher improve · stuck",
             warn=True,
             stuck=True,
+        )
+        == "warn · hung · fresher vs stuck"
+    )
+    # Empty lean + warn + stuck keeps hung under warn.
+    assert improve_tick_lean_meta("", warn=True, stuck=True) == "warn · hung"
+    # Warn without stuck stays bare warn.
+    assert (
+        improve_tick_lean_meta(
+            "fresher vs stuck clash · fresher improve · stuck",
+            warn=True,
+            stuck=False,
         )
         == "warn · fresher vs stuck"
     )
@@ -617,6 +628,7 @@ def test_improve_tick_glance_fresher_vs_stuck_clash(tmp_path: Path) -> None:
     assert "fresher vs stuck" in g["lean_meta"]
     assert g["lean_warn"] is True
     assert g["lean_open"] is True
+    assert g["lean_meta"].startswith("warn · hung ·")
     assert "fresher vs stuck" not in g["line"]
 
 
@@ -985,8 +997,11 @@ def test_improve_tick_glance_fresher_vs_source_align(tmp_path: Path) -> None:
     assert "fresher scan · gap wide" in g["lean"]
     assert "gap sides · improve stale · scan fresh" in g["lean"]
     # fresher scan still warns (ahead scan ≠ live improve); source/stuck align stay calm.
+    # Warn leads; hung stuck still named on the chip (speak-both-sides).
     assert g["lean_warn"] is True
-    assert g["lean_meta"].startswith("warn · fresher polarity vs scan-meter")
+    assert g["lean_meta"].startswith(
+        "warn · hung · fresher polarity vs scan-meter"
+    )
     assert "stuck vs scan" in g["lean_meta"]
     assert "fresher vs source" not in g["line"]
     assert "scan-meter" not in g["line"]

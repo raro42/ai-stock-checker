@@ -30468,14 +30468,20 @@ def improve_tick_lean_meta(
     stage speaks ``not thin`` so sole/few thin cards have a positive
     counterpart (xang1234 b09fb49 cover a card that is not thin +
     1cd7968 share the small-sample rule). Empty hung lean skips
-    ``no result`` (nothing listed ≠ a thin sample). Warn still wins over
-    hung. Not a gate.
+    ``no result`` (nothing listed ≠ a thin sample). Warn still leads,
+    but a hung stuck tick keeps ``hung`` under warn
+    (``warn · hung · …``) so a warn fold does not hide the stuck clock
+    (portfolio AI speak-both-sides + FinRobot + xang1234 after bare warn
+    hid hung ownership). Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
         # Skip no-result with nothing listed (xang1234 #747 nothing closed).
         if stuck and not warn:
             return "hung"
+        if stuck and warn:
+            # Warn leads; hung still named (speak-both-sides).
+            return "warn · hung"
         return "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
@@ -30504,7 +30510,10 @@ def improve_tick_lean_meta(
         stages.append("fresher")
     if "gap sides" in lean_l:
         stages.append("gap sides")
-    if warn:
+    if warn and stuck:
+        # Warn leads; keep hung so stuck clock stays on the chip.
+        sev = "warn · hung"
+    elif warn:
         sev = "warn"
     elif stuck:
         has_meter = any(
