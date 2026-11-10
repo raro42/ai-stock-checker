@@ -1178,6 +1178,7 @@
 {% if glance.ready %}
 {% set improve_lean = glance.lean|default('') %}
 {% set improve_lean_warn = glance.lean_warn|default(false) %}
+{% set improve_lean_open = glance.lean_open|default(improve_lean_warn) %}
 {% set improve_lean_meta = glance.lean_meta|default('quiet') %}
 <section class="improve-tick-glance" aria-labelledby="{{ heading_id }}">
   <h2 id="{{ heading_id }}" class="visually-hidden">Improve tick</h2>
@@ -1189,7 +1190,7 @@
     <a class="improve-tick-glance-link" href="{{ link_href }}">{{ link_label }}</a>
   </p>
   {% if improve_lean %}
-  <details class="improve-tick-lean{% if improve_lean_warn %} warn{% endif %}"{% if improve_lean_warn %} open{% endif %}>
+  <details class="improve-tick-lean{% if improve_lean_warn %} warn{% endif %}"{% if improve_lean_open %} open{% endif %}>
     <summary>improve lean <span class="meta">{{ improve_lean_meta }}</span></summary>
     <p class="improve-tick-lean-body{% if improve_lean_warn %} warn{% endif %}">{{ improve_lean }}</p>
   </details>

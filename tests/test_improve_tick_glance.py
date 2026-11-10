@@ -15,6 +15,7 @@ from openbb_backend.desk import (
     improve_tick_fresher_vs_source_bits,
     improve_tick_fresher_vs_status_age_bits,
     improve_tick_lean_meta,
+    improve_tick_lean_open,
     improve_tick_source_speak,
     improve_tick_source_vs_scan_bits,
     improve_tick_status_age_vs_scan_bits,
@@ -331,6 +332,10 @@ def test_improve_tick_lean_meta() -> None:
         == "quiet · stuck vs scan"
     )
     assert (
+        improve_tick_lean_meta("stuck band · aging")
+        == "quiet · stuck band"
+    )
+    assert (
         improve_tick_lean_meta("fresher improve · gap wide")
         == "quiet · fresher"
     )
@@ -350,7 +355,7 @@ def test_improve_tick_lean_meta() -> None:
         )
         == (
             "warn · fresher polarity vs scan-meter · fresher vs status/age"
-            " · status/age vs scan · fresher"
+            " · status/age vs scan · fresher · +1"
         )
     )
     assert (
@@ -391,9 +396,30 @@ def test_improve_tick_lean_meta() -> None:
         )
         == (
             "warn · fresher polarity vs scan-meter · fresher vs source"
-            " · source vs scan · fresher"
+            " · source vs scan · fresher · +1"
         )
     )
+
+
+def test_improve_tick_lean_open() -> None:
+    # Calm finished tick with no lean — closed.
+    assert improve_tick_lean_open(lean="", lean_warn=False, stuck=False) is False
+    # Warn opens even without stuck.
+    assert improve_tick_lean_open(
+        lean="clash · source loop tick · scan fresh",
+        lean_warn=True,
+        stuck=False,
+    )
+    # Hung stuck with explain-only band stays open (xang1234 all-dropped).
+    assert improve_tick_lean_open(
+        lean="stuck band · aging", lean_warn=False, stuck=True
+    )
+    # Stuck without lean body stays closed.
+    assert improve_tick_lean_open(lean="", lean_warn=False, stuck=True) is False
+    # Finished tick with quiet lean stays closed.
+    assert improve_tick_lean_open(
+        lean="fresher improve · gap wide", lean_warn=False, stuck=False
+    ) is False
 
 
 def test_improve_tick_glance_start_only_speaks_and_ages(tmp_path: Path) -> None:
@@ -446,6 +472,9 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "stuck band · aging" in g["lean"]
     assert "stuck band" in g["lean_meta"]
     assert "stuck band" not in g["line"]
+    # Explain-only hung lean stays open (xang1234 #745 all-dropped).
+    assert g["lean_warn"] is False
+    assert g["lean_open"] is True
 
 
 def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
@@ -473,6 +502,7 @@ def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
     assert "stuck" in g["line"]
     assert "stuck vs scan" not in g["line"]
     assert "stuck band" not in g["line"]
+    assert g["lean_open"] is True
 
 
 def test_improve_tick_glance_stuck_band_stale(tmp_path: Path) -> None:
@@ -491,6 +521,7 @@ def test_improve_tick_glance_stuck_band_stale(tmp_path: Path) -> None:
     assert "stuck band" in g["lean_meta"]
     assert "stuck" in g["line"]
     assert "stuck band" not in g["line"]
+    assert g["lean_open"] is True
 
 
 def test_improve_tick_glance_failed_end_stale_not_stuck(
@@ -693,9 +724,10 @@ def test_improve_tick_glance_status_age_vs_scan_align_clash(
         " · fresher polarity vs scan-meter align"
     )
     assert g["lean_warn"] is True
+    assert g["lean_open"] is True
     assert g["lean_meta"] == (
         "warn · fresher polarity vs scan-meter · fresher vs status/age"
-        " · status/age vs scan · fresher"
+        " · status/age vs scan · fresher · +1"
     )
     # Lean stays off the primary clip.
     assert "status/age vs scan" not in g["line"]
@@ -729,9 +761,10 @@ def test_improve_tick_glance_status_age_align_vs_scan_clash(
         " · clash · scan-meter · fresher polarity align"
     )
     assert g["lean_warn"] is True
+    assert g["lean_open"] is True
     assert g["lean_meta"] == (
         "warn · fresher polarity vs scan-meter · fresher vs status/age"
-        " · status/age vs scan · fresher"
+        " · status/age vs scan · fresher · +1"
     )
     assert "status/age vs scan" not in g["line"]
     assert "clash · status/age align" not in g["line"]
@@ -765,9 +798,10 @@ def test_improve_tick_glance_source_vs_scan_align_clash(
         " · clash · fresher polarity clash · scan-meter align"
     )
     assert g["lean_warn"] is True
+    assert g["lean_open"] is True
     assert g["lean_meta"] == (
         "warn · fresher polarity vs scan-meter · fresher vs source"
-        " · source vs scan · fresher"
+        " · source vs scan · fresher · +1"
     )
     assert "source vs scan" not in g["line"]
     assert "fresher" not in g["line"]

@@ -30401,6 +30401,9 @@ def improve_tick_fresher_polarity_vs_scan_meter_bits(
     return "clash · scan-meter · fresher polarity align", True
 
 
+_IMPROVE_TICK_LEAN_NAME_CAP = 4
+
+
 def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for improve lean fold (display only).
 
@@ -30408,7 +30411,9 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
     inventory + Screener/opportunity lean meta after status/age vs scan,
     source vs scan, stuck vs scan, stuck band, fresher/gap, gap sides,
     fresher vs status/age, fresher vs source, and fresher polarity vs
-    scan-meter all live under the same fold. Not a gate.
+    scan-meter all live under the same fold. Cap clips names but appends
+    ``+N`` so the summary still labels by every stage the body lists
+    (xang1234 #745 pending-fold count honesty). Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30441,7 +30446,33 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
         stages.append("gap sides")
     if not stages:
         return sev
-    return f"{sev} · {' · '.join(stages[:4])}"
+    named = stages[:_IMPROVE_TICK_LEAN_NAME_CAP]
+    extra = len(stages) - len(named)
+    tail = " · ".join(named)
+    if extra > 0:
+        tail = f"{tail} · +{extra}"
+    return f"{sev} · {tail}"
+
+
+def improve_tick_lean_open(
+    *,
+    lean: str,
+    lean_warn: bool = False,
+    stuck: bool = False,
+) -> bool:
+    """Whether improve lean ``<details>`` starts open (display only).
+
+    Warn folds already open. Hung ``stuck`` ticks with lean body (stuck band /
+    stuck vs scan / fresher nests) also stay open so explain-only hung detail
+    is not hidden behind a closed accordion — xang1234 #745 keep all-dropped
+    sections unfolded when the strip has no pending numbers. Finished ticks
+    without stuck keep calm folds closed. Not a gate.
+    """
+    if lean_warn:
+        return True
+    if not stuck:
+        return False
+    return bool(str(lean or "").strip())
 
 
 def build_improve_tick_glance(
@@ -30483,9 +30514,11 @@ def build_improve_tick_glance(
     scan-clash both spoke, lean also names ``stuck vs scan align · clash`` so
     absolute stuck beside scan clash does not hide meter agreement. When
     stuck already spoke, lean also names ``stuck band · aging|stale`` so
-    absolute stuck does not hide which age band holds. Missing logs stay
-    silent so hosts without overnight loops do not warn. Not a webhook /
-    not a new entry gate.
+    absolute stuck does not hide which age band holds. Hung stuck lean
+    folds start open even when explain-only (xang1234 #745 all-dropped
+    unfolded); lean meta appends ``+N`` when stage names are clipped.
+    Missing logs stay silent so hosts without overnight loops do not warn.
+    Not a webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30507,6 +30540,7 @@ def build_improve_tick_glance(
         "scan_clash": "",
         "lean": "",
         "lean_warn": False,
+        "lean_open": False,
         "lean_meta": "quiet",
     }
     if data_dir is None:
@@ -30696,6 +30730,10 @@ def build_improve_tick_glance(
         lean_warn = lean_warn or fpm_warn
     lean = " · ".join(lean_parts)
     lean_meta = improve_tick_lean_meta(lean, warn=lean_warn)
+    stuck = bool(stuck_bit)
+    lean_open = improve_tick_lean_open(
+        lean=lean, lean_warn=lean_warn, stuck=stuck
+    )
     if lean_warn and tone == "ok":
         tone = "aging"
     line = " · ".join(bits)
@@ -30712,7 +30750,7 @@ def build_improve_tick_glance(
         "source": source,
         "source_bit": source_bit,
         "source_escalate": source_escalate,
-        "stuck": bool(stuck_bit),
+        "stuck": stuck,
         "stuck_bit": stuck_bit,
         "failed": failed,
         "status_age_bit": status_age_bit,
@@ -30721,6 +30759,7 @@ def build_improve_tick_glance(
         "scan_clash": scan_clash,
         "lean": lean,
         "lean_warn": lean_warn,
+        "lean_open": lean_open,
         "lean_meta": lean_meta,
     }
 
