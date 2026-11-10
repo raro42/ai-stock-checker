@@ -30075,6 +30075,32 @@ def improve_tick_source_speak(source: str) -> tuple[str, bool]:
     return label, False
 
 
+def improve_tick_stuck_bits(
+    source_bit: str,
+    freshness: str,
+    *,
+    source_escalate: bool,
+) -> tuple[str, bool]:
+    """Ops stuck flag for hung improve clocks (display only).
+
+    xang1234 #741 / 0be5b49 fundamentals-stuck: Operations must flag a hung
+    refresh from the holder's own activity, and must not judge stuck from a
+    leftover warmup heartbeat or a failed completed record. Escalate sources
+    (``start only`` / ``log mtime``) past aging|stale speak ``stuck``. Fresh
+    escalate = still running. Calm ``loop tick`` (wake leftover) and finished
+    ``cursor end`` (including failed rc) stay silent — failed ≠ stuck. Not a
+    gate.
+    """
+    if not source_escalate:
+        return "", False
+    band = str(freshness or "").strip().lower()
+    if band not in {"aging", "stale"}:
+        return "", False
+    if not str(source_bit or "").strip():
+        return "", False
+    return "stuck", True
+
+
 def improve_tick_status_vs_age_bits(
     *,
     failed: bool,
@@ -30404,8 +30430,11 @@ def build_improve_tick_glance(
     hang/mtime guess does not claim live ownership; when scan-meter lean and
     fresher-polarity lean both spoke, lean also names ``fresher polarity vs
     scan-meter align|clash`` so the two polarity meters do not hide mood
-    agreement. Missing logs stay silent so hosts without overnight loops do
-    not warn. Not a webhook / not a new entry gate.
+    agreement. Escalate sources past aging|stale also speak ``stuck`` so Ops
+    flags a hung cursor refresh (xang1234 fundamentals-stuck); leftover loop
+    wake heartbeats and failed completed ends do not. Missing logs stay silent
+    so hosts without overnight loops do not warn. Not a webhook / not a new
+    entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30418,6 +30447,8 @@ def build_improve_tick_glance(
         "source": "",
         "source_bit": "",
         "source_escalate": False,
+        "stuck": False,
+        "stuck_bit": "",
         "failed": False,
         "status_age_bit": "",
         "status_age_escalate": False,
@@ -30506,6 +30537,13 @@ def build_improve_tick_glance(
     # scan clash still win below.
     if source_escalate and tone == "ok":
         tone = "aging"
+    stuck_bit, stuck_escalate = improve_tick_stuck_bits(
+        source_bit, freshness, source_escalate=source_escalate
+    )
+    if stuck_escalate and tone == "ok":
+        tone = "aging"
+    if stuck_escalate and freshness == "stale":
+        tone = "warn"
     status_age_bit, status_age_escalate = improve_tick_status_vs_age_bits(
         failed=failed, rc=rc, freshness=freshness
     )
@@ -30541,6 +30579,9 @@ def build_improve_tick_glance(
     # Source after status · before clash so the 96-char clip keeps age + reason.
     if source_bit:
         bits.append(source_bit)
+    # Stuck after source so Ops names a hung escalate clock (not leftover wake).
+    if stuck_bit:
+        bits.append(stuck_bit)
     # Age before clash so the 96-char clip keeps improve age (LAYA parity).
     if scan_clash:
         bits.append(scan_clash)
@@ -30608,6 +30649,8 @@ def build_improve_tick_glance(
         "source": source,
         "source_bit": source_bit,
         "source_escalate": source_escalate,
+        "stuck": bool(stuck_bit),
+        "stuck_bit": stuck_bit,
         "failed": failed,
         "status_age_bit": status_age_bit,
         "status_age_escalate": status_age_escalate,

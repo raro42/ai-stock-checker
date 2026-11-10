@@ -19,6 +19,7 @@ from openbb_backend.desk import (
     improve_tick_source_vs_scan_bits,
     improve_tick_status_age_vs_scan_bits,
     improve_tick_status_vs_age_bits,
+    improve_tick_stuck_bits,
     improve_tick_vs_scan_fresher_bits,
     improve_tick_vs_scan_fresher_gap_sides_bits,
     load_desk_snapshot,
@@ -65,6 +66,28 @@ def test_improve_tick_source_speak() -> None:
     assert improve_tick_source_speak("loop tick") == ("loop tick", False)
     assert improve_tick_source_speak("cursor log") == ("log mtime", True)
     assert improve_tick_source_speak("loop log") == ("log mtime", True)
+
+
+def test_improve_tick_stuck_bits() -> None:
+    # Fresh escalate = still running — not stuck.
+    assert improve_tick_stuck_bits(
+        "start only", "fresh", source_escalate=True
+    ) == ("", False)
+    # Aging/stale escalate = hung activity (xang1234 fundamentals-stuck).
+    assert improve_tick_stuck_bits(
+        "start only", "aging", source_escalate=True
+    ) == ("stuck", True)
+    assert improve_tick_stuck_bits(
+        "log mtime", "stale", source_escalate=True
+    ) == ("stuck", True)
+    # Leftover wake heartbeat / finished end never mark stuck.
+    assert improve_tick_stuck_bits(
+        "loop tick", "stale", source_escalate=False
+    ) == ("", False)
+    assert improve_tick_stuck_bits("", "stale", source_escalate=False) == (
+        "",
+        False,
+    )
 
 
 def test_improve_tick_status_vs_age_bits() -> None:
@@ -355,6 +378,72 @@ def test_improve_tick_glance_start_only_speaks_and_ages(tmp_path: Path) -> None:
     assert g["freshness"] == "fresh"
     assert g["tone"] == "aging"
     assert "start only" in g["line"]
+    assert g["stuck"] is False
+    assert g["stuck_bit"] == ""
+    assert "stuck" not in g["line"]
+
+
+def test_improve_tick_glance_start_only_aging_speaks_stuck(
+    tmp_path: Path,
+) -> None:
+    """Hung start past aging → Ops stuck (ignore failed leftover end)."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T16:00Z cursor improve end rc=1\n"
+        "2026-11-09T18:00Z cursor improve start\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T20:00Z")
+    )
+    assert g["ready"] is True
+    assert g["source"] == "cursor start"
+    assert g["source_bit"] == "start only"
+    assert g["freshness"] == "aging"
+    assert g["rc"] is None
+    assert g["failed"] is False
+    assert g["stuck"] is True
+    assert g["stuck_bit"] == "stuck"
+    assert "start only" in g["line"]
+    assert "stuck" in g["line"]
+    # Failed leftover end must not own the clock (xang1234 0be5b49).
+    assert "rc=1" not in g["line"]
+
+
+def test_improve_tick_glance_failed_end_stale_not_stuck(
+    tmp_path: Path,
+) -> None:
+    """Completed fail is status/age — not Ops stuck."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T12:00Z cursor improve end rc=1\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T20:00Z")
+    )
+    assert g["ready"] is True
+    assert g["failed"] is True
+    assert g["stuck"] is False
+    assert g["stuck_bit"] == ""
+    assert "stuck" not in g["line"]
+
+
+def test_improve_tick_glance_loop_tick_stale_not_stuck(
+    tmp_path: Path,
+) -> None:
+    """Leftover wake heartbeat must not judge stuck (xang1234 0be5b49)."""
+    (tmp_path / "run_improve_loop.log").write_text(
+        '2026-11-09T12:00Z AGENT_LOOP_TICK_improve {"prompt": "x"}\n',
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path, now=_clock("2026-11-09T20:00Z")
+    )
+    assert g["ready"] is True
+    assert g["source"] == "loop tick"
+    assert g["freshness"] == "stale"
+    assert g["stuck"] is False
+    assert g["stuck_bit"] == ""
+    assert "stuck" not in g["line"]
 
 
 def test_improve_tick_glance_log_mtime_speaks_and_ages(tmp_path: Path) -> None:
