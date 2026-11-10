@@ -30101,6 +30101,27 @@ def improve_tick_stuck_bits(
     return "stuck", True
 
 
+def improve_tick_stuck_vs_scan_bits(
+    stuck_bit: str,
+    scan_clash: str,
+) -> tuple[str, bool]:
+    """Hung improve stuck flag vs scan-clash mood (display only).
+
+    Absolute ``stuck`` beside ``clash · scan …`` hid whether the hung clock
+    and the scan archive *agree* the desk is not live — FinRobot edge/conf +
+    portfolio AI speak-both-sides + xang1234 severity after #741 stuck alone
+    beside scan bands. Both adverse → ``stuck vs scan align · clash``
+    (confirm). Sole side silent. Source vs scan already covers escalate
+    clocks; stuck names the hung aging|stale hold specifically. Lives under
+    improve lean fold so the 96-char primary clip stays short. Not a gate.
+    """
+    st = str(stuck_bit or "").strip()
+    sc = str(scan_clash or "").strip()
+    if not st or not sc:
+        return "", False
+    return "stuck vs scan align · clash", False
+
+
 def improve_tick_status_vs_age_bits(
     *,
     failed: bool,
@@ -30363,9 +30384,9 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
-    source vs scan, fresher/gap, gap sides, fresher vs status/age,
-    fresher vs source, and fresher polarity vs scan-meter all live under the
-    same fold. Not a gate.
+    source vs scan, stuck vs scan, fresher/gap, gap sides, fresher vs
+    status/age, fresher vs source, and fresher polarity vs scan-meter all
+    live under the same fold. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30381,6 +30402,8 @@ def improve_tick_lean_meta(lean: str, *, warn: bool = False) -> str:
         stages.append("fresher vs source")
     if "fresher vs status/age" in lean_l:
         stages.append("fresher vs status/age")
+    if "stuck vs scan" in lean_l:
+        stages.append("stuck vs scan")
     if (
         "status/age vs scan" in lean_l
         or "clash · status/age align" in lean_l
@@ -30432,9 +30455,11 @@ def build_improve_tick_glance(
     scan-meter align|clash`` so the two polarity meters do not hide mood
     agreement. Escalate sources past aging|stale also speak ``stuck`` so Ops
     flags a hung cursor refresh (xang1234 fundamentals-stuck); leftover loop
-    wake heartbeats and failed completed ends do not. Missing logs stay silent
-    so hosts without overnight loops do not warn. Not a webhook / not a new
-    entry gate.
+    wake heartbeats and failed completed ends do not. When stuck and
+    scan-clash both spoke, lean also names ``stuck vs scan align · clash`` so
+    absolute stuck beside scan clash does not hide meter agreement. Missing
+    logs stay silent so hosts without overnight loops do not warn. Not a
+    webhook / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -30599,6 +30624,12 @@ def build_improve_tick_glance(
     if src_lean:
         lean_parts.append(src_lean)
         lean_warn = lean_warn or src_warn
+    stuck_lean, stuck_warn = improve_tick_stuck_vs_scan_bits(
+        stuck_bit, scan_clash
+    )
+    if stuck_lean:
+        lean_parts.append(stuck_lean)
+        lean_warn = lean_warn or stuck_warn
     fr_lean, fr_warn = improve_tick_vs_scan_fresher_bits(
         freshness, scan_freshness, scan_clash
     )
@@ -30623,7 +30654,7 @@ def build_improve_tick_glance(
     if fsrc_lean:
         lean_parts.append(fsrc_lean)
         lean_warn = lean_warn or fsrc_warn
-    scan_meter = sa_lean or src_lean
+    scan_meter = sa_lean or src_lean or stuck_lean
     fresher_pol = fsa_lean or fsrc_lean
     fpm_lean, fpm_warn = improve_tick_fresher_polarity_vs_scan_meter_bits(
         scan_meter, fresher_pol

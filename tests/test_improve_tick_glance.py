@@ -20,6 +20,7 @@ from openbb_backend.desk import (
     improve_tick_status_age_vs_scan_bits,
     improve_tick_status_vs_age_bits,
     improve_tick_stuck_bits,
+    improve_tick_stuck_vs_scan_bits,
     improve_tick_vs_scan_fresher_bits,
     improve_tick_vs_scan_fresher_gap_sides_bits,
     load_desk_snapshot,
@@ -88,6 +89,21 @@ def test_improve_tick_stuck_bits() -> None:
         "",
         False,
     )
+
+
+def test_improve_tick_stuck_vs_scan_bits() -> None:
+    assert improve_tick_stuck_vs_scan_bits("", "clash · scan fresh") == (
+        "",
+        False,
+    )
+    assert improve_tick_stuck_vs_scan_bits("stuck", "") == ("", False)
+    # Both adverse → confirm (hung clock + scan clash agree desk is not live).
+    assert improve_tick_stuck_vs_scan_bits(
+        "stuck", "clash · scan fresh"
+    ) == ("stuck vs scan align · clash", False)
+    assert improve_tick_stuck_vs_scan_bits(
+        "stuck", "clash · scan stale"
+    ) == ("stuck vs scan align · clash", False)
 
 
 def test_improve_tick_status_vs_age_bits() -> None:
@@ -297,6 +313,10 @@ def test_improve_tick_lean_meta() -> None:
         == "warn · source vs scan"
     )
     assert (
+        improve_tick_lean_meta("stuck vs scan align · clash")
+        == "quiet · stuck vs scan"
+    )
+    assert (
         improve_tick_lean_meta("fresher improve · gap wide")
         == "quiet · fresher"
     )
@@ -407,6 +427,32 @@ def test_improve_tick_glance_start_only_aging_speaks_stuck(
     assert "stuck" in g["line"]
     # Failed leftover end must not own the clock (xang1234 0be5b49).
     assert "rc=1" not in g["line"]
+    # No scan → stuck vs scan lean silent.
+    assert "stuck vs scan" not in g["lean"]
+
+
+def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
+    """Hung stuck + scan clash → lean confirms meter agreement."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T18:00Z cursor improve start\n",
+        encoding="utf-8",
+    )
+    g = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T20:00Z"),
+        scan_time=_clock("2026-11-09T19:55Z"),
+        scan_interval_sec=900,
+    )
+    assert g["ready"] is True
+    assert g["stuck"] is True
+    assert g["stuck_bit"] == "stuck"
+    assert g["scan_clash"]
+    assert "stuck vs scan align · clash" in g["lean"]
+    assert "source vs scan align · clash" in g["lean"]
+    assert "stuck vs scan" in g["lean_meta"]
+    # Primary clip keeps age · stuck; lean holds meter agreement.
+    assert "stuck" in g["line"]
+    assert "stuck vs scan" not in g["line"]
 
 
 def test_improve_tick_glance_failed_end_stale_not_stuck(
@@ -740,21 +786,26 @@ def test_improve_tick_glance_fresher_vs_source_align(tmp_path: Path) -> None:
     assert g["source_bit"] == "log mtime"
     assert g["source_escalate"] is True
     assert g["freshness"] == "stale"
+    assert g["stuck"] is True
     assert g["scan_freshness"] == "fresh"
     assert g["scan_clash"] == "clash · scan fresh"
     assert "fresher vs source align" in g["lean"]
     assert "fresher vs source clash" not in g["lean"]
     assert "fresher polarity vs scan-meter align" in g["lean"]
     assert "fresher polarity vs scan-meter align · clash" not in g["lean"]
+    assert "stuck vs scan align · clash" in g["lean"]
     assert g["lean"].startswith("source vs scan align · clash")
     assert "fresher scan · gap wide" in g["lean"]
     assert "gap sides · improve stale · scan fresh" in g["lean"]
-    # fresher scan still warns (ahead scan ≠ live improve); source align stays calm.
+    # fresher scan still warns (ahead scan ≠ live improve); source/stuck align stay calm.
     assert g["lean_warn"] is True
     assert g["lean_meta"].startswith("warn · fresher polarity vs scan-meter")
+    assert "stuck vs scan" in g["lean_meta"]
     assert "fresher vs source" not in g["line"]
     assert "scan-meter" not in g["line"]
+    assert "stuck vs scan" not in g["line"]
     assert "log mtime" in g["line"]
+    assert "stuck" in g["line"]
 
 def test_improve_tick_glance_vs_scan_same_band_silent(tmp_path: Path) -> None:
     (tmp_path / "run_cursor_improve.log").write_text(
