@@ -11,6 +11,7 @@ from openbb_backend.desk import (
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
     build_improve_tick_glance,
+    improve_tick_fresher_polarity_vs_scan_meter_bits,
     improve_tick_fresher_vs_source_bits,
     improve_tick_fresher_vs_status_age_bits,
     improve_tick_lean_meta,
@@ -220,6 +221,36 @@ def test_improve_tick_fresher_vs_source_bits() -> None:
     ) == ("fresher vs source clash · fresher improve · log mtime", True)
 
 
+def test_improve_tick_fresher_polarity_vs_scan_meter_bits() -> None:
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits("", "fresher vs source align") == (
+        "",
+        False,
+    )
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits(
+        "source vs scan align · clash", ""
+    ) == ("", False)
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits(
+        "source vs scan align · clash",
+        "fresher vs source align",
+    ) == ("fresher polarity vs scan-meter align", False)
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits(
+        "status/age vs scan align · clash",
+        "fresher vs status/age align",
+    ) == ("fresher polarity vs scan-meter align", False)
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits(
+        "clash · source loop tick · scan stale",
+        "fresher vs source clash · fresher improve · start only",
+    ) == ("fresher polarity vs scan-meter align · clash", False)
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits(
+        "source vs scan align · clash",
+        "fresher vs source clash · fresher improve · start only",
+    ) == ("clash · fresher polarity clash · scan-meter align", True)
+    assert improve_tick_fresher_polarity_vs_scan_meter_bits(
+        "clash · status/age align · scan fresh",
+        "fresher vs status/age align",
+    ) == ("clash · scan-meter · fresher polarity align", True)
+
+
 def test_improve_tick_lean_meta() -> None:
     assert improve_tick_lean_meta("") == "quiet"
     assert (
@@ -256,10 +287,14 @@ def test_improve_tick_lean_meta() -> None:
         improve_tick_lean_meta(
             "status/age vs scan align · clash · fresher scan · gap wide"
             " · gap sides · improve stale · scan fresh"
-            " · fresher vs status/age align",
+            " · fresher vs status/age align"
+            " · fresher polarity vs scan-meter align",
             warn=True,
         )
-        == "warn · fresher vs status/age · status/age vs scan · fresher · gap sides"
+        == (
+            "warn · fresher polarity vs scan-meter · fresher vs status/age"
+            " · status/age vs scan · fresher"
+        )
     )
     assert (
         improve_tick_lean_meta("fresher vs status/age align")
@@ -278,12 +313,29 @@ def test_improve_tick_lean_meta() -> None:
     )
     assert (
         improve_tick_lean_meta(
-            "source vs scan align · clash · fresher improve · gap wide"
-            " · gap sides · improve fresh · scan stale"
-            " · fresher vs source clash · fresher improve · start only",
+            "fresher polarity vs scan-meter align",
+        )
+        == "quiet · fresher polarity vs scan-meter"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "clash · fresher polarity clash · scan-meter align",
             warn=True,
         )
-        == "warn · fresher vs source · source vs scan · fresher · gap sides"
+        == "warn · fresher polarity vs scan-meter"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "source vs scan align · clash · fresher improve · gap wide"
+            " · gap sides · improve fresh · scan stale"
+            " · fresher vs source clash · fresher improve · start only"
+            " · clash · fresher polarity clash · scan-meter align",
+            warn=True,
+        )
+        == (
+            "warn · fresher polarity vs scan-meter · fresher vs source"
+            " · source vs scan · fresher"
+        )
     )
 
 
@@ -465,15 +517,18 @@ def test_improve_tick_glance_status_age_vs_scan_align_clash(
         "status/age vs scan align · clash · fresher scan · gap wide"
         " · gap sides · improve stale · scan fresh"
         " · fresher vs status/age align"
+        " · fresher polarity vs scan-meter align"
     )
     assert g["lean_warn"] is True
     assert g["lean_meta"] == (
-        "warn · fresher vs status/age · status/age vs scan · fresher · gap sides"
+        "warn · fresher polarity vs scan-meter · fresher vs status/age"
+        " · status/age vs scan · fresher"
     )
     # Lean stays off the primary clip.
     assert "status/age vs scan" not in g["line"]
     assert "fresher" not in g["line"]
     assert "gap sides" not in g["line"]
+    assert "scan-meter" not in g["line"]
 
 
 def test_improve_tick_glance_status_age_align_vs_scan_clash(
@@ -498,15 +553,18 @@ def test_improve_tick_glance_status_age_align_vs_scan_clash(
         "clash · status/age align · scan fresh · fresher scan · gap wide"
         " · gap sides · improve stale · scan fresh"
         " · fresher vs status/age align"
+        " · clash · scan-meter · fresher polarity align"
     )
     assert g["lean_warn"] is True
     assert g["lean_meta"] == (
-        "warn · fresher vs status/age · status/age vs scan · fresher · gap sides"
+        "warn · fresher polarity vs scan-meter · fresher vs status/age"
+        " · status/age vs scan · fresher"
     )
     assert "status/age vs scan" not in g["line"]
     assert "clash · status/age align" not in g["line"]
     assert "fresher" not in g["line"]
     assert "gap sides" not in g["line"]
+    assert "scan-meter" not in g["line"]
 
 
 def test_improve_tick_glance_source_vs_scan_align_clash(
@@ -531,18 +589,20 @@ def test_improve_tick_glance_source_vs_scan_align_clash(
         "source vs scan align · clash · fresher improve · gap wide"
         " · gap sides · improve fresh · scan stale"
         " · fresher vs source clash · fresher improve · start only"
+        " · clash · fresher polarity clash · scan-meter align"
     )
     assert g["lean_warn"] is True
     assert g["lean_meta"] == (
-        "warn · fresher vs source · source vs scan · fresher · gap sides"
+        "warn · fresher polarity vs scan-meter · fresher vs source"
+        " · source vs scan · fresher"
     )
     assert "source vs scan" not in g["line"]
     assert "fresher" not in g["line"]
     assert "gap sides" not in g["line"]
     assert "fresher vs source" not in g["line"]
+    assert "scan-meter" not in g["line"]
     assert "start only" in g["line"]
     assert "clash · scan stale" in g["line"]
-
 
 def test_improve_tick_glance_loop_tick_vs_scan_clash(tmp_path: Path) -> None:
     """Calm loop-tick source + scan clash → lean warns moods disagree."""
@@ -595,15 +655,17 @@ def test_improve_tick_glance_fresher_vs_source_align(tmp_path: Path) -> None:
     assert g["scan_clash"] == "clash · scan fresh"
     assert "fresher vs source align" in g["lean"]
     assert "fresher vs source clash" not in g["lean"]
+    assert "fresher polarity vs scan-meter align" in g["lean"]
+    assert "fresher polarity vs scan-meter align · clash" not in g["lean"]
     assert g["lean"].startswith("source vs scan align · clash")
     assert "fresher scan · gap wide" in g["lean"]
     assert "gap sides · improve stale · scan fresh" in g["lean"]
     # fresher scan still warns (ahead scan ≠ live improve); source align stays calm.
     assert g["lean_warn"] is True
-    assert g["lean_meta"].startswith("warn · fresher vs source")
+    assert g["lean_meta"].startswith("warn · fresher polarity vs scan-meter")
     assert "fresher vs source" not in g["line"]
+    assert "scan-meter" not in g["line"]
     assert "log mtime" in g["line"]
-
 
 def test_improve_tick_glance_vs_scan_same_band_silent(tmp_path: Path) -> None:
     (tmp_path / "run_cursor_improve.log").write_text(
