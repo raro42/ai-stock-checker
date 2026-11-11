@@ -120,6 +120,12 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # a thin control calendar. few <5 warns only (still ready for B). Missing
 # ``sell_sessions`` → fail-open (no bit). Not a live halt.
 WINDOW_A_SELL_SESSION_MIN = 5
+# Sells per unique UTC sell-session day (xang1234 #747 Few dates +
+# portfolio AI count≠calendar). Few days alone ≠ how clustered the
+# closes are on those days. fat ≥2.0× warns only (still ready for B).
+# ok speaks when sessions already spoke and ratio < fat. Missing
+# sessions → fail-open (no bit). Not a live halt.
+WINDOW_A_CLOSES_PER_DAY_FAT = 2.0
 # Ending run of losing closes (portfolio AI + tradermonty postmortem).
 # Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
 # Peak run (`loss_streak_max`) speaks only when it exceeds the ending run
@@ -2380,8 +2386,12 @@ def window_a_sample_readiness(
     ``ok`` or ``clash · ok · few`` / ``thin · ok``
     (``closes_kelly_vs_sessions_*``) — portfolio AI speak-both-sides +
     xang1234 after absolute N closes beside N days; clash warns only
-    (still ready for B); sole side silent. Not a gate; does not flip
-    compose promote.
+    (still ready for B); sole side silent. When sell sessions already
+    spoke, also speak clustering density ``A closes/day [fat|ok] · N×``
+    (sells ÷ session days; fat ≥ ``WINDOW_A_CLOSES_PER_DAY_FAT``)
+    — xang1234 Few dates + portfolio AI count≠calendar after absolute
+    N days alone hid same-day pile-up; fat warns only (still ready for
+    B). Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -2555,6 +2565,10 @@ def window_a_sample_readiness(
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
+        "closes_per_day": "",
+        "closes_per_day_n": None,
+        "closes_per_day_bit": "",
+        "closes_per_day_fat": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3545,6 +3559,10 @@ def window_a_sample_readiness(
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
+    closes_per_day = ""
+    closes_per_day_n: float | None = None
+    closes_per_day_bit = ""
+    closes_per_day_fat = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4187,6 +4205,28 @@ def window_a_sample_readiness(
                 "A Kelly vs sessions clash · "
                 f"{closes_kelly_sample} · {closes_sell_sessions}"
             )
+
+    # Sells per session day after absolute sessions — N days alone hid
+    # same-day pile-up (xang1234 #747 Few dates + portfolio AI
+    # count≠calendar). fat ≥ WINDOW_A_CLOSES_PER_DAY_FAT warns only
+    # (still ready for B). ok speaks when sessions spoke. Silent without
+    # sessions n.
+    if closes_sell_sessions_n is not None and sells > 0:
+        try:
+            n_sess = int(closes_sell_sessions_n)
+        except (TypeError, ValueError):
+            n_sess = 0
+        if n_sess >= 1:
+            ratio = float(sells) / float(n_sess)
+            closes_per_day_n = round(ratio, 2)
+            fat_need = float(WINDOW_A_CLOSES_PER_DAY_FAT)
+            if ratio >= fat_need:
+                closes_per_day = "fat"
+                closes_per_day_fat = True
+                closes_per_day_bit = f"A closes/day fat · {ratio:.1f}×"
+            else:
+                closes_per_day = "ok"
+                closes_per_day_bit = f"A closes/day ok · {ratio:.1f}×"
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
     # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
@@ -5599,6 +5639,10 @@ def window_a_sample_readiness(
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
+        "closes_per_day": closes_per_day,
+        "closes_per_day_n": closes_per_day_n,
+        "closes_per_day_bit": closes_per_day_bit,
+        "closes_per_day_fat": closes_per_day_fat,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7252,6 +7296,16 @@ def format_window_a_closes_kelly_vs_sessions_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_kelly_vs_sessions_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_per_day_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A sells-per-session-day density bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_per_day_bit") or "").strip()
     return bit
 
 

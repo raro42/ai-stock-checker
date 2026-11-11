@@ -7465,6 +7465,10 @@ def build_calm_streak_glance(
         "window_a_closes_kelly_vs_sessions_bit": "",
         "window_a_closes_kelly_vs_sessions": "",
         "window_a_closes_kelly_vs_sessions_clash": False,
+        "window_a_closes_per_day_bit": "",
+        "window_a_closes_per_day": "",
+        "window_a_closes_per_day_n": None,
+        "window_a_closes_per_day_fat": False,
         "window_a_closes_loss_streak_bit": "",
         "window_a_closes_loss_streak": None,
         "window_a_closes_loss_streak_hot": False,
@@ -7811,6 +7815,10 @@ def build_calm_streak_glance(
     window_a_closes_kelly_vs_sessions_bit = ""
     window_a_closes_kelly_vs_sessions = ""
     window_a_closes_kelly_vs_sessions_clash = False
+    window_a_closes_per_day_bit = ""
+    window_a_closes_per_day = ""
+    window_a_closes_per_day_n: float | None = None
+    window_a_closes_per_day_fat = False
     window_a_closes_loss_streak_bit = ""
     window_a_closes_loss_streak: int | None = None
     window_a_closes_loss_streak_hot = False
@@ -8199,7 +8207,7 @@ def build_calm_streak_glance(
         # WR vs BE + net expectancy + fee take + net PF + net/fee +
         # Kelly + half-Kelly vs sizer + half-Kelly vs slot + half-Kelly
         # vs conc cap + quarter-Kelly triad + pract-K + K-sample +
-        # sell sessions + Kelly vs sessions +
+        # sell sessions + Kelly vs sessions + closes/day +
         # loss streak + loss streak max + win streak + win streak max +
         # flat closes + loss streak mean + win streak mean +
         # loss streak median + win streak median + loss streak min +
@@ -9971,13 +9979,66 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_kelly_vs_sessions_bit}"
                     )
-                # Loss streak after sessions/K/sess — sample size alone
+                # Closes/day after K/sess — N days alone hid same-day
+                # pile-up (xang1234 Few dates + portfolio AI
+                # count≠calendar). Compact "A closes/day …" →
+                # "closes/day …"; drop K/sess (or sessions / K-sample)
+                # from the line when density spoke so the 96-char clip
+                # keeps fat/ok (earlier bits stay in fields). Fat warns
+                # only. Silent without sessions n.
+                raw_cpd = str(
+                    sample.get("closes_per_day_bit") or ""
+                ).strip()
+                if raw_cpd:
+                    window_a_closes_per_day_bit = (
+                        raw_cpd.replace(
+                            "A closes/day", "closes/day", 1
+                        ).strip()
+                    )
+                    window_a_closes_per_day = str(
+                        sample.get("closes_per_day") or ""
+                    )
+                    window_a_closes_per_day_fat = bool(
+                        sample.get("closes_per_day_fat")
+                    )
+                    try:
+                        cpdn = sample.get("closes_per_day_n")
+                        window_a_closes_per_day_n = (
+                            float(cpdn) if cpdn is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_per_day_n = None
+                    if window_a_closes_kelly_vs_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_vs_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sell_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sell_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_sample_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_sample_bit}",
+                            "",
+                            1,
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_per_day_bit}"
+                    )
+                # Loss streak after closes/day/K/sess — sample size alone
                 # hid the newest losing-close run (portfolio AI +
                 # tradermonty). Compact "A loss streak …" → "loss …";
-                # drop K/sess (or sessions / K-sample) from the line when
-                # streak spoke so the 96-char clip keeps quiet/hot
-                # (earlier bits stay in fields). Hot ≥2 warns only.
-                # Silent without loss_streak key (fail-open).
+                # drop closes/day (or K/sess / sessions / K-sample) from
+                # the line when streak spoke so the 96-char clip keeps
+                # quiet/hot (earlier bits stay in fields). Hot ≥2 warns
+                # only. Silent without loss_streak key (fail-open).
                 raw_ls = str(
                     sample.get("closes_loss_streak_bit") or ""
                 ).strip()
@@ -9997,7 +10058,13 @@ def build_calm_streak_glance(
                         )
                     except (TypeError, ValueError):
                         window_a_closes_loss_streak = None
-                    if window_a_closes_kelly_vs_sessions_bit:
+                    if window_a_closes_per_day_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_per_day_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_vs_sessions_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_vs_sessions_bit}",
                             "",
@@ -10092,6 +10159,12 @@ def build_calm_streak_glance(
                     elif window_a_closes_loss_streak_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_per_day_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_per_day_bit}",
                             "",
                             1,
                         )
@@ -15928,6 +16001,12 @@ def build_calm_streak_glance(
                             "",
                             1,
                         )
+                    elif window_a_closes_per_day_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_per_day_bit}",
+                            "",
+                            1,
+                        )
                     elif window_a_closes_kelly_vs_sessions_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_vs_sessions_bit}",
@@ -20293,6 +20372,7 @@ def build_calm_streak_glance(
                     or window_a_closes_kelly_sample_thin
                     or window_a_closes_sell_sessions_few
                     or window_a_closes_kelly_vs_sessions_clash
+                    or window_a_closes_per_day_fat
                     or window_a_closes_loss_streak_hot
                     or window_a_closes_loss_streak_max_hot
                     or window_a_closes_flat_warn
@@ -20584,6 +20664,10 @@ def build_calm_streak_glance(
         "window_a_closes_kelly_vs_sessions_clash": (
             window_a_closes_kelly_vs_sessions_clash
         ),
+        "window_a_closes_per_day_bit": window_a_closes_per_day_bit,
+        "window_a_closes_per_day": window_a_closes_per_day,
+        "window_a_closes_per_day_n": window_a_closes_per_day_n,
+        "window_a_closes_per_day_fat": window_a_closes_per_day_fat,
         "window_a_closes_loss_streak_bit": (
             window_a_closes_loss_streak_bit
         ),
@@ -21772,6 +21856,7 @@ def build_promote_ab_glance(
         format_window_a_closes_kelly_sample_bit,
         format_window_a_closes_sell_sessions_bit,
         format_window_a_closes_kelly_vs_sessions_bit,
+        format_window_a_closes_per_day_bit,
         format_window_a_closes_loss_streak_bit,
         format_window_a_closes_loss_streak_max_bit,
         format_window_a_closes_loss_streak_mean_bit,
@@ -21945,6 +22030,9 @@ def build_promote_ab_glance(
         "closes_sell_sessions_few": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_clash": False,
+        "closes_per_day": "",
+        "closes_per_day_n": None,
+        "closes_per_day_fat": False,
         "closes_loss_streak": None,
         "closes_loss_streak_hot": False,
         "closes_loss_streak_max": None,
@@ -22148,6 +22236,7 @@ def build_promote_ab_glance(
         "a_closes_kelly_sample_bit": "",
         "a_closes_sell_sessions_bit": "",
         "a_closes_kelly_vs_sessions_bit": "",
+        "a_closes_per_day_bit": "",
         "a_closes_loss_streak_bit": "",
         "a_closes_loss_streak_max_bit": "",
         "a_closes_loss_streak_mean_bit": "",
@@ -22362,6 +22451,9 @@ def build_promote_ab_glance(
     closes_kelly_vs_sessions_clash = bool(
         sample.get("closes_kelly_vs_sessions_clash")
     )
+    closes_per_day = str(sample.get("closes_per_day") or "")
+    closes_per_day_n = sample.get("closes_per_day_n")
+    closes_per_day_fat = bool(sample.get("closes_per_day_fat"))
     closes_loss_streak = sample.get("closes_loss_streak")
     closes_loss_streak_hot = bool(sample.get("closes_loss_streak_hot"))
     closes_loss_streak_max = sample.get("closes_loss_streak_max")
@@ -22990,6 +23082,9 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_per_day_bit = (
+        format_window_a_closes_per_day_bit(sample) if window == "A" else ""
+    )
     a_closes_loss_streak_bit = (
         format_window_a_closes_loss_streak_bit(sample) if window == "A" else ""
     )
@@ -23376,6 +23471,7 @@ def build_promote_ab_glance(
                 a_closes_kelly_sample_bit,
                 a_closes_sell_sessions_bit,
                 a_closes_kelly_vs_sessions_bit,
+                a_closes_per_day_bit,
                 a_closes_loss_streak_bit,
                 a_closes_loss_streak_max_bit,
                 a_closes_loss_streak_mean_bit,
@@ -23480,6 +23576,7 @@ def build_promote_ab_glance(
             or closes_kelly_sample_thin
             or closes_sell_sessions_few
             or closes_kelly_vs_sessions_clash
+            or closes_per_day_fat
             or closes_loss_streak_hot
             or closes_loss_streak_max_hot
             or closes_loss_streak_mean_hot
@@ -23612,6 +23709,7 @@ def build_promote_ab_glance(
                 or a_closes_kelly_sample_bit
                 or a_closes_sell_sessions_bit
                 or a_closes_kelly_vs_sessions_bit
+                or a_closes_per_day_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
                 or a_closes_loss_streak_mean_bit
@@ -23734,6 +23832,7 @@ def build_promote_ab_glance(
                 or a_closes_kelly_sample_bit
                 or a_closes_sell_sessions_bit
                 or a_closes_kelly_vs_sessions_bit
+                or a_closes_per_day_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
                 or a_closes_loss_streak_mean_bit
@@ -23870,7 +23969,13 @@ def build_promote_ab_glance(
                 for b in honesty_bits
                 if b.startswith("A exits") and not b.startswith("A exits €")
             ]
-            kelly_bits = [b for b in honesty_bits if "Kelly" in b]
+            kelly_bits = [
+                b
+                for b in honesty_bits
+                if "Kelly" in b
+                or b.startswith("A sell sessions")
+                or b.startswith("A closes/day")
+            ]
             streak_bits = [
                 b
                 for b in honesty_bits
@@ -23961,6 +24066,7 @@ def build_promote_ab_glance(
                 or closes_kelly_sample_thin
                 or closes_sell_sessions_few
                 or closes_kelly_vs_sessions_clash
+                or closes_per_day_fat
             ):
                 honesty_warns.append("Kelly")
             if streak_line and (
@@ -24309,6 +24415,9 @@ def build_promote_ab_glance(
         "closes_kelly_vs_sessions_clash": (
             closes_kelly_vs_sessions_clash if window == "A" else False
         ),
+        "closes_per_day": closes_per_day if window == "A" else "",
+        "closes_per_day_n": closes_per_day_n if window == "A" else None,
+        "closes_per_day_fat": closes_per_day_fat if window == "A" else False,
         "closes_loss_streak": closes_loss_streak if window == "A" else None,
         "closes_loss_streak_hot": (
             closes_loss_streak_hot if window == "A" else False
@@ -24941,6 +25050,7 @@ def build_promote_ab_glance(
         "a_closes_kelly_sample_bit": a_closes_kelly_sample_bit,
         "a_closes_sell_sessions_bit": a_closes_sell_sessions_bit,
         "a_closes_kelly_vs_sessions_bit": a_closes_kelly_vs_sessions_bit,
+        "a_closes_per_day_bit": a_closes_per_day_bit,
         "a_closes_loss_streak_bit": a_closes_loss_streak_bit,
         "a_closes_loss_streak_max_bit": a_closes_loss_streak_max_bit,
         "a_closes_loss_streak_mean_bit": a_closes_loss_streak_mean_bit,

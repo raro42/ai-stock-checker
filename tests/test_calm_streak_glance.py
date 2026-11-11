@@ -154,6 +154,10 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_kelly_vs_sessions_bit"] == ""
     assert g["window_a_closes_kelly_vs_sessions"] == ""
     assert g["window_a_closes_kelly_vs_sessions_clash"] is False
+    assert g["window_a_closes_per_day_bit"] == ""
+    assert g["window_a_closes_per_day"] == ""
+    assert g["window_a_closes_per_day_n"] is None
+    assert g["window_a_closes_per_day_fat"] is False
     assert g["window_a_closes_loss_streak_bit"] == ""
     assert g["window_a_closes_loss_streak"] is None
     assert g["window_a_closes_loss_streak_hot"] is False
@@ -2158,15 +2162,20 @@ def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_few() -> Non
     assert g["window_a_closes_kelly_vs_sessions_bit"] == (
         "K/sess clash · ok · few"
     )
+    assert g["window_a_closes_per_day"] == "fat"
+    assert g["window_a_closes_per_day_n"] == 6.0
+    assert g["window_a_closes_per_day_fat"] is True
+    assert g["window_a_closes_per_day_bit"] == "closes/day fat · 6.0×"
     assert g["tone"] == "warn"
     assert "K-sample" not in g["line"]
-    assert "sessions few" not in g["line"]  # lean owns clip
-    assert "K/sess clash · ok · few" in g["line"]
+    assert "sessions few" not in g["line"]
+    assert "K/sess clash" not in g["line"]  # density owns clip
+    assert "closes/day fat · 6.0×" in g["line"]
     assert len(g["line"]) <= 96
 
 
 def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_ok() -> None:
-    """≥5 UTC sell days speaks sessions ok; K/sess align owns clip."""
+    """≥5 UTC sell days speaks sessions ok; closes/day owns clip after K/sess."""
     as_of = date(2026, 8, 18)
     stats = {
         "trades": 24,
@@ -2198,9 +2207,14 @@ def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_ok() -> None
     assert g["window_a_closes_kelly_vs_sessions"] == "align"
     assert g["window_a_closes_kelly_vs_sessions_clash"] is False
     assert g["window_a_closes_kelly_vs_sessions_bit"] == "K/sess align · ok"
+    assert g["window_a_closes_per_day"] == "ok"
+    assert g["window_a_closes_per_day_n"] == 1.5
+    assert g["window_a_closes_per_day_fat"] is False
+    assert g["window_a_closes_per_day_bit"] == "closes/day ok · 1.5×"
     assert "K-sample" not in g["line"]
     assert "sessions ok" not in g["line"]
-    assert "K/sess align · ok" in g["line"]
+    assert "K/sess align" not in g["line"]
+    assert "closes/day ok · 1.5×" in g["line"]
     assert len(g["line"]) <= 96
 
 

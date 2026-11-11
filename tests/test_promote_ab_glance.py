@@ -5993,6 +5993,70 @@ def test_window_a_kelly_vs_sessions_lean() -> None:
     )
 
 
+def test_window_a_closes_per_day_density() -> None:
+    """N sell days alone ≠ clustering. Fat ≥2× warns only; ok speaks both sides."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_CLOSES_PER_DAY_FAT,
+        format_window_a_closes_per_day_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert unknown["closes_per_day"] == ""
+    assert unknown["closes_per_day_n"] is None
+    assert unknown["closes_per_day_bit"] == ""
+    assert unknown["closes_per_day_fat"] is False
+    assert format_window_a_closes_per_day_bit(unknown) == ""
+    assert format_window_a_closes_per_day_bit(None) == ""
+
+    fat = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert fat["closes_per_day_n"] == 6.0
+    assert fat["closes_per_day_n"] >= WINDOW_A_CLOSES_PER_DAY_FAT
+    assert fat["closes_per_day"] == "fat"
+    assert fat["closes_per_day_fat"] is True
+    assert fat["closes_per_day_bit"] == "A closes/day fat · 6.0×"
+    assert format_window_a_closes_per_day_bit(fat) == fat["closes_per_day_bit"]
+
+    ok = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert ok["closes_per_day_n"] == 1.5
+    assert ok["closes_per_day"] == "ok"
+    assert ok["closes_per_day_fat"] is False
+    assert ok["closes_per_day_bit"] == "A closes/day ok · 1.5×"
+    assert format_window_a_closes_per_day_bit(ok) == ok["closes_per_day_bit"]
+
+
 def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     """Few sell-session dates warn. They do not block ready for B."""
     g = build_promote_ab_glance(
@@ -6032,8 +6096,11 @@ def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     assert g["closes_sell_sessions_few"] is True
     assert g["closes_kelly_vs_sessions"] == "clash"
     assert g["closes_kelly_vs_sessions_clash"] is True
+    assert g["closes_per_day"] == "fat"
+    assert g["closes_per_day_fat"] is True
     assert "A sell sessions few · 2 days <5" in g["line"]
     assert "A Kelly vs sessions clash · ok · few" in g["line"]
+    assert "A closes/day fat · 6.0×" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 
