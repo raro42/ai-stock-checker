@@ -30501,7 +30501,12 @@ def improve_tick_lean_meta(
     ``confirm · hung · no result|confirm · hung`` — peers of
     ``warn · hung · no result|warn · hung`` — so bare hung thin cards do
     not hide calm ownership after warn alone named severity (portfolio AI
-    speak-both-sides + FinRobot + xang1234). Not a gate.
+    speak-both-sides + FinRobot + xang1234). Finished calm lean with
+    spoken stages speaks ``confirm · …`` — peer of ``warn · …`` — so
+    bare ``quiet · status/age vs scan`` does not hide that meters already
+    agreed after confirm·hung covered hung only (FinRobot edge/conf +
+    portfolio AI speak-both-sides + xang1234). Empty finished stays
+    ``quiet``. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30551,6 +30556,10 @@ def improve_tick_lean_meta(
         # Confirm peer of warn · hung[+ thin] for meter, explain-only,
         # and empty (speak-both-sides).
         sev = f"confirm · hung{hung_thin}"
+    elif stages:
+        # Finished calm with spoken stages: confirm peer of warn · …
+        # (speak-both-sides after hung-only confirm).
+        sev = "confirm"
     else:
         sev = "quiet"
     if not stages:
