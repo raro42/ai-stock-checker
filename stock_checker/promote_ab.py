@@ -2375,7 +2375,13 @@ def window_a_sample_readiness(
     sell dates vs ``WINDOW_A_SELL_SESSION_MIN``) — xang1234 #747 /
     9a12dc1 Few dates after Kelly N closes; N closes on one day ≠ a
     multi-day control. ``few`` warns only (still ready for B). Missing
-    key → fail-open. Not a gate; does not flip compose promote.
+    key → fail-open. When Kelly sample and sell sessions both spoke,
+    speak meter agreement ``A Kelly vs sessions align · thin · few`` /
+    ``ok`` or ``clash · ok · few`` / ``thin · ok``
+    (``closes_kelly_vs_sessions_*``) — portfolio AI speak-both-sides +
+    xang1234 after absolute N closes beside N days; clash warns only
+    (still ready for B); sole side silent. Not a gate; does not flip
+    compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -2546,6 +2552,9 @@ def window_a_sample_readiness(
         "closes_sell_sessions_n": None,
         "closes_sell_sessions_bit": "",
         "closes_sell_sessions_few": False,
+        "closes_kelly_vs_sessions": "",
+        "closes_kelly_vs_sessions_bit": "",
+        "closes_kelly_vs_sessions_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3533,6 +3542,9 @@ def window_a_sample_readiness(
     closes_sell_sessions_n: int | None = None
     closes_sell_sessions_bit = ""
     closes_sell_sessions_few = False
+    closes_kelly_vs_sessions = ""
+    closes_kelly_vs_sessions_bit = ""
+    closes_kelly_vs_sessions_clash = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4153,6 +4165,28 @@ def window_a_sample_readiness(
                     closes_sell_sessions_bit = (
                         f"A sell sessions ok · {n_sessions} days"
                     )
+
+    # Kelly N closes ≠ calendar spread. When both meters spoke, speak
+    # agreement (portfolio AI + xang1234 after absolute sides). Clash
+    # warns only (still ready for B). Sole side silent.
+    if closes_kelly_sample and closes_sell_sessions:
+        kelly_adverse = closes_kelly_sample == "thin"
+        sess_adverse = closes_sell_sessions == "few"
+        if kelly_adverse == sess_adverse:
+            closes_kelly_vs_sessions = "align"
+            if kelly_adverse:
+                closes_kelly_vs_sessions_bit = (
+                    "A Kelly vs sessions align · thin · few"
+                )
+            else:
+                closes_kelly_vs_sessions_bit = "A Kelly vs sessions align · ok"
+        else:
+            closes_kelly_vs_sessions = "clash"
+            closes_kelly_vs_sessions_clash = True
+            closes_kelly_vs_sessions_bit = (
+                "A Kelly vs sessions clash · "
+                f"{closes_kelly_sample} · {closes_sell_sessions}"
+            )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
     # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
@@ -5562,6 +5596,9 @@ def window_a_sample_readiness(
         "closes_sell_sessions_n": closes_sell_sessions_n,
         "closes_sell_sessions_bit": closes_sell_sessions_bit,
         "closes_sell_sessions_few": closes_sell_sessions_few,
+        "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
+        "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
+        "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7205,6 +7242,16 @@ def format_window_a_closes_sell_sessions_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_sell_sessions_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_kelly_vs_sessions_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A Kelly-sample vs sell-sessions lean (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_kelly_vs_sessions_bit") or "").strip()
     return bit
 
 

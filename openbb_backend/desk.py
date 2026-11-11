@@ -21129,6 +21129,7 @@ _KELLY_QUIET_LABELS: tuple[tuple[str, str], ...] = (
     ("A quarter-Kelly vs slot", "qtr/slot"),
     ("A quarter-Kelly vs cap", "qtr/cap"),
     ("A practical Kelly", "practical"),
+    ("A Kelly vs sessions", "vs sessions"),
     ("A Kelly sample", "sample"),
     ("A Kelly", "Kelly"),
 )
@@ -21612,6 +21613,7 @@ def build_promote_ab_glance(
         format_window_a_closes_practical_kelly_bit,
         format_window_a_closes_kelly_sample_bit,
         format_window_a_closes_sell_sessions_bit,
+        format_window_a_closes_kelly_vs_sessions_bit,
         format_window_a_closes_loss_streak_bit,
         format_window_a_closes_loss_streak_max_bit,
         format_window_a_closes_loss_streak_mean_bit,
@@ -21783,6 +21785,8 @@ def build_promote_ab_glance(
         "closes_sell_sessions": "",
         "closes_sell_sessions_n": None,
         "closes_sell_sessions_few": False,
+        "closes_kelly_vs_sessions": "",
+        "closes_kelly_vs_sessions_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_hot": False,
         "closes_loss_streak_max": None,
@@ -21985,6 +21989,7 @@ def build_promote_ab_glance(
         "a_closes_practical_kelly_bit": "",
         "a_closes_kelly_sample_bit": "",
         "a_closes_sell_sessions_bit": "",
+        "a_closes_kelly_vs_sessions_bit": "",
         "a_closes_loss_streak_bit": "",
         "a_closes_loss_streak_max_bit": "",
         "a_closes_loss_streak_mean_bit": "",
@@ -22195,6 +22200,10 @@ def build_promote_ab_glance(
     closes_sell_sessions = str(sample.get("closes_sell_sessions") or "")
     closes_sell_sessions_n = sample.get("closes_sell_sessions_n")
     closes_sell_sessions_few = bool(sample.get("closes_sell_sessions_few"))
+    closes_kelly_vs_sessions = str(sample.get("closes_kelly_vs_sessions") or "")
+    closes_kelly_vs_sessions_clash = bool(
+        sample.get("closes_kelly_vs_sessions_clash")
+    )
     closes_loss_streak = sample.get("closes_loss_streak")
     closes_loss_streak_hot = bool(sample.get("closes_loss_streak_hot"))
     closes_loss_streak_max = sample.get("closes_loss_streak_max")
@@ -22818,6 +22827,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_kelly_vs_sessions_bit = (
+        format_window_a_closes_kelly_vs_sessions_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_loss_streak_bit = (
         format_window_a_closes_loss_streak_bit(sample) if window == "A" else ""
     )
@@ -23203,6 +23217,7 @@ def build_promote_ab_glance(
                 a_closes_practical_kelly_bit,
                 a_closes_kelly_sample_bit,
                 a_closes_sell_sessions_bit,
+                a_closes_kelly_vs_sessions_bit,
                 a_closes_loss_streak_bit,
                 a_closes_loss_streak_max_bit,
                 a_closes_loss_streak_mean_bit,
@@ -23306,6 +23321,7 @@ def build_promote_ab_glance(
             or closes_practical_kelly_cut
             or closes_kelly_sample_thin
             or closes_sell_sessions_few
+            or closes_kelly_vs_sessions_clash
             or closes_loss_streak_hot
             or closes_loss_streak_max_hot
             or closes_loss_streak_mean_hot
@@ -23437,6 +23453,7 @@ def build_promote_ab_glance(
                 or a_closes_practical_kelly_bit
                 or a_closes_kelly_sample_bit
                 or a_closes_sell_sessions_bit
+                or a_closes_kelly_vs_sessions_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
                 or a_closes_loss_streak_mean_bit
@@ -23558,6 +23575,7 @@ def build_promote_ab_glance(
                 or a_closes_practical_kelly_bit
                 or a_closes_kelly_sample_bit
                 or a_closes_sell_sessions_bit
+                or a_closes_kelly_vs_sessions_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
                 or a_closes_loss_streak_mean_bit
@@ -23784,6 +23802,7 @@ def build_promote_ab_glance(
                 or closes_practical_kelly_cut
                 or closes_kelly_sample_thin
                 or closes_sell_sessions_few
+                or closes_kelly_vs_sessions_clash
             ):
                 honesty_warns.append("Kelly")
             if streak_line and (
@@ -24125,6 +24144,12 @@ def build_promote_ab_glance(
         ),
         "closes_sell_sessions_few": (
             closes_sell_sessions_few if window == "A" else False
+        ),
+        "closes_kelly_vs_sessions": (
+            closes_kelly_vs_sessions if window == "A" else ""
+        ),
+        "closes_kelly_vs_sessions_clash": (
+            closes_kelly_vs_sessions_clash if window == "A" else False
         ),
         "closes_loss_streak": closes_loss_streak if window == "A" else None,
         "closes_loss_streak_hot": (
@@ -24757,6 +24782,7 @@ def build_promote_ab_glance(
         "a_closes_practical_kelly_bit": a_closes_practical_kelly_bit,
         "a_closes_kelly_sample_bit": a_closes_kelly_sample_bit,
         "a_closes_sell_sessions_bit": a_closes_sell_sessions_bit,
+        "a_closes_kelly_vs_sessions_bit": a_closes_kelly_vs_sessions_bit,
         "a_closes_loss_streak_bit": a_closes_loss_streak_bit,
         "a_closes_loss_streak_max_bit": a_closes_loss_streak_max_bit,
         "a_closes_loss_streak_mean_bit": a_closes_loss_streak_mean_bit,

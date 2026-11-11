@@ -5844,6 +5844,14 @@ def test_window_a_sell_sessions_few_dates() -> None:
     assert ok["closes_sell_sessions"] == "ok"
     assert ok["closes_sell_sessions_few"] is False
     assert ok["closes_sell_sessions_bit"] == "A sell sessions ok · 8 days"
+    assert ok["closes_kelly_vs_sessions"] == "align"
+    assert ok["closes_kelly_vs_sessions_clash"] is False
+    assert ok["closes_kelly_vs_sessions_bit"] == "A Kelly vs sessions align · ok"
+    assert few["closes_kelly_vs_sessions"] == "clash"
+    assert few["closes_kelly_vs_sessions_clash"] is True
+    assert few["closes_kelly_vs_sessions_bit"] == (
+        "A Kelly vs sessions clash · ok · few"
+    )
 
     # summarize counts unique UTC calendar days (xang1234 few-dates).
     same_day = [
@@ -5875,6 +5883,114 @@ def test_window_a_sell_sessions_few_dates() -> None:
     )
     assert stats["sell_sessions"] == 2
     assert stats["sells"] == 3
+
+
+def test_window_a_kelly_vs_sessions_lean() -> None:
+    """Kelly N closes ≠ calendar spread. Speak meter agreement when both spoke."""
+    from stock_checker.promote_ab import (
+        format_window_a_closes_kelly_vs_sessions_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert sole["closes_kelly_sample"] == "ok"
+    assert sole["closes_sell_sessions"] == ""
+    assert sole["closes_kelly_vs_sessions"] == ""
+    assert sole["closes_kelly_vs_sessions_bit"] == ""
+    assert sole["closes_kelly_vs_sessions_clash"] is False
+    assert format_window_a_closes_kelly_vs_sessions_bit(sole) == ""
+    assert format_window_a_closes_kelly_vs_sessions_bit(None) == ""
+
+    clash = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert clash["closes_kelly_sample"] == "ok"
+    assert clash["closes_sell_sessions"] == "few"
+    assert clash["closes_kelly_vs_sessions"] == "clash"
+    assert clash["closes_kelly_vs_sessions_clash"] is True
+    assert clash["closes_kelly_vs_sessions_bit"] == (
+        "A Kelly vs sessions clash · ok · few"
+    )
+    assert format_window_a_closes_kelly_vs_sessions_bit(clash) == clash[
+        "closes_kelly_vs_sessions_bit"
+    ]
+
+    align_ok = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert align_ok["closes_kelly_vs_sessions"] == "align"
+    assert align_ok["closes_kelly_vs_sessions_clash"] is False
+    assert align_ok["closes_kelly_vs_sessions_bit"] == (
+        "A Kelly vs sessions align · ok"
+    )
+
+    align_thin = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert align_thin["closes_kelly_sample"] == "thin"
+    assert align_thin["closes_sell_sessions"] == "few"
+    assert align_thin["closes_kelly_vs_sessions"] == "align"
+    assert align_thin["closes_kelly_vs_sessions_clash"] is False
+    assert align_thin["closes_kelly_vs_sessions_bit"] == (
+        "A Kelly vs sessions align · thin · few"
+    )
+
+    clash_thin_ok = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert clash_thin_ok["closes_kelly_sample"] == "thin"
+    assert clash_thin_ok["closes_sell_sessions"] == "ok"
+    assert clash_thin_ok["closes_kelly_vs_sessions"] == "clash"
+    assert clash_thin_ok["closes_kelly_vs_sessions_clash"] is True
+    assert clash_thin_ok["closes_kelly_vs_sessions_bit"] == (
+        "A Kelly vs sessions clash · thin · ok"
+    )
 
 
 def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
@@ -5914,7 +6030,10 @@ def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     assert g["tone"] == "warn"
     assert g["closes_sell_sessions"] == "few"
     assert g["closes_sell_sessions_few"] is True
+    assert g["closes_kelly_vs_sessions"] == "clash"
+    assert g["closes_kelly_vs_sessions_clash"] is True
     assert "A sell sessions few · 2 days <5" in g["line"]
+    assert "A Kelly vs sessions clash · ok · few" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 
