@@ -17,6 +17,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_drop_vs_kept_lean,
     yahoo_discovery_claim_drop_kept_vs_live_free,
     yahoo_discovery_claim_hung_band,
+    yahoo_discovery_claim_hung_vs_live_free,
     yahoo_discovery_claim_lean_meta,
     yahoo_discovery_claim_lean_open,
     yahoo_discovery_claim_live_share,
@@ -1333,9 +1334,37 @@ def test_yahoo_discovery_claim_drop_vs_kept_lean_bands():
         "hung band · quiet",
         False,
     )
+    bit, warn = yahoo_discovery_claim_hung_vs_live_free(
+        "hung band · hot", "live vs free clash · live hot · free ok"
+    )
+    assert bit == "hung vs live-free align · clash"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_hung_vs_live_free(
+        "hung band · hot", "live vs free align · hot|thin"
+    )
+    assert bit == "clash · hung vs live-free · live-free align"
+    assert warn is True
+    assert yahoo_discovery_claim_hung_vs_live_free("", "live vs free align · hot|thin") == (
+        "",
+        False,
+    )
+    assert yahoo_discovery_claim_hung_vs_live_free("hung band · hot", "") == (
+        "",
+        False,
+    )
     assert (
         yahoo_discovery_claim_lean_meta("hung band · hot", hung=True)
         == "confirm · hung · no result · sole · hung band"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "vs 1 free · thin · 33% · live vs free align · hot|thin"
+            " · hung band · hot"
+            " · clash · hung vs live-free · live-free align",
+            warn=True,
+            hung=True,
+        )
+        == "warn · hung · not thin · hung vs live-free · live vs free · hung band"
     )
     assert (
         yahoo_discovery_claim_lean_meta(

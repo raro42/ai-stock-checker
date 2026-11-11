@@ -861,6 +861,32 @@ def yahoo_discovery_claim_hung_band(
     return f"hung band · {sev}", False
 
 
+def yahoo_discovery_claim_hung_vs_live_free(
+    hung_band: str,
+    live_free_lean: str,
+) -> tuple[str, bool]:
+    """Hung share-band vs live-vs-free lean mood (display only).
+
+    Absolute ``hung band · hot|quiet`` beside ``live vs free align|clash``
+    hid whether the stuck clock and the live/free meter *agree* the
+    Universe is not free — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 multi-meter + improve-tick stuck vs scan
+    after hung band alone hid live-free agreement. Hung is always
+    adverse; live-free clash → ``hung vs live-free align · clash``
+    (confirm). Live-free align →
+    ``clash · hung vs live-free · live-free align`` (warn — a calm free
+    meter does not make a hung clock look live). Sole side silent. Desk
+    keeps this under ``claim_lean``. Not a gate.
+    """
+    hb = str(hung_band or "").strip()
+    lf = str(live_free_lean or "").strip()
+    if not hb or not lf:
+        return "", False
+    if "clash" in lf.casefold():
+        return "hung vs live-free align · clash", False
+    return "clash · hung vs live-free · live-free align", True
+
+
 def yahoo_discovery_claim_lean_meta(
     lean: str, *, warn: bool = False, hung: bool = False
 ) -> str:
@@ -869,20 +895,21 @@ def yahoo_discovery_claim_lean_meta(
     Bare quiet/warn hid whether drop vs kept / live vs free / drop-kept vs
     live-free severity spoke — MonsterDeveloper fold inventory + Screener/
     opportunity lean meta + improve-tick finished confirm after sides alone.
-    Inventories spoken stages (``drop-kept vs live-free`` first ·
-    ``drop vs kept`` · ``live vs free`` · ``hung band``). Warn →
-    ``warn · …``; calm spoken lean → ``confirm · …`` (speak-both-sides peer
-    of warn); empty → ``quiet`` (empty + hung → ``confirm · hung`` /
-    ``warn · hung`` so a stuck live claim does not read calm when the fold
-    later invents body). Spoken meter stages also share improve-tick
-    finished thin/not-thin honesty (``confirm · not thin · …`` /
-    ``warn · not thin · …``) so bare confirm|warn after sides alone does
-    not hide that a meter already spoke (xang1234 b09fb49 / 1cd7968 +
-    portfolio AI speak-both-sides). When ``hung`` (still-held live claims),
-    meta keeps improve-tick ``warn · hung`` / ``confirm · hung`` ownership
-    so bare confirm|warn · not thin does not hide a stuck screen clock
-    (FinRobot + portfolio AI speak-both-sides + xang1234 after claim-live
-    stuck). Explain-only ``hung band`` alone under hung speaks
+    Inventories spoken stages (``hung vs live-free`` first ·
+    ``drop-kept vs live-free`` · ``drop vs kept`` · ``live vs free`` ·
+    ``hung band``). Warn → ``warn · …``; calm spoken lean → ``confirm · …``
+    (speak-both-sides peer of warn); empty → ``quiet`` (empty + hung →
+    ``confirm · hung`` / ``warn · hung`` so a stuck live claim does not
+    read calm when the fold later invents body). Spoken meter stages also
+    share improve-tick finished thin/not-thin honesty
+    (``confirm · not thin · …`` / ``warn · not thin · …``) so bare
+    confirm|warn after sides alone does not hide that a meter already
+    spoke (xang1234 b09fb49 / 1cd7968 + portfolio AI speak-both-sides).
+    When ``hung`` (still-held live claims), meta keeps improve-tick
+    ``warn · hung`` / ``confirm · hung`` ownership so bare confirm|warn ·
+    not thin does not hide a stuck screen clock (FinRobot + portfolio AI
+    speak-both-sides + xang1234 after claim-live stuck). Explain-only
+    ``hung band`` alone under hung speaks
     ``confirm · hung · no result · sole · hung band`` (improve-tick hung
     sole thin-reason parity) so an open share-band fold is not mistaken
     for a meter verdict. Meter stages keep ``not thin``. Not a gate.
@@ -894,6 +921,8 @@ def yahoo_discovery_claim_lean_meta(
         return "quiet"
     lower = text.casefold()
     stages: list[str] = []
+    if "hung vs live-free" in lower:
+        stages.append("hung vs live-free")
     if "drop-kept vs live-free" in lower:
         stages.append("drop-kept vs live-free")
     if "drop vs kept" in lower:

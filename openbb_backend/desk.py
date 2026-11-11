@@ -27058,22 +27058,27 @@ def build_universe_discovery_glance(
     ``drop-kept vs live-free align · both align|clash`` / mixed clash
     (fresher polarity vs scan-meter + soft-allow share/lean + portfolio AI
     speak-both-sides; ``both clash`` warns; meta inventories
-    ``drop-kept vs live-free`` first). When hung live claims already spoke
+    ``drop-kept vs live-free`` first).     When hung live claims already spoke
     with a hot|quiet share band, ``claim_lean`` also speaks
     ``hung band · hot|quiet`` (improve-tick stuck band after absolute hung
-    hid aging vs stale; explain only; meta inventories ``hung band``). Multi
-    named stuck screens also speak ``tied`` after ``in …`` (junk-list /
-    claim-drop reason sample-gap parity — equal one-claim sleeves have no
-    owner).     When both drop and live
-    spoke, also speak ``lead drop|live · N%`` or ``drop/live tied`` after the
-    live bit (xang1234 multi-meter + portfolio AI speak-both-sides — absolute
-    drop beside live hid which claim activity owns the sweep; ``drop/live``
-    prefix keeps tied distinct from screen ``tied``; share/kept/free nests
-    leave the line so the 128-char clip keeps ownership — fields retain %).
-    Sits after the fail
-    class / before the screen fraction on fail, and before
-    ``discovery-only`` on success. Buys still need regime/RS/breadth/fees.
-    Not a new gate.
+    hid aging vs stale; explain only; meta inventories ``hung band``). When
+    hung band and live-vs-free lean both spoke, ``claim_lean`` also speaks
+    mood agreement ``hung vs live-free align · clash`` /
+    ``clash · hung vs live-free · live-free align`` (improve-tick stuck vs
+    scan + FinRobot + portfolio AI speak-both-sides after hung band alone
+    hid live-free agreement; calm live-free beside hung warns; meta
+    inventories ``hung vs live-free`` first). Multi named stuck screens also
+    speak
+    ``tied`` after ``in …`` (junk-list / claim-drop reason sample-gap
+    parity — equal one-claim sleeves have no owner).     When both drop and
+    live spoke, also speak ``lead drop|live · N%`` or ``drop/live tied``
+    after the live bit (xang1234 multi-meter + portfolio AI
+    speak-both-sides — absolute drop beside live hid which claim activity
+    owns the sweep; ``drop/live`` prefix keeps tied distinct from screen
+    ``tied``; share/kept/free nests leave the line so the 128-char clip
+    keeps ownership — fields retain %). Sits after the fail class / before
+    the screen fraction on fail, and before ``discovery-only`` on success.
+    Buys still need regime/RS/breadth/fees. Not a new gate.
     """
     from stock_checker.yahoo_universe_discovery import (
         DEFAULT_MOVER_COUNT,
@@ -27088,6 +27093,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept_lean,
         yahoo_discovery_claim_drop_kept_vs_live_free,
         yahoo_discovery_claim_hung_band,
+        yahoo_discovery_claim_hung_vs_live_free,
         yahoo_discovery_claim_lean_meta,
         yahoo_discovery_claim_lean_open,
         yahoo_discovery_claim_drop_vs_live_lead,
@@ -27455,6 +27461,26 @@ def build_universe_discovery_glance(
             claim_lean = f"{claim_lean} · {claim_hung_band_bit}"
         else:
             claim_lean = claim_hung_band_bit
+        claim_lean_meta = yahoo_discovery_claim_lean_meta(
+            claim_lean,
+            warn=claim_lean_warn,
+            hung=True,
+        )
+    # improve-tick stuck vs scan: hung band beside live-free hid agreement.
+    (
+        claim_hung_vs_live_free_bit,
+        claim_hung_vs_live_free_warn,
+    ) = yahoo_discovery_claim_hung_vs_live_free(
+        claim_hung_band_bit, claim_live_vs_free_lean_bit
+    )
+    if claim_hung_vs_live_free_bit:
+        if claim_lean:
+            claim_lean = f"{claim_lean} · {claim_hung_vs_live_free_bit}"
+        else:
+            claim_lean = claim_hung_vs_live_free_bit
+        claim_lean_warn = bool(claim_lean_warn) or bool(
+            claim_hung_vs_live_free_warn
+        )
         claim_lean_meta = yahoo_discovery_claim_lean_meta(
             claim_lean,
             warn=claim_lean_warn,
@@ -28332,6 +28358,12 @@ def build_universe_discovery_glance(
         ),
         "last_yahoo_claim_drop_kept_vs_live_free_warn": bool(
             claim_drop_kept_vs_live_free_warn
+        ),
+        "last_yahoo_claim_hung_vs_live_free": (
+            claim_hung_vs_live_free_bit or None
+        ),
+        "last_yahoo_claim_hung_vs_live_free_warn": bool(
+            claim_hung_vs_live_free_warn
         ),
         "last_yahoo_claim_drop_vs_live_lead": (
             claim_drop_vs_live_lead_name or None

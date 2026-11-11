@@ -1321,17 +1321,23 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
         "live vs free align · hot|thin"
     )
     assert g["last_yahoo_claim_live_vs_free_lean_warn"] is False
+    assert g["last_yahoo_claim_hung_vs_live_free"] == (
+        "clash · hung vs live-free · live-free align"
+    )
+    assert g["last_yahoo_claim_hung_vs_live_free_warn"] is True
     assert g["claim_lean"] == (
         "vs 1 free · thin · 33% · live vs free align · hot|thin"
         " · hung band · hot"
+        " · clash · hung vs live-free · live-free align"
     )
-    assert g["claim_lean_warn"] is False
+    assert g["claim_lean_warn"] is True
     assert g["claim_lean_meta"] == (
-        "confirm · hung · not thin · live vs free · hung band"
+        "warn · hung · not thin · hung vs live-free · live vs free · hung band"
     )
     assert g["claim_lean_open"] is True
     assert g["line"].index("in gainers · losers") < g["line"].index("tied")
     assert g["line"].index("tied") < g["line"].index("hot · 67%")
+    assert "hung vs live-free" not in g["line"]
     assert g["tone"] == "aging"
 
 
@@ -1375,14 +1381,20 @@ def test_universe_discovery_glance_claim_drop_kept_vs_live_free(
     assert g["last_yahoo_claim_drop_kept_vs_live_free_warn"] is False
     assert "drop-kept vs live-free align · both align" in g["claim_lean"]
     assert "hung band · hot" in g["claim_lean"]
-    assert g["claim_lean_warn"] is False
+    assert g["last_yahoo_claim_hung_vs_live_free"] == (
+        "clash · hung vs live-free · live-free align"
+    )
+    assert g["last_yahoo_claim_hung_vs_live_free_warn"] is True
+    assert "clash · hung vs live-free · live-free align" in g["claim_lean"]
+    assert g["claim_lean_warn"] is True
     assert g["claim_lean_meta"] == (
-        "confirm · hung · not thin · drop-kept vs live-free"
+        "warn · hung · not thin · hung vs live-free · drop-kept vs live-free"
         " · drop vs kept · live vs free · hung band"
     )
     assert g["claim_lean_open"] is True
     # Cross meter stays under the fold — primary clip keeps drop/live lead.
     assert "drop-kept vs live-free" not in g["line"]
+    assert "hung vs live-free" not in g["line"]
     assert "hung band" not in g["line"]
 
 
