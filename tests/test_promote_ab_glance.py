@@ -6165,6 +6165,120 @@ def test_window_a_sessions_vs_per_day_lean() -> None:
     )
 
 
+def test_window_a_ksess_vs_sessday_lean() -> None:
+    """K/sess beside sess/day alone ≠ meter agreement. Mixed/both-clash warn."""
+    from stock_checker.promote_ab import (
+        format_window_a_closes_ksess_vs_sessday_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert sole["closes_kelly_vs_sessions"] == ""
+    assert sole["closes_sessions_vs_per_day"] == ""
+    assert sole["closes_ksess_vs_sessday"] == ""
+    assert sole["closes_ksess_vs_sessday_bit"] == ""
+    assert sole["closes_ksess_vs_sessday_clash"] is False
+    assert format_window_a_closes_ksess_vs_sessday_bit(sole) == ""
+    assert format_window_a_closes_ksess_vs_sessday_bit(None) == ""
+
+    both_align = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert both_align["closes_kelly_vs_sessions"] == "align"
+    assert both_align["closes_sessions_vs_per_day"] == "align"
+    assert both_align["closes_ksess_vs_sessday"] == "align"
+    assert both_align["closes_ksess_vs_sessday_clash"] is False
+    assert both_align["closes_ksess_vs_sessday_bit"] == (
+        "A K/sess vs sess/day align · both align"
+    )
+    assert format_window_a_closes_ksess_vs_sessday_bit(both_align) == (
+        both_align["closes_ksess_vs_sessday_bit"]
+    )
+
+    mixed = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert mixed["closes_kelly_vs_sessions"] == "clash"
+    assert mixed["closes_sessions_vs_per_day"] == "align"
+    assert mixed["closes_ksess_vs_sessday"] == "clash"
+    assert mixed["closes_ksess_vs_sessday_clash"] is True
+    assert mixed["closes_ksess_vs_sessday_bit"] == (
+        "A K/sess vs sess/day clash · K/sess clash · sess/day align"
+    )
+
+    # thin Kelly + few sessions + fat density → both leans align on the
+    # adverse sides → cross lean both-align (no cross clash)
+    both_adverse = window_a_sample_readiness(
+        {
+            "trades": 10,
+            "buys": 7,
+            "sells": 3,
+            "wins": 2,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 1,
+        }
+    )
+    assert both_adverse["closes_kelly_vs_sessions"] == "align"
+    assert both_adverse["closes_sessions_vs_per_day"] == "align"
+    assert both_adverse["closes_ksess_vs_sessday"] == "align"
+    assert both_adverse["closes_ksess_vs_sessday_clash"] is False
+    assert both_adverse["closes_ksess_vs_sessday_bit"] == (
+        "A K/sess vs sess/day align · both align"
+    )
+
+    # ok Kelly + ok sessions + fat density → K/sess align · ok,
+    # sess/day clash · ok · fat → mixed
+    mixed_ok_fat = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 5,
+        }
+    )
+    assert mixed_ok_fat["closes_kelly_vs_sessions"] == "align"
+    assert mixed_ok_fat["closes_sessions_vs_per_day"] == "clash"
+    assert mixed_ok_fat["closes_ksess_vs_sessday"] == "clash"
+    assert mixed_ok_fat["closes_ksess_vs_sessday_clash"] is True
+    assert mixed_ok_fat["closes_ksess_vs_sessday_bit"] == (
+        "A K/sess vs sess/day clash · K/sess align · sess/day clash"
+    )
+
+
 def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     """Few sell-session dates warn. They do not block ready for B."""
     g = build_promote_ab_glance(
@@ -6208,10 +6322,16 @@ def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     assert g["closes_per_day_fat"] is True
     assert g["closes_sessions_vs_per_day"] == "align"
     assert g["closes_sessions_vs_per_day_clash"] is False
+    assert g["closes_ksess_vs_sessday"] == "clash"
+    assert g["closes_ksess_vs_sessday_clash"] is True
     assert "A sell sessions few · 2 days <5" in g["line"]
     assert "A Kelly vs sessions clash · ok · few" in g["line"]
     assert "A closes/day fat · 6.0×" in g["line"]
     assert "A sessions vs closes/day align · few · fat" in g["line"]
+    assert (
+        "A K/sess vs sess/day clash · K/sess clash · sess/day align"
+        in g["line"]
+    )
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 

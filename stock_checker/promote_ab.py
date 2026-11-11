@@ -2396,8 +2396,15 @@ def window_a_sample_readiness(
     or ``clash · few · ok`` / ``ok · fat``
     (``closes_sessions_vs_per_day_*``) — portfolio AI speak-both-sides
     + xang1234 after absolute N days beside density; clash warns only
-    (still ready for B); sole side silent. Not a gate; does not flip
-    compose promote.
+    (still ready for B); sole side silent. When Kelly vs sessions and
+    sessions vs closes/day both spoke, speak meter agreement
+    ``A K/sess vs sess/day align · both align|clash`` or
+    ``clash · K/sess clash|align · sess/day …``
+    (``closes_ksess_vs_sessday_*``) — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 multi-meter + Yahoo drop-kept vs
+    live-free after absolute K/sess beside sess/day hid agreement; both
+    clash and mixed warn only (still ready for B); sole side silent.
+    Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -2578,6 +2585,9 @@ def window_a_sample_readiness(
         "closes_sessions_vs_per_day": "",
         "closes_sessions_vs_per_day_bit": "",
         "closes_sessions_vs_per_day_clash": False,
+        "closes_ksess_vs_sessday": "",
+        "closes_ksess_vs_sessday_bit": "",
+        "closes_ksess_vs_sessday_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3575,6 +3585,9 @@ def window_a_sample_readiness(
     closes_sessions_vs_per_day = ""
     closes_sessions_vs_per_day_bit = ""
     closes_sessions_vs_per_day_clash = False
+    closes_ksess_vs_sessday = ""
+    closes_ksess_vs_sessday_bit = ""
+    closes_ksess_vs_sessday_clash = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4263,6 +4276,38 @@ def window_a_sample_readiness(
                 "A sessions vs closes/day clash · "
                 f"{closes_sell_sessions} · {closes_per_day}"
             )
+
+    # K/sess lean ≠ sess/day lean. When both meters spoke, speak
+    # agreement (FinRobot + portfolio AI + xang1234 + Yahoo drop-kept
+    # vs live-free after absolute sides). Both clash and mixed warn
+    # only (still ready for B). Sole side silent.
+    if closes_kelly_vs_sessions and closes_sessions_vs_per_day:
+        k_adverse = closes_kelly_vs_sessions == "clash"
+        s_adverse = closes_sessions_vs_per_day == "clash"
+        if k_adverse == s_adverse:
+            closes_ksess_vs_sessday = "align"
+            if k_adverse:
+                closes_ksess_vs_sessday_clash = True
+                closes_ksess_vs_sessday_bit = (
+                    "A K/sess vs sess/day align · both clash"
+                )
+            else:
+                closes_ksess_vs_sessday_bit = (
+                    "A K/sess vs sess/day align · both align"
+                )
+        else:
+            closes_ksess_vs_sessday = "clash"
+            closes_ksess_vs_sessday_clash = True
+            if k_adverse:
+                closes_ksess_vs_sessday_bit = (
+                    "A K/sess vs sess/day clash · "
+                    "K/sess clash · sess/day align"
+                )
+            else:
+                closes_ksess_vs_sessday_bit = (
+                    "A K/sess vs sess/day clash · "
+                    "K/sess align · sess/day clash"
+                )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
     # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
@@ -5682,6 +5727,9 @@ def window_a_sample_readiness(
         "closes_sessions_vs_per_day": closes_sessions_vs_per_day,
         "closes_sessions_vs_per_day_bit": closes_sessions_vs_per_day_bit,
         "closes_sessions_vs_per_day_clash": closes_sessions_vs_per_day_clash,
+        "closes_ksess_vs_sessday": closes_ksess_vs_sessday,
+        "closes_ksess_vs_sessday_bit": closes_ksess_vs_sessday_bit,
+        "closes_ksess_vs_sessday_clash": closes_ksess_vs_sessday_clash,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7355,6 +7403,16 @@ def format_window_a_closes_sessions_vs_per_day_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_sessions_vs_per_day_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_ksess_vs_sessday_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A K/sess vs sess/day lean agreement (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_ksess_vs_sessday_bit") or "").strip()
     return bit
 
 
