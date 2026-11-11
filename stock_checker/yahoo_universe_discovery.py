@@ -763,6 +763,61 @@ def yahoo_discovery_claim_drop_vs_kept(
     )
 
 
+def yahoo_discovery_claim_drop_vs_kept_lean(
+    drop_severity: str,
+    kept_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of claim-drop vs kept share bands (display only).
+
+    Absolute ``hot|quiet · P%`` beside ``vs N kept · strong|thin`` hid
+    whether the two *severity* bands agree (Screener junk vs ok lean /
+    opportunity damaged vs ok lean + portfolio AI speak-both-sides +
+    xang1234 severity). Align when ``hot|thin`` or ``quiet|strong``; clash
+    when exactly one lean spoke or the pair disagrees. Adverse clash
+    (drop hot / kept thin mismatch, or sole hot/thin) warns. Mid both
+    silent. Desk keeps this in ``claim_lean`` so the Universe clip stays
+    short. Not a gate.
+    """
+    drop = str(drop_severity or "").strip().casefold()
+    kept = str(kept_severity or "").strip().casefold()
+    drop_lean = drop in {"hot", "quiet"}
+    kept_lean = kept in {"strong", "thin"}
+    if drop_lean and kept_lean:
+        matched = (drop == "hot" and kept == "thin") or (
+            drop == "quiet" and kept == "strong"
+        )
+        if matched:
+            return f"drop vs kept align · {drop}|{kept}", False
+        return f"drop vs kept clash · drop {drop} · kept {kept}", True
+    if drop_lean != kept_lean:
+        drop_label = drop if drop_lean else (drop or "ok")
+        kept_label = kept if kept_lean else (kept or "ok")
+        warn = drop == "hot" or kept == "thin"
+        return (
+            f"drop vs kept clash · drop {drop_label} · kept {kept_label}",
+            warn,
+        )
+    return "", False
+
+
+def yahoo_discovery_claim_lean_meta(
+    lean: str, *, warn: bool = False
+) -> str:
+    """Summary chip for Universe claim lean fold (display only).
+
+    Bare quiet/warn hid whether drop vs kept severity spoke —
+    MonsterDeveloper fold inventory + Screener/opportunity lean meta +
+    improve-tick finished confirm after sides alone. Warn →
+    ``warn · drop vs kept``; calm spoken lean → ``confirm · drop vs kept``
+    (speak-both-sides peer of warn); empty → ``quiet``. Not a gate.
+    """
+    if not str(lean or "").strip():
+        return "quiet"
+    if warn:
+        return "warn · drop vs kept"
+    return "confirm · drop vs kept"
+
+
 def yahoo_discovery_claim_live_vs_free(
     live: int,
     *,

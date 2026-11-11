@@ -800,7 +800,7 @@
   heading_id='universe-discovery-glance-h',
   link_href='/desk/screener',
   link_label='Screener →',
-  sub='Yahoo movers grow the curated US+DE scan list only. A complete US movers snapshot drops US yahoo_mover names the source no longer lists (dropped N · US); Xetra rows are out of that baseline. Empty/blocked Yahoo does not prune. Fail path keeps the last good seed clock age (seed Nh ago · fresh|aging|stale), speaks fail Nh ago · band, seed lags / fail lags when those bands disagree, plus retry due — it does not inherit the 24h success throttle. timeout↔inflight mix sits under mix lean. First-fail error/seed · budget lean sits under error lean. Streak/seed · fail · budget lean sits under streak lean when N× spoke. Buys still need gates. Display only — not a new gate.'
+  sub='Yahoo movers grow the curated US+DE scan list only. A complete US movers snapshot drops US yahoo_mover names the source no longer lists (dropped N · US); Xetra rows are out of that baseline. Empty/blocked Yahoo does not prune. Fail path keeps the last good seed clock age (seed Nh ago · fresh|aging|stale), speaks fail Nh ago · band, seed lags / fail lags when those bands disagree, plus retry due — it does not inherit the 24h success throttle. timeout↔inflight mix sits under mix lean. Claim-drop vs kept severity lean sits under claim lean when share bands spoke. First-fail error/seed · budget lean sits under error lean. Streak/seed · fail · budget lean sits under streak lean when N× spoke. Buys still need gates. Display only — not a new gate.'
 ) -%}
 {% set glance = snap.universe_discovery_glance if snap.universe_discovery_glance is mapping else {} %}
 {% if glance.ready %}
@@ -808,6 +808,9 @@
 {% set mix_lean = glance.mix_lean|default('') %}
 {% set mix_warn = glance.mix_lean_warn|default(false) %}
 {% set mix_meta = glance.mix_lean_meta|default('quiet') %}
+{% set claim_lean = glance.claim_lean|default('') %}
+{% set claim_warn = glance.claim_lean_warn|default(false) %}
+{% set claim_meta = glance.claim_lean_meta|default('quiet') %}
 {% set error_lean = glance.error_lean|default('') %}
 {% set error_warn = glance.error_lean_warn|default(false) %}
 {% set error_meta = glance.error_lean_meta|default('quiet') %}
@@ -827,6 +830,12 @@
   <details class="universe-mix-lean{% if mix_warn %} warn{% endif %}"{% if mix_warn %} open{% endif %}>
     <summary>mix lean <span class="meta">{{ mix_meta }}</span></summary>
     <p class="universe-mix-lean-body{% if mix_warn %} warn{% endif %}">{{ mix_lean }}</p>
+  </details>
+  {% endif %}
+  {% if claim_lean %}
+  <details class="universe-claim-lean{% if claim_warn %} warn{% endif %}"{% if claim_warn %} open{% endif %}>
+    <summary>claim lean <span class="meta">{{ claim_meta }}</span></summary>
+    <p class="universe-claim-lean-body{% if claim_warn %} warn{% endif %}">{{ claim_lean }}</p>
   </details>
   {% endif %}
   {% if error_lean %}

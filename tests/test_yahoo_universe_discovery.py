@@ -14,6 +14,8 @@ from stock_checker.yahoo_universe_discovery import (
     set_yahoo_discovery_error,
     yahoo_discovery_claim_drop_share,
     yahoo_discovery_claim_drop_vs_kept,
+    yahoo_discovery_claim_drop_vs_kept_lean,
+    yahoo_discovery_claim_lean_meta,
     yahoo_discovery_claim_live_share,
     yahoo_discovery_claim_live_vs_free,
     yahoo_discovery_error_class,
@@ -1269,6 +1271,40 @@ def test_yahoo_discovery_claim_drop_vs_kept_bands():
         7,
         88,
         "strong",
+    )
+
+
+def test_yahoo_discovery_claim_drop_vs_kept_lean_bands():
+    """Screener junk vs ok / opportunity damaged lean after drop+kept sides."""
+    bit, warn = yahoo_discovery_claim_drop_vs_kept_lean("hot", "thin")
+    assert bit == "drop vs kept align · hot|thin"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_drop_vs_kept_lean("quiet", "strong")
+    assert bit == "drop vs kept align · quiet|strong"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_drop_vs_kept_lean("hot", "strong")
+    assert bit == "drop vs kept clash · drop hot · kept strong"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_drop_vs_kept_lean("hot", "ok")
+    assert bit == "drop vs kept clash · drop hot · kept ok"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_drop_vs_kept_lean("quiet", "ok")
+    assert bit == "drop vs kept clash · drop quiet · kept ok"
+    assert warn is False
+    assert yahoo_discovery_claim_drop_vs_kept_lean("", "") == ("", False)
+    assert yahoo_discovery_claim_drop_vs_kept_lean("ok", "ok") == ("", False)
+    assert yahoo_discovery_claim_lean_meta("") == "quiet"
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
+        )
+        == "confirm · drop vs kept"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "drop vs kept clash · drop hot · kept strong", warn=True
+        )
+        == "warn · drop vs kept"
     )
 
 

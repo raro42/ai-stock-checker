@@ -25611,6 +25611,11 @@ def build_universe_discovery_glance(
     also speak ownership of the mover roster ``hot|quiet · P%`` (portfolio AI
     count≠share; hot ≥50% · quiet ≤25%; mid shows % only; hot escalates a
     fresh tone to aging) and remaining screens ``vs N kept · strong|thin · P%``.
+    When drop + kept severity bands already spoke, ``claim_lean`` fold speaks
+    ``drop vs kept align · hot|thin`` / ``quiet|strong`` or clash (Screener
+    junk vs ok lean / opportunity damaged vs ok lean + MonsterDeveloper fold;
+    vs-kept leaves the primary clip when lean spoke; calm meta
+    ``confirm · drop vs kept``). Mid both silent.
     After that, name release reasons ``dead`` / ``stale`` / ``N dead · M stale``
     (xang1234 history: say what each release did — absolute N alone hid finished
     leftovers vs hung zombies; stale escalates a fresh tone to aging). When a
@@ -25643,6 +25648,8 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_reasons,
         yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drop_vs_kept,
+        yahoo_discovery_claim_drop_vs_kept_lean,
+        yahoo_discovery_claim_lean_meta,
         yahoo_discovery_claim_drop_vs_live_lead,
         yahoo_discovery_claim_drop_vs_live_sample_gap,
         yahoo_discovery_claim_drops,
@@ -25804,13 +25811,47 @@ def build_universe_discovery_glance(
     claim_drop_reason_sample_gap = yahoo_discovery_claim_drop_reason_sample_gap(
         claim_drop_dead_n, claim_drop_stale_n
     )
+    # Screener junk vs ok / opportunity damaged vs ok lean: sides alone hid
+    # severity agreement. Sit under claim_lean fold; strip vs-kept from the
+    # primary line when lean spoke so the 128-char clip stays short.
+    claim_drop_vs_kept_lean_bit = ""
+    claim_drop_vs_kept_lean_warn = False
+    claim_lean = ""
+    claim_lean_warn = False
+    claim_lean_meta = ""
+    if claim_drops > 0:
+        (
+            claim_drop_vs_kept_lean_bit,
+            claim_drop_vs_kept_lean_warn,
+        ) = yahoo_discovery_claim_drop_vs_kept_lean(
+            claim_drop_share_severity, claim_drop_kept_severity
+        )
     if claim_drops > 0:
         share_suffix = (
             f" · {claim_drop_share_bit}" if claim_drop_share_bit else ""
         )
-        kept_suffix = (
-            f" · {claim_drop_vs_kept_bit}" if claim_drop_vs_kept_bit else ""
-        )
+        # When lean spoke, vs-kept moves under the fold with severity.
+        if claim_drop_vs_kept_lean_bit:
+            kept_suffix = ""
+            lean_parts = [
+                p
+                for p in (
+                    claim_drop_vs_kept_bit,
+                    claim_drop_vs_kept_lean_bit,
+                )
+                if p
+            ]
+            claim_lean = " · ".join(lean_parts)
+            claim_lean_warn = bool(claim_drop_vs_kept_lean_warn)
+            claim_lean_meta = yahoo_discovery_claim_lean_meta(
+                claim_lean, warn=claim_lean_warn
+            )
+        else:
+            kept_suffix = (
+                f" · {claim_drop_vs_kept_bit}"
+                if claim_drop_vs_kept_bit
+                else ""
+            )
         # When lead/tied spoke, drop absolute dead/stale from the line
         # (fields keep counts) so the 128-char clip keeps ownership.
         if claim_drop_reason_lead_bit:
@@ -25840,6 +25881,11 @@ def build_universe_discovery_glance(
         claim_drop_reason_lead_name = ""
         claim_drop_reason_lead_pct = None
         claim_drop_reason_sample_gap = ""
+        claim_drop_vs_kept_lean_bit = ""
+        claim_drop_vs_kept_lean_warn = False
+        claim_lean = ""
+        claim_lean_warn = False
+        claim_lean_meta = ""
     # xang1234 stuck-asset honesty: hung worker still held after peers go green.
     # portfolio AI count≠share: absolute live hid one vs most of the roster.
     # portfolio AI speak-both-sides: live% alone hid free peers (vs kept parity).
@@ -26598,6 +26644,9 @@ def build_universe_discovery_glance(
         "mix_lean": mix_lean,
         "mix_lean_warn": bool(mix_lean_warn),
         "mix_lean_meta": mix_lean_meta,
+        "claim_lean": claim_lean,
+        "claim_lean_warn": bool(claim_lean_warn),
+        "claim_lean_meta": claim_lean_meta,
         "mover_count": per,
         "discovery_only": True,
         "auto_buy": False,
@@ -26725,6 +26774,12 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_drop_kept_n": claim_drop_kept_n,
         "last_yahoo_claim_drop_kept_pct": claim_drop_kept_pct,
         "last_yahoo_claim_drop_kept_severity": claim_drop_kept_severity,
+        "last_yahoo_claim_drop_vs_kept_lean": (
+            claim_drop_vs_kept_lean_bit or None
+        ),
+        "last_yahoo_claim_drop_vs_kept_lean_warn": bool(
+            claim_drop_vs_kept_lean_warn
+        ),
         "last_yahoo_claim_drop_dead": claim_drop_dead_n,
         "last_yahoo_claim_drop_stale": claim_drop_stale_n,
         "last_yahoo_claim_drop_reason_lead": claim_drop_reason_lead_name or None,

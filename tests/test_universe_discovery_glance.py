@@ -1112,7 +1112,7 @@ def test_universe_discovery_glance_dropped_movers_on_success(tmp_path) -> None:
 
 
 def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
-    """xang1234 #726 + portfolio AI: count + hot share + reasons on success."""
+    """xang1234 #726 + portfolio AI: count + hot share; lean folds vs-kept."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
     last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
     (tmp_path / "stock_universe.json").write_text(
@@ -1142,10 +1142,18 @@ def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
     assert g["last_yahoo_claim_drop_stale"] == 1
     assert g["last_yahoo_claim_drop_reason_lead"] is None
     assert g["last_yahoo_claim_drop_reason_sample_gap"] == "tied"
-    assert (
-        "2 claim drop · hot · 67% · vs 1 kept · thin · 33% · tied"
-        in g["line"]
+    # Severity lean spoke → vs-kept leaves the primary clip for claim_lean.
+    assert "2 claim drop · hot · 67% · tied" in g["line"]
+    assert "vs 1 kept" not in g["line"]
+    assert g["last_yahoo_claim_drop_vs_kept_lean"] == (
+        "drop vs kept align · hot|thin"
     )
+    assert g["last_yahoo_claim_drop_vs_kept_lean_warn"] is False
+    assert g["claim_lean"] == (
+        "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
+    )
+    assert g["claim_lean_warn"] is False
+    assert g["claim_lean_meta"] == "confirm · drop vs kept"
     assert "1 dead · 1 stale" not in g["line"]
     assert g["line"].index("2 claim drop") < g["line"].index("discovery-only")
     # Hot claim share escalates a fresh cache tone.
@@ -1187,6 +1195,9 @@ def test_universe_discovery_glance_claim_drop_on_fail(tmp_path) -> None:
     assert g["last_yahoo_claim_drop_stale"] == 1
     assert g["last_yahoo_claim_drop_reason_lead"] is None
     assert g["last_yahoo_claim_drop_reason_sample_gap"] is None
+    # Mid/mid severities → lean silent; vs-kept stays on the primary clip.
+    assert g["last_yahoo_claim_drop_vs_kept_lean"] is None
+    assert g["claim_lean"] == ""
     assert "1 claim drop · 33% · vs 2 kept · 67% · stale" in g["line_core"]
     assert "lead" not in g["line_core"].split("stale", 1)[-1]
     assert g["line_core"].index("empty") < g["line_core"].index("1 claim drop")

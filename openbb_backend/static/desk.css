@@ -2009,9 +2009,10 @@ a:active {
   color: var(--down);
 }
 
-/* Universe Yahoo error + streak lean folds (MonsterDeveloper declutter). */
+/* Universe Yahoo claim + error + streak lean folds (MonsterDeveloper declutter). */
 .universe-discovery-glance .universe-streak-lean,
 .universe-discovery-glance .universe-error-lean,
+.universe-discovery-glance .universe-claim-lean,
 .universe-discovery-glance .universe-mix-lean {
   margin: 0.25rem 0 0.15rem;
   padding: 0;
@@ -2020,6 +2021,7 @@ a:active {
 
 .universe-discovery-glance .universe-streak-lean > summary,
 .universe-discovery-glance .universe-error-lean > summary,
+.universe-discovery-glance .universe-claim-lean > summary,
 .universe-discovery-glance .universe-mix-lean > summary {
   cursor: pointer;
   color: var(--link);
@@ -2030,12 +2032,14 @@ a:active {
 
 .universe-discovery-glance .universe-streak-lean > summary::-webkit-details-marker,
 .universe-discovery-glance .universe-error-lean > summary::-webkit-details-marker,
+.universe-discovery-glance .universe-claim-lean > summary::-webkit-details-marker,
 .universe-discovery-glance .universe-mix-lean > summary::-webkit-details-marker {
   display: none;
 }
 
 .universe-discovery-glance .universe-streak-lean > summary .meta,
 .universe-discovery-glance .universe-error-lean > summary .meta,
+.universe-discovery-glance .universe-claim-lean > summary .meta,
 .universe-discovery-glance .universe-mix-lean > summary .meta {
   margin-left: 0.25rem;
   color: var(--muted);
@@ -2046,6 +2050,8 @@ a:active {
 .universe-discovery-glance .universe-streak-lean.warn > summary .meta,
 .universe-discovery-glance .universe-error-lean.warn > summary,
 .universe-discovery-glance .universe-error-lean.warn > summary .meta,
+.universe-discovery-glance .universe-claim-lean.warn > summary,
+.universe-discovery-glance .universe-claim-lean.warn > summary .meta,
 .universe-discovery-glance .universe-mix-lean.warn > summary,
 .universe-discovery-glance .universe-mix-lean.warn > summary .meta {
   color: var(--down);
@@ -2053,12 +2059,14 @@ a:active {
 
 .universe-discovery-glance .universe-streak-lean[open] > summary,
 .universe-discovery-glance .universe-error-lean[open] > summary,
+.universe-discovery-glance .universe-claim-lean[open] > summary,
 .universe-discovery-glance .universe-mix-lean[open] > summary {
   margin-bottom: 0.15rem;
 }
 
 .universe-discovery-glance .universe-streak-lean-body,
 .universe-discovery-glance .universe-error-lean-body,
+.universe-discovery-glance .universe-claim-lean-body,
 .universe-discovery-glance .universe-mix-lean-body {
   margin: 0;
   font-family: var(--font-data, ui-monospace, monospace);
@@ -2069,6 +2077,7 @@ a:active {
 
 .universe-discovery-glance .universe-streak-lean-body.warn,
 .universe-discovery-glance .universe-error-lean-body.warn,
+.universe-discovery-glance .universe-claim-lean-body.warn,
 .universe-discovery-glance .universe-mix-lean-body.warn {
   color: var(--down);
 }
