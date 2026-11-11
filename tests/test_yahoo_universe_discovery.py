@@ -17,6 +17,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_drop_vs_kept_lean,
     yahoo_discovery_claim_drop_kept_vs_live_free,
     yahoo_discovery_claim_hung_band,
+    yahoo_discovery_claim_hung_lf_vs_hung_dk,
     yahoo_discovery_claim_hung_vs_drop_kept,
     yahoo_discovery_claim_hung_vs_live_free,
     yahoo_discovery_claim_lean_meta,
@@ -1370,6 +1371,36 @@ def test_yahoo_discovery_claim_drop_vs_kept_lean_bands():
         "",
         False,
     )
+    bit, warn = yahoo_discovery_claim_hung_lf_vs_hung_dk(
+        "hung vs live-free align · clash",
+        "hung vs drop-kept align · clash",
+    )
+    assert bit == "hung lf vs hung dk align · both align"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_hung_lf_vs_hung_dk(
+        "clash · hung vs live-free · live-free align",
+        "clash · hung vs drop-kept · drop-kept align",
+    )
+    assert bit == "hung lf vs hung dk align · both clash"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_hung_lf_vs_hung_dk(
+        "clash · hung vs live-free · live-free align",
+        "hung vs drop-kept align · clash",
+    )
+    assert bit == "clash · hung lf vs hung dk · lf clash · dk align"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_hung_lf_vs_hung_dk(
+        "hung vs live-free align · clash",
+        "clash · hung vs drop-kept · drop-kept align",
+    )
+    assert bit == "clash · hung lf vs hung dk · lf align · dk clash"
+    assert warn is True
+    assert yahoo_discovery_claim_hung_lf_vs_hung_dk(
+        "", "hung vs drop-kept align · clash"
+    ) == ("", False)
+    assert yahoo_discovery_claim_hung_lf_vs_hung_dk(
+        "hung vs live-free align · clash", ""
+    ) == ("", False)
     assert (
         yahoo_discovery_claim_lean_meta("hung band · hot", hung=True)
         == "confirm · hung · no result · sole · hung band"
@@ -1393,6 +1424,19 @@ def test_yahoo_discovery_claim_drop_vs_kept_lean_bands():
             hung=True,
         )
         == "warn · hung · not thin · hung vs drop-kept · drop vs kept · hung band"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "clash · hung vs live-free · live-free align"
+            " · clash · hung vs drop-kept · drop-kept align"
+            " · hung lf vs hung dk align · both clash",
+            warn=True,
+            hung=True,
+        )
+        == (
+            "warn · hung · not thin · hung lf vs hung dk"
+            " · hung vs drop-kept · hung vs live-free"
+        )
     )
     assert (
         yahoo_discovery_claim_lean_meta(
