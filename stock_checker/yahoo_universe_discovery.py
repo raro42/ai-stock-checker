@@ -850,7 +850,12 @@ def yahoo_discovery_claim_lean_meta(
     Inventories spoken stages (``drop-kept vs live-free`` first ·
     ``drop vs kept`` · ``live vs free``). Warn → ``warn · …``; calm spoken
     lean → ``confirm · …`` (speak-both-sides peer of warn); empty →
-    ``quiet``. Not a gate.
+    ``quiet``. Spoken meter stages also share improve-tick finished
+    thin/not-thin honesty (``confirm · not thin · …`` / ``warn · not thin
+    · …``) so bare confirm|warn after sides alone does not hide that a
+    meter already spoke (xang1234 b09fb49 / 1cd7968 + portfolio AI
+    speak-both-sides). Claim lean has no explain-only stages today — sole
+    / few ``no result`` stays on improve-tick hung. Not a gate.
     """
     text = str(lean or "").strip()
     if not text:
@@ -866,7 +871,8 @@ def yahoo_discovery_claim_lean_meta(
     prefix = "warn" if warn else "confirm"
     if not stages:
         return prefix
-    return f"{prefix} · " + " · ".join(stages)
+    # Meter stages → not thin (improve-tick finished thin/not-thin parity).
+    return f"{prefix} · not thin · " + " · ".join(stages)
 
 
 def yahoo_discovery_claim_live_vs_free(

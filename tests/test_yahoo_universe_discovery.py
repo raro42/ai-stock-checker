@@ -1300,13 +1300,13 @@ def test_yahoo_discovery_claim_drop_vs_kept_lean_bands():
         yahoo_discovery_claim_lean_meta(
             "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
         )
-        == "confirm · drop vs kept"
+        == "confirm · not thin · drop vs kept"
     )
     assert (
         yahoo_discovery_claim_lean_meta(
             "drop vs kept clash · drop hot · kept strong", warn=True
         )
-        == "warn · drop vs kept"
+        == "warn · not thin · drop vs kept"
     )
 
 
@@ -1364,20 +1364,20 @@ def test_yahoo_discovery_claim_live_vs_free_lean_bands():
         yahoo_discovery_claim_lean_meta(
             "vs 1 free · thin · 33% · live vs free align · hot|thin"
         )
-        == "confirm · live vs free"
+        == "confirm · not thin · live vs free"
     )
     assert (
         yahoo_discovery_claim_lean_meta(
             "live vs free clash · live hot · free strong", warn=True
         )
-        == "warn · live vs free"
+        == "warn · not thin · live vs free"
     )
     assert (
         yahoo_discovery_claim_lean_meta(
             "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
             " · vs 1 free · thin · 33% · live vs free align · hot|thin"
         )
-        == "confirm · drop vs kept · live vs free"
+        == "confirm · not thin · drop vs kept · live vs free"
     )
 
 
@@ -1424,7 +1424,10 @@ def test_yahoo_discovery_claim_drop_kept_vs_live_free_bands():
             " · vs 1 free · thin · 33% · live vs free align · hot|thin"
             " · drop-kept vs live-free align · both align"
         )
-        == "confirm · drop-kept vs live-free · drop vs kept · live vs free"
+        == (
+            "confirm · not thin · drop-kept vs live-free"
+            " · drop vs kept · live vs free"
+        )
     )
     assert (
         yahoo_discovery_claim_lean_meta(
@@ -1433,7 +1436,10 @@ def test_yahoo_discovery_claim_drop_kept_vs_live_free_bands():
             " · drop-kept vs live-free align · both clash",
             warn=True,
         )
-        == "warn · drop-kept vs live-free · drop vs kept · live vs free"
+        == (
+            "warn · not thin · drop-kept vs live-free"
+            " · drop vs kept · live vs free"
+        )
     )
 
 

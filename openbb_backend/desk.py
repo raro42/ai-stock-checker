@@ -27038,7 +27038,7 @@ def build_universe_discovery_glance(
     ``drop vs kept align · hot|thin`` / ``quiet|strong`` or clash (Screener
     junk vs ok lean / opportunity damaged vs ok lean + MonsterDeveloper fold;
     vs-kept leaves the primary clip when lean spoke; calm meta
-    ``confirm · drop vs kept``). Mid both silent.
+    ``confirm · not thin · drop vs kept``). Mid both silent.
     After that, name release reasons ``dead`` / ``stale`` / ``N dead · M stale``
     (xang1234 history: say what each release did — absolute N alone hid finished
     leftovers vs hung zombies; stale escalates a fresh tone to aging). When a
