@@ -2391,7 +2391,13 @@ def window_a_sample_readiness(
     (sells ÷ session days; fat ≥ ``WINDOW_A_CLOSES_PER_DAY_FAT``)
     — xang1234 Few dates + portfolio AI count≠calendar after absolute
     N days alone hid same-day pile-up; fat warns only (still ready for
-    B). Not a gate; does not flip compose promote.
+    B). When sell sessions and closes/day both spoke, speak meter
+    agreement ``A sessions vs closes/day align · few · fat`` / ``ok``
+    or ``clash · few · ok`` / ``ok · fat``
+    (``closes_sessions_vs_per_day_*``) — portfolio AI speak-both-sides
+    + xang1234 after absolute N days beside density; clash warns only
+    (still ready for B); sole side silent. Not a gate; does not flip
+    compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -2569,6 +2575,9 @@ def window_a_sample_readiness(
         "closes_per_day_n": None,
         "closes_per_day_bit": "",
         "closes_per_day_fat": False,
+        "closes_sessions_vs_per_day": "",
+        "closes_sessions_vs_per_day_bit": "",
+        "closes_sessions_vs_per_day_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3563,6 +3572,9 @@ def window_a_sample_readiness(
     closes_per_day_n: float | None = None
     closes_per_day_bit = ""
     closes_per_day_fat = False
+    closes_sessions_vs_per_day = ""
+    closes_sessions_vs_per_day_bit = ""
+    closes_sessions_vs_per_day_clash = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4227,6 +4239,30 @@ def window_a_sample_readiness(
             else:
                 closes_per_day = "ok"
                 closes_per_day_bit = f"A closes/day ok · {ratio:.1f}×"
+
+    # N days ≠ density. When both meters spoke, speak agreement
+    # (portfolio AI + xang1234 after absolute sides). Clash warns only
+    # (still ready for B). Sole side silent.
+    if closes_sell_sessions and closes_per_day:
+        sess_adverse = closes_sell_sessions == "few"
+        dens_adverse = closes_per_day == "fat"
+        if sess_adverse == dens_adverse:
+            closes_sessions_vs_per_day = "align"
+            if sess_adverse:
+                closes_sessions_vs_per_day_bit = (
+                    "A sessions vs closes/day align · few · fat"
+                )
+            else:
+                closes_sessions_vs_per_day_bit = (
+                    "A sessions vs closes/day align · ok"
+                )
+        else:
+            closes_sessions_vs_per_day = "clash"
+            closes_sessions_vs_per_day_clash = True
+            closes_sessions_vs_per_day_bit = (
+                "A sessions vs closes/day clash · "
+                f"{closes_sell_sessions} · {closes_per_day}"
+            )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
     # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
@@ -5643,6 +5679,9 @@ def window_a_sample_readiness(
         "closes_per_day_n": closes_per_day_n,
         "closes_per_day_bit": closes_per_day_bit,
         "closes_per_day_fat": closes_per_day_fat,
+        "closes_sessions_vs_per_day": closes_sessions_vs_per_day,
+        "closes_sessions_vs_per_day_bit": closes_sessions_vs_per_day_bit,
+        "closes_sessions_vs_per_day_clash": closes_sessions_vs_per_day_clash,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7306,6 +7345,16 @@ def format_window_a_closes_per_day_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_per_day_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_sessions_vs_per_day_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A sell-sessions vs closes/day lean (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sessions_vs_per_day_bit") or "").strip()
     return bit
 
 

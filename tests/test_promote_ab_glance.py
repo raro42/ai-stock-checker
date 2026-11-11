@@ -6057,6 +6057,114 @@ def test_window_a_closes_per_day_density() -> None:
     assert format_window_a_closes_per_day_bit(ok) == ok["closes_per_day_bit"]
 
 
+def test_window_a_sessions_vs_per_day_lean() -> None:
+    """N days beside density alone ≠ meter agreement. Clash warns only."""
+    from stock_checker.promote_ab import (
+        format_window_a_closes_sessions_vs_per_day_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert sole["closes_sell_sessions"] == ""
+    assert sole["closes_per_day"] == ""
+    assert sole["closes_sessions_vs_per_day"] == ""
+    assert sole["closes_sessions_vs_per_day_bit"] == ""
+    assert sole["closes_sessions_vs_per_day_clash"] is False
+    assert format_window_a_closes_sessions_vs_per_day_bit(sole) == ""
+    assert format_window_a_closes_sessions_vs_per_day_bit(None) == ""
+
+    align_adverse = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert align_adverse["closes_sell_sessions"] == "few"
+    assert align_adverse["closes_per_day"] == "fat"
+    assert align_adverse["closes_sessions_vs_per_day"] == "align"
+    assert align_adverse["closes_sessions_vs_per_day_clash"] is False
+    assert align_adverse["closes_sessions_vs_per_day_bit"] == (
+        "A sessions vs closes/day align · few · fat"
+    )
+    assert format_window_a_closes_sessions_vs_per_day_bit(align_adverse) == (
+        align_adverse["closes_sessions_vs_per_day_bit"]
+    )
+
+    align_ok = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert align_ok["closes_sessions_vs_per_day"] == "align"
+    assert align_ok["closes_sessions_vs_per_day_clash"] is False
+    assert align_ok["closes_sessions_vs_per_day_bit"] == (
+        "A sessions vs closes/day align · ok"
+    )
+
+    clash_few_ok = window_a_sample_readiness(
+        {
+            "trades": 10,
+            "buys": 7,
+            "sells": 3,
+            "wins": 2,
+            "losses": 1,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert clash_few_ok["closes_sell_sessions"] == "few"
+    assert clash_few_ok["closes_per_day"] == "ok"
+    assert clash_few_ok["closes_sessions_vs_per_day"] == "clash"
+    assert clash_few_ok["closes_sessions_vs_per_day_clash"] is True
+    assert clash_few_ok["closes_sessions_vs_per_day_bit"] == (
+        "A sessions vs closes/day clash · few · ok"
+    )
+
+    clash_ok_fat = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 5,
+        }
+    )
+    assert clash_ok_fat["closes_sell_sessions"] == "ok"
+    assert clash_ok_fat["closes_per_day"] == "fat"
+    assert clash_ok_fat["closes_sessions_vs_per_day"] == "clash"
+    assert clash_ok_fat["closes_sessions_vs_per_day_clash"] is True
+    assert clash_ok_fat["closes_sessions_vs_per_day_bit"] == (
+        "A sessions vs closes/day clash · ok · fat"
+    )
+
+
 def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     """Few sell-session dates warn. They do not block ready for B."""
     g = build_promote_ab_glance(
@@ -6098,9 +6206,12 @@ def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     assert g["closes_kelly_vs_sessions_clash"] is True
     assert g["closes_per_day"] == "fat"
     assert g["closes_per_day_fat"] is True
+    assert g["closes_sessions_vs_per_day"] == "align"
+    assert g["closes_sessions_vs_per_day_clash"] is False
     assert "A sell sessions few · 2 days <5" in g["line"]
     assert "A Kelly vs sessions clash · ok · few" in g["line"]
     assert "A closes/day fat · 6.0×" in g["line"]
+    assert "A sessions vs closes/day align · few · fat" in g["line"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
 
