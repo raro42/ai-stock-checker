@@ -6438,6 +6438,98 @@ def test_window_a_ksess_vs_kday_lean() -> None:
     )
 
 
+def test_window_a_kskd_vs_sdkd_lean() -> None:
+    """Ks/Kd beside Sd/Kd alone ≠ meter agreement. Both-clash/mixed warn."""
+    from stock_checker.promote_ab import (
+        format_window_a_closes_kskd_vs_sdkd_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert sole["closes_ksess_vs_kday"] == ""
+    assert sole["closes_sessday_vs_kday"] == ""
+    assert sole["closes_kskd_vs_sdkd"] == ""
+    assert sole["closes_kskd_vs_sdkd_bit"] == ""
+    assert sole["closes_kskd_vs_sdkd_clash"] is False
+    assert format_window_a_closes_kskd_vs_sdkd_bit(sole) == ""
+    assert format_window_a_closes_kskd_vs_sdkd_bit(None) == ""
+
+    both_align = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert both_align["closes_ksess_vs_kday"] == "align"
+    assert both_align["closes_sessday_vs_kday"] == "align"
+    assert both_align["closes_kskd_vs_sdkd"] == "align"
+    assert both_align["closes_kskd_vs_sdkd_clash"] is False
+    assert both_align["closes_kskd_vs_sdkd_bit"] == (
+        "A Ks/Kd vs Sd/Kd align · both align"
+    )
+    assert format_window_a_closes_kskd_vs_sdkd_bit(both_align) == (
+        both_align["closes_kskd_vs_sdkd_bit"]
+    )
+
+    # few+fat → Ks/Kd align·both clash · Sd/Kd clash → meta clash
+    mixed = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert mixed["closes_ksess_vs_kday"] == "align"
+    assert mixed["closes_sessday_vs_kday"] == "clash"
+    assert mixed["closes_kskd_vs_sdkd"] == "clash"
+    assert mixed["closes_kskd_vs_sdkd_clash"] is True
+    assert mixed["closes_kskd_vs_sdkd_bit"] == (
+        "A Ks/Kd vs Sd/Kd clash · Ks/Kd align · Sd/Kd clash"
+    )
+
+    # ok sessions + fat → Ks/Kd clash · Sd/Kd align·both clash
+    mixed2 = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 5,
+        }
+    )
+    assert mixed2["closes_ksess_vs_kday"] == "clash"
+    assert mixed2["closes_sessday_vs_kday"] == "align"
+    assert mixed2["closes_kskd_vs_sdkd"] == "clash"
+    assert mixed2["closes_kskd_vs_sdkd_clash"] is True
+    assert mixed2["closes_kskd_vs_sdkd_bit"] == (
+        "A Ks/Kd vs Sd/Kd clash · Ks/Kd clash · Sd/Kd align"
+    )
+
+
 def test_window_a_sessday_vs_kday_lean() -> None:
     """sess/day beside K/day alone ≠ meter agreement. Both-clash/mixed warn."""
     from stock_checker.promote_ab import (
@@ -6697,6 +6789,8 @@ def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     assert g["closes_ksess_vs_kday_clash"] is True
     assert g["closes_sessday_vs_kday"] == "clash"
     assert g["closes_sessday_vs_kday_clash"] is True
+    assert g["closes_kskd_vs_sdkd"] == "clash"
+    assert g["closes_kskd_vs_sdkd_clash"] is True
     assert "A sell sessions few · 2 days <5" in g["line"]
     assert "A Kelly vs sessions clash · ok · few" in g["line"]
     assert "A closes/day fat · 6.0×" in g["line"]
@@ -6711,6 +6805,9 @@ def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
     assert (
         "A sess/day vs K/day clash · sess/day align · K/day clash"
         in g["line"]
+    )
+    assert (
+        "A Ks/Kd vs Sd/Kd clash · Ks/Kd align · Sd/Kd clash" in g["line"]
     )
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True

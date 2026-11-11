@@ -7487,6 +7487,9 @@ def build_calm_streak_glance(
         "window_a_closes_sessday_vs_kday_bit": "",
         "window_a_closes_sessday_vs_kday": "",
         "window_a_closes_sessday_vs_kday_clash": False,
+        "window_a_closes_kskd_vs_sdkd_bit": "",
+        "window_a_closes_kskd_vs_sdkd": "",
+        "window_a_closes_kskd_vs_sdkd_clash": False,
         "window_a_closes_loss_streak_bit": "",
         "window_a_closes_loss_streak": None,
         "window_a_closes_loss_streak_hot": False,
@@ -7855,6 +7858,9 @@ def build_calm_streak_glance(
     window_a_closes_sessday_vs_kday_bit = ""
     window_a_closes_sessday_vs_kday = ""
     window_a_closes_sessday_vs_kday_clash = False
+    window_a_closes_kskd_vs_sdkd_bit = ""
+    window_a_closes_kskd_vs_sdkd = ""
+    window_a_closes_kskd_vs_sdkd_clash = False
     window_a_closes_loss_streak_bit = ""
     window_a_closes_loss_streak: int | None = None
     window_a_closes_loss_streak_hot = False
@@ -10492,14 +10498,105 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_sessday_vs_kday_bit}"
                     )
-                # Loss streak after Sd/Kd/Ks/Kd/Kd↔/K/day/K↔d/sess/day/
-                # closes/day/K/sess — sample size alone hid the newest
-                # losing-close run (portfolio AI + tradermonty). Compact
-                # "A loss streak …" → "loss …"; drop Sd/Kd (or Ks/Kd /
-                # Kd↔ / K/day / K↔d / sess/day / closes/day / K/sess /
-                # sessions / K-sample) from the line when streak spoke
-                # so the 96-char clip keeps quiet/hot (earlier bits
-                # stay in fields). Hot ≥2 warns only. Silent without
+                # Ks/Kd vs Sd/Kd after both K/day-rooted meta-leans —
+                # absolute Ks/Kd beside Sd/Kd alone hid meter agreement
+                # (FinRobot + portfolio AI + xang1234). Compact
+                # "A Ks/Kd vs Sd/Kd …" → "Ks↔Sd …" so the 96-char clip
+                # keeps align/clash; drop Sd/Kd (or Ks/Kd / Kd↔ /
+                # K/day / K↔d / sess/day / closes/day / K/sess /
+                # sessions / K-sample) when lean spoke (earlier bits
+                # stay in fields). Both clash and mixed warn only. Sole
+                # side silent.
+                raw_kskd_sdkd = str(
+                    sample.get("closes_kskd_vs_sdkd_bit") or ""
+                ).strip()
+                if raw_kskd_sdkd:
+                    window_a_closes_kskd_vs_sdkd_bit = (
+                        raw_kskd_sdkd.replace(
+                            "A Ks/Kd vs Sd/Kd", "Ks↔Sd", 1
+                        ).strip()
+                    )
+                    window_a_closes_kskd_vs_sdkd = str(
+                        sample.get("closes_kskd_vs_sdkd") or ""
+                    )
+                    window_a_closes_kskd_vs_sdkd_clash = bool(
+                        sample.get("closes_kskd_vs_sdkd_clash")
+                    )
+                    if window_a_closes_sessday_vs_kday_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sessday_vs_kday_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_ksess_vs_kday_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_ksess_vs_kday_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kday_vs_kd_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kday_vs_kd_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_vs_per_day_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_vs_per_day_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_ksess_vs_sessday_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_ksess_vs_sessday_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sessions_vs_per_day_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sessions_vs_per_day_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_per_day_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_per_day_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_vs_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_vs_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sell_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sell_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_sample_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_sample_bit}",
+                            "",
+                            1,
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_kskd_vs_sdkd_bit}"
+                    )
+                # Loss streak after Ks↔Sd/Sd/Kd/Ks/Kd/Kd↔/K/day/K↔d/
+                # sess/day/closes/day/K/sess — sample size alone hid
+                # the newest losing-close run (portfolio AI +
+                # tradermonty). Compact "A loss streak …" → "loss …";
+                # drop Ks↔Sd (or Sd/Kd / Ks/Kd / Kd↔ / K/day / K↔d /
+                # sess/day / closes/day / K/sess / sessions /
+                # K-sample) from the line when streak spoke so the
+                # 96-char clip keeps quiet/hot (earlier bits stay in
+                # fields). Hot ≥2 warns only. Silent without
                 # loss_streak key (fail-open).
                 raw_ls = str(
                     sample.get("closes_loss_streak_bit") or ""
@@ -10520,7 +10617,13 @@ def build_calm_streak_glance(
                         )
                     except (TypeError, ValueError):
                         window_a_closes_loss_streak = None
-                    if window_a_closes_sessday_vs_kday_bit:
+                    if window_a_closes_kskd_vs_sdkd_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kskd_vs_sdkd_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sessday_vs_kday_bit:
                         status = status.replace(
                             f" · {window_a_closes_sessday_vs_kday_bit}",
                             "",
@@ -10657,6 +10760,12 @@ def build_calm_streak_glance(
                     elif window_a_closes_loss_streak_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kskd_vs_sdkd_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kskd_vs_sdkd_bit}",
                             "",
                             1,
                         )
@@ -16535,6 +16644,12 @@ def build_calm_streak_glance(
                             "",
                             1,
                         )
+                    elif window_a_closes_kskd_vs_sdkd_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kskd_vs_sdkd_bit}",
+                            "",
+                            1,
+                        )
                     elif window_a_closes_sessday_vs_kday_bit:
                         status = status.replace(
                             f" · {window_a_closes_sessday_vs_kday_bit}",
@@ -20949,6 +21064,7 @@ def build_calm_streak_glance(
                     or window_a_closes_kday_vs_kd_clash
                     or window_a_closes_ksess_vs_kday_clash
                     or window_a_closes_sessday_vs_kday_clash
+                    or window_a_closes_kskd_vs_sdkd_clash
                     or window_a_closes_loss_streak_hot
                     or window_a_closes_loss_streak_max_hot
                     or window_a_closes_flat_warn
@@ -21297,6 +21413,15 @@ def build_calm_streak_glance(
         ),
         "window_a_closes_sessday_vs_kday_clash": (
             window_a_closes_sessday_vs_kday_clash
+        ),
+        "window_a_closes_kskd_vs_sdkd_bit": (
+            window_a_closes_kskd_vs_sdkd_bit
+        ),
+        "window_a_closes_kskd_vs_sdkd": (
+            window_a_closes_kskd_vs_sdkd
+        ),
+        "window_a_closes_kskd_vs_sdkd_clash": (
+            window_a_closes_kskd_vs_sdkd_clash
         ),
         "window_a_closes_loss_streak_bit": (
             window_a_closes_loss_streak_bit
@@ -22497,6 +22622,7 @@ def build_promote_ab_glance(
         format_window_a_closes_kday_vs_kd_bit,
         format_window_a_closes_ksess_vs_kday_bit,
         format_window_a_closes_sessday_vs_kday_bit,
+        format_window_a_closes_kskd_vs_sdkd_bit,
         format_window_a_closes_loss_streak_bit,
         format_window_a_closes_loss_streak_max_bit,
         format_window_a_closes_loss_streak_mean_bit,
@@ -22685,6 +22811,8 @@ def build_promote_ab_glance(
         "closes_ksess_vs_kday_clash": False,
         "closes_sessday_vs_kday": "",
         "closes_sessday_vs_kday_clash": False,
+        "closes_kskd_vs_sdkd": "",
+        "closes_kskd_vs_sdkd_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_hot": False,
         "closes_loss_streak_max": None,
@@ -22895,6 +23023,7 @@ def build_promote_ab_glance(
         "a_closes_kday_vs_kd_bit": "",
         "a_closes_ksess_vs_kday_bit": "",
         "a_closes_sessday_vs_kday_bit": "",
+        "a_closes_kskd_vs_sdkd_bit": "",
         "a_closes_loss_streak_bit": "",
         "a_closes_loss_streak_max_bit": "",
         "a_closes_loss_streak_mean_bit": "",
@@ -23141,6 +23270,10 @@ def build_promote_ab_glance(
     )
     closes_sessday_vs_kday_clash = bool(
         sample.get("closes_sessday_vs_kday_clash")
+    )
+    closes_kskd_vs_sdkd = str(sample.get("closes_kskd_vs_sdkd") or "")
+    closes_kskd_vs_sdkd_clash = bool(
+        sample.get("closes_kskd_vs_sdkd_clash")
     )
     closes_loss_streak = sample.get("closes_loss_streak")
     closes_loss_streak_hot = bool(sample.get("closes_loss_streak_hot"))
@@ -23803,6 +23936,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_kskd_vs_sdkd_bit = (
+        format_window_a_closes_kskd_vs_sdkd_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_loss_streak_bit = (
         format_window_a_closes_loss_streak_bit(sample) if window == "A" else ""
     )
@@ -24196,6 +24334,7 @@ def build_promote_ab_glance(
                 a_closes_kday_vs_kd_bit,
                 a_closes_ksess_vs_kday_bit,
                 a_closes_sessday_vs_kday_bit,
+                a_closes_kskd_vs_sdkd_bit,
                 a_closes_loss_streak_bit,
                 a_closes_loss_streak_max_bit,
                 a_closes_loss_streak_mean_bit,
@@ -24307,6 +24446,7 @@ def build_promote_ab_glance(
             or closes_kday_vs_kd_clash
             or closes_ksess_vs_kday_clash
             or closes_sessday_vs_kday_clash
+            or closes_kskd_vs_sdkd_clash
             or closes_loss_streak_hot
             or closes_loss_streak_max_hot
             or closes_loss_streak_mean_hot
@@ -24446,6 +24586,7 @@ def build_promote_ab_glance(
                 or a_closes_kday_vs_kd_bit
                 or a_closes_ksess_vs_kday_bit
                 or a_closes_sessday_vs_kday_bit
+                or a_closes_kskd_vs_sdkd_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
                 or a_closes_loss_streak_mean_bit
@@ -24575,6 +24716,7 @@ def build_promote_ab_glance(
                 or a_closes_kday_vs_kd_bit
                 or a_closes_ksess_vs_kday_bit
                 or a_closes_sessday_vs_kday_bit
+                or a_closes_kskd_vs_sdkd_bit
                 or a_closes_loss_streak_bit
                 or a_closes_loss_streak_max_bit
                 or a_closes_loss_streak_mean_bit
@@ -25196,6 +25338,12 @@ def build_promote_ab_glance(
         ),
         "closes_sessday_vs_kday_clash": (
             closes_sessday_vs_kday_clash if window == "A" else False
+        ),
+        "closes_kskd_vs_sdkd": (
+            closes_kskd_vs_sdkd if window == "A" else ""
+        ),
+        "closes_kskd_vs_sdkd_clash": (
+            closes_kskd_vs_sdkd_clash if window == "A" else False
         ),
         "closes_loss_streak": closes_loss_streak if window == "A" else None,
         "closes_loss_streak_hot": (
@@ -25836,6 +25984,7 @@ def build_promote_ab_glance(
         "a_closes_kday_vs_kd_bit": a_closes_kday_vs_kd_bit,
         "a_closes_ksess_vs_kday_bit": a_closes_ksess_vs_kday_bit,
         "a_closes_sessday_vs_kday_bit": a_closes_sessday_vs_kday_bit,
+        "a_closes_kskd_vs_sdkd_bit": a_closes_kskd_vs_sdkd_bit,
         "a_closes_loss_streak_bit": a_closes_loss_streak_bit,
         "a_closes_loss_streak_max_bit": a_closes_loss_streak_max_bit,
         "a_closes_loss_streak_mean_bit": a_closes_loss_streak_mean_bit,

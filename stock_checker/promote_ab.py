@@ -2430,7 +2430,14 @@ def window_a_sample_readiness(
     (``closes_sessday_vs_kday_*``) — FinRobot edge/conf + portfolio AI
     speak-both-sides + xang1234 multi-meter after absolute sess/day
     beside K/day hid the two density-rooted leans; both clash and
-    mixed warn only (still ready for B); sole side silent.
+    mixed warn only (still ready for B); sole side silent. When K/sess
+    vs K/day and sess/day vs K/day both spoke, speak meter agreement
+    ``A Ks/Kd vs Sd/Kd align · both align|clash`` or
+    ``clash · Ks/Kd clash|align · Sd/Kd …``
+    (``closes_kskd_vs_sdkd_*``) — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 multi-meter after absolute Ks/Kd beside
+    Sd/Kd hid the two K/day-rooted meta-leans; both clash and mixed
+    warn only (still ready for B); sole side silent.
     Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
@@ -2627,6 +2634,9 @@ def window_a_sample_readiness(
         "closes_sessday_vs_kday": "",
         "closes_sessday_vs_kday_bit": "",
         "closes_sessday_vs_kday_clash": False,
+        "closes_kskd_vs_sdkd": "",
+        "closes_kskd_vs_sdkd_bit": "",
+        "closes_kskd_vs_sdkd_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3639,6 +3649,9 @@ def window_a_sample_readiness(
     closes_sessday_vs_kday = ""
     closes_sessday_vs_kday_bit = ""
     closes_sessday_vs_kday_clash = False
+    closes_kskd_vs_sdkd = ""
+    closes_kskd_vs_sdkd_bit = ""
+    closes_kskd_vs_sdkd_clash = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4478,6 +4491,38 @@ def window_a_sample_readiness(
                 closes_sessday_vs_kday_bit = (
                     "A sess/day vs K/day clash · "
                     "sess/day align · K/day clash"
+                )
+
+    # Ks/Kd lean ≠ Sd/Kd lean. When both K/day-rooted meta-meters
+    # spoke, speak agreement (FinRobot + portfolio AI + xang1234 after
+    # absolute Ks/Kd beside Sd/Kd). Both clash and mixed warn only
+    # (still ready for B). Sole side silent.
+    if closes_ksess_vs_kday and closes_sessday_vs_kday:
+        ks_adverse = closes_ksess_vs_kday == "clash"
+        sd_adverse = closes_sessday_vs_kday == "clash"
+        if ks_adverse == sd_adverse:
+            closes_kskd_vs_sdkd = "align"
+            if ks_adverse:
+                closes_kskd_vs_sdkd_clash = True
+                closes_kskd_vs_sdkd_bit = (
+                    "A Ks/Kd vs Sd/Kd align · both clash"
+                )
+            else:
+                closes_kskd_vs_sdkd_bit = (
+                    "A Ks/Kd vs Sd/Kd align · both align"
+                )
+        else:
+            closes_kskd_vs_sdkd = "clash"
+            closes_kskd_vs_sdkd_clash = True
+            if ks_adverse:
+                closes_kskd_vs_sdkd_bit = (
+                    "A Ks/Kd vs Sd/Kd clash · "
+                    "Ks/Kd clash · Sd/Kd align"
+                )
+            else:
+                closes_kskd_vs_sdkd_bit = (
+                    "A Ks/Kd vs Sd/Kd clash · "
+                    "Ks/Kd align · Sd/Kd clash"
                 )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
@@ -5913,6 +5958,9 @@ def window_a_sample_readiness(
         "closes_sessday_vs_kday": closes_sessday_vs_kday,
         "closes_sessday_vs_kday_bit": closes_sessday_vs_kday_bit,
         "closes_sessday_vs_kday_clash": closes_sessday_vs_kday_clash,
+        "closes_kskd_vs_sdkd": closes_kskd_vs_sdkd,
+        "closes_kskd_vs_sdkd_bit": closes_kskd_vs_sdkd_bit,
+        "closes_kskd_vs_sdkd_clash": closes_kskd_vs_sdkd_clash,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7636,6 +7684,16 @@ def format_window_a_closes_sessday_vs_kday_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_sessday_vs_kday_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_kskd_vs_sdkd_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A Ks/Kd vs Sd/Kd lean agreement (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_kskd_vs_sdkd_bit") or "").strip()
     return bit
 
 

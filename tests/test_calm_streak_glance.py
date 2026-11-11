@@ -176,6 +176,9 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_sessday_vs_kday_bit"] == ""
     assert g["window_a_closes_sessday_vs_kday"] == ""
     assert g["window_a_closes_sessday_vs_kday_clash"] is False
+    assert g["window_a_closes_kskd_vs_sdkd_bit"] == ""
+    assert g["window_a_closes_kskd_vs_sdkd"] == ""
+    assert g["window_a_closes_kskd_vs_sdkd_clash"] is False
     assert g["window_a_closes_loss_streak_bit"] == ""
     assert g["window_a_closes_loss_streak"] is None
     assert g["window_a_closes_loss_streak_hot"] is False
@@ -2214,6 +2217,11 @@ def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_few() -> Non
     assert g["window_a_closes_sessday_vs_kday_bit"] == (
         "Sd/Kd clash · Sd align · Kd clash"
     )
+    assert g["window_a_closes_kskd_vs_sdkd"] == "clash"
+    assert g["window_a_closes_kskd_vs_sdkd_clash"] is True
+    assert g["window_a_closes_kskd_vs_sdkd_bit"] == (
+        "Ks↔Sd clash · Ks/Kd align · Sd/Kd clash"
+    )
     assert g["tone"] == "warn"
     assert "K-sample" not in g["line"]
     assert "sessions few" not in g["line"]
@@ -2223,12 +2231,13 @@ def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_few() -> Non
     assert "K/day clash · ok · fat" not in g["line"]
     assert "Kd↔ align · both clash" not in g["line"]
     assert "Ks/Kd align · both clash" not in g["line"]
-    assert "Sd/Kd clash · Sd align · Kd clash" in g["line"]
+    assert "Sd/Kd clash · Sd align · Kd clash" not in g["line"]
+    assert "Ks↔Sd clash · Ks/Kd align · Sd/Kd" in g["line"]
     assert len(g["line"]) <= 96
 
 
 def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_ok() -> None:
-    """≥5 UTC sell days; Sd/Kd lean owns clip after Ks/Kd + density leans agree."""
+    """≥5 UTC sell days; Ks↔Sd lean owns clip after Ks/Kd + Sd/Kd agree."""
     as_of = date(2026, 8, 18)
     stats = {
         "trades": 24,
@@ -2290,6 +2299,11 @@ def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_ok() -> None
     assert g["window_a_closes_sessday_vs_kday_bit"] == (
         "Sd/Kd align · both align"
     )
+    assert g["window_a_closes_kskd_vs_sdkd"] == "align"
+    assert g["window_a_closes_kskd_vs_sdkd_clash"] is False
+    assert g["window_a_closes_kskd_vs_sdkd_bit"] == (
+        "Ks↔Sd align · both align"
+    )
     assert "K-sample" not in g["line"]
     assert "sessions ok" not in g["line"]
     assert "K/sess align" not in g["line"]
@@ -2299,7 +2313,8 @@ def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_ok() -> None
     assert "K/day align · ok" not in g["line"]
     assert "Kd↔ align · both align" not in g["line"]
     assert "Ks/Kd align · both align" not in g["line"]
-    assert "Sd/Kd align · both align" in g["line"]
+    assert "Sd/Kd align · both align" not in g["line"]
+    assert "Ks↔Sd align · both align" in g["line"]
     assert len(g["line"]) <= 96
 
 
