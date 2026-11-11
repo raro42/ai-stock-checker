@@ -147,6 +147,13 @@ def test_calm_streak_glance_promote_off_paused() -> None:
     assert g["window_a_closes_kelly_sample"] == ""
     assert g["window_a_closes_kelly_sample_n"] is None
     assert g["window_a_closes_kelly_sample_thin"] is False
+    assert g["window_a_closes_sell_sessions_bit"] == ""
+    assert g["window_a_closes_sell_sessions"] == ""
+    assert g["window_a_closes_sell_sessions_n"] is None
+    assert g["window_a_closes_sell_sessions_few"] is False
+    assert g["window_a_closes_kelly_vs_sessions_bit"] == ""
+    assert g["window_a_closes_kelly_vs_sessions"] == ""
+    assert g["window_a_closes_kelly_vs_sessions_clash"] is False
     assert g["window_a_closes_loss_streak_bit"] == ""
     assert g["window_a_closes_loss_streak"] is None
     assert g["window_a_closes_loss_streak_hot"] is False
@@ -2112,6 +2119,88 @@ def test_calm_streak_glance_promote_off_paused_closes_kelly_sample_ok() -> None:
     assert g["window_a_closes_practical_kelly_bit"]
     assert "pract-K" not in g["line"]
     assert "K-sample ok · 12 closes" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_few() -> None:
+    """K-sample alone must not hide a same-day sell-session cluster (warn)."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 24,
+        "buys": 12,
+        "sells": 12,
+        "fees": 4.0,
+        "realized_pnl": 40.0,
+        "net_after_all_fees": 36.0,
+        "wins": 8,
+        "losses": 4,
+        "avg_win": 8.0,
+        "avg_loss": 4.0,
+        "sell_sessions": 2,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_closes_kelly_sample_bit"] == "K-sample ok · 12 closes"
+    assert g["window_a_closes_sell_sessions"] == "few"
+    assert g["window_a_closes_sell_sessions_n"] == 2
+    assert g["window_a_closes_sell_sessions_few"] is True
+    assert g["window_a_closes_sell_sessions_bit"] == "sessions few · 2 days <5"
+    assert g["window_a_closes_kelly_vs_sessions"] == "clash"
+    assert g["window_a_closes_kelly_vs_sessions_clash"] is True
+    assert g["window_a_closes_kelly_vs_sessions_bit"] == (
+        "K/sess clash · ok · few"
+    )
+    assert g["tone"] == "warn"
+    assert "K-sample" not in g["line"]
+    assert "sessions few" not in g["line"]  # lean owns clip
+    assert "K/sess clash · ok · few" in g["line"]
+    assert len(g["line"]) <= 96
+
+
+def test_calm_streak_glance_promote_off_paused_closes_sell_sessions_ok() -> None:
+    """≥5 UTC sell days speaks sessions ok; K/sess align owns clip."""
+    as_of = date(2026, 8, 18)
+    stats = {
+        "trades": 24,
+        "buys": 12,
+        "sells": 12,
+        "fees": 4.0,
+        "realized_pnl": 40.0,
+        "net_after_all_fees": 36.0,
+        "wins": 8,
+        "losses": 4,
+        "avg_win": 8.0,
+        "avg_loss": 4.0,
+        "sell_sessions": 8,
+    }
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": 0,
+            "calm_required_days": 30,
+            "calm_ready": False,
+            "calm_detail": "promote filter off — streak paused",
+        },
+        as_of=as_of,
+        window_stats=stats,
+    )
+    assert g["window_a_closes_sell_sessions"] == "ok"
+    assert g["window_a_closes_sell_sessions_n"] == 8
+    assert g["window_a_closes_sell_sessions_few"] is False
+    assert g["window_a_closes_sell_sessions_bit"] == "sessions ok · 8 days"
+    assert g["window_a_closes_kelly_vs_sessions"] == "align"
+    assert g["window_a_closes_kelly_vs_sessions_clash"] is False
+    assert g["window_a_closes_kelly_vs_sessions_bit"] == "K/sess align · ok"
+    assert "K-sample" not in g["line"]
+    assert "sessions ok" not in g["line"]
+    assert "K/sess align · ok" in g["line"]
     assert len(g["line"]) <= 96
 
 

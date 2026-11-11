@@ -7458,6 +7458,13 @@ def build_calm_streak_glance(
         "window_a_closes_kelly_sample": "",
         "window_a_closes_kelly_sample_n": None,
         "window_a_closes_kelly_sample_thin": False,
+        "window_a_closes_sell_sessions_bit": "",
+        "window_a_closes_sell_sessions": "",
+        "window_a_closes_sell_sessions_n": None,
+        "window_a_closes_sell_sessions_few": False,
+        "window_a_closes_kelly_vs_sessions_bit": "",
+        "window_a_closes_kelly_vs_sessions": "",
+        "window_a_closes_kelly_vs_sessions_clash": False,
         "window_a_closes_loss_streak_bit": "",
         "window_a_closes_loss_streak": None,
         "window_a_closes_loss_streak_hot": False,
@@ -7797,6 +7804,13 @@ def build_calm_streak_glance(
     window_a_closes_kelly_sample = ""
     window_a_closes_kelly_sample_n: int | None = None
     window_a_closes_kelly_sample_thin = False
+    window_a_closes_sell_sessions_bit = ""
+    window_a_closes_sell_sessions = ""
+    window_a_closes_sell_sessions_n: int | None = None
+    window_a_closes_sell_sessions_few = False
+    window_a_closes_kelly_vs_sessions_bit = ""
+    window_a_closes_kelly_vs_sessions = ""
+    window_a_closes_kelly_vs_sessions_clash = False
     window_a_closes_loss_streak_bit = ""
     window_a_closes_loss_streak: int | None = None
     window_a_closes_loss_streak_hot = False
@@ -8185,6 +8199,7 @@ def build_calm_streak_glance(
         # WR vs BE + net expectancy + fee take + net PF + net/fee +
         # Kelly + half-Kelly vs sizer + half-Kelly vs slot + half-Kelly
         # vs conc cap + quarter-Kelly triad + pract-K + K-sample +
+        # sell sessions + Kelly vs sessions +
         # loss streak + loss streak max + win streak + win streak max +
         # flat closes + loss streak mean + win streak mean +
         # loss streak median + win streak median + loss streak min +
@@ -9877,11 +9892,91 @@ def build_calm_streak_glance(
                     status = (
                         f"{status} · {window_a_closes_kelly_sample_bit}"
                     )
-                # Loss streak after K-sample — sample size alone hid the
-                # newest losing-close run (portfolio AI + tradermonty).
-                # Compact "A loss streak …" → "loss …"; drop K-sample from
-                # the line when streak spoke so the 96-char clip keeps
-                # quiet/hot (K-sample stays in fields). Hot ≥2 warns only.
+                # Sell sessions after K-sample — N closes alone hid a
+                # same-day cluster (xang1234 #747 Few dates + portfolio
+                # AI). Compact "A sell sessions …" → "sessions …"; drop
+                # K-sample from the line when sessions spoke so the
+                # 96-char clip keeps few/ok (K-sample stays in fields).
+                # Few warns only. Silent without sell_sessions key.
+                raw_ss = str(
+                    sample.get("closes_sell_sessions_bit") or ""
+                ).strip()
+                if raw_ss:
+                    window_a_closes_sell_sessions_bit = (
+                        raw_ss.replace(
+                            "A sell sessions", "sessions", 1
+                        ).strip()
+                    )
+                    window_a_closes_sell_sessions = str(
+                        sample.get("closes_sell_sessions") or ""
+                    )
+                    window_a_closes_sell_sessions_few = bool(
+                        sample.get("closes_sell_sessions_few")
+                    )
+                    try:
+                        ssn = sample.get("closes_sell_sessions_n")
+                        window_a_closes_sell_sessions_n = (
+                            int(ssn) if ssn is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        window_a_closes_sell_sessions_n = None
+                    if window_a_closes_kelly_sample_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_sample_bit}",
+                            "",
+                            1,
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_sell_sessions_bit}"
+                    )
+                # Kelly vs sessions after absolute sessions — N closes
+                # beside N days alone hid meter agreement (portfolio AI
+                # + xang1234). Compact "A Kelly vs sessions …" →
+                # "K/sess …"; drop sessions from the line when lean
+                # spoke so the 96-char clip keeps align/clash (sessions
+                # stay in fields). Clash warns only. Sole side silent.
+                raw_kvs = str(
+                    sample.get("closes_kelly_vs_sessions_bit") or ""
+                ).strip()
+                if raw_kvs:
+                    window_a_closes_kelly_vs_sessions_bit = (
+                        raw_kvs.replace(
+                            "A Kelly vs sessions", "K/sess", 1
+                        ).strip()
+                    )
+                    window_a_closes_kelly_vs_sessions = str(
+                        sample.get("closes_kelly_vs_sessions") or ""
+                    )
+                    window_a_closes_kelly_vs_sessions_clash = bool(
+                        sample.get("closes_kelly_vs_sessions_clash")
+                    )
+                    if window_a_closes_sell_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sell_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_sample_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_sample_bit}",
+                            "",
+                            1,
+                        )
+                    status = status.replace(
+                        "streak paused", "paused", 1
+                    )
+                    status = (
+                        f"{status} · {window_a_closes_kelly_vs_sessions_bit}"
+                    )
+                # Loss streak after sessions/K/sess — sample size alone
+                # hid the newest losing-close run (portfolio AI +
+                # tradermonty). Compact "A loss streak …" → "loss …";
+                # drop K/sess (or sessions / K-sample) from the line when
+                # streak spoke so the 96-char clip keeps quiet/hot
+                # (earlier bits stay in fields). Hot ≥2 warns only.
                 # Silent without loss_streak key (fail-open).
                 raw_ls = str(
                     sample.get("closes_loss_streak_bit") or ""
@@ -9902,7 +9997,19 @@ def build_calm_streak_glance(
                         )
                     except (TypeError, ValueError):
                         window_a_closes_loss_streak = None
-                    if window_a_closes_kelly_sample_bit:
+                    if window_a_closes_kelly_vs_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_vs_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sell_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sell_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_sample_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_sample_bit}",
                             "",
@@ -9985,6 +10092,18 @@ def build_calm_streak_glance(
                     elif window_a_closes_loss_streak_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_kelly_vs_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_vs_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sell_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sell_sessions_bit}",
                             "",
                             1,
                         )
@@ -15809,6 +15928,18 @@ def build_calm_streak_glance(
                             "",
                             1,
                         )
+                    elif window_a_closes_kelly_vs_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_kelly_vs_sessions_bit}",
+                            "",
+                            1,
+                        )
+                    elif window_a_closes_sell_sessions_bit:
+                        status = status.replace(
+                            f" · {window_a_closes_sell_sessions_bit}",
+                            "",
+                            1,
+                        )
                     elif window_a_closes_kelly_sample_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_sample_bit}",
@@ -20088,6 +20219,10 @@ def build_calm_streak_glance(
                 # conventional fraction fits the ~10% cash slice (or f*≤0).
                 # Kelly sample thin: pract alone hid that Kelly from few
                 # closes is noise (close floor of 3 ≠ a size sample).
+                # Sell sessions few: K-sample alone hid a same-day cluster
+                # (N closes ≠ N UTC sell days).
+                # Kelly vs sessions clash: absolute sides alone hid
+                # count≠calendar disagreement.
                 # Loss streak hot: K-sample alone hid a run of ≥2 losing
                 # closes (win/lose counts ≠ a current run).
                 # Loss streak max hot: ending alone hid an earlier peak
@@ -20156,6 +20291,8 @@ def build_calm_streak_glance(
                     or window_a_closes_quarter_kelly_cap_under
                     or window_a_closes_practical_kelly_cut
                     or window_a_closes_kelly_sample_thin
+                    or window_a_closes_sell_sessions_few
+                    or window_a_closes_kelly_vs_sessions_clash
                     or window_a_closes_loss_streak_hot
                     or window_a_closes_loss_streak_max_hot
                     or window_a_closes_flat_warn
@@ -20425,6 +20562,27 @@ def build_calm_streak_glance(
         ),
         "window_a_closes_kelly_sample_thin": (
             window_a_closes_kelly_sample_thin
+        ),
+        "window_a_closes_sell_sessions_bit": (
+            window_a_closes_sell_sessions_bit
+        ),
+        "window_a_closes_sell_sessions": (
+            window_a_closes_sell_sessions
+        ),
+        "window_a_closes_sell_sessions_n": (
+            window_a_closes_sell_sessions_n
+        ),
+        "window_a_closes_sell_sessions_few": (
+            window_a_closes_sell_sessions_few
+        ),
+        "window_a_closes_kelly_vs_sessions_bit": (
+            window_a_closes_kelly_vs_sessions_bit
+        ),
+        "window_a_closes_kelly_vs_sessions": (
+            window_a_closes_kelly_vs_sessions
+        ),
+        "window_a_closes_kelly_vs_sessions_clash": (
+            window_a_closes_kelly_vs_sessions_clash
         ),
         "window_a_closes_loss_streak_bit": (
             window_a_closes_loss_streak_bit
