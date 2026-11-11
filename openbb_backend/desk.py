@@ -27093,6 +27093,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept_lean,
         yahoo_discovery_claim_drop_kept_vs_live_free,
         yahoo_discovery_claim_hung_band,
+        yahoo_discovery_claim_hung_vs_drop_kept,
         yahoo_discovery_claim_hung_vs_live_free,
         yahoo_discovery_claim_lean_meta,
         yahoo_discovery_claim_lean_open,
@@ -27480,6 +27481,26 @@ def build_universe_discovery_glance(
             claim_lean = claim_hung_vs_live_free_bit
         claim_lean_warn = bool(claim_lean_warn) or bool(
             claim_hung_vs_live_free_warn
+        )
+        claim_lean_meta = yahoo_discovery_claim_lean_meta(
+            claim_lean,
+            warn=claim_lean_warn,
+            hung=True,
+        )
+    # hung vs live-free peer: hung band beside drop-kept hid agreement.
+    (
+        claim_hung_vs_drop_kept_bit,
+        claim_hung_vs_drop_kept_warn,
+    ) = yahoo_discovery_claim_hung_vs_drop_kept(
+        claim_hung_band_bit, claim_drop_vs_kept_lean_bit
+    )
+    if claim_hung_vs_drop_kept_bit:
+        if claim_lean:
+            claim_lean = f"{claim_lean} · {claim_hung_vs_drop_kept_bit}"
+        else:
+            claim_lean = claim_hung_vs_drop_kept_bit
+        claim_lean_warn = bool(claim_lean_warn) or bool(
+            claim_hung_vs_drop_kept_warn
         )
         claim_lean_meta = yahoo_discovery_claim_lean_meta(
             claim_lean,
@@ -28364,6 +28385,12 @@ def build_universe_discovery_glance(
         ),
         "last_yahoo_claim_hung_vs_live_free_warn": bool(
             claim_hung_vs_live_free_warn
+        ),
+        "last_yahoo_claim_hung_vs_drop_kept": (
+            claim_hung_vs_drop_kept_bit or None
+        ),
+        "last_yahoo_claim_hung_vs_drop_kept_warn": bool(
+            claim_hung_vs_drop_kept_warn
         ),
         "last_yahoo_claim_drop_vs_live_lead": (
             claim_drop_vs_live_lead_name or None

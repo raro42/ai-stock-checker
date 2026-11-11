@@ -887,6 +887,31 @@ def yahoo_discovery_claim_hung_vs_live_free(
     return "clash · hung vs live-free · live-free align", True
 
 
+def yahoo_discovery_claim_hung_vs_drop_kept(
+    hung_band: str,
+    drop_kept_lean: str,
+) -> tuple[str, bool]:
+    """Hung share-band vs drop-vs-kept lean mood (display only).
+
+    Absolute ``hung band · hot|quiet`` beside ``drop vs kept align|clash``
+    hid whether the stuck clock and the release meter *agree* the Universe
+    is not free — FinRobot edge/conf + portfolio AI speak-both-sides +
+    xang1234 multi-meter + hung vs live-free peer after hung band alone
+    hid drop-kept agreement. Hung is always adverse; drop-kept clash →
+    ``hung vs drop-kept align · clash`` (confirm). Drop-kept align →
+    ``clash · hung vs drop-kept · drop-kept align`` (warn — a calm kept
+    meter does not make a hung clock look live). Sole side silent. Desk
+    keeps this under ``claim_lean``. Not a gate.
+    """
+    hb = str(hung_band or "").strip()
+    dk = str(drop_kept_lean or "").strip()
+    if not hb or not dk:
+        return "", False
+    if "clash" in dk.casefold():
+        return "hung vs drop-kept align · clash", False
+    return "clash · hung vs drop-kept · drop-kept align", True
+
+
 def yahoo_discovery_claim_lean_meta(
     lean: str, *, warn: bool = False, hung: bool = False
 ) -> str:
@@ -895,14 +920,14 @@ def yahoo_discovery_claim_lean_meta(
     Bare quiet/warn hid whether drop vs kept / live vs free / drop-kept vs
     live-free severity spoke — MonsterDeveloper fold inventory + Screener/
     opportunity lean meta + improve-tick finished confirm after sides alone.
-    Inventories spoken stages (``hung vs live-free`` first ·
-    ``drop-kept vs live-free`` · ``drop vs kept`` · ``live vs free`` ·
-    ``hung band``). Warn → ``warn · …``; calm spoken lean → ``confirm · …``
-    (speak-both-sides peer of warn); empty → ``quiet`` (empty + hung →
-    ``confirm · hung`` / ``warn · hung`` so a stuck live claim does not
-    read calm when the fold later invents body). Spoken meter stages also
-    share improve-tick finished thin/not-thin honesty
-    (``confirm · not thin · …`` / ``warn · not thin · …``) so bare
+    Inventories spoken stages (``hung vs drop-kept`` first ·
+    ``hung vs live-free`` · ``drop-kept vs live-free`` · ``drop vs kept`` ·
+    ``live vs free`` · ``hung band``). Warn → ``warn · …``; calm spoken
+    lean → ``confirm · …`` (speak-both-sides peer of warn); empty →
+    ``quiet`` (empty + hung → ``confirm · hung`` / ``warn · hung`` so a
+    stuck live claim does not read calm when the fold later invents body).
+    Spoken meter stages also share improve-tick finished thin/not-thin
+    honesty (``confirm · not thin · …`` / ``warn · not thin · …``) so bare
     confirm|warn after sides alone does not hide that a meter already
     spoke (xang1234 b09fb49 / 1cd7968 + portfolio AI speak-both-sides).
     When ``hung`` (still-held live claims), meta keeps improve-tick
@@ -921,6 +946,8 @@ def yahoo_discovery_claim_lean_meta(
         return "quiet"
     lower = text.casefold()
     stages: list[str] = []
+    if "hung vs drop-kept" in lower:
+        stages.append("hung vs drop-kept")
     if "hung vs live-free" in lower:
         stages.append("hung vs live-free")
     if "drop-kept vs live-free" in lower:
