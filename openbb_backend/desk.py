@@ -27084,6 +27084,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept_lean,
         yahoo_discovery_claim_drop_kept_vs_live_free,
         yahoo_discovery_claim_lean_meta,
+        yahoo_discovery_claim_lean_open,
         yahoo_discovery_claim_drop_vs_live_lead,
         yahoo_discovery_claim_drop_vs_live_sample_gap,
         yahoo_discovery_claim_drops,
@@ -27279,7 +27280,9 @@ def build_universe_discovery_glance(
             claim_lean = " · ".join(lean_parts)
             claim_lean_warn = bool(claim_drop_vs_kept_lean_warn)
             claim_lean_meta = yahoo_discovery_claim_lean_meta(
-                claim_lean, warn=claim_lean_warn
+                claim_lean,
+                warn=claim_lean_warn,
+                hung=claim_live > 0,
             )
         else:
             kept_suffix = (
@@ -27387,7 +27390,9 @@ def build_universe_discovery_glance(
                 claim_live_vs_free_lean_warn
             )
             claim_lean_meta = yahoo_discovery_claim_lean_meta(
-                claim_lean, warn=claim_lean_warn
+                claim_lean,
+                warn=claim_lean_warn,
+                hung=True,
             )
         else:
             free_suffix = (
@@ -27432,7 +27437,9 @@ def build_universe_discovery_glance(
             claim_drop_kept_vs_live_free_warn
         )
         claim_lean_meta = yahoo_discovery_claim_lean_meta(
-            claim_lean, warn=claim_lean_warn
+            claim_lean,
+            warn=claim_lean_warn,
+            hung=claim_live > 0,
         )
     # xang1234 multi-meter + portfolio AI: drop beside live hid which owns
     # claim activity (release leftovers vs still-stuck). Prefixed tied so
@@ -28140,6 +28147,11 @@ def build_universe_discovery_glance(
         "claim_lean": claim_lean,
         "claim_lean_warn": bool(claim_lean_warn),
         "claim_lean_meta": claim_lean_meta,
+        "claim_lean_open": yahoo_discovery_claim_lean_open(
+            lean=claim_lean,
+            warn=bool(claim_lean_warn),
+            hung=claim_live > 0,
+        ),
         "mover_count": per,
         "discovery_only": True,
         "auto_buy": False,

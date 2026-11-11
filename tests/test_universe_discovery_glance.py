@@ -1154,6 +1154,7 @@ def test_universe_discovery_glance_claim_drop_on_success(tmp_path) -> None:
     )
     assert g["claim_lean_warn"] is False
     assert g["claim_lean_meta"] == "confirm · not thin · drop vs kept"
+    assert g["claim_lean_open"] is False
     assert "1 dead · 1 stale" not in g["line"]
     assert g["line"].index("2 claim drop") < g["line"].index("discovery-only")
     # Hot claim share escalates a fresh cache tone.
@@ -1324,7 +1325,10 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
         "vs 1 free · thin · 33% · live vs free align · hot|thin"
     )
     assert g["claim_lean_warn"] is False
-    assert g["claim_lean_meta"] == "confirm · not thin · live vs free"
+    assert g["claim_lean_meta"] == (
+        "confirm · hung · not thin · live vs free"
+    )
+    assert g["claim_lean_open"] is True
     assert g["line"].index("in gainers · losers") < g["line"].index("tied")
     assert g["line"].index("tied") < g["line"].index("hot · 67%")
     assert g["tone"] == "aging"
@@ -1371,9 +1375,10 @@ def test_universe_discovery_glance_claim_drop_kept_vs_live_free(
     assert "drop-kept vs live-free align · both align" in g["claim_lean"]
     assert g["claim_lean_warn"] is False
     assert g["claim_lean_meta"] == (
-        "confirm · not thin · drop-kept vs live-free"
+        "confirm · hung · not thin · drop-kept vs live-free"
         " · drop vs kept · live vs free"
     )
+    assert g["claim_lean_open"] is True
     # Cross meter stays under the fold — primary clip keeps drop/live lead.
     assert "drop-kept vs live-free" not in g["line"]
 

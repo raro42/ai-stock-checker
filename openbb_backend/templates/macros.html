@@ -811,6 +811,7 @@
 {% set claim_lean = glance.claim_lean|default('') %}
 {% set claim_warn = glance.claim_lean_warn|default(false) %}
 {% set claim_meta = glance.claim_lean_meta|default('quiet') %}
+{% set claim_open = glance.claim_lean_open|default(claim_warn) %}
 {% set error_lean = glance.error_lean|default('') %}
 {% set error_warn = glance.error_lean_warn|default(false) %}
 {% set error_meta = glance.error_lean_meta|default('quiet') %}
@@ -833,7 +834,7 @@
   </details>
   {% endif %}
   {% if claim_lean %}
-  <details class="universe-claim-lean{% if claim_warn %} warn{% endif %}"{% if claim_warn %} open{% endif %}>
+  <details class="universe-claim-lean{% if claim_warn %} warn{% endif %}"{% if claim_open %} open{% endif %}>
     <summary>claim lean <span class="meta">{{ claim_meta }}</span></summary>
     <p class="universe-claim-lean-body{% if claim_warn %} warn{% endif %}">{{ claim_lean }}</p>
   </details>

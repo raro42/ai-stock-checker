@@ -840,7 +840,7 @@ def yahoo_discovery_claim_drop_kept_vs_live_free(
 
 
 def yahoo_discovery_claim_lean_meta(
-    lean: str, *, warn: bool = False
+    lean: str, *, warn: bool = False, hung: bool = False
 ) -> str:
     """Summary chip for Universe claim lean fold (display only).
 
@@ -850,15 +850,23 @@ def yahoo_discovery_claim_lean_meta(
     Inventories spoken stages (``drop-kept vs live-free`` first ·
     ``drop vs kept`` · ``live vs free``). Warn → ``warn · …``; calm spoken
     lean → ``confirm · …`` (speak-both-sides peer of warn); empty →
-    ``quiet``. Spoken meter stages also share improve-tick finished
-    thin/not-thin honesty (``confirm · not thin · …`` / ``warn · not thin
-    · …``) so bare confirm|warn after sides alone does not hide that a
-    meter already spoke (xang1234 b09fb49 / 1cd7968 + portfolio AI
-    speak-both-sides). Claim lean has no explain-only stages today — sole
-    / few ``no result`` stays on improve-tick hung. Not a gate.
+    ``quiet`` (empty + hung → ``confirm · hung`` / ``warn · hung`` so a
+    stuck live claim does not read calm when the fold later invents body).
+    Spoken meter stages also share improve-tick finished thin/not-thin
+    honesty (``confirm · not thin · …`` / ``warn · not thin · …``) so bare
+    confirm|warn after sides alone does not hide that a meter already
+    spoke (xang1234 b09fb49 / 1cd7968 + portfolio AI speak-both-sides).
+    When ``hung`` (still-held live claims), meta keeps improve-tick
+    ``warn · hung`` / ``confirm · hung`` ownership so bare confirm|warn ·
+    not thin does not hide a stuck screen clock (FinRobot + portfolio AI
+    speak-both-sides + xang1234 after claim-live stuck). Claim lean has no
+    explain-only stages today — sole / few ``no result`` stays on
+    improve-tick hung. Not a gate.
     """
     text = str(lean or "").strip()
     if not text:
+        if hung:
+            return "warn · hung" if warn else "confirm · hung"
         return "quiet"
     lower = text.casefold()
     stages: list[str] = []
@@ -868,11 +876,33 @@ def yahoo_discovery_claim_lean_meta(
         stages.append("drop vs kept")
     if "live vs free" in lower:
         stages.append("live vs free")
-    prefix = "warn" if warn else "confirm"
+    if warn and hung:
+        sev = "warn · hung"
+    elif warn:
+        sev = "warn"
+    elif hung:
+        sev = "confirm · hung"
+    else:
+        sev = "confirm"
     if not stages:
-        return prefix
+        return sev
     # Meter stages → not thin (improve-tick finished thin/not-thin parity).
-    return f"{prefix} · not thin · " + " · ".join(stages)
+    return f"{sev} · not thin · " + " · ".join(stages)
+
+
+def yahoo_discovery_claim_lean_open(
+    *, lean: str, warn: bool = False, hung: bool = False
+) -> bool:
+    """Whether Universe claim lean ``<details>`` starts open (display only).
+
+    Warn folds already open. Hung live claims with lean body also open so
+    stuck-screen meters are not hidden behind a closed accordion (improve-
+    tick hung lean open / xang1234 #745). Empty lean stays closed. Not a
+    gate.
+    """
+    if not str(lean or "").strip():
+        return False
+    return bool(warn) or bool(hung)
 
 
 def yahoo_discovery_claim_live_vs_free(
