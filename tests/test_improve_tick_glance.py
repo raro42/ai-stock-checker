@@ -327,35 +327,36 @@ def test_improve_tick_fresher_polarity_vs_scan_meter_bits() -> None:
 
 def test_improve_tick_lean_meta() -> None:
     assert improve_tick_lean_meta("") == "quiet"
-    # Finished calm with spoken stages speaks confirm (peer of warn · …;
-    # hung already had confirm · hung after warn · hung).
+    # Finished calm with spoken meter stages speaks confirm · not thin
+    # (peer of warn · not thin; hung already had confirm · hung · not thin).
     assert (
         improve_tick_lean_meta("status/age vs scan align · clash")
-        == "confirm · status/age vs scan"
+        == "confirm · not thin · status/age vs scan"
     )
     assert (
         improve_tick_lean_meta(
             "clash · status/age align · scan fresh", warn=True
         )
-        == "warn · status/age vs scan"
+        == "warn · not thin · status/age vs scan"
     )
     assert (
         improve_tick_lean_meta("source vs scan align · clash")
-        == "confirm · source vs scan"
+        == "confirm · not thin · source vs scan"
     )
     assert (
         improve_tick_lean_meta(
             "clash · source loop tick · scan stale", warn=True
         )
-        == "warn · source vs scan"
+        == "warn · not thin · source vs scan"
     )
     assert (
         improve_tick_lean_meta("stuck vs scan align · clash")
-        == "confirm · stuck vs scan"
+        == "confirm · not thin · stuck vs scan"
     )
+    # Finished explain-only shares no result · sole (xang1234 #747).
     assert (
         improve_tick_lean_meta("stuck band · aging")
-        == "confirm · stuck band"
+        == "confirm · no result · sole · stuck band"
     )
     # Hung open fold must not read quiet (xang1234 #746 no-closed honesty).
     # Sole stuck band names thin reason sole (#747 Small sample).
@@ -419,24 +420,24 @@ def test_improve_tick_lean_meta() -> None:
         improve_tick_lean_meta("stuck band · aging", stuck=True)
         == "confirm · hung · no result · sole · stuck band"
     )
-    # Warn without stuck stays bare warn.
+    # Finished warn shares not thin (peer of confirm · not thin).
     assert (
         improve_tick_lean_meta(
             "fresher vs stuck clash · fresher improve · stuck",
             warn=True,
             stuck=False,
         )
-        == "warn · fresher vs stuck"
+        == "warn · not thin · fresher vs stuck"
     )
     assert (
         improve_tick_lean_meta("fresher improve · gap wide")
-        == "confirm · fresher"
+        == "confirm · not thin · fresher"
     )
     assert (
         improve_tick_lean_meta(
             "fresher improve · gap wide · gap sides · improve fresh · scan stale"
         )
-        == "confirm · fresher · gap sides"
+        == "confirm · not thin · fresher · gap sides"
     )
     assert (
         improve_tick_lean_meta(
@@ -447,48 +448,48 @@ def test_improve_tick_lean_meta() -> None:
             warn=True,
         )
         == (
-            "warn · fresher polarity vs scan-meter · fresher vs status/age"
-            " · status/age vs scan · fresher · +1"
+            "warn · not thin · fresher polarity vs scan-meter"
+            " · fresher vs status/age · status/age vs scan · fresher · +1"
         )
     )
     assert (
         improve_tick_lean_meta("fresher vs status/age align")
-        == "confirm · fresher vs status/age"
+        == "confirm · not thin · fresher vs status/age"
     )
     assert (
         improve_tick_lean_meta("fresher vs source align")
-        == "confirm · fresher vs source"
+        == "confirm · not thin · fresher vs source"
     )
     assert (
         improve_tick_lean_meta(
             "fresher vs source clash · fresher improve · start only",
             warn=True,
         )
-        == "warn · fresher vs source"
+        == "warn · not thin · fresher vs source"
     )
     assert (
         improve_tick_lean_meta("fresher vs stuck align")
-        == "confirm · fresher vs stuck"
+        == "confirm · not thin · fresher vs stuck"
     )
     assert (
         improve_tick_lean_meta(
             "fresher vs stuck clash · fresher improve · stuck",
             warn=True,
         )
-        == "warn · fresher vs stuck"
+        == "warn · not thin · fresher vs stuck"
     )
     assert (
         improve_tick_lean_meta(
             "fresher polarity vs scan-meter align",
         )
-        == "confirm · fresher polarity vs scan-meter"
+        == "confirm · not thin · fresher polarity vs scan-meter"
     )
     assert (
         improve_tick_lean_meta(
             "clash · fresher polarity clash · scan-meter align",
             warn=True,
         )
-        == "warn · fresher polarity vs scan-meter"
+        == "warn · not thin · fresher polarity vs scan-meter"
     )
     assert (
         improve_tick_lean_meta(
@@ -499,8 +500,8 @@ def test_improve_tick_lean_meta() -> None:
             warn=True,
         )
         == (
-            "warn · fresher polarity vs scan-meter · fresher vs source"
-            " · source vs scan · fresher · +1"
+            "warn · not thin · fresher polarity vs scan-meter"
+            " · fresher vs source · source vs scan · fresher · +1"
         )
     )
 
@@ -842,7 +843,7 @@ def test_improve_tick_glance_vs_scan_clash(tmp_path: Path) -> None:
         " · gap sides · improve fresh · scan stale"
     )
     assert g["lean_warn"] is False
-    assert g["lean_meta"] == "confirm · fresher · gap sides"
+    assert g["lean_meta"] == "confirm · not thin · fresher · gap sides"
     assert "fresher" not in g["line"]
     assert "gap sides" not in g["line"]
 
@@ -875,8 +876,8 @@ def test_improve_tick_glance_status_age_vs_scan_align_clash(
     assert g["lean_warn"] is True
     assert g["lean_open"] is True
     assert g["lean_meta"] == (
-        "warn · fresher polarity vs scan-meter · fresher vs status/age"
-        " · status/age vs scan · fresher · +1"
+        "warn · not thin · fresher polarity vs scan-meter"
+        " · fresher vs status/age · status/age vs scan · fresher · +1"
     )
     # Lean stays off the primary clip.
     assert "status/age vs scan" not in g["line"]
@@ -912,8 +913,8 @@ def test_improve_tick_glance_status_age_align_vs_scan_clash(
     assert g["lean_warn"] is True
     assert g["lean_open"] is True
     assert g["lean_meta"] == (
-        "warn · fresher polarity vs scan-meter · fresher vs status/age"
-        " · status/age vs scan · fresher · +1"
+        "warn · not thin · fresher polarity vs scan-meter"
+        " · fresher vs status/age · status/age vs scan · fresher · +1"
     )
     assert "status/age vs scan" not in g["line"]
     assert "clash · status/age align" not in g["line"]
@@ -949,8 +950,8 @@ def test_improve_tick_glance_source_vs_scan_align_clash(
     assert g["lean_warn"] is True
     assert g["lean_open"] is True
     assert g["lean_meta"] == (
-        "warn · fresher polarity vs scan-meter · fresher vs source"
-        " · source vs scan · fresher · +1"
+        "warn · not thin · fresher polarity vs scan-meter"
+        " · fresher vs source · source vs scan · fresher · +1"
     )
     assert "source vs scan" not in g["line"]
     assert "fresher" not in g["line"]
@@ -981,7 +982,9 @@ def test_improve_tick_glance_loop_tick_vs_scan_clash(tmp_path: Path) -> None:
         " · gap sides · improve fresh · scan stale"
     )
     assert g["lean_warn"] is True
-    assert g["lean_meta"] == "warn · source vs scan · fresher · gap sides"
+    assert g["lean_meta"] == (
+        "warn · not thin · source vs scan · fresher · gap sides"
+    )
     # Calm loop tick stays silent on fresher vs source (escalate-only nest).
     assert "fresher vs source" not in g["lean"]
     assert "clash · source loop tick" not in g["line"]

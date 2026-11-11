@@ -30498,14 +30498,14 @@ _IMPROVE_TICK_LEAN_NAME_CAP = 4
 _IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
 
-def _improve_tick_hung_thin_suffix(stages: list[str]) -> str:
-    """Hung thin/not-thin tail (display only).
+def _improve_tick_lean_thin_suffix(stages: list[str]) -> str:
+    """Thin/not-thin tail for improve lean meta (display only).
 
     Meter stage → `` · not thin`` (xang1234 b09fb49 / 1cd7968). Sole
     explain → `` · no result · sole``; few explain-only → `` · no result ·
     few`` (#747). Empty stages → ``""`` (skip no-result with nothing
-    listed). Shared under ``confirm · hung`` and ``warn · hung`` so
-    severity chips do not hide the thin/not-thin counterpart.
+    listed). Shared under hung and finished ``confirm``/``warn`` chips so
+    severity alone does not hide the thin/not-thin counterpart.
     """
     has_meter = any(s not in _IMPROVE_TICK_LEAN_EXPLAIN_ONLY for s in stages)
     if has_meter:
@@ -30548,7 +30548,7 @@ def improve_tick_lean_meta(
     (portfolio AI speak-both-sides + FinRobot + xang1234 after bare warn
     hid hung ownership). Warn+hung also shares the thin/not-thin
     counterpart (``warn · hung · not thin``) so bare ``warn · hung`` does
-    not hide that a meter stage already spoke.     Calm hung meter lean
+    not hide that a meter stage already spoke. Calm hung meter lean
     speaks ``confirm · hung · not thin`` — the speak-both-sides peer of
     ``warn · hung · not thin`` — so bare ``hung · not thin`` does not hide
     that meters already agreed (FinRobot edge/conf + portfolio AI after
@@ -30560,8 +30560,12 @@ def improve_tick_lean_meta(
     spoken stages speaks ``confirm · …`` — peer of ``warn · …`` — so
     bare ``quiet · status/age vs scan`` does not hide that meters already
     agreed after confirm·hung covered hung only (FinRobot edge/conf +
-    portfolio AI speak-both-sides + xang1234). Empty finished stays
-    ``quiet``. Not a gate.
+    portfolio AI speak-both-sides + xang1234). Finished also shares the
+    thin/not-thin rule (``confirm · not thin`` / ``warn · not thin``;
+    explain-only ``no result · sole|few``) so bare finished confirm|warn
+    after hung-only thin honesty does not hide meter vs thin cards
+    (xang1234 b09fb49 / 1cd7968 + portfolio AI speak-both-sides). Empty
+    finished stays ``quiet``. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -30600,21 +30604,23 @@ def improve_tick_lean_meta(
         stages.append("fresher")
     if "gap sides" in lean_l:
         stages.append("gap sides")
-    hung_thin = _improve_tick_hung_thin_suffix(stages) if stuck else ""
+    thin = _improve_tick_lean_thin_suffix(stages)
     if warn and stuck:
         # Warn leads; keep hung + thin/not-thin so stuck clock and meter
         # honesty stay on the chip (b09fb49 under warn · hung).
-        sev = f"warn · hung{hung_thin}"
+        sev = f"warn · hung{thin}"
     elif warn:
-        sev = "warn"
+        # Finished warn shares thin/not-thin (peer of confirm · not thin;
+        # hung path already had warn · hung · not thin).
+        sev = f"warn{thin}"
     elif stuck:
         # Confirm peer of warn · hung[+ thin] for meter, explain-only,
         # and empty (speak-both-sides).
-        sev = f"confirm · hung{hung_thin}"
+        sev = f"confirm · hung{thin}"
     elif stages:
         # Finished calm with spoken stages: confirm peer of warn · …
-        # (speak-both-sides after hung-only confirm).
-        sev = "confirm"
+        # plus thin/not-thin (speak-both-sides after hung-only thin).
+        sev = f"confirm{thin}"
     else:
         sev = "quiet"
     if not stages:
