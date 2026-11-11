@@ -2409,6 +2409,13 @@ def window_a_sample_readiness(
     ``clash · ok · fat`` / ``thin · ok`` (``closes_kelly_vs_per_day_*``)
     — portfolio AI speak-both-sides + xang1234 after absolute N closes
     beside density hid count≠calendar agreement; clash warns only
+    (still ready for B); sole side silent. When Kelly vs closes/day and
+    K/sess vs sess/day both spoke, speak meter agreement
+    ``A K/day vs K↔d align · both align|clash`` or
+    ``clash · K/day clash|align · K↔d …`` (``closes_kday_vs_kd_*``)
+    — FinRobot edge/conf + portfolio AI speak-both-sides + xang1234
+    multi-meter + Yahoo drop-kept vs live-free after absolute K/day
+    beside K↔d hid lean agreement; both clash and mixed warn only
     (still ready for B); sole side silent.
     Not a gate; does not flip compose promote.
     """
@@ -2597,6 +2604,9 @@ def window_a_sample_readiness(
         "closes_kelly_vs_per_day": "",
         "closes_kelly_vs_per_day_bit": "",
         "closes_kelly_vs_per_day_clash": False,
+        "closes_kday_vs_kd": "",
+        "closes_kday_vs_kd_bit": "",
+        "closes_kday_vs_kd_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3600,6 +3610,9 @@ def window_a_sample_readiness(
     closes_kelly_vs_per_day = ""
     closes_kelly_vs_per_day_bit = ""
     closes_kelly_vs_per_day_clash = False
+    closes_kday_vs_kd = ""
+    closes_kday_vs_kd_bit = ""
+    closes_kday_vs_kd_clash = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4344,6 +4357,38 @@ def window_a_sample_readiness(
                 "A Kelly vs closes/day clash · "
                 f"{closes_kelly_sample} · {closes_per_day}"
             )
+
+    # K/day lean ≠ K↔d lean. When both meters spoke, speak agreement
+    # (FinRobot + portfolio AI + xang1234 + Yahoo drop-kept vs
+    # live-free after absolute sides). Both clash and mixed warn only
+    # (still ready for B). Sole side silent.
+    if closes_kelly_vs_per_day and closes_ksess_vs_sessday:
+        kd_adverse = closes_kelly_vs_per_day == "clash"
+        kx_adverse = closes_ksess_vs_sessday == "clash"
+        if kd_adverse == kx_adverse:
+            closes_kday_vs_kd = "align"
+            if kd_adverse:
+                closes_kday_vs_kd_clash = True
+                closes_kday_vs_kd_bit = (
+                    "A K/day vs K↔d align · both clash"
+                )
+            else:
+                closes_kday_vs_kd_bit = (
+                    "A K/day vs K↔d align · both align"
+                )
+        else:
+            closes_kday_vs_kd = "clash"
+            closes_kday_vs_kd_clash = True
+            if kd_adverse:
+                closes_kday_vs_kd_bit = (
+                    "A K/day vs K↔d clash · "
+                    "K/day clash · K↔d align"
+                )
+            else:
+                closes_kday_vs_kd_bit = (
+                    "A K/day vs K↔d clash · "
+                    "K/day align · K↔d clash"
+                )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
     # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
@@ -5769,6 +5814,9 @@ def window_a_sample_readiness(
         "closes_kelly_vs_per_day": closes_kelly_vs_per_day,
         "closes_kelly_vs_per_day_bit": closes_kelly_vs_per_day_bit,
         "closes_kelly_vs_per_day_clash": closes_kelly_vs_per_day_clash,
+        "closes_kday_vs_kd": closes_kday_vs_kd,
+        "closes_kday_vs_kd_bit": closes_kday_vs_kd_bit,
+        "closes_kday_vs_kd_clash": closes_kday_vs_kd_clash,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7462,6 +7510,16 @@ def format_window_a_closes_kelly_vs_per_day_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_kelly_vs_per_day_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_kday_vs_kd_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A K/day vs K↔d lean agreement (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_kday_vs_kd_bit") or "").strip()
     return bit
 
 
