@@ -27058,9 +27058,13 @@ def build_universe_discovery_glance(
     ``drop-kept vs live-free align · both align|clash`` / mixed clash
     (fresher polarity vs scan-meter + soft-allow share/lean + portfolio AI
     speak-both-sides; ``both clash`` warns; meta inventories
-    ``drop-kept vs live-free`` first). Multi named stuck screens also
-    speak ``tied`` after ``in …`` (junk-list / claim-drop reason sample-gap
-    parity — equal one-claim sleeves have no owner).     When both drop and live
+    ``drop-kept vs live-free`` first). When hung live claims already spoke
+    with a hot|quiet share band, ``claim_lean`` also speaks
+    ``hung band · hot|quiet`` (improve-tick stuck band after absolute hung
+    hid aging vs stale; explain only; meta inventories ``hung band``). Multi
+    named stuck screens also speak ``tied`` after ``in …`` (junk-list /
+    claim-drop reason sample-gap parity — equal one-claim sleeves have no
+    owner).     When both drop and live
     spoke, also speak ``lead drop|live · N%`` or ``drop/live tied`` after the
     live bit (xang1234 multi-meter + portfolio AI speak-both-sides — absolute
     drop beside live hid which claim activity owns the sweep; ``drop/live``
@@ -27083,6 +27087,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drop_vs_kept_lean,
         yahoo_discovery_claim_drop_kept_vs_live_free,
+        yahoo_discovery_claim_hung_band,
         yahoo_discovery_claim_lean_meta,
         yahoo_discovery_claim_lean_open,
         yahoo_discovery_claim_drop_vs_live_lead,
@@ -27440,6 +27445,20 @@ def build_universe_discovery_glance(
             claim_lean,
             warn=claim_lean_warn,
             hung=claim_live > 0,
+        )
+    # improve-tick stuck band: absolute hung hid hot|quiet ownership.
+    claim_hung_band_bit, _claim_hung_band_warn = yahoo_discovery_claim_hung_band(
+        claim_live > 0, claim_live_share_severity
+    )
+    if claim_hung_band_bit:
+        if claim_lean:
+            claim_lean = f"{claim_lean} · {claim_hung_band_bit}"
+        else:
+            claim_lean = claim_hung_band_bit
+        claim_lean_meta = yahoo_discovery_claim_lean_meta(
+            claim_lean,
+            warn=claim_lean_warn,
+            hung=True,
         )
     # xang1234 multi-meter + portfolio AI: drop beside live hid which owns
     # claim activity (release leftovers vs still-stuck). Prefixed tied so

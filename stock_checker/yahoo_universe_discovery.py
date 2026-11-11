@@ -839,6 +839,28 @@ def yahoo_discovery_claim_drop_kept_vs_live_free(
     )
 
 
+def yahoo_discovery_claim_hung_band(
+    hung: bool,
+    live_share_severity: str,
+) -> tuple[str, bool]:
+    """Hung live claims vs absolute share band (display only).
+
+    Absolute hung hid whether stuck screens own most of the mover roster
+    or only a quiet sleeve — improve-tick stuck band · aging|stale +
+    xang1234 severity + portfolio AI count≠share after claim lean hung
+    alone. When hung already spoke, lean also names ``hung band ·
+    hot|quiet``. Mid share / missing hung silent. Sides explain only (no
+    extra warn; hung already opens the fold). Desk keeps this under
+    ``claim_lean``. Not a gate.
+    """
+    if not hung:
+        return "", False
+    sev = str(live_share_severity or "").strip().lower()
+    if sev not in {"hot", "quiet"}:
+        return "", False
+    return f"hung band · {sev}", False
+
+
 def yahoo_discovery_claim_lean_meta(
     lean: str, *, warn: bool = False, hung: bool = False
 ) -> str:
@@ -848,20 +870,22 @@ def yahoo_discovery_claim_lean_meta(
     live-free severity spoke — MonsterDeveloper fold inventory + Screener/
     opportunity lean meta + improve-tick finished confirm after sides alone.
     Inventories spoken stages (``drop-kept vs live-free`` first ·
-    ``drop vs kept`` · ``live vs free``). Warn → ``warn · …``; calm spoken
-    lean → ``confirm · …`` (speak-both-sides peer of warn); empty →
-    ``quiet`` (empty + hung → ``confirm · hung`` / ``warn · hung`` so a
-    stuck live claim does not read calm when the fold later invents body).
-    Spoken meter stages also share improve-tick finished thin/not-thin
-    honesty (``confirm · not thin · …`` / ``warn · not thin · …``) so bare
-    confirm|warn after sides alone does not hide that a meter already
-    spoke (xang1234 b09fb49 / 1cd7968 + portfolio AI speak-both-sides).
-    When ``hung`` (still-held live claims), meta keeps improve-tick
-    ``warn · hung`` / ``confirm · hung`` ownership so bare confirm|warn ·
-    not thin does not hide a stuck screen clock (FinRobot + portfolio AI
-    speak-both-sides + xang1234 after claim-live stuck). Claim lean has no
-    explain-only stages today — sole / few ``no result`` stays on
-    improve-tick hung. Not a gate.
+    ``drop vs kept`` · ``live vs free`` · ``hung band``). Warn →
+    ``warn · …``; calm spoken lean → ``confirm · …`` (speak-both-sides peer
+    of warn); empty → ``quiet`` (empty + hung → ``confirm · hung`` /
+    ``warn · hung`` so a stuck live claim does not read calm when the fold
+    later invents body). Spoken meter stages also share improve-tick
+    finished thin/not-thin honesty (``confirm · not thin · …`` /
+    ``warn · not thin · …``) so bare confirm|warn after sides alone does
+    not hide that a meter already spoke (xang1234 b09fb49 / 1cd7968 +
+    portfolio AI speak-both-sides). When ``hung`` (still-held live claims),
+    meta keeps improve-tick ``warn · hung`` / ``confirm · hung`` ownership
+    so bare confirm|warn · not thin does not hide a stuck screen clock
+    (FinRobot + portfolio AI speak-both-sides + xang1234 after claim-live
+    stuck). Explain-only ``hung band`` alone under hung speaks
+    ``confirm · hung · no result · sole · hung band`` (improve-tick hung
+    sole thin-reason parity) so an open share-band fold is not mistaken
+    for a meter verdict. Meter stages keep ``not thin``. Not a gate.
     """
     text = str(lean or "").strip()
     if not text:
@@ -876,6 +900,9 @@ def yahoo_discovery_claim_lean_meta(
         stages.append("drop vs kept")
     if "live vs free" in lower:
         stages.append("live vs free")
+    hung_band = "hung band" in lower
+    if hung_band:
+        stages.append("hung band")
     if warn and hung:
         sev = "warn · hung"
     elif warn:
@@ -886,8 +913,14 @@ def yahoo_discovery_claim_lean_meta(
         sev = "confirm"
     if not stages:
         return sev
-    # Meter stages → not thin (improve-tick finished thin/not-thin parity).
-    return f"{sev} · not thin · " + " · ".join(stages)
+    meter = [s for s in stages if s != "hung band"]
+    if meter:
+        # Meter stages → not thin (improve-tick finished thin/not-thin parity).
+        return f"{sev} · not thin · " + " · ".join(stages)
+    # Explain-only hung band (improve-tick hung · no result · sole).
+    if hung:
+        return f"{sev} · no result · sole · hung band"
+    return f"{sev} · hung band"
 
 
 def yahoo_discovery_claim_lean_open(

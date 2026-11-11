@@ -16,6 +16,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_drop_vs_kept,
     yahoo_discovery_claim_drop_vs_kept_lean,
     yahoo_discovery_claim_drop_kept_vs_live_free,
+    yahoo_discovery_claim_hung_band,
     yahoo_discovery_claim_lean_meta,
     yahoo_discovery_claim_lean_open,
     yahoo_discovery_claim_live_share,
@@ -1321,6 +1322,29 @@ def test_yahoo_discovery_claim_drop_vs_kept_lean_bands():
         )
         == "confirm · hung · not thin · drop vs kept"
     )
+    assert yahoo_discovery_claim_hung_band(False, "hot") == ("", False)
+    assert yahoo_discovery_claim_hung_band(True, "ok") == ("", False)
+    assert yahoo_discovery_claim_hung_band(True, "") == ("", False)
+    assert yahoo_discovery_claim_hung_band(True, "hot") == (
+        "hung band · hot",
+        False,
+    )
+    assert yahoo_discovery_claim_hung_band(True, "quiet") == (
+        "hung band · quiet",
+        False,
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta("hung band · hot", hung=True)
+        == "confirm · hung · no result · sole · hung band"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "vs 1 free · thin · 33% · live vs free align · hot|thin"
+            " · hung band · hot",
+            hung=True,
+        )
+        == "confirm · hung · not thin · live vs free · hung band"
+    )
     assert yahoo_discovery_claim_lean_open(lean="") is False
     assert yahoo_discovery_claim_lean_open(
         lean="drop vs kept align · hot|thin", hung=True
@@ -1385,10 +1409,11 @@ def test_yahoo_discovery_claim_live_vs_free_lean_bands():
     assert yahoo_discovery_claim_live_vs_free_lean("ok", "ok") == ("", False)
     assert (
         yahoo_discovery_claim_lean_meta(
-            "vs 1 free · thin · 33% · live vs free align · hot|thin",
+            "vs 1 free · thin · 33% · live vs free align · hot|thin"
+            " · hung band · hot",
             hung=True,
         )
-        == "confirm · hung · not thin · live vs free"
+        == "confirm · hung · not thin · live vs free · hung band"
     )
     assert (
         yahoo_discovery_claim_lean_meta(
@@ -1401,10 +1426,14 @@ def test_yahoo_discovery_claim_live_vs_free_lean_bands():
     assert (
         yahoo_discovery_claim_lean_meta(
             "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
-            " · vs 1 free · thin · 33% · live vs free align · hot|thin",
+            " · vs 1 free · thin · 33% · live vs free align · hot|thin"
+            " · hung band · hot",
             hung=True,
         )
-        == "confirm · hung · not thin · drop vs kept · live vs free"
+        == (
+            "confirm · hung · not thin · drop vs kept · live vs free"
+            " · hung band"
+        )
     )
 
 
@@ -1449,12 +1478,13 @@ def test_yahoo_discovery_claim_drop_kept_vs_live_free_bands():
         yahoo_discovery_claim_lean_meta(
             "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
             " · vs 1 free · thin · 33% · live vs free align · hot|thin"
-            " · drop-kept vs live-free align · both align",
+            " · drop-kept vs live-free align · both align"
+            " · hung band · hot",
             hung=True,
         )
         == (
             "confirm · hung · not thin · drop-kept vs live-free"
-            " · drop vs kept · live vs free"
+            " · drop vs kept · live vs free · hung band"
         )
     )
     assert (
