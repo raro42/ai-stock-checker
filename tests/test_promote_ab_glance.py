@@ -5779,6 +5779,146 @@ def test_window_a_kelly_sample_size() -> None:
     assert ok["closes_kelly_sample_bit"] == "A Kelly sample ok · 12 closes"
 
 
+def test_window_a_sell_sessions_few_dates() -> None:
+    """Kelly N closes ≠ calendar spread. Few UTC sell days warn only."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_SELL_SESSION_MIN,
+        format_window_a_closes_sell_sessions_bit,
+        sell_session_count,
+        summarize_window_trades,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+        }
+    )
+    assert unknown["closes_sell_sessions"] == ""
+    assert unknown["closes_sell_sessions_n"] is None
+    assert unknown["closes_sell_sessions_bit"] == ""
+    assert unknown["closes_sell_sessions_few"] is False
+    assert format_window_a_closes_sell_sessions_bit(unknown) == ""
+    assert format_window_a_closes_sell_sessions_bit(None) == ""
+
+    few = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 2,
+        }
+    )
+    assert few["closes_sell_sessions_n"] == 2
+    assert few["closes_sell_sessions_n"] < WINDOW_A_SELL_SESSION_MIN
+    assert few["closes_sell_sessions"] == "few"
+    assert few["closes_sell_sessions_few"] is True
+    assert few["closes_sell_sessions_bit"] == "A sell sessions few · 2 days <5"
+    assert format_window_a_closes_sell_sessions_bit(few) == few[
+        "closes_sell_sessions_bit"
+    ]
+
+    ok = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "sell_sessions": 8,
+        }
+    )
+    assert ok["closes_sell_sessions_n"] == 8
+    assert ok["closes_sell_sessions"] == "ok"
+    assert ok["closes_sell_sessions_few"] is False
+    assert ok["closes_sell_sessions_bit"] == "A sell sessions ok · 8 days"
+
+    # summarize counts unique UTC calendar days (xang1234 few-dates).
+    same_day = [
+        {
+            "type": "SELL",
+            "timestamp": "2026-09-10T14:00:00+00:00",
+            "profit_loss": 10.0,
+            "commission": 1.0,
+            "symbol": "AAPL",
+        },
+        {
+            "type": "SELL",
+            "timestamp": "2026-09-10T18:00:00+00:00",
+            "profit_loss": -5.0,
+            "commission": 1.0,
+            "symbol": "MSFT",
+        },
+        {
+            "type": "SELL",
+            "timestamp": "2026-09-11T15:00:00+00:00",
+            "profit_loss": 8.0,
+            "commission": 1.0,
+            "symbol": "GOOG",
+        },
+    ]
+    assert sell_session_count(same_day) == 2
+    stats = summarize_window_trades(
+        same_day, start=datetime(2026, 9, 1, tzinfo=timezone.utc)
+    )
+    assert stats["sell_sessions"] == 2
+    assert stats["sells"] == 3
+
+
+def test_promote_ab_glance_sell_sessions_few_warns_but_ready() -> None:
+    """Few sell-session dates warn. They do not block ready for B."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "fees": 20.0,
+            "realized_pnl": 120.0,
+            "net_after_all_fees": 100.0,
+            "wins": 8,
+            "losses": 4,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+            "sell_sessions": 2,
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_sell_sessions"] == "few"
+    assert g["closes_sell_sessions_few"] is True
+    assert "A sell sessions few · 2 days <5" in g["line"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_promote_ab_glance_kelly_sample_thin_warns_but_ready() -> None:
     """A thin Kelly sample warns. It does not block ready for B."""
     g = build_promote_ab_glance(

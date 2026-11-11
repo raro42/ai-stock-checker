@@ -115,6 +115,11 @@ WINDOW_A_QUARTER_KELLY_FRAC = 0.25
 # ok speaks when the count is met (xang1234 speak-both-sides). Warn only
 # (still ready for B). Not a live sizer. Missing wins/losses → no bit.
 WINDOW_A_KELLY_SAMPLE_MIN = 10
+# Unique UTC calendar days with a SELL (xang1234 #747 / 9a12dc1 Few dates).
+# Kelly sample counts decided closes; closes clustered on few days are still
+# a thin control calendar. few <5 warns only (still ready for B). Missing
+# ``sell_sessions`` → fail-open (no bit). Not a live halt.
+WINDOW_A_SELL_SESSION_MIN = 5
 # Ending run of losing closes (portfolio AI + tradermonty postmortem).
 # Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
 # Peak run (`loss_streak_max`) speaks only when it exceeds the ending run
@@ -2365,7 +2370,12 @@ def window_a_sample_readiness(
     ``WINDOW_A_PROFIT_FACTOR_*``. When gross PF ≥1× and net wins ≤0,
     ``closes_net_profit_factor_eats_edge`` warns (fees eat PF). Thin /
     eats-edge warn only (still ready for B). Missing fees/grosses →
-    fail-open. Not a gate; does not flip compose promote.
+    fail-open. When ``sell_sessions`` is present and closes exist, speak
+    calendar spread ``A sell sessions [few|ok] · N days`` (unique UTC
+    sell dates vs ``WINDOW_A_SELL_SESSION_MIN``) — xang1234 #747 /
+    9a12dc1 Few dates after Kelly N closes; N closes on one day ≠ a
+    multi-day control. ``few`` warns only (still ready for B). Missing
+    key → fail-open. Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
     sell_need = max(1, int(target_sells))
@@ -2532,6 +2542,10 @@ def window_a_sample_readiness(
         "closes_kelly_sample_n": None,
         "closes_kelly_sample_bit": "",
         "closes_kelly_sample_thin": False,
+        "closes_sell_sessions": "",
+        "closes_sell_sessions_n": None,
+        "closes_sell_sessions_bit": "",
+        "closes_sell_sessions_few": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3515,6 +3529,10 @@ def window_a_sample_readiness(
     closes_kelly_sample_n: int | None = None
     closes_kelly_sample_bit = ""
     closes_kelly_sample_thin = False
+    closes_sell_sessions = ""
+    closes_sell_sessions_n: int | None = None
+    closes_sell_sessions_bit = ""
+    closes_sell_sessions_few = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4105,6 +4123,36 @@ def window_a_sample_readiness(
                 closes_kelly_sample_bit = (
                     f"A Kelly sample ok · {n_sample} closes"
                 )
+
+    # Calendar spread of closes (xang1234 #747 / 9a12dc1 Few dates).
+    # Kelly N closes ≠ multi-day control. Missing key / unparseable → fail-open.
+    # few warns only (still ready for B).
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "sell_sessions" in stats
+    ):
+        raw_sessions = stats.get("sell_sessions")
+        if raw_sessions is not None:
+            try:
+                n_sessions = int(raw_sessions)
+            except (TypeError, ValueError):
+                n_sessions = -1
+            if n_sessions >= 1:
+                closes_sell_sessions_n = n_sessions
+                need_sess = int(WINDOW_A_SELL_SESSION_MIN)
+                if n_sessions < need_sess:
+                    closes_sell_sessions = "few"
+                    closes_sell_sessions_few = True
+                    closes_sell_sessions_bit = (
+                        f"A sell sessions few · {n_sessions} days <{need_sess}"
+                    )
+                else:
+                    closes_sell_sessions = "ok"
+                    closes_sell_sessions_bit = (
+                        f"A sell sessions ok · {n_sessions} days"
+                    )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
     # quiet 0–1 speaks. hot ≥2 warns only (still ready for B).
@@ -5510,6 +5558,10 @@ def window_a_sample_readiness(
         "closes_kelly_sample_n": closes_kelly_sample_n,
         "closes_kelly_sample_bit": closes_kelly_sample_bit,
         "closes_kelly_sample_thin": closes_kelly_sample_thin,
+        "closes_sell_sessions": closes_sell_sessions,
+        "closes_sell_sessions_n": closes_sell_sessions_n,
+        "closes_sell_sessions_bit": closes_sell_sessions_bit,
+        "closes_sell_sessions_few": closes_sell_sessions_few,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7146,6 +7198,16 @@ def format_window_a_closes_kelly_sample_bit(
     return bit
 
 
+def format_window_a_closes_sell_sessions_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A sell-session few-dates bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sell_sessions_bit") or "").strip()
+    return bit
+
+
 def format_window_a_closes_loss_streak_bit(
     sample: dict[str, Any] | None,
 ) -> str:
@@ -8185,6 +8247,21 @@ def ending_win_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     return streak
 
 
+def sell_session_count(sells: Iterable[dict[str, Any]]) -> int:
+    """Unique UTC calendar days with a dated SELL (xang1234 few-dates).
+
+    Unparseable timestamps are skipped. Zero when no dated sells. Display
+    only — not a gate.
+    """
+    days: set[date] = set()
+    for sell in sells:
+        raw = sell.get("timestamp") if isinstance(sell, dict) else None
+        ts = parse_trade_timestamp(raw)
+        if ts is not None:
+            days.add(ts.date())
+    return len(days)
+
+
 def ending_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     """Newest run of losing closes. None when no dated decided sell.
 
@@ -8642,6 +8719,7 @@ def summarize_window_trades(
         "first": first_ts,
         "last": last_ts,
         "last_sell": last_sell_ts,
+        "sell_sessions": sell_session_count(sells),
         "start_utc": start_dt.isoformat(),
         "end_utc": end.isoformat() if end is not None else None,
     }
