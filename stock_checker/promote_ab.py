@@ -2423,7 +2423,14 @@ def window_a_sample_readiness(
     (``closes_ksess_vs_kday_*``) — FinRobot edge/conf + portfolio AI
     speak-both-sides + xang1234 multi-meter after absolute K/sess
     beside K/day hid the two Kelly-rooted leans; both clash and mixed
-    warn only (still ready for B); sole side silent.
+    warn only (still ready for B); sole side silent. When sessions vs
+    closes/day and Kelly vs closes/day both spoke, speak meter
+    agreement ``A sess/day vs K/day align · both align|clash`` or
+    ``clash · sess/day clash|align · K/day …``
+    (``closes_sessday_vs_kday_*``) — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 multi-meter after absolute sess/day
+    beside K/day hid the two density-rooted leans; both clash and
+    mixed warn only (still ready for B); sole side silent.
     Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
@@ -2617,6 +2624,9 @@ def window_a_sample_readiness(
         "closes_ksess_vs_kday": "",
         "closes_ksess_vs_kday_bit": "",
         "closes_ksess_vs_kday_clash": False,
+        "closes_sessday_vs_kday": "",
+        "closes_sessday_vs_kday_bit": "",
+        "closes_sessday_vs_kday_clash": False,
         "closes_loss_streak": None,
         "closes_loss_streak_bit": "",
         "closes_loss_streak_hot": False,
@@ -3626,6 +3636,9 @@ def window_a_sample_readiness(
     closes_ksess_vs_kday = ""
     closes_ksess_vs_kday_bit = ""
     closes_ksess_vs_kday_clash = False
+    closes_sessday_vs_kday = ""
+    closes_sessday_vs_kday_bit = ""
+    closes_sessday_vs_kday_clash = False
     closes_loss_streak: int | None = None
     closes_loss_streak_bit = ""
     closes_loss_streak_hot = False
@@ -4433,6 +4446,38 @@ def window_a_sample_readiness(
                 closes_ksess_vs_kday_bit = (
                     "A K/sess vs K/day clash · "
                     "K/sess align · K/day clash"
+                )
+
+    # sess/day lean ≠ K/day lean. When both density-rooted meters
+    # spoke, speak agreement (FinRobot + portfolio AI + xang1234 after
+    # absolute sess/day beside K/day). Both clash and mixed warn only
+    # (still ready for B). Sole side silent.
+    if closes_sessions_vs_per_day and closes_kelly_vs_per_day:
+        sd_adverse = closes_sessions_vs_per_day == "clash"
+        kd_adverse = closes_kelly_vs_per_day == "clash"
+        if sd_adverse == kd_adverse:
+            closes_sessday_vs_kday = "align"
+            if sd_adverse:
+                closes_sessday_vs_kday_clash = True
+                closes_sessday_vs_kday_bit = (
+                    "A sess/day vs K/day align · both clash"
+                )
+            else:
+                closes_sessday_vs_kday_bit = (
+                    "A sess/day vs K/day align · both align"
+                )
+        else:
+            closes_sessday_vs_kday = "clash"
+            closes_sessday_vs_kday_clash = True
+            if sd_adverse:
+                closes_sessday_vs_kday_bit = (
+                    "A sess/day vs K/day clash · "
+                    "sess/day clash · K/day align"
+                )
+            else:
+                closes_sessday_vs_kday_bit = (
+                    "A sess/day vs K/day clash · "
+                    "sess/day align · K/day clash"
                 )
 
     # Newest losing-close run (portfolio AI + tradermonty). Counts ≠ a run.
@@ -5865,6 +5910,9 @@ def window_a_sample_readiness(
         "closes_ksess_vs_kday": closes_ksess_vs_kday,
         "closes_ksess_vs_kday_bit": closes_ksess_vs_kday_bit,
         "closes_ksess_vs_kday_clash": closes_ksess_vs_kday_clash,
+        "closes_sessday_vs_kday": closes_sessday_vs_kday,
+        "closes_sessday_vs_kday_bit": closes_sessday_vs_kday_bit,
+        "closes_sessday_vs_kday_clash": closes_sessday_vs_kday_clash,
         "closes_loss_streak": closes_loss_streak,
         "closes_loss_streak_bit": closes_loss_streak_bit,
         "closes_loss_streak_hot": closes_loss_streak_hot,
@@ -7578,6 +7626,16 @@ def format_window_a_closes_ksess_vs_kday_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_ksess_vs_kday_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_sessday_vs_kday_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A sess/day vs K/day lean agreement (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sessday_vs_kday_bit") or "").strip()
     return bit
 
 
