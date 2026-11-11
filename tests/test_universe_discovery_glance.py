@@ -1330,6 +1330,53 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
     assert g["tone"] == "aging"
 
 
+def test_universe_discovery_glance_claim_drop_kept_vs_live_free(
+    tmp_path,
+) -> None:
+    """Both claim leans spoke → mood agreement under claim_lean fold."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": 1,
+                    "last_yahoo_claim_drops": 2,
+                    "last_yahoo_claim_drops_dead": 2,
+                    "last_yahoo_claim_drops_stale": 0,
+                    "last_yahoo_claim_live": 2,
+                    "last_yahoo_claim_live_screens": [
+                        "day_gainers",
+                        "day_losers",
+                    ],
+                    "last_yahoo_discovery_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_claim_drop_vs_kept_lean"] == (
+        "drop vs kept align · hot|thin"
+    )
+    assert g["last_yahoo_claim_live_vs_free_lean"] == (
+        "live vs free align · hot|thin"
+    )
+    assert g["last_yahoo_claim_drop_kept_vs_live_free"] == (
+        "drop-kept vs live-free align · both align"
+    )
+    assert g["last_yahoo_claim_drop_kept_vs_live_free_warn"] is False
+    assert "drop-kept vs live-free align · both align" in g["claim_lean"]
+    assert g["claim_lean_warn"] is False
+    assert g["claim_lean_meta"] == (
+        "confirm · drop-kept vs live-free · drop vs kept · live vs free"
+    )
+    # Cross meter stays under the fold — primary clip keeps drop/live lead.
+    assert "drop-kept vs live-free" not in g["line"]
+
+
 def test_universe_discovery_glance_claim_live_legacy_silent_screens(
     tmp_path,
 ) -> None:

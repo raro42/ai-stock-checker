@@ -800,23 +800,65 @@ def yahoo_discovery_claim_drop_vs_kept_lean(
     return "", False
 
 
+def yahoo_discovery_claim_drop_kept_vs_live_free(
+    drop_kept_lean: str,
+    live_free_lean: str,
+) -> tuple[str, bool]:
+    """Mood agreement of drop-vs-kept lean vs live-vs-free lean (display only).
+
+    Absolute ``drop vs kept align|clash`` beside ``live vs free align|clash``
+    hid whether the two claim meters *agree* — FinRobot edge/conf + portfolio
+    AI speak-both-sides + xang1234 multi-meter + improve-tick fresher polarity
+    vs scan-meter after claim-drop vs kept lean + claim-live vs free lean hid
+    meter agreement. Both calm → ``drop-kept vs live-free align · both
+    align`` (confirm). Both adverse → ``… · both clash`` (warn — dual-clash
+    ≠ quiet confirm; soft-allow share/lean parity). Mixed →
+    ``clash · drop-kept vs live-free · drop clash · live-free align`` /
+    ``clash · drop-kept vs live-free · drop align · live-free clash``
+    (warn; stage name stays on the chip for lean meta). Sole side silent.
+    Desk keeps this under ``claim_lean``. Not a gate.
+    """
+    dk = str(drop_kept_lean or "").strip()
+    lf = str(live_free_lean or "").strip()
+    if not dk or not lf:
+        return "", False
+    dk_adverse = "clash" in dk.casefold()
+    lf_adverse = "clash" in lf.casefold()
+    if dk_adverse == lf_adverse:
+        if dk_adverse:
+            return "drop-kept vs live-free align · both clash", True
+        return "drop-kept vs live-free align · both align", False
+    if dk_adverse:
+        return (
+            "clash · drop-kept vs live-free · drop clash · live-free align",
+            True,
+        )
+    return (
+        "clash · drop-kept vs live-free · drop align · live-free clash",
+        True,
+    )
+
+
 def yahoo_discovery_claim_lean_meta(
     lean: str, *, warn: bool = False
 ) -> str:
     """Summary chip for Universe claim lean fold (display only).
 
-    Bare quiet/warn hid whether drop vs kept / live vs free severity spoke —
-    MonsterDeveloper fold inventory + Screener/opportunity lean meta +
-    improve-tick finished confirm after sides alone. Inventories spoken
-    stages (``drop vs kept`` · ``live vs free``). Warn → ``warn · …``;
-    calm spoken lean → ``confirm · …`` (speak-both-sides peer of warn);
-    empty → ``quiet``. Not a gate.
+    Bare quiet/warn hid whether drop vs kept / live vs free / drop-kept vs
+    live-free severity spoke — MonsterDeveloper fold inventory + Screener/
+    opportunity lean meta + improve-tick finished confirm after sides alone.
+    Inventories spoken stages (``drop-kept vs live-free`` first ·
+    ``drop vs kept`` · ``live vs free``). Warn → ``warn · …``; calm spoken
+    lean → ``confirm · …`` (speak-both-sides peer of warn); empty →
+    ``quiet``. Not a gate.
     """
     text = str(lean or "").strip()
     if not text:
         return "quiet"
     lower = text.casefold()
     stages: list[str] = []
+    if "drop-kept vs live-free" in lower:
+        stages.append("drop-kept vs live-free")
     if "drop vs kept" in lower:
         stages.append("drop vs kept")
     if "live vs free" in lower:

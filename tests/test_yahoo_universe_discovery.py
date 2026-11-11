@@ -15,6 +15,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_drop_share,
     yahoo_discovery_claim_drop_vs_kept,
     yahoo_discovery_claim_drop_vs_kept_lean,
+    yahoo_discovery_claim_drop_kept_vs_live_free,
     yahoo_discovery_claim_lean_meta,
     yahoo_discovery_claim_live_share,
     yahoo_discovery_claim_live_vs_free,
@@ -1377,6 +1378,62 @@ def test_yahoo_discovery_claim_live_vs_free_lean_bands():
             " · vs 1 free · thin · 33% · live vs free align · hot|thin"
         )
         == "confirm · drop vs kept · live vs free"
+    )
+
+
+def test_yahoo_discovery_claim_drop_kept_vs_live_free_bands():
+    """Fresher polarity vs scan-meter after drop lean + live lean both spoke."""
+    bit, warn = yahoo_discovery_claim_drop_kept_vs_live_free(
+        "drop vs kept align · hot|thin",
+        "live vs free align · hot|thin",
+    )
+    assert bit == "drop-kept vs live-free align · both align"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_drop_kept_vs_live_free(
+        "drop vs kept clash · drop hot · kept strong",
+        "live vs free clash · live hot · free strong",
+    )
+    assert bit == "drop-kept vs live-free align · both clash"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_drop_kept_vs_live_free(
+        "drop vs kept clash · drop hot · kept ok",
+        "live vs free align · quiet|strong",
+    )
+    assert bit == (
+        "clash · drop-kept vs live-free · drop clash · live-free align"
+    )
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_drop_kept_vs_live_free(
+        "drop vs kept align · quiet|strong",
+        "live vs free clash · live hot · free ok",
+    )
+    assert bit == (
+        "clash · drop-kept vs live-free · drop align · live-free clash"
+    )
+    assert warn is True
+    assert yahoo_discovery_claim_drop_kept_vs_live_free("", "live vs free align · hot|thin") == (
+        "",
+        False,
+    )
+    assert yahoo_discovery_claim_drop_kept_vs_live_free(
+        "drop vs kept align · hot|thin", ""
+    ) == ("", False)
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
+            " · vs 1 free · thin · 33% · live vs free align · hot|thin"
+            " · drop-kept vs live-free align · both align"
+        )
+        == "confirm · drop-kept vs live-free · drop vs kept · live vs free"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "drop vs kept clash · drop hot · kept ok"
+            " · live vs free clash · live hot · free ok"
+            " · drop-kept vs live-free align · both clash",
+            warn=True,
+        )
+        == "warn · drop-kept vs live-free · drop vs kept · live vs free"
     )
 
 

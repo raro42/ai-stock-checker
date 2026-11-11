@@ -25625,12 +25625,17 @@ def build_universe_discovery_glance(
     live already spoke, also speak ownership ``hot|quiet · P%`` (portfolio
     AI count≠share after absolute live; claim-drop share parity) and
     remaining free screens ``vs N free · [strong|thin] · P%`` (claim-drop
-    vs kept parity; all-live thin 0%). When live + free severity bands
+    vs kept parity; all-live thin 0%).     When live + free severity bands
     already spoke, ``claim_lean`` also speaks ``live vs free align ·
     hot|thin`` / ``quiet|strong`` or clash (claim-drop vs kept lean parity +
     MonsterDeveloper fold; vs-free leaves the primary clip when lean spoke;
     calm meta ``confirm · live vs free`` / both stages when drop lean also
-    spoke). Mid both silent. Multi named stuck screens also
+    spoke). Mid both silent. When drop-vs-kept lean and live-vs-free lean
+    both spoke, ``claim_lean`` also speaks mood agreement
+    ``drop-kept vs live-free align · both align|clash`` / mixed clash
+    (fresher polarity vs scan-meter + soft-allow share/lean + portfolio AI
+    speak-both-sides; ``both clash`` warns; meta inventories
+    ``drop-kept vs live-free`` first). Multi named stuck screens also
     speak ``tied`` after ``in …`` (junk-list / claim-drop reason sample-gap
     parity — equal one-claim sleeves have no owner).     When both drop and live
     spoke, also speak ``lead drop|live · N%`` or ``drop/live tied`` after the
@@ -25654,6 +25659,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_share,
         yahoo_discovery_claim_drop_vs_kept,
         yahoo_discovery_claim_drop_vs_kept_lean,
+        yahoo_discovery_claim_drop_kept_vs_live_free,
         yahoo_discovery_claim_lean_meta,
         yahoo_discovery_claim_drop_vs_live_lead,
         yahoo_discovery_claim_drop_vs_live_sample_gap,
@@ -25983,6 +25989,28 @@ def build_universe_discovery_glance(
         claim_live_screen_sample_gap = ""
         claim_live_vs_free_lean_bit = ""
         claim_live_vs_free_lean_warn = False
+    # FinRobot + portfolio AI + xang1234: absolute drop-vs-kept lean beside
+    # live-vs-free lean hid whether the two claim meters agree (fresher
+    # polarity vs scan-meter / soft-allow share/lean). Sit under claim_lean.
+    (
+        claim_drop_kept_vs_live_free_bit,
+        claim_drop_kept_vs_live_free_warn,
+    ) = yahoo_discovery_claim_drop_kept_vs_live_free(
+        claim_drop_vs_kept_lean_bit, claim_live_vs_free_lean_bit
+    )
+    if claim_drop_kept_vs_live_free_bit:
+        if claim_lean:
+            claim_lean = (
+                f"{claim_lean} · {claim_drop_kept_vs_live_free_bit}"
+            )
+        else:
+            claim_lean = claim_drop_kept_vs_live_free_bit
+        claim_lean_warn = bool(claim_lean_warn) or bool(
+            claim_drop_kept_vs_live_free_warn
+        )
+        claim_lean_meta = yahoo_discovery_claim_lean_meta(
+            claim_lean, warn=claim_lean_warn
+        )
     # xang1234 multi-meter + portfolio AI: drop beside live hid which owns
     # claim activity (release leftovers vs still-stuck). Prefixed tied so
     # screen sample ``tied`` stays distinct.
@@ -26844,6 +26872,12 @@ def build_universe_discovery_glance(
         ),
         "last_yahoo_claim_live_vs_free_lean_warn": bool(
             claim_live_vs_free_lean_warn
+        ),
+        "last_yahoo_claim_drop_kept_vs_live_free": (
+            claim_drop_kept_vs_live_free_bit or None
+        ),
+        "last_yahoo_claim_drop_kept_vs_live_free_warn": bool(
+            claim_drop_kept_vs_live_free_warn
         ),
         "last_yahoo_claim_drop_vs_live_lead": (
             claim_drop_vs_live_lead_name or None
