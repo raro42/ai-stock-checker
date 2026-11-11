@@ -805,17 +805,26 @@ def yahoo_discovery_claim_lean_meta(
 ) -> str:
     """Summary chip for Universe claim lean fold (display only).
 
-    Bare quiet/warn hid whether drop vs kept severity spoke —
+    Bare quiet/warn hid whether drop vs kept / live vs free severity spoke —
     MonsterDeveloper fold inventory + Screener/opportunity lean meta +
-    improve-tick finished confirm after sides alone. Warn →
-    ``warn · drop vs kept``; calm spoken lean → ``confirm · drop vs kept``
-    (speak-both-sides peer of warn); empty → ``quiet``. Not a gate.
+    improve-tick finished confirm after sides alone. Inventories spoken
+    stages (``drop vs kept`` · ``live vs free``). Warn → ``warn · …``;
+    calm spoken lean → ``confirm · …`` (speak-both-sides peer of warn);
+    empty → ``quiet``. Not a gate.
     """
-    if not str(lean or "").strip():
+    text = str(lean or "").strip()
+    if not text:
         return "quiet"
-    if warn:
-        return "warn · drop vs kept"
-    return "confirm · drop vs kept"
+    lower = text.casefold()
+    stages: list[str] = []
+    if "drop vs kept" in lower:
+        stages.append("drop vs kept")
+    if "live vs free" in lower:
+        stages.append("live vs free")
+    prefix = "warn" if warn else "confirm"
+    if not stages:
+        return prefix
+    return f"{prefix} · " + " · ".join(stages)
 
 
 def yahoo_discovery_claim_live_vs_free(
@@ -835,6 +844,43 @@ def yahoo_discovery_claim_live_vs_free(
     return _yahoo_discovery_claim_vs_remainder(
         live, noun="free", screen_count=screen_count
     )
+
+
+def yahoo_discovery_claim_live_vs_free_lean(
+    live_severity: str,
+    free_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of claim-live vs free share bands (display only).
+
+    Absolute ``hot|quiet · P%`` beside ``vs N free · strong|thin`` hid
+    whether the two *severity* bands agree (claim-drop vs kept lean /
+    Screener junk vs ok lean / opportunity damaged vs ok lean + portfolio
+    AI speak-both-sides + xang1234 severity + MonsterDeveloper fold). Align
+    when ``hot|thin`` or ``quiet|strong``; clash when exactly one lean spoke
+    or the pair disagrees. Adverse clash (live hot / free thin mismatch, or
+    sole hot/thin) warns. Mid both silent. Desk keeps this in ``claim_lean``
+    so the Universe clip stays short. Not a gate.
+    """
+    live = str(live_severity or "").strip().casefold()
+    free = str(free_severity or "").strip().casefold()
+    live_lean = live in {"hot", "quiet"}
+    free_lean = free in {"strong", "thin"}
+    if live_lean and free_lean:
+        matched = (live == "hot" and free == "thin") or (
+            live == "quiet" and free == "strong"
+        )
+        if matched:
+            return f"live vs free align · {live}|{free}", False
+        return f"live vs free clash · live {live} · free {free}", True
+    if live_lean != free_lean:
+        live_label = live if live_lean else (live or "ok")
+        free_label = free if free_lean else (free or "ok")
+        warn = live == "hot" or free == "thin"
+        return (
+            f"live vs free clash · live {live_label} · free {free_label}",
+            warn,
+        )
+    return "", False
 
 
 def yahoo_discovery_error_class(meta: Any) -> str:

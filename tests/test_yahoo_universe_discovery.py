@@ -18,6 +18,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_lean_meta,
     yahoo_discovery_claim_live_share,
     yahoo_discovery_claim_live_vs_free,
+    yahoo_discovery_claim_live_vs_free_lean,
     yahoo_discovery_error_class,
     yahoo_fail_error_also_bit,
     yahoo_fail_error_also_counts,
@@ -1336,6 +1337,46 @@ def test_yahoo_discovery_claim_live_vs_free_bands():
         7,
         88,
         "strong",
+    )
+
+
+def test_yahoo_discovery_claim_live_vs_free_lean_bands():
+    """claim-drop vs kept lean parity after live+free sides (xang1234 stuck)."""
+    bit, warn = yahoo_discovery_claim_live_vs_free_lean("hot", "thin")
+    assert bit == "live vs free align · hot|thin"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_live_vs_free_lean("quiet", "strong")
+    assert bit == "live vs free align · quiet|strong"
+    assert warn is False
+    bit, warn = yahoo_discovery_claim_live_vs_free_lean("hot", "strong")
+    assert bit == "live vs free clash · live hot · free strong"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_live_vs_free_lean("hot", "ok")
+    assert bit == "live vs free clash · live hot · free ok"
+    assert warn is True
+    bit, warn = yahoo_discovery_claim_live_vs_free_lean("quiet", "ok")
+    assert bit == "live vs free clash · live quiet · free ok"
+    assert warn is False
+    assert yahoo_discovery_claim_live_vs_free_lean("", "") == ("", False)
+    assert yahoo_discovery_claim_live_vs_free_lean("ok", "ok") == ("", False)
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "vs 1 free · thin · 33% · live vs free align · hot|thin"
+        )
+        == "confirm · live vs free"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "live vs free clash · live hot · free strong", warn=True
+        )
+        == "warn · live vs free"
+    )
+    assert (
+        yahoo_discovery_claim_lean_meta(
+            "vs 1 kept · thin · 33% · drop vs kept align · hot|thin"
+            " · vs 1 free · thin · 33% · live vs free align · hot|thin"
+        )
+        == "confirm · drop vs kept · live vs free"
     )
 
 

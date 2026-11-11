@@ -1266,6 +1266,9 @@ def test_universe_discovery_glance_claim_live_stuck(tmp_path) -> None:
     assert g["last_yahoo_claim_live_free_n"] == 2
     assert g["last_yahoo_claim_live_free_pct"] == 67
     assert g["last_yahoo_claim_live_free_severity"] == "ok"
+    # Mid/mid severities → lean silent; vs-free stays on the primary clip.
+    assert g["last_yahoo_claim_live_vs_free_lean"] is None
+    assert g["claim_lean"] == ""
     assert (
         "1 claim live · last gainers · 33% · vs 2 free · 67%" in g["line"]
     )
@@ -1278,7 +1281,7 @@ def test_universe_discovery_glance_claim_live_stuck(tmp_path) -> None:
 
 
 def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
-    """portfolio AI count≠share: 2/3 live is hot ownership of the roster."""
+    """portfolio AI count≠share: 2/3 live hot; lean folds vs-free."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
     last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
     (tmp_path / "stock_universe.json").write_text(
@@ -1308,11 +1311,20 @@ def test_universe_discovery_glance_claim_live_share_hot(tmp_path) -> None:
     assert g["last_yahoo_claim_live_free_n"] == 1
     assert g["last_yahoo_claim_live_free_pct"] == 33
     assert g["last_yahoo_claim_live_free_severity"] == "thin"
+    # Severity lean spoke → vs-free leaves the primary clip for claim_lean.
     assert (
-        "2 claim live · in gainers · losers · tied · hot · 67%"
-        " · vs 1 free · thin · 33%"
-        in g["line"]
+        "2 claim live · in gainers · losers · tied · hot · 67%" in g["line"]
     )
+    assert "vs 1 free" not in g["line"]
+    assert g["last_yahoo_claim_live_vs_free_lean"] == (
+        "live vs free align · hot|thin"
+    )
+    assert g["last_yahoo_claim_live_vs_free_lean_warn"] is False
+    assert g["claim_lean"] == (
+        "vs 1 free · thin · 33% · live vs free align · hot|thin"
+    )
+    assert g["claim_lean_warn"] is False
+    assert g["claim_lean_meta"] == "confirm · live vs free"
     assert g["line"].index("in gainers · losers") < g["line"].index("tied")
     assert g["line"].index("tied") < g["line"].index("hot · 67%")
     assert g["tone"] == "aging"

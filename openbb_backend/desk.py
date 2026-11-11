@@ -25625,7 +25625,12 @@ def build_universe_discovery_glance(
     live already spoke, also speak ownership ``hot|quiet · P%`` (portfolio
     AI count≠share after absolute live; claim-drop share parity) and
     remaining free screens ``vs N free · [strong|thin] · P%`` (claim-drop
-    vs kept parity; all-live thin 0%).     Multi named stuck screens also
+    vs kept parity; all-live thin 0%). When live + free severity bands
+    already spoke, ``claim_lean`` also speaks ``live vs free align ·
+    hot|thin`` / ``quiet|strong`` or clash (claim-drop vs kept lean parity +
+    MonsterDeveloper fold; vs-free leaves the primary clip when lean spoke;
+    calm meta ``confirm · live vs free`` / both stages when drop lean also
+    spoke). Mid both silent. Multi named stuck screens also
     speak ``tied`` after ``in …`` (junk-list / claim-drop reason sample-gap
     parity — equal one-claim sleeves have no owner).     When both drop and live
     spoke, also speak ``lead drop|live · N%`` or ``drop/live tied`` after the
@@ -25658,6 +25663,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_live_screens,
         yahoo_discovery_claim_live_share,
         yahoo_discovery_claim_live_vs_free,
+        yahoo_discovery_claim_live_vs_free_lean,
         yahoo_discovery_due_from_meta,
         yahoo_fail_plan_held,
         yahoo_fail_retry_remaining_sec,
@@ -25909,7 +25915,16 @@ def build_universe_discovery_glance(
     claim_live_screen_sample_gap = yahoo_discovery_claim_live_screen_sample_gap(
         claim_live_screen_labels
     )
+    # claim-drop vs kept lean parity: sides alone hid live↔free severity.
+    claim_live_vs_free_lean_bit = ""
+    claim_live_vs_free_lean_warn = False
     if claim_live > 0:
+        (
+            claim_live_vs_free_lean_bit,
+            claim_live_vs_free_lean_warn,
+        ) = yahoo_discovery_claim_live_vs_free_lean(
+            claim_live_share_severity, claim_live_free_severity
+        )
         # Name before share/% so the 128-char clip keeps which screen is stuck;
         # tied right after names (before %) so multi-sleeve no-owner stays.
         screens_suffix = (
@@ -25923,9 +25938,34 @@ def build_universe_discovery_glance(
         live_share_suffix = (
             f" · {claim_live_share_bit}" if claim_live_share_bit else ""
         )
-        free_suffix = (
-            f" · {claim_live_vs_free_bit}" if claim_live_vs_free_bit else ""
-        )
+        # When lean spoke, vs-free moves under the fold with severity.
+        if claim_live_vs_free_lean_bit:
+            free_suffix = ""
+            live_lean_parts = [
+                p
+                for p in (
+                    claim_live_vs_free_bit,
+                    claim_live_vs_free_lean_bit,
+                )
+                if p
+            ]
+            live_lean_body = " · ".join(live_lean_parts)
+            if claim_lean:
+                claim_lean = f"{claim_lean} · {live_lean_body}"
+            else:
+                claim_lean = live_lean_body
+            claim_lean_warn = bool(claim_lean_warn) or bool(
+                claim_live_vs_free_lean_warn
+            )
+            claim_lean_meta = yahoo_discovery_claim_lean_meta(
+                claim_lean, warn=claim_lean_warn
+            )
+        else:
+            free_suffix = (
+                f" · {claim_live_vs_free_bit}"
+                if claim_live_vs_free_bit
+                else ""
+            )
         claim_live_bit = (
             f" · {claim_live} claim live"
             f"{screens_suffix}{gap_suffix}{live_share_suffix}{free_suffix}"
@@ -25941,6 +25981,8 @@ def build_universe_discovery_glance(
         claim_live_free_severity = ""
         claim_live_screen_labels = []
         claim_live_screen_sample_gap = ""
+        claim_live_vs_free_lean_bit = ""
+        claim_live_vs_free_lean_warn = False
     # xang1234 multi-meter + portfolio AI: drop beside live hid which owns
     # claim activity (release leftovers vs still-stuck). Prefixed tied so
     # screen sample ``tied`` stays distinct.
@@ -26797,6 +26839,12 @@ def build_universe_discovery_glance(
         "last_yahoo_claim_live_free_n": claim_live_free_n,
         "last_yahoo_claim_live_free_pct": claim_live_free_pct,
         "last_yahoo_claim_live_free_severity": claim_live_free_severity,
+        "last_yahoo_claim_live_vs_free_lean": (
+            claim_live_vs_free_lean_bit or None
+        ),
+        "last_yahoo_claim_live_vs_free_lean_warn": bool(
+            claim_live_vs_free_lean_warn
+        ),
         "last_yahoo_claim_drop_vs_live_lead": (
             claim_drop_vs_live_lead_name or None
         ),
