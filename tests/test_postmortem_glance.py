@@ -5,6 +5,7 @@ from __future__ import annotations
 from openbb_backend.desk import (
     build_postmortem_glance,
     postmortem_skip_reason_lead,
+    postmortem_skip_reason_lead_size,
     postmortem_skip_reason_sample_gap,
     postmortem_skip_reason_sides,
     postmortem_unmatched_lean_meta,
@@ -189,6 +190,21 @@ def test_postmortem_skip_reason_sides_and_lead() -> None:
     assert postmortem_skip_reason_lead(1, 1) == ("", "", None)
     assert postmortem_skip_reason_sample_gap(1, 1) == "unmatched/unobserved tied"
     assert postmortem_skip_reason_sample_gap(2, 1) == ""
+    # Lead size only after a strict lead; tied / sole-side stay silent.
+    assert postmortem_skip_reason_lead_size(
+        2, 1, lead_name="unmatched"
+    ) == (2.0, 2, 1)
+    assert postmortem_skip_reason_lead_size(
+        1, 2, lead_name="unobserved"
+    ) == (2.0, 2, 1)
+    assert postmortem_skip_reason_lead_size(1, 1, lead_name="") == (
+        None,
+        None,
+        None,
+    )
+    assert postmortem_skip_reason_lead_size(
+        2, 0, lead_name="unmatched"
+    ) == (None, None, None)
 
 
 def test_postmortem_glance_two_unobserved_not_unmatched_label() -> None:
@@ -235,10 +251,49 @@ def test_postmortem_glance_orphan_vs_unobserved_tied() -> None:
     assert g["skip_reason_bit"] == "1 unmatched · 1 unobserved"
     assert g["skip_reason_sample_gap"] == "unmatched/unobserved tied"
     assert g["skip_reason_lead"] == ""
+    assert g["skip_reason_lead_size"] is None
     assert "1 unmatched · 1 unobserved" in g["line"]
     # Primary clip uses short ``tied`` after sides; field keeps the prefix.
     assert "tied" in g["line"]
     assert "hot · 100%" in g["line"]
+    assert "skip size" not in g["lean"]
+
+
+def test_postmortem_glance_orphan_vs_unobserved_lead_size() -> None:
+    """Skip-reason lead size under lean — lead name/% ≠ magnitude."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "MSFT",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "NVDA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["orphan_unmatched_count"] == 2
+    assert g["unobserved_count"] == 1
+    assert g["skip_reason_bit"] == "2 unmatched · 1 unobserved"
+    assert g["skip_reason_lead"] == "lead unmatched · 67%"
+    assert g["skip_reason_lead_name"] == "unmatched"
+    assert g["skip_reason_lead_size"] == 2.0
+    assert g["skip_reason_lead_size_louder"] == 2
+    assert g["skip_reason_lead_size_quieter"] == 1
+    # Primary keeps sides + lead; size stays under lean fold.
+    assert "lead unmatched · 67%" in g["line"]
+    assert "skip size" not in g["line"]
+    assert "skip size · 2×" in g["lean"]
+    assert "skip size sides · louder 2 · quieter 1" in g["lean"]
+    assert "skip size" in g["lean_meta"]
 
 
 def test_postmortem_glance_matched_beside_unmatched() -> None:

@@ -33093,6 +33093,9 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     (re.compile(r"^unmatched/matched tied\b"), "tied"),
     # Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead unmatched``
     # and ``Δ lead size sides`` ≠ ``Δ lead size`` ≠ ``Δ lead`` ≠ bare ``Δ``.
+    # ``skip size sides`` / ``skip size`` after orphan vs unobserved lead size.
+    (re.compile(r"^skip size sides\b"), "skip sides"),
+    (re.compile(r"^skip size\b"), "skip size"),
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
@@ -33440,6 +33443,42 @@ def postmortem_skip_reason_sample_gap(
     return "unmatched/unobserved tied"
 
 
+def postmortem_skip_reason_lead_size(
+    n_orphan: int,
+    n_unobserved: int,
+    *,
+    lead_name: str = "",
+) -> tuple[float | None, int | None, int | None]:
+    """How many times louder owns quieter after skip-reason lead (display only).
+
+    When ``lead_name`` already spoke (``unmatched|unobserved``) and both counts
+    are >0, ``skip size · N×`` is louder÷quieter; zero quieter stays silent.
+    Lead name/% ≠ magnitude (unmatched vs matched lead size + short-refuse
+    vs long lead size + portfolio AI count≠share + xang1234 multi-meter after
+    tradermonty #714 sides/lead). Lives under the postmortem lean fold so the
+    96-char primary clip keeps absolute sides + lead only. Returns
+    ``(size, louder_n, quieter_n)`` or all-None. Not a new entry gate.
+    """
+    if str(lead_name or "").strip().casefold() not in {
+        "unmatched",
+        "unobserved",
+    }:
+        return None, None, None
+    try:
+        orphan = max(0, int(n_orphan))
+    except (TypeError, ValueError):
+        orphan = 0
+    try:
+        unobserved = max(0, int(n_unobserved))
+    except (TypeError, ValueError):
+        unobserved = 0
+    quieter = min(orphan, unobserved)
+    louder = max(orphan, unobserved)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -33509,7 +33548,10 @@ def build_postmortem_glance(
     When skipped already spoke, also name orphan vs unobserved sides
     (``N unmatched · M unobserved``) + lead/tied so absolute ``N unmatched``
     does not hide missing-price skips as orphan sells — Yahoo claim-drop
-    dead/stale + tradermonty #714 after #689.
+    dead/stale + tradermonty #714 after #689. When skip-reason lead already
+    spoke and quieter count >0, also speak ``skip size · N×`` +
+    ``skip size sides · louder N · quieter M`` under lean so lead name/% ≠
+    magnitude (unmatched vs matched lead size parity).
     """
     from stock_checker.trade_postmortem import (
         is_orphan_unmatched_postmortem,
@@ -33539,6 +33581,9 @@ def build_postmortem_glance(
         "skip_reason_lead_name": "",
         "skip_reason_lead_pct": None,
         "skip_reason_sample_gap": "",
+        "skip_reason_lead_size": None,
+        "skip_reason_lead_size_louder": None,
+        "skip_reason_lead_size_quieter": None,
         "vs_matched_lead": "",
         "vs_matched_lead_name": "",
         "vs_matched_lead_pct": None,
@@ -33577,6 +33622,32 @@ def build_postmortem_glance(
     )
     unobserved_count = sum(1 for r in rows if is_unobserved_postmortem(r))
     matched_count = n_rounds - unmatched_count
+    (
+        skip_reason_bit,
+        _skip_orphan,
+        _skip_unobserved,
+    ) = postmortem_skip_reason_sides(
+        orphan_unmatched_count, unobserved_count
+    )
+    (
+        skip_reason_lead,
+        skip_reason_lead_name,
+        skip_reason_lead_pct,
+    ) = postmortem_skip_reason_lead(
+        orphan_unmatched_count, unobserved_count
+    )
+    skip_reason_sample_gap = postmortem_skip_reason_sample_gap(
+        orphan_unmatched_count, unobserved_count
+    )
+    (
+        skip_reason_lead_size,
+        skip_reason_lead_size_louder,
+        skip_reason_lead_size_quieter,
+    ) = postmortem_skip_reason_lead_size(
+        orphan_unmatched_count,
+        unobserved_count,
+        lead_name=skip_reason_lead_name,
+    )
     unmatched_share_pct: float | None = None
     unmatched_share_severity = ""
     share_bit = ""
@@ -33726,6 +33797,18 @@ def build_postmortem_glance(
                     f"{vs_matched_delta_lead_size_louder_pct:g}% · quieter "
                     f"{vs_matched_delta_lead_size_quieter_pct:g}%"
                 )
+        # Orphan vs unobserved lead size under lean (primary keeps sides+lead).
+        if (
+            skip_reason_lead_size is not None
+            and skip_reason_lead_size_louder is not None
+            and skip_reason_lead_size_quieter is not None
+        ):
+            lean_parts.append(f"skip size · {skip_reason_lead_size:g}×")
+            lean_parts.append(
+                "skip size sides · louder "
+                f"{skip_reason_lead_size_louder} · quieter "
+                f"{skip_reason_lead_size_quieter}"
+            )
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -33738,23 +33821,6 @@ def build_postmortem_glance(
         pnl_pct_f = float(pnl_pct) if pnl_pct is not None else None
     except (TypeError, ValueError):
         pnl_pct_f = None
-    (
-        skip_reason_bit,
-        _skip_orphan,
-        _skip_unobserved,
-    ) = postmortem_skip_reason_sides(
-        orphan_unmatched_count, unobserved_count
-    )
-    (
-        skip_reason_lead,
-        skip_reason_lead_name,
-        skip_reason_lead_pct,
-    ) = postmortem_skip_reason_lead(
-        orphan_unmatched_count, unobserved_count
-    )
-    skip_reason_sample_gap = postmortem_skip_reason_sample_gap(
-        orphan_unmatched_count, unobserved_count
-    )
     if latest_unmatched:
         pnl_pct_f = None
         # tradermonty #714 unobserved prices ≠ orphan unmatched sells.
@@ -33835,6 +33901,9 @@ def build_postmortem_glance(
         "skip_reason_lead_name": skip_reason_lead_name,
         "skip_reason_lead_pct": skip_reason_lead_pct,
         "skip_reason_sample_gap": skip_reason_sample_gap,
+        "skip_reason_lead_size": skip_reason_lead_size,
+        "skip_reason_lead_size_louder": skip_reason_lead_size_louder,
+        "skip_reason_lead_size_quieter": skip_reason_lead_size_quieter,
         "vs_matched_lead": vs_matched_lead,
         "vs_matched_lead_name": vs_matched_lead_name,
         "vs_matched_lead_pct": vs_matched_lead_pct,
