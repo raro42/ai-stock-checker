@@ -6291,6 +6291,147 @@ def test_window_a_sessions_vs_weekend_lean() -> None:
     assert g["b_ready"] is True
 
 
+def test_window_a_weekend_closes_per_day() -> None:
+    """Weekend days alone ≠ pile-up on those Sat/Sun closes."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_weekend_per_day_bit,
+        sell_weekend_stock_close_count,
+        summarize_window_trades,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    # Absolute weekend speaks; density stays silent without closes n.
+    assert unknown["closes_sell_weekend"] == 2
+    assert unknown["closes_weekend_per_day"] == ""
+    assert unknown["closes_weekend_per_day_bit"] == ""
+    assert unknown["closes_weekend_per_day_fat"] is False
+    assert format_window_a_closes_weekend_per_day_bit(unknown) == ""
+    assert format_window_a_closes_weekend_per_day_bit(None) == ""
+
+    fat = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 1,
+            "sell_weekend_closes": 3,
+        }
+    )
+    assert fat["closes_weekend_per_day"] == "fat"
+    assert fat["closes_weekend_per_day_n"] == 3.0
+    assert fat["closes_weekend_per_day_fat"] is True
+    assert fat["closes_weekend_per_day_bit"] == "A weekend closes/day fat · 3.0×"
+    assert format_window_a_closes_weekend_per_day_bit(fat) == (
+        fat["closes_weekend_per_day_bit"]
+    )
+
+    ok = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 2,
+            "sell_weekend_closes": 2,
+        }
+    )
+    assert ok["closes_weekend_per_day"] == "ok"
+    assert ok["closes_weekend_per_day_n"] == 1.0
+    assert ok["closes_weekend_per_day_fat"] is False
+    assert ok["closes_weekend_per_day_bit"] == "A weekend closes/day ok · 1.0×"
+
+    # Two stock weekend sells same Sat + one weekday → 2 closes / 1 day.
+    rows = [
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-12T15:00:00+00:00",
+            "profit_loss": 10.0,
+            "commission": 1.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "MSFT",
+            "timestamp": "2026-09-12T16:00:00+00:00",
+            "profit_loss": -4.0,
+            "commission": 1.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "GOOG",
+            "timestamp": "2026-09-11T15:00:00+00:00",
+            "profit_loss": 5.0,
+            "commission": 1.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "BTC-USD",
+            "timestamp": "2026-09-12T17:00:00+00:00",
+            "profit_loss": 2.0,
+            "commission": 1.0,
+        },
+    ]
+    assert sell_weekend_stock_close_count(rows) == 2
+    stats = summarize_window_trades(
+        rows, start=datetime(2026, 9, 1, tzinfo=timezone.utc)
+    )
+    assert stats["sell_weekend_sessions"] == 1
+    assert stats["sell_weekend_closes"] == 2
+
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 1,
+            "sell_weekend_closes": 3,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_weekend_per_day"] == "fat"
+    assert g["closes_weekend_per_day_fat"] is True
+    assert "A weekend closes/day fat · 3.0×" in g["kelly_line"]
+    assert "A weekend closes/day" not in g["honesty_core"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_window_a_kelly_vs_sessions_lean() -> None:
     """Kelly N closes ≠ calendar spread. Speak meter agreement when both spoke."""
     from stock_checker.promote_ab import (

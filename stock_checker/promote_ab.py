@@ -136,6 +136,11 @@ WINDOW_A_WEEKEND_SHARE_QUIET_PCT = 25.0
 # ok speaks when sessions already spoke and ratio < fat. Missing
 # sessions → fail-open (no bit). Not a live halt.
 WINDOW_A_CLOSES_PER_DAY_FAT = 2.0
+# Stock weekend sells ÷ weekend session days after absolute weekend
+# (xang1234 count≠calendar + portfolio AI after ``A sell weekend``).
+# Weekend days alone ≠ how piled closes are on Sat/Sun. Same fat
+# floor as closes/day. Missing closes n / zero weekend → fail-open.
+# Not a live halt.
 # Ending run of losing closes (portfolio AI + tradermonty postmortem).
 # Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
 # Peak run (`loss_streak_max`) speaks only when it exceeds the ending run
@@ -2637,6 +2642,10 @@ def window_a_sample_readiness(
         "closes_sessions_vs_weekend": "",
         "closes_sessions_vs_weekend_bit": "",
         "closes_sessions_vs_weekend_clash": False,
+        "closes_weekend_per_day": "",
+        "closes_weekend_per_day_n": None,
+        "closes_weekend_per_day_bit": "",
+        "closes_weekend_per_day_fat": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3665,6 +3674,10 @@ def window_a_sample_readiness(
     closes_sessions_vs_weekend = ""
     closes_sessions_vs_weekend_bit = ""
     closes_sessions_vs_weekend_clash = False
+    closes_weekend_per_day = ""
+    closes_weekend_per_day_n: float | None = None
+    closes_weekend_per_day_bit = ""
+    closes_weekend_per_day_fat = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4406,6 +4419,37 @@ def window_a_sample_readiness(
                 "A sessions vs weekend clash · "
                 f"{closes_sell_sessions} · {closes_sell_weekend_share}"
             )
+
+    # Weekend days alone ≠ weekend pile-up (xang1234 count≠calendar +
+    # portfolio AI after absolute weekend). Speak when weekend already
+    # spoke and sell_weekend_closes is known. fat ≥ CLOSES_PER_DAY_FAT
+    # warns only (still ready for B). Missing closes n → fail-open.
+    if (
+        closes_sell_weekend is not None
+        and closes_sell_weekend > 0
+        and "sell_weekend_closes" in stats
+    ):
+        raw_wknd_closes = stats.get("sell_weekend_closes")
+        if raw_wknd_closes is not None:
+            try:
+                n_wknd_closes = int(raw_wknd_closes)
+            except (TypeError, ValueError):
+                n_wknd_closes = -1
+            if n_wknd_closes >= 1:
+                ratio = float(n_wknd_closes) / float(closes_sell_weekend)
+                closes_weekend_per_day_n = round(ratio, 2)
+                fat_need = float(WINDOW_A_CLOSES_PER_DAY_FAT)
+                if ratio >= fat_need:
+                    closes_weekend_per_day = "fat"
+                    closes_weekend_per_day_fat = True
+                    closes_weekend_per_day_bit = (
+                        f"A weekend closes/day fat · {ratio:.1f}×"
+                    )
+                else:
+                    closes_weekend_per_day = "ok"
+                    closes_weekend_per_day_bit = (
+                        f"A weekend closes/day ok · {ratio:.1f}×"
+                    )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
     # agreement (portfolio AI + xang1234 after absolute sides). Clash
@@ -6109,6 +6153,10 @@ def window_a_sample_readiness(
         "closes_sessions_vs_weekend": closes_sessions_vs_weekend,
         "closes_sessions_vs_weekend_bit": closes_sessions_vs_weekend_bit,
         "closes_sessions_vs_weekend_clash": closes_sessions_vs_weekend_clash,
+        "closes_weekend_per_day": closes_weekend_per_day,
+        "closes_weekend_per_day_n": closes_weekend_per_day_n,
+        "closes_weekend_per_day_bit": closes_weekend_per_day_bit,
+        "closes_weekend_per_day_fat": closes_weekend_per_day_fat,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -7816,6 +7864,16 @@ def format_window_a_closes_sessions_vs_weekend_bit(
     return bit
 
 
+def format_window_a_closes_weekend_per_day_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A weekend sells-per-weekend-day density (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_weekend_per_day_bit") or "").strip()
+    return bit
+
+
 def format_window_a_closes_kelly_vs_sessions_bit(
     sample: dict[str, Any] | None,
 ) -> str:
@@ -8970,21 +9028,17 @@ def sell_session_count(sells: Iterable[dict[str, Any]]) -> int:
     return len(days)
 
 
-def sell_weekend_stock_session_count(sells: Iterable[dict[str, Any]]) -> int:
-    """Unique US/Eastern weekend days with a dated non-crypto SELL.
-
-    Equity RTH should not close Sat/Sun on the NY session clock; crypto is
-    24/7 and skipped. Unparseable timestamps skipped. Zero when none.
-    Display only — not a gate. tradermonty #687 weekday quality +
-    xang1234 few-dates.
-    """
+def _weekend_stock_sell_local_days(
+    sells: Iterable[dict[str, Any]],
+) -> list[date]:
+    """US/Eastern local dates for dated non-crypto SELLs on Sat/Sun."""
     import pytz
 
     from stock_checker.crypto_policy import is_crypto_symbol
     from stock_checker.market_hours import US_TZ
 
     ny = pytz.timezone(US_TZ)
-    days: set[date] = set()
+    out: list[date] = []
     for sell in sells:
         if not isinstance(sell, dict):
             continue
@@ -8995,8 +9049,28 @@ def sell_weekend_stock_session_count(sells: Iterable[dict[str, Any]]) -> int:
             continue
         local = ts.astimezone(ny)
         if local.weekday() >= 5:
-            days.add(local.date())
-    return len(days)
+            out.append(local.date())
+    return out
+
+
+def sell_weekend_stock_session_count(sells: Iterable[dict[str, Any]]) -> int:
+    """Unique US/Eastern weekend days with a dated non-crypto SELL.
+
+    Equity RTH should not close Sat/Sun on the NY session clock; crypto is
+    24/7 and skipped. Unparseable timestamps skipped. Zero when none.
+    Display only — not a gate. tradermonty #687 weekday quality +
+    xang1234 few-dates.
+    """
+    return len(set(_weekend_stock_sell_local_days(sells)))
+
+
+def sell_weekend_stock_close_count(sells: Iterable[dict[str, Any]]) -> int:
+    """Count of dated non-crypto SELLs on a US/Eastern Sat/Sun.
+
+    Days alone ≠ pile-up on those weekend days. Crypto skipped. Zero when
+    none. Display only — not a gate.
+    """
+    return len(_weekend_stock_sell_local_days(sells))
 
 
 def ending_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
@@ -9458,6 +9532,7 @@ def summarize_window_trades(
         "last_sell": last_sell_ts,
         "sell_sessions": sell_session_count(sells),
         "sell_weekend_sessions": sell_weekend_stock_session_count(sells),
+        "sell_weekend_closes": sell_weekend_stock_close_count(sells),
         "start_utc": start_dt.isoformat(),
         "end_utc": end.isoformat() if end is not None else None,
     }
