@@ -33420,7 +33420,10 @@ def build_postmortem_glance(
     speak ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
     so lead name ≠ magnitude (opportunity / Screener Δ lead size parity).
     """
-    from stock_checker.trade_postmortem import is_unmatched_postmortem
+    from stock_checker.trade_postmortem import (
+        is_unmatched_postmortem,
+        is_unobserved_postmortem,
+    )
 
     empty = {
         "ready": False,
@@ -33626,6 +33629,7 @@ def build_postmortem_glance(
     exit_reason = str(latest.get("exit_reason") or "").strip()[:24]
     held = str(latest.get("held") or "").strip()
     latest_unmatched = is_unmatched_postmortem(latest)
+    latest_unobserved = is_unobserved_postmortem(latest)
     try:
         pnl_pct = latest.get("profit_loss_pct")
         pnl_pct_f = float(pnl_pct) if pnl_pct is not None else None
@@ -33633,7 +33637,9 @@ def build_postmortem_glance(
         pnl_pct_f = None
     if latest_unmatched:
         pnl_pct_f = None
-        bits = [f"Unmatched · {sym}", "skipped"]
+        # tradermonty #714 unobserved prices ≠ orphan unmatched sells.
+        lead = "Unobserved" if latest_unobserved else "Unmatched"
+        bits = [f"{lead} · {sym}", "skipped"]
         tone = "warn"
     else:
         bits = [f"Last exit · {sym}"]

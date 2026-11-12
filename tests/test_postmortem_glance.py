@@ -139,6 +139,28 @@ def test_postmortem_glance_unmatched_skips_pnl() -> None:
     assert "+%" not in g["line"] and "-%" not in g["line"]
 
 
+def test_postmortem_glance_unobserved_skips_pnl() -> None:
+    """tradermonty #714: missing price speaks Unobserved, not invented %."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "MSFT",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+                "profit_loss_pct": None,
+            }
+        ]
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["unmatched_count"] == 1
+    assert g["matched_count"] == 0
+    assert "Unobserved · MSFT" in g["line"]
+    assert "Unmatched ·" not in g["line"]
+    assert "skipped" in g["line"]
+    assert g["profit_loss_pct"] is None
+
+
 def test_postmortem_glance_matched_beside_unmatched() -> None:
     g = build_postmortem_glance(
         [

@@ -2,8 +2,11 @@ from stock_checker.trade_postmortem import (
     ACCOUNTING_SKIPPED,
     UNMATCHED_SELL_NOTE,
     UNMATCHED_SELL_REASON,
+    UNOBSERVED_PRICE_NOTE,
+    UNOBSERVED_PRICE_REASON,
     closed_rounds,
     is_unmatched_postmortem,
+    is_unobserved_postmortem,
 )
 
 
@@ -145,3 +148,80 @@ def test_closed_rounds_partial_oversell_remainder_skipped() -> None:
     assert rounds[1]["quantity"] == 1
     assert rounds[1]["profit_loss"] == 10.0
     assert is_unmatched_postmortem(rounds[1]) is False
+
+
+def test_closed_rounds_unobserved_sell_price_skips_accounting() -> None:
+    """tradermonty #714: missing sell price ≠ invented −100% / flat mark."""
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "MSFT",
+            "quantity": 1,
+            "price": 400,
+            "timestamp": "2026-11-10T10:00:00+00:00",
+            "note": "Observed buy",
+            "strategy": "breakout",
+        },
+        {
+            "type": "SELL",
+            "symbol": "MSFT",
+            "quantity": 1,
+            "price": None,
+            "timestamp": "2026-11-11T10:00:00+00:00",
+            "exit_reason": "tp",
+        },
+    ]
+    rounds = closed_rounds(trades)
+    assert len(rounds) == 1
+    r = rounds[0]
+    assert r["symbol"] == "MSFT"
+    assert r["buy_price"] == 400
+    assert r["sell_price"] is None
+    assert r["exit_reason"] == UNOBSERVED_PRICE_REASON
+    assert r["exit_note"] == UNOBSERVED_PRICE_NOTE
+    assert r["profit_loss"] is None
+    assert r["profit_loss_pct"] is None
+    assert r["accounting"] == ACCOUNTING_SKIPPED
+    assert is_unobserved_postmortem(r) is True
+    assert is_unmatched_postmortem(r) is True
+
+
+def test_closed_rounds_unobserved_zero_or_nan_buy_skips() -> None:
+    """Zero / NaN buy price is unobserved — do not coerce to a measured close."""
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "NVDA",
+            "quantity": 2,
+            "price": 0,
+            "timestamp": "2026-11-10T10:00:00+00:00",
+            "note": "Bad fill",
+        },
+        {
+            "type": "SELL",
+            "symbol": "NVDA",
+            "quantity": 2,
+            "price": 120,
+            "timestamp": "2026-11-11T10:00:00+00:00",
+            "exit_reason": "sl",
+        },
+        {
+            "type": "BUY",
+            "symbol": "AMD",
+            "quantity": 1,
+            "price": float("nan"),
+            "timestamp": "2026-11-10T11:00:00+00:00",
+        },
+        {
+            "type": "SELL",
+            "symbol": "AMD",
+            "quantity": 1,
+            "price": 100,
+            "timestamp": "2026-11-11T11:00:00+00:00",
+        },
+    ]
+    rounds = closed_rounds(trades)
+    assert len(rounds) == 2
+    assert all(is_unobserved_postmortem(r) for r in rounds)
+    assert all(r["profit_loss"] is None for r in rounds)
+    assert all(r["accounting"] == ACCOUNTING_SKIPPED for r in rounds)
