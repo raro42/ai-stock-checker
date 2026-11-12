@@ -6,7 +6,9 @@ from openbb_backend.desk import (
     build_postmortem_glance,
     postmortem_skip_reason_lead,
     postmortem_skip_reason_lead_size,
+    postmortem_skip_reason_lean,
     postmortem_skip_reason_sample_gap,
+    postmortem_skip_reason_share_bands,
     postmortem_skip_reason_sides,
     postmortem_unmatched_lean_meta,
     postmortem_unmatched_vs_matched_delta,
@@ -205,6 +207,41 @@ def test_postmortem_skip_reason_sides_and_lead() -> None:
     assert postmortem_skip_reason_lead_size(
         2, 0, lead_name="unmatched"
     ) == (None, None, None)
+    # Share bands + severity lean (hot|quiet of skipped).
+    assert postmortem_skip_reason_share_bands(3, 1) == (
+        75.0,
+        "hot",
+        25.0,
+        "quiet",
+    )
+    assert postmortem_skip_reason_share_bands(2, 1) == (
+        67.0,
+        "hot",
+        33.0,
+        "",
+    )
+    assert postmortem_skip_reason_share_bands(1, 1) == (
+        50.0,
+        "hot",
+        50.0,
+        "hot",
+    )
+    assert postmortem_skip_reason_share_bands(2, 0) == (None, "", None, "")
+    assert postmortem_skip_reason_lean("hot", "quiet") == (
+        "unmatched vs unobserved align · hot|quiet",
+        False,
+    )
+    assert postmortem_skip_reason_lean("quiet", "hot") == (
+        "unmatched vs unobserved align · quiet|hot",
+        False,
+    )
+    bit, warn = postmortem_skip_reason_lean("hot", "")
+    assert bit == "unmatched vs unobserved clash · unmatched hot · unobserved ok"
+    assert warn is True
+    bit, warn = postmortem_skip_reason_lean("hot", "hot")
+    assert "clash" in bit and "hot" in bit
+    assert warn is True
+    assert postmortem_skip_reason_lean("", "") == ("", False)
 
 
 def test_postmortem_glance_two_unobserved_not_unmatched_label() -> None:
@@ -257,6 +294,13 @@ def test_postmortem_glance_orphan_vs_unobserved_tied() -> None:
     assert "tied" in g["line"]
     assert "hot · 100%" in g["line"]
     assert "skip size" not in g["lean"]
+    # 50/50 both hot → severity clash under lean (no lead size).
+    assert g["skip_reason_lean"] == (
+        "unmatched vs unobserved clash · unmatched hot · unobserved hot"
+    )
+    assert g["skip_reason_lean_warn"] is True
+    assert "unmatched vs unobserved clash" in g["lean"]
+    assert g["lean_warn"] is True
 
 
 def test_postmortem_glance_orphan_vs_unobserved_lead_size() -> None:
@@ -294,6 +338,56 @@ def test_postmortem_glance_orphan_vs_unobserved_lead_size() -> None:
     assert "skip size · 2×" in g["lean"]
     assert "skip size sides · louder 2 · quieter 1" in g["lean"]
     assert "skip size" in g["lean_meta"]
+    # 67/33 → hot vs mid clash (severity after size).
+    assert g["skip_reason_orphan_share_severity"] == "hot"
+    assert g["skip_reason_unobserved_share_severity"] == ""
+    assert g["skip_reason_lean"] == (
+        "unmatched vs unobserved clash · unmatched hot · unobserved ok"
+    )
+    assert g["skip_reason_lean_warn"] is True
+    assert "unmatched vs unobserved clash" in g["lean"]
+    assert "skip clash" in g["lean_meta"] or "clash" in g["lean_meta"]
+
+
+def test_postmortem_glance_orphan_vs_unobserved_severity_align() -> None:
+    """Complementary hot|quiet skip shares align under lean (no warn)."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "MSFT",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "NVDA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "AMD",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["orphan_unmatched_count"] == 3
+    assert g["unobserved_count"] == 1
+    assert g["skip_reason_orphan_share_pct"] == 75.0
+    assert g["skip_reason_unobserved_share_pct"] == 25.0
+    assert g["skip_reason_orphan_share_severity"] == "hot"
+    assert g["skip_reason_unobserved_share_severity"] == "quiet"
+    assert g["skip_reason_lean"] == (
+        "unmatched vs unobserved align · hot|quiet"
+    )
+    assert g["skip_reason_lean_warn"] is False
+    assert "unmatched vs unobserved align · hot|quiet" in g["lean"]
+    # Align is calm — fold may still warn from thin matched remainder.
+    assert "skip align" in g["lean_meta"] or "align" in g["lean_meta"]
 
 
 def test_postmortem_glance_matched_beside_unmatched() -> None:

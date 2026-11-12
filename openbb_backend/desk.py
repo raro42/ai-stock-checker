@@ -33096,6 +33096,8 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     # ``skip size sides`` / ``skip size`` after orphan vs unobserved lead size.
     (re.compile(r"^skip size sides\b"), "skip sides"),
     (re.compile(r"^skip size\b"), "skip size"),
+    (re.compile(r"^unmatched vs unobserved align\b"), "skip align"),
+    (re.compile(r"^unmatched vs unobserved clash\b"), "skip clash"),
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
@@ -33479,6 +33481,85 @@ def postmortem_skip_reason_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def postmortem_skip_reason_share_bands(
+    n_orphan: int,
+    n_unobserved: int,
+    *,
+    hot: float = POSTMORTEM_UNMATCHED_SHARE_HOT,
+    quiet: float = POSTMORTEM_UNMATCHED_SHARE_QUIET,
+) -> tuple[float | None, str, float | None, str]:
+    """Per-reason ownership of the skipped roster (display only).
+
+    Absolute sides + lead + skip size hid whether orphan vs unobserved *share*
+    of skipped is extreme (unmatched share / Screener junk share + portfolio AI
+    count≠share). Both sides must be >0; sole-side / zero → silent. Returns
+    ``(orphan_pct, orphan_sev, unobserved_pct, unobserved_sev)`` with
+    ``hot|quiet|\"\"`` severities. Not a new entry gate.
+    """
+    try:
+        orphan = max(0, int(n_orphan))
+    except (TypeError, ValueError):
+        orphan = 0
+    try:
+        unobserved = max(0, int(n_unobserved))
+    except (TypeError, ValueError):
+        unobserved = 0
+    total = orphan + unobserved
+    if total <= 0 or orphan <= 0 or unobserved <= 0:
+        return None, "", None, ""
+    orphan_pct = round(100.0 * orphan / total)
+    unobserved_pct = round(100.0 * unobserved / total)
+
+    def _sev(pct: float) -> str:
+        if pct >= hot:
+            return "hot"
+        if pct <= quiet:
+            return "quiet"
+        return ""
+
+    return orphan_pct, _sev(orphan_pct), unobserved_pct, _sev(unobserved_pct)
+
+
+def postmortem_skip_reason_lean(
+    orphan_severity: str,
+    unobserved_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of orphan vs unobserved skip-share bands (display only).
+
+    Absolute sides + ownership lead + skip size hid whether the two *severity*
+    bands agree (unmatched vs matched lean / Screener junk vs ok lean +
+    portfolio AI speak-both-sides + xang1234 severity after tradermonty #714).
+    Both sides use ``hot|quiet`` of skipped. Align when complementary
+    ``hot|quiet`` / ``quiet|hot``; clash when exactly one lean spoke or both
+    hot (e.g. 50/50). Adverse clash (any ``hot``) warns. Mid both silent.
+    Lives under the postmortem lean fold. Not a new entry gate.
+    """
+    o = str(orphan_severity or "").strip().casefold()
+    u = str(unobserved_severity or "").strip().casefold()
+    o_lean = o in {"hot", "quiet"}
+    u_lean = u in {"hot", "quiet"}
+    if o_lean and u_lean:
+        complementary = (o == "hot" and u == "quiet") or (
+            o == "quiet" and u == "hot"
+        )
+        if complementary:
+            return f"unmatched vs unobserved align · {o}|{u}", False
+        return (
+            f"unmatched vs unobserved clash · unmatched {o} · unobserved {u}",
+            True,
+        )
+    if o_lean != u_lean:
+        o_label = o if o_lean else (o or "ok")
+        u_label = u if u_lean else (u or "ok")
+        warn = o == "hot" or u == "hot"
+        return (
+            "unmatched vs unobserved clash · unmatched "
+            f"{o_label} · unobserved {u_label}",
+            warn,
+        )
+    return "", False
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -33551,7 +33632,10 @@ def build_postmortem_glance(
     dead/stale + tradermonty #714 after #689. When skip-reason lead already
     spoke and quieter count >0, also speak ``skip size · N×`` +
     ``skip size sides · louder N · quieter M`` under lean so lead name/% ≠
-    magnitude (unmatched vs matched lead size parity).
+    magnitude (unmatched vs matched lead size parity). When both skip-share
+    severity bands already spoke, also speak
+    ``unmatched vs unobserved align · hot|quiet`` / clash so sides/lead/size
+    alone do not hide severity agreement (unmatched vs matched lean parity).
     """
     from stock_checker.trade_postmortem import (
         is_orphan_unmatched_postmortem,
@@ -33584,6 +33668,12 @@ def build_postmortem_glance(
         "skip_reason_lead_size": None,
         "skip_reason_lead_size_louder": None,
         "skip_reason_lead_size_quieter": None,
+        "skip_reason_orphan_share_pct": None,
+        "skip_reason_orphan_share_severity": "",
+        "skip_reason_unobserved_share_pct": None,
+        "skip_reason_unobserved_share_severity": "",
+        "skip_reason_lean": "",
+        "skip_reason_lean_warn": False,
         "vs_matched_lead": "",
         "vs_matched_lead_name": "",
         "vs_matched_lead_pct": None,
@@ -33647,6 +33737,18 @@ def build_postmortem_glance(
         orphan_unmatched_count,
         unobserved_count,
         lead_name=skip_reason_lead_name,
+    )
+    (
+        skip_reason_orphan_share_pct,
+        skip_reason_orphan_share_severity,
+        skip_reason_unobserved_share_pct,
+        skip_reason_unobserved_share_severity,
+    ) = postmortem_skip_reason_share_bands(
+        orphan_unmatched_count, unobserved_count
+    )
+    skip_reason_lean, skip_reason_lean_warn = postmortem_skip_reason_lean(
+        skip_reason_orphan_share_severity,
+        skip_reason_unobserved_share_severity,
     )
     unmatched_share_pct: float | None = None
     unmatched_share_severity = ""
@@ -33797,7 +33899,8 @@ def build_postmortem_glance(
                     f"{vs_matched_delta_lead_size_louder_pct:g}% · quieter "
                     f"{vs_matched_delta_lead_size_quieter_pct:g}%"
                 )
-        # Orphan vs unobserved lead size under lean (primary keeps sides+lead).
+        # Orphan vs unobserved lead size + severity lean under fold
+        # (primary keeps sides+lead).
         if (
             skip_reason_lead_size is not None
             and skip_reason_lead_size_louder is not None
@@ -33809,6 +33912,10 @@ def build_postmortem_glance(
                 f"{skip_reason_lead_size_louder} · quieter "
                 f"{skip_reason_lead_size_quieter}"
             )
+        if skip_reason_lean:
+            lean_parts.append(skip_reason_lean)
+            if skip_reason_lean_warn:
+                lean_warn = True
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -33904,6 +34011,14 @@ def build_postmortem_glance(
         "skip_reason_lead_size": skip_reason_lead_size,
         "skip_reason_lead_size_louder": skip_reason_lead_size_louder,
         "skip_reason_lead_size_quieter": skip_reason_lead_size_quieter,
+        "skip_reason_orphan_share_pct": skip_reason_orphan_share_pct,
+        "skip_reason_orphan_share_severity": skip_reason_orphan_share_severity,
+        "skip_reason_unobserved_share_pct": skip_reason_unobserved_share_pct,
+        "skip_reason_unobserved_share_severity": (
+            skip_reason_unobserved_share_severity
+        ),
+        "skip_reason_lean": skip_reason_lean,
+        "skip_reason_lean_warn": skip_reason_lean_warn,
         "vs_matched_lead": vs_matched_lead,
         "vs_matched_lead_name": vs_matched_lead_name,
         "vs_matched_lead_pct": vs_matched_lead_pct,
