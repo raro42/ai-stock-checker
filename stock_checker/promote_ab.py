@@ -125,6 +125,9 @@ WINDOW_A_SELL_SESSION_MIN = 5
 # weekend days alone ≠ most of the session calendar. hot ≥50% ·
 # quiet ≤25%; mid % only. hot warns only (still ready for B). Missing
 # sessions n / zero weekend → fail-open (no bit). Not a live halt.
+# When sell-sessions severity and weekend-share severity both spoke,
+# also speak meter agreement ``A sessions vs weekend …`` (clash warns
+# only; mid share silent; still ready for B).
 WINDOW_A_WEEKEND_SHARE_HOT_PCT = 50.0
 WINDOW_A_WEEKEND_SHARE_QUIET_PCT = 25.0
 # Sells per unique UTC sell-session day (xang1234 #747 Few dates +
@@ -2631,6 +2634,9 @@ def window_a_sample_readiness(
         "closes_sell_weekend_share_pct": None,
         "closes_sell_weekend_share_bit": "",
         "closes_sell_weekend_share_hot": False,
+        "closes_sessions_vs_weekend": "",
+        "closes_sessions_vs_weekend_bit": "",
+        "closes_sessions_vs_weekend_clash": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3656,6 +3662,9 @@ def window_a_sample_readiness(
     closes_sell_weekend_share_pct: float | None = None
     closes_sell_weekend_share_bit = ""
     closes_sell_weekend_share_hot = False
+    closes_sessions_vs_weekend = ""
+    closes_sessions_vs_weekend_bit = ""
+    closes_sessions_vs_weekend_clash = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4372,6 +4381,31 @@ def window_a_sample_readiness(
                 closes_sell_weekend_share_bit = (
                     f"A weekend share · {pct}%"
                 )
+
+    # N session days ≠ weekend ownership. When both severity bands
+    # spoke, speak agreement (portfolio AI speak-both-sides + xang1234
+    # after absolute weekend + share). Clash warns only (still ready
+    # for B). Mid share / sole side silent.
+    if closes_sell_sessions and closes_sell_weekend_share:
+        sess_adverse = closes_sell_sessions == "few"
+        wknd_adverse = closes_sell_weekend_share == "hot"
+        if sess_adverse == wknd_adverse:
+            closes_sessions_vs_weekend = "align"
+            if sess_adverse:
+                closes_sessions_vs_weekend_bit = (
+                    "A sessions vs weekend align · few · hot"
+                )
+            else:
+                closes_sessions_vs_weekend_bit = (
+                    "A sessions vs weekend align · ok"
+                )
+        else:
+            closes_sessions_vs_weekend = "clash"
+            closes_sessions_vs_weekend_clash = True
+            closes_sessions_vs_weekend_bit = (
+                "A sessions vs weekend clash · "
+                f"{closes_sell_sessions} · {closes_sell_weekend_share}"
+            )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
     # agreement (portfolio AI + xang1234 after absolute sides). Clash
@@ -6072,6 +6106,9 @@ def window_a_sample_readiness(
         "closes_sell_weekend_share_pct": closes_sell_weekend_share_pct,
         "closes_sell_weekend_share_bit": closes_sell_weekend_share_bit,
         "closes_sell_weekend_share_hot": closes_sell_weekend_share_hot,
+        "closes_sessions_vs_weekend": closes_sessions_vs_weekend,
+        "closes_sessions_vs_weekend_bit": closes_sessions_vs_weekend_bit,
+        "closes_sessions_vs_weekend_clash": closes_sessions_vs_weekend_clash,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -7766,6 +7803,16 @@ def format_window_a_closes_sell_weekend_share_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_sell_weekend_share_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_sessions_vs_weekend_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A sell-sessions vs weekend-share lean (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sessions_vs_weekend_bit") or "").strip()
     return bit
 
 

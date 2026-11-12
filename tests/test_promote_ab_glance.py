@@ -6131,6 +6131,166 @@ def test_window_a_sell_weekend_share() -> None:
     assert g["b_ready"] is True
 
 
+def test_window_a_sessions_vs_weekend_lean() -> None:
+    """N session days ≠ weekend ownership. Speak meter agreement when both spoke."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_sessions_vs_weekend_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 8,
+        }
+    )
+    assert sole["closes_sell_sessions"] == "ok"
+    assert sole["closes_sell_weekend_share"] == ""
+    assert sole["closes_sessions_vs_weekend"] == ""
+    assert sole["closes_sessions_vs_weekend_bit"] == ""
+    assert sole["closes_sessions_vs_weekend_clash"] is False
+    assert format_window_a_closes_sessions_vs_weekend_bit(sole) == ""
+    assert format_window_a_closes_sessions_vs_weekend_bit(None) == ""
+
+    mid_silent = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 5,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    assert mid_silent["closes_sell_sessions"] == "ok"
+    assert mid_silent["closes_sell_weekend_share"] == ""
+    assert mid_silent["closes_sessions_vs_weekend"] == ""
+
+    align_hot = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    assert align_hot["closes_sell_sessions"] == "few"
+    assert align_hot["closes_sell_weekend_share"] == "hot"
+    assert align_hot["closes_sessions_vs_weekend"] == "align"
+    assert align_hot["closes_sessions_vs_weekend_clash"] is False
+    assert align_hot["closes_sessions_vs_weekend_bit"] == (
+        "A sessions vs weekend align · few · hot"
+    )
+    assert format_window_a_closes_sessions_vs_weekend_bit(align_hot) == (
+        align_hot["closes_sessions_vs_weekend_bit"]
+    )
+
+    align_ok = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 8,
+            "sell_weekend_sessions": 1,
+        }
+    )
+    assert align_ok["closes_sell_sessions"] == "ok"
+    assert align_ok["closes_sell_weekend_share"] == "quiet"
+    assert align_ok["closes_sessions_vs_weekend"] == "align"
+    assert align_ok["closes_sessions_vs_weekend_clash"] is False
+    assert align_ok["closes_sessions_vs_weekend_bit"] == (
+        "A sessions vs weekend align · ok"
+    )
+
+    clash_few_quiet = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 4,
+            "sell_weekend_sessions": 1,
+        }
+    )
+    assert clash_few_quiet["closes_sell_sessions"] == "few"
+    assert clash_few_quiet["closes_sell_weekend_share"] == "quiet"
+    assert clash_few_quiet["closes_sessions_vs_weekend"] == "clash"
+    assert clash_few_quiet["closes_sessions_vs_weekend_clash"] is True
+    assert clash_few_quiet["closes_sessions_vs_weekend_bit"] == (
+        "A sessions vs weekend clash · few · quiet"
+    )
+
+    clash_ok_hot = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 5,
+            "sell_weekend_sessions": 3,
+        }
+    )
+    assert clash_ok_hot["closes_sell_sessions"] == "ok"
+    assert clash_ok_hot["closes_sell_weekend_share"] == "hot"
+    assert clash_ok_hot["closes_sessions_vs_weekend"] == "clash"
+    assert clash_ok_hot["closes_sessions_vs_weekend_clash"] is True
+    assert clash_ok_hot["closes_sessions_vs_weekend_bit"] == (
+        "A sessions vs weekend clash · ok · hot"
+    )
+
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_sessions_vs_weekend"] == "align"
+    assert g["closes_sessions_vs_weekend_clash"] is False
+    assert "A sessions vs weekend align · few · hot" in g["kelly_line"]
+    assert "A sessions vs weekend" not in g["honesty_core"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_window_a_kelly_vs_sessions_lean() -> None:
     """Kelly N closes ≠ calendar spread. Speak meter agreement when both spoke."""
     from stock_checker.promote_ab import (
