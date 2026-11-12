@@ -242,9 +242,13 @@ def paper_desk_api(account: str = Query(default="")):
 @app.get("/desk/api/leaderboard")
 def paper_desk_leaderboard():
     """Offline Mode A leaderboard (cost-basis equity; fees shown)."""
-    from stock_checker.paper_accounts import build_leaderboard
+    from stock_checker.paper_accounts import (
+        build_leaderboard,
+        leaderboard_missing_share,
+    )
 
-    return {"rows": build_leaderboard(DATA_DIR)}
+    rows = build_leaderboard(DATA_DIR)
+    return {"rows": rows, "missing": leaderboard_missing_share(rows)}
 
 
 @app.get("/desk/api/config")

@@ -16,6 +16,7 @@ Goal: friends compete with separate paper portfolios and see how books evolve, w
 | Desk switcher | `?account=<id>` on `/desk` (nav preserves query) |
 | Leaderboard | Overview strip + `GET /desk/api/leaderboard` + `scripts/paper_leaderboard.py` |
 | Missing ledger | Named `?account=` without `portfolio.json` speaks `missing ledger` on Overview, switcher, leaderboard, and CLI (not a fake €0 reset / race loser) |
+| Missing share | When any named shell is missing, Overview + CLI + `/desk/api/leaderboard` also speak ownership `N missing · hot|quiet · P%` of named books (hot ≥50% · quiet ≤25%; legacy excluded) so absolute `N missing` ≠ most of the race |
 | Shared market state | Scan archives, soft-allow, Yahoo rings, Ops knobs on `DATA_DIR` root |
 | Trader | Still one `intelligent-trader` on the shared host book (Mode A) |
 

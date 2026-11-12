@@ -37406,6 +37406,7 @@ def load_desk_snapshot(
         account_ledger_missing,
         account_switcher_options,
         build_leaderboard,
+        leaderboard_missing_share,
         ledger_dir,
         normalize_account_id,
     )
@@ -38309,6 +38310,8 @@ def load_desk_snapshot(
     }.get(mark_source, "")
     cov_bit = str(mark_coverage.get("bit") or "")
     mark_note = f"{mark_base} {cov_bit}." if mark_base and cov_bit else mark_base
+    leaderboard_rows = build_leaderboard(root)
+    leaderboard_missing = leaderboard_missing_share(leaderboard_rows)
 
     snap = {
         "brand": "AI Stock Checker",
@@ -38317,7 +38320,10 @@ def load_desk_snapshot(
         "account_label": account_label(account_id, missing=ledger_missing),
         "account_ledger_missing": ledger_missing,
         "account_options": account_switcher_options(root),
-        "leaderboard": build_leaderboard(root),
+        "leaderboard": leaderboard_rows,
+        "leaderboard_missing": leaderboard_missing,
+        "leaderboard_missing_bit": str(leaderboard_missing.get("bit") or ""),
+        "leaderboard_missing_warn": bool(leaderboard_missing.get("warn")),
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "portfolio_updated": portfolio.get("last_updated") or "",
         "initial": initial,

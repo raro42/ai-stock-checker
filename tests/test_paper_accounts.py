@@ -16,6 +16,7 @@ from stock_checker.paper_accounts import (
     account_switcher_options,
     build_leaderboard,
     ensure_account_ledger,
+    leaderboard_missing_share,
     ledger_dir,
     list_account_ids,
     normalize_account_id,
@@ -122,3 +123,32 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert by_id["anna"]["label"] == "anna"
     assert by_id["desk"]["label"] == "desk · missing"
     assert by_id["desk"]["missing"] == "1"
+    # Absolute 1 missing ≠ board ownership — 1 of 2 named = 50% hot.
+    share = leaderboard_missing_share(rows)
+    assert share["n_named"] == 2
+    assert share["n_missing"] == 1
+    assert share["missing_share_pct"] == 50.0
+    assert share["missing_share_severity"] == "hot"
+    assert share["warn"] is True
+    assert share["bit"] == "1 missing · hot · 50%"
+    # All ready → silent.
+    assert leaderboard_missing_share(
+        [r for r in rows if not r.get("missing")]
+    )["bit"] == ""
+    # Sole missing named → 100% hot.
+    sole = leaderboard_missing_share([rows[2]])
+    assert sole["bit"] == "1 missing · hot · 100%"
+    # Quiet band: 1 of 5 named.
+    quiet_rows = [
+        {"account_id": "a0", "missing": True},
+        {"account_id": "a1", "missing": False},
+        {"account_id": "a2", "missing": False},
+        {"account_id": "a3", "missing": False},
+        {"account_id": "a4", "missing": False},
+    ]
+    quiet = leaderboard_missing_share(quiet_rows)
+    assert quiet["missing_share_severity"] == "quiet"
+    assert quiet["warn"] is False
+    assert quiet["bit"] == "1 missing · quiet · 20%"
+    # Legacy-only board silent.
+    assert leaderboard_missing_share([rows[1]])["bit"] == ""

@@ -9,6 +9,12 @@
 <section class="leaderboard" aria-labelledby="lb-h">
   <h2 id="lb-h">Leaderboard</h2>
   <p class="leaderboard-note">Cost-basis equity · fees shown · missing ledger ≠ €0 loser · shared scan is not a fill</p>
+  {% if snap.leaderboard_missing_bit %}
+  <p class="leaderboard-note{% if snap.leaderboard_missing_warn %} is-missing{% endif %}"
+     title="Named-account missing share — absolute N missing ≠ most of the race board. Display only.">
+    {{ snap.leaderboard_missing_bit }}
+  </p>
+  {% endif %}
   <table>
     <thead>
       <tr>

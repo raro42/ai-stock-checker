@@ -17,6 +17,9 @@ ACCOUNT_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 MAX_ACCOUNTS = 8
 DEFAULT_STARTING_CAPITAL = 100_000.0
 SHARED_DESK_ACCOUNT_ID = "desk"
+# Race-board ownership of empty shells (named accounts only; legacy excluded).
+MISSING_SHARE_HOT = 50.0
+MISSING_SHARE_QUIET = 25.0
 
 
 class AccountIdError(ValueError):
@@ -230,6 +233,47 @@ def build_leaderboard(
         )
     )
     return rows
+
+
+def leaderboard_missing_share(
+    rows: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Named-account missing-ledger ownership (display only).
+
+    Absolute ``N missing`` on a row ≠ most of the race board. Denominator is
+    named accounts only (legacy root is never a missing shell). Silent when
+    zero missing or no named books. Hot ≥50% · quiet ≤25% (mid % only).
+    """
+    out: dict[str, Any] = {
+        "n_named": 0,
+        "n_missing": 0,
+        "missing_share_pct": None,
+        "missing_share_severity": "",
+        "bit": "",
+        "warn": False,
+    }
+    named = [r for r in (rows or []) if str(r.get("account_id") or "")]
+    n_named = len(named)
+    if n_named <= 0:
+        return out
+    n_missing = sum(1 for r in named if r.get("missing"))
+    out["n_named"] = n_named
+    out["n_missing"] = n_missing
+    if n_missing <= 0:
+        return out
+    pct = round(100.0 * n_missing / n_named, 1)
+    out["missing_share_pct"] = pct
+    if pct >= MISSING_SHARE_HOT:
+        out["missing_share_severity"] = "hot"
+        out["bit"] = f"{n_missing} missing · hot · {pct:g}%"
+        out["warn"] = True
+    elif pct <= MISSING_SHARE_QUIET:
+        out["missing_share_severity"] = "quiet"
+        out["bit"] = f"{n_missing} missing · quiet · {pct:g}%"
+    else:
+        out["missing_share_severity"] = "ok"
+        out["bit"] = f"{n_missing} missing · {pct:g}%"
+    return out
 
 
 def account_switcher_options(data_dir: Path | str) -> list[dict[str, str]]:

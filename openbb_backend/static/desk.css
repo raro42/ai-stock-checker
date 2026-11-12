@@ -217,6 +217,10 @@ a:active {
   font-size: 0.85rem;
 }
 
+.leaderboard-note.is-missing {
+  color: var(--down);
+}
+
 .leaderboard table {
   width: 100%;
   border-collapse: collapse;

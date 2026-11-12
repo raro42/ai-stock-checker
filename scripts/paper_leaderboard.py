@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from stock_checker.paper_accounts import build_leaderboard
+from stock_checker.paper_accounts import build_leaderboard, leaderboard_missing_share
 
 
 def main() -> None:
@@ -39,6 +39,10 @@ def main() -> None:
             f"{int(row.get('open_positions') or 0):>3}  "
             f"{row.get('last_trade_age') or '—'}"
         )
+    share = leaderboard_missing_share(rows)
+    bit = str(share.get("bit") or "")
+    if bit:
+        print(bit)
 
 
 if __name__ == "__main__":
