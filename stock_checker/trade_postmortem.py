@@ -244,3 +244,10 @@ def is_unmatched_postmortem(row: Mapping[str, Any] | None) -> bool:
         return True
     reason = str(row.get("exit_reason") or "").strip().casefold()
     return reason in {UNMATCHED_SELL_REASON, UNOBSERVED_PRICE_REASON}
+
+
+def is_orphan_unmatched_postmortem(row: Mapping[str, Any] | None) -> bool:
+    """True when skipped accounting is an orphan SELL (not unobserved prices)."""
+    if not is_unmatched_postmortem(row):
+        return False
+    return not is_unobserved_postmortem(row)

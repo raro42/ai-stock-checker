@@ -5,6 +5,7 @@ from stock_checker.trade_postmortem import (
     UNOBSERVED_PRICE_NOTE,
     UNOBSERVED_PRICE_REASON,
     closed_rounds,
+    is_orphan_unmatched_postmortem,
     is_unmatched_postmortem,
     is_unobserved_postmortem,
 )
@@ -184,6 +185,7 @@ def test_closed_rounds_unobserved_sell_price_skips_accounting() -> None:
     assert r["accounting"] == ACCOUNTING_SKIPPED
     assert is_unobserved_postmortem(r) is True
     assert is_unmatched_postmortem(r) is True
+    assert is_orphan_unmatched_postmortem(r) is False
 
 
 def test_closed_rounds_unobserved_zero_or_nan_buy_skips() -> None:

@@ -33353,6 +33353,93 @@ def postmortem_unmatched_vs_matched_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def postmortem_skip_reason_sides(
+    n_orphan: int,
+    n_unobserved: int,
+) -> tuple[str, int, int]:
+    """Orphan unmatched vs unobserved sides when skipped already spoke.
+
+    Absolute ``N unmatched · skipped`` hid whether the skip was an orphan
+    SELL (#689) or missing prices (#714) — Yahoo claim-drop dead/stale +
+    xang1234 say-what-each-release-did + portfolio AI count≠share. Returns
+    ``(bit, orphan, unobserved)``. Zero total / both sides zero → silent.
+    All-orphan → ``N unmatched``; all-unobserved → ``N unobserved``; mix →
+    ``N unmatched · M unobserved``. Display only; not a gate.
+    """
+    try:
+        orphan = max(0, int(n_orphan))
+    except (TypeError, ValueError):
+        orphan = 0
+    try:
+        unobserved = max(0, int(n_unobserved))
+    except (TypeError, ValueError):
+        unobserved = 0
+    total = orphan + unobserved
+    if total <= 0:
+        return "", 0, 0
+    if orphan > 0 and unobserved <= 0:
+        return f"{orphan} unmatched", orphan, 0
+    if unobserved > 0 and orphan <= 0:
+        return f"{unobserved} unobserved", 0, unobserved
+    return f"{orphan} unmatched · {unobserved} unobserved", orphan, unobserved
+
+
+def postmortem_skip_reason_lead(
+    n_orphan: int,
+    n_unobserved: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among orphan unmatched vs unobserved skip reasons.
+
+    Absolute sides alone hid which skip reason owns the skipped roster
+    (Yahoo claim-drop reason lead + portfolio AI count≠share). Both sides
+    must be >0 and total ≥2; strict lead → ``lead unmatched|unobserved · N%``;
+    ties / sole-side → silent (use ``postmortem_skip_reason_sample_gap``).
+    Display only; not a gate.
+    """
+    try:
+        orphan = max(0, int(n_orphan))
+    except (TypeError, ValueError):
+        orphan = 0
+    try:
+        unobserved = max(0, int(n_unobserved))
+    except (TypeError, ValueError):
+        unobserved = 0
+    total = orphan + unobserved
+    if total < 2 or orphan <= 0 or unobserved <= 0 or orphan == unobserved:
+        return "", "", None
+    if orphan > unobserved:
+        name, n = "unmatched", orphan
+    else:
+        name, n = "unobserved", unobserved
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def postmortem_skip_reason_sample_gap(
+    n_orphan: int,
+    n_unobserved: int,
+) -> str:
+    """Speak ``unmatched/unobserved tied`` when both sides spoke with no lead.
+
+    Prefixed so the bit stays distinct from ``unmatched/matched tied``.
+    Lead / sole-side / zero stay silent. Display only.
+    """
+    try:
+        orphan = max(0, int(n_orphan))
+    except (TypeError, ValueError):
+        orphan = 0
+    try:
+        unobserved = max(0, int(n_unobserved))
+    except (TypeError, ValueError):
+        unobserved = 0
+    if orphan <= 0 or unobserved <= 0:
+        return ""
+    lead_bit, _name, _share = postmortem_skip_reason_lead(orphan, unobserved)
+    if lead_bit:
+        return ""
+    return "unmatched/unobserved tied"
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -33419,8 +33506,13 @@ def build_postmortem_glance(
     Screener Δ lead parity). When Δ lead already spoke and quieter% > 0, also
     speak ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
     so lead name ≠ magnitude (opportunity / Screener Δ lead size parity).
+    When skipped already spoke, also name orphan vs unobserved sides
+    (``N unmatched · M unobserved``) + lead/tied so absolute ``N unmatched``
+    does not hide missing-price skips as orphan sells — Yahoo claim-drop
+    dead/stale + tradermonty #714 after #689.
     """
     from stock_checker.trade_postmortem import (
+        is_orphan_unmatched_postmortem,
         is_unmatched_postmortem,
         is_unobserved_postmortem,
     )
@@ -33435,11 +33527,18 @@ def build_postmortem_glance(
         "count": 0,
         "matched_count": 0,
         "unmatched_count": 0,
+        "orphan_unmatched_count": 0,
+        "unobserved_count": 0,
         "n_rounds": 0,
         "unmatched_share_pct": None,
         "unmatched_share_severity": "",
         "matched_share_pct": None,
         "matched_share_severity": "",
+        "skip_reason_bit": "",
+        "skip_reason_lead": "",
+        "skip_reason_lead_name": "",
+        "skip_reason_lead_pct": None,
+        "skip_reason_sample_gap": "",
         "vs_matched_lead": "",
         "vs_matched_lead_name": "",
         "vs_matched_lead_pct": None,
@@ -33473,6 +33572,10 @@ def build_postmortem_glance(
         return empty
     n_rounds = len(rows)
     unmatched_count = sum(1 for r in rows if is_unmatched_postmortem(r))
+    orphan_unmatched_count = sum(
+        1 for r in rows if is_orphan_unmatched_postmortem(r)
+    )
+    unobserved_count = sum(1 for r in rows if is_unobserved_postmortem(r))
     matched_count = n_rounds - unmatched_count
     unmatched_share_pct: float | None = None
     unmatched_share_severity = ""
@@ -33635,6 +33738,23 @@ def build_postmortem_glance(
         pnl_pct_f = float(pnl_pct) if pnl_pct is not None else None
     except (TypeError, ValueError):
         pnl_pct_f = None
+    (
+        skip_reason_bit,
+        _skip_orphan,
+        _skip_unobserved,
+    ) = postmortem_skip_reason_sides(
+        orphan_unmatched_count, unobserved_count
+    )
+    (
+        skip_reason_lead,
+        skip_reason_lead_name,
+        skip_reason_lead_pct,
+    ) = postmortem_skip_reason_lead(
+        orphan_unmatched_count, unobserved_count
+    )
+    skip_reason_sample_gap = postmortem_skip_reason_sample_gap(
+        orphan_unmatched_count, unobserved_count
+    )
     if latest_unmatched:
         pnl_pct_f = None
         # tradermonty #714 unobserved prices ≠ orphan unmatched sells.
@@ -33662,16 +33782,33 @@ def build_postmortem_glance(
         bits.append(f"{matched_count} closed")
     elif matched_count == 0 and unmatched_count > 0:
         bits.append("no closed")
-    # Sole unmatched already named on the lead bit; still speak count when
-    # peers exist or the newest row is a matched exit beside orphans.
+    # Sole skip already named on the lead bit; still speak count when peers
+    # exist or the newest row is a matched exit beside skipped rounds.
+    # Prefer orphan vs unobserved sides over bare ``N unmatched``.
     if unmatched_count > 1 or (unmatched_count > 0 and not latest_unmatched):
-        unmatched_bit = f"{unmatched_count} unmatched · skipped"
+        # Latest skip lead already said ``skipped`` — do not double it.
+        skip_tail = "" if latest_unmatched else " · skipped"
+        if skip_reason_bit:
+            unmatched_bit = f"{skip_reason_bit}{skip_tail}"
+        else:
+            unmatched_bit = f"{unmatched_count} unmatched{skip_tail or ' · skipped'}"
+        if skip_reason_lead:
+            unmatched_bit = f"{unmatched_bit} · {skip_reason_lead}"
+        elif skip_reason_sample_gap:
+            # Mixed sides already name both reasons — short ``tied`` fits
+            # the 96-char clip; field keeps ``unmatched/unobserved tied``.
+            gap = (
+                "tied"
+                if orphan_unmatched_count > 0 and unobserved_count > 0
+                else skip_reason_sample_gap
+            )
+            unmatched_bit = f"{unmatched_bit} · {gap}"
         if share_bit:
             unmatched_bit = f"{unmatched_bit} · {share_bit}"
         bits.append(unmatched_bit)
     elif unmatched_count > 0 and share_bit:
-        # Sole unmatched lead — share after skipped/no closed so 1 orphan
-        # still names ownership of the closed-round roster.
+        # Sole skip lead — share after skipped/no closed so 1 orphan /
+        # unobserved still names ownership of the closed-round roster.
         bits.append(share_bit)
     line = " · ".join(bits)
     if len(line) > 96:
@@ -33686,11 +33823,18 @@ def build_postmortem_glance(
         "count": matched_count,
         "matched_count": matched_count,
         "unmatched_count": unmatched_count,
+        "orphan_unmatched_count": orphan_unmatched_count,
+        "unobserved_count": unobserved_count,
         "n_rounds": n_rounds,
         "unmatched_share_pct": unmatched_share_pct,
         "unmatched_share_severity": unmatched_share_severity,
         "matched_share_pct": matched_share_pct,
         "matched_share_severity": matched_share_severity,
+        "skip_reason_bit": skip_reason_bit,
+        "skip_reason_lead": skip_reason_lead,
+        "skip_reason_lead_name": skip_reason_lead_name,
+        "skip_reason_lead_pct": skip_reason_lead_pct,
+        "skip_reason_sample_gap": skip_reason_sample_gap,
         "vs_matched_lead": vs_matched_lead,
         "vs_matched_lead_name": vs_matched_lead_name,
         "vs_matched_lead_pct": vs_matched_lead_pct,

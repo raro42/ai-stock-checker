@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from openbb_backend.desk import (
     build_postmortem_glance,
+    postmortem_skip_reason_lead,
+    postmortem_skip_reason_sample_gap,
+    postmortem_skip_reason_sides,
     postmortem_unmatched_lean_meta,
     postmortem_unmatched_vs_matched_delta,
     postmortem_unmatched_vs_matched_delta_lead,
@@ -154,11 +157,88 @@ def test_postmortem_glance_unobserved_skips_pnl() -> None:
     assert g["ready"] is True
     assert g["tone"] == "warn"
     assert g["unmatched_count"] == 1
+    assert g["orphan_unmatched_count"] == 0
+    assert g["unobserved_count"] == 1
     assert g["matched_count"] == 0
+    assert g["skip_reason_bit"] == "1 unobserved"
     assert "Unobserved · MSFT" in g["line"]
     assert "Unmatched ·" not in g["line"]
     assert "skipped" in g["line"]
     assert g["profit_loss_pct"] is None
+
+
+def test_postmortem_skip_reason_sides_and_lead() -> None:
+    """Orphan vs unobserved sides — do not call missing prices unmatched."""
+    assert postmortem_skip_reason_sides(2, 0) == ("2 unmatched", 2, 0)
+    assert postmortem_skip_reason_sides(0, 2) == ("2 unobserved", 0, 2)
+    assert postmortem_skip_reason_sides(1, 1) == (
+        "1 unmatched · 1 unobserved",
+        1,
+        1,
+    )
+    assert postmortem_skip_reason_lead(2, 1) == (
+        "lead unmatched · 67%",
+        "unmatched",
+        67,
+    )
+    assert postmortem_skip_reason_lead(1, 2) == (
+        "lead unobserved · 67%",
+        "unobserved",
+        67,
+    )
+    assert postmortem_skip_reason_lead(1, 1) == ("", "", None)
+    assert postmortem_skip_reason_sample_gap(1, 1) == "unmatched/unobserved tied"
+    assert postmortem_skip_reason_sample_gap(2, 1) == ""
+
+
+def test_postmortem_glance_two_unobserved_not_unmatched_label() -> None:
+    """All-unobserved peer count speaks unobserved, not unmatched."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "MSFT",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "AMD",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["orphan_unmatched_count"] == 0
+    assert g["unobserved_count"] == 2
+    assert g["skip_reason_bit"] == "2 unobserved"
+    assert "2 unobserved" in g["line"]
+    assert "2 unmatched" not in g["line"]
+
+
+def test_postmortem_glance_orphan_vs_unobserved_tied() -> None:
+    """Mixed skip reasons speak sides + tied ownership."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "MSFT",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["orphan_unmatched_count"] == 1
+    assert g["unobserved_count"] == 1
+    assert g["skip_reason_bit"] == "1 unmatched · 1 unobserved"
+    assert g["skip_reason_sample_gap"] == "unmatched/unobserved tied"
+    assert g["skip_reason_lead"] == ""
+    assert "1 unmatched · 1 unobserved" in g["line"]
+    # Primary clip uses short ``tied`` after sides; field keeps the prefix.
+    assert "tied" in g["line"]
+    assert "hot · 100%" in g["line"]
 
 
 def test_postmortem_glance_matched_beside_unmatched() -> None:
