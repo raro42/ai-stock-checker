@@ -11,7 +11,7 @@ Self-host below if you want your own book on your machine.
 ## 1. Install
 
 - Docker Desktop
-- Optional LLM: [Ollama](https://ollama.com) **or** a free Groq/OpenRouter key ([MODELS.md](MODELS.md))
+- Optional LLM: [Ollama](https://ollama.com) with `gemma4:latest` (house instruct default) **or** a free Groq/OpenRouter key ([MODELS.md](MODELS.md))
 - Optional: free [Finnhub](https://finnhub.io) API key
 
 ## 2. Configure

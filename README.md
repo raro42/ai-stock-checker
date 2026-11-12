@@ -99,7 +99,7 @@ Paper state lives in `./data/` (gitignored). Friends’ short path: [`FRIENDS.md
 | Min hold | **24h** (Ops; floor still ≥4h — we are not day-trading for sport) |
 | Max positions | **5** (Ops; less book = less fee theater) |
 | Regime / RS gates | **on** by default — toggle on Ops if you enjoy buying weakness |
-| AI mode | `off` by default (rules-only). Set `AI_MODE=validate` + Ollama or cloud — see [MODELS.md](MODELS.md) |
+| AI mode | `off` by default (rules-only). Set `AI_MODE=validate` + Ollama (`gemma4:latest` house instruct default; or `qwen3.5:9b`) / cloud — see [MODELS.md](MODELS.md). Never default to coder models for trade decisions. |
 
 ---
 
