@@ -2654,6 +2654,10 @@ def window_a_sample_readiness(
         "closes_weekend_per_day_n": None,
         "closes_weekend_per_day_bit": "",
         "closes_weekend_per_day_fat": False,
+        "closes_weekend_closes_share": "",
+        "closes_weekend_closes_share_pct": None,
+        "closes_weekend_closes_share_bit": "",
+        "closes_weekend_closes_share_hot": False,
         "closes_weekend_vs_per_day": "",
         "closes_weekend_vs_per_day_bit": "",
         "closes_weekend_vs_per_day_clash": False,
@@ -3692,6 +3696,10 @@ def window_a_sample_readiness(
     closes_weekend_per_day_n: float | None = None
     closes_weekend_per_day_bit = ""
     closes_weekend_per_day_fat = False
+    closes_weekend_closes_share = ""
+    closes_weekend_closes_share_pct: float | None = None
+    closes_weekend_closes_share_bit = ""
+    closes_weekend_closes_share_hot = False
     closes_weekend_vs_per_day = ""
     closes_weekend_vs_per_day_bit = ""
     closes_weekend_vs_per_day_clash = False
@@ -4470,6 +4478,52 @@ def window_a_sample_readiness(
                     closes_weekend_per_day_bit = (
                         f"A weekend closes/day ok · {ratio:.1f}×"
                     )
+
+    # Weekend days / session days ≠ weekend closes / stock closes
+    # (xang1234 count≠share + portfolio AI after day-calendar share).
+    # Speak when weekend already spoke and both close counts are known.
+    # hot ≥ HOT · quiet ≤ QUIET; mid % only. hot warns only (still
+    # ready for B). Missing stock_closes / weekend closes → fail-open.
+    if (
+        closes_sell_weekend is not None
+        and closes_sell_weekend > 0
+        and "sell_weekend_closes" in stats
+        and "stock_closes" in stats
+    ):
+        raw_wknd_closes_share = stats.get("sell_weekend_closes")
+        raw_stock_closes = stats.get("stock_closes")
+        try:
+            n_wknd_for_share = int(raw_wknd_closes_share)
+        except (TypeError, ValueError):
+            n_wknd_for_share = -1
+        try:
+            n_stock_closes = int(raw_stock_closes)
+        except (TypeError, ValueError):
+            n_stock_closes = 0
+        if n_wknd_for_share >= 1 and n_stock_closes >= 1:
+            pct_c = round(
+                100.0 * float(n_wknd_for_share) / float(n_stock_closes)
+            )
+            if pct_c > 100:
+                pct_c = 100
+            closes_weekend_closes_share_pct = float(pct_c)
+            hot_need_c = float(WINDOW_A_WEEKEND_SHARE_HOT_PCT)
+            quiet_need_c = float(WINDOW_A_WEEKEND_SHARE_QUIET_PCT)
+            if pct_c >= hot_need_c:
+                closes_weekend_closes_share = "hot"
+                closes_weekend_closes_share_hot = True
+                closes_weekend_closes_share_bit = (
+                    f"A weekend closes share hot · {pct_c}%"
+                )
+            elif pct_c <= quiet_need_c:
+                closes_weekend_closes_share = "quiet"
+                closes_weekend_closes_share_bit = (
+                    f"A weekend closes share quiet · {pct_c}%"
+                )
+            else:
+                closes_weekend_closes_share_bit = (
+                    f"A weekend closes share · {pct_c}%"
+                )
 
     # Weekend ownership ≠ weekend pile-up. When share severity and
     # weekend density both spoke, speak agreement (portfolio AI
@@ -6234,6 +6288,10 @@ def window_a_sample_readiness(
         "closes_weekend_per_day_n": closes_weekend_per_day_n,
         "closes_weekend_per_day_bit": closes_weekend_per_day_bit,
         "closes_weekend_per_day_fat": closes_weekend_per_day_fat,
+        "closes_weekend_closes_share": closes_weekend_closes_share,
+        "closes_weekend_closes_share_pct": closes_weekend_closes_share_pct,
+        "closes_weekend_closes_share_bit": closes_weekend_closes_share_bit,
+        "closes_weekend_closes_share_hot": closes_weekend_closes_share_hot,
         "closes_weekend_vs_per_day": closes_weekend_vs_per_day,
         "closes_weekend_vs_per_day_bit": closes_weekend_vs_per_day_bit,
         "closes_weekend_vs_per_day_clash": closes_weekend_vs_per_day_clash,
@@ -7954,6 +8012,16 @@ def format_window_a_closes_weekend_per_day_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_weekend_per_day_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_weekend_closes_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A weekend÷stock-closes share bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_weekend_closes_share_bit") or "").strip()
     return bit
 
 

@@ -22265,6 +22265,7 @@ _KELLY_QUIET_LABELS: tuple[tuple[str, str], ...] = (
     ("A Kelly vs sessions", "vs sessions"),
     ("A sell sessions", "sessions"),
     ("A sell weekend", "weekend"),
+    ("A weekend closes share", "wknd closes%"),
     ("A weekend closes/day", "wknd/day"),
     ("A weekend share", "wknd%"),
     ("A closes/day", "closes/day"),
@@ -22755,6 +22756,7 @@ def build_promote_ab_glance(
         format_window_a_closes_sell_weekend_share_bit,
         format_window_a_closes_sessions_vs_weekend_bit,
         format_window_a_closes_weekend_per_day_bit,
+        format_window_a_closes_weekend_closes_share_bit,
         format_window_a_closes_weekend_vs_per_day_bit,
         format_window_a_closes_sw_vs_wd_bit,
         format_window_a_closes_kelly_vs_sessions_bit,
@@ -22948,6 +22950,9 @@ def build_promote_ab_glance(
         "closes_weekend_per_day": "",
         "closes_weekend_per_day_n": None,
         "closes_weekend_per_day_fat": False,
+        "closes_weekend_closes_share": "",
+        "closes_weekend_closes_share_pct": None,
+        "closes_weekend_closes_share_hot": False,
         "closes_weekend_vs_per_day": "",
         "closes_weekend_vs_per_day_clash": False,
         "closes_sw_vs_wd": "",
@@ -23179,6 +23184,7 @@ def build_promote_ab_glance(
         "a_closes_sell_weekend_share_bit": "",
         "a_closes_sessions_vs_weekend_bit": "",
         "a_closes_weekend_per_day_bit": "",
+        "a_closes_weekend_closes_share_bit": "",
         "a_closes_weekend_vs_per_day_bit": "",
         "a_closes_sw_vs_wd_bit": "",
         "a_closes_kelly_vs_sessions_bit": "",
@@ -23422,6 +23428,15 @@ def build_promote_ab_glance(
     closes_weekend_per_day_n = sample.get("closes_weekend_per_day_n")
     closes_weekend_per_day_fat = bool(
         sample.get("closes_weekend_per_day_fat")
+    )
+    closes_weekend_closes_share = str(
+        sample.get("closes_weekend_closes_share") or ""
+    )
+    closes_weekend_closes_share_pct = sample.get(
+        "closes_weekend_closes_share_pct"
+    )
+    closes_weekend_closes_share_hot = bool(
+        sample.get("closes_weekend_closes_share_hot")
     )
     closes_weekend_vs_per_day = str(
         sample.get("closes_weekend_vs_per_day") or ""
@@ -24119,6 +24134,11 @@ def build_promote_ab_glance(
         if window == "A"
         else ""
     )
+    a_closes_weekend_closes_share_bit = (
+        format_window_a_closes_weekend_closes_share_bit(sample)
+        if window == "A"
+        else ""
+    )
     a_closes_weekend_vs_per_day_bit = (
         format_window_a_closes_weekend_vs_per_day_bit(sample)
         if window == "A"
@@ -24566,6 +24586,7 @@ def build_promote_ab_glance(
                 a_closes_sell_weekend_share_bit,
                 a_closes_sessions_vs_weekend_bit,
                 a_closes_weekend_per_day_bit,
+                a_closes_weekend_closes_share_bit,
                 a_closes_weekend_vs_per_day_bit,
                 a_closes_sw_vs_wd_bit,
                 a_closes_kelly_vs_sessions_bit,
@@ -24685,6 +24706,7 @@ def build_promote_ab_glance(
             or closes_sell_weekend_share_hot
             or closes_sessions_vs_weekend_clash
             or closes_weekend_per_day_fat
+            or closes_weekend_closes_share_hot
             or closes_weekend_vs_per_day_clash
             or closes_sw_vs_wd_clash
             or closes_kelly_vs_sessions_clash
@@ -24832,6 +24854,7 @@ def build_promote_ab_glance(
                 or a_closes_sell_weekend_share_bit
                 or a_closes_sessions_vs_weekend_bit
                 or a_closes_weekend_per_day_bit
+                or a_closes_weekend_closes_share_bit
                 or a_closes_weekend_vs_per_day_bit
                 or a_closes_sw_vs_wd_bit
                 or a_closes_kelly_vs_sessions_bit
@@ -24969,6 +24992,7 @@ def build_promote_ab_glance(
                 or a_closes_sell_weekend_share_bit
                 or a_closes_sessions_vs_weekend_bit
                 or a_closes_weekend_per_day_bit
+                or a_closes_weekend_closes_share_bit
                 or a_closes_weekend_vs_per_day_bit
                 or a_closes_sw_vs_wd_bit
                 or a_closes_kelly_vs_sessions_bit
@@ -25123,6 +25147,7 @@ def build_promote_ab_glance(
                 if "Kelly" in b
                 or b.startswith("A sell sessions")
                 or b.startswith("A sell weekend")
+                or b.startswith("A weekend closes share")
                 or b.startswith("A weekend share")
                 or b.startswith("A weekend closes/day")
                 or b.startswith("A weekend vs closes/day")
@@ -25230,6 +25255,7 @@ def build_promote_ab_glance(
                 or closes_sell_weekend_share_hot
                 or closes_sessions_vs_weekend_clash
                 or closes_weekend_per_day_fat
+                or closes_weekend_closes_share_hot
                 or closes_weekend_vs_per_day_clash
                 or closes_sw_vs_wd_clash
                 or closes_kelly_vs_sessions_clash
@@ -25611,6 +25637,15 @@ def build_promote_ab_glance(
         ),
         "closes_weekend_per_day_fat": (
             closes_weekend_per_day_fat if window == "A" else False
+        ),
+        "closes_weekend_closes_share": (
+            closes_weekend_closes_share if window == "A" else ""
+        ),
+        "closes_weekend_closes_share_pct": (
+            closes_weekend_closes_share_pct if window == "A" else None
+        ),
+        "closes_weekend_closes_share_hot": (
+            closes_weekend_closes_share_hot if window == "A" else False
         ),
         "closes_weekend_vs_per_day": (
             closes_weekend_vs_per_day if window == "A" else ""
@@ -26312,6 +26347,7 @@ def build_promote_ab_glance(
         "a_closes_sell_weekend_share_bit": a_closes_sell_weekend_share_bit,
         "a_closes_sessions_vs_weekend_bit": a_closes_sessions_vs_weekend_bit,
         "a_closes_weekend_per_day_bit": a_closes_weekend_per_day_bit,
+        "a_closes_weekend_closes_share_bit": a_closes_weekend_closes_share_bit,
         "a_closes_weekend_vs_per_day_bit": a_closes_weekend_vs_per_day_bit,
         "a_closes_sw_vs_wd_bit": a_closes_sw_vs_wd_bit,
         "a_closes_kelly_vs_sessions_bit": a_closes_kelly_vs_sessions_bit,
