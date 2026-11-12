@@ -10,6 +10,7 @@ from openbb_backend.desk import (
     postmortem_skip_reason_sample_gap,
     postmortem_skip_reason_share_bands,
     postmortem_skip_reason_sides,
+    postmortem_skip_vs_unmatched_lean,
     postmortem_unmatched_lean_meta,
     postmortem_unmatched_vs_matched_delta,
     postmortem_unmatched_vs_matched_delta_lead,
@@ -244,6 +245,37 @@ def test_postmortem_skip_reason_sides_and_lead() -> None:
     assert postmortem_skip_reason_lean("", "") == ("", False)
 
 
+def test_postmortem_skip_vs_unmatched_lean_bridge() -> None:
+    """Outer bridge when skip lean and unmatched lean both spoke."""
+    assert postmortem_skip_vs_unmatched_lean("", "unmatched vs matched clash · x") == (
+        "",
+        False,
+    )
+    assert postmortem_skip_vs_unmatched_lean(
+        "unmatched vs unobserved align · hot|quiet",
+        "",
+    ) == ("", False)
+    assert postmortem_skip_vs_unmatched_lean(
+        "unmatched vs unobserved align · hot|quiet",
+        "unmatched vs matched align · hot|thin",
+    ) == ("skip↔ vs um/m align · both align", False)
+    assert postmortem_skip_vs_unmatched_lean(
+        "unmatched vs unobserved clash · unmatched hot · unobserved hot",
+        "unmatched vs matched clash · unmatched hot · matched ok",
+    ) == ("skip↔ vs um/m align · both clash", True)
+    assert postmortem_skip_vs_unmatched_lean(
+        "unmatched vs unobserved clash · unmatched hot · unobserved ok",
+        "unmatched vs matched align · hot|thin",
+    ) == ("clash · skip↔ vs um/m · skip clash · um/m align", True)
+    assert postmortem_skip_vs_unmatched_lean(
+        "unmatched vs unobserved align · hot|quiet",
+        "unmatched vs matched clash · unmatched hot · matched ok",
+    ) == ("clash · skip↔ vs um/m · skip align · um/m clash", True)
+    assert "skip↔" in postmortem_unmatched_lean_meta(
+        "skip↔ vs um/m align · both clash", warn=True
+    )
+
+
 def test_postmortem_glance_two_unobserved_not_unmatched_label() -> None:
     """All-unobserved peer count speaks unobserved, not unmatched."""
     g = build_postmortem_glance(
@@ -346,7 +378,9 @@ def test_postmortem_glance_orphan_vs_unobserved_lead_size() -> None:
     )
     assert g["skip_reason_lean_warn"] is True
     assert "unmatched vs unobserved clash" in g["lean"]
-    assert "skip clash" in g["lean_meta"] or "clash" in g["lean_meta"]
+    # Outer skip↔ (vs 0 matched) fronts the meta; skip clash may sit in +N.
+    assert "skip↔" in g["lean_meta"] or "skip clash" in g["lean_meta"]
+    assert g["lean_warn"] is True
 
 
 def test_postmortem_glance_orphan_vs_unobserved_severity_align() -> None:
@@ -388,6 +422,64 @@ def test_postmortem_glance_orphan_vs_unobserved_severity_align() -> None:
     assert "unmatched vs unobserved align · hot|quiet" in g["lean"]
     # Align is calm — fold may still warn from thin matched remainder.
     assert "skip align" in g["lean_meta"] or "align" in g["lean_meta"]
+    # All-skip roster still speaks vs 0 matched · thin → both-align bridge.
+    assert g["vs_matched_lean"] == (
+        "unmatched vs matched align · hot|thin"
+    )
+    assert g["skip_vs_unmatched_lean"] == (
+        "skip↔ vs um/m align · both align"
+    )
+    assert g["skip_vs_unmatched_lean_warn"] is False
+    assert "skip↔ vs um/m align · both align" in g["lean"]
+    assert "skip↔" in g["lean_meta"]
+
+
+def test_postmortem_glance_skip_vs_unmatched_bridge() -> None:
+    """Skip lean beside unmatched lean speaks outer-bridge mood under fold."""
+    g = build_postmortem_glance(
+        [
+            {
+                "symbol": "AAPL",
+                "exit_reason": "tp",
+                "held": "1d",
+                "profit_loss_pct": 8.0,
+            },
+            {
+                "symbol": "MSFT",
+                "exit_reason": "unobserved",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "TSLA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+            {
+                "symbol": "NVDA",
+                "exit_reason": "unmatched",
+                "accounting": "skipped",
+            },
+        ]
+    )
+    assert g["orphan_unmatched_count"] == 2
+    assert g["unobserved_count"] == 1
+    assert g["matched_count"] == 1
+    assert g["unmatched_count"] == 3
+    # 2/3 skip → hot vs mid unobserved; 75% unmatched hot · 25% matched thin.
+    assert g["skip_reason_lean"] == (
+        "unmatched vs unobserved clash · unmatched hot · unobserved ok"
+    )
+    assert g["vs_matched_lean"] == (
+        "unmatched vs matched align · hot|thin"
+    )
+    assert g["skip_vs_unmatched_lean"] == (
+        "clash · skip↔ vs um/m · skip clash · um/m align"
+    )
+    assert g["skip_vs_unmatched_lean_warn"] is True
+    assert "skip↔ vs um/m" in g["lean"]
+    assert "skip↔" in g["lean_meta"]
+    # Primary clip keeps sides/share; bridge stays under lean.
+    assert "skip↔" not in g["line"]
 
 
 def test_postmortem_glance_matched_beside_unmatched() -> None:

@@ -33098,6 +33098,9 @@ _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = 
     (re.compile(r"^skip size\b"), "skip size"),
     (re.compile(r"^unmatched vs unobserved align\b"), "skip align"),
     (re.compile(r"^unmatched vs unobserved clash\b"), "skip clash"),
+    # Outer bridge after skip lean + unmatched vs matched lean.
+    (re.compile(r"^skip↔ vs um/m align\b"), "skip↔"),
+    (re.compile(r"^clash · skip↔ vs um/m\b"), "skip↔"),
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
     (re.compile(r"^lead unmatched\b"), "unmatched"),
@@ -33560,6 +33563,46 @@ def postmortem_skip_reason_lean(
     return "", False
 
 
+def _postmortem_lean_bit_adverse(bit: str) -> bool:
+    """Warn mood on a postmortem severity-lean bit (``… clash · …``)."""
+    low = str(bit or "").strip().casefold()
+    if not low:
+        return False
+    return "clash ·" in low or low.startswith("clash ·")
+
+
+def postmortem_skip_vs_unmatched_lean(
+    skip_reason_lean: str,
+    vs_matched_lean: str,
+) -> tuple[str, bool]:
+    """Mood agreement of skip-reason lean vs unmatched/matched lean (display only).
+
+    Absolute ``unmatched vs unobserved align|clash`` beside
+    ``unmatched vs matched align|clash`` hid whether orphan/unobserved
+    severity and skipped-vs-matched severity *agree* — FinRobot edge/conf +
+    portfolio AI speak-both-sides + xang1234 multi-meter + Yahoo claim
+    hung↔ vs dk/lf / improve-tick peers↔ vs fpm after skip-reason severity
+    lean + unmatched vs matched lean hid outer bridge. Both confirm →
+    ``skip↔ vs um/m align · both align`` (confirm). Both warn →
+    ``… · both clash`` (warn — dual-clash ≠ quiet confirm). Mixed →
+    ``clash · skip↔ vs um/m · skip clash|align · um/m …`` (warn). Sole side
+    silent. Lives under the postmortem lean fold. Not a new entry gate.
+    """
+    skip = str(skip_reason_lean or "").strip()
+    um = str(vs_matched_lean or "").strip()
+    if not skip or not um:
+        return "", False
+    skip_adverse = _postmortem_lean_bit_adverse(skip)
+    um_adverse = _postmortem_lean_bit_adverse(um)
+    if skip_adverse == um_adverse:
+        if skip_adverse:
+            return "skip↔ vs um/m align · both clash", True
+        return "skip↔ vs um/m align · both align", False
+    if skip_adverse:
+        return "clash · skip↔ vs um/m · skip clash · um/m align", True
+    return "clash · skip↔ vs um/m · skip align · um/m clash", True
+
+
 def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     """Summary chip for unmatched postmortem lean fold (display only).
 
@@ -33572,12 +33615,15 @@ def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
     text = str(lean or "").strip()
     if not text:
         return "quiet"
+    # Outer skip↔ bridge first so +K after size/Δ nests does not hide it
+    # (Yahoo hung↔ vs dk/lf / improve-tick peers↔ inventory parity).
     if warn:
         stage_tail = _quiet_inventory_chip(
             text,
             _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES,
             cap=_POSTMORTEM_UNMATCHED_LEAN_NAME_CAP,
             quiet=False,
+            front_if="skip↔",
         )
         if stage_tail:
             return f"warn · {stage_tail}"
@@ -33586,6 +33632,7 @@ def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
         text,
         _POSTMORTEM_UNMATCHED_LEAN_STAGE_RES,
         cap=_POSTMORTEM_UNMATCHED_LEAN_NAME_CAP,
+        front_if="skip↔",
     )
 
 
@@ -33632,10 +33679,14 @@ def build_postmortem_glance(
     dead/stale + tradermonty #714 after #689. When skip-reason lead already
     spoke and quieter count >0, also speak ``skip size · N×`` +
     ``skip size sides · louder N · quieter M`` under lean so lead name/% ≠
-    magnitude (unmatched vs matched lead size parity). When both skip-share
+    magnitude (unmatched vs matched lead size parity).     When both skip-share
     severity bands already spoke, also speak
     ``unmatched vs unobserved align · hot|quiet`` / clash so sides/lead/size
     alone do not hide severity agreement (unmatched vs matched lean parity).
+    When skip-reason lean and unmatched vs matched lean both spoke, also speak
+    outer-bridge mood ``skip↔ vs um/m align · both align|clash`` / clash mixed
+    so absolute skip severity beside unmatched/matched does not hide meter
+    agreement (Yahoo hung↔ vs dk/lf + improve-tick peers↔ vs fpm parity).
     """
     from stock_checker.trade_postmortem import (
         is_orphan_unmatched_postmortem,
@@ -33674,6 +33725,8 @@ def build_postmortem_glance(
         "skip_reason_unobserved_share_severity": "",
         "skip_reason_lean": "",
         "skip_reason_lean_warn": False,
+        "skip_vs_unmatched_lean": "",
+        "skip_vs_unmatched_lean_warn": False,
         "vs_matched_lead": "",
         "vs_matched_lead_name": "",
         "vs_matched_lead_pct": None,
@@ -33774,6 +33827,8 @@ def build_postmortem_glance(
     vs_matched_delta_lead_size: float | None = None
     vs_matched_delta_lead_size_louder_pct: float | None = None
     vs_matched_delta_lead_size_quieter_pct: float | None = None
+    skip_vs_unmatched_lean = ""
+    skip_vs_unmatched_lean_warn = False
     if unmatched_count > 0 and n_rounds > 0:
         unmatched_share_pct = round(100.0 * unmatched_count / n_rounds)
         if unmatched_share_pct >= POSTMORTEM_UNMATCHED_SHARE_HOT:
@@ -33916,6 +33971,16 @@ def build_postmortem_glance(
             lean_parts.append(skip_reason_lean)
             if skip_reason_lean_warn:
                 lean_warn = True
+        (
+            skip_vs_unmatched_lean,
+            skip_vs_unmatched_lean_warn,
+        ) = postmortem_skip_vs_unmatched_lean(
+            skip_reason_lean, vs_matched_lean
+        )
+        if skip_vs_unmatched_lean:
+            lean_parts.append(skip_vs_unmatched_lean)
+            if skip_vs_unmatched_lean_warn:
+                lean_warn = True
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
@@ -34019,6 +34084,8 @@ def build_postmortem_glance(
         ),
         "skip_reason_lean": skip_reason_lean,
         "skip_reason_lean_warn": skip_reason_lean_warn,
+        "skip_vs_unmatched_lean": skip_vs_unmatched_lean,
+        "skip_vs_unmatched_lean_warn": skip_vs_unmatched_lean_warn,
         "vs_matched_lead": vs_matched_lead,
         "vs_matched_lead_name": vs_matched_lead_name,
         "vs_matched_lead_pct": vs_matched_lead_pct,
