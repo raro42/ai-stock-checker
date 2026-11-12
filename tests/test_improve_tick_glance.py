@@ -24,6 +24,7 @@ from openbb_backend.desk import (
     improve_tick_stuck_band_bits,
     improve_tick_stuck_bits,
     improve_tick_stuck_peers_bits,
+    improve_tick_stuck_peers_vs_fpm_bits,
     improve_tick_stuck_vs_scan_bits,
     improve_tick_vs_scan_fresher_bits,
     improve_tick_vs_scan_fresher_gap_sides_bits,
@@ -337,6 +338,57 @@ def test_improve_tick_stuck_peers_bits() -> None:
             stuck=True,
         )
         == "warn · hung · not thin · stuck peers"
+    )
+
+
+def test_improve_tick_stuck_peers_vs_fpm_bits() -> None:
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "", "fresher polarity vs scan-meter align"
+    ) == ("", False)
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "stuck peers align · both align", ""
+    ) == ("", False)
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "stuck peers align · both align",
+        "fresher polarity vs scan-meter align",
+    ) == ("peers↔ vs fpm align · both align", False)
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "stuck peers align · both clash",
+        "clash · fresher polarity clash · scan-meter align",
+    ) == ("peers↔ vs fpm align · both clash", True)
+    # Dual-adverse confirm (align · clash) is not warn — outer bridge stays calm.
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "stuck peers align · both align",
+        "fresher polarity vs scan-meter align · clash",
+    ) == ("peers↔ vs fpm align · both align", False)
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "clash · stuck peers · stuck-scan align · fresher↔stuck clash",
+        "fresher polarity vs scan-meter align",
+    ) == ("clash · peers↔ vs fpm · peers clash · fpm align", True)
+    assert improve_tick_stuck_peers_vs_fpm_bits(
+        "stuck peers align · both align",
+        "clash · scan-meter · fresher polarity align",
+    ) == ("clash · peers↔ vs fpm · peers align · fpm clash", True)
+    assert (
+        improve_tick_lean_meta("peers↔ vs fpm align · both align")
+        == "confirm · not thin · peers↔ vs fpm"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "clash · peers↔ vs fpm · peers clash · fpm align",
+            warn=True,
+            stuck=True,
+        )
+        == "warn · hung · not thin · peers↔ vs fpm"
+    )
+    assert (
+        improve_tick_lean_meta(
+            "stuck peers align · both align · "
+            "fresher polarity vs scan-meter align · "
+            "peers↔ vs fpm align · both align"
+        )
+        == "confirm · not thin · peers↔ vs fpm · stuck peers · "
+        "fresher polarity vs scan-meter"
     )
 
 
@@ -659,10 +711,24 @@ def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
     assert "stuck peers align · both align" in g["lean"]
     assert "stuck peers" in g["lean_meta"]
     assert "fresher vs stuck" in g["lean_meta"]
+    # Outer bridge when fresher polarity/scan-meter also spoke.
+    if "fresher polarity vs scan-meter" in g["lean"]:
+        assert "peers↔ vs fpm align · both align" in g["lean"]
+        assert "peers↔ vs fpm" in g["lean_meta"]
     # Cap-4 meta may push stuck vs scan into +N; body still lists it.
-    assert "stuck vs scan" in g["lean_meta"] or "+4" in g["lean_meta"] or "+5" in g["lean_meta"]
+    assert (
+        "stuck vs scan" in g["lean_meta"]
+        or "+4" in g["lean_meta"]
+        or "+5" in g["lean_meta"]
+        or "+6" in g["lean_meta"]
+    )
     # Cap-4 meta +N still covers stuck band / fresher / gap sides in body.
-    assert "+4" in g["lean_meta"] or "+5" in g["lean_meta"] or "stuck band" in g["lean_meta"]
+    assert (
+        "+4" in g["lean_meta"]
+        or "+5" in g["lean_meta"]
+        or "+6" in g["lean_meta"]
+        or "stuck band" in g["lean_meta"]
+    )
     # Warn (fresher polarity) wins over confirm · hung · not thin;
     # sole/few thin absent.
     assert "no result" not in g["lean_meta"]
@@ -673,6 +739,7 @@ def test_improve_tick_glance_stuck_vs_scan_lean(tmp_path: Path) -> None:
     assert "stuck" in g["line"]
     assert "stuck vs scan" not in g["line"]
     assert "stuck peers" not in g["line"]
+    assert "peers↔" not in g["line"]
     assert "stuck band" not in g["line"]
     assert "fresher vs stuck" not in g["line"]
     assert g["lean_open"] is True
@@ -704,6 +771,12 @@ def test_improve_tick_glance_fresher_vs_stuck_clash(tmp_path: Path) -> None:
         "clash · stuck peers · stuck-scan align · fresher↔stuck clash"
         in g["lean"]
     )
+    # Outer bridge when fresher polarity/scan-meter also warned.
+    if "fresher polarity vs scan-meter" in g["lean"] or "scan-meter" in g[
+        "lean"
+    ]:
+        assert "peers↔ vs fpm" in g["lean"]
+        assert "peers↔ vs fpm" in g["lean_meta"]
     assert "stuck peers" in g["lean_meta"]
     assert "fresher vs stuck" in g["lean_meta"]
     assert g["lean_warn"] is True
@@ -711,6 +784,7 @@ def test_improve_tick_glance_fresher_vs_stuck_clash(tmp_path: Path) -> None:
     assert g["lean_meta"].startswith("warn · hung ·")
     assert "fresher vs stuck" not in g["line"]
     assert "stuck peers" not in g["line"]
+    assert "peers↔" not in g["line"]
 
 
 def test_improve_tick_glance_stuck_band_stale(tmp_path: Path) -> None:
@@ -1081,16 +1155,26 @@ def test_improve_tick_glance_fresher_vs_source_align(tmp_path: Path) -> None:
     assert "gap sides · improve stale · scan fresh" in g["lean"]
     # fresher scan still warns (ahead scan ≠ live improve); source/stuck align stay calm.
     # Warn leads; hung stuck + not thin (meter honesty under warn · hung).
-    # Stuck peers invents first when hung peers both spoke.
+    # Stuck peers + fpm both spoke → outer bridge invents first.
     assert g["lean_warn"] is True
     assert "stuck peers align · both align" in g["lean"]
-    assert g["lean_meta"].startswith("warn · hung · not thin · stuck peers")
-    assert "fresher polarity vs scan-meter" in g["lean_meta"]
-    assert "stuck vs scan" in g["lean_meta"] or "+4" in g["lean_meta"] or "+5" in g["lean_meta"]
+    assert "peers↔ vs fpm align · both align" in g["lean"]
+    assert g["lean_meta"].startswith("warn · hung · not thin · peers↔ vs fpm")
+    assert "stuck peers" in g["lean_meta"]
+    assert "fresher polarity vs scan-meter" in g["lean_meta"] or "+4" in g[
+        "lean_meta"
+    ] or "+5" in g["lean_meta"] or "+6" in g["lean_meta"]
+    assert (
+        "stuck vs scan" in g["lean_meta"]
+        or "+4" in g["lean_meta"]
+        or "+5" in g["lean_meta"]
+        or "+6" in g["lean_meta"]
+    )
     assert "fresher vs source" not in g["line"]
     assert "scan-meter" not in g["line"]
     assert "stuck vs scan" not in g["line"]
     assert "stuck peers" not in g["line"]
+    assert "peers↔" not in g["line"]
     assert "log mtime" in g["line"]
     assert "stuck" in g["line"]
 

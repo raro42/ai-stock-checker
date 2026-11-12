@@ -32140,6 +32140,46 @@ def improve_tick_stuck_peers_bits(
     return "clash · stuck peers · stuck-scan align · fresher↔stuck clash", True
 
 
+def _improve_tick_meta_adverse(bit: str) -> bool:
+    """Warn mood on an improve lean meta-bit (clash· prefix or both clash)."""
+    low = str(bit or "").strip().casefold()
+    if not low:
+        return False
+    return low.startswith("clash ·") or "both clash" in low
+
+
+def improve_tick_stuck_peers_vs_fpm_bits(
+    stuck_peers_bit: str,
+    fresher_polarity_vs_scan_meter_bit: str,
+) -> tuple[str, bool]:
+    """Mood agreement of stuck-peers vs fresher-polarity/scan-meter (display only).
+
+    Absolute ``stuck peers align|clash`` beside ``fresher polarity vs
+    scan-meter align|clash`` hid whether the hung peer-meta and the
+    fresher-polarity/scan-meter outer lean *agree* — FinRobot edge/conf +
+    portfolio AI speak-both-sides + xang1234 multi-meter + Yahoo claim
+    hung↔ vs dk/lf after stuck peers + fresher polarity vs scan-meter hid
+    outer bridge agreement. Both confirm → ``peers↔ vs fpm align · both
+    align`` (confirm). Both warn → ``… · both clash`` (warn — dual-clash ≠
+    quiet confirm). Mixed → ``clash · peers↔ vs fpm · peers clash|align ·
+    fpm …`` (warn). Sole side silent. Lives under improve lean fold. Not a
+    gate.
+    """
+    peers = str(stuck_peers_bit or "").strip()
+    fpm = str(fresher_polarity_vs_scan_meter_bit or "").strip()
+    if not peers or not fpm:
+        return "", False
+    peers_adverse = _improve_tick_meta_adverse(peers)
+    fpm_adverse = _improve_tick_meta_adverse(fpm)
+    if peers_adverse == fpm_adverse:
+        if peers_adverse:
+            return "peers↔ vs fpm align · both clash", True
+        return "peers↔ vs fpm align · both align", False
+    if peers_adverse:
+        return "clash · peers↔ vs fpm · peers clash · fpm align", True
+    return "clash · peers↔ vs fpm · peers align · fpm clash", True
+
+
 def improve_tick_fresher_polarity_vs_scan_meter_bits(
     scan_meter_bit: str,
     fresher_polarity_bit: str,
@@ -32211,11 +32251,12 @@ def improve_tick_lean_meta(
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
-    source vs scan, stuck vs scan, stuck peers, stuck band, fresher/gap,
-    gap sides, fresher vs status/age, fresher vs source, fresher vs stuck,
-    and fresher polarity vs scan-meter all live under the same fold. Cap
-    clips names but appends ``+N`` so the summary still labels by every
-    stage the body lists (xang1234 #745 pending-fold count honesty). Hung
+    source vs scan, stuck vs scan, stuck peers, peers↔ vs fpm, stuck band,
+    fresher/gap, gap sides, fresher vs status/age, fresher vs source,
+    fresher vs stuck, and fresher polarity vs scan-meter all live under the
+    same fold. Cap clips names but appends ``+N`` so the summary still
+    labels by every stage the body lists (xang1234 #745 pending-fold count
+    honesty). Hung
     explain-only folds that start open must not read ``quiet`` — that
     suggests nothing to inspect while the accordion is deliberately open
     (xang1234 #746 / 28be212 say no closed windows instead of ``0 pending``
@@ -32265,6 +32306,8 @@ def improve_tick_lean_meta(
         return "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
+    if "peers↔ vs fpm" in lean_l:
+        stages.append("peers↔ vs fpm")
     if "stuck peers" in lean_l:
         stages.append("stuck peers")
     if "fresher polarity vs scan-meter" in lean_l or (
@@ -32615,6 +32658,12 @@ def build_improve_tick_glance(
     if fpm_lean:
         lean_parts.append(fpm_lean)
         lean_warn = lean_warn or fpm_warn
+    peers_fpm_lean, peers_fpm_warn = improve_tick_stuck_peers_vs_fpm_bits(
+        stuck_peers_lean, fpm_lean
+    )
+    if peers_fpm_lean:
+        lean_parts.append(peers_fpm_lean)
+        lean_warn = lean_warn or peers_fpm_warn
     lean = " · ".join(lean_parts)
     stuck = bool(stuck_bit)
     lean_meta = improve_tick_lean_meta(
