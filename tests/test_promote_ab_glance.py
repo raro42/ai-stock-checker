@@ -6432,6 +6432,176 @@ def test_window_a_weekend_closes_per_day() -> None:
     assert g["b_ready"] is True
 
 
+def test_window_a_weekend_vs_per_day_lean() -> None:
+    """Weekend share beside weekend density alone ≠ meter agreement."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_weekend_vs_per_day_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    # Absolute weekend speaks; share+density lean stays silent without
+    # sessions n (share) and closes n (density).
+    assert sole["closes_sell_weekend"] == 2
+    assert sole["closes_sell_weekend_share"] == ""
+    assert sole["closes_weekend_per_day"] == ""
+    assert sole["closes_weekend_vs_per_day"] == ""
+    assert sole["closes_weekend_vs_per_day_bit"] == ""
+    assert sole["closes_weekend_vs_per_day_clash"] is False
+    assert format_window_a_closes_weekend_vs_per_day_bit(sole) == ""
+    assert format_window_a_closes_weekend_vs_per_day_bit(None) == ""
+
+    align_adverse = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+            "sell_weekend_closes": 4,
+        }
+    )
+    assert align_adverse["closes_sell_weekend_share"] == "hot"
+    assert align_adverse["closes_weekend_per_day"] == "fat"
+    assert align_adverse["closes_weekend_vs_per_day"] == "align"
+    assert align_adverse["closes_weekend_vs_per_day_clash"] is False
+    assert align_adverse["closes_weekend_vs_per_day_bit"] == (
+        "A weekend vs closes/day align · hot · fat"
+    )
+    assert format_window_a_closes_weekend_vs_per_day_bit(align_adverse) == (
+        align_adverse["closes_weekend_vs_per_day_bit"]
+    )
+
+    align_ok = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 8,
+            "sell_weekend_sessions": 1,
+            "sell_weekend_closes": 1,
+        }
+    )
+    assert align_ok["closes_sell_weekend_share"] == "quiet"
+    assert align_ok["closes_weekend_per_day"] == "ok"
+    assert align_ok["closes_weekend_vs_per_day"] == "align"
+    assert align_ok["closes_weekend_vs_per_day_clash"] is False
+    assert align_ok["closes_weekend_vs_per_day_bit"] == (
+        "A weekend vs closes/day align · ok"
+    )
+
+    clash_hot_ok = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+            "sell_weekend_closes": 2,
+        }
+    )
+    assert clash_hot_ok["closes_sell_weekend_share"] == "hot"
+    assert clash_hot_ok["closes_weekend_per_day"] == "ok"
+    assert clash_hot_ok["closes_weekend_vs_per_day"] == "clash"
+    assert clash_hot_ok["closes_weekend_vs_per_day_clash"] is True
+    assert clash_hot_ok["closes_weekend_vs_per_day_bit"] == (
+        "A weekend vs closes/day clash · hot · ok"
+    )
+
+    clash_quiet_fat = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 8,
+            "sell_weekend_sessions": 1,
+            "sell_weekend_closes": 3,
+        }
+    )
+    assert clash_quiet_fat["closes_sell_weekend_share"] == "quiet"
+    assert clash_quiet_fat["closes_weekend_per_day"] == "fat"
+    assert clash_quiet_fat["closes_weekend_vs_per_day"] == "clash"
+    assert clash_quiet_fat["closes_weekend_vs_per_day_clash"] is True
+    assert clash_quiet_fat["closes_weekend_vs_per_day_bit"] == (
+        "A weekend vs closes/day clash · quiet · fat"
+    )
+
+    # Mid share (40%) keeps lean silent even when density spoke.
+    mid_silent = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 5,
+            "sell_weekend_sessions": 2,
+            "sell_weekend_closes": 4,
+        }
+    )
+    assert mid_silent["closes_sell_weekend_share"] == ""
+    assert mid_silent["closes_weekend_per_day"] == "fat"
+    assert mid_silent["closes_weekend_vs_per_day"] == ""
+
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+            "sell_weekend_closes": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_weekend_vs_per_day"] == "clash"
+    assert g["closes_weekend_vs_per_day_clash"] is True
+    assert "A weekend vs closes/day clash · hot · ok" in g["kelly_line"]
+    assert "A weekend vs closes/day" not in g["honesty_core"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_window_a_kelly_vs_sessions_lean() -> None:
     """Kelly N closes ≠ calendar spread. Speak meter agreement when both spoke."""
     from stock_checker.promote_ab import (

@@ -140,6 +140,9 @@ WINDOW_A_CLOSES_PER_DAY_FAT = 2.0
 # (xang1234 count≠calendar + portfolio AI after ``A sell weekend``).
 # Weekend days alone ≠ how piled closes are on Sat/Sun. Same fat
 # floor as closes/day. Missing closes n / zero weekend → fail-open.
+# When weekend-share severity and weekend density both spoke, also
+# speak meter agreement ``A weekend vs closes/day …`` (clash warns
+# only; mid share / sole side silent; still ready for B).
 # Not a live halt.
 # Ending run of losing closes (portfolio AI + tradermonty postmortem).
 # Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
@@ -2646,6 +2649,9 @@ def window_a_sample_readiness(
         "closes_weekend_per_day_n": None,
         "closes_weekend_per_day_bit": "",
         "closes_weekend_per_day_fat": False,
+        "closes_weekend_vs_per_day": "",
+        "closes_weekend_vs_per_day_bit": "",
+        "closes_weekend_vs_per_day_clash": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3678,6 +3684,9 @@ def window_a_sample_readiness(
     closes_weekend_per_day_n: float | None = None
     closes_weekend_per_day_bit = ""
     closes_weekend_per_day_fat = False
+    closes_weekend_vs_per_day = ""
+    closes_weekend_vs_per_day_bit = ""
+    closes_weekend_vs_per_day_clash = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4450,6 +4459,31 @@ def window_a_sample_readiness(
                     closes_weekend_per_day_bit = (
                         f"A weekend closes/day ok · {ratio:.1f}×"
                     )
+
+    # Weekend ownership ≠ weekend pile-up. When share severity and
+    # weekend density both spoke, speak agreement (portfolio AI
+    # speak-both-sides + xang1234 after absolute share + density).
+    # Clash warns only (still ready for B). Mid share / sole side silent.
+    if closes_sell_weekend_share and closes_weekend_per_day:
+        share_adverse = closes_sell_weekend_share == "hot"
+        dens_adverse = closes_weekend_per_day == "fat"
+        if share_adverse == dens_adverse:
+            closes_weekend_vs_per_day = "align"
+            if share_adverse:
+                closes_weekend_vs_per_day_bit = (
+                    "A weekend vs closes/day align · hot · fat"
+                )
+            else:
+                closes_weekend_vs_per_day_bit = (
+                    "A weekend vs closes/day align · ok"
+                )
+        else:
+            closes_weekend_vs_per_day = "clash"
+            closes_weekend_vs_per_day_clash = True
+            closes_weekend_vs_per_day_bit = (
+                "A weekend vs closes/day clash · "
+                f"{closes_sell_weekend_share} · {closes_weekend_per_day}"
+            )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
     # agreement (portfolio AI + xang1234 after absolute sides). Clash
@@ -6157,6 +6191,9 @@ def window_a_sample_readiness(
         "closes_weekend_per_day_n": closes_weekend_per_day_n,
         "closes_weekend_per_day_bit": closes_weekend_per_day_bit,
         "closes_weekend_per_day_fat": closes_weekend_per_day_fat,
+        "closes_weekend_vs_per_day": closes_weekend_vs_per_day,
+        "closes_weekend_vs_per_day_bit": closes_weekend_vs_per_day_bit,
+        "closes_weekend_vs_per_day_clash": closes_weekend_vs_per_day_clash,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -7871,6 +7908,16 @@ def format_window_a_closes_weekend_per_day_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_weekend_per_day_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_weekend_vs_per_day_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A weekend-share vs weekend density lean (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_weekend_vs_per_day_bit") or "").strip()
     return bit
 
 
