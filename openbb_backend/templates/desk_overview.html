@@ -8,7 +8,7 @@
 {% if snap.leaderboard and snap.leaderboard|length > 1 %}
 <section class="leaderboard" aria-labelledby="lb-h">
   <h2 id="lb-h">Leaderboard</h2>
-  <p class="leaderboard-note">Cost-basis equity · fees shown · shared scan is not a fill</p>
+  <p class="leaderboard-note">Cost-basis equity · fees shown · missing ledger ≠ €0 loser · shared scan is not a fill</p>
   <table>
     <thead>
       <tr>
@@ -22,17 +22,21 @@
     </thead>
     <tbody>
       {% for row in snap.leaderboard %}
-      <tr {% if row.account_id == snap.account_id %}class="is-active"{% endif %}>
+      <tr class="{% if row.account_id == snap.account_id %}is-active{% endif %}{% if row.missing %} is-missing{% endif %}">
         <td>
           <a href="/desk{% if row.account_id %}?account={{ row.account_id }}{% endif %}">
-            {{ row.account_id or "legacy" }}
+            {{ row.account_id or "legacy" }}{% if row.missing %} · missing{% endif %}
           </a>
         </td>
+        {% if row.missing %}
+        <td colspan="5">missing ledger — not a reset book</td>
+        {% else %}
         <td>€{{ "{:,.2f}".format(row.equity_cost) }}</td>
         <td>€{{ "{:,.2f}".format(row.cash) }}</td>
         <td>€{{ "{:,.2f}".format(row.fees) }}</td>
         <td>{{ row.open_positions }}</td>
         <td>{{ row.last_trade_age or "—" }}</td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>

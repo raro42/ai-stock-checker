@@ -24,9 +24,13 @@ def main() -> None:
     print(f"{'#':>2}  {'account':<16}  {'equity':>12}  {'cash':>12}  {'fees':>10}  {'pos':>3}  last trade")
     for i, row in enumerate(rows, 1):
         aid = row.get("account_id") or "legacy"
-        if row.get("missing") and not row.get("account_id"):
-            # Root without portfolio yet — still list for honesty.
-            pass
+        if row.get("missing"):
+            print(
+                f"{i:>2}  {aid:<16}  "
+                f"{'missing':>12}  {'—':>12}  {'—':>10}  {'—':>3}  "
+                f"missing ledger"
+            )
+            continue
         print(
             f"{i:>2}  {aid:<16}  "
             f"€{float(row.get('equity_cost') or 0):>10,.2f}  "

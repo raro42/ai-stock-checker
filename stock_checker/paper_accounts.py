@@ -191,22 +191,23 @@ def ledger_summary(
         except (TypeError, ValueError):
             px = 0.0
         cost += q * px
-    equity_cost = cash + cost
     last_trade = _last_trade_at(ledger / "trades.jsonl")
-    missing = not (ledger / "portfolio.json").exists()
+    # Named dir without portfolio.json is not a €0 reset — keep numbers at 0
+    # but flag missing so leaderboard/CLI do not rank empty shells as losers.
+    missing = bool(aid) and not (ledger / "portfolio.json").exists()
     return {
         "account_id": aid,
-        "label": account_label(aid),
+        "label": account_label(aid, missing=missing),
         "path": str(ledger),
         "missing": missing,
-        "cash": cash,
-        "fees": fees,
-        "initial": initial,
-        "equity_cost": equity_cost,
-        "open_positions": open_n,
-        "last_trade_at": last_trade,
-        "last_trade_age": _age_label(last_trade, now=now),
-        "price_coverage": "cost",
+        "cash": 0.0 if missing else cash,
+        "fees": 0.0 if missing else fees,
+        "initial": 0.0 if missing else initial,
+        "equity_cost": 0.0 if missing else cash + cost,
+        "open_positions": 0 if missing else open_n,
+        "last_trade_at": "" if missing else last_trade,
+        "last_trade_age": "" if missing else _age_label(last_trade, now=now),
+        "price_coverage": "missing" if missing else "cost",
     }
 
 
@@ -215,11 +216,19 @@ def build_leaderboard(
     *,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    """Legacy root + named accounts, sorted by cost-basis equity desc."""
+    """Legacy root + named accounts, sorted by cost-basis equity desc.
+
+    Missing ledgers sort last so empty dirs do not look like race losers.
+    """
     rows = [ledger_summary(data_dir, "", now=now)]
     for aid in list_account_ids(data_dir):
         rows.append(ledger_summary(data_dir, aid, now=now))
-    rows.sort(key=lambda r: float(r.get("equity_cost") or 0), reverse=True)
+    rows.sort(
+        key=lambda r: (
+            1 if r.get("missing") else 0,
+            -float(r.get("equity_cost") or 0),
+        )
+    )
     return rows
 
 
@@ -227,5 +236,14 @@ def account_switcher_options(data_dir: Path | str) -> list[dict[str, str]]:
     """Desk switcher entries: legacy root first, then named ids."""
     opts = [{"id": "", "label": "legacy root", "href_q": ""}]
     for aid in list_account_ids(data_dir):
-        opts.append({"id": aid, "label": aid, "href_q": f"?account={aid}"})
+        missing = account_ledger_missing(data_dir, aid)
+        label = f"{aid} · missing" if missing else aid
+        opts.append(
+            {
+                "id": aid,
+                "label": label,
+                "href_q": f"?account={aid}",
+                "missing": "1" if missing else "",
+            }
+        )
     return opts

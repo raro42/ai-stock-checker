@@ -243,6 +243,11 @@ a:active {
   color: var(--ink);
 }
 
+.leaderboard tr.is-missing td {
+  color: var(--down);
+  font-style: italic;
+}
+
 .leaderboard a {
   color: inherit;
   text-decoration: none;

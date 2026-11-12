@@ -99,16 +99,26 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
             }
         )
     )
+    # Empty shell dir must not rank as a €0 race loser.
+    ensure_account_ledger(tmp_path, "desk")
     rows = build_leaderboard(tmp_path)
-    # Sorted by cost-basis equity desc — anna €100k ahead of legacy €51k.
-    assert [r["account_id"] for r in rows] == ["anna", ""]
-    anna_row, legacy = rows[0], rows[1]
+    # Sorted by equity desc; missing ledgers last.
+    assert [r["account_id"] for r in rows] == ["anna", "", "desk"]
+    anna_row, legacy, desk = rows[0], rows[1], rows[2]
     assert anna_row["equity_cost"] == 100_000.0
+    assert anna_row["missing"] is False
     assert legacy["equity_cost"] == 51_000.0  # 50k cash + 1k WMT cost
     assert legacy["open_positions"] == 1
     assert legacy["fees"] == 12.5
     assert legacy["price_coverage"] == "cost"
+    assert desk["missing"] is True
+    assert desk["label"] == "paper · account desk · missing ledger"
+    assert desk["equity_cost"] == 0.0
+    assert desk["price_coverage"] == "missing"
     opts = account_switcher_options(tmp_path)
     assert opts[0]["id"] == ""
-    assert opts[1]["id"] == "anna"
-    assert opts[1]["href_q"] == "?account=anna"
+    by_id = {o["id"]: o for o in opts}
+    assert by_id["anna"]["href_q"] == "?account=anna"
+    assert by_id["anna"]["label"] == "anna"
+    assert by_id["desk"]["label"] == "desk · missing"
+    assert by_id["desk"]["missing"] == "1"
