@@ -144,6 +144,98 @@ a:active {
   line-height: 1.2;
 }
 
+.account-label {
+  margin: 0 0 0.55rem;
+  color: var(--accent);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.account-switch {
+  margin: 0 0 0.85rem;
+}
+
+.account-switch ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+
+.account-switch a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-bottom: 1px solid transparent;
+}
+
+.account-switch a:hover {
+  color: var(--ink);
+}
+
+.account-switch a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.leaderboard {
+  margin: 0 0 1.75rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.leaderboard h2 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.leaderboard-note {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.leaderboard th,
+.leaderboard td {
+  text-align: left;
+  padding: 0.35rem 0.55rem 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.leaderboard th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.leaderboard tr.is-active td {
+  color: var(--ink);
+}
+
+.leaderboard a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.leaderboard a:hover {
+  border-bottom-color: var(--accent);
+}
+
 .brand-link .brand {
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 4vw, 2.35rem);

@@ -107,9 +107,27 @@ def write_history_markdown(
 
 
 def main() -> None:
+    from stock_checker.paper_accounts import (
+        DEFAULT_STARTING_CAPITAL,
+        AccountIdError,
+        ensure_account_ledger,
+        ledger_dir,
+        normalize_account_id,
+    )
+
     parser = argparse.ArgumentParser(description="Reset paper trading data directory")
     parser.add_argument("--data-dir", default="data", help="Data directory (default: data)")
-    parser.add_argument("--capital", type=float, default=100000.0, help="Starting cash")
+    parser.add_argument(
+        "--account",
+        default="",
+        help="Named paper account under data/accounts/<id>/ (Mode A; empty = legacy root)",
+    )
+    parser.add_argument(
+        "--capital",
+        type=float,
+        default=DEFAULT_STARTING_CAPITAL,
+        help=f"Starting cash (default: {DEFAULT_STARTING_CAPITAL:g})",
+    )
     parser.add_argument(
         "--keep",
         action="append",
@@ -130,8 +148,19 @@ def main() -> None:
     parser.add_argument("--no-backup", action="store_true", help="Skip backup")
     args = parser.parse_args()
 
-    data_dir = Path(args.data_dir)
-    data_dir.mkdir(parents=True, exist_ok=True)
+    root = Path(args.data_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    try:
+        account_id = normalize_account_id(args.account)
+    except AccountIdError as exc:
+        raise SystemExit(f"error: {exc}") from exc
+    if account_id:
+        try:
+            data_dir = ensure_account_ledger(root, account_id)
+        except AccountIdError as exc:
+            raise SystemExit(f"error: {exc}") from exc
+    else:
+        data_dir = ledger_dir(root, "")
     keep = [s.strip().upper() for s in (args.keep or []) if s.strip()]
 
     old_portfolio: Dict = {}
@@ -214,9 +243,10 @@ def main() -> None:
         entry.setdefault(sym, now_ts)
     (data_dir / "entry_times.json").write_text(json.dumps(entry, indent=2))
 
+    who = f" account={account_id}" if account_id else ""
     print(
         f"Reset portfolio to €{args.capital:,.2f} "
-        f"(cash €{cash:,.2f}, kept {list(holdings.keys())}) in {data_dir}"
+        f"(cash €{cash:,.2f}, kept {list(holdings.keys())}) in {data_dir}{who}"
     )
 
 

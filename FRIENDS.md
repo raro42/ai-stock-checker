@@ -85,11 +85,16 @@ advisory (typed `pass` / `hold` / `reject`) when someone sets `LAYA_BASE_URL` +
 To try it on your own host: [docs/LAYA.md](docs/LAYA.md). Live veto stays deferred until
 promote A/B honesty + a calm paper sample.
 
-## Competing paper books (planned)
+## Competing paper books (Mode A)
 
-Friends want separate paper accounts and a leaderboard ([GitHub #4](https://github.com/raro42/ai-stock-checker/issues/4)).
-**Plan only — awaiting human signoff:** [docs/MULTI_ACCOUNT.md](docs/MULTI_ACCOUNT.md).
-Until then the shared desk is still **one** book under `data/portfolio.json`.
+Friends can keep separate paper ledgers and a leaderboard ([GitHub #4](https://github.com/raro42/ai-stock-checker/issues/4) · [docs/MULTI_ACCOUNT.md](docs/MULTI_ACCOUNT.md)).
+
+```bash
+python3 scripts/reset_paper_portfolio.py --account anna --capital 100000
+python3 scripts/paper_leaderboard.py
+```
+
+Desk: `?account=anna` (or `desk`) · Overview shows the board. Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
 
 ## Rules of the group
 

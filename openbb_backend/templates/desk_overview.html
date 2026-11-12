@@ -5,8 +5,43 @@
   <script src="/desk/static/charts.js" defer></script>
 {% endblock %}
 {% block content %}
+{% if snap.leaderboard and snap.leaderboard|length > 1 %}
+<section class="leaderboard" aria-labelledby="lb-h">
+  <h2 id="lb-h">Leaderboard</h2>
+  <p class="leaderboard-note">Cost-basis equity · fees shown · shared scan is not a fill</p>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Account</th>
+        <th scope="col">Equity</th>
+        <th scope="col">Cash</th>
+        <th scope="col">Fees</th>
+        <th scope="col">Pos</th>
+        <th scope="col">Last trade</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in snap.leaderboard %}
+      <tr {% if row.account_id == snap.account_id %}class="is-active"{% endif %}>
+        <td>
+          <a href="/desk{% if row.account_id %}?account={{ row.account_id }}{% endif %}">
+            {{ row.account_id or "legacy" }}
+          </a>
+        </td>
+        <td>€{{ "{:,.2f}".format(row.equity_cost) }}</td>
+        <td>€{{ "{:,.2f}".format(row.cash) }}</td>
+        <td>€{{ "{:,.2f}".format(row.fees) }}</td>
+        <td>{{ row.open_positions }}</td>
+        <td>{{ row.last_trade_age or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 <header class="hero">
-  <p class="eyebrow">Overview</p>
+  <p class="eyebrow">Overview · {{ snap.account_label }}</p>
   <h1 class="equity">€{{ "{:,.2f}".format(snap.equity) }}</h1>
   <p class="ret {% if snap.ret_pct >= 0 %}up{% else %}down{% endif %}">
     {{ "%+.2f"|format(snap.ret_pct) }}% vs start{% if snap.book_age_label %} · {{ snap.book_age_label }}{% endif %}

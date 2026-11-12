@@ -31,11 +31,28 @@ def _parse_since(raw: str | None) -> datetime | None:
 
 
 def main() -> None:
+    from stock_checker.paper_accounts import (
+        AccountIdError,
+        account_label,
+        ledger_dir,
+        normalize_account_id,
+    )
+
     parser = argparse.ArgumentParser(description="Summarize paper trades / fees")
     parser.add_argument(
+        "--data-dir",
+        default="data",
+        help="Data directory (default: data); used with --account",
+    )
+    parser.add_argument(
+        "--account",
+        default="",
+        help="Named paper account under data/accounts/<id>/ (Mode A)",
+    )
+    parser.add_argument(
         "--trades",
-        default="data/trades.jsonl",
-        help="Path to trades.jsonl",
+        default="",
+        help="Path to trades.jsonl (default: <ledger>/trades.jsonl)",
     )
     parser.add_argument(
         "--since",
@@ -48,7 +65,14 @@ def main() -> None:
         help="UTC end inclusive (ISO date/time)",
     )
     args = parser.parse_args()
-    path = Path(args.trades)
+    try:
+        account_id = normalize_account_id(args.account)
+    except AccountIdError as exc:
+        raise SystemExit(f"error: {exc}") from exc
+    if args.trades:
+        path = Path(args.trades)
+    else:
+        path = ledger_dir(args.data_dir, account_id) / "trades.jsonl"
     if not path.exists():
         print(f"No trades file at {path}")
         return
@@ -80,6 +104,7 @@ def main() -> None:
         period = f"{s['start_utc']} → {s['end_utc'] or s['last']}"
 
     print("Paper trading summary")
+    print(f"  Book: {account_label(account_id)}")
     print(f"  Period: {period}")
     print(f"  Trades: {s['trades']} (buys={s['buys']}, sells={s['sells']})")
     print(f"  Fees paid: €{s['fees']:,.2f}")

@@ -181,7 +181,7 @@ We cut tagged releases when the desk or trader meaningfully changes — screensh
 | [IMPROVEMENT.md](IMPROVEMENT.md) | Backlog |
 | [MODELS.md](MODELS.md) | Ollama **or** cheap cloud LLMs (Groq / OpenRouter / DeepSeek) |
 | [docs/LAYA.md](docs/LAYA.md) | LAYA/JEV: code shipped, **off by default**; opt-in advisory only (not a gate) — [GitHub #3](https://github.com/raro42/ai-stock-checker/issues/3) |
-| [docs/MULTI_ACCOUNT.md](docs/MULTI_ACCOUNT.md) | Multi-account paper books **plan** (await signoff) — [GitHub #4](https://github.com/raro42/ai-stock-checker/issues/4) |
+| [docs/MULTI_ACCOUNT.md](docs/MULTI_ACCOUNT.md) | Multi-account paper books **Mode A** (switcher + leaderboard + `--account` reset) — [GitHub #4](https://github.com/raro42/ai-stock-checker/issues/4) |
 | [GIT.md](GIT.md) | Commit / push ASAP |
 
 ---

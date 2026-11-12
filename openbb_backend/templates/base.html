@@ -27,12 +27,25 @@
   <div class="shell">
     <header class="top">
       <div class="brand-row">
-        <a class="brand-link" href="/desk" aria-label="{{ snap.brand }} home">
+        <a class="brand-link" href="{% if snap.account_id %}/desk?account={{ snap.account_id }}{% else %}/desk{% endif %}" aria-label="{{ snap.brand }} home">
           <img class="brand-mark" src="/desk/static/favicon.svg" width="28" height="28" alt="" />
           <span class="brand">{{ snap.brand }}</span>
         </a>
         <p class="brand-tag">{{ snap.tagline }}</p>
       </div>
+      <p class="account-label" title="Mode A paper ledger — scan archives stay shared">{{ snap.account_label }}</p>
+      {% if snap.account_options and snap.account_options|length > 1 %}
+      <nav class="account-switch" aria-label="Paper account">
+        <ul>
+          {% for opt in snap.account_options %}
+          <li>
+            <a href="{% if page.screen == 'overview' %}/desk{% else %}/desk/{{ page.screen }}{% endif %}{{ opt.href_q }}"
+               {% if opt.id == snap.account_id %}aria-current="page"{% endif %}>{{ opt.label }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </nav>
+      {% endif %}
       <nav class="nav" aria-label="Desk screens">
         <ul>
           {% for item in nav %}

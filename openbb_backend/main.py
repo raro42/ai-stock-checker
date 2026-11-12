@@ -102,12 +102,23 @@ _DESK_SCREENS = {
 }
 
 
-def _desk_nav() -> list[dict[str, str]]:
+def _desk_account_id(request: Request) -> str:
+    from stock_checker.paper_accounts import AccountIdError, normalize_account_id
+
+    raw = request.query_params.get("account")
+    try:
+        return normalize_account_id(raw)
+    except AccountIdError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _desk_nav(account_id: str = "") -> list[dict[str, str]]:
+    q = f"?account={account_id}" if account_id else ""
     return [
         {
             "screen": key,
             "label": meta["label"],
-            "href": "/desk" if key == "overview" else f"/desk/{key}",
+            "href": ("/desk" if key == "overview" else f"/desk/{key}") + q,
         }
         for key, meta in _DESK_SCREENS.items()
     ]
@@ -115,10 +126,13 @@ def _desk_nav() -> list[dict[str, str]]:
 
 def _desk_page_context(request: Request, screen: str) -> dict:
     meta = _DESK_SCREENS[screen]
+    account_id = _desk_account_id(request)
     path = "/desk" if screen == "overview" else f"/desk/{screen}"
+    if account_id:
+        path = f"{path}?account={account_id}"
     return {
-        "snap": load_desk_snapshot(DATA_DIR),
-        "nav": _desk_nav(),
+        "snap": load_desk_snapshot(DATA_DIR, account=account_id),
+        "nav": _desk_nav(account_id),
         "repo": load_repo_meta(),
         "page": {
             "screen": screen,
@@ -214,9 +228,23 @@ def root():
 
 
 @app.get("/desk/api")
-def paper_desk_api():
+def paper_desk_api(account: str = Query(default="")):
     """Same desk snapshot as JSON for scripts / friends tooling."""
-    return load_desk_snapshot(DATA_DIR)
+    from stock_checker.paper_accounts import AccountIdError, normalize_account_id
+
+    try:
+        account_id = normalize_account_id(account)
+    except AccountIdError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return load_desk_snapshot(DATA_DIR, account=account_id)
+
+
+@app.get("/desk/api/leaderboard")
+def paper_desk_leaderboard():
+    """Offline Mode A leaderboard (cost-basis equity; fees shown)."""
+    from stock_checker.paper_accounts import build_leaderboard
+
+    return {"rows": build_leaderboard(DATA_DIR)}
 
 
 @app.get("/desk/api/config")

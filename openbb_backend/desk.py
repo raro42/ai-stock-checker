@@ -37391,10 +37391,24 @@ def _fetch_yfinance_prices(
 def load_desk_snapshot(
     data_dir: Path,
     *,
+    account: str | None = None,
     live_marks: Optional[bool] = None,
     price_fetcher: Optional[Callable[[list[str]], dict[str, float]]] = None,
 ) -> dict[str, Any]:
-    """Build the paper desk view model from on-disk trader state."""
+    """Build the paper desk view model from on-disk trader state.
+
+    Mode A (GitHub #4): optional ``account`` selects ledger under
+    ``data/accounts/<id>/`` for portfolio/trades; scan archives and Ops
+    knobs stay on the shared root ``data_dir``.
+    """
+    from stock_checker.paper_accounts import (
+        account_label,
+        account_switcher_options,
+        build_leaderboard,
+        ledger_dir,
+        normalize_account_id,
+    )
+
     if live_marks is None:
         live_marks = os.getenv("DESK_LIVE_MARKS", "1").strip() not in {
             "0",
@@ -37403,19 +37417,23 @@ def load_desk_snapshot(
             "no",
         }
 
-    portfolio = _load_json(data_dir / "portfolio.json", {})
-    trades = _load_jsonl(data_dir / "trades.jsonl")
+    root = Path(data_dir)
+    account_id = normalize_account_id(account)
+    ledger = ledger_dir(root, account_id)
+
+    portfolio = _load_json(ledger / "portfolio.json", {})
+    trades = _load_jsonl(ledger / "trades.jsonl")
     age = book_start_meta(portfolio if isinstance(portfolio, dict) else {}, trades)
-    entry_times = _load_json(data_dir / "entry_times.json", {})
-    exit_times_raw = _load_json(data_dir / "exit_times.json", {})
+    entry_times = _load_json(ledger / "entry_times.json", {})
+    exit_times_raw = _load_json(ledger / "exit_times.json", {})
     if not isinstance(exit_times_raw, dict):
         exit_times_raw = {}
-    scan_history = _load_json(data_dir / "stock_scan_history.json", {})
-    scanned = _load_json(data_dir / "scanned_symbols.json", {})
-    watchdog_path = data_dir / "watchdog" / "status.txt"
+    scan_history = _load_json(root / "stock_scan_history.json", {})
+    scanned = _load_json(root / "scanned_symbols.json", {})
+    watchdog_path = root / "watchdog" / "status.txt"
     watchdog = watchdog_path.read_text().strip() if watchdog_path.exists() else ""
 
-    archive_res = resolve_opportunities_archive(data_dir)
+    archive_res = resolve_opportunities_archive(root)
     opp_path = Path(archive_res["path"])
     opportunities = _load_json(opp_path, {})
 
@@ -37424,7 +37442,7 @@ def load_desk_snapshot(
     fees = float(portfolio.get("total_fees_paid") or 0)
     from stock_checker.trader_config import load_trader_config
 
-    cfg_fees = load_trader_config(data_dir)
+    cfg_fees = load_trader_config(root)
     try:
         commission_rate = float(
             portfolio.get("commission_rate")
@@ -38134,15 +38152,15 @@ def load_desk_snapshot(
         suggest_entry_notional,
     )
 
-    soft_allows = enrich_soft_allows(recent_soft_allows(data_dir, limit=12))
-    ai_debates = recent_ai_debates(data_dir, limit=8)
-    ai_actions = latest_ai_actions(data_dir)
-    ai_confidences = latest_ai_confidences(data_dir)
-    ai_gated = latest_ai_gated(data_dir)
+    soft_allows = enrich_soft_allows(recent_soft_allows(root, limit=12))
+    ai_debates = recent_ai_debates(root, limit=8)
+    ai_actions = latest_ai_actions(root)
+    ai_confidences = latest_ai_confidences(root)
+    ai_gated = latest_ai_gated(root)
 
     max_pos = int(cfg_fees.get("max_positions") or 5)
-    pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
-    last_sl = latest_stop_loss_sell(data_dir)
+    pretrade_level, pretrade_notes = pretrade_status(ledger, initial_cash=initial)
+    last_sl = latest_stop_loss_sell(ledger)
     post_sl_sym = last_sl[0] if last_sl else None
     post_sl_epoch = last_sl[1] if last_sl else None
     entry_size = suggest_entry_notional(
@@ -38267,7 +38285,7 @@ def load_desk_snapshot(
         runner_gate=str(soft_allow_glance.get("lead_runner_gate") or ""),
     )
     mark_coverage = build_mark_coverage(rows)
-    ledger_health = build_ledger_health(data_dir)
+    ledger_health = build_ledger_health(ledger)
     concentration_glance = build_concentration_glance(book_risk)
     conc_tone = str(concentration_glance.get("tone") or "")
     listed_fund_conc_warn: bool | None = (
@@ -38293,6 +38311,10 @@ def load_desk_snapshot(
     snap = {
         "brand": "AI Stock Checker",
         "tagline": "Paper desk — honest marks, low churn.",
+        "account_id": account_id,
+        "account_label": account_label(account_id),
+        "account_options": account_switcher_options(root),
+        "leaderboard": build_leaderboard(root),
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "portfolio_updated": portfolio.get("last_updated") or "",
         "initial": initial,
@@ -38334,11 +38356,11 @@ def load_desk_snapshot(
         "soft_allow_glance": soft_allow_glance,
         "entry_gates_glance": build_entry_gates_glance(runtime),
         "calm_streak_glance": build_calm_streak_glance(
-            runtime, data_dir=data_dir
+            runtime, data_dir=ledger
         ),
         "promote_ab_glance": build_promote_ab_glance(
             {**runtime, "max_positions": max_pos, "open_positions": len(rows)},
-            data_dir=data_dir,
+            data_dir=ledger,
             open_positions=len(rows),
         ),
         "crypto_policy_glance": build_crypto_policy_glance(rows),
@@ -38347,12 +38369,12 @@ def load_desk_snapshot(
         "ai_mode_glance": build_ai_mode_glance(runtime),
         "ai_roles_glance": build_ai_roles_glance(),
         "laya_glance": build_laya_glance(
-            data_dir,
+            root,
             scan_interval_sec=scan_interval_sec,
             scan_time=scan_time_raw,
         ),
         "ai_debate_glance": build_ai_debate_glance(
-            data_dir,
+            root,
             scan_interval_sec=scan_interval_sec,
             scan_time=scan_time_raw,
         ),
@@ -38368,7 +38390,7 @@ def load_desk_snapshot(
             min_hold_hours=float(runtime.get("min_hold_hours") or 24),
         ),
         "junk_filter_glance": build_junk_filter_glance(),
-        "universe_discovery_glance": build_universe_discovery_glance(data_dir),
+        "universe_discovery_glance": build_universe_discovery_glance(root),
         "atr_display_glance": build_atr_display_glance(
             list(crypto_leaders) + list(stock_breakouts) + list(recs)
         ),
@@ -38383,7 +38405,7 @@ def load_desk_snapshot(
             * 3600.0,
         ),
         "daily_loss_glance": build_daily_loss_glance(
-            realized_pnl_for_utc_day(data_dir),
+            realized_pnl_for_utc_day(ledger),
             initial,
         ),
         "post_sl_cooldown_glance": build_post_sl_cooldown_glance(
@@ -38392,7 +38414,7 @@ def load_desk_snapshot(
         ),
         "loop_cadence_glance": build_loop_cadence_glance(runtime),
         "improve_tick_glance": build_improve_tick_glance(
-            data_dir,
+            root,
             scan_time=scan_time_raw,
             scan_interval_sec=scan_interval_sec,
         ),
