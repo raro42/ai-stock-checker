@@ -67,10 +67,24 @@ def list_account_ids(data_dir: Path | str) -> list[str]:
     return out
 
 
-def account_label(account_id: str = "") -> str:
+def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
+    """True when a named account is selected but ``portfolio.json`` is absent.
+
+    Empty €0 cash without this flag reads like a real reset book — friends
+    need the missing-ledger speak (display only).
+    """
+    aid = normalize_account_id(account_id)
+    if not aid:
+        return False
+    return not (ledger_dir(data_dir, aid) / "portfolio.json").exists()
+
+
+def account_label(account_id: str = "", *, missing: bool = False) -> str:
     aid = normalize_account_id(account_id)
     if not aid:
         return "paper · legacy root"
+    if missing:
+        return f"paper · account {aid} · missing ledger"
     return f"paper · account {aid}"
 
 

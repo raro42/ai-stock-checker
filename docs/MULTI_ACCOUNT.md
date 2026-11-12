@@ -1,6 +1,6 @@
 # Multi-account paper books — Mode A (GitHub #4)
 
-**Status:** Mode A shipped (2026-11-12) after human signoff on [issue #4](https://github.com/raro42/ai-stock-checker/issues/4).  
+**Status:** Mode A shipped + missing-ledger honesty verified on local desk (2026-11-12) after human signoff on [issue #4](https://github.com/raro42/ai-stock-checker/issues/4). Close #4 when `gh` auth works.  
 Mode B (one trader / `DATA_DIR` per account) stays optional later. Reject Mode C (round-robin).
 
 Signoff: **Mode A** · starting capital **€100 000** · shared zeitfenster book may use named account **`desk`** · max **8** named accounts per host.
@@ -15,6 +15,7 @@ Goal: friends compete with separate paper portfolios and see how books evolve, w
 | Named books | `data/accounts/<id>/portfolio.json` + `trades.jsonl` |
 | Desk switcher | `?account=<id>` on `/desk` (nav preserves query) |
 | Leaderboard | Overview strip + `GET /desk/api/leaderboard` + `scripts/paper_leaderboard.py` |
+| Missing ledger | Named `?account=` without `portfolio.json` speaks `missing ledger` (not a fake €0 reset) |
 | Shared market state | Scan archives, soft-allow, Yahoo rings, Ops knobs on `DATA_DIR` root |
 | Trader | Still one `intelligent-trader` on the shared host book (Mode A) |
 

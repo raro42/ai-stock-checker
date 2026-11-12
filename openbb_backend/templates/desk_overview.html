@@ -43,6 +43,9 @@
 <header class="hero">
   <p class="eyebrow">Overview · {{ snap.account_label }}</p>
   <h1 class="equity">€{{ "{:,.2f}".format(snap.equity) }}</h1>
+  {% if snap.account_ledger_missing %}
+  <p class="account-missing-note">€0 here is not a reset book — <code>portfolio.json</code> is missing. Create with <code>python3 scripts/reset_paper_portfolio.py --account {{ snap.account_id }}</code>.</p>
+  {% endif %}
   <p class="ret {% if snap.ret_pct >= 0 %}up{% else %}down{% endif %}">
     {{ "%+.2f"|format(snap.ret_pct) }}% vs start{% if snap.book_age_label %} · {{ snap.book_age_label }}{% endif %}
     · cash €{{ "{:,.2f}".format(snap.cash) }}

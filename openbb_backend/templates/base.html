@@ -33,7 +33,8 @@
         </a>
         <p class="brand-tag">{{ snap.tagline }}</p>
       </div>
-      <p class="account-label" title="Mode A paper ledger — scan archives stay shared">{{ snap.account_label }}</p>
+      <p class="account-label{% if snap.account_ledger_missing %} is-missing{% endif %}"
+         title="{% if snap.account_ledger_missing %}Named book has no portfolio.json yet — run reset_paper_portfolio.py --account {{ snap.account_id }}{% else %}Mode A paper ledger — scan archives stay shared{% endif %}">{{ snap.account_label }}</p>
       {% if snap.account_options and snap.account_options|length > 1 %}
       <nav class="account-switch" aria-label="Paper account">
         <ul>

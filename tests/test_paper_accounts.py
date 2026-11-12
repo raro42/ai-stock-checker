@@ -12,6 +12,7 @@ from stock_checker.paper_accounts import (
     SHARED_DESK_ACCOUNT_ID,
     AccountIdError,
     account_label,
+    account_ledger_missing,
     account_switcher_options,
     build_leaderboard,
     ensure_account_ledger,
@@ -40,7 +41,22 @@ def test_ledger_dir_and_ensure(tmp_path: Path) -> None:
     assert path.is_dir()
     assert list_account_ids(tmp_path) == ["desk"]
     assert account_label("desk") == "paper · account desk"
+    assert account_label("desk", missing=True) == (
+        "paper · account desk · missing ledger"
+    )
     assert account_label("") == "paper · legacy root"
+    assert account_label("", missing=True) == "paper · legacy root"
+
+
+def test_account_ledger_missing(tmp_path: Path) -> None:
+    assert account_ledger_missing(tmp_path, "") is False
+    assert account_ledger_missing(tmp_path, "desk") is True
+    path = ensure_account_ledger(tmp_path, "desk")
+    assert account_ledger_missing(tmp_path, "desk") is True
+    (path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
+    assert account_ledger_missing(tmp_path, "desk") is False
 
 
 def test_max_accounts(tmp_path: Path) -> None:
