@@ -2658,6 +2658,9 @@ def window_a_sample_readiness(
         "closes_weekend_closes_share_pct": None,
         "closes_weekend_closes_share_bit": "",
         "closes_weekend_closes_share_hot": False,
+        "closes_weekend_day_vs_closes": "",
+        "closes_weekend_day_vs_closes_bit": "",
+        "closes_weekend_day_vs_closes_clash": False,
         "closes_weekend_vs_per_day": "",
         "closes_weekend_vs_per_day_bit": "",
         "closes_weekend_vs_per_day_clash": False,
@@ -3700,6 +3703,9 @@ def window_a_sample_readiness(
     closes_weekend_closes_share_pct: float | None = None
     closes_weekend_closes_share_bit = ""
     closes_weekend_closes_share_hot = False
+    closes_weekend_day_vs_closes = ""
+    closes_weekend_day_vs_closes_bit = ""
+    closes_weekend_day_vs_closes_clash = False
     closes_weekend_vs_per_day = ""
     closes_weekend_vs_per_day_bit = ""
     closes_weekend_vs_per_day_clash = False
@@ -4524,6 +4530,32 @@ def window_a_sample_readiness(
                 closes_weekend_closes_share_bit = (
                     f"A weekend closes share · {pct_c}%"
                 )
+
+    # Day-calendar weekend% ≠ close-sample weekend%. When both
+    # severity bands spoke, speak agreement (portfolio AI
+    # speak-both-sides + xang1234 count≠share after absolute day% +
+    # closes%). Clash warns only (still ready for B). Mid / sole side
+    # silent.
+    if closes_sell_weekend_share and closes_weekend_closes_share:
+        day_adverse = closes_sell_weekend_share == "hot"
+        closes_adverse = closes_weekend_closes_share == "hot"
+        if day_adverse == closes_adverse:
+            closes_weekend_day_vs_closes = "align"
+            if day_adverse:
+                closes_weekend_day_vs_closes_bit = (
+                    "A day vs closes share align · hot"
+                )
+            else:
+                closes_weekend_day_vs_closes_bit = (
+                    "A day vs closes share align · quiet"
+                )
+        else:
+            closes_weekend_day_vs_closes = "clash"
+            closes_weekend_day_vs_closes_clash = True
+            closes_weekend_day_vs_closes_bit = (
+                "A day vs closes share clash · "
+                f"{closes_sell_weekend_share} · {closes_weekend_closes_share}"
+            )
 
     # Weekend ownership ≠ weekend pile-up. When share severity and
     # weekend density both spoke, speak agreement (portfolio AI
@@ -6292,6 +6324,9 @@ def window_a_sample_readiness(
         "closes_weekend_closes_share_pct": closes_weekend_closes_share_pct,
         "closes_weekend_closes_share_bit": closes_weekend_closes_share_bit,
         "closes_weekend_closes_share_hot": closes_weekend_closes_share_hot,
+        "closes_weekend_day_vs_closes": closes_weekend_day_vs_closes,
+        "closes_weekend_day_vs_closes_bit": closes_weekend_day_vs_closes_bit,
+        "closes_weekend_day_vs_closes_clash": closes_weekend_day_vs_closes_clash,
         "closes_weekend_vs_per_day": closes_weekend_vs_per_day,
         "closes_weekend_vs_per_day_bit": closes_weekend_vs_per_day_bit,
         "closes_weekend_vs_per_day_clash": closes_weekend_vs_per_day_clash,
@@ -8022,6 +8057,16 @@ def format_window_a_closes_weekend_closes_share_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_weekend_closes_share_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_weekend_day_vs_closes_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A day-share vs closes-share lean (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_weekend_day_vs_closes_bit") or "").strip()
     return bit
 
 
