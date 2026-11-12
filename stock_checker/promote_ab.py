@@ -143,6 +143,11 @@ WINDOW_A_CLOSES_PER_DAY_FAT = 2.0
 # When weekend-share severity and weekend density both spoke, also
 # speak meter agreement ``A weekend vs closes/day …`` (clash warns
 # only; mid share / sole side silent; still ready for B).
+# When sessions vs weekend and weekend vs closes/day both spoke, also
+# speak bridge agreement ``A sess/weekend vs weekend/day …``
+# (``closes_sw_vs_wd_*``; both clash + mixed warn only; sole side
+# silent; still ready for B) — FinRobot + portfolio AI + xang1234
+# after absolute weekend leans hid meter agreement.
 # Not a live halt.
 # Ending run of losing closes (portfolio AI + tradermonty postmortem).
 # Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
@@ -2652,6 +2657,9 @@ def window_a_sample_readiness(
         "closes_weekend_vs_per_day": "",
         "closes_weekend_vs_per_day_bit": "",
         "closes_weekend_vs_per_day_clash": False,
+        "closes_sw_vs_wd": "",
+        "closes_sw_vs_wd_bit": "",
+        "closes_sw_vs_wd_clash": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3687,6 +3695,9 @@ def window_a_sample_readiness(
     closes_weekend_vs_per_day = ""
     closes_weekend_vs_per_day_bit = ""
     closes_weekend_vs_per_day_clash = False
+    closes_sw_vs_wd = ""
+    closes_sw_vs_wd_bit = ""
+    closes_sw_vs_wd_clash = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4484,6 +4495,38 @@ def window_a_sample_readiness(
                 "A weekend vs closes/day clash · "
                 f"{closes_sell_weekend_share} · {closes_weekend_per_day}"
             )
+
+    # sess/weekend lean ≠ weekend/day lean. When both meters spoke,
+    # speak agreement (FinRobot + portfolio AI + xang1234 after
+    # absolute weekend sides). Both clash and mixed warn only (still
+    # ready for B). Sole side silent.
+    if closes_sessions_vs_weekend and closes_weekend_vs_per_day:
+        sw_adverse = closes_sessions_vs_weekend == "clash"
+        wd_adverse = closes_weekend_vs_per_day == "clash"
+        if sw_adverse == wd_adverse:
+            closes_sw_vs_wd = "align"
+            if sw_adverse:
+                closes_sw_vs_wd_clash = True
+                closes_sw_vs_wd_bit = (
+                    "A sess/weekend vs weekend/day align · both clash"
+                )
+            else:
+                closes_sw_vs_wd_bit = (
+                    "A sess/weekend vs weekend/day align · both align"
+                )
+        else:
+            closes_sw_vs_wd = "clash"
+            closes_sw_vs_wd_clash = True
+            if sw_adverse:
+                closes_sw_vs_wd_bit = (
+                    "A sess/weekend vs weekend/day clash · "
+                    "sess/weekend clash · weekend/day align"
+                )
+            else:
+                closes_sw_vs_wd_bit = (
+                    "A sess/weekend vs weekend/day clash · "
+                    "sess/weekend align · weekend/day clash"
+                )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
     # agreement (portfolio AI + xang1234 after absolute sides). Clash
@@ -6194,6 +6237,9 @@ def window_a_sample_readiness(
         "closes_weekend_vs_per_day": closes_weekend_vs_per_day,
         "closes_weekend_vs_per_day_bit": closes_weekend_vs_per_day_bit,
         "closes_weekend_vs_per_day_clash": closes_weekend_vs_per_day_clash,
+        "closes_sw_vs_wd": closes_sw_vs_wd,
+        "closes_sw_vs_wd_bit": closes_sw_vs_wd_bit,
+        "closes_sw_vs_wd_clash": closes_sw_vs_wd_clash,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -7918,6 +7964,16 @@ def format_window_a_closes_weekend_vs_per_day_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_weekend_vs_per_day_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_sw_vs_wd_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A sess/weekend vs weekend/day lean agreement (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sw_vs_wd_bit") or "").strip()
     return bit
 
 

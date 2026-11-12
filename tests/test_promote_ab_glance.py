@@ -6596,10 +6596,108 @@ def test_window_a_weekend_vs_per_day_lean() -> None:
     assert g["tone"] == "warn"
     assert g["closes_weekend_vs_per_day"] == "clash"
     assert g["closes_weekend_vs_per_day_clash"] is True
+    assert g["closes_sessions_vs_weekend"] == "align"
+    assert g["closes_sw_vs_wd"] == "clash"
+    assert g["closes_sw_vs_wd_clash"] is True
     assert "A weekend vs closes/day clash · hot · ok" in g["kelly_line"]
+    assert (
+        "A sess/weekend vs weekend/day clash · "
+        "sess/weekend align · weekend/day clash"
+    ) in g["kelly_line"]
     assert "A weekend vs closes/day" not in g["honesty_core"]
+    assert "A sess/weekend vs weekend/day" not in g["honesty_core"]
     assert "ready for B" in g["line"]
     assert g["b_ready"] is True
+
+
+def test_window_a_sw_vs_wd_lean() -> None:
+    """sess/weekend beside weekend/day alone ≠ meter agreement."""
+    from stock_checker.promote_ab import (
+        format_window_a_closes_sw_vs_wd_bit,
+        window_a_sample_readiness,
+    )
+
+    sole = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    assert sole["closes_sessions_vs_weekend"] == ""
+    assert sole["closes_weekend_vs_per_day"] == ""
+    assert sole["closes_sw_vs_wd"] == ""
+    assert sole["closes_sw_vs_wd_bit"] == ""
+    assert sole["closes_sw_vs_wd_clash"] is False
+    assert format_window_a_closes_sw_vs_wd_bit(sole) == ""
+    assert format_window_a_closes_sw_vs_wd_bit(None) == ""
+
+    both_align = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 8,
+            "sell_weekend_sessions": 1,
+            "sell_weekend_closes": 1,
+        }
+    )
+    assert both_align["closes_sessions_vs_weekend"] == "align"
+    assert both_align["closes_weekend_vs_per_day"] == "align"
+    assert both_align["closes_sw_vs_wd"] == "align"
+    assert both_align["closes_sw_vs_wd_clash"] is False
+    assert both_align["closes_sw_vs_wd_bit"] == (
+        "A sess/weekend vs weekend/day align · both align"
+    )
+    assert format_window_a_closes_sw_vs_wd_bit(both_align) == (
+        both_align["closes_sw_vs_wd_bit"]
+    )
+
+    mixed = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+            "sell_weekend_closes": 2,
+        }
+    )
+    assert mixed["closes_sessions_vs_weekend"] == "align"
+    assert mixed["closes_weekend_vs_per_day"] == "clash"
+    assert mixed["closes_sw_vs_wd"] == "clash"
+    assert mixed["closes_sw_vs_wd_clash"] is True
+    assert mixed["closes_sw_vs_wd_bit"] == (
+        "A sess/weekend vs weekend/day clash · "
+        "sess/weekend align · weekend/day clash"
+    )
+
+    both_clash = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 8,
+            "sell_weekend_sessions": 4,
+            "sell_weekend_closes": 4,
+        }
+    )
+    assert both_clash["closes_sessions_vs_weekend"] == "clash"
+    assert both_clash["closes_weekend_vs_per_day"] == "clash"
+    assert both_clash["closes_sw_vs_wd"] == "align"
+    assert both_clash["closes_sw_vs_wd_clash"] is True
+    assert both_clash["closes_sw_vs_wd_bit"] == (
+        "A sess/weekend vs weekend/day align · both clash"
+    )
 
 
 def test_window_a_kelly_vs_sessions_lean() -> None:
