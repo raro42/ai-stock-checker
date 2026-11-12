@@ -32102,6 +32102,44 @@ def improve_tick_fresher_vs_stuck_bits(
     return "", False
 
 
+def improve_tick_stuck_peers_bits(
+    stuck_vs_scan_bit: str,
+    fresher_vs_stuck_bit: str,
+) -> tuple[str, bool]:
+    """Mood agreement of stuck-vs-scan vs fresher-vs-stuck (display only).
+
+    Absolute ``stuck vs scan align · clash`` beside ``fresher vs stuck
+    align|clash`` hid whether the two hung peer meters *agree* — FinRobot
+    edge/conf + portfolio AI speak-both-sides + xang1234 multi-meter +
+    Yahoo claim hung lf vs hung dk after stuck vs scan + fresher vs stuck
+    hid meter agreement while fresher polarity vs scan-meter may compare
+    other sides. Bits that start with ``clash ·`` are warn; ``… align ·
+    clash`` / bare ``… align`` are confirm. Both confirm → ``stuck peers
+    align · both align`` (confirm). Both warn → ``… · both clash`` (warn —
+    dual-clash ≠ quiet confirm). Mixed → ``clash · stuck peers · stuck-scan
+    clash|align · fresher↔stuck …`` (warn). Sole side silent. Lives under
+    improve lean fold. Not a gate.
+    """
+    ss = str(stuck_vs_scan_bit or "").strip()
+    fs = str(fresher_vs_stuck_bit or "").strip()
+    if not ss or not fs:
+        return "", False
+    ss_l = ss.casefold()
+    fs_l = fs.casefold()
+    # Warn bits lead with ``clash ·``; fresher-vs-stuck warns as
+    # ``fresher vs stuck clash · …`` (mid-string). Confirm
+    # ``… align · clash`` must not count as warn.
+    ss_warn = ss_l.startswith("clash ·")
+    fs_warn = fs_l.startswith("clash ·") or "clash ·" in fs_l
+    if ss_warn == fs_warn:
+        if ss_warn:
+            return "stuck peers align · both clash", True
+        return "stuck peers align · both align", False
+    if ss_warn:
+        return "clash · stuck peers · stuck-scan clash · fresher↔stuck align", True
+    return "clash · stuck peers · stuck-scan align · fresher↔stuck clash", True
+
+
 def improve_tick_fresher_polarity_vs_scan_meter_bits(
     scan_meter_bit: str,
     fresher_polarity_bit: str,
@@ -32173,48 +32211,47 @@ def improve_tick_lean_meta(
 
     Bare quiet/warn hid which meter agreement spoke — MonsterDeveloper fold
     inventory + Screener/opportunity lean meta after status/age vs scan,
-    source vs scan, stuck vs scan, stuck band, fresher/gap, gap sides,
-    fresher vs status/age, fresher vs source, fresher vs stuck, and fresher
-    polarity vs scan-meter all live under the same fold. Cap clips names but
-    appends ``+N`` so the summary still labels by every stage the body lists
-    (xang1234 #745 pending-fold count honesty). Hung explain-only folds that
-    start open must not read ``quiet`` — that suggests nothing to inspect
-    while the accordion is deliberately open (xang1234 #746 / 28be212 say
-    no closed windows instead of ``0 pending`` when every pick dropped).
-    When hung lean lists only explain-only stages (stuck band / gap sides)
-    and no warn meters spoke, meta also speaks ``no result`` so an open
-    age-band fold is not mistaken for a meter verdict (scoreboard
-    "Nothing here is a result"). One explain stage names thin reason
-    ``sole`` (Small sample); two+ explain-only stages name ``few`` (Few
-    dates) so gap sides beside stuck band is not mistaken for a full
-    sample (xang1234 #747 / dd6b505 / 9a12dc1). Hung lean with a meter
-    stage speaks ``not thin`` so sole/few thin cards have a positive
-    counterpart (xang1234 b09fb49 cover a card that is not thin +
-    1cd7968 share the small-sample rule). Empty hung lean skips
-    ``no result`` (nothing listed ≠ a thin sample). Warn still leads,
-    but a hung stuck tick keeps ``hung`` under warn
-    (``warn · hung · …``) so a warn fold does not hide the stuck clock
-    (portfolio AI speak-both-sides + FinRobot + xang1234 after bare warn
-    hid hung ownership). Warn+hung also shares the thin/not-thin
-    counterpart (``warn · hung · not thin``) so bare ``warn · hung`` does
-    not hide that a meter stage already spoke. Calm hung meter lean
-    speaks ``confirm · hung · not thin`` — the speak-both-sides peer of
-    ``warn · hung · not thin`` — so bare ``hung · not thin`` does not hide
-    that meters already agreed (FinRobot edge/conf + portfolio AI after
-    warn·hung alone). Calm hung explain-only / empty also speak
-    ``confirm · hung · no result|confirm · hung`` — peers of
-    ``warn · hung · no result|warn · hung`` — so bare hung thin cards do
-    not hide calm ownership after warn alone named severity (portfolio AI
-    speak-both-sides + FinRobot + xang1234). Finished calm lean with
-    spoken stages speaks ``confirm · …`` — peer of ``warn · …`` — so
-    bare ``quiet · status/age vs scan`` does not hide that meters already
-    agreed after confirm·hung covered hung only (FinRobot edge/conf +
-    portfolio AI speak-both-sides + xang1234). Finished also shares the
-    thin/not-thin rule (``confirm · not thin`` / ``warn · not thin``;
-    explain-only ``no result · sole|few``) so bare finished confirm|warn
-    after hung-only thin honesty does not hide meter vs thin cards
-    (xang1234 b09fb49 / 1cd7968 + portfolio AI speak-both-sides). Empty
-    finished stays ``quiet``. Not a gate.
+    source vs scan, stuck vs scan, stuck peers, stuck band, fresher/gap,
+    gap sides, fresher vs status/age, fresher vs source, fresher vs stuck,
+    and fresher polarity vs scan-meter all live under the same fold. Cap
+    clips names but appends ``+N`` so the summary still labels by every
+    stage the body lists (xang1234 #745 pending-fold count honesty). Hung
+    explain-only folds that start open must not read ``quiet`` — that
+    suggests nothing to inspect while the accordion is deliberately open
+    (xang1234 #746 / 28be212 say no closed windows instead of ``0 pending``
+    when every pick dropped). When hung lean lists only explain-only stages
+    (stuck band / gap sides) and no warn meters spoke, meta also speaks
+    ``no result`` so an open age-band fold is not mistaken for a meter
+    verdict (scoreboard "Nothing here is a result"). One explain stage
+    names thin reason ``sole`` (Small sample); two+ explain-only stages
+    name ``few`` (Few dates) so gap sides beside stuck band is not mistaken
+    for a full sample (xang1234 #747 / dd6b505 / 9a12dc1). Hung lean with a
+    meter stage speaks ``not thin`` so sole/few thin cards have a positive
+    counterpart (xang1234 b09fb49 cover a card that is not thin + 1cd7968
+    share the small-sample rule). Empty hung lean skips ``no result``
+    (nothing listed ≠ a thin sample). Warn still leads, but a hung stuck
+    tick keeps ``hung`` under warn (``warn · hung · …``) so a warn fold
+    does not hide the stuck clock (portfolio AI speak-both-sides + FinRobot
+    + xang1234 after bare warn hid hung ownership). Warn+hung also shares
+    the thin/not-thin counterpart (``warn · hung · not thin``) so bare
+    ``warn · hung`` does not hide that a meter stage already spoke. Calm
+    hung meter lean speaks ``confirm · hung · not thin`` — the
+    speak-both-sides peer of ``warn · hung · not thin`` — so bare
+    ``hung · not thin`` does not hide that meters already agreed (FinRobot
+    edge/conf + portfolio AI after warn·hung alone). Calm hung
+    explain-only / empty also speak ``confirm · hung · no result|confirm ·
+    hung`` — peers of ``warn · hung · no result|warn · hung`` — so bare
+    hung thin cards do not hide calm ownership after warn alone named
+    severity (portfolio AI speak-both-sides + FinRobot + xang1234).
+    Finished calm lean with spoken stages speaks ``confirm · …`` — peer of
+    ``warn · …`` — so bare ``quiet · status/age vs scan`` does not hide
+    that meters already agreed after confirm·hung covered hung only
+    (FinRobot edge/conf + portfolio AI speak-both-sides + xang1234).
+    Finished also shares the thin/not-thin rule (``confirm · not thin`` /
+    ``warn · not thin``; explain-only ``no result · sole|few``) so bare
+    finished confirm|warn after hung-only thin honesty does not hide meter
+    vs thin cards (xang1234 b09fb49 / 1cd7968 + portfolio AI
+    speak-both-sides). Empty finished stays ``quiet``. Not a gate.
     """
     lean_s = str(lean or "").strip()
     if not lean_s:
@@ -32228,6 +32265,8 @@ def improve_tick_lean_meta(
         return "quiet"
     lean_l = lean_s.casefold()
     stages: list[str] = []
+    if "stuck peers" in lean_l:
+        stages.append("stuck peers")
     if "fresher polarity vs scan-meter" in lean_l or (
         "fresher polarity" in lean_l and "scan-meter" in lean_l
     ):
@@ -32561,6 +32600,12 @@ def build_improve_tick_glance(
     if fstuck_lean:
         lean_parts.append(fstuck_lean)
         lean_warn = lean_warn or fstuck_warn
+    stuck_peers_lean, stuck_peers_warn = improve_tick_stuck_peers_bits(
+        stuck_lean, fstuck_lean
+    )
+    if stuck_peers_lean:
+        lean_parts.append(stuck_peers_lean)
+        lean_warn = lean_warn or stuck_peers_warn
     scan_meter = sa_lean or src_lean or stuck_lean
     # Prefer hung stuck polarity over bare escalate source when both spoke.
     fresher_pol = fsa_lean or fstuck_lean or fsrc_lean
