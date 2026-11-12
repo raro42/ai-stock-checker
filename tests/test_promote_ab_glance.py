@@ -6012,6 +6012,125 @@ def test_window_a_sell_weekend_stock_sessions() -> None:
     assert g["b_ready"] is True
 
 
+def test_window_a_sell_weekend_share() -> None:
+    """Absolute weekend days ≠ session-calendar ownership share."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_sell_weekend_share_bit,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    # Weekend absolute speaks; share stays silent without sell_sessions.
+    assert unknown["closes_sell_weekend"] == 2
+    assert unknown["closes_sell_weekend_share"] == ""
+    assert unknown["closes_sell_weekend_share_bit"] == ""
+    assert unknown["closes_sell_weekend_share_hot"] is False
+    assert format_window_a_closes_sell_weekend_share_bit(unknown) == ""
+    assert format_window_a_closes_sell_weekend_share_bit(None) == ""
+
+    hot = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    assert hot["closes_sell_weekend_share"] == "hot"
+    assert hot["closes_sell_weekend_share_pct"] == 100.0
+    assert hot["closes_sell_weekend_share_hot"] is True
+    assert hot["closes_sell_weekend_share_bit"] == "A weekend share hot · 100%"
+    assert format_window_a_closes_sell_weekend_share_bit(hot) == (
+        "A weekend share hot · 100%"
+    )
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 8,
+            "sell_weekend_sessions": 1,
+        }
+    )
+    assert quiet["closes_sell_weekend_share"] == "quiet"
+    assert quiet["closes_sell_weekend_share_pct"] == 12.0
+    assert quiet["closes_sell_weekend_share_hot"] is False
+    assert quiet["closes_sell_weekend_share_bit"] == (
+        "A weekend share quiet · 12%"
+    )
+
+    mid = window_a_sample_readiness(
+        {
+            "trades": 24,
+            "buys": 12,
+            "sells": 12,
+            "wins": 6,
+            "losses": 6,
+            "sell_sessions": 5,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    assert mid["closes_sell_weekend_share"] == ""
+    assert mid["closes_sell_weekend_share_pct"] == 40.0
+    assert mid["closes_sell_weekend_share_hot"] is False
+    assert mid["closes_sell_weekend_share_bit"] == "A weekend share · 40%"
+
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 2,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_sell_weekend_share"] == "hot"
+    assert g["closes_sell_weekend_share_hot"] is True
+    assert "A weekend share hot · 100%" in g["kelly_line"]
+    assert "A weekend share" not in g["honesty_core"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_window_a_kelly_vs_sessions_lean() -> None:
     """Kelly N closes ≠ calendar spread. Speak meter agreement when both spoke."""
     from stock_checker.promote_ab import (

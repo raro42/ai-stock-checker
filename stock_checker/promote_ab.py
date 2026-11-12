@@ -120,6 +120,13 @@ WINDOW_A_KELLY_SAMPLE_MIN = 10
 # a thin control calendar. few <5 warns only (still ready for B). Missing
 # ``sell_sessions`` → fail-open (no bit). Not a live halt.
 WINDOW_A_SELL_SESSION_MIN = 5
+# Weekend session days ÷ sell-session days (xang1234 count≠share +
+# portfolio AI after absolute ``A sell weekend · N days``). Absolute
+# weekend days alone ≠ most of the session calendar. hot ≥50% ·
+# quiet ≤25%; mid % only. hot warns only (still ready for B). Missing
+# sessions n / zero weekend → fail-open (no bit). Not a live halt.
+WINDOW_A_WEEKEND_SHARE_HOT_PCT = 50.0
+WINDOW_A_WEEKEND_SHARE_QUIET_PCT = 25.0
 # Sells per unique UTC sell-session day (xang1234 #747 Few dates +
 # portfolio AI count≠calendar). Few days alone ≠ how clustered the
 # closes are on those days. fat ≥2.0× warns only (still ready for B).
@@ -2620,6 +2627,10 @@ def window_a_sample_readiness(
         "closes_sell_weekend": None,
         "closes_sell_weekend_bit": "",
         "closes_sell_weekend_warn": False,
+        "closes_sell_weekend_share": "",
+        "closes_sell_weekend_share_pct": None,
+        "closes_sell_weekend_share_bit": "",
+        "closes_sell_weekend_share_hot": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3641,6 +3652,10 @@ def window_a_sample_readiness(
     closes_sell_weekend: int | None = None
     closes_sell_weekend_bit = ""
     closes_sell_weekend_warn = False
+    closes_sell_weekend_share = ""
+    closes_sell_weekend_share_pct: float | None = None
+    closes_sell_weekend_share_bit = ""
+    closes_sell_weekend_share_hot = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4315,6 +4330,47 @@ def window_a_sample_readiness(
                 closes_sell_weekend_warn = True
                 closes_sell_weekend_bit = (
                     f"A sell weekend · {n_weekend} days"
+                )
+
+    # Absolute weekend days ≠ session-calendar ownership (xang1234
+    # count≠share + portfolio AI after ``A sell weekend · N days``).
+    # Speak when weekend already spoke and sell-session n is known.
+    # hot ≥ HOT · quiet ≤ QUIET; mid % only. hot warns only (still
+    # ready for B). Missing sessions n → fail-open.
+    if (
+        closes_sell_weekend is not None
+        and closes_sell_weekend > 0
+        and closes_sell_sessions_n is not None
+    ):
+        try:
+            n_sess_share = int(closes_sell_sessions_n)
+        except (TypeError, ValueError):
+            n_sess_share = 0
+        if n_sess_share >= 1:
+            pct = round(
+                100.0 * float(closes_sell_weekend) / float(n_sess_share)
+            )
+            # Cap display at 100% when weekend days somehow exceed
+            # session days (should not happen; same calendar source).
+            if pct > 100:
+                pct = 100
+            closes_sell_weekend_share_pct = float(pct)
+            hot_need = float(WINDOW_A_WEEKEND_SHARE_HOT_PCT)
+            quiet_need = float(WINDOW_A_WEEKEND_SHARE_QUIET_PCT)
+            if pct >= hot_need:
+                closes_sell_weekend_share = "hot"
+                closes_sell_weekend_share_hot = True
+                closes_sell_weekend_share_bit = (
+                    f"A weekend share hot · {pct}%"
+                )
+            elif pct <= quiet_need:
+                closes_sell_weekend_share = "quiet"
+                closes_sell_weekend_share_bit = (
+                    f"A weekend share quiet · {pct}%"
+                )
+            else:
+                closes_sell_weekend_share_bit = (
+                    f"A weekend share · {pct}%"
                 )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
@@ -6012,6 +6068,10 @@ def window_a_sample_readiness(
         "closes_sell_weekend": closes_sell_weekend,
         "closes_sell_weekend_bit": closes_sell_weekend_bit,
         "closes_sell_weekend_warn": closes_sell_weekend_warn,
+        "closes_sell_weekend_share": closes_sell_weekend_share,
+        "closes_sell_weekend_share_pct": closes_sell_weekend_share_pct,
+        "closes_sell_weekend_share_bit": closes_sell_weekend_share_bit,
+        "closes_sell_weekend_share_hot": closes_sell_weekend_share_hot,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -7696,6 +7756,16 @@ def format_window_a_closes_sell_weekend_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_sell_weekend_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_sell_weekend_share_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A weekend÷sessions share bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sell_weekend_share_bit") or "").strip()
     return bit
 
 
