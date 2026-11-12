@@ -5885,6 +5885,133 @@ def test_window_a_sell_sessions_few_dates() -> None:
     assert stats["sells"] == 3
 
 
+def test_window_a_sell_weekend_stock_sessions() -> None:
+    """Stock NY-weekend closes warn; crypto weekend stays silent."""
+    from openbb_backend.desk import build_promote_ab_glance
+    from stock_checker.promote_ab import (
+        format_window_a_closes_sell_weekend_bit,
+        sell_weekend_stock_session_count,
+        summarize_window_trades,
+        window_a_sample_readiness,
+    )
+
+    unknown = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+        }
+    )
+    assert unknown["closes_sell_weekend"] is None
+    assert unknown["closes_sell_weekend_bit"] == ""
+    assert unknown["closes_sell_weekend_warn"] is False
+    assert format_window_a_closes_sell_weekend_bit(unknown) == ""
+    assert format_window_a_closes_sell_weekend_bit(None) == ""
+
+    quiet = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 0,
+        }
+    )
+    assert quiet["closes_sell_weekend"] is None
+    assert quiet["closes_sell_weekend_bit"] == ""
+    assert quiet["closes_sell_weekend_warn"] is False
+
+    warned = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 2,
+        }
+    )
+    assert warned["closes_sell_weekend"] == 2
+    assert warned["closes_sell_weekend_warn"] is True
+    assert warned["closes_sell_weekend_bit"] == "A sell weekend · 2 days"
+    assert format_window_a_closes_sell_weekend_bit(warned) == (
+        "A sell weekend · 2 days"
+    )
+
+    # Sat 2026-09-12 15:00 UTC = Sat 11:00 US/Eastern — stock weekend.
+    # BTC-USD same stamp is skipped (24/7). Fri stamp stays weekday.
+    rows = [
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "timestamp": "2026-09-12T15:00:00+00:00",
+            "profit_loss": 10.0,
+            "commission": 1.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "BTC-USD",
+            "timestamp": "2026-09-12T16:00:00+00:00",
+            "profit_loss": 5.0,
+            "commission": 1.0,
+        },
+        {
+            "type": "SELL",
+            "symbol": "MSFT",
+            "timestamp": "2026-09-11T15:00:00+00:00",
+            "profit_loss": -4.0,
+            "commission": 1.0,
+        },
+    ]
+    assert sell_weekend_stock_session_count(rows) == 1
+    stats = summarize_window_trades(
+        rows, start=datetime(2026, 9, 1, tzinfo=timezone.utc)
+    )
+    assert stats["sell_weekend_sessions"] == 1
+    assert stats["sell_sessions"] == 2
+
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": 5,
+            "min_hold_hours": 24,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+            "scan_interval_min": 15,
+            "trade_interval_min": 5,
+        },
+        as_of=date(2026, 9, 14),
+        open_positions=2,
+        window_stats={
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "fees": 10.0,
+            "realized_pnl": 80.0,
+            "net_after_all_fees": 70.0,
+            "wins": 3,
+            "losses": 3,
+            "sell_weekend_sessions": 1,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["closes_sell_weekend"] == 1
+    assert g["closes_sell_weekend_warn"] is True
+    assert "A sell weekend · 1 days" in g["kelly_line"]
+    assert "A sell weekend" not in g["honesty_core"]
+    assert "ready for B" in g["line"]
+    assert g["b_ready"] is True
+
+
 def test_window_a_kelly_vs_sessions_lean() -> None:
     """Kelly N closes ≠ calendar spread. Speak meter agreement when both spoke."""
     from stock_checker.promote_ab import (

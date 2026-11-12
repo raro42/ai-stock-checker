@@ -2617,6 +2617,9 @@ def window_a_sample_readiness(
         "closes_sell_sessions_n": None,
         "closes_sell_sessions_bit": "",
         "closes_sell_sessions_few": False,
+        "closes_sell_weekend": None,
+        "closes_sell_weekend_bit": "",
+        "closes_sell_weekend_warn": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3635,6 +3638,9 @@ def window_a_sample_readiness(
     closes_sell_sessions_n: int | None = None
     closes_sell_sessions_bit = ""
     closes_sell_sessions_few = False
+    closes_sell_weekend: int | None = None
+    closes_sell_weekend_bit = ""
+    closes_sell_weekend_warn = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4286,6 +4292,30 @@ def window_a_sample_readiness(
                     closes_sell_sessions_bit = (
                         f"A sell sessions ok · {n_sessions} days"
                     )
+
+    # Equity closes on a US/Eastern weekend inflate sell-session days
+    # with non-RTH calendar (tradermonty #687 weekday date quality +
+    # xang1234 few-dates + portfolio AI sample honesty). Crypto skipped
+    # (24/7). Speak when any stock weekend session day exists. Warn only
+    # (still ready for B). Missing key / zero → fail-open / silent.
+    if (
+        sides_known
+        and sells > 0
+        and not open_only
+        and "sell_weekend_sessions" in stats
+    ):
+        raw_weekend = stats.get("sell_weekend_sessions")
+        if raw_weekend is not None:
+            try:
+                n_weekend = int(raw_weekend)
+            except (TypeError, ValueError):
+                n_weekend = -1
+            if n_weekend > 0:
+                closes_sell_weekend = n_weekend
+                closes_sell_weekend_warn = True
+                closes_sell_weekend_bit = (
+                    f"A sell weekend · {n_weekend} days"
+                )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
     # agreement (portfolio AI + xang1234 after absolute sides). Clash
@@ -5979,6 +6009,9 @@ def window_a_sample_readiness(
         "closes_sell_sessions_n": closes_sell_sessions_n,
         "closes_sell_sessions_bit": closes_sell_sessions_bit,
         "closes_sell_sessions_few": closes_sell_sessions_few,
+        "closes_sell_weekend": closes_sell_weekend,
+        "closes_sell_weekend_bit": closes_sell_weekend_bit,
+        "closes_sell_weekend_warn": closes_sell_weekend_warn,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -7656,6 +7689,16 @@ def format_window_a_closes_sell_sessions_bit(
     return bit
 
 
+def format_window_a_closes_sell_weekend_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A stock weekend sell-session bit (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sell_weekend_bit") or "").strip()
+    return bit
+
+
 def format_window_a_closes_kelly_vs_sessions_bit(
     sample: dict[str, Any] | None,
 ) -> str:
@@ -8810,6 +8853,35 @@ def sell_session_count(sells: Iterable[dict[str, Any]]) -> int:
     return len(days)
 
 
+def sell_weekend_stock_session_count(sells: Iterable[dict[str, Any]]) -> int:
+    """Unique US/Eastern weekend days with a dated non-crypto SELL.
+
+    Equity RTH should not close Sat/Sun on the NY session clock; crypto is
+    24/7 and skipped. Unparseable timestamps skipped. Zero when none.
+    Display only — not a gate. tradermonty #687 weekday quality +
+    xang1234 few-dates.
+    """
+    import pytz
+
+    from stock_checker.crypto_policy import is_crypto_symbol
+    from stock_checker.market_hours import US_TZ
+
+    ny = pytz.timezone(US_TZ)
+    days: set[date] = set()
+    for sell in sells:
+        if not isinstance(sell, dict):
+            continue
+        if is_crypto_symbol(str(sell.get("symbol") or "")):
+            continue
+        ts = parse_trade_timestamp(sell.get("timestamp"))
+        if ts is None:
+            continue
+        local = ts.astimezone(ny)
+        if local.weekday() >= 5:
+            days.add(local.date())
+    return len(days)
+
+
 def ending_loss_streak(sells: Iterable[dict[str, Any]]) -> int | None:
     """Newest run of losing closes. None when no dated decided sell.
 
@@ -9268,6 +9340,7 @@ def summarize_window_trades(
         "last": last_ts,
         "last_sell": last_sell_ts,
         "sell_sessions": sell_session_count(sells),
+        "sell_weekend_sessions": sell_weekend_stock_session_count(sells),
         "start_utc": start_dt.isoformat(),
         "end_utc": end.isoformat() if end is not None else None,
     }
