@@ -148,6 +148,13 @@ WINDOW_A_CLOSES_PER_DAY_FAT = 2.0
 # (``closes_sw_vs_wd_*``; both clash + mixed warn only; sole side
 # silent; still ready for B) — FinRobot + portfolio AI + xang1234
 # after absolute weekend leans hid meter agreement.
+# When Sw↔Wd and day↔closes both spoke, also speak outer-bridge
+# agreement ``A Sw↔Wd vs day↔closes …`` (``closes_sw_vs_dc_*``;
+# both clash + mixed warn only; sole side silent; still ready for B)
+# — FinRobot + portfolio AI + xang1234 multi-meter + Yahoo drop-kept
+# vs live-free after absolute Sw↔Wd beside day↔closes hid the
+# density-bridge / ownership-bridge agreement (mirror of Kd↔ vs
+# Ks↔Sd).
 # Not a live halt.
 # Ending run of losing closes (portfolio AI + tradermonty postmortem).
 # Win/lose counts ≠ a current run. quiet is 0 or 1. hot is ≥2 (warn only).
@@ -2468,7 +2475,15 @@ def window_a_sample_readiness(
     speak-both-sides + xang1234 multi-meter + Yahoo drop-kept vs
     live-free after absolute Kd↔ beside Ks↔Sd hid the bridge-vs
     K/day-meta agreement; both clash and mixed warn only (still ready
-    for B); sole side silent.
+    for B); sole side silent. When Sw↔Wd and day↔closes both spoke,
+    speak meter agreement
+    ``A Sw↔Wd vs day↔closes align · both align|clash`` or
+    ``clash · Sw↔Wd clash|align · day↔closes …``
+    (``closes_sw_vs_dc_*``) — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 multi-meter + Yahoo drop-kept vs
+    live-free after absolute Sw↔Wd beside day↔closes hid the
+    density-bridge / ownership-bridge agreement; both clash and mixed
+    warn only (still ready for B); sole side silent.
     Not a gate; does not flip compose promote.
     """
     need = max(1, int(target_fills))
@@ -2667,6 +2682,9 @@ def window_a_sample_readiness(
         "closes_sw_vs_wd": "",
         "closes_sw_vs_wd_bit": "",
         "closes_sw_vs_wd_clash": False,
+        "closes_sw_vs_dc": "",
+        "closes_sw_vs_dc_bit": "",
+        "closes_sw_vs_dc_clash": False,
         "closes_kelly_vs_sessions": "",
         "closes_kelly_vs_sessions_bit": "",
         "closes_kelly_vs_sessions_clash": False,
@@ -3712,6 +3730,9 @@ def window_a_sample_readiness(
     closes_sw_vs_wd = ""
     closes_sw_vs_wd_bit = ""
     closes_sw_vs_wd_clash = False
+    closes_sw_vs_dc = ""
+    closes_sw_vs_dc_bit = ""
+    closes_sw_vs_dc_clash = False
     closes_kelly_vs_sessions = ""
     closes_kelly_vs_sessions_bit = ""
     closes_kelly_vs_sessions_clash = False
@@ -4612,6 +4633,39 @@ def window_a_sample_readiness(
                 closes_sw_vs_wd_bit = (
                     "A sess/weekend vs weekend/day clash · "
                     "sess/weekend align · weekend/day clash"
+                )
+
+    # Sw↔Wd lean ≠ day↔closes lean. When both outer weekend
+    # meta-meters spoke, speak agreement (FinRobot + portfolio AI +
+    # xang1234 + Yahoo drop-kept vs live-free after absolute Sw↔Wd
+    # beside day↔closes). Both clash and mixed warn only (still ready
+    # for B). Sole side silent. Mirror of Kd↔ vs Ks↔Sd.
+    if closes_sw_vs_wd and closes_weekend_day_vs_closes:
+        sw_adverse = closes_sw_vs_wd == "clash"
+        dc_adverse = closes_weekend_day_vs_closes == "clash"
+        if sw_adverse == dc_adverse:
+            closes_sw_vs_dc = "align"
+            if sw_adverse:
+                closes_sw_vs_dc_clash = True
+                closes_sw_vs_dc_bit = (
+                    "A Sw↔Wd vs day↔closes align · both clash"
+                )
+            else:
+                closes_sw_vs_dc_bit = (
+                    "A Sw↔Wd vs day↔closes align · both align"
+                )
+        else:
+            closes_sw_vs_dc = "clash"
+            closes_sw_vs_dc_clash = True
+            if sw_adverse:
+                closes_sw_vs_dc_bit = (
+                    "A Sw↔Wd vs day↔closes clash · "
+                    "Sw↔Wd clash · day↔closes align"
+                )
+            else:
+                closes_sw_vs_dc_bit = (
+                    "A Sw↔Wd vs day↔closes clash · "
+                    "Sw↔Wd align · day↔closes clash"
                 )
 
     # Kelly N closes ≠ calendar spread. When both meters spoke, speak
@@ -6333,6 +6387,9 @@ def window_a_sample_readiness(
         "closes_sw_vs_wd": closes_sw_vs_wd,
         "closes_sw_vs_wd_bit": closes_sw_vs_wd_bit,
         "closes_sw_vs_wd_clash": closes_sw_vs_wd_clash,
+        "closes_sw_vs_dc": closes_sw_vs_dc,
+        "closes_sw_vs_dc_bit": closes_sw_vs_dc_bit,
+        "closes_sw_vs_dc_clash": closes_sw_vs_dc_clash,
         "closes_kelly_vs_sessions": closes_kelly_vs_sessions,
         "closes_kelly_vs_sessions_bit": closes_kelly_vs_sessions_bit,
         "closes_kelly_vs_sessions_clash": closes_kelly_vs_sessions_clash,
@@ -8087,6 +8144,16 @@ def format_window_a_closes_sw_vs_wd_bit(
     if not isinstance(sample, dict):
         return ""
     bit = str(sample.get("closes_sw_vs_wd_bit") or "").strip()
+    return bit
+
+
+def format_window_a_closes_sw_vs_dc_bit(
+    sample: dict[str, Any] | None,
+) -> str:
+    """Short Window A Sw↔Wd vs day↔closes lean agreement (display only)."""
+    if not isinstance(sample, dict):
+        return ""
+    bit = str(sample.get("closes_sw_vs_dc_bit") or "").strip()
     return bit
 
 
