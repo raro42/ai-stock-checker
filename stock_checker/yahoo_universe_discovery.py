@@ -945,6 +945,46 @@ def yahoo_discovery_claim_hung_lf_vs_hung_dk(
     return "clash · hung lf vs hung dk · lf align · dk clash", True
 
 
+def _yahoo_discovery_claim_meta_adverse(bit: str) -> bool:
+    """Warn mood on a claim meta-lean bit (both-clash or clash· prefix)."""
+    low = str(bit or "").strip().casefold()
+    if not low:
+        return False
+    return low.startswith("clash ·") or "both clash" in low
+
+
+def yahoo_discovery_claim_hung_meta_vs_dk_lf(
+    hung_lf_vs_hung_dk: str,
+    drop_kept_vs_live_free: str,
+) -> tuple[str, bool]:
+    """Mood agreement of hung lf/dk meta vs drop-kept/live-free (display only).
+
+    Absolute ``hung lf vs hung dk align|clash`` beside ``drop-kept vs
+    live-free align|clash`` hid whether the hung peer-meta and the absolute
+    claim lean-meta *agree* — FinRobot edge/conf + portfolio AI
+    speak-both-sides + xang1234 multi-meter + Window A Kd↔ vs Ks↔Sd /
+    improve-tick fresher polarity vs scan-meter after hung lf vs hung dk +
+    drop-kept vs live-free hid outer bridge agreement. Both confirm →
+    ``hung↔ vs dk/lf align · both align`` (confirm). Both warn →
+    ``… · both clash`` (warn — dual-clash ≠ quiet confirm). Mixed →
+    ``clash · hung↔ vs dk/lf · hung clash|align · dk/lf …`` (warn). Sole
+    side silent. Desk keeps this under ``claim_lean``. Not a gate.
+    """
+    hung = str(hung_lf_vs_hung_dk or "").strip()
+    dk_lf = str(drop_kept_vs_live_free or "").strip()
+    if not hung or not dk_lf:
+        return "", False
+    hung_adverse = _yahoo_discovery_claim_meta_adverse(hung)
+    dk_lf_adverse = _yahoo_discovery_claim_meta_adverse(dk_lf)
+    if hung_adverse == dk_lf_adverse:
+        if hung_adverse:
+            return "hung↔ vs dk/lf align · both clash", True
+        return "hung↔ vs dk/lf align · both align", False
+    if hung_adverse:
+        return "clash · hung↔ vs dk/lf · hung clash · dk/lf align", True
+    return "clash · hung↔ vs dk/lf · hung align · dk/lf clash", True
+
+
 def yahoo_discovery_claim_lean_meta(
     lean: str, *, warn: bool = False, hung: bool = False
 ) -> str:
@@ -953,8 +993,8 @@ def yahoo_discovery_claim_lean_meta(
     Bare quiet/warn hid whether drop vs kept / live vs free / drop-kept vs
     live-free severity spoke — MonsterDeveloper fold inventory + Screener/
     opportunity lean meta + improve-tick finished confirm after sides alone.
-    Inventories spoken stages (``hung lf vs hung dk`` first ·
-    ``hung vs drop-kept`` · ``hung vs live-free`` ·
+    Inventories spoken stages (``hung↔ vs dk/lf`` first ·
+    ``hung lf vs hung dk`` · ``hung vs drop-kept`` · ``hung vs live-free`` ·
     ``drop-kept vs live-free`` · ``drop vs kept`` · ``live vs free`` ·
     ``hung band``). Warn → ``warn · …``; calm spoken lean → ``confirm · …``
     (speak-both-sides peer of warn); empty → ``quiet`` (empty + hung →
@@ -980,6 +1020,8 @@ def yahoo_discovery_claim_lean_meta(
         return "quiet"
     lower = text.casefold()
     stages: list[str] = []
+    if "hung↔ vs dk/lf" in lower:
+        stages.append("hung↔ vs dk/lf")
     if "hung lf vs hung dk" in lower:
         stages.append("hung lf vs hung dk")
     if "hung vs drop-kept" in lower:

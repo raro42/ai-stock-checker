@@ -27094,6 +27094,7 @@ def build_universe_discovery_glance(
         yahoo_discovery_claim_drop_kept_vs_live_free,
         yahoo_discovery_claim_hung_band,
         yahoo_discovery_claim_hung_lf_vs_hung_dk,
+        yahoo_discovery_claim_hung_meta_vs_dk_lf,
         yahoo_discovery_claim_hung_vs_drop_kept,
         yahoo_discovery_claim_hung_vs_live_free,
         yahoo_discovery_claim_lean_meta,
@@ -27522,6 +27523,26 @@ def build_universe_discovery_glance(
             claim_lean = claim_hung_lf_vs_hung_dk_bit
         claim_lean_warn = bool(claim_lean_warn) or bool(
             claim_hung_lf_vs_hung_dk_warn
+        )
+        claim_lean_meta = yahoo_discovery_claim_lean_meta(
+            claim_lean,
+            warn=claim_lean_warn,
+            hung=True,
+        )
+    # Window A Kd↔ vs Ks↔Sd: hung meta beside dk/lf hid outer bridge.
+    (
+        claim_hung_meta_vs_dk_lf_bit,
+        claim_hung_meta_vs_dk_lf_warn,
+    ) = yahoo_discovery_claim_hung_meta_vs_dk_lf(
+        claim_hung_lf_vs_hung_dk_bit, claim_drop_kept_vs_live_free_bit
+    )
+    if claim_hung_meta_vs_dk_lf_bit:
+        if claim_lean:
+            claim_lean = f"{claim_lean} · {claim_hung_meta_vs_dk_lf_bit}"
+        else:
+            claim_lean = claim_hung_meta_vs_dk_lf_bit
+        claim_lean_warn = bool(claim_lean_warn) or bool(
+            claim_hung_meta_vs_dk_lf_warn
         )
         claim_lean_meta = yahoo_discovery_claim_lean_meta(
             claim_lean,
@@ -28418,6 +28439,12 @@ def build_universe_discovery_glance(
         ),
         "last_yahoo_claim_hung_lf_vs_hung_dk_warn": bool(
             claim_hung_lf_vs_hung_dk_warn
+        ),
+        "last_yahoo_claim_hung_meta_vs_dk_lf": (
+            claim_hung_meta_vs_dk_lf_bit or None
+        ),
+        "last_yahoo_claim_hung_meta_vs_dk_lf_warn": bool(
+            claim_hung_meta_vs_dk_lf_warn
         ),
         "last_yahoo_claim_drop_vs_live_lead": (
             claim_drop_vs_live_lead_name or None

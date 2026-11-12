@@ -1396,11 +1396,16 @@ def test_universe_discovery_glance_claim_drop_kept_vs_live_free(
     )
     assert g["last_yahoo_claim_hung_lf_vs_hung_dk_warn"] is True
     assert "hung lf vs hung dk align · both clash" in g["claim_lean"]
+    assert g["last_yahoo_claim_hung_meta_vs_dk_lf"] == (
+        "clash · hung↔ vs dk/lf · hung clash · dk/lf align"
+    )
+    assert g["last_yahoo_claim_hung_meta_vs_dk_lf_warn"] is True
+    assert "clash · hung↔ vs dk/lf · hung clash · dk/lf align" in g["claim_lean"]
     assert g["claim_lean_warn"] is True
     assert g["claim_lean_meta"] == (
-        "warn · hung · not thin · hung lf vs hung dk · hung vs drop-kept"
-        " · hung vs live-free · drop-kept vs live-free · drop vs kept"
-        " · live vs free · hung band"
+        "warn · hung · not thin · hung↔ vs dk/lf · hung lf vs hung dk"
+        " · hung vs drop-kept · hung vs live-free · drop-kept vs live-free"
+        " · drop vs kept · live vs free · hung band"
     )
     assert g["claim_lean_open"] is True
     # Cross meter stays under the fold — primary clip keeps drop/live lead.
@@ -1408,6 +1413,7 @@ def test_universe_discovery_glance_claim_drop_kept_vs_live_free(
     assert "hung vs live-free" not in g["line"]
     assert "hung vs drop-kept" not in g["line"]
     assert "hung lf vs hung dk" not in g["line"]
+    assert "hung↔ vs dk/lf" not in g["line"]
     assert "hung band" not in g["line"]
 
 
