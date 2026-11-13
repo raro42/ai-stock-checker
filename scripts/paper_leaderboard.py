@@ -43,6 +43,9 @@ def main() -> None:
     bit = str(share.get("bit") or "")
     if bit:
         print(bit)
+    lean = str(share.get("lean") or "")
+    if lean:
+        print(lean)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,9 @@ SHARED_DESK_ACCOUNT_ID = "desk"
 # Race-board ownership of empty shells (named accounts only; legacy excluded).
 MISSING_SHARE_HOT = 50.0
 MISSING_SHARE_QUIET = 25.0
+# Remaining ready named books after missing share (short-refuse vs long).
+READY_SHARE_STRONG = 75.0
+READY_SHARE_THIN = 50.0
 
 
 class AccountIdError(ValueError):
@@ -243,13 +246,24 @@ def leaderboard_missing_share(
     Absolute ``N missing`` on a row ≠ most of the race board. Denominator is
     named accounts only (legacy root is never a missing shell). Silent when
     zero missing or no named books. Hot ≥50% · quiet ≤25% (mid % only).
+
+    When missing already spoke, also fill ``lean`` with remaining ready books
+    ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
+    ``vs 0 ready · thin · 0%``). Primary ``bit`` stays absolute+share so the
+    Overview race strip stays short; lean lives under a details fold.
     """
     out: dict[str, Any] = {
         "n_named": 0,
         "n_missing": 0,
+        "n_ready": 0,
         "missing_share_pct": None,
         "missing_share_severity": "",
+        "ready_share_pct": None,
+        "ready_share_severity": "",
         "bit": "",
+        "lean": "",
+        "lean_meta": "",
+        "lean_warn": False,
         "warn": False,
     }
     named = [r for r in (rows or []) if str(r.get("account_id") or "")]
@@ -257,8 +271,10 @@ def leaderboard_missing_share(
     if n_named <= 0:
         return out
     n_missing = sum(1 for r in named if r.get("missing"))
+    n_ready = n_named - n_missing
     out["n_named"] = n_named
     out["n_missing"] = n_missing
+    out["n_ready"] = n_ready
     if n_missing <= 0:
         return out
     pct = round(100.0 * n_missing / n_named, 1)
@@ -273,6 +289,20 @@ def leaderboard_missing_share(
     else:
         out["missing_share_severity"] = "ok"
         out["bit"] = f"{n_missing} missing · {pct:g}%"
+
+    ready_pct = round(100.0 * n_ready / n_named, 1)
+    out["ready_share_pct"] = ready_pct
+    if ready_pct >= READY_SHARE_STRONG:
+        out["ready_share_severity"] = "strong"
+        out["lean"] = f"vs {n_ready} ready · strong · {ready_pct:g}%"
+    elif ready_pct < READY_SHARE_THIN:
+        out["ready_share_severity"] = "thin"
+        out["lean"] = f"vs {n_ready} ready · thin · {ready_pct:g}%"
+        out["lean_warn"] = True
+    else:
+        out["ready_share_severity"] = "ok"
+        out["lean"] = f"vs {n_ready} ready · {ready_pct:g}%"
+    out["lean_meta"] = "vs ready"
     return out
 
 

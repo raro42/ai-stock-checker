@@ -38324,6 +38324,13 @@ def load_desk_snapshot(
         "leaderboard_missing": leaderboard_missing,
         "leaderboard_missing_bit": str(leaderboard_missing.get("bit") or ""),
         "leaderboard_missing_warn": bool(leaderboard_missing.get("warn")),
+        "leaderboard_missing_lean": str(leaderboard_missing.get("lean") or ""),
+        "leaderboard_missing_lean_meta": str(
+            leaderboard_missing.get("lean_meta") or ""
+        ),
+        "leaderboard_missing_lean_warn": bool(
+            leaderboard_missing.get("lean_warn")
+        ),
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "portfolio_updated": portfolio.get("last_updated") or "",
         "initial": initial,

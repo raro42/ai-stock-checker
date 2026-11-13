@@ -15,6 +15,15 @@
     {{ snap.leaderboard_missing_bit }}
   </p>
   {% endif %}
+  {% if snap.leaderboard_missing_lean %}
+  <details class="leaderboard-missing-lean{% if snap.leaderboard_missing_lean_warn %} warn{% endif %}"{% if snap.leaderboard_missing_lean_warn %} open{% endif %}>
+    <summary>missing lean <span class="meta">{{ snap.leaderboard_missing_lean_meta }}</span></summary>
+    <p class="leaderboard-missing-lean-body{% if snap.leaderboard_missing_lean_warn %} warn{% endif %}"
+       title="Remaining ready named books after missing share — missing% alone does not hide usable race peers. Display only.">
+      {{ snap.leaderboard_missing_lean }}
+    </p>
+  </details>
+  {% endif %}
   <table>
     <thead>
       <tr>

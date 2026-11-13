@@ -127,18 +127,29 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     share = leaderboard_missing_share(rows)
     assert share["n_named"] == 2
     assert share["n_missing"] == 1
+    assert share["n_ready"] == 1
     assert share["missing_share_pct"] == 50.0
     assert share["missing_share_severity"] == "hot"
     assert share["warn"] is True
     assert share["bit"] == "1 missing · hot · 50%"
-    # All ready → silent.
-    assert leaderboard_missing_share(
+    # Missing% alone ≠ usable race peers — 1 of 2 ready = 50% mid (ok).
+    assert share["ready_share_pct"] == 50.0
+    assert share["ready_share_severity"] == "ok"
+    assert share["lean"] == "vs 1 ready · 50%"
+    assert share["lean_warn"] is False
+    assert share["lean_meta"] == "vs ready"
+    # All ready → silent (bit + lean).
+    ready_only = leaderboard_missing_share(
         [r for r in rows if not r.get("missing")]
-    )["bit"] == ""
-    # Sole missing named → 100% hot.
+    )
+    assert ready_only["bit"] == ""
+    assert ready_only["lean"] == ""
+    # Sole missing named → 100% hot · vs 0 ready thin.
     sole = leaderboard_missing_share([rows[2]])
     assert sole["bit"] == "1 missing · hot · 100%"
-    # Quiet band: 1 of 5 named.
+    assert sole["lean"] == "vs 0 ready · thin · 0%"
+    assert sole["lean_warn"] is True
+    # Quiet band: 1 of 5 named → missing quiet · ready strong.
     quiet_rows = [
         {"account_id": "a0", "missing": True},
         {"account_id": "a1", "missing": False},
@@ -150,5 +161,10 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert quiet["missing_share_severity"] == "quiet"
     assert quiet["warn"] is False
     assert quiet["bit"] == "1 missing · quiet · 20%"
+    assert quiet["ready_share_severity"] == "strong"
+    assert quiet["lean"] == "vs 4 ready · strong · 80%"
+    assert quiet["lean_warn"] is False
     # Legacy-only board silent.
-    assert leaderboard_missing_share([rows[1]])["bit"] == ""
+    legacy_only = leaderboard_missing_share([rows[1]])
+    assert legacy_only["bit"] == ""
+    assert legacy_only["lean"] == ""

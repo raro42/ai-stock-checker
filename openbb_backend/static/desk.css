@@ -221,6 +221,40 @@ a:active {
   color: var(--down);
 }
 
+.leaderboard-missing-lean {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.leaderboard-missing-lean > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.leaderboard-missing-lean > summary::-webkit-details-marker {
+  display: none;
+}
+
+.leaderboard-missing-lean > summary .meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.leaderboard-missing-lean.warn > summary,
+.leaderboard-missing-lean.warn > summary .meta {
+  color: var(--down);
+}
+
+.leaderboard-missing-lean-body {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.leaderboard-missing-lean-body.warn {
+  color: var(--down);
+}
+
 .leaderboard table {
   width: 100%;
   border-collapse: collapse;
