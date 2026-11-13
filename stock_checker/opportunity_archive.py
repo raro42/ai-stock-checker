@@ -237,7 +237,8 @@ def opportunity_damaged_vs_ok_delta_lead_size(
 
     When ``delta_lead`` already spoke (``damaged|ok``) and both shares are
     known, ``Δ lead size · N×`` is louder%÷quieter%; zero quieter (all one
-    side) stays silent. Lead name ≠ magnitude (Screener junk vs ok /
+    side) stays silent. Desk names sides ``damaged|ok N% · ok|damaged M%``
+    (louder first). Lead name ≠ magnitude (Screener junk vs ok /
     unique vs dup Δ lead size + portfolio AI count≠share). Returns
     ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
     """

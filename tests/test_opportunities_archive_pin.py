@@ -421,7 +421,7 @@ def test_archive_pin_lean_meta_names_spoken_stages() -> None:
         "damaged vs ok align · quiet|strong · Δ wide · -60pp · "
         "lean vs Δ align · wide · Δ lead · ok · "
         "Δ lead size · 4× · "
-        "Δ lead size sides · louder 80% · quieter 20%"
+        "Δ lead size sides · ok 80% · damaged 20%"
     )
     assert archive_pin_lean_meta(quiet) == (
         "quiet · 6 folds · damaged · Δ · lean · lead · +2"
@@ -656,7 +656,7 @@ def test_resolve_speaks_damaged_quiet_share(tmp_path: Path) -> None:
         f"{res['damaged_vs_ok_lean']} · Δ wide · -60pp · "
         "lean vs Δ align · wide · Δ lead · ok · "
         "Δ lead size · 4× · "
-        "Δ lead size sides · louder 80% · quieter 20%"
+        "Δ lead size sides · ok 80% · damaged 20%"
     )
     assert res["pin_lean_warn"] is False
     assert res["bit_core"] == (
@@ -709,7 +709,7 @@ def test_resolve_speaks_damaged_vs_ok_thin(tmp_path: Path) -> None:
         f"{res['damaged_vs_ok_lean']} · Δ wide · +50pp · "
         "lean vs Δ align · wide · Δ lead · damaged · "
         "Δ lead size · 3× · "
-        "Δ lead size sides · louder 75% · quieter 25%"
+        "Δ lead size sides · damaged 75% · ok 25%"
     )
     assert res["pin_lean_warn"] is True
     assert res["bit_core"] == (

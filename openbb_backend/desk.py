@@ -1039,10 +1039,11 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     behind-vs-pin Δ). When lean vs Δ already spoke with a Δ and ±pp ≠ 0,
     also speak ``Δ lead · damaged|ok`` so signed pp alone does not hide
     which slot type owns the spread (Screener unique vs dup / Yahoo mix /
-    Window A sleeve Δ lead). When Δ lead already spoke and quieter% > 0,
-    also speak ``Δ lead size · N×`` + ``Δ lead size sides · louder N% ·
-    quieter M%`` so lead name ≠ magnitude (Screener junk vs ok Δ lead
-    size). Display fields only — not an entry gate.
+    Window A sleeve Δ lead).     When Δ lead already spoke and quieter% > 0,
+    also speak ``Δ lead size · N×`` + ``Δ lead size sides · damaged|ok N% ·
+    ok|damaged M%`` (louder slot first; Mode A / Screener named sides) so
+    lead name ≠ magnitude and anonymous louder/quieter does not hide which
+    archive sleeve owns quieter. Display fields only — not an entry gate.
     """
     from stock_checker.opportunity_archive import (
         damaged_opportunity_publish_count,
@@ -1503,10 +1504,18 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
                     pin_parts.append(f"Δ lead · {delta_lead}")
                 if size is not None:
                     pin_parts.append(f"Δ lead size · {size:g}×")
-                if louder_pct is not None and quieter_pct is not None:
+                if (
+                    louder_pct is not None
+                    and quieter_pct is not None
+                    and delta_lead in {"damaged", "ok"}
+                ):
+                    d_other = "ok" if delta_lead == "damaged" else "damaged"
                     pin_parts.append(
-                        "Δ lead size sides · louder "
-                        f"{louder_pct:g}% · quieter {quieter_pct:g}%"
+                        "Δ lead size sides · "
+                        f"{delta_lead} "
+                        f"{louder_pct:g}% · "
+                        f"{d_other} "
+                        f"{quieter_pct:g}%"
                     )
                 pin_lean = " · ".join(pin_parts)
                 out["pin_lean"] = pin_lean
