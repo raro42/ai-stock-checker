@@ -19,6 +19,7 @@ from stock_checker.paper_accounts import (
     leaderboard_missing_share,
     leaderboard_missing_vs_ready_delta,
     leaderboard_missing_vs_ready_delta_lead,
+    leaderboard_missing_vs_ready_delta_lead_size,
     leaderboard_missing_vs_ready_lead,
     leaderboard_missing_vs_ready_lead_size,
     leaderboard_missing_vs_ready_lean,
@@ -157,6 +158,7 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert share["vs_ready_lean_vs_delta"] == "align · thin"
     assert share["vs_ready_lean_vs_delta_warn"] is False
     assert share["vs_ready_delta_lead"] == ""
+    assert share["vs_ready_delta_lead_size"] is None
     assert share["lean"] == (
         "vs 1 ready · 50% · missing/ready tied · "
         "missing vs ready clash · missing hot · ready ok · "
@@ -183,6 +185,8 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert sole["vs_ready_lean_vs_delta"] == "align · wide"
     assert sole["vs_ready_lean_vs_delta_warn"] is True
     assert sole["vs_ready_delta_lead"] == "missing"
+    # 100% vs 0% → Δ lead size silent (zero quieter).
+    assert sole["vs_ready_delta_lead_size"] is None
     assert sole["lean"] == (
         "vs 0 ready · thin · 0% · missing vs ready align · hot|thin · "
         "Δ wide · +100pp · lean vs Δ align · wide · Δ lead · missing"
@@ -220,15 +224,21 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert quiet["vs_ready_lean_vs_delta"] == "align · wide"
     assert quiet["vs_ready_lean_vs_delta_warn"] is False
     assert quiet["vs_ready_delta_lead"] == "ready"
+    # 80%÷20% → Δ lead size 4× (lead name ≠ magnitude).
+    assert quiet["vs_ready_delta_lead_size"] == 4.0
+    assert quiet["vs_ready_delta_lead_size_louder"] == 80.0
+    assert quiet["vs_ready_delta_lead_size_quieter"] == 20.0
     assert quiet["lean"] == (
         "vs 4 ready · strong · 80% · lead ready · 80% · "
         "lead size · 4× · lead size sides · louder 4 · quieter 1 · "
         "missing vs ready align · quiet|strong · "
-        "Δ wide · -60pp · lean vs Δ align · wide · Δ lead · ready"
+        "Δ wide · -60pp · lean vs Δ align · wide · Δ lead · ready · "
+        "Δ lead size · 4× · "
+        "Δ lead size sides · louder 80% · quieter 20%"
     )
     assert quiet["lean_warn"] is False
     assert quiet["lean_meta"] == (
-        "vs ready · ownership · size · severity · Δ · lean/Δ · Δ lead"
+        "vs ready · ownership · size · severity · Δ · lean/Δ · Δ lead · Δ size"
     )
     # Missing-heavy board → lead missing · size 3× · align hot|thin.
     # 75% − 25% = +50pp → wide Δ; adverse hot|thin + wide warns.
@@ -249,6 +259,9 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert heavy["vs_ready_lean_vs_delta"] == "align · wide"
     assert heavy["vs_ready_lean_vs_delta_warn"] is True
     assert heavy["vs_ready_delta_lead"] == "missing"
+    assert heavy["vs_ready_delta_lead_size"] == 3.0
+    assert heavy["vs_ready_delta_lead_size_louder"] == 75.0
+    assert heavy["vs_ready_delta_lead_size_quieter"] == 25.0
     assert "lead missing · 75%" in heavy["lean"]
     assert "lead size · 3×" in heavy["lean"]
     assert "lead size sides · louder 3 · quieter 1" in heavy["lean"]
@@ -256,9 +269,11 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert "Δ wide · +50pp" in heavy["lean"]
     assert "lean vs Δ align · wide" in heavy["lean"]
     assert "Δ lead · missing" in heavy["lean"]
+    assert "Δ lead size · 3×" in heavy["lean"]
+    assert "Δ lead size sides · louder 75% · quieter 25%" in heavy["lean"]
     assert heavy["lean_warn"] is True
     assert heavy["lean_meta"] == (
-        "vs ready · ownership · size · severity · Δ · lean/Δ · Δ lead"
+        "vs ready · ownership · size · severity · Δ · lean/Δ · Δ lead · Δ size"
     )
     # Helpers: sole-side / tie / bad input / lead size / severity lean / Δ.
     assert leaderboard_missing_vs_ready_lead(2, 0) == ("", "", None)
@@ -332,6 +347,18 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
         )
         == ""
     )
+    assert leaderboard_missing_vs_ready_delta_lead_size(
+        75, 25, delta_lead="missing"
+    ) == (3.0, 75.0, 25.0)
+    assert leaderboard_missing_vs_ready_delta_lead_size(
+        20, 80, delta_lead="ready"
+    ) == (4.0, 80.0, 20.0)
+    assert leaderboard_missing_vs_ready_delta_lead_size(
+        100, 0, delta_lead="missing"
+    ) == (None, None, None)
+    assert leaderboard_missing_vs_ready_delta_lead_size(
+        50, 50, delta_lead=""
+    ) == (None, None, None)
     # Legacy-only board silent.
     legacy_only = leaderboard_missing_share([rows[1]])
     assert legacy_only["bit"] == ""

@@ -444,6 +444,38 @@ def leaderboard_missing_vs_ready_delta_lead(
     return "missing" if pp > 0 else "ready"
 
 
+def leaderboard_missing_vs_ready_delta_lead_size(
+    missing_share_pct: float | int | None,
+    ready_share_pct: float | int | None,
+    *,
+    delta_lead: str = "",
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after Δ lead (display only).
+
+    When ``delta_lead`` already spoke (``missing|ready``) and both shares
+    are known, ``Δ lead size · N×`` is louder%÷quieter%; zero quieter
+    (all-missing) stays silent. Lead name ≠ magnitude (short-refuse vs
+    long / unmatched vs matched / opportunity damaged vs ok Δ lead size
+    + portfolio AI count≠share + xang1234). Returns
+    ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``. Not a
+    new entry gate.
+    """
+    if str(delta_lead or "").strip().casefold() not in {"missing", "ready"}:
+        return None, None, None
+    if missing_share_pct is None or ready_share_pct is None:
+        return None, None, None
+    try:
+        miss = float(missing_share_pct)
+        ready = float(ready_share_pct)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(miss, ready)
+    quieter = min(miss, ready)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -467,8 +499,11 @@ def leaderboard_missing_share(
     align|clash`` so lean alone does not hide missing%−ready% spread. When
     lean vs Δ already spoke with a non-zero Δ, also append ``Δ lead ·
     missing|ready`` so signed pp alone does not hide which slot owns the
-    spread. Primary ``bit`` stays absolute+share so the Overview race strip
-    stays short; lean lives under a details fold.
+    spread. When Δ lead already spoke and quieter% > 0, also append
+    ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
+    so lead name alone does not hide magnitude. Primary ``bit`` stays
+    absolute+share so the Overview race strip stays short; lean lives
+    under a details fold.
     """
     out: dict[str, Any] = {
         "n_named": 0,
@@ -492,6 +527,9 @@ def leaderboard_missing_share(
         "vs_ready_lean_vs_delta": "",
         "vs_ready_lean_vs_delta_warn": False,
         "vs_ready_delta_lead": "",
+        "vs_ready_delta_lead_size": None,
+        "vs_ready_delta_lead_size_louder": None,
+        "vs_ready_delta_lead_size_quieter": None,
         "bit": "",
         "lean": "",
         "lean_meta": "",
@@ -602,6 +640,27 @@ def leaderboard_missing_share(
         if delta_lead:
             lean_parts.append(f"Δ lead · {delta_lead}")
             meta_parts.append("Δ lead")
+            d_size, d_louder, d_quieter = (
+                leaderboard_missing_vs_ready_delta_lead_size(
+                    out["missing_share_pct"],
+                    out["ready_share_pct"],
+                    delta_lead=delta_lead,
+                )
+            )
+            out["vs_ready_delta_lead_size"] = d_size
+            out["vs_ready_delta_lead_size_louder"] = d_louder
+            out["vs_ready_delta_lead_size_quieter"] = d_quieter
+            if (
+                d_size is not None
+                and d_louder is not None
+                and d_quieter is not None
+            ):
+                lean_parts.append(f"Δ lead size · {d_size:g}×")
+                lean_parts.append(
+                    f"Δ lead size sides · louder {d_louder:g}% · "
+                    f"quieter {d_quieter:g}%"
+                )
+                meta_parts.append("Δ size")
     out["lean_meta"] = " · ".join(meta_parts)
     out["lean"] = " · ".join(lean_parts)
     return out
