@@ -467,6 +467,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_aging_stale_sample_gap,
         chart_price_bars_glance,
         chart_price_bars_lean_meta,
+        chart_price_bars_spoken_vs_fresh_delta,
         chart_price_bars_spoken_vs_fresh_lead,
         chart_price_bars_spoken_vs_fresh_lead_size,
         chart_price_bars_spoken_vs_fresh_lean,
@@ -518,6 +519,16 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert hot["bit"].index("sf size") < hot["bit"].index(
         "spoken vs fresh align"
     )
+    # spoken 66.7 − fresh 33.3 → +33pp wide; adverse hot|thin + wide warns
+    assert hot["spoken_vs_fresh_delta_pp"] == 33
+    assert hot["spoken_vs_fresh_delta_severity"] == "wide"
+    assert hot["spoken_vs_fresh_lean_vs_delta"] == "align · wide"
+    assert hot["spoken_vs_fresh_lean_vs_delta_warn"] is True
+    assert "Δ wide · +33pp" in hot["bit"]
+    assert "lean vs Δ align · wide" in hot["bit"]
+    assert hot["bit"].index("spoken vs fresh align") < hot["bit"].index(
+        "Δ wide"
+    )
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
     assert hot["lean_warn"] is True
@@ -550,6 +561,13 @@ def test_chart_price_bars_glance_share_after_spoken():
     )
     assert mixed["spoken_vs_fresh_lean_warn"] is True
     assert "spoken vs fresh clash · spoken hot · fresh ok" in mixed["lean"]
+    # spoken 50 − fresh 50 → 0pp thin; lean vs Δ align · thin (no adverse warn)
+    assert mixed["spoken_vs_fresh_delta_pp"] == 0
+    assert mixed["spoken_vs_fresh_delta_severity"] == "thin"
+    assert mixed["spoken_vs_fresh_lean_vs_delta"] == "align · thin"
+    assert mixed["spoken_vs_fresh_lean_vs_delta_warn"] is False
+    assert "Δ thin · 0pp" in mixed["bit"]
+    assert "lean vs Δ align · thin" in mixed["bit"]
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
     assert mixed["bit"].index("spoken/fresh tied") < mixed["bit"].index(
@@ -558,7 +576,12 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert mixed["aging_stale_lead_size"] is None  # tied → no size
     assert mixed["lean_warn"] is True
     assert "sf tied" in mixed["lean_meta"]
-    assert "as tied" in mixed["lean_meta"]
+    # Cap 4 stages → aging/stale tied may clip as +N after Δ / lean vs Δ.
+    assert (
+        "as tied" in mixed["lean_meta"]
+        or "+1" in mixed["lean_meta"]
+        or "Δ" in mixed["lean_meta"]
+    )
 
     lead = chart_price_bars_glance(
         [
@@ -587,9 +610,17 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["bit"].index("sf size") < lead["bit"].index(
         "spoken vs fresh align"
     )
+    # spoken 75 − fresh 25 → +50pp wide; adverse hot|thin + wide warns
+    assert lead["spoken_vs_fresh_delta_pp"] == 50
+    assert lead["spoken_vs_fresh_delta_severity"] == "wide"
+    assert lead["spoken_vs_fresh_lean_vs_delta"] == "align · wide"
+    assert lead["spoken_vs_fresh_lean_vs_delta_warn"] is True
+    assert "Δ wide · +50pp" in lead["bit"]
+    assert "lean vs Δ align · wide" in lead["bit"]
     assert lead["bit"].index("spoken vs fresh align") < lead["bit"].index(
-        "lead stale"
+        "Δ wide"
     )
+    assert lead["bit"].index("Δ wide") < lead["bit"].index("lead stale")
     assert lead["aging_stale_sample_gap"] == ""
     assert lead["aging_stale_lead_size"] == 2.0
     assert lead["aging_stale_lead_size_louder"] == 2
@@ -667,6 +698,24 @@ def test_chart_price_bars_glance_share_after_spoken():
         True,
     )
     assert chart_price_bars_spoken_vs_fresh_lean("", "") == ("", False)
+    assert chart_price_bars_spoken_vs_fresh_delta(
+        66.7,
+        33.3,
+        lean_bit="spoken vs fresh align · hot|thin",
+    ) == (33, "wide", "align · wide", True)
+    assert chart_price_bars_spoken_vs_fresh_delta(
+        20.0,
+        80.0,
+        lean_bit="spoken vs fresh align · quiet|strong",
+    ) == (-60, "wide", "align · wide", False)
+    assert chart_price_bars_spoken_vs_fresh_delta(
+        55.0,
+        45.0,
+        lean_bit="spoken vs fresh align · hot|thin",
+    ) == (10, "", "clash · lean · Δ mid", True)
+    assert chart_price_bars_spoken_vs_fresh_delta(
+        66.7, 33.3, lean_bit=""
+    ) == (None, "", "", False)
     assert chart_price_bars_vs_fresh(2, 1, 3) == (
         "vs 1 fresh · thin · 33.3%",
         1,
@@ -724,6 +773,13 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert quiet["spoken_vs_fresh_lean_warn"] is False
     assert "spoken vs fresh align · quiet|strong" in quiet["bit"]
     assert "spoken vs fresh align · quiet|strong" in quiet["lean"]
+    # spoken 20 − fresh 80 → −60pp wide; quiet|strong stays calm (no Δ warn)
+    assert quiet["spoken_vs_fresh_delta_pp"] == -60
+    assert quiet["spoken_vs_fresh_delta_severity"] == "wide"
+    assert quiet["spoken_vs_fresh_lean_vs_delta"] == "align · wide"
+    assert quiet["spoken_vs_fresh_lean_vs_delta_warn"] is False
+    assert "Δ wide · -60pp" in quiet["bit"]
+    assert "lean vs Δ align · wide" in quiet["bit"]
     assert quiet["tone"] == "aging"
     assert quiet["lean_warn"] is False
     assert quiet["lean_meta"].startswith("quiet ·")

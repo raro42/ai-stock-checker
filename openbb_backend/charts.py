@@ -301,6 +301,9 @@ CHART_BARS_SPOKEN_SHARE_QUIET = 25.0
 # vs-kept bands: strong ≥75% · thin <50%.
 CHART_BARS_FRESH_SHARE_STRONG = 75.0
 CHART_BARS_FRESH_SHARE_THIN = 50.0
+# spoken% − fresh% after severity lean (Mode A / short-refuse share Δ).
+CHART_SPOKEN_VS_FRESH_DELTA_WIDE_PP = 20.0
+CHART_SPOKEN_VS_FRESH_DELTA_THIN_PP = 10.0
 
 
 def chart_price_bars_vs_fresh(
@@ -448,6 +451,51 @@ def chart_price_bars_spoken_vs_fresh_lean(
             warn,
         )
     return "", False
+
+
+def chart_price_bars_spoken_vs_fresh_delta(
+    spoken_share_pct: float | int | None,
+    fresh_share_pct: float | int | None,
+    *,
+    lean_bit: str = "",
+    wide_pp: float = CHART_SPOKEN_VS_FRESH_DELTA_WIDE_PP,
+    thin_pp: float = CHART_SPOKEN_VS_FRESH_DELTA_THIN_PP,
+) -> tuple[int | None, str, str, bool]:
+    """Share Δ after spoken vs fresh severity lean (display only).
+
+    Lean alone hid how far ``spoken% − fresh%`` sits (Mode A missing vs
+    ready / short-refuse vs long / Screener junk vs ok share Δ + portfolio
+    AI count≠spread + xang1234 severity). Requires lean already spoke.
+    Wide ≥``wide_pp`` · thin <``thin_pp`` · mid → ``lean vs Δ clash · lean
+    · Δ mid`` (warn). Adverse ``align · hot|thin`` + Δ wide warns;
+    ``quiet|strong`` stays calm.
+
+    Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    Not a new entry gate.
+    """
+    if not str(lean_bit or "").strip():
+        return None, "", "", False
+    if spoken_share_pct is None or fresh_share_pct is None:
+        return None, "", "", False
+    try:
+        spoken = float(spoken_share_pct)
+        fresh = float(fresh_share_pct)
+    except (TypeError, ValueError):
+        return None, "", "", False
+    raw = int(round(spoken - fresh))
+    abs_delta = abs(raw)
+    delta_sev = ""
+    if abs_delta >= wide_pp:
+        delta_sev = "wide"
+    elif abs_delta < thin_pp:
+        delta_sev = "thin"
+    if delta_sev:
+        lean_vs_delta = f"align · {delta_sev}"
+        lean_vs_delta_warn = delta_sev == "wide" and str(lean_bit).startswith(
+            "spoken vs fresh align · hot|thin"
+        )
+        return raw, delta_sev, lean_vs_delta, lean_vs_delta_warn
+    return raw, "", "clash · lean · Δ mid", True
 
 
 def chart_price_bars_spoken_vs_fresh_sample_gap(
@@ -620,6 +668,8 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^sf size\b"), "sf size"),
     (re.compile(r"^spoken vs fresh align\b"), "sf lean"),
     (re.compile(r"^spoken vs fresh clash\b"), "sf lean"),
+    (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ (?:wide|thin)\b"), "Δ"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
     (re.compile(r"^aging/stale tied\b"), "as tied"),
@@ -677,9 +727,12 @@ def chart_price_bars_glance(
     When spoken + fresh share severity bands already spoke, also speak
     ``spoken vs fresh align · hot|thin`` / ``quiet|strong`` or clash so
     sides/lead/size alone do not hide severity agreement (Mode A / Screener
-    / short-refuse lean parity). When both aging and stale spoke, also speak
-    ``lead stale|aging · N%`` or ``aging/stale tied`` so absolute sides ≠
-    silent ownership. After a strict aging/stale lead, also speak
+    / short-refuse lean parity). When lean already spoke, also speak
+    ``Δ wide|thin · ±Npp`` + ``lean vs Δ align · wide|thin`` /
+    ``clash · lean · Δ mid`` so lean alone does not hide spoken%−fresh%
+    spread (Mode A / short-refuse share Δ). When both aging and stale spoke,
+    also speak ``lead stale|aging · N%`` or ``aging/stale tied`` so absolute
+    sides ≠ silent ownership. After a strict aging/stale lead, also speak
     ``lead size · N×`` + named ``lead size sides · aging|stale N ·
     stale|aging M`` (louder first) so name/% ≠ magnitude and anonymous
     louder/quieter does not hide which spoken-band sleeve owns quieter.
@@ -718,6 +771,10 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_lead_size_quieter": None,
         "spoken_vs_fresh_lean": "",
         "spoken_vs_fresh_lean_warn": False,
+        "spoken_vs_fresh_delta_pp": None,
+        "spoken_vs_fresh_delta_severity": "",
+        "spoken_vs_fresh_lean_vs_delta": "",
+        "spoken_vs_fresh_lean_vs_delta_warn": False,
         "aging_stale_lead": "",
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
@@ -782,6 +839,20 @@ def chart_price_bars_glance(
     sf_lean_bit, sf_lean_warn = chart_price_bars_spoken_vs_fresh_lean(
         spoken_share_severity, vs_fresh_sev
     )
+    (
+        sf_delta_pp,
+        sf_delta_sev,
+        sf_lean_vs_delta,
+        sf_lean_vs_delta_warn,
+    ) = (
+        chart_price_bars_spoken_vs_fresh_delta(
+            spoken_share_pct,
+            vs_fresh_pct,
+            lean_bit=sf_lean_bit,
+        )
+        if sf_lean_bit
+        else (None, "", "", False)
+    )
     lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
         n_aging, n_stale
     )
@@ -811,6 +882,11 @@ def chart_price_bars_glance(
         )
     if sf_lean_bit:
         lean_parts.append(sf_lean_bit)
+    if sf_delta_sev and sf_delta_pp is not None:
+        signed = f"+{sf_delta_pp}" if sf_delta_pp > 0 else f"{sf_delta_pp}"
+        lean_parts.append(f"Δ {sf_delta_sev} · {signed}pp")
+    if sf_lean_vs_delta:
+        lean_parts.append(f"lean vs Δ {sf_lean_vs_delta}")
     if own_bit:
         lean_parts.append(own_bit)
     if size is not None and louder_n is not None and quieter_n is not None:
@@ -831,7 +907,9 @@ def chart_price_bars_glance(
         tone = "aging"
     if sf_lean_warn and tone == "flat":
         tone = "aging"
-    lean_warn = tone == "warn" or sf_lean_warn
+    if sf_lean_vs_delta_warn and tone == "flat":
+        tone = "aging"
+    lean_warn = tone == "warn" or sf_lean_warn or sf_lean_vs_delta_warn
     return {
         "ready": True,
         "bit": bit,
@@ -861,6 +939,10 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_lead_size_quieter": sf_quieter_n,
         "spoken_vs_fresh_lean": sf_lean_bit,
         "spoken_vs_fresh_lean_warn": sf_lean_warn,
+        "spoken_vs_fresh_delta_pp": sf_delta_pp,
+        "spoken_vs_fresh_delta_severity": sf_delta_sev,
+        "spoken_vs_fresh_lean_vs_delta": sf_lean_vs_delta,
+        "spoken_vs_fresh_lean_vs_delta_warn": sf_lean_vs_delta_warn,
         "aging_stale_lead": lead_bit,
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,
