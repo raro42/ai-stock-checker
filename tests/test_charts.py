@@ -464,6 +464,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     from openbb_backend.charts import (
         chart_price_bars_aging_stale_delta,
         chart_price_bars_aging_stale_delta_lead,
+        chart_price_bars_aging_stale_delta_lead_size,
         chart_price_bars_aging_stale_lead,
         chart_price_bars_aging_stale_lead_size,
         chart_price_bars_aging_stale_lean,
@@ -730,12 +731,23 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["bit"].index("as lean vs Δ") < lead["bit"].index(
         "as Δ lead · stale"
     )
+    # quieter aging% > 0 → as Δ lead size + named sides (≠ spoken Δ lead size)
+    assert lead["aging_stale_delta_lead_size"] == round(67 / 33, 2)
+    assert lead["aging_stale_delta_lead_size_louder"] == 67
+    assert lead["aging_stale_delta_lead_size_quieter"] == 33
+    assert "as Δ lead size · 2.03×" in lead["bit"]
+    assert "as Δ lead size sides · stale 67% · aging 33%" in lead["bit"]
+    assert "quieter" not in lead["bit"]
+    assert lead["bit"].index("as Δ lead · stale") < lead["bit"].index(
+        "as Δ lead size ·"
+    )
     assert lead["lean_meta"].startswith("warn ·")
-    # Cap 4 stages → later size/sides / as lean / as Δ / as Δ lead clipped as +N.
+    # Cap 4 stages → later as Δ size / sides clipped as +N.
     assert (
         "+1" in lead["lean_meta"]
         or "sf size" in lead["lean_meta"]
         or "as lean" in lead["lean_meta"]
+        or "as Δ size" in lead["lean_meta"]
         or "as Δ lead" in lead["lean_meta"]
         or "as Δ" in lead["lean_meta"]
     )
@@ -773,6 +785,14 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "as Δ lead · stale" in as_align["bit"]
     assert as_align["bit"].index("as lean vs Δ") < as_align["bit"].index(
         "as Δ lead · stale"
+    )
+    assert as_align["aging_stale_delta_lead_size"] == 3.0
+    assert as_align["aging_stale_delta_lead_size_louder"] == 75.0
+    assert as_align["aging_stale_delta_lead_size_quieter"] == 25.0
+    assert "as Δ lead size · 3×" in as_align["bit"]
+    assert "as Δ lead size sides · stale 75% · aging 25%" in as_align["bit"]
+    assert as_align["bit"].index("as Δ lead · stale") < as_align["bit"].index(
+        "as Δ lead size ·"
     )
 
     all_spoken = chart_price_bars_glance(
@@ -869,6 +889,21 @@ def test_chart_price_bars_glance_share_after_spoken():
         )
         == ""
     )
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        33, 67, delta_lead="stale"
+    ) == (round(67 / 33, 2), 67.0, 33.0)
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        25.0, 75.0, delta_lead="stale"
+    ) == (3.0, 75.0, 25.0)
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        75.0, 25.0, delta_lead="aging"
+    ) == (3.0, 75.0, 25.0)
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        75.0, 25.0, delta_lead=""
+    ) == (None, None, None)
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        100.0, 0.0, delta_lead="aging"
+    ) == (None, None, None)
     assert chart_price_bars_aging_stale_lead_size(2, 1, lead_name="aging") == (
         2.0,
         2,
