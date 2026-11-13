@@ -3220,24 +3220,25 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
     portfolio AI speak-both-sides; MonsterDeveloper fold keeps the primary
     chip short. When both short + long counts are >0, also speak
     ``lead short|long · N%`` or ``short/long tied`` so absolute sides do
-    not hide which slot owns the map (Funds vs-other lead). When lead
+    not hide which slot owns the map (Funds vs-other lead).     When lead
     already spoke, also speak ``lead size · N×`` + ``lead size sides ·
-    louder N · quieter M`` so name/% ≠ magnitude (Charts aging/stale lead
-    size). When both share severity bands already spoke, also speak
-    ``short vs long align · hot|thin`` / ``quiet|strong`` or
-    ``clash · short … · long …`` so sides/lead/size alone do not hide
-    severity agreement (unmatched vs matched lean + Screener junk vs ok).
-    When lean already spoke, also speak ``Δ wide|thin · ±Npp`` +
-    ``lean vs Δ align · wide|thin`` / ``clash · lean · Δ mid`` so lean
-    alone does not hide short%−long% spread (unmatched / Screener junk
-    vs ok share Δ).     When lean vs Δ already spoke with a non-zero Δ, also
-    speak ``Δ lead · short|long`` so signed ±pp alone does not hide which
-    slot owns the spread (unmatched / opportunity / Screener Δ lead).
-    When Δ lead already spoke and quieter% > 0, also speak
-    ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
-    so lead name alone does not hide how many times louder owns quieter
-    (unmatched / opportunity / Screener Δ lead size). Missing both files
-    stays silent. Not an entry gate.
+    short|long N · long|short M`` (louder slot first; Mode A / Yahoo named
+    sides) so name/% ≠ magnitude and anonymous louder/quieter does not
+    hide which holding-map slot owns the count. When both share severity
+    bands already spoke, also speak ``short vs long align · hot|thin`` /
+    ``quiet|strong`` or ``clash · short … · long …`` so sides/lead/size
+    alone do not hide severity agreement (unmatched vs matched lean +
+    Screener junk vs ok). When lean already spoke, also speak
+    ``Δ wide|thin · ±Npp`` + ``lean vs Δ align · wide|thin`` /
+    ``clash · lean · Δ mid`` so lean alone does not hide short%−long%
+    spread (unmatched / Screener junk vs ok share Δ). When lean vs Δ
+    already spoke with a non-zero Δ, also speak ``Δ lead · short|long``
+    so signed ±pp alone does not hide which slot owns the spread
+    (unmatched / opportunity / Screener Δ lead). When Δ lead already
+    spoke and quieter% > 0, also speak ``Δ lead size · N×`` +
+    ``Δ lead size sides · short|long N% · long|short M%`` (louder slot
+    first) so lead name alone does not hide magnitude or which share owns
+    quieter. Missing both files stays silent. Not an entry gate.
     """
     from stock_checker.portfolio import unsupported_short_symbols
 
@@ -3405,11 +3406,14 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                     and vs_long_lead_size_louder is not None
                     and vs_long_lead_size_quieter is not None
                 ):
+                    size_other = (
+                        "long" if vs_long_lead_name == "short" else "short"
+                    )
                     lean_parts.append(f"lead size · {vs_long_lead_size:g}×")
                     lean_parts.append(
-                        "lead size sides · louder "
-                        f"{vs_long_lead_size_louder} · quieter "
-                        f"{vs_long_lead_size_quieter}"
+                        "lead size sides · "
+                        f"{vs_long_lead_name} {vs_long_lead_size_louder} · "
+                        f"{size_other} {vs_long_lead_size_quieter}"
                     )
                 vs_long_lean, vs_long_lean_warn = ledger_short_vs_long_lean(
                     short_share_severity, long_share_severity
@@ -3470,9 +3474,16 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
                         vs_long_delta_lead_size_louder_pct is not None
                         and vs_long_delta_lead_size_quieter_pct is not None
                     ):
+                        d_other = (
+                            "long"
+                            if vs_long_delta_lead == "short"
+                            else "short"
+                        )
                         lean_parts.append(
-                            "Δ lead size sides · louder "
-                            f"{vs_long_delta_lead_size_louder_pct:g}% · quieter "
+                            "Δ lead size sides · "
+                            f"{vs_long_delta_lead} "
+                            f"{vs_long_delta_lead_size_louder_pct:g}% · "
+                            f"{d_other} "
                             f"{vs_long_delta_lead_size_quieter_pct:g}%"
                         )
                 lean = " · ".join(lean_parts)
