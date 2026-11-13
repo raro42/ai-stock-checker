@@ -464,7 +464,9 @@ def test_chart_price_bars_glance_share_after_spoken():
     from openbb_backend.charts import (
         chart_price_bars_aging_stale_lead,
         chart_price_bars_aging_stale_lead_size,
+        chart_price_bars_aging_stale_lean,
         chart_price_bars_aging_stale_sample_gap,
+        chart_price_bars_aging_stale_share_bands,
         chart_price_bars_glance,
         chart_price_bars_lean_meta,
         chart_price_bars_spoken_vs_fresh_delta,
@@ -546,6 +548,8 @@ def test_chart_price_bars_glance_share_after_spoken():
     )
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
+    assert hot["aging_stale_lean"] == ""  # sole-side silent
+    assert hot["aging_share_pct"] is None
     assert hot["lean_warn"] is True
     assert hot["lean_meta"].startswith("warn ·")
     assert "vs fresh" in hot["lean_meta"]
@@ -593,11 +597,25 @@ def test_chart_price_bars_glance_share_after_spoken():
         "aging/stale tied"
     )
     assert mixed["aging_stale_lead_size"] is None  # tied → no size
+    # 50/50 → both hot → clash (postmortem skip-reason parity)
+    assert mixed["aging_share_pct"] == 50
+    assert mixed["stale_share_pct"] == 50
+    assert mixed["aging_share_severity"] == "hot"
+    assert mixed["stale_share_severity"] == "hot"
+    assert mixed["aging_stale_lean"] == (
+        "aging vs stale clash · aging hot · stale hot"
+    )
+    assert mixed["aging_stale_lean_warn"] is True
+    assert "aging vs stale clash · aging hot · stale hot" in mixed["lean"]
+    assert mixed["bit"].index("aging/stale tied") < mixed["bit"].index(
+        "aging vs stale clash"
+    )
     assert mixed["lean_warn"] is True
     assert "sf tied" in mixed["lean_meta"]
-    # Cap 4 stages → aging/stale tied may clip as +N after Δ / lean vs Δ.
+    # Cap 4 stages → aging/stale tied / as lean may clip as +N after Δ.
     assert (
         "as tied" in mixed["lean_meta"]
+        or "as lean" in mixed["lean_meta"]
         or "+1" in mixed["lean_meta"]
         or "Δ" in mixed["lean_meta"]
     )
@@ -664,9 +682,46 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "quieter" not in lead["bit"]
     assert "lead size · 2×" in lead["lean"]
     assert "lead size sides · stale 2 · aging 1" in lead["lean"]
+    # aging 33 mid · stale 67 hot → sole hot clash warns
+    assert lead["aging_share_pct"] == 33
+    assert lead["stale_share_pct"] == 67
+    assert lead["aging_share_severity"] == ""
+    assert lead["stale_share_severity"] == "hot"
+    assert lead["aging_stale_lean"] == (
+        "aging vs stale clash · aging ok · stale hot"
+    )
+    assert lead["aging_stale_lean_warn"] is True
+    assert "aging vs stale clash · aging ok · stale hot" in lead["lean"]
+    assert lead["bit"].index("lead size sides") < lead["bit"].index(
+        "aging vs stale clash"
+    )
     assert lead["lean_meta"].startswith("warn ·")
-    # Cap 4 stages → later size/sides clipped as +N.
-    assert "+1" in lead["lean_meta"] or "sf size" in lead["lean_meta"]
+    # Cap 4 stages → later size/sides / as lean clipped as +N.
+    assert (
+        "+1" in lead["lean_meta"]
+        or "sf size" in lead["lean_meta"]
+        or "as lean" in lead["lean_meta"]
+    )
+
+    # Complementary hot|quiet after lead size (3 stale · 1 aging)
+    as_align = chart_price_bars_glance(
+        [
+            {"bar_freshness": "aging"},
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "stale"},
+            {"bar_freshness": "stale"},
+        ]
+    )
+    assert as_align["aging_share_pct"] == 25
+    assert as_align["stale_share_pct"] == 75
+    assert as_align["aging_share_severity"] == "quiet"
+    assert as_align["stale_share_severity"] == "hot"
+    assert as_align["aging_stale_lean"] == "aging vs stale align · quiet|hot"
+    assert as_align["aging_stale_lean_warn"] is False
+    assert "aging vs stale align · quiet|hot" in as_align["lean"]
+    assert as_align["bit"].index("lead size") < as_align["bit"].index(
+        "aging vs stale align"
+    )
 
     all_spoken = chart_price_bars_glance(
         [
@@ -682,6 +737,41 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert chart_price_bars_aging_stale_lead(2, 1)[0] == "lead aging · 67%"
     assert chart_price_bars_aging_stale_sample_gap(1, 1) == "aging/stale tied"
     assert chart_price_bars_aging_stale_lead(3, 0)[0] == ""
+    assert chart_price_bars_aging_stale_share_bands(1, 3) == (
+        25,
+        "quiet",
+        75,
+        "hot",
+    )
+    assert chart_price_bars_aging_stale_share_bands(1, 1) == (
+        50,
+        "hot",
+        50,
+        "hot",
+    )
+    assert chart_price_bars_aging_stale_share_bands(3, 0) == (
+        None,
+        "",
+        None,
+        "",
+    )
+    assert chart_price_bars_aging_stale_lean("quiet", "hot") == (
+        "aging vs stale align · quiet|hot",
+        False,
+    )
+    assert chart_price_bars_aging_stale_lean("hot", "quiet") == (
+        "aging vs stale align · hot|quiet",
+        False,
+    )
+    assert chart_price_bars_aging_stale_lean("hot", "hot") == (
+        "aging vs stale clash · aging hot · stale hot",
+        True,
+    )
+    assert chart_price_bars_aging_stale_lean("", "hot") == (
+        "aging vs stale clash · aging ok · stale hot",
+        True,
+    )
+    assert chart_price_bars_aging_stale_lean("", "") == ("", False)
     assert chart_price_bars_aging_stale_lead_size(2, 1, lead_name="aging") == (
         2.0,
         2,

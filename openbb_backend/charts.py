@@ -720,10 +720,89 @@ def chart_price_bars_aging_stale_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def chart_price_bars_aging_stale_share_bands(
+    n_aging: int,
+    n_stale: int,
+    *,
+    hot: float = CHART_BARS_SPOKEN_SHARE_HOT,
+    quiet: float = CHART_BARS_SPOKEN_SHARE_QUIET,
+) -> tuple[float | None, str, float | None, str]:
+    """Per-band ownership of spoken aging|stale bars (display only).
+
+    Absolute sides + lead + size hid whether aging vs stale *share* of
+    spoken is extreme (postmortem skip-reason share bands / Screener junk
+    share + portfolio AI count≠share + xang1234). Both sides must be >0;
+    sole-side / zero → silent. Returns
+    ``(aging_pct, aging_sev, stale_pct, stale_sev)`` with ``hot|quiet|\"\"``.
+    Not a new entry gate.
+    """
+    try:
+        aging = max(0, int(n_aging))
+    except (TypeError, ValueError):
+        aging = 0
+    try:
+        stale = max(0, int(n_stale))
+    except (TypeError, ValueError):
+        stale = 0
+    total = aging + stale
+    if total <= 0 or aging <= 0 or stale <= 0:
+        return None, "", None, ""
+    aging_pct = round(100.0 * aging / total)
+    stale_pct = round(100.0 * stale / total)
+
+    def _sev(pct: float) -> str:
+        if pct >= hot:
+            return "hot"
+        if pct <= quiet:
+            return "quiet"
+        return ""
+
+    return aging_pct, _sev(aging_pct), stale_pct, _sev(stale_pct)
+
+
+def chart_price_bars_aging_stale_lean(
+    aging_severity: str,
+    stale_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of aging vs stale spoken-share bands (display only).
+
+    Absolute sides + ownership lead + lead size hid whether the two
+    *severity* bands agree (postmortem skip-reason lean / Screener junk vs
+    ok lean + portfolio AI speak-both-sides + xang1234 severity). Both
+    sides use ``hot|quiet`` of spoken. Align when complementary
+    ``hot|quiet`` / ``quiet|hot``; clash when exactly one lean spoke or
+    both hot (e.g. 50/50). Adverse clash (any ``hot``) warns. Mid both
+    silent. Lives under the Charts bars lean fold. Not a new entry gate.
+    """
+    a = str(aging_severity or "").strip().casefold()
+    s = str(stale_severity or "").strip().casefold()
+    a_lean = a in {"hot", "quiet"}
+    s_lean = s in {"hot", "quiet"}
+    if a_lean and s_lean:
+        complementary = (a == "hot" and s == "quiet") or (
+            a == "quiet" and s == "hot"
+        )
+        if complementary:
+            return f"aging vs stale align · {a}|{s}", False
+        return (
+            f"aging vs stale clash · aging {a} · stale {s}",
+            True,
+        )
+    if a_lean != s_lean:
+        a_label = a if a_lean else (a or "ok")
+        s_label = s if s_lean else (s or "ok")
+        warn = a == "hot" or s == "hot"
+        return (
+            f"aging vs stale clash · aging {a_label} · stale {s_label}",
+            warn,
+        )
+    return "", False
+
+
 # Quiet price-bars lean chip names spoken stages (Screener / pin lean inventory).
 # Longer prefixes first so ``sf size sides`` ≠ ``sf size`` / ``Δ lead size sides``
 # ≠ ``Δ lead size`` ≠ ``Δ lead`` / ``lead size sides`` ≠ ``lead size`` /
-# ``lead stale``.
+# ``lead stale`` / ``aging vs stale`` ≠ ``aging/stale tied``.
 _PRICE_BARS_LEAN_NAME_CAP = 4
 _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ fresh\b"), "vs fresh"),
@@ -739,6 +818,8 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Δ (?:wide|thin)\b"), "Δ"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
+    (re.compile(r"^aging vs stale align\b"), "as lean"),
+    (re.compile(r"^aging vs stale clash\b"), "as lean"),
     (re.compile(r"^aging/stale tied\b"), "as tied"),
     (re.compile(r"^lead size sides\b"), "sides"),
     (re.compile(r"^lead size\b"), "size"),
@@ -810,7 +891,11 @@ def chart_price_bars_glance(
     strict aging/stale lead, also speak ``lead size · N×`` + named
     ``lead size sides · aging|stale N · stale|aging M`` (louder first) so
     name/% ≠ magnitude and anonymous louder/quieter does not hide which
-    spoken-band sleeve owns quieter. Ownership/lead cascade sits in
+    spoken-band sleeve owns quieter. When aging + stale share severity
+    bands already spoke, also speak ``aging vs stale align · hot|quiet``
+    / clash so sides/lead/size alone do not hide severity agreement
+    (postmortem skip-reason lean / Screener junk vs ok + portfolio AI
+    speak-both-sides + xang1234). Ownership/lead cascade sits in
     ``lean`` under a Charts fold (MonsterDeveloper weight/sleeve lean
     parity — share alone hid vs-fresh / lead / size); ``lean_meta`` names
     spoken stages. Full ``bit`` stays joined for tests. Zero spoken stays
@@ -860,6 +945,12 @@ def chart_price_bars_glance(
         "aging_stale_lead_size": None,
         "aging_stale_lead_size_louder": None,
         "aging_stale_lead_size_quieter": None,
+        "aging_share_pct": None,
+        "aging_share_severity": "",
+        "stale_share_pct": None,
+        "stale_share_severity": "",
+        "aging_stale_lean": "",
+        "aging_stale_lean_warn": False,
     }
     if not isinstance(panels, list) or not panels:
         return empty
@@ -956,6 +1047,15 @@ def chart_price_bars_glance(
     size, louder_n, quieter_n = chart_price_bars_aging_stale_lead_size(
         n_aging, n_stale, lead_name=lead_name
     )
+    (
+        aging_share_pct,
+        aging_share_sev,
+        stale_share_pct,
+        stale_share_sev,
+    ) = chart_price_bars_aging_stale_share_bands(n_aging, n_stale)
+    as_lean_bit, as_lean_warn = chart_price_bars_aging_stale_lean(
+        aging_share_sev, stale_share_sev
+    )
     own_bit = lead_bit or sample_gap
     sf_own = sf_lead_bit or sf_sample_gap
     bit_core = f"{count_bit} · {share_bit}"
@@ -1005,6 +1105,8 @@ def chart_price_bars_glance(
         lean_parts.append(
             f"lead size sides · {lead_name} {louder_n} · {other} {quieter_n}"
         )
+    if as_lean_bit:
+        lean_parts.append(as_lean_bit)
     lean = " · ".join(lean_parts)
     bit = f"{bit_core} · {lean}" if lean else bit_core
     tone = "flat"
@@ -1019,7 +1121,14 @@ def chart_price_bars_glance(
         tone = "aging"
     if sf_lean_vs_delta_warn and tone == "flat":
         tone = "aging"
-    lean_warn = tone == "warn" or sf_lean_warn or sf_lean_vs_delta_warn
+    if as_lean_warn and tone == "flat":
+        tone = "aging"
+    lean_warn = (
+        tone == "warn"
+        or sf_lean_warn
+        or sf_lean_vs_delta_warn
+        or as_lean_warn
+    )
     return {
         "ready": True,
         "bit": bit,
@@ -1064,6 +1173,12 @@ def chart_price_bars_glance(
         "aging_stale_lead_size": size,
         "aging_stale_lead_size_louder": louder_n,
         "aging_stale_lead_size_quieter": quieter_n,
+        "aging_share_pct": aging_share_pct,
+        "aging_share_severity": aging_share_sev,
+        "stale_share_pct": stale_share_pct,
+        "stale_share_severity": stale_share_sev,
+        "aging_stale_lean": as_lean_bit,
+        "aging_stale_lean_warn": as_lean_warn,
     }
 
 
