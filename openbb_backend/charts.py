@@ -376,6 +376,39 @@ def chart_price_bars_spoken_vs_fresh_lead(
     return f"lead {name} · {share}%", name, share
 
 
+def chart_price_bars_spoken_vs_fresh_lead_size(
+    n_spoken: int,
+    n_fresh: int,
+    *,
+    lead_name: str = "",
+) -> tuple[float | None, int | None, int | None]:
+    """How many times louder owns quieter after spoken/fresh lead (display only).
+
+    When ``lead_name`` already spoke (``spoken|fresh``) and both counts are
+    >0, ``sf size · N×`` is louder÷quieter; zero quieter stays silent. Desk
+    names sides ``spoken|fresh N · fresh|spoken M`` (louder first; anonymous
+    louder/quieter dropped — Mode A / aging-stale named-sides parity). Prefixed
+    ``sf`` so aging/stale ``lead size`` stays unambiguous on the same lean.
+    Lead name/% ≠ magnitude (aging/stale lead size + portfolio AI count≠share).
+    Returns ``(size, louder_n, quieter_n)`` or all-None.
+    """
+    if str(lead_name or "").strip().casefold() not in {"spoken", "fresh"}:
+        return None, None, None
+    try:
+        spoken = max(0, int(n_spoken))
+    except (TypeError, ValueError):
+        spoken = 0
+    try:
+        fresh = max(0, int(n_fresh))
+    except (TypeError, ValueError):
+        fresh = 0
+    quieter = min(spoken, fresh)
+    louder = max(spoken, fresh)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def chart_price_bars_spoken_vs_fresh_sample_gap(
     n_spoken: int,
     n_fresh: int,
@@ -536,11 +569,14 @@ def chart_price_bars_aging_stale_lead_size(
 
 
 # Quiet price-bars lean chip names spoken stages (Screener / pin lean inventory).
-# Longer prefixes first so ``lead size sides`` ≠ ``lead size`` / ``lead stale``.
+# Longer prefixes first so ``sf size sides`` ≠ ``sf size`` / ``lead size sides``
+# ≠ ``lead size`` / ``lead stale``.
 _PRICE_BARS_LEAN_NAME_CAP = 4
 _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ fresh\b"), "vs fresh"),
     (re.compile(r"^spoken/fresh tied\b"), "sf tied"),
+    (re.compile(r"^sf size sides\b"), "sf sides"),
+    (re.compile(r"^sf size\b"), "sf size"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
     (re.compile(r"^aging/stale tied\b"), "as tied"),
@@ -591,8 +627,11 @@ def chart_price_bars_glance(
     P%`` so spoken% ≠ silent empty fresh peers (Screener junk vs ok / Yahoo
     claim-drop vs kept). When vs-fresh already spoke and both spoken + fresh
     counts are >0, also speak ``lead spoken|fresh · N%`` or
-    ``spoken/fresh tied`` so absolute sides ≠ silent book ownership. When both
-    aging and stale spoke, also speak ``lead stale|aging · N%`` or
+    ``spoken/fresh tied`` so absolute sides ≠ silent book ownership. After a
+    strict spoken/fresh lead, also speak ``sf size · N×`` + named
+    ``sf size sides · spoken|fresh N · fresh|spoken M`` (louder first; ``sf``
+    prefix keeps aging/stale ``lead size`` unambiguous) so name/% ≠ magnitude.
+    When both aging and stale spoke, also speak ``lead stale|aging · N%`` or
     ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
     aging/stale lead, also speak ``lead size · N×`` + named
     ``lead size sides · aging|stale N · stale|aging M`` (louder first) so
@@ -627,6 +666,9 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_lead_name": "",
         "spoken_vs_fresh_lead_share_pct": None,
         "spoken_vs_fresh_sample_gap": "",
+        "spoken_vs_fresh_lead_size": None,
+        "spoken_vs_fresh_lead_size_louder": None,
+        "spoken_vs_fresh_lead_size_quieter": None,
         "aging_stale_lead": "",
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
@@ -681,6 +723,13 @@ def chart_price_bars_glance(
         if vs_fresh_bit
         else ""
     )
+    sf_size, sf_louder_n, sf_quieter_n = (
+        chart_price_bars_spoken_vs_fresh_lead_size(
+            n_spoken, n_fresh, lead_name=sf_lead_name
+        )
+        if sf_lead_bit
+        else (None, None, None)
+    )
     lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
         n_aging, n_stale
     )
@@ -696,6 +745,18 @@ def chart_price_bars_glance(
         lean_parts.append(vs_fresh_bit)
     if sf_own:
         lean_parts.append(sf_own)
+    if (
+        sf_size is not None
+        and sf_louder_n is not None
+        and sf_quieter_n is not None
+        and sf_lead_name
+    ):
+        sf_other = "fresh" if sf_lead_name == "spoken" else "spoken"
+        lean_parts.append(f"sf size · {sf_size:g}×")
+        lean_parts.append(
+            f"sf size sides · {sf_lead_name} {sf_louder_n} · "
+            f"{sf_other} {sf_quieter_n}"
+        )
     if own_bit:
         lean_parts.append(own_bit)
     if size is not None and louder_n is not None and quieter_n is not None:
@@ -739,6 +800,9 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_lead_name": sf_lead_name,
         "spoken_vs_fresh_lead_share_pct": sf_lead_share,
         "spoken_vs_fresh_sample_gap": sf_sample_gap,
+        "spoken_vs_fresh_lead_size": sf_size,
+        "spoken_vs_fresh_lead_size_louder": sf_louder_n,
+        "spoken_vs_fresh_lead_size_quieter": sf_quieter_n,
         "aging_stale_lead": lead_bit,
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,
