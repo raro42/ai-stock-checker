@@ -230,11 +230,11 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert quiet["vs_ready_delta_lead_size_quieter"] == 20.0
     assert quiet["lean"] == (
         "vs 4 ready · strong · 80% · lead ready · 80% · "
-        "lead size · 4× · lead size sides · louder 4 · quieter 1 · "
+        "lead size · 4× · lead size sides · ready 4 · missing 1 · "
         "missing vs ready align · quiet|strong · "
         "Δ wide · -60pp · lean vs Δ align · wide · Δ lead · ready · "
         "Δ lead size · 4× · "
-        "Δ lead size sides · louder 80% · quieter 20%"
+        "Δ lead size sides · ready 80% · missing 20%"
     )
     assert quiet["lean_warn"] is False
     assert quiet["lean_meta"] == (
@@ -264,13 +264,13 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert heavy["vs_ready_delta_lead_size_quieter"] == 25.0
     assert "lead missing · 75%" in heavy["lean"]
     assert "lead size · 3×" in heavy["lean"]
-    assert "lead size sides · louder 3 · quieter 1" in heavy["lean"]
+    assert "lead size sides · missing 3 · ready 1" in heavy["lean"]
     assert "missing vs ready align · hot|thin" in heavy["lean"]
     assert "Δ wide · +50pp" in heavy["lean"]
     assert "lean vs Δ align · wide" in heavy["lean"]
     assert "Δ lead · missing" in heavy["lean"]
     assert "Δ lead size · 3×" in heavy["lean"]
-    assert "Δ lead size sides · louder 75% · quieter 25%" in heavy["lean"]
+    assert "Δ lead size sides · missing 75% · ready 25%" in heavy["lean"]
     assert heavy["lean_warn"] is True
     assert heavy["lean_meta"] == (
         "vs ready · ownership · size · severity · Δ · lean/Δ · Δ lead · Δ size"

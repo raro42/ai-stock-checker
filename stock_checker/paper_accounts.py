@@ -491,7 +491,9 @@ def leaderboard_missing_share(
     append ownership ``lead missing|ready · N%`` or ``missing/ready tied``
     (sole-side / all-missing silent). When ownership lead already spoke and
     quieter count >0, also append ``lead size · N×`` + ``lead size sides ·
-    louder N · quieter M`` so name/% ≠ magnitude. When missing + ready
+    missing|ready N · ready|missing M`` (louder slot first; Yahoo named
+    sides) so name/% ≠ magnitude and anonymous louder/quieter does not
+    hide which race-board slot owns the count. When missing + ready
     severity bands already spoke, also append ``missing vs ready align ·
     hot|thin`` / ``quiet|strong`` or ``clash · missing hot · ready ok`` so
     sides/lead/size alone do not hide severity agreement. When severity lean
@@ -500,8 +502,9 @@ def leaderboard_missing_share(
     lean vs Δ already spoke with a non-zero Δ, also append ``Δ lead ·
     missing|ready`` so signed pp alone does not hide which slot owns the
     spread. When Δ lead already spoke and quieter% > 0, also append
-    ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
-    so lead name alone does not hide magnitude. Primary ``bit`` stays
+    ``Δ lead size · N×`` + ``Δ lead size sides · missing|ready N% ·
+    ready|missing M%`` (louder slot first) so lead name alone does not hide
+    magnitude or which share owns quieter. Primary ``bit`` stays
     absolute+share so the Overview race strip stays short; lean lives
     under a details fold.
     """
@@ -594,8 +597,11 @@ def leaderboard_missing_share(
     out["vs_ready_lead_size_louder"] = louder
     out["vs_ready_lead_size_quieter"] = quieter
     if size is not None and louder is not None and quieter is not None:
+        other = "ready" if lead_name == "missing" else "missing"
         lean_parts.append(f"lead size · {size:g}×")
-        lean_parts.append(f"lead size sides · louder {louder} · quieter {quieter}")
+        lean_parts.append(
+            f"lead size sides · {lead_name} {louder} · {other} {quieter}"
+        )
         meta_parts.append("size")
     sev_bit, sev_warn = leaderboard_missing_vs_ready_lean(
         out["missing_share_severity"],
@@ -655,10 +661,11 @@ def leaderboard_missing_share(
                 and d_louder is not None
                 and d_quieter is not None
             ):
+                d_other = "ready" if delta_lead == "missing" else "missing"
                 lean_parts.append(f"Δ lead size · {d_size:g}×")
                 lean_parts.append(
-                    f"Δ lead size sides · louder {d_louder:g}% · "
-                    f"quieter {d_quieter:g}%"
+                    f"Δ lead size sides · {delta_lead} {d_louder:g}% · "
+                    f"{d_other} {d_quieter:g}%"
                 )
                 meta_parts.append("Δ size")
     out["lean_meta"] = " · ".join(meta_parts)
