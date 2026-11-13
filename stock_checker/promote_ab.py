@@ -1707,10 +1707,11 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
     """Louder and quieter floor-units when align lead size already spoke.
 
     Lead size is the margin (louder÷quieter). Sides name both floor-unit
-    loudnesses so friends can audit without reverse-dividing (portfolio AI
-    count ≠ € + xang1234 speak-both-sides). Speak only when lead size
-    already spoke. Clash stays silent. ``worse`` warns only. Still ready
-    for B.
+    loudnesses as ``×|% N× · %|× M×`` (louder sleeve first; anonymous
+    louder/quieter dropped — Mode A / Screener / Charts parity) so friends
+    can audit without reverse-dividing (portfolio AI count ≠ € + xang1234
+    speak-both-sides). Speak only when lead size already spoke. Clash stays
+    silent. ``worse`` warns only. Still ready for B.
     """
     if lead_size != "size":
         return None, None, "", False
@@ -1732,15 +1733,17 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
         if x_loud < p_loud:
             return None, None, "", False
         louder, quieter = x_loud, p_loud
+        other = "%"
     else:
         if p_loud < x_loud:
             return None, None, "", False
         louder, quieter = p_loud, x_loud
+        other = "×"
     louder_r = round(louder, 2)
     quieter_r = round(quieter, 2)
     bit = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
-        f"align lead size sides · louder {_fmt_fee_keep(louder)} · quieter "
+        f"align lead size sides · {lead} {_fmt_fee_keep(louder)} · {other} "
         f"{_fmt_fee_keep(quieter)}"
     )
     return louder_r, quieter_r, bit, vs == "worse"
@@ -1792,19 +1795,23 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
     vs: str,
     louder: float | None,
     quieter: float | None,
+    lead: str = "",
 ) -> tuple[float | None, float | None, str, bool]:
     """Louder% and quieter% of floor-unit sum when align lead size sides spoke.
 
     Sides speak absolute floor-units. Δ speaks additive spread. Share speaks
-    ownership of that loudness pair (portfolio AI + xang1234 €-conc after
-    absolute). Speak only when sides already spoke and both loudnesses are
-    > 0. ``worse`` warns only. Still ready for B.
+    ownership of that loudness pair as ``×|% N% · %|× M%`` (louder sleeve
+    first; anonymous louder/quieter dropped — Mode A parity) (portfolio AI +
+    xang1234 €-conc after absolute). Speak only when sides already spoke and
+    both loudnesses are > 0. ``worse`` warns only. Still ready for B.
     """
     if not (sides_bit or "").strip():
         return None, None, "", False
     if vs not in ("worse", "better"):
         return None, None, "", False
     if louder is None or quieter is None:
+        return None, None, "", False
+    if lead not in ("×", "%"):
         return None, None, "", False
     loud = float(louder)
     quiet = float(quieter)
@@ -1815,10 +1822,11 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
         return None, None, "", False
     loud_pct = round(100.0 * loud / total, 1)
     quiet_pct = round(100.0 - loud_pct, 1)
+    other = "%" if lead == "×" else "×"
     bit = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
-        f"align lead size sides share · louder {_fmt_share_pct(loud_pct)} · "
-        f"quieter {_fmt_share_pct(quiet_pct)}"
+        f"align lead size sides share · {lead} {_fmt_share_pct(loud_pct)} · "
+        f"{other} {_fmt_share_pct(quiet_pct)}"
     )
     return loud_pct, quiet_pct, bit, vs == "worse"
 
@@ -2042,10 +2050,11 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
     """Louder and quieter floor-units when nested align lead size already spoke.
 
     Nested lead size is the margin (louder÷quieter). Sides name both
-    floor-unit loudnesses so friends can audit without reverse-dividing
-    (portfolio AI count ≠ € + xang1234 speak-both-sides). Speak only when
-    nested lead size already spoke. Clash stays silent. ``worse`` warns
-    only. Still ready for B.
+    floor-unit loudnesses as ``×|% N× · %|× M×`` (louder sleeve first;
+    anonymous louder/quieter dropped — Mode A parity) so friends can audit
+    without reverse-dividing (portfolio AI count ≠ € + xang1234
+    speak-both-sides). Speak only when nested lead size already spoke.
+    Clash stays silent. ``worse`` warns only. Still ready for B.
     """
     if lead_size != "size":
         return None, None, "", False
@@ -2067,16 +2076,18 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
         if x_loud < p_loud:
             return None, None, "", False
         louder, quieter = x_loud, p_loud
+        other = "%"
     else:
         if p_loud < x_loud:
             return None, None, "", False
         louder, quieter = p_loud, x_loud
+        other = "×"
     louder_r = round(louder, 2)
     quieter_r = round(quieter, 2)
     bit = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
-        "align lead size sides share vs Δ align lead size sides · louder "
-        f"{_fmt_fee_keep(louder)} · quieter {_fmt_fee_keep(quieter)}"
+        "align lead size sides share vs Δ align lead size sides · "
+        f"{lead} {_fmt_fee_keep(louder)} · {other} {_fmt_fee_keep(quieter)}"
     )
     return louder_r, quieter_r, bit, vs == "worse"
 
@@ -2128,19 +2139,24 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
     vs: str,
     louder: float | None,
     quieter: float | None,
+    lead: str = "",
 ) -> tuple[float | None, float | None, str, bool]:
     """Louder% and quieter% of floor-unit sum when nested align lead size sides spoke.
 
     Nested sides speak absolute floor-units. Nested Δ speaks additive spread.
-    Share speaks ownership of that loudness pair (portfolio AI + xang1234
-    €-conc after absolute). Speak only when nested sides already spoke and
-    both loudnesses are > 0. ``worse`` warns only. Still ready for B.
+    Share speaks ownership of that loudness pair as ``×|% N% · %|× M%``
+    (louder sleeve first; anonymous louder/quieter dropped — Mode A parity)
+    (portfolio AI + xang1234 €-conc after absolute). Speak only when nested
+    sides already spoke and both loudnesses are > 0. ``worse`` warns only.
+    Still ready for B.
     """
     if not (sides_bit or "").strip():
         return None, None, "", False
     if vs not in ("worse", "better"):
         return None, None, "", False
     if louder is None or quieter is None:
+        return None, None, "", False
+    if lead not in ("×", "%"):
         return None, None, "", False
     loud = float(louder)
     quiet = float(quieter)
@@ -2151,10 +2167,11 @@ def _exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_l
         return None, None, "", False
     loud_pct = round(100.0 * loud / total, 1)
     quiet_pct = round(100.0 - loud_pct, 1)
+    other = "%" if lead == "×" else "×"
     bit = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
         "align lead size sides share vs Δ align lead size sides share · "
-        f"louder {_fmt_share_pct(loud_pct)} · quieter {_fmt_share_pct(quiet_pct)}"
+        f"{lead} {_fmt_share_pct(loud_pct)} · {other} {_fmt_share_pct(quiet_pct)}"
     )
     return loud_pct, quiet_pct, bit, vs == "worse"
 
@@ -5811,6 +5828,7 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign_clash_keep_fees_vs,
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_louder,
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_quieter,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead,
                                 )
                                 (
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_delta,
@@ -5905,6 +5923,7 @@ def window_a_sample_readiness(
                                     closes_exit_euro_size_sign_clash_keep_fees_vs,
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_louder,
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_quieter,
+                                    closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead,
                                 )
                                 (
                                     closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_delta,

@@ -13063,7 +13063,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     align_thin_lead_size_sides = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
-        "align lead size sides · louder 0.49× · quieter 0.18×"
+        "align lead size sides · % 0.49× · × 0.18×"
     )
     assert (
         align_thin[
@@ -13117,7 +13117,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     # Absolute sides already spoke: ownership % still speaks (Δ mid ≠ no share).
     align_thin_lead_size_sides_share = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
-        "align lead size sides share · louder 73.1% · quieter 26.9%"
+        "align lead size sides share · % 73.1% · × 26.9%"
     )
     assert (
         align_thin[
@@ -13319,7 +13319,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     )
     align_wide_sides_share = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
-        "align lead size sides share · louder 78.6% · quieter 21.4%"
+        "align lead size sides share · % 78.6% · × 21.4%"
     )
     assert (
         align_wide[
@@ -13516,7 +13516,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     align_wide_sides_share_vs_delta_align_lead_size_sides = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
         "align lead size sides share vs Δ align lead size sides · "
-        "louder 7.1× · quieter 2.9×"
+        "× 7.1× · % 2.9×"
     )
     assert (
         align_wide[
@@ -13587,7 +13587,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     align_wide_sides_share_vs_delta_align_lead_size_sides_share = (
         "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
         "align lead size sides share vs Δ align lead size sides share · "
-        "louder 71.2% · quieter 28.8%"
+        "× 71.2% · % 28.8%"
     )
     assert (
         align_wide[
@@ -14014,7 +14014,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert nested_lss_w is True
     assert (
         "align lead size sides share vs Δ align lead size sides · "
-        "louder 7.1× · quieter 2.9×"
+        "× 7.1× · % 2.9×"
     ) in nested_lss_b
     nested_lss_pct_l, nested_lss_pct_q, nested_lss_pct_b, nested_lss_pct_w = (
         _nested_align_lead_size_sides("size", "%", "worse", 0.09, 57.2)
@@ -14024,7 +14024,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert nested_lss_pct_w is True
     assert (
         "align lead size sides share vs Δ align lead size sides · "
-        "louder 2.9× · quieter 0.18×"
+        "% 2.9× · × 0.18×"
     ) in nested_lss_pct_b
     nested_lss_silent = _nested_align_lead_size_sides("", "×", "worse", 3.53, 57.2)
     assert nested_lss_silent == (None, None, "", False)
@@ -14032,7 +14032,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         _nested_align_lead_size_sides_delta(
             "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
             "align lead size sides share vs Δ align lead size sides · "
-            "louder 7.1× · quieter 2.9×",
+            "× 7.1× · % 2.9×",
             "worse",
             7.06,
             2.86,
@@ -14068,10 +14068,11 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
         _nested_align_lead_size_sides_share(
             "A exits € size clash keep fees vs drag gap dir sides share vs Δ "
             "align lead size sides share vs Δ align lead size sides · "
-            "louder 7.1× · quieter 2.9×",
+            "× 7.1× · % 2.9×",
             "worse",
             7.06,
             2.86,
+            "×",
         )
     )
     assert nested_lsss_l == 71.2
@@ -14079,7 +14080,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert nested_lsss_w is True
     assert (
         "align lead size sides share vs Δ align lead size sides share · "
-        "louder 71.2% · quieter 28.8%"
+        "× 71.2% · % 28.8%"
     ) in nested_lsss_b
     nested_lsss_pct_l, nested_lsss_pct_q, nested_lsss_pct_b, nested_lsss_pct_w = (
         _nested_align_lead_size_sides_share(
@@ -14087,6 +14088,7 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
             "worse",
             2.86,
             0.18,
+            "%",
         )
     )
     assert nested_lsss_pct_l == 94.1
@@ -14094,12 +14096,12 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert nested_lsss_pct_w is True
     assert (
         "align lead size sides share vs Δ align lead size sides share · "
-        "louder 94.1% · quieter 5.9%"
+        "% 94.1% · × 5.9%"
     ) in nested_lsss_pct_b
     nested_lsss_silent = _nested_align_lead_size_sides_share("", "worse", 7.06, 2.86)
     assert nested_lsss_silent == (None, None, "", False)
     nested_lsss_better = _nested_align_lead_size_sides_share(
-        "sides spoke", "better", 7.06, 2.86
+        "sides spoke", "better", 7.06, 2.86, "×"
     )
     assert nested_lsss_better[3] is False
     assert nested_lsss_better[0] == 71.2
@@ -14261,14 +14263,14 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     assert pct_louder == 0.49
     assert pct_quieter == 0.18
     assert pct_sides_warn is True
-    assert "align lead size sides · louder 0.49× · quieter 0.18×" in pct_sides_bit
+    assert "align lead size sides · % 0.49× · × 0.18×" in pct_sides_bit
     x_louder, x_quieter, x_sides_bit, x_sides_warn = _align_lead_size_sides(
         "size", "×", "better", -2.0, -10.0
     )
     assert x_louder == 4.0
     assert x_quieter == 0.5
     assert x_sides_warn is False
-    assert "align lead size sides · louder 4× · quieter 0.50×" in x_sides_bit
+    assert "align lead size sides · × 4× · % 0.50×" in x_sides_bit
     silent_sides = _align_lead_size_sides("", "%", "worse", -0.09, -9.8)
     assert silent_sides == (None, None, "", False)
     pct_delta, pct_delta_r, pct_delta_bit, pct_delta_warn = _align_lead_size_sides_delta(
@@ -14295,21 +14297,21 @@ def test_window_a_exit_euro_size_speaks_fat_thin() -> None:
     silent_delta = _align_lead_size_sides_delta("", "worse", 4.0, 0.5)
     assert silent_delta == ("", None, "", False)
     pct_share_l, pct_share_q, pct_share_bit, pct_share_warn = (
-        _align_lead_size_sides_share(pct_sides_bit, "worse", 0.49, 0.18)
+        _align_lead_size_sides_share(pct_sides_bit, "worse", 0.49, 0.18, "%")
     )
     assert pct_share_l == 73.1
     assert pct_share_q == 26.9
     assert pct_share_warn is True
-    assert "align lead size sides share · louder 73.1% · quieter 26.9%" in (
+    assert "align lead size sides share · % 73.1% · × 26.9%" in (
         pct_share_bit
     )
     x_share_l, x_share_q, x_share_bit, x_share_warn = _align_lead_size_sides_share(
-        x_sides_bit, "better", 4.0, 0.5
+        x_sides_bit, "better", 4.0, 0.5, "×"
     )
     assert x_share_l == 88.9
     assert x_share_q == 11.1
     assert x_share_warn is False
-    assert "align lead size sides share · louder 88.9% · quieter 11.1%" in x_share_bit
+    assert "align lead size sides share · × 88.9% · % 11.1%" in x_share_bit
     silent_share = _align_lead_size_sides_share("", "worse", 4.0, 0.5)
     assert silent_share == (None, None, "", False)
     pct_share_d, pct_share_dr, pct_share_db, pct_share_dw = (
