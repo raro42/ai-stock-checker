@@ -468,6 +468,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_glance,
         chart_price_bars_lean_meta,
         chart_price_bars_spoken_vs_fresh_delta,
+        chart_price_bars_spoken_vs_fresh_delta_lead,
         chart_price_bars_spoken_vs_fresh_lead,
         chart_price_bars_spoken_vs_fresh_lead_size,
         chart_price_bars_spoken_vs_fresh_lean,
@@ -529,6 +530,10 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert hot["bit"].index("spoken vs fresh align") < hot["bit"].index(
         "Δ wide"
     )
+    assert hot["spoken_vs_fresh_delta_lead"] == "spoken"
+    assert "Δ lead · spoken" in hot["bit"]
+    assert "Δ lead · spoken" in hot["lean"]
+    assert hot["bit"].index("lean vs Δ") < hot["bit"].index("Δ lead · spoken")
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
     assert hot["lean_warn"] is True
@@ -568,6 +573,8 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert mixed["spoken_vs_fresh_lean_vs_delta_warn"] is False
     assert "Δ thin · 0pp" in mixed["bit"]
     assert "lean vs Δ align · thin" in mixed["bit"]
+    assert mixed["spoken_vs_fresh_delta_lead"] == ""  # 0pp silent
+    assert "Δ lead ·" not in mixed["bit"]
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
     assert mixed["bit"].index("spoken/fresh tied") < mixed["bit"].index(
@@ -620,7 +627,12 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["bit"].index("spoken vs fresh align") < lead["bit"].index(
         "Δ wide"
     )
-    assert lead["bit"].index("Δ wide") < lead["bit"].index("lead stale")
+    assert lead["spoken_vs_fresh_delta_lead"] == "spoken"
+    assert "Δ lead · spoken" in lead["bit"]
+    assert lead["bit"].index("lean vs Δ") < lead["bit"].index("Δ lead · spoken")
+    assert lead["bit"].index("Δ lead · spoken") < lead["bit"].index(
+        "lead stale"
+    )
     assert lead["aging_stale_sample_gap"] == ""
     assert lead["aging_stale_lead_size"] == 2.0
     assert lead["aging_stale_lead_size_louder"] == 2
@@ -716,6 +728,36 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert chart_price_bars_spoken_vs_fresh_delta(
         66.7, 33.3, lean_bit=""
     ) == (None, "", "", False)
+    assert (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            33, "wide", lean_vs_delta="align · wide"
+        )
+        == "spoken"
+    )
+    assert (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            -60, "wide", lean_vs_delta="align · wide"
+        )
+        == "fresh"
+    )
+    assert (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            0, "thin", lean_vs_delta="align · thin"
+        )
+        == ""
+    )
+    assert (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            10, "", lean_vs_delta="clash · lean · Δ mid"
+        )
+        == ""
+    )
+    assert (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            33, "wide", lean_vs_delta=""
+        )
+        == ""
+    )
     assert chart_price_bars_vs_fresh(2, 1, 3) == (
         "vs 1 fresh · thin · 33.3%",
         1,

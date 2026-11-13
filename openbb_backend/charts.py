@@ -498,6 +498,37 @@ def chart_price_bars_spoken_vs_fresh_delta(
     return raw, "", "clash · lean · Δ mid", True
 
 
+def chart_price_bars_spoken_vs_fresh_delta_lead(
+    delta_pp: int | None,
+    delta_severity: str,
+    *,
+    lean_vs_delta: str = "",
+) -> str:
+    """Name which slot owns a spoken vs fresh Δ (display only).
+
+    When lean vs Δ already spoke with a Δ (wide|thin) and ±pp ≠ 0,
+    positive ``spoken% − fresh%`` → ``spoken``; negative → ``fresh``.
+    Mid-Δ clash / 0pp stay silent. Signed pp alone hid which Charts
+    sleeve owns the spread (Mode A missing vs ready / short-refuse vs
+    long / Screener junk vs ok / opportunity damaged vs ok Δ lead +
+    portfolio AI speak-both-sides + xang1234). Returns ``spoken|fresh``
+    / ``\"\"``. Not a new entry gate.
+    """
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
+        return ""
+    if delta_pp is None:
+        return ""
+    try:
+        pp = int(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if pp == 0:
+        return ""
+    return "spoken" if pp > 0 else "fresh"
+
+
 def chart_price_bars_spoken_vs_fresh_sample_gap(
     n_spoken: int,
     n_fresh: int,
@@ -669,6 +700,7 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^spoken vs fresh align\b"), "sf lean"),
     (re.compile(r"^spoken vs fresh clash\b"), "sf lean"),
     (re.compile(r"^lean vs Δ\b"), "lean"),
+    (re.compile(r"^Δ lead\b"), "Δ lead"),
     (re.compile(r"^Δ (?:wide|thin)\b"), "Δ"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
@@ -730,17 +762,20 @@ def chart_price_bars_glance(
     / short-refuse lean parity). When lean already spoke, also speak
     ``Δ wide|thin · ±Npp`` + ``lean vs Δ align · wide|thin`` /
     ``clash · lean · Δ mid`` so lean alone does not hide spoken%−fresh%
-    spread (Mode A / short-refuse share Δ). When both aging and stale spoke,
-    also speak ``lead stale|aging · N%`` or ``aging/stale tied`` so absolute
-    sides ≠ silent ownership. After a strict aging/stale lead, also speak
-    ``lead size · N×`` + named ``lead size sides · aging|stale N ·
-    stale|aging M`` (louder first) so name/% ≠ magnitude and anonymous
-    louder/quieter does not hide which spoken-band sleeve owns quieter.
-    Ownership/lead cascade sits in ``lean`` under a Charts fold
-    (MonsterDeveloper weight/sleeve lean parity — share alone hid vs-fresh /
-    lead / size); ``lean_meta`` names spoken stages. Full ``bit`` stays
-    joined for tests. Zero spoken stays silent. Not a scoring veto / not a
-    new entry gate.
+    spread (Mode A / short-refuse share Δ). When lean vs Δ already spoke
+    with a non-zero wide|thin Δ, also speak ``Δ lead · spoken|fresh`` so
+    signed ±pp alone does not hide which Charts sleeve owns the spread
+    (Mode A / short-refuse / Screener / opportunity Δ lead). When both
+    aging and stale spoke, also speak ``lead stale|aging · N%`` or
+    ``aging/stale tied`` so absolute sides ≠ silent ownership. After a
+    strict aging/stale lead, also speak ``lead size · N×`` + named
+    ``lead size sides · aging|stale N · stale|aging M`` (louder first) so
+    name/% ≠ magnitude and anonymous louder/quieter does not hide which
+    spoken-band sleeve owns quieter. Ownership/lead cascade sits in
+    ``lean`` under a Charts fold (MonsterDeveloper weight/sleeve lean
+    parity — share alone hid vs-fresh / lead / size); ``lean_meta`` names
+    spoken stages. Full ``bit`` stays joined for tests. Zero spoken stays
+    silent. Not a scoring veto / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -775,6 +810,7 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_delta_severity": "",
         "spoken_vs_fresh_lean_vs_delta": "",
         "spoken_vs_fresh_lean_vs_delta_warn": False,
+        "spoken_vs_fresh_delta_lead": "",
         "aging_stale_lead": "",
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
@@ -853,6 +889,15 @@ def chart_price_bars_glance(
         if sf_lean_bit
         else (None, "", "", False)
     )
+    sf_delta_lead = (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            sf_delta_pp,
+            sf_delta_sev,
+            lean_vs_delta=sf_lean_vs_delta,
+        )
+        if sf_lean_vs_delta
+        else ""
+    )
     lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
         n_aging, n_stale
     )
@@ -887,6 +932,8 @@ def chart_price_bars_glance(
         lean_parts.append(f"Δ {sf_delta_sev} · {signed}pp")
     if sf_lean_vs_delta:
         lean_parts.append(f"lean vs Δ {sf_lean_vs_delta}")
+    if sf_delta_lead:
+        lean_parts.append(f"Δ lead · {sf_delta_lead}")
     if own_bit:
         lean_parts.append(own_bit)
     if size is not None and louder_n is not None and quieter_n is not None:
@@ -943,6 +990,7 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_delta_severity": sf_delta_sev,
         "spoken_vs_fresh_lean_vs_delta": sf_lean_vs_delta,
         "spoken_vs_fresh_lean_vs_delta_warn": sf_lean_vs_delta_warn,
+        "spoken_vs_fresh_delta_lead": sf_delta_lead,
         "aging_stale_lead": lead_bit,
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,
