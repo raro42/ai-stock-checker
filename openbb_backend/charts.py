@@ -846,10 +846,42 @@ def chart_price_bars_aging_stale_delta(
     return raw, "", "clash · lean · Δ mid", True
 
 
+def chart_price_bars_aging_stale_delta_lead(
+    delta_pp: int | None,
+    delta_severity: str,
+    *,
+    lean_vs_delta: str = "",
+) -> str:
+    """Name which slot owns an aging vs stale Δ (display only).
+
+    When ``as lean vs Δ`` already spoke with a Δ (wide|thin) and ±pp ≠ 0,
+    positive ``aging% − stale%`` → ``aging``; negative → ``stale``.
+    Mid-Δ clash / 0pp stay silent. Desk bits use ``as Δ lead · aging|stale``
+    so spoken/fresh ``Δ lead`` on the same Charts fold stays unambiguous.
+    Signed pp alone hid which spoken-band sleeve owns the spread (spoken
+    vs fresh / Mode A missing vs ready / Screener junk vs ok Δ lead +
+    portfolio AI speak-both-sides + xang1234). Returns ``aging|stale`` /
+    ``\"\"``. Not a new entry gate.
+    """
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
+        return ""
+    if delta_pp is None:
+        return ""
+    try:
+        pp = int(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if pp == 0:
+        return ""
+    return "aging" if pp > 0 else "stale"
+
+
 # Quiet price-bars lean chip names spoken stages (Screener / pin lean inventory).
 # Longer prefixes first so ``sf size sides`` ≠ ``sf size`` / ``Δ lead size sides``
 # ≠ ``Δ lead size`` ≠ ``Δ lead`` / ``lead size sides`` ≠ ``lead size`` /
-# ``as lean vs Δ`` ≠ ``aging vs stale`` / ``as Δ`` ≠ ``Δ`` /
+# ``as lean vs Δ`` ≠ ``aging vs stale`` / ``as Δ lead`` ≠ ``as Δ`` ≠ ``Δ`` /
 # ``aging vs stale`` ≠ ``aging/stale tied``.
 _PRICE_BARS_LEAN_NAME_CAP = 4
 _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -867,6 +899,7 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
     (re.compile(r"^as lean vs Δ\b"), "as lean/Δ"),
+    (re.compile(r"^as Δ lead\b"), "as Δ lead"),
     (re.compile(r"^as Δ\b"), "as Δ"),
     (re.compile(r"^aging vs stale align\b"), "as lean"),
     (re.compile(r"^aging vs stale clash\b"), "as lean"),
@@ -1009,6 +1042,7 @@ def chart_price_bars_glance(
         "aging_stale_delta_severity": "",
         "aging_stale_lean_vs_delta": "",
         "aging_stale_lean_vs_delta_warn": False,
+        "aging_stale_delta_lead": "",
     }
     if not isinstance(panels, list) or not panels:
         return empty
@@ -1124,6 +1158,15 @@ def chart_price_bars_glance(
         stale_share_pct,
         lean_bit=as_lean_bit,
     )
+    as_delta_lead = (
+        chart_price_bars_aging_stale_delta_lead(
+            as_delta_pp,
+            as_delta_sev,
+            lean_vs_delta=as_lean_vs_delta,
+        )
+        if as_lean_vs_delta
+        else ""
+    )
     own_bit = lead_bit or sample_gap
     sf_own = sf_lead_bit or sf_sample_gap
     bit_core = f"{count_bit} · {share_bit}"
@@ -1180,6 +1223,8 @@ def chart_price_bars_glance(
         lean_parts.append(f"as Δ {as_delta_sev} · {as_signed}pp")
     if as_lean_vs_delta:
         lean_parts.append(f"as lean vs Δ {as_lean_vs_delta}")
+    if as_delta_lead:
+        lean_parts.append(f"as Δ lead · {as_delta_lead}")
     lean = " · ".join(lean_parts)
     bit = f"{bit_core} · {lean}" if lean else bit_core
     tone = "flat"
@@ -1259,6 +1304,7 @@ def chart_price_bars_glance(
         "aging_stale_delta_severity": as_delta_sev,
         "aging_stale_lean_vs_delta": as_lean_vs_delta,
         "aging_stale_lean_vs_delta_warn": as_lean_vs_delta_warn,
+        "aging_stale_delta_lead": as_delta_lead,
     }
 
 

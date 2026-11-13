@@ -463,6 +463,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     """Book-level aging|stale ownership after per-legend bits (display only)."""
     from openbb_backend.charts import (
         chart_price_bars_aging_stale_delta,
+        chart_price_bars_aging_stale_delta_lead,
         chart_price_bars_aging_stale_lead,
         chart_price_bars_aging_stale_lead_size,
         chart_price_bars_aging_stale_lean,
@@ -553,6 +554,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert hot["aging_share_pct"] is None
     assert hot["aging_stale_delta_pp"] is None  # lean silent → no as Δ
     assert hot["aging_stale_delta_severity"] == ""
+    assert hot["aging_stale_delta_lead"] == ""
     assert hot["lean_warn"] is True
     assert hot["lean_meta"].startswith("warn ·")
     assert "vs fresh" in hot["lean_meta"]
@@ -623,6 +625,8 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert mixed["bit"].index("aging vs stale clash") < mixed["bit"].index(
         "as Δ thin"
     )
+    assert mixed["aging_stale_delta_lead"] == ""  # 0pp silent
+    assert "as Δ lead ·" not in mixed["bit"]
     assert mixed["lean_warn"] is True
     assert "sf tied" in mixed["lean_meta"]
     # Cap 4 stages → aging/stale tied / as lean / as Δ may clip as +N.
@@ -719,12 +723,20 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["bit"].index("aging vs stale clash") < lead["bit"].index(
         "as Δ wide"
     )
+    # aging% − stale% negative → stale owns as Δ; distinct from spoken Δ lead
+    assert lead["aging_stale_delta_lead"] == "stale"
+    assert "as Δ lead · stale" in lead["bit"]
+    assert "as Δ lead · stale" in lead["lean"]
+    assert lead["bit"].index("as lean vs Δ") < lead["bit"].index(
+        "as Δ lead · stale"
+    )
     assert lead["lean_meta"].startswith("warn ·")
-    # Cap 4 stages → later size/sides / as lean / as Δ clipped as +N.
+    # Cap 4 stages → later size/sides / as lean / as Δ / as Δ lead clipped as +N.
     assert (
         "+1" in lead["lean_meta"]
         or "sf size" in lead["lean_meta"]
         or "as lean" in lead["lean_meta"]
+        or "as Δ lead" in lead["lean_meta"]
         or "as Δ" in lead["lean_meta"]
     )
 
@@ -756,6 +768,11 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "as lean vs Δ align · wide" in as_align["bit"]
     assert as_align["bit"].index("aging vs stale align") < as_align["bit"].index(
         "as Δ wide"
+    )
+    assert as_align["aging_stale_delta_lead"] == "stale"
+    assert "as Δ lead · stale" in as_align["bit"]
+    assert as_align["bit"].index("as lean vs Δ") < as_align["bit"].index(
+        "as Δ lead · stale"
     )
 
     all_spoken = chart_price_bars_glance(
@@ -821,6 +838,36 @@ def test_chart_price_bars_glance_share_after_spoken():
         "",
         "",
         False,
+    )
+    assert (
+        chart_price_bars_aging_stale_delta_lead(
+            -34, "wide", lean_vs_delta="align · wide"
+        )
+        == "stale"
+    )
+    assert (
+        chart_price_bars_aging_stale_delta_lead(
+            50, "wide", lean_vs_delta="align · wide"
+        )
+        == "aging"
+    )
+    assert (
+        chart_price_bars_aging_stale_delta_lead(
+            0, "thin", lean_vs_delta="align · thin"
+        )
+        == ""
+    )
+    assert (
+        chart_price_bars_aging_stale_delta_lead(
+            -16, "", lean_vs_delta="clash · lean · Δ mid"
+        )
+        == ""
+    )
+    assert (
+        chart_price_bars_aging_stale_delta_lead(
+            -34, "wide", lean_vs_delta=""
+        )
+        == ""
     )
     assert chart_price_bars_aging_stale_lead_size(2, 1, lead_name="aging") == (
         2.0,
