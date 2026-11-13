@@ -18,6 +18,7 @@ from stock_checker.paper_accounts import (
     ensure_account_ledger,
     leaderboard_missing_share,
     leaderboard_missing_vs_ready_lead,
+    leaderboard_missing_vs_ready_lead_size,
     leaderboard_missing_vs_ready_sample_gap,
     ledger_dir,
     list_account_ids,
@@ -137,9 +138,10 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     # Missing% alone ≠ usable race peers — 1 of 2 ready = 50% mid (ok).
     assert share["ready_share_pct"] == 50.0
     assert share["ready_share_severity"] == "ok"
-    # 1 missing · 1 ready → tied ownership (no strict lead).
+    # 1 missing · 1 ready → tied ownership (no strict lead · no size).
     assert share["vs_ready_sample_gap"] == "missing/ready tied"
     assert share["vs_ready_lead"] == ""
+    assert share["vs_ready_lead_size"] is None
     assert share["lean"] == "vs 1 ready · 50% · missing/ready tied"
     assert share["lean_warn"] is False
     assert share["lean_meta"] == "vs ready · ownership"
@@ -156,8 +158,9 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert sole["lean_warn"] is True
     assert sole["vs_ready_lead"] == ""
     assert sole["vs_ready_sample_gap"] == ""
+    assert sole["vs_ready_lead_size"] is None
     assert sole["lean_meta"] == "vs ready"
-    # Quiet band: 1 of 5 named → missing quiet · ready strong · lead ready.
+    # Quiet band: 1 of 5 named → missing quiet · ready strong · lead ready · size.
     quiet_rows = [
         {"account_id": "a0", "missing": True},
         {"account_id": "a1", "missing": False},
@@ -173,12 +176,16 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     assert quiet["vs_ready_lead"] == "lead ready · 80%"
     assert quiet["vs_ready_lead_name"] == "ready"
     assert quiet["vs_ready_lead_pct"] == 80
+    assert quiet["vs_ready_lead_size"] == 4.0
+    assert quiet["vs_ready_lead_size_louder"] == 4
+    assert quiet["vs_ready_lead_size_quieter"] == 1
     assert quiet["lean"] == (
-        "vs 4 ready · strong · 80% · lead ready · 80%"
+        "vs 4 ready · strong · 80% · lead ready · 80% · "
+        "lead size · 4× · lead size sides · louder 4 · quieter 1"
     )
     assert quiet["lean_warn"] is False
-    assert quiet["lean_meta"] == "vs ready · ownership"
-    # Missing-heavy board → lead missing.
+    assert quiet["lean_meta"] == "vs ready · ownership · size"
+    # Missing-heavy board → lead missing · size 3×.
     heavy = leaderboard_missing_share(
         [
             {"account_id": "m0", "missing": True},
@@ -189,14 +196,27 @@ def test_leaderboard_cost_basis(tmp_path: Path) -> None:
     )
     assert heavy["vs_ready_lead"] == "lead missing · 75%"
     assert heavy["vs_ready_lead_name"] == "missing"
+    assert heavy["vs_ready_lead_size"] == 3.0
     assert "lead missing · 75%" in heavy["lean"]
-    # Helpers: sole-side / tie / bad input.
+    assert "lead size · 3×" in heavy["lean"]
+    assert "lead size sides · louder 3 · quieter 1" in heavy["lean"]
+    assert heavy["lean_meta"] == "vs ready · ownership · size"
+    # Helpers: sole-side / tie / bad input / lead size.
     assert leaderboard_missing_vs_ready_lead(2, 0) == ("", "", None)
     assert leaderboard_missing_vs_ready_lead(1, 1) == ("", "", None)
     assert leaderboard_missing_vs_ready_sample_gap(1, 1) == (
         "missing/ready tied"
     )
     assert leaderboard_missing_vs_ready_sample_gap(2, 1) == ""
+    assert leaderboard_missing_vs_ready_lead_size(
+        4, 1, lead_name="missing"
+    ) == (4.0, 4, 1)
+    assert leaderboard_missing_vs_ready_lead_size(
+        1, 1, lead_name=""
+    ) == (None, None, None)
+    assert leaderboard_missing_vs_ready_lead_size(
+        2, 0, lead_name="missing"
+    ) == (None, None, None)
     # Legacy-only board silent.
     legacy_only = leaderboard_missing_share([rows[1]])
     assert legacy_only["bit"] == ""
