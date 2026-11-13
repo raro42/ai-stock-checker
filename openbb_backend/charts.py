@@ -304,6 +304,9 @@ CHART_BARS_FRESH_SHARE_THIN = 50.0
 # spoken% − fresh% after severity lean (Mode A / short-refuse share Δ).
 CHART_SPOKEN_VS_FRESH_DELTA_WIDE_PP = 20.0
 CHART_SPOKEN_VS_FRESH_DELTA_THIN_PP = 10.0
+# aging% − stale% after severity lean (spoken/fresh share Δ parity; ``as Δ`` prefix).
+CHART_AGING_STALE_DELTA_WIDE_PP = 20.0
+CHART_AGING_STALE_DELTA_THIN_PP = 10.0
 
 
 def chart_price_bars_vs_fresh(
@@ -799,10 +802,55 @@ def chart_price_bars_aging_stale_lean(
     return "", False
 
 
+def chart_price_bars_aging_stale_delta(
+    aging_share_pct: float | int | None,
+    stale_share_pct: float | int | None,
+    *,
+    lean_bit: str = "",
+    wide_pp: float = CHART_AGING_STALE_DELTA_WIDE_PP,
+    thin_pp: float = CHART_AGING_STALE_DELTA_THIN_PP,
+) -> tuple[int | None, str, str, bool]:
+    """Share Δ after aging vs stale severity lean (display only).
+
+    Lean alone hid how far ``aging% − stale%`` sits (spoken vs fresh /
+    Mode A missing vs ready / Screener junk vs ok share Δ + portfolio AI
+    count≠spread + xang1234 severity). Requires lean already spoke.
+    Wide ≥``wide_pp`` · thin <``thin_pp`` · mid → ``clash · lean · Δ mid``
+    (warn). Complementary ``align · hot|quiet`` / ``quiet|hot`` stay calm
+    even when Δ is wide (no adverse hot|thin band pair on this sleeve).
+    Desk bits use ``as Δ`` / ``as lean vs Δ`` so spoken/fresh ``Δ`` /
+    ``lean vs Δ`` on the same Charts fold stay unambiguous.
+
+    Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    Not a new entry gate.
+    """
+    if not str(lean_bit or "").strip():
+        return None, "", "", False
+    if aging_share_pct is None or stale_share_pct is None:
+        return None, "", "", False
+    try:
+        aging = float(aging_share_pct)
+        stale = float(stale_share_pct)
+    except (TypeError, ValueError):
+        return None, "", "", False
+    raw = int(round(aging - stale))
+    abs_delta = abs(raw)
+    delta_sev = ""
+    if abs_delta >= wide_pp:
+        delta_sev = "wide"
+    elif abs_delta < thin_pp:
+        delta_sev = "thin"
+    if delta_sev:
+        # Complementary hot|quiet stays calm; mid-Δ clash is the only warn.
+        return raw, delta_sev, f"align · {delta_sev}", False
+    return raw, "", "clash · lean · Δ mid", True
+
+
 # Quiet price-bars lean chip names spoken stages (Screener / pin lean inventory).
 # Longer prefixes first so ``sf size sides`` ≠ ``sf size`` / ``Δ lead size sides``
 # ≠ ``Δ lead size`` ≠ ``Δ lead`` / ``lead size sides`` ≠ ``lead size`` /
-# ``lead stale`` / ``aging vs stale`` ≠ ``aging/stale tied``.
+# ``as lean vs Δ`` ≠ ``aging vs stale`` / ``as Δ`` ≠ ``Δ`` /
+# ``aging vs stale`` ≠ ``aging/stale tied``.
 _PRICE_BARS_LEAN_NAME_CAP = 4
 _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ fresh\b"), "vs fresh"),
@@ -818,6 +866,8 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Δ (?:wide|thin)\b"), "Δ"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
+    (re.compile(r"^as lean vs Δ\b"), "as lean/Δ"),
+    (re.compile(r"^as Δ\b"), "as Δ"),
     (re.compile(r"^aging vs stale align\b"), "as lean"),
     (re.compile(r"^aging vs stale clash\b"), "as lean"),
     (re.compile(r"^aging/stale tied\b"), "as tied"),
@@ -895,8 +945,12 @@ def chart_price_bars_glance(
     bands already spoke, also speak ``aging vs stale align · hot|quiet``
     / clash so sides/lead/size alone do not hide severity agreement
     (postmortem skip-reason lean / Screener junk vs ok + portfolio AI
-    speak-both-sides + xang1234). Ownership/lead cascade sits in
-    ``lean`` under a Charts fold (MonsterDeveloper weight/sleeve lean
+    speak-both-sides + xang1234). When aging vs stale lean already spoke,
+    also speak ``as Δ wide|thin · ±Npp`` + ``as lean vs Δ align · wide|thin``
+    / ``clash · lean · Δ mid`` so lean alone does not hide aging%−stale%
+    spread (``as`` prefix keeps spoken/fresh ``Δ`` unambiguous on the same
+    fold — Mode A / spoken vs fresh share Δ parity). Ownership/lead cascade
+    sits in ``lean`` under a Charts fold (MonsterDeveloper weight/sleeve lean
     parity — share alone hid vs-fresh / lead / size); ``lean_meta`` names
     spoken stages. Full ``bit`` stays joined for tests. Zero spoken stays
     silent. Not a scoring veto / not a new entry gate.
@@ -951,6 +1005,10 @@ def chart_price_bars_glance(
         "stale_share_severity": "",
         "aging_stale_lean": "",
         "aging_stale_lean_warn": False,
+        "aging_stale_delta_pp": None,
+        "aging_stale_delta_severity": "",
+        "aging_stale_lean_vs_delta": "",
+        "aging_stale_lean_vs_delta_warn": False,
     }
     if not isinstance(panels, list) or not panels:
         return empty
@@ -1056,6 +1114,16 @@ def chart_price_bars_glance(
     as_lean_bit, as_lean_warn = chart_price_bars_aging_stale_lean(
         aging_share_sev, stale_share_sev
     )
+    (
+        as_delta_pp,
+        as_delta_sev,
+        as_lean_vs_delta,
+        as_lean_vs_delta_warn,
+    ) = chart_price_bars_aging_stale_delta(
+        aging_share_pct,
+        stale_share_pct,
+        lean_bit=as_lean_bit,
+    )
     own_bit = lead_bit or sample_gap
     sf_own = sf_lead_bit or sf_sample_gap
     bit_core = f"{count_bit} · {share_bit}"
@@ -1107,6 +1175,11 @@ def chart_price_bars_glance(
         )
     if as_lean_bit:
         lean_parts.append(as_lean_bit)
+    if as_delta_sev and as_delta_pp is not None:
+        as_signed = f"+{as_delta_pp}" if as_delta_pp > 0 else f"{as_delta_pp}"
+        lean_parts.append(f"as Δ {as_delta_sev} · {as_signed}pp")
+    if as_lean_vs_delta:
+        lean_parts.append(f"as lean vs Δ {as_lean_vs_delta}")
     lean = " · ".join(lean_parts)
     bit = f"{bit_core} · {lean}" if lean else bit_core
     tone = "flat"
@@ -1123,11 +1196,14 @@ def chart_price_bars_glance(
         tone = "aging"
     if as_lean_warn and tone == "flat":
         tone = "aging"
+    if as_lean_vs_delta_warn and tone == "flat":
+        tone = "aging"
     lean_warn = (
         tone == "warn"
         or sf_lean_warn
         or sf_lean_vs_delta_warn
         or as_lean_warn
+        or as_lean_vs_delta_warn
     )
     return {
         "ready": True,
@@ -1179,6 +1255,10 @@ def chart_price_bars_glance(
         "stale_share_severity": stale_share_sev,
         "aging_stale_lean": as_lean_bit,
         "aging_stale_lean_warn": as_lean_warn,
+        "aging_stale_delta_pp": as_delta_pp,
+        "aging_stale_delta_severity": as_delta_sev,
+        "aging_stale_lean_vs_delta": as_lean_vs_delta,
+        "aging_stale_lean_vs_delta_warn": as_lean_vs_delta_warn,
     }
 
 
