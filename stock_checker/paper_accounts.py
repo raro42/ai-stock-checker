@@ -23,6 +23,9 @@ MISSING_SHARE_QUIET = 25.0
 # Remaining ready named books after missing share (short-refuse vs long).
 READY_SHARE_STRONG = 75.0
 READY_SHARE_THIN = 50.0
+# missing% − ready% after severity lean (short-refuse / unmatched share Δ).
+MISSING_VS_READY_DELTA_WIDE_PP = 20.0
+MISSING_VS_READY_DELTA_THIN_PP = 10.0
 
 
 class AccountIdError(ValueError):
@@ -366,6 +369,51 @@ def leaderboard_missing_vs_ready_lean(
     return "", False
 
 
+def leaderboard_missing_vs_ready_delta(
+    missing_share_pct: float | int | None,
+    ready_share_pct: float | int | None,
+    *,
+    lean_bit: str = "",
+    wide_pp: float = MISSING_VS_READY_DELTA_WIDE_PP,
+    thin_pp: float = MISSING_VS_READY_DELTA_THIN_PP,
+) -> tuple[int | None, str, str, bool]:
+    """Share Δ after missing vs ready severity lean (display only).
+
+    Lean alone hid how far ``missing% − ready%`` sits (short-refuse vs long
+    share Δ / unmatched vs matched share Δ + portfolio AI count≠spread +
+    xang1234 severity). Requires lean already spoke. Wide ≥``wide_pp`` ·
+    thin <``thin_pp`` · mid → ``lean vs Δ clash · lean · Δ mid`` (warn).
+    Adverse ``align · hot|thin`` + Δ wide warns; ``quiet|strong`` stays
+    calm.
+
+    Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    Not a new entry gate.
+    """
+    if not str(lean_bit or "").strip():
+        return None, "", "", False
+    if missing_share_pct is None or ready_share_pct is None:
+        return None, "", "", False
+    try:
+        miss = float(missing_share_pct)
+        ready = float(ready_share_pct)
+    except (TypeError, ValueError):
+        return None, "", "", False
+    raw = int(round(miss - ready))
+    abs_delta = abs(raw)
+    delta_sev = ""
+    if abs_delta >= wide_pp:
+        delta_sev = "wide"
+    elif abs_delta < thin_pp:
+        delta_sev = "thin"
+    if delta_sev:
+        lean_vs_delta = f"align · {delta_sev}"
+        lean_vs_delta_warn = delta_sev == "wide" and str(lean_bit).startswith(
+            "missing vs ready align · hot|thin"
+        )
+        return raw, delta_sev, lean_vs_delta, lean_vs_delta_warn
+    return raw, "", "clash · lean · Δ mid", True
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -381,12 +429,14 @@ def leaderboard_missing_share(
     append ownership ``lead missing|ready · N%`` or ``missing/ready tied``
     (sole-side / all-missing silent). When ownership lead already spoke and
     quieter count >0, also append ``lead size · N×`` + ``lead size sides ·
-    louder N · quieter M`` so name/% ≠ magnitude. When missing + ready
+    louder N · quieter M`` so name/% ≠ magnitude.     When missing + ready
     severity bands already spoke, also append ``missing vs ready align ·
     hot|thin`` / ``quiet|strong`` or ``clash · missing hot · ready ok`` so
-    sides/lead/size alone do not hide severity agreement. Primary ``bit``
-    stays absolute+share so the Overview race strip stays short; lean lives
-    under a details fold.
+    sides/lead/size alone do not hide severity agreement. When severity lean
+    already spoke, also append ``Δ wide|thin · ±Npp`` + ``lean vs Δ
+    align|clash`` so lean alone does not hide missing%−ready% spread.
+    Primary ``bit`` stays absolute+share so the Overview race strip stays
+    short; lean lives under a details fold.
     """
     out: dict[str, Any] = {
         "n_named": 0,
@@ -405,6 +455,10 @@ def leaderboard_missing_share(
         "vs_ready_lead_size_quieter": None,
         "vs_ready_lean": "",
         "vs_ready_lean_warn": False,
+        "vs_ready_delta_pp": None,
+        "vs_ready_delta_severity": "",
+        "vs_ready_lean_vs_delta": "",
+        "vs_ready_lean_vs_delta_warn": False,
         "bit": "",
         "lean": "",
         "lean_meta": "",
@@ -483,6 +537,29 @@ def leaderboard_missing_share(
         meta_parts.append("severity")
         if sev_warn:
             out["lean_warn"] = True
+        (
+            delta_pp,
+            delta_sev,
+            lean_vs_delta,
+            lean_vs_delta_warn,
+        ) = leaderboard_missing_vs_ready_delta(
+            out["missing_share_pct"],
+            out["ready_share_pct"],
+            lean_bit=sev_bit,
+        )
+        out["vs_ready_delta_pp"] = delta_pp
+        out["vs_ready_delta_severity"] = delta_sev
+        out["vs_ready_lean_vs_delta"] = lean_vs_delta
+        out["vs_ready_lean_vs_delta_warn"] = lean_vs_delta_warn
+        if delta_sev and delta_pp is not None:
+            sign = f"+{delta_pp}" if delta_pp > 0 else f"{delta_pp}"
+            lean_parts.append(f"Δ {delta_sev} · {sign}pp")
+            meta_parts.append("Δ")
+        if lean_vs_delta:
+            lean_parts.append(f"lean vs Δ {lean_vs_delta}")
+            meta_parts.append("lean/Δ")
+            if lean_vs_delta_warn:
+                out["lean_warn"] = True
     out["lean_meta"] = " · ".join(meta_parts)
     out["lean"] = " · ".join(lean_parts)
     return out
