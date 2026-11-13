@@ -414,6 +414,36 @@ def leaderboard_missing_vs_ready_delta(
     return raw, "", "clash · lean · Δ mid", True
 
 
+def leaderboard_missing_vs_ready_delta_lead(
+    delta_pp: int | None,
+    delta_severity: str,
+    *,
+    lean_vs_delta: str = "",
+) -> str:
+    """Name which slot owns a spoken missing vs ready Δ (display only).
+
+    When lean vs Δ already spoke with a Δ (wide|thin) and ±pp ≠ 0,
+    positive ``missing% − ready%`` → ``missing``; negative → ``ready``.
+    Mid-Δ clash / 0pp stay silent. Signed pp alone hid which race-board
+    slot owns the spread (opportunity damaged vs ok / Screener unique vs
+    dup Δ lead + portfolio AI speak-both-sides + xang1234). Returns
+    ``missing|ready`` / ``\"\"``. Not a new entry gate.
+    """
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
+        return ""
+    if delta_pp is None:
+        return ""
+    try:
+        pp = int(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if pp == 0:
+        return ""
+    return "missing" if pp > 0 else "ready"
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -429,14 +459,16 @@ def leaderboard_missing_share(
     append ownership ``lead missing|ready · N%`` or ``missing/ready tied``
     (sole-side / all-missing silent). When ownership lead already spoke and
     quieter count >0, also append ``lead size · N×`` + ``lead size sides ·
-    louder N · quieter M`` so name/% ≠ magnitude.     When missing + ready
+    louder N · quieter M`` so name/% ≠ magnitude. When missing + ready
     severity bands already spoke, also append ``missing vs ready align ·
     hot|thin`` / ``quiet|strong`` or ``clash · missing hot · ready ok`` so
     sides/lead/size alone do not hide severity agreement. When severity lean
     already spoke, also append ``Δ wide|thin · ±Npp`` + ``lean vs Δ
-    align|clash`` so lean alone does not hide missing%−ready% spread.
-    Primary ``bit`` stays absolute+share so the Overview race strip stays
-    short; lean lives under a details fold.
+    align|clash`` so lean alone does not hide missing%−ready% spread. When
+    lean vs Δ already spoke with a non-zero Δ, also append ``Δ lead ·
+    missing|ready`` so signed pp alone does not hide which slot owns the
+    spread. Primary ``bit`` stays absolute+share so the Overview race strip
+    stays short; lean lives under a details fold.
     """
     out: dict[str, Any] = {
         "n_named": 0,
@@ -459,6 +491,7 @@ def leaderboard_missing_share(
         "vs_ready_delta_severity": "",
         "vs_ready_lean_vs_delta": "",
         "vs_ready_lean_vs_delta_warn": False,
+        "vs_ready_delta_lead": "",
         "bit": "",
         "lean": "",
         "lean_meta": "",
@@ -560,6 +593,15 @@ def leaderboard_missing_share(
             meta_parts.append("lean/Δ")
             if lean_vs_delta_warn:
                 out["lean_warn"] = True
+        delta_lead = leaderboard_missing_vs_ready_delta_lead(
+            delta_pp,
+            delta_sev,
+            lean_vs_delta=lean_vs_delta,
+        )
+        out["vs_ready_delta_lead"] = delta_lead
+        if delta_lead:
+            lean_parts.append(f"Δ lead · {delta_lead}")
+            meta_parts.append("Δ lead")
     out["lean_meta"] = " · ".join(meta_parts)
     out["lean"] = " · ".join(lean_parts)
     return out
