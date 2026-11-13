@@ -33930,8 +33930,10 @@ def build_postmortem_glance(
     ``unmatched/matched tied`` under lean so absolute sides do not hide which
     slot owns the closed-round roster (short-refuse vs long lead parity).
     When lead already spoke and quieter count >0, also speak
-    ``lead size · N×`` + ``lead size sides · louder N · quieter M`` so name/%
-    ≠ magnitude (short-refuse vs long lead size parity).     When both share
+    ``lead size · N×`` + ``lead size sides · unmatched|matched N ·
+    matched|unmatched M`` (louder slot first; Mode A / short-refuse named
+    sides) so name/% ≠ magnitude and anonymous louder/quieter does not hide
+    which closed-round slot owns the count.     When both share
     severity bands already spoke, also speak
     ``unmatched vs matched align · hot|thin`` / ``quiet|strong`` or
     ``clash · unmatched … · matched …`` so sides/lead/size alone do not hide
@@ -33942,15 +33944,17 @@ def build_postmortem_glance(
     vs Δ already spoke with a non-zero Δ, also speak ``Δ lead · unmatched|matched``
     so signed ±pp alone does not hide which slot owns the spread (opportunity /
     Screener Δ lead parity). When Δ lead already spoke and quieter% > 0, also
-    speak ``Δ lead size · N×`` + ``Δ lead size sides · louder N% · quieter M%``
-    so lead name ≠ magnitude (opportunity / Screener Δ lead size parity).
+    speak ``Δ lead size · N×`` + ``Δ lead size sides · unmatched|matched N% ·
+    matched|unmatched M%`` (louder slot first) so lead name ≠ magnitude and
+    anonymous louder/quieter does not hide which share owns quieter.
     When skipped already spoke, also name orphan vs unobserved sides
     (``N unmatched · M unobserved``) + lead/tied so absolute ``N unmatched``
     does not hide missing-price skips as orphan sells — Yahoo claim-drop
     dead/stale + tradermonty #714 after #689. When skip-reason lead already
     spoke and quieter count >0, also speak ``skip size · N×`` +
-    ``skip size sides · louder N · quieter M`` under lean so lead name/% ≠
-    magnitude (unmatched vs matched lead size parity).     When both skip-share
+    ``skip size sides · unmatched|unobserved N · unobserved|unmatched M``
+    under lean so lead name/% ≠ magnitude and anonymous louder/quieter does
+    not hide which skip sleeve owns quieter.     When both skip-share
     severity bands already spoke, also speak
     ``unmatched vs unobserved align · hot|quiet`` / clash so sides/lead/size
     alone do not hide severity agreement (unmatched vs matched lean parity).
@@ -34153,11 +34157,16 @@ def build_postmortem_glance(
             and vs_matched_lead_size_louder is not None
             and vs_matched_lead_size_quieter is not None
         ):
+            size_other = (
+                "matched"
+                if vs_matched_lead_name == "unmatched"
+                else "unmatched"
+            )
             lean_parts.append(f"lead size · {vs_matched_lead_size:g}×")
             lean_parts.append(
-                "lead size sides · louder "
-                f"{vs_matched_lead_size_louder} · quieter "
-                f"{vs_matched_lead_size_quieter}"
+                "lead size sides · "
+                f"{vs_matched_lead_name} {vs_matched_lead_size_louder} · "
+                f"{size_other} {vs_matched_lead_size_quieter}"
             )
         vs_matched_lean, vs_matched_lean_warn = (
             postmortem_unmatched_vs_matched_lean(
@@ -34220,9 +34229,16 @@ def build_postmortem_glance(
                 vs_matched_delta_lead_size_louder_pct is not None
                 and vs_matched_delta_lead_size_quieter_pct is not None
             ):
+                d_other = (
+                    "matched"
+                    if vs_matched_delta_lead == "unmatched"
+                    else "unmatched"
+                )
                 lean_parts.append(
-                    "Δ lead size sides · louder "
-                    f"{vs_matched_delta_lead_size_louder_pct:g}% · quieter "
+                    "Δ lead size sides · "
+                    f"{vs_matched_delta_lead} "
+                    f"{vs_matched_delta_lead_size_louder_pct:g}% · "
+                    f"{d_other} "
                     f"{vs_matched_delta_lead_size_quieter_pct:g}%"
                 )
         # Orphan vs unobserved lead size + severity lean under fold
@@ -34232,11 +34248,16 @@ def build_postmortem_glance(
             and skip_reason_lead_size_louder is not None
             and skip_reason_lead_size_quieter is not None
         ):
+            skip_other = (
+                "unobserved"
+                if skip_reason_lead_name == "unmatched"
+                else "unmatched"
+            )
             lean_parts.append(f"skip size · {skip_reason_lead_size:g}×")
             lean_parts.append(
-                "skip size sides · louder "
-                f"{skip_reason_lead_size_louder} · quieter "
-                f"{skip_reason_lead_size_quieter}"
+                "skip size sides · "
+                f"{skip_reason_lead_name} {skip_reason_lead_size_louder} · "
+                f"{skip_other} {skip_reason_lead_size_quieter}"
             )
         if skip_reason_lean:
             lean_parts.append(skip_reason_lean)
