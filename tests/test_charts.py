@@ -469,6 +469,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_lean_meta,
         chart_price_bars_spoken_vs_fresh_delta,
         chart_price_bars_spoken_vs_fresh_delta_lead,
+        chart_price_bars_spoken_vs_fresh_delta_lead_size,
         chart_price_bars_spoken_vs_fresh_lead,
         chart_price_bars_spoken_vs_fresh_lead_size,
         chart_price_bars_spoken_vs_fresh_lean,
@@ -534,6 +535,15 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "Δ lead · spoken" in hot["bit"]
     assert "Δ lead · spoken" in hot["lean"]
     assert hot["bit"].index("lean vs Δ") < hot["bit"].index("Δ lead · spoken")
+    # louder 66.7% ÷ quieter 33.3% → ~2×; named spoken|fresh sides
+    assert hot["spoken_vs_fresh_delta_lead_size"] == 2.0
+    assert hot["spoken_vs_fresh_delta_lead_size_louder"] == 66.7
+    assert hot["spoken_vs_fresh_delta_lead_size_quieter"] == 33.3
+    assert "Δ lead size · 2×" in hot["bit"]
+    assert "Δ lead size sides · spoken 66.7% · fresh 33.3%" in hot["bit"]
+    assert hot["bit"].index("Δ lead · spoken") < hot["bit"].index(
+        "Δ lead size · 2×"
+    )
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
     assert hot["lean_warn"] is True
@@ -575,6 +585,8 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "lean vs Δ align · thin" in mixed["bit"]
     assert mixed["spoken_vs_fresh_delta_lead"] == ""  # 0pp silent
     assert "Δ lead ·" not in mixed["bit"]
+    assert mixed["spoken_vs_fresh_delta_lead_size"] is None
+    assert "Δ lead size" not in mixed["bit"]
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
     assert mixed["bit"].index("spoken/fresh tied") < mixed["bit"].index(
@@ -630,7 +642,16 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["spoken_vs_fresh_delta_lead"] == "spoken"
     assert "Δ lead · spoken" in lead["bit"]
     assert lead["bit"].index("lean vs Δ") < lead["bit"].index("Δ lead · spoken")
+    # louder 75% ÷ quieter 25% → 3×; named spoken|fresh sides
+    assert lead["spoken_vs_fresh_delta_lead_size"] == 3.0
+    assert lead["spoken_vs_fresh_delta_lead_size_louder"] == 75.0
+    assert lead["spoken_vs_fresh_delta_lead_size_quieter"] == 25.0
+    assert "Δ lead size · 3×" in lead["bit"]
+    assert "Δ lead size sides · spoken 75% · fresh 25%" in lead["bit"]
     assert lead["bit"].index("Δ lead · spoken") < lead["bit"].index(
+        "Δ lead size · 3×"
+    )
+    assert lead["bit"].index("Δ lead size · 3×") < lead["bit"].index(
         "lead stale"
     )
     assert lead["aging_stale_sample_gap"] == ""
@@ -758,6 +779,18 @@ def test_chart_price_bars_glance_share_after_spoken():
         )
         == ""
     )
+    assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
+        66.7, 33.3, delta_lead="spoken"
+    ) == (2.0, 66.7, 33.3)
+    assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
+        20.0, 80.0, delta_lead="fresh"
+    ) == (4.0, 80.0, 20.0)
+    assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
+        75.0, 25.0, delta_lead=""
+    ) == (None, None, None)
+    assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
+        100.0, 0.0, delta_lead="spoken"
+    ) == (None, None, None)
     assert chart_price_bars_vs_fresh(2, 1, 3) == (
         "vs 1 fresh · thin · 33.3%",
         1,
@@ -822,6 +855,16 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert quiet["spoken_vs_fresh_lean_vs_delta_warn"] is False
     assert "Δ wide · -60pp" in quiet["bit"]
     assert "lean vs Δ align · wide" in quiet["bit"]
+    assert quiet["spoken_vs_fresh_delta_lead"] == "fresh"
+    assert "Δ lead · fresh" in quiet["bit"]
+    assert quiet["spoken_vs_fresh_delta_lead_size"] == 4.0
+    assert quiet["spoken_vs_fresh_delta_lead_size_louder"] == 80.0
+    assert quiet["spoken_vs_fresh_delta_lead_size_quieter"] == 20.0
+    assert "Δ lead size · 4×" in quiet["bit"]
+    assert "Δ lead size sides · fresh 80% · spoken 20%" in quiet["bit"]
+    assert quiet["bit"].index("Δ lead · fresh") < quiet["bit"].index(
+        "Δ lead size · 4×"
+    )
     assert quiet["tone"] == "aging"
     assert quiet["lean_warn"] is False
     assert quiet["lean_meta"].startswith("quiet ·")
