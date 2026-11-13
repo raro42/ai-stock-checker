@@ -327,6 +327,45 @@ def leaderboard_missing_vs_ready_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def leaderboard_missing_vs_ready_lean(
+    missing_severity: str,
+    ready_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of missing vs ready share bands (display only).
+
+    Absolute sides + ownership lead + lead size hid whether the two
+    *severity* bands agree (short-refuse vs long lean / unmatched vs matched
+    lean + portfolio AI speak-both-sides + xang1234 severity). Align when
+    ``hot|thin`` or ``quiet|strong``; clash when exactly one lean spoke or
+    the pair disagrees. Adverse clash (missing hot / ready thin mismatch,
+    or sole hot/thin) warns. Mid both silent. Lives under the Overview
+    missing lean fold. Not a new entry gate.
+    """
+    miss = str(missing_severity or "").strip().casefold()
+    ready = str(ready_severity or "").strip().casefold()
+    miss_lean = miss in {"hot", "quiet"}
+    ready_lean = ready in {"strong", "thin"}
+    if miss_lean and ready_lean:
+        matched = (miss == "hot" and ready == "thin") or (
+            miss == "quiet" and ready == "strong"
+        )
+        if matched:
+            return f"missing vs ready align · {miss}|{ready}", False
+        return (
+            f"missing vs ready clash · missing {miss} · ready {ready}",
+            True,
+        )
+    if miss_lean != ready_lean:
+        miss_label = miss if miss_lean else (miss or "ok")
+        ready_label = ready if ready_lean else (ready or "ok")
+        warn = miss == "hot" or ready == "thin"
+        return (
+            f"missing vs ready clash · missing {miss_label} · ready {ready_label}",
+            warn,
+        )
+    return "", False
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -342,9 +381,12 @@ def leaderboard_missing_share(
     append ownership ``lead missing|ready · N%`` or ``missing/ready tied``
     (sole-side / all-missing silent). When ownership lead already spoke and
     quieter count >0, also append ``lead size · N×`` + ``lead size sides ·
-    louder N · quieter M`` so name/% ≠ magnitude. Primary ``bit`` stays
-    absolute+share so the Overview race strip stays short; lean lives under
-    a details fold.
+    louder N · quieter M`` so name/% ≠ magnitude. When missing + ready
+    severity bands already spoke, also append ``missing vs ready align ·
+    hot|thin`` / ``quiet|strong`` or ``clash · missing hot · ready ok`` so
+    sides/lead/size alone do not hide severity agreement. Primary ``bit``
+    stays absolute+share so the Overview race strip stays short; lean lives
+    under a details fold.
     """
     out: dict[str, Any] = {
         "n_named": 0,
@@ -361,6 +403,8 @@ def leaderboard_missing_share(
         "vs_ready_lead_size": None,
         "vs_ready_lead_size_louder": None,
         "vs_ready_lead_size_quieter": None,
+        "vs_ready_lean": "",
+        "vs_ready_lean_warn": False,
         "bit": "",
         "lean": "",
         "lean_meta": "",
@@ -428,6 +472,17 @@ def leaderboard_missing_share(
         lean_parts.append(f"lead size · {size:g}×")
         lean_parts.append(f"lead size sides · louder {louder} · quieter {quieter}")
         meta_parts.append("size")
+    sev_bit, sev_warn = leaderboard_missing_vs_ready_lean(
+        out["missing_share_severity"],
+        out["ready_share_severity"],
+    )
+    out["vs_ready_lean"] = sev_bit
+    out["vs_ready_lean_warn"] = sev_warn
+    if sev_bit:
+        lean_parts.append(sev_bit)
+        meta_parts.append("severity")
+        if sev_warn:
+            out["lean_warn"] = True
     out["lean_meta"] = " · ".join(meta_parts)
     out["lean"] = " · ".join(lean_parts)
     return out
