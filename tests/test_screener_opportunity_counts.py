@@ -49,7 +49,7 @@ def test_screener_weight_lean_meta_names_the_open():
     long_lean = (
         "unique vs dup align · strong|quiet · Δ wide · +50pp · "
         "lean vs Δ align · wide · Δ lead · unique · "
-        "Δ lead size · 3× · Δ lead size sides · louder 75% · quieter 25%"
+        "Δ lead size · 3× · Δ lead size sides · unique 75% · dup 25%"
     )
     assert (
         screener_weight_lean_meta(
@@ -168,11 +168,11 @@ def test_junk_slots_do_not_inflate_counts():
     )
     assert (
         c["weight_lean"]
-        == "junk vs ok align · hot|thin · Δ wide · +25pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 1.67× · Δ lead size sides · louder 62.5% · quieter 37.5%"
+        == "junk vs ok align · hot|thin · Δ wide · +25pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 1.67× · Δ lead size sides · junk 62.5% · ok 37.5%"
     )
     assert (
         c["weight"]
-        == "row slots · 5 junk · hot · 62.5% · in rec · crypto · brk · tied · vs 3 ok · thin · 37.5% · junk vs ok align · hot|thin · Δ wide · +25pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 1.67× · Δ lead size sides · louder 62.5% · quieter 37.5%"
+        == "row slots · 5 junk · hot · 62.5% · in rec · crypto · brk · tied · vs 3 ok · thin · 37.5% · junk vs ok align · hot|thin · Δ wide · +25pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 1.67× · Δ lead size sides · junk 62.5% · ok 37.5%"
     )
     assert c["tone"] == "warn"
 
@@ -378,11 +378,11 @@ def test_overlap_speaks_unique_share_ok():
     assert c["weight_core"] == "3 unique · strong · 75% · 1 dup · quiet · 25%"
     assert (
         c["weight_lean"]
-        == "unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide · Δ lead · unique · Δ lead size · 3× · Δ lead size sides · louder 75% · quieter 25%"
+        == "unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide · Δ lead · unique · Δ lead size · 3× · Δ lead size sides · unique 75% · dup 25%"
     )
     assert (
         c["weight"]
-        == "3 unique · strong · 75% · 1 dup · quiet · 25% · unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide · Δ lead · unique · Δ lead size · 3× · Δ lead size sides · louder 75% · quieter 25%"
+        == "3 unique · strong · 75% · 1 dup · quiet · 25% · unique vs dup align · strong|quiet · Δ wide · +50pp · lean vs Δ align · wide · Δ lead · unique · Δ lead size · 3× · Δ lead size sides · unique 75% · dup 25%"
     )
     assert c["tone"] == "flat"
     assert c["lists_populated"] == 3
@@ -418,11 +418,11 @@ def test_overlap_unique_share_thin_warns():
     assert c["weight_core"] == "2 unique · thin · 40% · 3 dup · hot · 60%"
     assert (
         c["weight_lean"]
-        == "unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide · Δ lead · dup · Δ lead size · 1.5× · Δ lead size sides · louder 60% · quieter 40%"
+        == "unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide · Δ lead · dup · Δ lead size · 1.5× · Δ lead size sides · dup 60% · unique 40%"
     )
     assert (
         c["weight"]
-        == "2 unique · thin · 40% · 3 dup · hot · 60% · unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide · Δ lead · dup · Δ lead size · 1.5× · Δ lead size sides · louder 60% · quieter 40%"
+        == "2 unique · thin · 40% · 3 dup · hot · 60% · unique vs dup align · thin|hot · Δ wide · -20pp · lean vs Δ align · wide · Δ lead · dup · Δ lead size · 1.5× · Δ lead size sides · dup 60% · unique 40%"
     )
     assert c["tone"] == "warn"
 
@@ -549,11 +549,11 @@ def test_string_symbols_and_bad_list_type():
     )
     assert (
         c["weight_lean"]
-        == "junk vs ok align · hot|thin · Δ wide · +33.4pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 2× · Δ lead size sides · louder 66.7% · quieter 33.3%"
+        == "junk vs ok align · hot|thin · Δ wide · +33.4pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 2× · Δ lead size sides · junk 66.7% · ok 33.3%"
     )
     assert (
         c["weight"]
-        == "row slots · 2 junk · hot · 66.7% · in rec · n=1 · vs 1 ok · thin · 33.3% · junk vs ok align · hot|thin · Δ wide · +33.4pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 2× · Δ lead size sides · louder 66.7% · quieter 33.3%"
+        == "row slots · 2 junk · hot · 66.7% · in rec · n=1 · vs 1 ok · thin · 33.3% · junk vs ok align · hot|thin · Δ wide · +33.4pp · lean vs Δ align · wide · Δ lead · junk · Δ lead size · 2× · Δ lead size sides · junk 66.7% · ok 33.3%"
     )
     assert c["tone"] == "warn"
 
@@ -596,11 +596,11 @@ def test_junk_share_quiet_band():
     )
     assert (
         c["weight_lean"]
-        == "junk vs ok align · quiet|strong · Δ wide · -75pp · lean vs Δ align · wide · Δ lead · ok · Δ lead size · 7× · Δ lead size sides · louder 87.5% · quieter 12.5%"
+        == "junk vs ok align · quiet|strong · Δ wide · -75pp · lean vs Δ align · wide · Δ lead · ok · Δ lead size · 7× · Δ lead size sides · ok 87.5% · junk 12.5%"
     )
     assert (
         c["weight"]
-        == "row slots · 1 junk · quiet · 12.5% · in rec · n=1 · vs 7 ok · strong · 87.5% · junk vs ok align · quiet|strong · Δ wide · -75pp · lean vs Δ align · wide · Δ lead · ok · Δ lead size · 7× · Δ lead size sides · louder 87.5% · quieter 12.5%"
+        == "row slots · 1 junk · quiet · 12.5% · in rec · n=1 · vs 7 ok · strong · 87.5% · junk vs ok align · quiet|strong · Δ wide · -75pp · lean vs Δ align · wide · Δ lead · ok · Δ lead size · 7× · Δ lead size sides · ok 87.5% · junk 12.5%"
     )
     assert c["tone"] == "warn"
 

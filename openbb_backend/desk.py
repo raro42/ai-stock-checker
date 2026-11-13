@@ -1978,8 +1978,9 @@ def build_screener_opportunity_counts(
     (``junk vs ok align · hot|thin`` / ``quiet|strong``, or clash when
     exactly one lean spoke at 50/50) — unique/dup lean parity. When lean
     already spoke, also junk−ok pp Δ then lean vs Δ then Δ lead · junk|ok
-    when ±pp ≠ 0, then Δ lead size · N× (louder%÷quieter%) and sides
-    louder/quieter % (unique/dup Δ lead size parity; zero quieter silent).
+    when ±pp ≠ 0, then Δ lead size · N× (louder%÷quieter%) and named sides
+    ``junk|ok N% · ok|junk M%`` (Mode A / postmortem named sides; zero
+    quieter silent).
     When both junk/ok and unique/dup Δ leads already spoke, also
     ``Δ lead moods align · both adverse|healthy`` / ``clash · junk/ok …
     · unique/dup …`` (adverse = junk|dup; healthy = ok|unique; dual
@@ -2028,8 +2029,8 @@ def build_screener_opportunity_counts(
     lean already spoke, then lean vs Δ clash/align (Δ mid while lean spoke
     → clash; both spoke → align · wide|thin), then Δ lead · unique|dup
     when Δ spoke and ±pp ≠ 0, then Δ lead size · N× (louder%÷quieter%)
-    when lead already spoke, then Δ lead size sides · louder N% · quieter
-    M% when size already spoke — unique% ≠ silent dups; count ≠ severity;
+    when lead already spoke, then Δ lead size sides · unique|dup N% ·
+    dup|unique M% when size already spoke — unique% ≠ silent dups; count ≠ severity;
     two leanish labels can still disagree at the 50/50 band; lean labels ≠
     how far the shares sit; lean spoke ≠ Δ mid silent; ±sign ≠ which side
     owns the spread; lead name ≠ how many times louder owns quieter;
@@ -2286,10 +2287,16 @@ def build_screener_opportunity_counts(
             if (
                 unique_vs_dup_delta_lead_size_louder_pct is not None
                 and unique_vs_dup_delta_lead_size_quieter_pct is not None
+                and unique_vs_dup_delta_lead in {"unique", "dup"}
             ):
+                d_other = (
+                    "dup" if unique_vs_dup_delta_lead == "unique" else "unique"
+                )
                 lean_bits.append(
-                    "Δ lead size sides · louder "
-                    f"{unique_vs_dup_delta_lead_size_louder_pct:g}% · quieter "
+                    "Δ lead size sides · "
+                    f"{unique_vs_dup_delta_lead} "
+                    f"{unique_vs_dup_delta_lead_size_louder_pct:g}% · "
+                    f"{d_other} "
                     f"{unique_vs_dup_delta_lead_size_quieter_pct:g}%"
                 )
         weight_lean = " · ".join(lean_bits)
@@ -2541,10 +2548,14 @@ def build_screener_opportunity_counts(
             if (
                 junk_vs_ok_delta_lead_size_louder_pct is not None
                 and junk_vs_ok_delta_lead_size_quieter_pct is not None
+                and junk_vs_ok_delta_lead in {"junk", "ok"}
             ):
+                d_other = "ok" if junk_vs_ok_delta_lead == "junk" else "junk"
                 lean_extras.append(
-                    "Δ lead size sides · louder "
-                    f"{junk_vs_ok_delta_lead_size_louder_pct:g}% · quieter "
+                    "Δ lead size sides · "
+                    f"{junk_vs_ok_delta_lead} "
+                    f"{junk_vs_ok_delta_lead_size_louder_pct:g}% · "
+                    f"{d_other} "
                     f"{junk_vs_ok_delta_lead_size_quieter_pct:g}%"
                 )
         if junk_list_lead_vs_lean:
@@ -37984,7 +37995,7 @@ def load_desk_snapshot(
         {
             "title": "Screener junk vs ok Δ lead size",
             "from": "xang1234/stock-screener + portfolio AI (unique/dup Δ lead size)",
-            "note": "When junk vs ok Δ lead already spoke and quieter share > 0, weight_lean speaks Δ lead size · N× then Δ lead size sides · louder N% · quieter M% — lead name ≠ how many times louder owns quieter; all-junk quieter=0 silent.",
+            "note": "When junk vs ok Δ lead already spoke and quieter share > 0, weight_lean speaks Δ lead size · N× then Δ lead size sides · junk|ok N% · ok|junk M% (louder slot first) — lead name ≠ magnitude and anonymous louder/quieter does not hide which sleeve owns quieter; all-junk quieter=0 silent.",
         },
         {
             "title": "Screener junk list pointer",
@@ -38049,7 +38060,7 @@ def load_desk_snapshot(
         {
             "title": "Screener opportunity unique vs dup Δ lead size sides",
             "from": "xang1234/stock-screener + portfolio AI (align lead size sides)",
-            "note": "When Δ lead size already spoke: Δ lead size sides · louder N% · quieter M% — ratio ≠ the two role-labeled shares.",
+            "note": "When Δ lead size already spoke: Δ lead size sides · unique|dup N% · dup|unique M% (louder slot first) — ratio ≠ anonymous louder/quieter; Mode A / postmortem named-side parity.",
         },
         {
             "title": "Screener Total weight lean fold",
