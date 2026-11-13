@@ -238,6 +238,64 @@ def build_leaderboard(
     return rows
 
 
+def leaderboard_missing_vs_ready_lead(
+    n_missing: int,
+    n_ready: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among missing vs ready named counts (display only).
+
+    Absolute ``N missing`` beside ``vs M ready`` hid which slot owns the
+    race board (short-refuse vs long lead + portfolio AI count≠share +
+    xang1234 multi-meter). Both sides must be >0 and total ≥2; strict lead
+    → ``lead missing · N%`` / ``lead ready · N%``; ties / sole-side → silent
+    (use ``leaderboard_missing_vs_ready_sample_gap`` for ``missing/ready
+    tied``). Not a new entry gate.
+    """
+    try:
+        missing_n = max(0, int(n_missing))
+    except (TypeError, ValueError):
+        missing_n = 0
+    try:
+        ready_n = max(0, int(n_ready))
+    except (TypeError, ValueError):
+        ready_n = 0
+    total = missing_n + ready_n
+    if total < 2 or missing_n <= 0 or ready_n <= 0 or missing_n == ready_n:
+        return "", "", None
+    if missing_n > ready_n:
+        name, n = "missing", missing_n
+    else:
+        name, n = "ready", ready_n
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def leaderboard_missing_vs_ready_sample_gap(
+    n_missing: int,
+    n_ready: int,
+) -> str:
+    """Speak ``missing/ready tied`` when both sides spoke with no strict lead.
+
+    Lead / sole-side / zero stay silent. Display only.
+    """
+    try:
+        missing_n = max(0, int(n_missing))
+    except (TypeError, ValueError):
+        missing_n = 0
+    try:
+        ready_n = max(0, int(n_ready))
+    except (TypeError, ValueError):
+        ready_n = 0
+    if missing_n <= 0 or ready_n <= 0:
+        return ""
+    lead_bit, _name, _share = leaderboard_missing_vs_ready_lead(
+        missing_n, ready_n
+    )
+    if lead_bit:
+        return ""
+    return "missing/ready tied"
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -249,8 +307,10 @@ def leaderboard_missing_share(
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
-    ``vs 0 ready · thin · 0%``). Primary ``bit`` stays absolute+share so the
-    Overview race strip stays short; lean lives under a details fold.
+    ``vs 0 ready · thin · 0%``). When both missing + ready counts are >0,
+    append ownership ``lead missing|ready · N%`` or ``missing/ready tied``
+    (sole-side / all-missing silent). Primary ``bit`` stays absolute+share so
+    the Overview race strip stays short; lean lives under a details fold.
     """
     out: dict[str, Any] = {
         "n_named": 0,
@@ -260,6 +320,10 @@ def leaderboard_missing_share(
         "missing_share_severity": "",
         "ready_share_pct": None,
         "ready_share_severity": "",
+        "vs_ready_lead": "",
+        "vs_ready_lead_name": "",
+        "vs_ready_lead_pct": None,
+        "vs_ready_sample_gap": "",
         "bit": "",
         "lean": "",
         "lean_meta": "",
@@ -292,17 +356,33 @@ def leaderboard_missing_share(
 
     ready_pct = round(100.0 * n_ready / n_named, 1)
     out["ready_share_pct"] = ready_pct
+    lean_parts: list[str] = []
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
-        out["lean"] = f"vs {n_ready} ready · strong · {ready_pct:g}%"
+        lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")
     elif ready_pct < READY_SHARE_THIN:
         out["ready_share_severity"] = "thin"
-        out["lean"] = f"vs {n_ready} ready · thin · {ready_pct:g}%"
+        lean_parts.append(f"vs {n_ready} ready · thin · {ready_pct:g}%")
         out["lean_warn"] = True
     else:
         out["ready_share_severity"] = "ok"
-        out["lean"] = f"vs {n_ready} ready · {ready_pct:g}%"
-    out["lean_meta"] = "vs ready"
+        lean_parts.append(f"vs {n_ready} ready · {ready_pct:g}%")
+
+    lead_bit, lead_name, lead_pct = leaderboard_missing_vs_ready_lead(
+        n_missing, n_ready
+    )
+    sample_gap = leaderboard_missing_vs_ready_sample_gap(n_missing, n_ready)
+    out["vs_ready_lead"] = lead_bit
+    out["vs_ready_lead_name"] = lead_name
+    out["vs_ready_lead_pct"] = lead_pct
+    out["vs_ready_sample_gap"] = sample_gap
+    own = lead_bit or sample_gap
+    if own:
+        lean_parts.append(own)
+        out["lean_meta"] = "vs ready · ownership"
+    else:
+        out["lean_meta"] = "vs ready"
+    out["lean"] = " · ".join(lean_parts)
     return out
 
 
