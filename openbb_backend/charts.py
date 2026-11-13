@@ -409,6 +409,47 @@ def chart_price_bars_spoken_vs_fresh_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def chart_price_bars_spoken_vs_fresh_lean(
+    spoken_severity: str,
+    fresh_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of spoken vs fresh share bands (display only).
+
+    Absolute ``vs N fresh · strong|thin`` + ownership lead + sf size hid
+    whether the two *severity* bands agree (Mode A missing vs ready lean /
+    Screener junk vs ok / short-refuse vs long + portfolio AI
+    speak-both-sides + xang1234 severity). Align when ``hot|thin`` or
+    ``quiet|strong``; clash when exactly one lean spoke or the pair
+    disagrees. Adverse clash (spoken hot / fresh thin mismatch, or sole
+    hot/thin) warns. Mid both silent. Lives under the Charts bars lean
+    fold. Not a new entry gate.
+    """
+    spoken = str(spoken_severity or "").strip().casefold()
+    fresh = str(fresh_severity or "").strip().casefold()
+    spoken_lean = spoken in {"hot", "quiet"}
+    fresh_lean = fresh in {"strong", "thin"}
+    if spoken_lean and fresh_lean:
+        matched = (spoken == "hot" and fresh == "thin") or (
+            spoken == "quiet" and fresh == "strong"
+        )
+        if matched:
+            return f"spoken vs fresh align · {spoken}|{fresh}", False
+        return (
+            f"spoken vs fresh clash · spoken {spoken} · fresh {fresh}",
+            True,
+        )
+    if spoken_lean != fresh_lean:
+        spoken_label = spoken if spoken_lean else (spoken or "ok")
+        fresh_label = fresh if fresh_lean else (fresh or "ok")
+        warn = spoken == "hot" or fresh == "thin"
+        return (
+            f"spoken vs fresh clash · spoken {spoken_label} · "
+            f"fresh {fresh_label}",
+            warn,
+        )
+    return "", False
+
+
 def chart_price_bars_spoken_vs_fresh_sample_gap(
     n_spoken: int,
     n_fresh: int,
@@ -577,6 +618,8 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^spoken/fresh tied\b"), "sf tied"),
     (re.compile(r"^sf size sides\b"), "sf sides"),
     (re.compile(r"^sf size\b"), "sf size"),
+    (re.compile(r"^spoken vs fresh align\b"), "sf lean"),
+    (re.compile(r"^spoken vs fresh clash\b"), "sf lean"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
     (re.compile(r"^aging/stale tied\b"), "as tied"),
@@ -631,16 +674,20 @@ def chart_price_bars_glance(
     strict spoken/fresh lead, also speak ``sf size · N×`` + named
     ``sf size sides · spoken|fresh N · fresh|spoken M`` (louder first; ``sf``
     prefix keeps aging/stale ``lead size`` unambiguous) so name/% ≠ magnitude.
-    When both aging and stale spoke, also speak ``lead stale|aging · N%`` or
-    ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
-    aging/stale lead, also speak ``lead size · N×`` + named
-    ``lead size sides · aging|stale N · stale|aging M`` (louder first) so
-    name/% ≠ magnitude and anonymous louder/quieter does not hide which
-    spoken-band sleeve owns quieter. Ownership/lead cascade sits in ``lean``
-    under a Charts fold (MonsterDeveloper weight/sleeve lean parity — share
-    alone hid vs-fresh / lead / size); ``lean_meta`` names spoken stages.
-    Full ``bit`` stays joined for tests. Zero spoken stays silent. Not a
-    scoring veto / not a new entry gate.
+    When spoken + fresh share severity bands already spoke, also speak
+    ``spoken vs fresh align · hot|thin`` / ``quiet|strong`` or clash so
+    sides/lead/size alone do not hide severity agreement (Mode A / Screener
+    / short-refuse lean parity). When both aging and stale spoke, also speak
+    ``lead stale|aging · N%`` or ``aging/stale tied`` so absolute sides ≠
+    silent ownership. After a strict aging/stale lead, also speak
+    ``lead size · N×`` + named ``lead size sides · aging|stale N ·
+    stale|aging M`` (louder first) so name/% ≠ magnitude and anonymous
+    louder/quieter does not hide which spoken-band sleeve owns quieter.
+    Ownership/lead cascade sits in ``lean`` under a Charts fold
+    (MonsterDeveloper weight/sleeve lean parity — share alone hid vs-fresh /
+    lead / size); ``lean_meta`` names spoken stages. Full ``bit`` stays
+    joined for tests. Zero spoken stays silent. Not a scoring veto / not a
+    new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -669,6 +716,8 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_lead_size": None,
         "spoken_vs_fresh_lead_size_louder": None,
         "spoken_vs_fresh_lead_size_quieter": None,
+        "spoken_vs_fresh_lean": "",
+        "spoken_vs_fresh_lean_warn": False,
         "aging_stale_lead": "",
         "aging_stale_lead_name": "",
         "aging_stale_lead_share_pct": None,
@@ -730,6 +779,9 @@ def chart_price_bars_glance(
         if sf_lead_bit
         else (None, None, None)
     )
+    sf_lean_bit, sf_lean_warn = chart_price_bars_spoken_vs_fresh_lean(
+        spoken_share_severity, vs_fresh_sev
+    )
     lead_bit, lead_name, lead_share = chart_price_bars_aging_stale_lead(
         n_aging, n_stale
     )
@@ -757,6 +809,8 @@ def chart_price_bars_glance(
             f"sf size sides · {sf_lead_name} {sf_louder_n} · "
             f"{sf_other} {sf_quieter_n}"
         )
+    if sf_lean_bit:
+        lean_parts.append(sf_lean_bit)
     if own_bit:
         lean_parts.append(own_bit)
     if size is not None and louder_n is not None and quieter_n is not None:
@@ -775,7 +829,9 @@ def chart_price_bars_glance(
     # Thin fresh remainder escalates warn when share was already hot/aging.
     if vs_fresh_sev == "thin" and tone == "flat":
         tone = "aging"
-    lean_warn = tone == "warn"
+    if sf_lean_warn and tone == "flat":
+        tone = "aging"
+    lean_warn = tone == "warn" or sf_lean_warn
     return {
         "ready": True,
         "bit": bit,
@@ -803,6 +859,8 @@ def chart_price_bars_glance(
         "spoken_vs_fresh_lead_size": sf_size,
         "spoken_vs_fresh_lead_size_louder": sf_louder_n,
         "spoken_vs_fresh_lead_size_quieter": sf_quieter_n,
+        "spoken_vs_fresh_lean": sf_lean_bit,
+        "spoken_vs_fresh_lean_warn": sf_lean_warn,
         "aging_stale_lead": lead_bit,
         "aging_stale_lead_name": lead_name,
         "aging_stale_lead_share_pct": lead_share,

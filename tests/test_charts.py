@@ -469,6 +469,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_lean_meta,
         chart_price_bars_spoken_vs_fresh_lead,
         chart_price_bars_spoken_vs_fresh_lead_size,
+        chart_price_bars_spoken_vs_fresh_lean,
         chart_price_bars_spoken_vs_fresh_sample_gap,
         chart_price_bars_vs_fresh,
     )
@@ -510,6 +511,13 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "sf size sides · spoken 2 · fresh 1" in hot["bit"]
     assert "louder" not in hot["bit"]
     assert "quieter" not in hot["bit"]
+    assert hot["spoken_vs_fresh_lean"] == "spoken vs fresh align · hot|thin"
+    assert hot["spoken_vs_fresh_lean_warn"] is False
+    assert "spoken vs fresh align · hot|thin" in hot["bit"]
+    assert "spoken vs fresh align · hot|thin" in hot["lean"]
+    assert hot["bit"].index("sf size") < hot["bit"].index(
+        "spoken vs fresh align"
+    )
     assert hot["aging_stale_lead"] == ""  # sole-side silent
     assert hot["aging_stale_lead_size"] is None
     assert hot["lean_warn"] is True
@@ -536,6 +544,12 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "spoken/fresh tied" in mixed["bit"]
     assert "spoken/fresh tied" in mixed["lean"]
     assert mixed["spoken_vs_fresh_lead_size"] is None  # tied → no sf size
+    # spoken hot + mid fresh → clash (sole lean)
+    assert mixed["spoken_vs_fresh_lean"] == (
+        "spoken vs fresh clash · spoken hot · fresh ok"
+    )
+    assert mixed["spoken_vs_fresh_lean_warn"] is True
+    assert "spoken vs fresh clash · spoken hot · fresh ok" in mixed["lean"]
     assert mixed["aging_stale_sample_gap"] == "aging/stale tied"
     assert "aging/stale tied" in mixed["bit"]
     assert mixed["bit"].index("spoken/fresh tied") < mixed["bit"].index(
@@ -568,7 +582,14 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert "sf size · 3×" in lead["bit"]
     assert "sf size sides · spoken 3 · fresh 1" in lead["bit"]
     assert lead["bit"].index("lead spoken") < lead["bit"].index("sf size")
-    assert lead["bit"].index("sf size") < lead["bit"].index("lead stale")
+    assert lead["spoken_vs_fresh_lean"] == "spoken vs fresh align · hot|thin"
+    assert "spoken vs fresh align · hot|thin" in lead["bit"]
+    assert lead["bit"].index("sf size") < lead["bit"].index(
+        "spoken vs fresh align"
+    )
+    assert lead["bit"].index("spoken vs fresh align") < lead["bit"].index(
+        "lead stale"
+    )
     assert lead["aging_stale_sample_gap"] == ""
     assert lead["aging_stale_lead_size"] == 2.0
     assert lead["aging_stale_lead_size_louder"] == 2
@@ -629,6 +650,23 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert chart_price_bars_spoken_vs_fresh_lead_size(
         2, 0, lead_name="spoken"
     ) == (None, None, None)
+    assert chart_price_bars_spoken_vs_fresh_lean("hot", "thin") == (
+        "spoken vs fresh align · hot|thin",
+        False,
+    )
+    assert chart_price_bars_spoken_vs_fresh_lean("quiet", "strong") == (
+        "spoken vs fresh align · quiet|strong",
+        False,
+    )
+    assert chart_price_bars_spoken_vs_fresh_lean("hot", "strong") == (
+        "spoken vs fresh clash · spoken hot · fresh strong",
+        True,
+    )
+    assert chart_price_bars_spoken_vs_fresh_lean("hot", "") == (
+        "spoken vs fresh clash · spoken hot · fresh ok",
+        True,
+    )
+    assert chart_price_bars_spoken_vs_fresh_lean("", "") == ("", False)
     assert chart_price_bars_vs_fresh(2, 1, 3) == (
         "vs 1 fresh · thin · 33.3%",
         1,
@@ -680,6 +718,12 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert quiet["spoken_vs_fresh_lead_size_quieter"] == 1
     assert "sf size · 4×" in quiet["bit"]
     assert "sf size sides · fresh 4 · spoken 1" in quiet["bit"]
+    assert quiet["spoken_vs_fresh_lean"] == (
+        "spoken vs fresh align · quiet|strong"
+    )
+    assert quiet["spoken_vs_fresh_lean_warn"] is False
+    assert "spoken vs fresh align · quiet|strong" in quiet["bit"]
+    assert "spoken vs fresh align · quiet|strong" in quiet["lean"]
     assert quiet["tone"] == "aging"
     assert quiet["lean_warn"] is False
     assert quiet["lean_meta"].startswith("quiet ·")
