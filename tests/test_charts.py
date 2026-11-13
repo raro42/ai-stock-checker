@@ -558,8 +558,11 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["aging_stale_lead_size_louder"] == 2
     assert lead["aging_stale_lead_size_quieter"] == 1
     assert "lead size · 2×" in lead["bit"]
-    assert "lead size sides · louder 2 · quieter 1" in lead["bit"]
+    assert "lead size sides · stale 2 · aging 1" in lead["bit"]
+    assert "louder" not in lead["bit"]
+    assert "quieter" not in lead["bit"]
     assert "lead size · 2×" in lead["lean"]
+    assert "lead size sides · stale 2 · aging 1" in lead["lean"]
     assert lead["lean_meta"].startswith("warn ·")
     assert "size" in lead["lean_meta"]
     # Cap 4 stages → sides clipped as +1 (Screener / pin lean inventory).
@@ -621,7 +624,7 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert chart_price_bars_lean_meta("") == "quiet"
     assert chart_price_bars_lean_meta(
         "vs 1 fresh · thin · 25% · lead spoken · 75% · lead stale · 67% · "
-        "lead size · 2× · lead size sides · louder 2 · quieter 1",
+        "lead size · 2× · lead size sides · stale 2 · aging 1",
         warn=True,
     ).startswith("warn ·")
 

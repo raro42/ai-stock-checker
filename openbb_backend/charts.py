@@ -512,8 +512,11 @@ def chart_price_bars_aging_stale_lead_size(
 
     When ``lead_name`` already spoke (``aging|stale``) and both counts are
     >0, ``lead size · N×`` is louder÷quieter; zero quieter stays silent.
-    Lead name/% ≠ magnitude (opportunity / Screener Δ lead size + portfolio
-    AI count≠share). Returns ``(size, louder_n, quieter_n)`` or all-None.
+    Desk names sides ``aging|stale N · stale|aging M`` (louder first;
+    anonymous louder/quieter dropped — Mode A / Screener / opportunity
+    named-sides parity). Lead name/% ≠ magnitude (opportunity / Screener
+    Δ lead size + portfolio AI count≠share). Returns
+    ``(size, louder_n, quieter_n)`` or all-None.
     """
     if str(lead_name or "").strip().casefold() not in {"aging", "stale"}:
         return None, None, None
@@ -591,12 +594,14 @@ def chart_price_bars_glance(
     ``spoken/fresh tied`` so absolute sides ≠ silent book ownership. When both
     aging and stale spoke, also speak ``lead stale|aging · N%`` or
     ``aging/stale tied`` so absolute sides ≠ silent ownership. After a strict
-    aging/stale lead, also speak ``lead size · N×`` + sides so name/% ≠
-    magnitude. Ownership/lead cascade sits in ``lean`` under a Charts fold
-    (MonsterDeveloper weight/sleeve lean parity — share alone hid vs-fresh /
-    lead / size); ``lean_meta`` names spoken stages. Full ``bit`` stays joined
-    for tests. Zero spoken stays silent. Not a scoring veto / not a new entry
-    gate.
+    aging/stale lead, also speak ``lead size · N×`` + named
+    ``lead size sides · aging|stale N · stale|aging M`` (louder first) so
+    name/% ≠ magnitude and anonymous louder/quieter does not hide which
+    spoken-band sleeve owns quieter. Ownership/lead cascade sits in ``lean``
+    under a Charts fold (MonsterDeveloper weight/sleeve lean parity — share
+    alone hid vs-fresh / lead / size); ``lean_meta`` names spoken stages.
+    Full ``bit`` stays joined for tests. Zero spoken stays silent. Not a
+    scoring veto / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -694,9 +699,10 @@ def chart_price_bars_glance(
     if own_bit:
         lean_parts.append(own_bit)
     if size is not None and louder_n is not None and quieter_n is not None:
+        other = "stale" if lead_name == "aging" else "aging"
         lean_parts.append(f"lead size · {size:g}×")
         lean_parts.append(
-            f"lead size sides · louder {louder_n} · quieter {quieter_n}"
+            f"lead size sides · {lead_name} {louder_n} · {other} {quieter_n}"
         )
     lean = " · ".join(lean_parts)
     bit = f"{bit_core} · {lean}" if lean else bit_core
