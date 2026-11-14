@@ -406,6 +406,43 @@ def soft_allow_short_history_bench_vs_young_delta_lead(
     return "bench" if pp > 0 else "young"
 
 
+def soft_allow_short_history_bench_vs_young_delta_lead_size(
+    events: list[dict[str, Any]] | None,
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after bench vs young Δ lead.
+
+    When ``delta_lead`` already spoke (``bench|young``) and both short
+    shares are known, ``short bench Δ lead size · N×`` is
+    louder%÷quieter%; zero quieter stays silent. Format names sides
+    ``bench|young N% · young|bench M%`` (louder first). Lead name ≠
+    magnitude (short vs gap · Charts · Mode A · Screener Δ lead size +
+    portfolio AI count≠share + xang1234). Returns
+    ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
+    Display only; not a gate.
+    """
+    lead = soft_allow_short_history_bench_vs_young_delta_lead(events)
+    if str(lead or "").strip().casefold() not in {"bench", "young"}:
+        return None, None, None
+    _bench_n, bench_share, _bench_sev = soft_allow_short_history_bench_share(
+        events
+    )
+    _young_n, young_share, _young_sev = soft_allow_short_history_bench_vs_young(
+        events
+    )
+    if bench_share is None or young_share is None:
+        return None, None, None
+    try:
+        bench_pct = float(bench_share)
+        young_pct = float(young_share)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(bench_pct, young_pct)
+    quieter = min(bench_pct, young_pct)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def soft_allow_short_history_last_vs_bench_young(
     events: list[dict[str, Any]] | None,
     *,
@@ -1014,8 +1051,8 @@ def soft_allow_short_delta_moods(
     wide-align warn); clash warns. Side-by-side lean/Δ labels alone hid
     whether pair ownership spread mood matches primary-bench vs young
     (Yahoo mix share vs gap + portfolio AI speak-both-sides after short
-    vs gap + bench vs young Δ). Pair Δ lead size shipped; bench vs young
-    Δ lead size still deferred. Not a gate.
+    vs gap + bench vs young Δ). Pair + bench vs young Δ lead size both
+    shipped. Not a gate.
     """
     pair_lvd, _ = soft_allow_short_vs_gap_lean_vs_delta(events)
     bench_lvd, _ = soft_allow_short_history_bench_vs_young_lean_vs_delta(
@@ -1880,8 +1917,12 @@ def format_soft_allow_short_history_bit(
     on the Δ bit; lean-spoke + mid → clash · lean · Δ mid); when lean
     vs Δ already spoke with a Δ and ±pp ≠ 0, ``short bench Δ lead ·
     bench|young`` follows so the signed spread alone cannot hide which
-    sleeve owns it (short vs gap / unique vs dup Δ lead parity; lead
-    size still deferred). ``last SYM``
+    sleeve owns it (short vs gap / unique vs dup Δ lead parity); when Δ
+    lead already spoke and quieter% > 0, ``short bench Δ lead size · N×``
+    + named ``short bench Δ lead size sides · bench|young N% ·
+    young|bench M%`` follow so lead name alone cannot hide how many
+    times louder owns quieter (short vs gap / Charts / Mode A Δ lead
+    size + portfolio AI count≠share + xang1234). ``last SYM``
     follows so lean cannot clip the cursor (#546).     Cursor age
     (``fresh`` / ``aging`` / ``expired``) follows the name so a live
     ticker ≠ a live fail-open (gap last-freshness parity + RyanJHamby +
@@ -2068,6 +2109,30 @@ def format_soft_allow_short_history_bit(
                     head = (
                         f"{head} · short bench Δ lead · {delta_lead}"
                     )
+                    # Lead name alone hid magnitude (short vs gap /
+                    # Charts / Mode A Δ lead size + portfolio AI
+                    # count≠share + xang1234). Named sides so anonymous
+                    # louder/quieter does not hide which sleeve owns
+                    # quieter.
+                    d_size, d_louder, d_quieter = (
+                        soft_allow_short_history_bench_vs_young_delta_lead_size(
+                            events
+                        )
+                    )
+                    if (
+                        d_size is not None
+                        and d_louder is not None
+                        and d_quieter is not None
+                    ):
+                        other = (
+                            "young" if delta_lead == "bench" else "bench"
+                        )
+                        head = (
+                            f"{head} · short bench Δ lead size · "
+                            f"{d_size:g}× · short bench Δ lead size "
+                            f"sides · {delta_lead} {d_louder:g}% · "
+                            f"{other} {d_quieter:g}%"
+                        )
     last = soft_allow_short_history_last_symbol(events)
     if last:
         head = f"{head} · last {last}"

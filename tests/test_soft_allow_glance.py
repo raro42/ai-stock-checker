@@ -1028,17 +1028,30 @@ def test_soft_allow_glance_short_history_count() -> None:
         "short bench vs young align · hot|thin · "
         "short bench Δ wide · +33.4pp · short bench lean/Δ align · wide · "
         "short bench Δ lead · bench · "
+        "short bench Δ lead size · 2× · "
+        "short bench Δ lead size sides · bench 66.7% · young 33.3% · "
         "last SPY · fresh"
     ) == (
         "quiet · 1 fold · short 2 bench hot 66.7% vs 1 young thin 33.3% "
-        "align hot|thin wide +33.4pp align wide bench SPY fresh"
+        "align hot|thin wide +33.4pp align wide bench 2 "
+        "bench young SPY fresh"
     )
     assert soft_allow_lean_meta(
         "short bench Δ wide · +33.4pp · short bench lean/Δ align · wide · "
-        "short bench Δ lead · bench"
+        "short bench Δ lead · bench · "
+        "short bench Δ lead size · 2× · "
+        "short bench Δ lead size sides · bench 66.7% · young 33.3%"
     ) == (
-        "quiet · 3 folds · short bench Δ wide +33.4pp · "
-        "short bench lean/Δ align wide · short bench Δ lead bench"
+        "quiet · 5 folds · short bench Δ wide +33.4pp · "
+        "short bench lean/Δ align wide · short bench Δ lead bench · "
+        "short bench Δ size · +1"
+    )
+    assert soft_allow_lean_meta(
+        "short bench Δ lead size · 2× · "
+        "short bench Δ lead size sides · bench 66.7% · young 33.3%"
+    ) == (
+        "quiet · 2 folds · short bench Δ size · "
+        "short bench Δ sides bench young"
     )
     assert soft_allow_lean_meta(
         "short Δ lead · short · short Δ lead size · 3× · "

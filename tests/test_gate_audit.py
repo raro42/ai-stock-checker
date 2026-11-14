@@ -53,6 +53,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_history_bench_vs_young,
         soft_allow_short_history_bench_vs_young_delta,
         soft_allow_short_history_bench_vs_young_delta_lead,
+        soft_allow_short_history_bench_vs_young_delta_lead_size,
         soft_allow_short_history_bench_vs_young_lean,
         soft_allow_short_history_bench_vs_young_lean_vs_delta,
         soft_allow_short_history_count,
@@ -423,6 +424,20 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_history_bench_vs_young_delta_lead(bench_rows) == (
         "bench"
     )
+    # Lead name alone hid magnitude (66.7÷33.3 ≈ 2×; short vs gap size).
+    assert soft_allow_short_history_bench_vs_young_delta_lead_size(None) == (
+        None,
+        None,
+        None,
+    )
+    assert soft_allow_short_history_bench_vs_young_delta_lead_size([]) == (
+        None,
+        None,
+        None,
+    )
+    assert soft_allow_short_history_bench_vs_young_delta_lead_size(
+        bench_rows
+    ) == (2.0, 66.7, 33.3)
     # Both lean/Δ wide → Δ moods align · both wide (Yahoo share vs gap warn).
     assert soft_allow_short_delta_moods(bench_rows) == (
         "align · both wide",
@@ -586,6 +601,8 @@ def test_soft_allow_short_history_count() -> None:
         "short bench vs young align · hot|thin · "
         "short bench Δ wide · +33.4pp · short bench lean/Δ align · wide · "
         "short bench Δ lead · bench · "
+        "short bench Δ lead size · 2× · "
+        "short bench Δ lead size sides · bench 66.7% · young 33.3% · "
         "last SPY · tied · "
         "hot · 75% · vs gap · thin · 1 · 25% · short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "

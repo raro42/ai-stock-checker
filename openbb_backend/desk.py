@@ -3865,8 +3865,13 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
             # Which bench/young sleeve owns the spoken Δ (short vs gap /
             # unique vs dup Δ lead parity after #679). Prefixed
             # ``short bench Δ lead`` so pair ``short Δ lead`` does not
-            # claim primary-bench vs young.
+            # claim primary-bench vs young. Size + named sides follow
+            # so lead name alone cannot hide magnitude (short vs gap /
+            # Charts / Mode A Δ lead size).
             r"(?: · short bench Δ lead · (bench|young))?"
+            r"(?: · short bench Δ lead size · (\d+(?:\.\d+)?)×)?"
+            r"(?: · short bench Δ lead size sides · (bench|young) "
+            r"\d+(?:\.\d+)?% · (young|bench) \d+(?:\.\d+)?%)?"
             r"(?: · last ([A-Za-z0-9][A-Za-z0-9.\-]{0,14}))?"
             r"(?: · (fresh|aging|expired))?"
             # Ring share when lead/n=1/ahead did not eat it (sole count
@@ -3907,6 +3912,23 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
             r"(?: · (wide|thin)| · (lean · Δ mid))?"
         ),
         "short bench lean/Δ",
+    ),
+    # How many times louder owns quieter after short bench Δ lead
+    # (short vs gap / Charts / Mode A Δ lead size + portfolio AI
+    # count≠share + xang1234). Longer prefixes first so
+    # ``short bench Δ lead size sides`` ≠ ``short bench Δ lead size`` ≠
+    # ``short bench Δ lead``. Named sides so anonymous louder/quieter
+    # does not hide which sleeve owns quieter.
+    (
+        re.compile(
+            r"^short bench Δ lead size sides · (bench|young) "
+            r"\d+(?:\.\d+)?% · (young|bench) \d+(?:\.\d+)?%"
+        ),
+        "short bench Δ sides",
+    ),
+    (
+        re.compile(r"^short bench Δ lead size · \d+(?:\.\d+)?×"),
+        "short bench Δ size",
     ),
     # Which bench/young sleeve owns the spoken Δ (short vs gap /
     # unique vs dup Δ lead parity after #679). Prefixed
@@ -4710,6 +4732,7 @@ def build_soft_allow_glance(
         soft_allow_short_history_bench_vs_young,
         soft_allow_short_history_bench_vs_young_delta,
         soft_allow_short_history_bench_vs_young_delta_lead,
+        soft_allow_short_history_bench_vs_young_delta_lead_size,
         soft_allow_short_history_bench_vs_young_lean,
         soft_allow_short_history_bench_vs_young_lean_vs_delta,
         soft_allow_short_history_last_vs_bench_young,
@@ -4826,6 +4849,9 @@ def build_soft_allow_glance(
         "short_history_bench_vs_young_lean_vs_delta": "",
         "short_history_bench_vs_young_lean_vs_delta_warn": False,
         "short_history_bench_vs_young_delta_lead": "",
+        "short_history_bench_vs_young_delta_lead_size": None,
+        "short_history_bench_vs_young_delta_lead_size_louder": None,
+        "short_history_bench_vs_young_delta_lead_size_quieter": None,
         "short_history_last_vs_bench_young": "",
         "short_history_last_vs_bench_young_warn": False,
         "short_history_last_lead_vs_bench_young": "",
@@ -5224,6 +5250,11 @@ def build_soft_allow_glance(
     short_history_bench_vs_young_delta_lead = (
         soft_allow_short_history_bench_vs_young_delta_lead(rows)
     )
+    (
+        short_history_bench_vs_young_delta_lead_size,
+        short_history_bench_vs_young_delta_lead_size_louder,
+        short_history_bench_vs_young_delta_lead_size_quieter,
+    ) = soft_allow_short_history_bench_vs_young_delta_lead_size(rows)
     short_history_last = soft_allow_short_history_last_symbol(rows)
     short_history_last_freshness = soft_allow_short_history_last_freshness(
         rows, now=now
@@ -6294,6 +6325,15 @@ def build_soft_allow_glance(
         ),
         "short_history_bench_vs_young_delta_lead": (
             short_history_bench_vs_young_delta_lead
+        ),
+        "short_history_bench_vs_young_delta_lead_size": (
+            short_history_bench_vs_young_delta_lead_size
+        ),
+        "short_history_bench_vs_young_delta_lead_size_louder": (
+            short_history_bench_vs_young_delta_lead_size_louder
+        ),
+        "short_history_bench_vs_young_delta_lead_size_quieter": (
+            short_history_bench_vs_young_delta_lead_size_quieter
         ),
         "short_history_last_vs_bench_young": short_history_last_vs_bench_young,
         "short_history_last_vs_bench_young_warn": (
