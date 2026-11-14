@@ -802,6 +802,38 @@ def leaderboard_absent_vs_damaged_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def leaderboard_delta_lead_size_moods(
+    race_size: float | int | None,
+    mix_size: float | int | None,
+) -> tuple[str, bool]:
+    """Race-board vs mix Δ lead size mood (display only).
+
+    When both ``Δ lead size · N×`` (missing|ready) and ``mix Δ lead size ·
+    M×`` (absent|damaged) already spoke: same → ``align · both N×``;
+    crossed → ``clash · missing/ready N× · absent/damaged M×``. Missing
+    either silent. Dual fat (≥2×) + clash warn; equal thin calm. Side-by-
+    side magnitudes alone hid whether ownership spreads agree (soft-allow
+    short / Screener / Window A fill vs close Δ lead size moods + portfolio
+    AI count≠share + xang1234). Prefixed ``Δ size moods`` in the lean fold
+    so ``Δ size`` + ``mix Δ size`` stay distinct. Not a new entry gate.
+    """
+    if race_size is None or mix_size is None:
+        return "", False
+    try:
+        race_f = float(race_size)
+        mix_f = float(mix_size)
+    except (TypeError, ValueError):
+        return "", False
+    race_s = f"{race_f:g}"
+    mix_s = f"{mix_f:g}"
+    if abs(race_f - mix_f) < 1e-9:
+        return f"align · both {race_s}×", race_f >= 2.0
+    return (
+        f"clash · missing/ready {race_s}× · absent/damaged {mix_s}×",
+        True,
+    )
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -856,8 +888,12 @@ def leaderboard_missing_share(
     spread. When Δ lead already spoke and quieter% > 0, also append
     ``Δ lead size · N×`` + ``Δ lead size sides · missing|ready N% ·
     ready|missing M%`` (louder slot first) so lead name alone does not hide
-    magnitude or which share owns quieter. Primary ``bit`` stays
-    absolute+share so the Overview race strip stays short; lean lives
+    magnitude or which share owns quieter. When both race-board + mix Δ
+    lead sizes already spoke, also append ``Δ size moods align · both N×``
+    / ``clash · missing/ready N× · absent/damaged M×`` so matching Δ lead
+    polarity cannot hide 3× vs 2× ownership spreads across the two meters
+    (soft-allow / Screener / Window A size moods parity). Primary ``bit``
+    stays absolute+share so the Overview race strip stays short; lean lives
     under a details fold.
     """
     out: dict[str, Any] = {
@@ -908,6 +944,8 @@ def leaderboard_missing_share(
         "vs_ready_delta_lead_size": None,
         "vs_ready_delta_lead_size_louder": None,
         "vs_ready_delta_lead_size_quieter": None,
+        "delta_lead_size_moods": "",
+        "delta_lead_size_moods_warn": False,
         "bit": "",
         "lean": "",
         "lean_meta": "",
@@ -1162,6 +1200,17 @@ def leaderboard_missing_share(
                     f"{d_other} {d_quieter:g}%"
                 )
                 meta_parts.append("Δ size")
+    size_moods, size_moods_warn = leaderboard_delta_lead_size_moods(
+        out["vs_ready_delta_lead_size"],
+        out["absent_vs_damaged_delta_lead_size"],
+    )
+    out["delta_lead_size_moods"] = size_moods
+    out["delta_lead_size_moods_warn"] = size_moods_warn
+    if size_moods:
+        lean_parts.append(f"Δ size moods {size_moods}")
+        meta_parts.append("Δ size moods")
+        if size_moods_warn:
+            out["lean_warn"] = True
     out["lean_meta"] = " · ".join(meta_parts)
     out["lean"] = " · ".join(lean_parts)
     return out

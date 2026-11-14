@@ -25,6 +25,7 @@ from stock_checker.paper_accounts import (
     leaderboard_absent_vs_damaged_lean,
     leaderboard_absent_vs_damaged_sample_gap,
     leaderboard_absent_vs_damaged_share_bands,
+    leaderboard_delta_lead_size_moods,
     leaderboard_missing_share,
     leaderboard_missing_vs_ready_delta,
     leaderboard_missing_vs_ready_delta_lead,
@@ -299,6 +300,37 @@ def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     assert "mix Δ size" in share["lean_meta"]
     # Race-board ownership stays distinct (missing vs ready, not absent).
     assert "lead missing ·" in share["lean"]
+    # Race Δ size 3× vs mix Δ size 2.03× → size moods clash (warn).
+    assert share["vs_ready_delta_lead_size"] == 3.0
+    assert share["delta_lead_size_moods"] == (
+        "clash · missing/ready 3× · absent/damaged 2.03×"
+    )
+    assert share["delta_lead_size_moods_warn"] is True
+    assert (
+        "Δ size moods clash · missing/ready 3× · absent/damaged 2.03×"
+        in share["lean"]
+    )
+    assert "Δ size moods" in share["lean_meta"]
+    assert share["lean_warn"] is True
+
+
+def test_leaderboard_delta_lead_size_moods() -> None:
+    """Race vs mix Δ lead size moods (display only)."""
+    assert leaderboard_delta_lead_size_moods(3.0, 3.0) == (
+        "align · both 3×",
+        True,
+    )
+    assert leaderboard_delta_lead_size_moods(1.5, 1.5) == (
+        "align · both 1.5×",
+        False,
+    )
+    assert leaderboard_delta_lead_size_moods(3.0, 2.03) == (
+        "clash · missing/ready 3× · absent/damaged 2.03×",
+        True,
+    )
+    assert leaderboard_delta_lead_size_moods(None, 2.0) == ("", False)
+    assert leaderboard_delta_lead_size_moods(2.0, None) == ("", False)
+    assert leaderboard_delta_lead_size_moods(None, None) == ("", False)
 
 
 def test_leaderboard_absent_vs_damaged_delta() -> None:
