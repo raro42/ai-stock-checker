@@ -911,11 +911,44 @@ def chart_price_bars_aging_stale_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def chart_price_bars_delta_lead_size_moods(
+    spoken_fresh_size: float | int | None,
+    aging_stale_size: float | int | None,
+) -> tuple[str, bool]:
+    """Spoken/fresh vs aging/stale Δ lead size mood (display only).
+
+    When both ``Δ lead size · N×`` (spoken|fresh) and ``as Δ lead size ·
+    M×`` (aging|stale) already spoke: same → ``align · both N×``;
+    crossed → ``clash · spoken/fresh N× · aging/stale M×``. Missing
+    either silent. Dual fat (≥2×) + clash warn; equal thin calm. Side-
+    by-side magnitudes alone hid whether ownership spreads agree
+    (Mode A race vs mix / soft-allow short / Screener junk/unique /
+    Window A fill vs close Δ lead size moods + portfolio AI count≠share
+    + xang1234). Prefixed ``Δ size moods`` in the lean fold so ``Δ size``
+    + ``as Δ size`` stay distinct. Not a new entry gate.
+    """
+    if spoken_fresh_size is None or aging_stale_size is None:
+        return "", False
+    try:
+        sf_f = float(spoken_fresh_size)
+        as_f = float(aging_stale_size)
+    except (TypeError, ValueError):
+        return "", False
+    sf_s = f"{sf_f:g}"
+    as_s = f"{as_f:g}"
+    if abs(sf_f - as_f) < 1e-9:
+        return f"align · both {sf_s}×", sf_f >= 2.0
+    return (
+        f"clash · spoken/fresh {sf_s}× · aging/stale {as_s}×",
+        True,
+    )
+
+
 # Quiet price-bars lean chip names spoken stages (Screener / pin lean inventory).
 # Longer prefixes first so ``sf size sides`` ≠ ``sf size`` / ``Δ lead size sides``
-# ≠ ``Δ lead size`` ≠ ``Δ lead`` / ``lead size sides`` ≠ ``lead size`` /
-# ``as lean vs Δ`` ≠ ``aging vs stale`` / ``as Δ lead size sides`` ≠
-# ``as Δ lead size`` ≠ ``as Δ lead`` ≠ ``as Δ`` ≠ ``Δ`` /
+# ≠ ``Δ lead size`` ≠ ``Δ lead`` / ``Δ size moods`` ≠ ``Δ`` /
+# ``lead size sides`` ≠ ``lead size`` / ``as lean vs Δ`` ≠ ``aging vs stale`` /
+# ``as Δ lead size sides`` ≠ ``as Δ lead size`` ≠ ``as Δ lead`` ≠ ``as Δ`` /
 # ``aging vs stale`` ≠ ``aging/stale tied``.
 _PRICE_BARS_LEAN_NAME_CAP = 4
 _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -929,6 +962,7 @@ _PRICE_BARS_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^Δ lead size sides\b"), "Δ sides"),
     (re.compile(r"^Δ lead size\b"), "Δ size"),
     (re.compile(r"^Δ lead\b"), "Δ lead"),
+    (re.compile(r"^Δ size moods\b"), "Δ size moods"),
     (re.compile(r"^Δ (?:wide|thin)\b"), "Δ"),
     (re.compile(r"^lead spoken\b"), "spoken"),
     (re.compile(r"^lead fresh\b"), "fresh lead"),
@@ -1021,16 +1055,22 @@ def chart_price_bars_glance(
     fold — Mode A / spoken vs fresh share Δ parity). When as lean vs Δ
     already spoke with a non-zero wide|thin Δ, also speak
     ``as Δ lead · aging|stale`` so signed ±pp alone does not hide which
-    spoken-band sleeve owns the spread. When as Δ lead already spoke and
+    spoken-band sleeve owns the spread.     When as Δ lead already spoke and
     quieter% > 0, also speak ``as Δ lead size · N×`` + named
     ``as Δ lead size sides · aging|stale N% · stale|aging M%`` (louder
     first; ``as`` prefix keeps spoken/fresh ``Δ lead size`` unambiguous)
     so lead name alone does not hide magnitude (spoken vs fresh / Mode A /
-    Screener / opportunity Δ lead size). Ownership/lead cascade sits in
-    ``lean`` under a Charts fold (MonsterDeveloper weight/sleeve lean
-    parity — share alone hid vs-fresh / lead / size); ``lean_meta`` names
-    spoken stages. Full ``bit`` stays joined for tests. Zero spoken stays
-    silent. Not a scoring veto / not a new entry gate.
+    Screener / opportunity Δ lead size). When both spoken/fresh + aging/
+    stale Δ lead sizes already spoke, also speak ``Δ size moods align ·
+    both N×`` / ``clash · spoken/fresh N× · aging/stale M×`` so matching
+    Δ lead polarity cannot hide 3× vs 2× ownership spreads across the two
+    Charts meters (Mode A race vs mix / soft-allow short / Screener /
+    Window A fill vs close Δ lead size moods + portfolio AI count≠share
+    + xang1234). Ownership/lead cascade sits in ``lean`` under a Charts
+    fold (MonsterDeveloper weight/sleeve lean parity — share alone hid
+    vs-fresh / lead / size); ``lean_meta`` names spoken stages. Full
+    ``bit`` stays joined for tests. Zero spoken stays silent. Not a
+    scoring veto / not a new entry gate.
     """
     empty: dict[str, Any] = {
         "ready": False,
@@ -1090,6 +1130,8 @@ def chart_price_bars_glance(
         "aging_stale_delta_lead_size": None,
         "aging_stale_delta_lead_size_louder": None,
         "aging_stale_delta_lead_size_quieter": None,
+        "delta_lead_size_moods": "",
+        "delta_lead_size_moods_warn": False,
     }
     if not isinstance(panels, list) or not panels:
         return empty
@@ -1223,6 +1265,9 @@ def chart_price_bars_glance(
         if as_delta_lead
         else (None, None, None)
     )
+    size_moods, size_moods_warn = chart_price_bars_delta_lead_size_moods(
+        sf_d_size, as_d_size
+    )
     own_bit = lead_bit or sample_gap
     sf_own = sf_lead_bit or sf_sample_gap
     bit_core = f"{count_bit} · {share_bit}"
@@ -1293,6 +1338,8 @@ def chart_price_bars_glance(
             f"as Δ lead size sides · {as_delta_lead} {as_d_louder:g}% · "
             f"{as_d_other} {as_d_quieter:g}%"
         )
+    if size_moods:
+        lean_parts.append(f"Δ size moods {size_moods}")
     lean = " · ".join(lean_parts)
     bit = f"{bit_core} · {lean}" if lean else bit_core
     tone = "flat"
@@ -1311,12 +1358,15 @@ def chart_price_bars_glance(
         tone = "aging"
     if as_lean_vs_delta_warn and tone == "flat":
         tone = "aging"
+    if size_moods_warn and tone == "flat":
+        tone = "aging"
     lean_warn = (
         tone == "warn"
         or sf_lean_warn
         or sf_lean_vs_delta_warn
         or as_lean_warn
         or as_lean_vs_delta_warn
+        or size_moods_warn
     )
     return {
         "ready": True,
@@ -1376,6 +1426,8 @@ def chart_price_bars_glance(
         "aging_stale_delta_lead_size": as_d_size,
         "aging_stale_delta_lead_size_louder": as_d_louder,
         "aging_stale_delta_lead_size_quieter": as_d_quieter,
+        "delta_lead_size_moods": size_moods,
+        "delta_lead_size_moods_warn": size_moods_warn,
     }
 
 

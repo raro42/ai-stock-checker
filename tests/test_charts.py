@@ -470,6 +470,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         chart_price_bars_aging_stale_lean,
         chart_price_bars_aging_stale_sample_gap,
         chart_price_bars_aging_stale_share_bands,
+        chart_price_bars_delta_lead_size_moods,
         chart_price_bars_glance,
         chart_price_bars_lean_meta,
         chart_price_bars_spoken_vs_fresh_delta,
@@ -741,8 +742,21 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert lead["bit"].index("as Δ lead · stale") < lead["bit"].index(
         "as Δ lead size ·"
     )
+    # spoken/fresh 3× vs aging/stale 2.03× → size moods clash (warn)
+    assert lead["delta_lead_size_moods"] == (
+        "clash · spoken/fresh 3× · aging/stale 2.03×"
+    )
+    assert lead["delta_lead_size_moods_warn"] is True
+    assert (
+        "Δ size moods clash · spoken/fresh 3× · aging/stale 2.03×"
+        in lead["lean"]
+    )
+    assert lead["bit"].index("as Δ lead size sides") < lead["bit"].index(
+        "Δ size moods"
+    )
+    assert lead["lean_warn"] is True
     assert lead["lean_meta"].startswith("warn ·")
-    # Cap 4 stages → later as Δ size / sides clipped as +N.
+    # Cap 4 stages → later as Δ size / sides / size moods clipped as +N.
     assert (
         "+1" in lead["lean_meta"]
         or "sf size" in lead["lean_meta"]
@@ -750,6 +764,7 @@ def test_chart_price_bars_glance_share_after_spoken():
         or "as Δ size" in lead["lean_meta"]
         or "as Δ lead" in lead["lean_meta"]
         or "as Δ" in lead["lean_meta"]
+        or "Δ size moods" in lead["lean_meta"]
     )
 
     # Complementary hot|quiet after lead size (3 stale · 1 aging)
@@ -794,6 +809,11 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert as_align["bit"].index("as Δ lead · stale") < as_align["bit"].index(
         "as Δ lead size ·"
     )
+    # all-spoken → spoken/fresh Δ lead size silent → size moods silent
+    assert as_align["spoken_vs_fresh_delta_lead_size"] is None
+    assert as_align["delta_lead_size_moods"] == ""
+    assert as_align["delta_lead_size_moods_warn"] is False
+    assert "Δ size moods" not in as_align["lean"]
 
     all_spoken = chart_price_bars_glance(
         [
@@ -904,6 +924,21 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert chart_price_bars_aging_stale_delta_lead_size(
         100.0, 0.0, delta_lead="aging"
     ) == (None, None, None)
+    assert chart_price_bars_delta_lead_size_moods(3.0, 3.0) == (
+        "align · both 3×",
+        True,
+    )
+    assert chart_price_bars_delta_lead_size_moods(1.5, 1.5) == (
+        "align · both 1.5×",
+        False,
+    )
+    assert chart_price_bars_delta_lead_size_moods(3.0, 2.03) == (
+        "clash · spoken/fresh 3× · aging/stale 2.03×",
+        True,
+    )
+    assert chart_price_bars_delta_lead_size_moods(None, 2.0) == ("", False)
+    assert chart_price_bars_delta_lead_size_moods(2.0, None) == ("", False)
+    assert chart_price_bars_delta_lead_size_moods(None, None) == ("", False)
     assert chart_price_bars_aging_stale_lead_size(2, 1, lead_name="aging") == (
         2.0,
         2,
