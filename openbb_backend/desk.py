@@ -3960,6 +3960,20 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short last/other",
     ),
+    # Short last/lead vs last/other meta (lead/bench parity after
+    # last/other). Distinct ``short lead/other`` so pair
+    # ``short lead/lean`` (vs gap) / ``short lead/bench`` are not
+    # treated as ring peers. Verb + both/crossed ride so
+    # ``align · both clash`` is not a silent confirm.
+    (
+        re.compile(
+            r"^short lead/other (align|clash)"
+            r"(?: · (both (?:align|clash))"
+            r"| · (lead (?:align|clash))"
+            r" · (other (?:align|clash)))?"
+        ),
+        "short lead/other",
+    ),
     # Bench vs young lean when inventory starts mid-cascade (junk vs ok /
     # gap vs other lean parity + #679). Sides alone hid whether
     # primary-bench heat and young/short remainder agree.
@@ -4843,6 +4857,7 @@ def build_soft_allow_glance(
         soft_allow_short_history_vs_other,
         soft_allow_short_history_vs_other_lean,
         soft_allow_short_history_last_vs_other,
+        soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_freshness,
         soft_allow_short_history_last_symbol,
         soft_allow_short_history_symbol_lead,
@@ -4974,6 +4989,8 @@ def build_soft_allow_glance(
         "short_history_vs_other_warn": False,
         "short_history_last_vs_other": "",
         "short_history_last_vs_other_warn": False,
+        "short_history_last_lead_vs_other": "",
+        "short_history_last_lead_vs_other_warn": False,
         "short_history_last": "",
         "short_history_last_freshness": "",
         "short_history_symbol_lead": "",
@@ -5336,7 +5353,9 @@ def build_soft_allow_glance(
     # ``vs N other`` + ``short vs other`` lean follow (gap vs other /
     # Screener junk vs ok parity after short% alone hid usable rows);
     # when last freshness extremes + vs-other lean already spoke,
-    # ``short last/other`` follows (last/lean + last/bench parity).
+    # ``short last/other`` follows (last/lean + last/bench parity);
+    # when last/lead + last/other already spoke, ``short lead/other``
+    # follows (lead/bench parity).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
     )
@@ -5352,6 +5371,10 @@ def build_soft_allow_glance(
         short_history_last_vs_other,
         short_history_last_vs_other_warn,
     ) = soft_allow_short_history_last_vs_other(rows, now=now)
+    (
+        short_history_last_lead_vs_other,
+        short_history_last_lead_vs_other_warn,
+    ) = soft_allow_short_history_last_lead_vs_other(rows, now=now)
     (
         short_history_bench_n,
         short_history_bench_share_pct,
@@ -6147,6 +6170,7 @@ def build_soft_allow_glance(
         or short_history_share_severity == "hot"
         or short_history_vs_other_warn
         or short_history_last_vs_other_warn
+        or short_history_last_lead_vs_other_warn
         or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
         or short_history_vs_scan_clash_warn
@@ -6381,6 +6405,7 @@ def build_soft_allow_glance(
         or short_history_share_severity == "hot"
         or short_history_vs_other_warn
         or short_history_last_vs_other_warn
+        or short_history_last_lead_vs_other_warn
         or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
     )
@@ -6511,6 +6536,10 @@ def build_soft_allow_glance(
         "short_history_vs_other_warn": short_history_vs_other_warn,
         "short_history_last_vs_other": short_history_last_vs_other,
         "short_history_last_vs_other_warn": short_history_last_vs_other_warn,
+        "short_history_last_lead_vs_other": short_history_last_lead_vs_other,
+        "short_history_last_lead_vs_other_warn": (
+            short_history_last_lead_vs_other_warn
+        ),
         "short_history_last": short_history_last,
         "short_history_last_freshness": short_history_last_freshness,
         "short_history_symbol_lead": short_history_symbol_lead,

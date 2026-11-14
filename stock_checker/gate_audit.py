@@ -229,6 +229,47 @@ def soft_allow_short_history_last_vs_other(
     return f"clash · {last_fresh} · {lean_tail}", True
 
 
+def soft_allow_short_history_last_lead_vs_other(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last/lead freshness vs last/other relationship agreement (display only).
+
+    Returns ``(bit, warn)``. Age↔name-vs-lead ≠ age↔ring-peer lean. When
+    both already spoke: same verb speaks ``align · both align|clash`` —
+    ``both align`` stays calm; ``both clash`` warns (dual-clash agreement
+    ≠ quiet confirm). Crossed verbs speak
+    ``clash · lead align|clash · other align|clash`` (warn). Missing
+    either stays silent — gap lead/lean + short lead/bench parity after
+    last/other + last/lead alone hid whether cursor-vs-owner and
+    age↔ring-peers agree *and* whether dual-clash agreement is adverse.
+    Side-by-side bits are not transitive. Share Δ / Δ lead still
+    deferred. Not a gate.
+    """
+    lead_bit, _ = soft_allow_short_history_last_vs_lead_freshness(
+        events, now=now
+    )
+    other_bit, _ = soft_allow_short_history_last_vs_other(events, now=now)
+    if not lead_bit or not other_bit:
+        return "", False
+
+    def _verb(bit: str) -> str | None:
+        if bit.startswith("align · "):
+            return "align"
+        if bit.startswith("clash · "):
+            return "clash"
+        return None
+
+    lead_verb = _verb(lead_bit)
+    other_verb = _verb(other_bit)
+    if lead_verb is None or other_verb is None:
+        return "", False
+    if lead_verb == other_verb:
+        return f"align · both {lead_verb}", lead_verb == "clash"
+    return f"clash · lead {lead_verb} · other {other_verb}", True
+
+
 def _short_history_symbol(reason: str) -> str:
     """First token of a short-history reason (asset / bench label)."""
     text = str(reason or "").strip()
@@ -2420,6 +2461,15 @@ def format_soft_allow_short_history_bit(
             )
             if last_vs_other:
                 head = f"{head} · short last/other {last_vs_other}"
+                # last/lead + last/other alone hid cursor-vs-owner ≠
+                # age↔ring-peers (lead/bench parity after last/other).
+                lead_vs_other, _ = (
+                    soft_allow_short_history_last_lead_vs_other(
+                        events, now=now
+                    )
+                )
+                if lead_vs_other:
+                    head = f"{head} · short lead/other {lead_vs_other}"
     vs_gap = soft_allow_short_vs_gap(events)
     if vs_gap is not None:
         head = f"{head} · {vs_gap[0]}"
