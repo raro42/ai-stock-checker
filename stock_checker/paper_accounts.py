@@ -695,6 +695,50 @@ def leaderboard_absent_vs_damaged_lean(
     return "", False
 
 
+def leaderboard_absent_vs_damaged_delta(
+    absent_share_pct: float | int | None,
+    damaged_share_pct: float | int | None,
+    *,
+    lean_bit: str = "",
+    wide_pp: float = MISSING_VS_READY_DELTA_WIDE_PP,
+    thin_pp: float = MISSING_VS_READY_DELTA_THIN_PP,
+) -> tuple[int | None, str, str, bool]:
+    """Share Δ after absent vs damaged severity lean (display only).
+
+    Lean alone hid how far ``absent% − damaged%`` sits (missing vs ready
+    share Δ / portfolio AI count≠spread + xang1234). Requires lean already
+    spoke. Wide ≥``wide_pp`` · thin <``thin_pp`` · mid →
+    ``lean vs Δ clash · lean · Δ mid`` (warn). Adverse
+    ``align · hot|quiet`` + Δ wide warns; ``quiet|hot`` stays calm.
+
+    Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    Not a new entry gate.
+    """
+    if not str(lean_bit or "").strip():
+        return None, "", "", False
+    if absent_share_pct is None or damaged_share_pct is None:
+        return None, "", "", False
+    try:
+        absent = float(absent_share_pct)
+        damaged = float(damaged_share_pct)
+    except (TypeError, ValueError):
+        return None, "", "", False
+    raw = int(round(absent - damaged))
+    abs_delta = abs(raw)
+    delta_sev = ""
+    if abs_delta >= wide_pp:
+        delta_sev = "wide"
+    elif abs_delta < thin_pp:
+        delta_sev = "thin"
+    if delta_sev:
+        lean_vs_delta = f"align · {delta_sev}"
+        lean_vs_delta_warn = delta_sev == "wide" and str(lean_bit).startswith(
+            "absent vs damaged align · hot|quiet"
+        )
+        return raw, delta_sev, lean_vs_delta, lean_vs_delta_warn
+    return raw, "", "clash · lean · Δ mid", True
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -719,7 +763,10 @@ def leaderboard_missing_share(
     When both absent + damaged share severity bands already spoke, also
     append ``absent vs damaged align · hot|quiet`` / ``clash · absent hot ·
     damaged ok`` so sides/lead/size alone do not hide severity agreement
-    (postmortem skip-reason lean parity).
+    (postmortem skip-reason lean parity). When mix severity lean already
+    spoke, also append ``mix Δ wide|thin · ±Npp`` + ``mix lean vs Δ
+    align|clash`` so lean alone does not hide absent%−damaged% spread
+    (missing vs ready share Δ parity; Δ lead nest deferred).
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -767,6 +814,10 @@ def leaderboard_missing_share(
         "absent_vs_damaged_damaged_severity": "",
         "absent_vs_damaged_lean": "",
         "absent_vs_damaged_lean_warn": False,
+        "absent_vs_damaged_delta_pp": None,
+        "absent_vs_damaged_delta_severity": "",
+        "absent_vs_damaged_lean_vs_delta": "",
+        "absent_vs_damaged_lean_vs_delta_warn": False,
         "vs_ready_lead": "",
         "vs_ready_lead_name": "",
         "vs_ready_lead_pct": None,
@@ -880,6 +931,29 @@ def leaderboard_missing_share(
         meta_parts.append("mix severity")
         if mix_sev_warn:
             out["lean_warn"] = True
+        (
+            mix_delta_pp,
+            mix_delta_sev,
+            mix_lean_vs_delta,
+            mix_lean_vs_delta_warn,
+        ) = leaderboard_absent_vs_damaged_delta(
+            absent_mix_pct,
+            damaged_mix_pct,
+            lean_bit=mix_sev_bit,
+        )
+        out["absent_vs_damaged_delta_pp"] = mix_delta_pp
+        out["absent_vs_damaged_delta_severity"] = mix_delta_sev
+        out["absent_vs_damaged_lean_vs_delta"] = mix_lean_vs_delta
+        out["absent_vs_damaged_lean_vs_delta_warn"] = mix_lean_vs_delta_warn
+        if mix_delta_sev and mix_delta_pp is not None:
+            sign = f"+{mix_delta_pp}" if mix_delta_pp > 0 else f"{mix_delta_pp}"
+            lean_parts.append(f"mix Δ {mix_delta_sev} · {sign}pp")
+            meta_parts.append("mix Δ")
+        if mix_lean_vs_delta:
+            lean_parts.append(f"mix lean vs Δ {mix_lean_vs_delta}")
+            meta_parts.append("mix lean/Δ")
+            if mix_lean_vs_delta_warn:
+                out["lean_warn"] = True
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
         lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")

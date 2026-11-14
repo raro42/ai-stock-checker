@@ -17,6 +17,7 @@ from stock_checker.paper_accounts import (
     account_switcher_options,
     build_leaderboard,
     ensure_account_ledger,
+    leaderboard_absent_vs_damaged_delta,
     leaderboard_absent_vs_damaged_lead,
     leaderboard_absent_vs_damaged_lead_size,
     leaderboard_absent_vs_damaged_lean,
@@ -275,8 +276,36 @@ def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     assert share["absent_vs_damaged_lean_warn"] is True
     assert "absent vs damaged clash · absent hot · damaged ok" in share["lean"]
     assert "mix severity" in share["lean_meta"]
+    # 67−33 → wide Δ; clash lean → align · wide without adverse warn.
+    assert share["absent_vs_damaged_delta_pp"] == 34
+    assert share["absent_vs_damaged_delta_severity"] == "wide"
+    assert share["absent_vs_damaged_lean_vs_delta"] == "align · wide"
+    assert share["absent_vs_damaged_lean_vs_delta_warn"] is False
+    assert "mix Δ wide · +34pp" in share["lean"]
+    assert "mix lean vs Δ align · wide" in share["lean"]
+    assert "mix Δ" in share["lean_meta"]
+    assert "mix lean/Δ" in share["lean_meta"]
     # Race-board ownership stays distinct (missing vs ready, not absent).
     assert "lead missing ·" in share["lean"]
+
+
+def test_leaderboard_absent_vs_damaged_delta() -> None:
+    """Mix share Δ after severity lean (display only)."""
+    assert leaderboard_absent_vs_damaged_delta(
+        75, 25, lean_bit="absent vs damaged align · hot|quiet"
+    ) == (50, "wide", "align · wide", True)
+    assert leaderboard_absent_vs_damaged_delta(
+        25, 75, lean_bit="absent vs damaged align · quiet|hot"
+    ) == (-50, "wide", "align · wide", False)
+    assert leaderboard_absent_vs_damaged_delta(
+        55, 45, lean_bit="absent vs damaged clash · absent hot · damaged ok"
+    ) == (10, "", "clash · lean · Δ mid", True)
+    assert leaderboard_absent_vs_damaged_delta(50, 50, lean_bit="") == (
+        None,
+        "",
+        "",
+        False,
+    )
 
 
 def test_max_accounts(tmp_path: Path) -> None:
