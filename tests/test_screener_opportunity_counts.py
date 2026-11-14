@@ -227,6 +227,8 @@ def test_empty_and_non_mapping():
     assert empty["lean_vs_delta_lead_moods_warn"] is False
     assert empty["delta_vs_delta_lead_moods"] == ""
     assert empty["delta_vs_delta_lead_moods_warn"] is False
+    assert empty["delta_lead_size_moods"] == ""
+    assert empty["delta_lead_size_moods_warn"] is False
     assert empty["weight_lean_meta"] == "quiet"
     assert empty["lists_populated"] == 0
     assert empty["weight"] == "row slots"
@@ -1164,6 +1166,13 @@ def test_overlap_and_junk_delta_moods_both_wide():
         "clash · Δ align · Δ lead clash"
     )
     assert c["delta_vs_delta_lead_moods_warn"] is True
+    # junk 60÷40 = 1.5× · unique 75÷25 = 3× → size moods clash
+    assert c["junk_vs_ok_delta_lead_size"] == 1.5
+    assert c["unique_vs_dup_delta_lead_size"] == 3.0
+    assert c["delta_lead_size_moods"] == (
+        "clash · junk/ok 1.5× · unique/dup 3×"
+    )
+    assert c["delta_lead_size_moods_warn"] is True
     assert "Δ moods align · both wide" in c["weight_lean"]
     assert "lean vs Δ moods align · both align" in c["weight_lean"]
     assert "Δ lead moods clash · junk/ok junk · unique/dup unique" in c[
@@ -1175,7 +1184,10 @@ def test_overlap_and_junk_delta_moods_both_wide():
     assert "Δ vs Δ lead moods clash · Δ align · Δ lead clash" in c[
         "weight_lean"
     ]
-    # lean vs Δ lead moods warn preferred over Δ vs Δ lead / Δ moods.
+    assert "Δ lead size moods clash · junk/ok 1.5× · unique/dup 3×" in c[
+        "weight_lean"
+    ]
+    # lean vs Δ lead moods warn preferred over Δ vs Δ lead / size / Δ moods.
     assert c["weight_lean_meta"].startswith("clash")
     assert c["tone"] == "warn"
 
