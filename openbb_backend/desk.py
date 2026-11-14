@@ -4122,6 +4122,20 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short lean/bench",
     ),
+    # Short last/lean vs last/other meta (lean/bench + share/other
+    # parity after last/other). Distinct ``short lean/other`` so pair
+    # ``short last/lean`` / ``short lean/bench`` are not treated as
+    # ring peers. Verb + both/crossed ride so ``align · both clash``
+    # is not a silent confirm.
+    (
+        re.compile(
+            r"^short lean/other (align|clash)"
+            r"(?: · (both (?:align|clash))"
+            r"| · (lean (?:align|clash))"
+            r" · (other (?:align|clash)))?"
+        ),
+        "short lean/other",
+    ),
     # Short cursor vs scan archive (gap/scan parity + xang1234 #549 /
     # e3c84e1). Soft last matching the scan can still hide a staler
     # young/short fail-open — speak both sides on the lean chip.
@@ -4873,6 +4887,7 @@ def build_soft_allow_glance(
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
+        soft_allow_short_history_last_lean_vs_other,
         soft_allow_short_history_last_freshness,
         soft_allow_short_history_last_symbol,
         soft_allow_short_history_symbol_lead,
@@ -5008,6 +5023,8 @@ def build_soft_allow_glance(
         "short_history_last_lead_vs_other_warn": False,
         "short_history_last_share_vs_other": "",
         "short_history_last_share_vs_other_warn": False,
+        "short_history_last_lean_vs_other": "",
+        "short_history_last_lean_vs_other_warn": False,
         "short_history_last": "",
         "short_history_last_freshness": "",
         "short_history_symbol_lead": "",
@@ -5373,7 +5390,9 @@ def build_soft_allow_glance(
     # ``short last/other`` follows (last/lean + last/bench parity);
     # when last/lead + last/other already spoke, ``short lead/other``
     # follows (lead/bench parity); when last/share + last/other already
-    # spoke, ``short share/other`` follows (share/lean parity).
+    # spoke, ``short share/other`` follows (share/lean parity); when
+    # last/lean + last/other already spoke, ``short lean/other``
+    # follows (lean/bench parity).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
     )
@@ -5397,6 +5416,10 @@ def build_soft_allow_glance(
         short_history_last_share_vs_other,
         short_history_last_share_vs_other_warn,
     ) = soft_allow_short_history_last_share_vs_other(rows, now=now)
+    (
+        short_history_last_lean_vs_other,
+        short_history_last_lean_vs_other_warn,
+    ) = soft_allow_short_history_last_lean_vs_other(rows, now=now)
     (
         short_history_bench_n,
         short_history_bench_share_pct,
@@ -6194,6 +6217,7 @@ def build_soft_allow_glance(
         or short_history_last_vs_other_warn
         or short_history_last_lead_vs_other_warn
         or short_history_last_share_vs_other_warn
+        or short_history_last_lean_vs_other_warn
         or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
         or short_history_vs_scan_clash_warn
@@ -6430,6 +6454,7 @@ def build_soft_allow_glance(
         or short_history_last_vs_other_warn
         or short_history_last_lead_vs_other_warn
         or short_history_last_share_vs_other_warn
+        or short_history_last_lean_vs_other_warn
         or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
     )
@@ -6567,6 +6592,10 @@ def build_soft_allow_glance(
         "short_history_last_share_vs_other": short_history_last_share_vs_other,
         "short_history_last_share_vs_other_warn": (
             short_history_last_share_vs_other_warn
+        ),
+        "short_history_last_lean_vs_other": short_history_last_lean_vs_other,
+        "short_history_last_lean_vs_other_warn": (
+            short_history_last_lean_vs_other_warn
         ),
         "short_history_last": short_history_last,
         "short_history_last_freshness": short_history_last_freshness,
