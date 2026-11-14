@@ -511,6 +511,21 @@ def leaderboard_missing_vs_ready_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def _leaderboard_unusable_noun(n_absent: int, n_damaged: int) -> str:
+    """Speak absent vs damaged mix on the race strip (display only).
+
+    Portfolio AI empty-vs-missing + xang1234 tolerate-missing: a corrupt
+    ``portfolio.json`` must not read as a bare empty shell on the share bit.
+    """
+    absent = max(0, int(n_absent))
+    damaged = max(0, int(n_damaged))
+    if damaged <= 0:
+        return f"{absent} missing"
+    if absent <= 0:
+        return f"{damaged} damaged"
+    return f"{absent} missing · {damaged} damaged"
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -519,6 +534,11 @@ def leaderboard_missing_share(
     Absolute ``N missing`` on a row ≠ most of the race board. Denominator is
     named accounts only (legacy root is never a missing shell). Silent when
     zero missing or no named books. Hot ≥50% · quiet ≤25% (mid % only).
+
+    ``n_missing`` stays total unusable (absent + damaged) for ready/share
+    math. When any damaged named book exists, primary ``bit`` speaks the
+    absent/damaged mix (``N damaged`` alone, or ``N missing · M damaged``)
+    so a corrupt ledger is not mistaken for an empty shell.
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -546,6 +566,8 @@ def leaderboard_missing_share(
     out: dict[str, Any] = {
         "n_named": 0,
         "n_missing": 0,
+        "n_absent": 0,
+        "n_damaged": 0,
         "n_ready": 0,
         "missing_share_pct": None,
         "missing_share_severity": "",
@@ -579,24 +601,36 @@ def leaderboard_missing_share(
     if n_named <= 0:
         return out
     n_missing = sum(1 for r in named if r.get("missing"))
+    n_damaged = sum(
+        1 for r in named if str(r.get("ledger_status") or "") == "damaged"
+    )
+    n_absent = sum(
+        1 for r in named if str(r.get("ledger_status") or "") == "missing"
+    )
+    # Rows without ledger_status still count as unusable via missing=True.
+    if n_absent + n_damaged < n_missing:
+        n_absent = n_missing - n_damaged
     n_ready = n_named - n_missing
     out["n_named"] = n_named
     out["n_missing"] = n_missing
+    out["n_absent"] = n_absent
+    out["n_damaged"] = n_damaged
     out["n_ready"] = n_ready
     if n_missing <= 0:
         return out
     pct = round(100.0 * n_missing / n_named, 1)
     out["missing_share_pct"] = pct
+    noun = _leaderboard_unusable_noun(n_absent, n_damaged)
     if pct >= MISSING_SHARE_HOT:
         out["missing_share_severity"] = "hot"
-        out["bit"] = f"{n_missing} missing · hot · {pct:g}%"
+        out["bit"] = f"{noun} · hot · {pct:g}%"
         out["warn"] = True
     elif pct <= MISSING_SHARE_QUIET:
         out["missing_share_severity"] = "quiet"
-        out["bit"] = f"{n_missing} missing · quiet · {pct:g}%"
+        out["bit"] = f"{noun} · quiet · {pct:g}%"
     else:
         out["missing_share_severity"] = "ok"
-        out["bit"] = f"{n_missing} missing · {pct:g}%"
+        out["bit"] = f"{noun} · {pct:g}%"
 
     ready_pct = round(100.0 * n_ready / n_named, 1)
     out["ready_share_pct"] = ready_pct

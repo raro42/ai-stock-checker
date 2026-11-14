@@ -1,6 +1,6 @@
 # Multi-account paper books — Mode A (GitHub #4)
 
-**Status:** Mode A shipped + missing-ledger honesty + **damaged-ledger honesty** (corrupt/non-object `portfolio.json` ≠ €0 ready) + missing share + vs-ready lean + ownership lead/size (named missing|ready sides) + severity lean + share Δ + Δ lead + Δ lead size with named sides (Overview fold + leaderboard/CLI) verified on local desk (2026-11-14) after human signoff on [issue #4](https://github.com/raro42/ai-stock-checker/issues/4). Close #4 when `gh` auth works (token currently 401).  
+**Status:** Mode A shipped + missing-ledger honesty + **damaged-ledger honesty** (corrupt/non-object `portfolio.json` ≠ €0 ready) + **damaged vs missing mix** on the race-board share bit (`N damaged` / `N missing · M damaged`, not bare unusable-as-missing) + missing share + vs-ready lean + ownership lead/size (named missing|ready sides) + severity lean + share Δ + Δ lead + Δ lead size with named sides (Overview fold + leaderboard/CLI) verified on local desk (2026-11-14) after human signoff on [issue #4](https://github.com/raro42/ai-stock-checker/issues/4). Close #4 when `gh` auth works (token currently 401).  
 Mode B (one trader / `DATA_DIR` per account) stays optional later. Reject Mode C (round-robin).
 
 Signoff: **Mode A** · starting capital **€100 000** · shared zeitfenster book may use named account **`desk`** · max **8** named accounts per host.
@@ -17,6 +17,7 @@ Goal: friends compete with separate paper portfolios and see how books evolve, w
 | Leaderboard | Overview strip + `GET /desk/api/leaderboard` + `scripts/paper_leaderboard.py` |
 | Missing ledger | Named `?account=` without `portfolio.json` speaks `missing ledger` on Overview, switcher, leaderboard, and CLI (not a fake €0 reset / race loser) |
 | Damaged ledger | Named book with unreadable / non-object `portfolio.json` speaks `damaged ledger` the same places (xang1234 tolerate-missing + empty-vs-missing; still sorts last / counts as not-ready) |
+| Damaged vs missing mix | Race-board share bit speaks `N damaged` when all unusable books are corrupt, or `N missing · M damaged` when both kinds exist — so unusable% alone does not hide empty-shell vs corrupt |
 | Missing share | When any named shell is missing, Overview + CLI + `/desk/api/leaderboard` also speak ownership `N missing · hot|quiet · P%` of named books (hot ≥50% · quiet ≤25%; legacy excluded) so absolute `N missing` ≠ most of the race |
 | Missing vs ready | When missing share already spoke, a lean fold also speaks `vs N ready · strong|thin · P%` (strong ≥75% · thin <50%; primary strip stays absolute+share) so missing% alone does not hide usable race peers; fold may also speak ownership lead/size (named `missing|ready` sides), severity lean, share Δ, `Δ lead · missing|ready`, and `Δ lead size · N×` (+ named `%` sides) when those meters fire |
 | Shared market state | Scan archives, soft-allow, Yahoo rings, Ops knobs on `DATA_DIR` root |

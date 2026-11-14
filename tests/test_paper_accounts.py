@@ -114,8 +114,34 @@ def test_account_ledger_damaged_not_euro_zero_ready(tmp_path: Path) -> None:
     assert opts["ben"]["ledger_status"] == "damaged"
     share = leaderboard_missing_share(rows)
     assert share["n_missing"] == 1
+    assert share["n_damaged"] == 1
+    assert share["n_absent"] == 0
     assert share["n_ready"] == 1
-    assert share["bit"] == "1 missing · hot · 50%"
+    # Corrupt ≠ empty shell on the race-board share bit.
+    assert share["bit"] == "1 damaged · hot · 50%"
+
+
+def test_leaderboard_missing_damaged_mix_bit(tmp_path: Path) -> None:
+    """Absent + damaged both speak on the share bit (not bare N missing)."""
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
+    anna = ensure_account_ledger(tmp_path, "anna")
+    (anna / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0, "holdings": {}})
+    )
+    ensure_account_ledger(tmp_path, "desk")  # absent portfolio
+    ben = ensure_account_ledger(tmp_path, "ben")
+    (ben / "portfolio.json").write_text("{not-json")
+    rows = build_leaderboard(tmp_path)
+    share = leaderboard_missing_share(rows)
+    assert share["n_named"] == 3
+    assert share["n_missing"] == 2
+    assert share["n_absent"] == 1
+    assert share["n_damaged"] == 1
+    assert share["n_ready"] == 1
+    assert share["bit"] == "1 missing · 1 damaged · hot · 66.7%"
+    assert share["warn"] is True
 
 
 def test_max_accounts(tmp_path: Path) -> None:
