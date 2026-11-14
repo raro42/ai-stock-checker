@@ -76,22 +76,48 @@ def list_account_ids(data_dir: Path | str) -> list[str]:
     return out
 
 
-def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
-    """True when a named account is selected but ``portfolio.json`` is absent.
+def account_ledger_status(data_dir: Path | str, account_id: str = "") -> str:
+    """Named-book portfolio status: ``ok`` / ``missing`` / ``damaged``.
 
-    Empty €0 cash without this flag reads like a real reset book — friends
-    need the missing-ledger speak (display only).
+    Absent ``portfolio.json`` → ``missing``. Unreadable / non-object JSON →
+    ``damaged`` (xang1234 tolerate-missing + portfolio AI empty-vs-missing —
+    corrupt must not read as a €0 reset). Legacy root → ``ok``. Display only.
     """
     aid = normalize_account_id(account_id)
     if not aid:
-        return False
-    return not (ledger_dir(data_dir, aid) / "portfolio.json").exists()
+        return "ok"
+    path = ledger_dir(data_dir, aid) / "portfolio.json"
+    if not path.exists():
+        return "missing"
+    try:
+        doc = json.loads(path.read_text() or "{}")
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        return "damaged"
+    if not isinstance(doc, dict):
+        return "damaged"
+    return "ok"
 
 
-def account_label(account_id: str = "", *, missing: bool = False) -> str:
+def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
+    """True when a named account has no usable ``portfolio.json``.
+
+    Covers absent **and** corrupt/non-object files so €0 cash is not mistaken
+    for a reset book (display only).
+    """
+    return account_ledger_status(data_dir, account_id) in {"missing", "damaged"}
+
+
+def account_label(
+    account_id: str = "",
+    *,
+    missing: bool = False,
+    damaged: bool = False,
+) -> str:
     aid = normalize_account_id(account_id)
     if not aid:
         return "paper · legacy root"
+    if damaged:
+        return f"paper · account {aid} · damaged ledger"
     if missing:
         return f"paper · account {aid} · missing ledger"
     return f"paper · account {aid}"
@@ -113,14 +139,17 @@ def ensure_account_ledger(data_dir: Path | str, account_id: str) -> Path:
     return target
 
 
-def _load_portfolio(path: Path) -> dict[str, Any]:
+def _load_portfolio(path: Path) -> tuple[dict[str, Any], str]:
+    """Load portfolio JSON; status is ``ok`` / ``missing`` / ``damaged``."""
     if not path.exists():
-        return {}
+        return {}, "missing"
     try:
         doc = json.loads(path.read_text() or "{}")
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return doc if isinstance(doc, dict) else {}
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        return {}, "damaged"
+    if not isinstance(doc, dict):
+        return {}, "damaged"
+    return doc, "ok"
 
 
 def _last_trade_at(trades_path: Path) -> str:
@@ -175,7 +204,13 @@ def ledger_summary(
     """Offline book row for leaderboard (cost-basis equity; no live marks)."""
     aid = normalize_account_id(account_id)
     ledger = ledger_dir(data_dir, aid)
-    portfolio = _load_portfolio(ledger / "portfolio.json")
+    portfolio, file_status = _load_portfolio(ledger / "portfolio.json")
+    # Named books: absent or corrupt portfolio ≠ €0 reset / race loser.
+    if aid and file_status in {"missing", "damaged"}:
+        status = file_status
+    else:
+        status = "ok"
+    unusable = status in {"missing", "damaged"}
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     if not isinstance(holdings, dict):
@@ -201,22 +236,22 @@ def ledger_summary(
             px = 0.0
         cost += q * px
     last_trade = _last_trade_at(ledger / "trades.jsonl")
-    # Named dir without portfolio.json is not a €0 reset — keep numbers at 0
-    # but flag missing so leaderboard/CLI do not rank empty shells as losers.
-    missing = bool(aid) and not (ledger / "portfolio.json").exists()
     return {
         "account_id": aid,
-        "label": account_label(aid, missing=missing),
+        "label": account_label(
+            aid, missing=status == "missing", damaged=status == "damaged"
+        ),
         "path": str(ledger),
-        "missing": missing,
-        "cash": 0.0 if missing else cash,
-        "fees": 0.0 if missing else fees,
-        "initial": 0.0 if missing else initial,
-        "equity_cost": 0.0 if missing else cash + cost,
-        "open_positions": 0 if missing else open_n,
-        "last_trade_at": "" if missing else last_trade,
-        "last_trade_age": "" if missing else _age_label(last_trade, now=now),
-        "price_coverage": "missing" if missing else "cost",
+        "missing": unusable,
+        "ledger_status": status,
+        "cash": 0.0 if unusable else cash,
+        "fees": 0.0 if unusable else fees,
+        "initial": 0.0 if unusable else initial,
+        "equity_cost": 0.0 if unusable else cash + cost,
+        "open_positions": 0 if unusable else open_n,
+        "last_trade_at": "" if unusable else last_trade,
+        "last_trade_age": "" if unusable else _age_label(last_trade, now=now),
+        "price_coverage": status if unusable else "cost",
     }
 
 
@@ -677,14 +712,20 @@ def account_switcher_options(data_dir: Path | str) -> list[dict[str, str]]:
     """Desk switcher entries: legacy root first, then named ids."""
     opts = [{"id": "", "label": "legacy root", "href_q": ""}]
     for aid in list_account_ids(data_dir):
-        missing = account_ledger_missing(data_dir, aid)
-        label = f"{aid} · missing" if missing else aid
+        status = account_ledger_status(data_dir, aid)
+        if status == "damaged":
+            label = f"{aid} · damaged"
+        elif status == "missing":
+            label = f"{aid} · missing"
+        else:
+            label = aid
         opts.append(
             {
                 "id": aid,
                 "label": label,
                 "href_q": f"?account={aid}",
-                "missing": "1" if missing else "",
+                "missing": "1" if status in {"missing", "damaged"} else "",
+                "ledger_status": status,
             }
         )
     return opts

@@ -25,10 +25,13 @@ def main() -> None:
     for i, row in enumerate(rows, 1):
         aid = row.get("account_id") or "legacy"
         if row.get("missing"):
+            kind = str(row.get("ledger_status") or "missing")
+            if kind not in {"missing", "damaged"}:
+                kind = "missing"
             print(
                 f"{i:>2}  {aid:<16}  "
-                f"{'missing':>12}  {'—':>12}  {'—':>10}  {'—':>3}  "
-                f"missing ledger"
+                f"{kind:>12}  {'—':>12}  {'—':>10}  {'—':>3}  "
+                f"{kind} ledger"
             )
             continue
         print(

@@ -13,6 +13,7 @@ from stock_checker.paper_accounts import (
     AccountIdError,
     account_label,
     account_ledger_missing,
+    account_ledger_status,
     account_switcher_options,
     build_leaderboard,
     ensure_account_ledger,
@@ -52,19 +53,69 @@ def test_ledger_dir_and_ensure(tmp_path: Path) -> None:
     assert account_label("desk", missing=True) == (
         "paper · account desk · missing ledger"
     )
+    assert account_label("desk", damaged=True) == (
+        "paper · account desk · damaged ledger"
+    )
     assert account_label("") == "paper · legacy root"
     assert account_label("", missing=True) == "paper · legacy root"
 
 
 def test_account_ledger_missing(tmp_path: Path) -> None:
     assert account_ledger_missing(tmp_path, "") is False
+    assert account_ledger_status(tmp_path, "") == "ok"
     assert account_ledger_missing(tmp_path, "desk") is True
+    assert account_ledger_status(tmp_path, "desk") == "missing"
     path = ensure_account_ledger(tmp_path, "desk")
     assert account_ledger_missing(tmp_path, "desk") is True
     (path / "portfolio.json").write_text(
         json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
     )
     assert account_ledger_missing(tmp_path, "desk") is False
+    assert account_ledger_status(tmp_path, "desk") == "ok"
+
+
+def test_account_ledger_damaged_not_euro_zero_ready(tmp_path: Path) -> None:
+    """Corrupt portfolio.json must not rank as a €0 reset / ready book.
+
+    xang1234 tolerate-missing + portfolio AI empty-vs-missing (GitHub #4).
+    """
+    path = ensure_account_ledger(tmp_path, "ben")
+    (path / "portfolio.json").write_text("{not-json")
+    assert account_ledger_status(tmp_path, "ben") == "damaged"
+    assert account_ledger_missing(tmp_path, "ben") is True
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
+    anna = ensure_account_ledger(tmp_path, "anna")
+    (anna / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": 100_000.0,
+                "initial_cash": 100_000.0,
+                "holdings": {},
+                "avg_buy_price": {},
+            }
+        )
+    )
+    rows = build_leaderboard(tmp_path)
+    by_id = {r["account_id"]: r for r in rows}
+    assert list(by_id)[-1] == "ben"  # unusable sorts last
+    assert set(by_id) == {"", "anna", "ben"}
+    ben = by_id["ben"]
+    assert ben["missing"] is True
+    assert ben["ledger_status"] == "damaged"
+    assert ben["label"] == "paper · account ben · damaged ledger"
+    assert ben["equity_cost"] == 0.0
+    assert ben["price_coverage"] == "damaged"
+    assert by_id["anna"]["missing"] is False
+    opts = {o["id"]: o for o in account_switcher_options(tmp_path)}
+    assert opts["ben"]["label"] == "ben · damaged"
+    assert opts["ben"]["missing"] == "1"
+    assert opts["ben"]["ledger_status"] == "damaged"
+    share = leaderboard_missing_share(rows)
+    assert share["n_missing"] == 1
+    assert share["n_ready"] == 1
+    assert share["bit"] == "1 missing · hot · 50%"
 
 
 def test_max_accounts(tmp_path: Path) -> None:

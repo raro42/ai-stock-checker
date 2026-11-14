@@ -37530,6 +37530,7 @@ def load_desk_snapshot(
     from stock_checker.paper_accounts import (
         account_label,
         account_ledger_missing,
+        account_ledger_status,
         account_switcher_options,
         build_leaderboard,
         leaderboard_missing_share,
@@ -37548,7 +37549,9 @@ def load_desk_snapshot(
     root = Path(data_dir)
     account_id = normalize_account_id(account)
     ledger = ledger_dir(root, account_id)
+    ledger_status = account_ledger_status(root, account_id)
     ledger_missing = account_ledger_missing(root, account_id)
+    ledger_damaged = ledger_status == "damaged"
 
     portfolio = _load_json(ledger / "portfolio.json", {})
     trades = _load_jsonl(ledger / "trades.jsonl")
@@ -38443,8 +38446,14 @@ def load_desk_snapshot(
         "brand": "AI Stock Checker",
         "tagline": "Paper desk — honest marks, low churn.",
         "account_id": account_id,
-        "account_label": account_label(account_id, missing=ledger_missing),
+        "account_label": account_label(
+            account_id,
+            missing=ledger_status == "missing",
+            damaged=ledger_damaged,
+        ),
         "account_ledger_missing": ledger_missing,
+        "account_ledger_damaged": ledger_damaged,
+        "account_ledger_status": ledger_status,
         "account_options": account_switcher_options(root),
         "leaderboard": leaderboard_rows,
         "leaderboard_missing": leaderboard_missing,
