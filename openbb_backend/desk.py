@@ -3895,8 +3895,9 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     # ticker + age ride with the count (#546 after #668 + gap
     # last-freshness parity) so ``N short`` does not hide who last
     # failed open or whether that print is still live. Ring share rides
-    # on lead/n=1/ahead (or here when those are silent); short-vs-other
-    # lean still deferred.
+    # on lead/n=1/ahead (or here when those are silent); ``vs N other``
+    # + ``short vs other`` lean follow when share already spoke (gap vs
+    # other / Screener junk vs ok parity).
     (
         re.compile(
             r"^\d+ short(?: · (\d+ bench)"
@@ -3931,6 +3932,19 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
             + _SOFT_LEAN_SHARE
         ),
         "short",
+    ),
+    # Short vs other lean when inventory starts mid-cascade (gap vs other
+    # / Screener junk vs ok lean parity after #668). Sides alone hid
+    # whether short÷ring heat and non-short remainder agree.
+    (
+        re.compile(
+            r"^short vs other (align|clash)"
+            r"(?: · ("
+            r"hot\|thin|quiet\|strong"
+            r"|short (?:hot|quiet|ok) · other (?:strong|thin|ok)"
+            r"))?"
+        ),
+        "short/other",
     ),
     # Bench vs young lean when inventory starts mid-cascade (junk vs ok /
     # gap vs other lean parity + #679). Sides alone hid whether
@@ -4047,6 +4061,7 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
             r"(?: · (both (?:align|clash))"
             r"| · (ring (?:align|clash))"
             r" · (bench (?:align|clash)))?"
+            + _SOFT_LEAN_VS_OTHER
         ),
         "short ring/bench",
     ),
@@ -4208,10 +4223,13 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     # short÷ring shipped). Distinct ``short last/ring`` so pair
     # ``short last/share`` (short÷(short+gap)) is not treated as ring
     # ownership — pair is silent when no gap. Verb + age + hot|quiet.
+    # ``vs N other`` rides when ring share already spoke (gap vs other /
+    # Screener junk vs ok sides after short% alone hid usable rows).
     (
         re.compile(
             r"^short last/ring (align|clash)"
             r"(?: · (fresh|expired)(?: · (hot|quiet))?)?"
+            + _SOFT_LEAN_VS_OTHER
         ),
         "short last/ring",
     ),
@@ -4450,6 +4468,7 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
             r"(?: · (both (?:align|clash))"
             r"| · (lead (?:align|clash))"
             r" · (ring (?:align|clash)))?"
+            + _SOFT_LEAN_VS_OTHER
         ),
         "short lead/ring",
     ),
@@ -4807,6 +4826,8 @@ def build_soft_allow_glance(
         soft_allow_short_history_last_ring_vs_bench_young,
         soft_allow_short_history_last_lean_vs_bench_young,
         soft_allow_short_history_share,
+        soft_allow_short_history_vs_other,
+        soft_allow_short_history_vs_other_lean,
         soft_allow_short_history_last_freshness,
         soft_allow_short_history_last_symbol,
         soft_allow_short_history_symbol_lead,
@@ -4931,6 +4952,11 @@ def build_soft_allow_glance(
         "short_history_last_lean_vs_bench_young_warn": False,
         "short_history_share_pct": None,
         "short_history_share_severity": "",
+        "short_history_other_count": 0,
+        "short_history_other_share_pct": None,
+        "short_history_other_share_severity": "",
+        "short_history_vs_other": "",
+        "short_history_vs_other_warn": False,
         "short_history_last": "",
         "short_history_last_freshness": "",
         "short_history_symbol_lead": "",
@@ -5289,10 +5315,19 @@ def build_soft_allow_glance(
     # align|clash`` follows (junk vs ok / gap vs other lean parity);
     # when last freshness extremes + lean already spoke, ``short
     # last/lean align|clash`` follows (gap last/lean parity).
-    # Short÷ring share follows lead/sides; short-vs-other lean still
-    # deferred.
+    # Short÷ring share follows lead/sides; when share already spoke,
+    # ``vs N other`` + ``short vs other`` lean follow (gap vs other /
+    # Screener junk vs ok parity after short% alone hid usable rows).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
+    )
+    (
+        short_history_other_n,
+        short_history_other_share_pct,
+        short_history_other_share_severity,
+    ) = soft_allow_short_history_vs_other(rows)
+    short_history_vs_other, short_history_vs_other_warn = (
+        soft_allow_short_history_vs_other_lean(rows)
     )
     (
         short_history_bench_n,
@@ -6087,6 +6122,8 @@ def build_soft_allow_glance(
         or short_history_last_ring_vs_bench_young_warn
         or short_history_last_lean_vs_bench_young_warn
         or short_history_share_severity == "hot"
+        or short_history_vs_other_warn
+        or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
         or short_history_vs_scan_clash_warn
         or short_history_vs_cash_clock_clash_warn
@@ -6318,6 +6355,8 @@ def build_soft_allow_glance(
         or short_history_last_ring_vs_bench_young_warn
         or short_history_last_lean_vs_bench_young_warn
         or short_history_share_severity == "hot"
+        or short_history_vs_other_warn
+        or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
     )
     soft_lean_meta = soft_allow_lean_meta(soft_lean, warn=soft_lean_warn)
@@ -6440,6 +6479,11 @@ def build_soft_allow_glance(
         ),
         "short_history_share_pct": short_history_share_pct,
         "short_history_share_severity": short_history_share_severity,
+        "short_history_other_count": short_history_other_n,
+        "short_history_other_share_pct": short_history_other_share_pct,
+        "short_history_other_share_severity": short_history_other_share_severity,
+        "short_history_vs_other": short_history_vs_other,
+        "short_history_vs_other_warn": short_history_vs_other_warn,
         "short_history_last": short_history_last,
         "short_history_last_freshness": short_history_last_freshness,
         "short_history_symbol_lead": short_history_symbol_lead,

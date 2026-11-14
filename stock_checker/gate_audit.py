@@ -110,9 +110,10 @@ def soft_allow_short_history_share(
     Returns ``(count, share_pct, severity)``. Zero shorts →
     ``(0, None, "")``. Share is short÷Mapping-rows; hot ≥50% · quiet ≤25% ·
     mid ``ok`` (portfolio AI count≠share after absolute ``N short``;
-    soft ``N gap`` share parity + xang1234 #668). Short÷(short+gap) pair
+    soft ``N gap`` share parity + xang1234 #668).     Short÷(short+gap) pair
     share stays a separate bit — ring ownership ≠ pair ownership.
-    Short-vs-other lean still deferred. Not a gate.
+    When share already spoke, ``soft_allow_short_history_vs_other``
+    names the non-short remainder (gap vs other parity). Not a gate.
     """
     rows = [r for r in (events or []) if isinstance(r, dict)]
     short_n = soft_allow_short_history_count(rows)
@@ -126,6 +127,72 @@ def soft_allow_short_history_share(
     else:
         severity = "ok"
     return short_n, share, severity
+
+
+def soft_allow_short_history_vs_other(
+    events: list[dict[str, Any]] | None,
+) -> tuple[int, float | None, str]:
+    """Non-short remainder when short÷ring already spoke (display only).
+
+    Returns ``(other_n, share_pct, severity)``. No shorts →
+    ``(0, None, "")``. Other = Mapping-rows − short; strong ≥75% ·
+    thin <50% · mid ``ok``. All-short → ``(0, 0.0, "thin")`` — soft
+    gap vs other / Screener junk vs ok sides parity after short% alone
+    hid usable ring rows (portfolio AI speak-both-sides; xang1234
+    #668). Short÷(short+gap) pair sides stay on ``vs gap``.
+    """
+    rows = [r for r in (events or []) if isinstance(r, dict)]
+    short_n = soft_allow_short_history_count(rows)
+    if short_n <= 0 or not rows:
+        return 0, None, ""
+    other_n = len(rows) - short_n
+    share = round(100.0 * other_n / len(rows), 1)
+    if share >= SOFT_ALLOW_OTHER_SHARE_STRONG:
+        severity = "strong"
+    elif share < SOFT_ALLOW_OTHER_SHARE_THIN:
+        severity = "thin"
+    else:
+        severity = "ok"
+    return other_n, share, severity
+
+
+def soft_allow_short_history_vs_other_lean(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short vs other lean when both sides already spoke (display only).
+
+    Returns ``(lean_bit, warn)``. Silent when short did not speak or
+    both severities are mid. Screener ``junk_vs_ok`` / gap vs other
+    parity: matched extremes speak ``align · hot|thin`` /
+    ``quiet|strong``; mismatch or one-lean speaks
+    ``clash · short … · other …`` (warn when short hot or other thin).
+    Sides alone hid lean agreement (portfolio AI speak-both-sides).
+    """
+    short_n, _short_share, short_sev = soft_allow_short_history_share(events)
+    other_n, other_share, other_sev = soft_allow_short_history_vs_other(
+        events
+    )
+    if short_n <= 0 or other_share is None:
+        return "", False
+    short_lean = short_sev in {"hot", "quiet"}
+    other_lean = other_sev in {"strong", "thin"}
+    if short_lean and other_lean:
+        matched = (short_sev == "hot" and other_sev == "thin") or (
+            short_sev == "quiet" and other_sev == "strong"
+        )
+        if matched:
+            return f"align · {short_sev}|{other_sev}", False
+        return (
+            f"clash · short {short_sev} · other {other_sev}",
+            True,
+        )
+    if short_lean != other_lean:
+        warn = short_sev == "hot" or other_sev == "thin"
+        return (
+            f"clash · short {short_sev} · other {other_sev}",
+            warn,
+        )
+    return "", False
 
 
 def _short_history_symbol(reason: str) -> str:
@@ -2079,8 +2146,12 @@ def format_soft_allow_short_history_bit(
     When last/ring + last/lean already spoke, ``short ring/lean
     align|clash`` follows so the two age relationships cannot hide
     non-agreement or dual-clash (gap share/lean on short÷ring; pair
-    share/lean stays on short÷(short+gap)). Short-vs-other lean still
-    deferred. Display only; not a gate.
+    share/lean stays on short÷(short+gap)). When ring share already
+    spoke, ``vs N other · [strong|thin ·] P%`` follows so short% alone
+    cannot hide usable non-short ring rows; when both severities lean,
+    ``short vs other align|clash`` follows so sides alone cannot hide
+    lean agreement (gap vs other / Screener junk vs ok parity). Display
+    only; not a gate.
     """
     n, ring_share, ring_sev = soft_allow_short_history_share(events)
     if n <= 0 or ring_share is None:
@@ -2292,6 +2363,22 @@ def format_soft_allow_short_history_bit(
         )
         if ring_vs_bench:
             head = f"{head} · short ring/bench {ring_vs_bench}"
+    # Short% alone hid usable non-short ring rows (gap vs other /
+    # Screener junk vs ok sides + portfolio AI speak-both-sides).
+    other_n, other_share, other_sev = soft_allow_short_history_vs_other(
+        events
+    )
+    if other_share is not None:
+        if other_sev in {"strong", "thin"}:
+            head = (
+                f"{head} · vs {other_n} other · {other_sev} · "
+                f"{other_share:g}%"
+            )
+        else:
+            head = f"{head} · vs {other_n} other · {other_share:g}%"
+        other_lean, _ = soft_allow_short_history_vs_other_lean(events)
+        if other_lean:
+            head = f"{head} · short vs other {other_lean}"
     vs_gap = soft_allow_short_vs_gap(events)
     if vs_gap is not None:
         head = f"{head} · {vs_gap[0]}"

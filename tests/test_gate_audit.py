@@ -77,6 +77,8 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_history_symbol_lead_sides,
         soft_allow_short_history_symbol_sample_gap,
         soft_allow_short_history_share,
+        soft_allow_short_history_vs_other,
+        soft_allow_short_history_vs_other_lean,
         soft_allow_short_vs_gap,
         soft_allow_short_pair_share,
         soft_allow_short_vs_gap_lean,
@@ -294,8 +296,19 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_history_share(None) == (0, None, "")
     assert soft_allow_short_history_share([]) == (0, None, "")
     assert soft_allow_short_history_share(mixed) == (2, 66.7, "hot")
+    # Short% alone hid usable non-short rows (gap vs other parity).
+    assert soft_allow_short_history_vs_other(None) == (0, None, "")
+    assert soft_allow_short_history_vs_other([]) == (0, None, "")
+    assert soft_allow_short_history_vs_other_lean(None) == ("", False)
+    assert soft_allow_short_history_vs_other(mixed) == (1, 33.3, "thin")
+    assert soft_allow_short_history_vs_other_lean(mixed) == (
+        "align · hot|thin",
+        False,
+    )
     assert format_soft_allow_short_history_bit(mixed) == (
-        "2 short · last IPO · tied · hot · 66.7% · vs gap · thin · 1 · 33% · "
+        "2 short · last IPO · tied · hot · 66.7% · "
+        "vs 1 other · thin · 33.3% · short vs other align · hot|thin · "
+        "vs gap · thin · 1 · 33% · "
         "short vs gap align · hot|thin · short Δ wide · +34pp · "
         "short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 2.03× · "
@@ -330,9 +343,15 @@ def test_soft_allow_short_history_count() -> None:
     # Short-only ring → no vs gap (gap silent); ring share still speaks.
     assert soft_allow_short_vs_gap(lead_rows) is None
     assert soft_allow_short_history_share(lead_rows) == (3, 100.0, "hot")
+    assert soft_allow_short_history_vs_other(lead_rows) == (0, 0.0, "thin")
+    assert soft_allow_short_history_vs_other_lean(lead_rows) == (
+        "align · hot|thin",
+        False,
+    )
     assert format_soft_allow_short_history_bit(lead_rows) == (
         "3 short · last NEW · lead IPO · 2 · 67% · last vs lead · NEW · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100%"
+        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     sole = [
         {"gate": "rs", "reason": "IPO RS unknown — short history — allow"},
@@ -342,8 +361,10 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_history_symbol_sample_gap(sole) == "n=1"
     assert soft_allow_short_vs_gap(sole) is None
     assert soft_allow_short_history_share(sole) == (1, 100.0, "hot")
+    assert soft_allow_short_history_vs_other(sole) == (0, 0.0, "thin")
     assert format_soft_allow_short_history_bit(sole) == (
-        "1 short · last IPO · n=1 · hot · 100%"
+        "1 short · last IPO · n=1 · hot · 100% · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     agree_rows = [
         {"gate": "rs", "reason": "IPO RS unknown — short history — allow"},
@@ -364,7 +385,8 @@ def test_soft_allow_short_history_count() -> None:
     )
     assert format_soft_allow_short_history_bit(agree_rows) == (
         "3 short · last IPO · lead IPO · 2 · 67% · agree · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100%"
+        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     wide_rows = [
         {"gate": "rs", "reason": "NEW RS unknown — short history — allow"},
@@ -385,7 +407,8 @@ def test_soft_allow_short_history_count() -> None:
     )
     assert format_soft_allow_short_history_bit(wide_rows) == (
         "4 short · last NEW · lead IPO · 3 · 75% · last vs lead · NEW · "
-        "ahead wide · +2 · vs NEW · 1 · 25% · hot · 100%"
+        "ahead wide · +2 · vs NEW · 1 · 25% · hot · 100% · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     # xang1234 #679: primary-benchmark short ≠ young listing.
     bench_rows = [
@@ -609,6 +632,11 @@ def test_soft_allow_short_history_count() -> None:
     )
     assert soft_allow_short_history_last_symbol(bench_rows) == "SPY"
     assert soft_allow_short_history_share(bench_rows) == (3, 75.0, "hot")
+    assert soft_allow_short_history_vs_other(bench_rows) == (1, 25.0, "thin")
+    assert soft_allow_short_history_vs_other_lean(bench_rows) == (
+        "align · hot|thin",
+        False,
+    )
     assert format_soft_allow_short_history_bit(bench_rows) == (
         "3 short · 2 bench · hot · 66.7% · vs 1 young · thin · 33.3% · "
         "short bench vs young align · hot|thin · "
@@ -617,7 +645,8 @@ def test_soft_allow_short_history_count() -> None:
         "short bench Δ lead size · 2× · "
         "short bench Δ lead size sides · bench 66.7% · young 33.3% · "
         "last SPY · tied · "
-        "hot · 75% · vs gap · thin · 1 · 25% · short vs gap align · hot|thin · "
+        "hot · 75% · vs 1 other · thin · 25% · short vs other align · hot|thin · "
+        "vs gap · thin · 1 · 25% · short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short Δ size moods clash · short/gap 3× · bench/young 2× · "
@@ -969,7 +998,9 @@ def test_soft_allow_short_history_count() -> None:
     )
     assert format_soft_allow_short_history_bit(aged, now=now) == (
         "1 short · last IPO · aging · clash · short aging · gap fresh"
-        " · n=1 · hot · 50% · vs gap · 1 · 50% · "
+        " · n=1 · hot · 50% · vs 1 other · 50% · "
+        "short vs other clash · short hot · other ok · "
+        "vs gap · 1 · 50% · "
         "short vs gap clash · short hot · gap ok · "
         "short lean/Δ clash · lean · Δ mid"
     )
@@ -992,7 +1023,8 @@ def test_soft_allow_short_history_count() -> None:
         False,
     )
     assert format_soft_allow_short_history_bit(expired, now=now) == (
-        "1 short · last IPO · expired · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        "1 short · last IPO · expired · n=1 · hot · 100% · short last/ring clash · expired · hot · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     # Short≠scan: expired cursor ≠ fresh scan; same band silent
     # (gap≠scan / xang1234 #549 parity).
@@ -1015,7 +1047,8 @@ def test_soft_allow_short_history_count() -> None:
         expired, now=now, scan_freshness="fresh"
     ) == (
         "1 short · last IPO · expired · clash · short expired · scan fresh"
-        " · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        " · n=1 · hot · 100% · short last/ring clash · expired · hot · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     assert format_soft_allow_short_history_bit(
         expired,
@@ -1025,7 +1058,8 @@ def test_soft_allow_short_history_count() -> None:
         scan_pin_size=" · scan-only",
     ) == (
         "1 short · last IPO · expired · clash · short expired · scan fresh"
-        " · short-only · scan-only · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        " · short-only · scan-only · n=1 · hot · 100% · short last/ring clash · expired · hot · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     assert soft_allow_short_history_vs_scan_clash(
         expired, scan_freshness="stale", now=now
@@ -1048,8 +1082,9 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(
         expired, now=now, cash_band="aging"
     ) == (
-        "1 short · last IPO · expired · clash · short expired · cash aging"
-        " · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        "1 short · last IPO · expired · clash · short expired · cash aging · "
+        "n=1 · hot · 100% · short last/ring clash · expired · hot · vs 0 other · "
+        "thin · 0% · short vs other align · hot|thin"
     )
     assert soft_allow_short_history_vs_cash_clock_clash(
         expired, cash_band="stale", now=now
@@ -1165,8 +1200,9 @@ def test_soft_allow_short_history_count() -> None:
         scan_freshness="fresh",
         keep_gap_pin_size="gap-only",
     ) == (
-        "1 short · last IPO · expired · clash · short expired · scan fresh"
-        " · gap-only · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        "1 short · last IPO · expired · clash · short expired · scan fresh · "
+        "gap-only · n=1 · hot · 100% · short last/ring clash · expired · hot · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     assert soft_allow_short_history_vs_memory_clock_clash(
         expired,
@@ -1180,8 +1216,9 @@ def test_soft_allow_short_history_count() -> None:
         laya_freshness="fresh",
         debate_freshness="",
     ) == (
-        "1 short · last IPO · expired · clash · short expired · laya fresh"
-        " · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        "1 short · last IPO · expired · clash · short expired · laya fresh · "
+        "n=1 · hot · 100% · short last/ring clash · expired · hot · vs 0 other · "
+        "thin · 0% · short vs other align · hot|thin"
     )
     # Short matching scan + cash aging — both clash bits on one line.
     assert format_soft_allow_short_history_bit(
@@ -1190,8 +1227,10 @@ def test_soft_allow_short_history_count() -> None:
         scan_freshness="fresh",
         cash_band="aging",
     ) == (
-        "1 short · last IPO · expired · clash · short expired · scan fresh"
-        " · clash · short expired · cash aging · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        "1 short · last IPO · expired · clash · short expired · scan fresh · "
+        "clash · short expired · cash aging · n=1 · hot · 100% · "
+        "short last/ring clash · expired · hot · vs 0 other · thin · 0% · "
+        "short vs other align · hot|thin"
     )
     # Short↔scan↔cash↔memory: all three generation clashes on one line.
     assert format_soft_allow_short_history_bit(
@@ -1202,9 +1241,10 @@ def test_soft_allow_short_history_count() -> None:
         laya_freshness="fresh",
         debate_freshness="",
     ) == (
-        "1 short · last IPO · expired · clash · short expired · scan fresh"
-        " · clash · short expired · cash aging"
-        " · clash · short expired · laya fresh · n=1 · hot · 100% · short last/ring clash · expired · hot"
+        "1 short · last IPO · expired · clash · short expired · scan fresh · "
+        "clash · short expired · cash aging · clash · short expired · "
+        "laya fresh · n=1 · hot · 100% · short last/ring clash · expired · hot · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     # Short≠gap: expired short vs fresh gap cursor (soft≠gap / short≠scan
     # parity; count lean ≠ clock). Same band silent.
@@ -1235,15 +1275,14 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(
         short_vs_gap_rows, now=now
     ) == (
-        "1 short · last IPO · expired · clash · short expired · gap fresh"
-        " · n=1 · hot · 50% · short last/ring clash · expired · hot · vs gap · 1 · 50%"
-        " · short last/share clash · expired · hot"
-        " · short share/ring align · both clash"
-        " · short vs gap clash · short hot · gap ok"
-        " · short lean/Δ clash · lean · Δ mid"
-        " · short last/lean align · expired · short hot · gap ok"
-        " · short share/lean clash · share clash · lean align"
-        " · short ring/lean clash · ring clash · lean align"
+        "1 short · last IPO · expired · clash · short expired · gap fresh · "
+        "n=1 · hot · 50% · short last/ring clash · expired · hot · vs 1 other · "
+        "50% · short vs other clash · short hot · other ok · vs gap · 1 · 50% · "
+        "short last/share clash · expired · hot · short share/ring align · "
+        "both clash · short vs gap clash · short hot · gap ok · "
+        "short lean/Δ clash · lean · Δ mid · short last/lean align · expired · "
+        "short hot · gap ok · short share/lean clash · share clash · "
+        "lean align · short ring/lean clash · ring clash · lean align"
     )
     assert soft_allow_short_history_vs_gap_clock_clash(
         short_vs_gap_rows,
@@ -1287,7 +1326,8 @@ def test_soft_allow_short_history_count() -> None:
         False,
     )
     assert format_soft_allow_short_history_bit(fresh, now=now) == (
-        "1 short · last IPO · fresh · n=1 · hot · 100% · short last/ring align · fresh · hot"
+        "1 short · last IPO · fresh · n=1 · hot · 100% · short last/ring align · fresh · hot · "
+        "vs 0 other · thin · 0% · short vs other align · hot|thin"
     )
     # Fresh + short/gap align → last/lean align (gap last/lean parity).
     fresh_align = [
@@ -1330,15 +1370,15 @@ def test_soft_allow_short_history_count() -> None:
         fresh_align, now=now
     ) == ("align · both align", False)
     assert format_soft_allow_short_history_bit(fresh_align, now=now) == (
-        "2 short · last IPO · fresh · tied · hot · 66.7% · short last/ring align · fresh · hot · vs gap · thin · 1 · 33% · "
-        "short last/share align · fresh · hot · "
-        "short share/ring align · both align · "
-        "short vs gap align · hot|thin · "
-        "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
-        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
-        "short last/lean align · fresh · hot|thin · "
-        "short share/lean align · both align · "
-        "short ring/lean align · both align"
+        "2 short · last IPO · fresh · tied · hot · 66.7% · "
+        "short last/ring align · fresh · hot · vs 1 other · thin · 33.3% · "
+        "short vs other align · hot|thin · vs gap · thin · 1 · 33% · "
+        "short last/share align · fresh · hot · short share/ring align · "
+        "both align · short vs gap align · hot|thin · short Δ wide · +34pp · "
+        "short lean/Δ align · wide · short Δ lead · short · short Δ lead size · "
+        "2.03× · short Δ lead size sides · short 67% · gap 33% · "
+        "short last/lean align · fresh · hot|thin · short share/lean align · "
+        "both align · short ring/lean align · both align"
     )
     # Expired + short/gap align → last/lean clash (warn).
     expired_align = [
@@ -1380,15 +1420,15 @@ def test_soft_allow_short_history_count() -> None:
         expired_align, now=now
     ) == ("align · both clash", True)
     assert format_soft_allow_short_history_bit(expired_align, now=now) == (
-        "2 short · last IPO · expired · tied · hot · 66.7% · short last/ring clash · expired · hot · vs gap · thin · 1 · 33% · "
-        "short last/share clash · expired · hot · "
-        "short share/ring align · both clash · "
-        "short vs gap align · hot|thin · "
-        "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
-        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
-        "short last/lean clash · expired · hot|thin · "
-        "short share/lean align · both clash · "
-        "short ring/lean align · both clash"
+        "2 short · last IPO · expired · tied · hot · 66.7% · "
+        "short last/ring clash · expired · hot · vs 1 other · thin · 33.3% · "
+        "short vs other align · hot|thin · vs gap · thin · 1 · 33% · "
+        "short last/share clash · expired · hot · short share/ring align · "
+        "both clash · short vs gap align · hot|thin · short Δ wide · +34pp · "
+        "short lean/Δ align · wide · short Δ lead · short · short Δ lead size · "
+        "2.03× · short Δ lead size sides · short 67% · gap 33% · "
+        "short last/lean clash · expired · hot|thin · short share/lean align · "
+        "both clash · short ring/lean align · both clash"
     )
     # Gap last/lead freshness parity: bare agree ≠ live cursor match.
     # Fresh + agree → short last/lead align; expired + agree → clash warn.
@@ -1420,9 +1460,10 @@ def test_soft_allow_short_history_count() -> None:
     ) == ("align · fresh · agree", False)
     assert format_soft_allow_short_history_bit(fresh_agree, now=now) == (
         "3 short · last IPO · fresh · lead IPO · 2 · 67% · agree · "
-        "short last/lead align · fresh · agree · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · short last/ring align · fresh · hot · "
-        "short lead/ring align · both align"
+        "short last/lead align · fresh · agree · ahead thin · +1 · vs NEW · 1 · "
+        "33% · hot · 100% · short last/ring align · fresh · hot · "
+        "short lead/ring align · both align · vs 0 other · thin · 0% · "
+        "short vs other align · hot|thin"
     )
     expired_agree = [
         {
@@ -1446,9 +1487,10 @@ def test_soft_allow_short_history_count() -> None:
     ) == ("clash · expired · agree", True)
     assert format_soft_allow_short_history_bit(expired_agree, now=now) == (
         "3 short · last IPO · expired · lead IPO · 2 · 67% · agree · "
-        "short last/lead clash · expired · agree · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · short last/ring clash · expired · hot · "
-        "short lead/ring align · both clash"
+        "short last/lead clash · expired · agree · ahead thin · +1 · vs NEW · "
+        "1 · 33% · hot · 100% · short last/ring clash · expired · hot · "
+        "short lead/ring align · both clash · vs 0 other · thin · 0% · "
+        "short vs other align · hot|thin"
     )
     # Fresh + name clash → short last/lead clash warn.
     fresh_clash = [
@@ -1475,10 +1517,11 @@ def test_soft_allow_short_history_count() -> None:
         fresh_clash, now=now
     ) == ("clash · fresh · vs NEW", True)
     assert format_soft_allow_short_history_bit(fresh_clash, now=now) == (
-        "3 short · last NEW · fresh · lead IPO · 2 · 67% · "
-        "last vs lead · NEW · short last/lead clash · fresh · vs NEW · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · short last/ring align · fresh · hot · "
-        "short lead/ring clash · lead clash · ring align"
+        "3 short · last NEW · fresh · lead IPO · 2 · 67% · last vs lead · NEW · "
+        "short last/lead clash · fresh · vs NEW · ahead thin · +1 · vs NEW · 1 · "
+        "33% · hot · 100% · short last/ring align · fresh · hot · "
+        "short lead/ring clash · lead clash · ring align · vs 0 other · thin · "
+        "0% · short vs other align · hot|thin"
     )
     # last/lead + last/lean together: crossed verbs → short lead/lean clash.
     fresh_clash_vs_gap = [
@@ -1533,19 +1576,18 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(
         fresh_clash_vs_gap, now=now
     ) == (
-        "3 short · last NEW · fresh · lead IPO · 2 · 67% · "
-        "last vs lead · NEW · short last/lead clash · fresh · vs NEW · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 75% · short last/ring align · fresh · hot · "
-        "short lead/ring clash · lead clash · ring align · "
-        "vs gap · thin · 1 · 25% · short last/share align · fresh · hot · "
-        "short lead/share clash · lead clash · share align · "
-        "short share/ring align · both align · "
-        "short vs gap align · hot|thin · "
-        "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
-        "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
-        "short last/lean align · fresh · hot|thin · "
-        "short lead/lean clash · lead clash · lean align · "
-        "short share/lean align · both align · "
+        "3 short · last NEW · fresh · lead IPO · 2 · 67% · last vs lead · NEW · "
+        "short last/lead clash · fresh · vs NEW · ahead thin · +1 · vs NEW · 1 · "
+        "33% · hot · 75% · short last/ring align · fresh · hot · "
+        "short lead/ring clash · lead clash · ring align · vs 1 other · thin · "
+        "25% · short vs other align · hot|thin · vs gap · thin · 1 · 25% · "
+        "short last/share align · fresh · hot · short lead/share clash · "
+        "lead clash · share align · short share/ring align · both align · "
+        "short vs gap align · hot|thin · short Δ wide · +50pp · "
+        "short lean/Δ align · wide · short Δ lead · short · short Δ lead size · "
+        "3× · short Δ lead size sides · short 75% · gap 25% · "
+        "short last/lean align · fresh · hot|thin · short lead/lean clash · "
+        "lead clash · lean align · short share/lean align · both align · "
         "short ring/lean align · both align"
     )
     # Same verb both clash → short lead/lean align · both clash (warn).
@@ -1601,20 +1643,18 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(
         expired_agree_vs_gap, now=now
     ) == (
-        "3 short · last IPO · expired · lead IPO · 2 · 67% · "
-        "agree · short last/lead clash · expired · agree · "
-        "ahead thin · +1 · vs NEW · 1 · 33% · hot · 75% · short last/ring clash · expired · hot · "
-        "short lead/ring align · both clash · "
-        "vs gap · thin · 1 · 25% · short last/share clash · expired · hot · "
-        "short lead/share align · both clash · "
-        "short share/ring align · both clash · "
-        "short vs gap align · hot|thin · "
-        "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
-        "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
-        "short last/lean clash · expired · hot|thin · "
-        "short lead/lean align · both clash · "
-        "short share/lean align · both clash · "
-        "short ring/lean align · both clash"
+        "3 short · last IPO · expired · lead IPO · 2 · 67% · agree · "
+        "short last/lead clash · expired · agree · ahead thin · +1 · vs NEW · "
+        "1 · 33% · hot · 75% · short last/ring clash · expired · hot · "
+        "short lead/ring align · both clash · vs 1 other · thin · 25% · "
+        "short vs other align · hot|thin · vs gap · thin · 1 · 25% · "
+        "short last/share clash · expired · hot · short lead/share align · "
+        "both clash · short share/ring align · both clash · short vs gap align · "
+        "hot|thin · short Δ wide · +50pp · short lean/Δ align · wide · "
+        "short Δ lead · short · short Δ lead size · 3× · "
+        "short Δ lead size sides · short 75% · gap 25% · short last/lean clash · "
+        "expired · hot|thin · short lead/lean align · both clash · "
+        "short share/lean align · both clash · short ring/lean align · both clash"
     )
     # Pair hot + ring quiet → last/share align vs last/ring clash → share/ring clash.
     fresh_share_ring_clash = [
