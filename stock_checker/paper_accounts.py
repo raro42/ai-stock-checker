@@ -770,6 +770,38 @@ def leaderboard_absent_vs_damaged_delta_lead(
     return "absent" if pp > 0 else "damaged"
 
 
+def leaderboard_absent_vs_damaged_delta_lead_size(
+    absent_share_pct: float | int | None,
+    damaged_share_pct: float | int | None,
+    *,
+    delta_lead: str = "",
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after mix Δ lead (display only).
+
+    When ``delta_lead`` already spoke (``absent|damaged``) and both shares
+    are known, ``mix Δ lead size · N×`` is louder%÷quieter%; zero quieter
+    stays silent. Lead name ≠ magnitude (missing vs ready Δ lead size /
+    portfolio AI count≠share + xang1234). Returns
+    ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
+    Prefixed ``mix Δ lead size`` so it stays distinct from race-board
+    ``Δ lead size · missing|ready``. Not a new entry gate.
+    """
+    if str(delta_lead or "").strip().casefold() not in {"absent", "damaged"}:
+        return None, None, None
+    if absent_share_pct is None or damaged_share_pct is None:
+        return None, None, None
+    try:
+        absent = float(absent_share_pct)
+        damaged = float(damaged_share_pct)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(absent, damaged)
+    quieter = min(absent, damaged)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -799,8 +831,11 @@ def leaderboard_missing_share(
     align|clash`` so lean alone does not hide absent%−damaged% spread
     (missing vs ready share Δ parity). When lean vs Δ already spoke with a
     non-zero Δ, also append ``mix Δ lead · absent|damaged`` so signed pp
-    alone does not hide which unusable kind owns the spread (Δ lead size
-    still deferred).
+    alone does not hide which unusable kind owns the spread. When mix Δ
+    lead already spoke and quieter% > 0, also append ``mix Δ lead size ·
+    N×`` + ``mix Δ lead size sides · absent|damaged N% · damaged|absent
+    M%`` (louder slot first) so lead name alone does not hide magnitude
+    or which share owns quieter (missing vs ready Δ lead size parity).
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -853,6 +888,9 @@ def leaderboard_missing_share(
         "absent_vs_damaged_lean_vs_delta": "",
         "absent_vs_damaged_lean_vs_delta_warn": False,
         "absent_vs_damaged_delta_lead": "",
+        "absent_vs_damaged_delta_lead_size": None,
+        "absent_vs_damaged_delta_lead_size_louder": None,
+        "absent_vs_damaged_delta_lead_size_quieter": None,
         "vs_ready_lead": "",
         "vs_ready_lead_name": "",
         "vs_ready_lead_pct": None,
@@ -998,6 +1036,30 @@ def leaderboard_missing_share(
         if mix_delta_lead:
             lean_parts.append(f"mix Δ lead · {mix_delta_lead}")
             meta_parts.append("mix Δ lead")
+            mix_d_size, mix_d_louder, mix_d_quieter = (
+                leaderboard_absent_vs_damaged_delta_lead_size(
+                    absent_mix_pct,
+                    damaged_mix_pct,
+                    delta_lead=mix_delta_lead,
+                )
+            )
+            out["absent_vs_damaged_delta_lead_size"] = mix_d_size
+            out["absent_vs_damaged_delta_lead_size_louder"] = mix_d_louder
+            out["absent_vs_damaged_delta_lead_size_quieter"] = mix_d_quieter
+            if (
+                mix_d_size is not None
+                and mix_d_louder is not None
+                and mix_d_quieter is not None
+            ):
+                mix_d_other = (
+                    "damaged" if mix_delta_lead == "absent" else "absent"
+                )
+                lean_parts.append(f"mix Δ lead size · {mix_d_size:g}×")
+                lean_parts.append(
+                    f"mix Δ lead size sides · {mix_delta_lead} "
+                    f"{mix_d_louder:g}% · {mix_d_other} {mix_d_quieter:g}%"
+                )
+                meta_parts.append("mix Δ size")
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
         lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")

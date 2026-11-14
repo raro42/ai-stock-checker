@@ -19,6 +19,7 @@ from stock_checker.paper_accounts import (
     ensure_account_ledger,
     leaderboard_absent_vs_damaged_delta,
     leaderboard_absent_vs_damaged_delta_lead,
+    leaderboard_absent_vs_damaged_delta_lead_size,
     leaderboard_absent_vs_damaged_lead,
     leaderboard_absent_vs_damaged_lead_size,
     leaderboard_absent_vs_damaged_lean,
@@ -286,9 +287,16 @@ def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     assert "mix lean vs Δ align · wide" in share["lean"]
     assert share["absent_vs_damaged_delta_lead"] == "absent"
     assert "mix Δ lead · absent" in share["lean"]
+    # 67÷33 → ~2.03×; named sides keep absent/damaged (not anonymous).
+    assert share["absent_vs_damaged_delta_lead_size"] == 2.03
+    assert share["absent_vs_damaged_delta_lead_size_louder"] == 67.0
+    assert share["absent_vs_damaged_delta_lead_size_quieter"] == 33.0
+    assert "mix Δ lead size · 2.03×" in share["lean"]
+    assert "mix Δ lead size sides · absent 67% · damaged 33%" in share["lean"]
     assert "mix Δ" in share["lean_meta"]
     assert "mix lean/Δ" in share["lean_meta"]
     assert "mix Δ lead" in share["lean_meta"]
+    assert "mix Δ size" in share["lean_meta"]
     # Race-board ownership stays distinct (missing vs ready, not absent).
     assert "lead missing ·" in share["lean"]
 
@@ -334,6 +342,18 @@ def test_leaderboard_absent_vs_damaged_delta() -> None:
         )
         == ""
     )
+    assert leaderboard_absent_vs_damaged_delta_lead_size(
+        75, 25, delta_lead="absent"
+    ) == (3.0, 75.0, 25.0)
+    assert leaderboard_absent_vs_damaged_delta_lead_size(
+        25, 75, delta_lead="damaged"
+    ) == (3.0, 75.0, 25.0)
+    assert leaderboard_absent_vs_damaged_delta_lead_size(
+        100, 0, delta_lead="absent"
+    ) == (None, None, None)
+    assert leaderboard_absent_vs_damaged_delta_lead_size(
+        67, 33, delta_lead=""
+    ) == (None, None, None)
 
 
 def test_max_accounts(tmp_path: Path) -> None:
