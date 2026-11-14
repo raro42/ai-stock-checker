@@ -18,6 +18,7 @@ from stock_checker.paper_accounts import (
     build_leaderboard,
     ensure_account_ledger,
     leaderboard_absent_vs_damaged_lead,
+    leaderboard_absent_vs_damaged_lead_size,
     leaderboard_absent_vs_damaged_sample_gap,
     leaderboard_missing_share,
     leaderboard_missing_vs_ready_delta,
@@ -171,6 +172,22 @@ def test_leaderboard_absent_vs_damaged_lead() -> None:
     assert leaderboard_absent_vs_damaged_sample_gap(2, 1) == ""
 
 
+def test_leaderboard_absent_vs_damaged_lead_size() -> None:
+    """Mix lead size is louder÷quieter; sole/no-lead silent."""
+    assert leaderboard_absent_vs_damaged_lead_size(
+        2, 0, lead_name="absent"
+    ) == (None, None, None)
+    assert leaderboard_absent_vs_damaged_lead_size(
+        2, 1, lead_name=""
+    ) == (None, None, None)
+    assert leaderboard_absent_vs_damaged_lead_size(
+        2, 1, lead_name="absent"
+    ) == (2.0, 2, 1)
+    assert leaderboard_absent_vs_damaged_lead_size(
+        1, 3, lead_name="damaged"
+    ) == (3.0, 3, 1)
+
+
 def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     """Strict mix lead speaks on lean when absent ≠ damaged."""
     (tmp_path / "portfolio.json").write_text(
@@ -191,7 +208,13 @@ def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     assert share["bit"] == "2 missing · 1 damaged · hot · 75%"
     assert share["absent_vs_damaged_lead"] == "lead absent · 67%"
     assert share["absent_vs_damaged_lead_name"] == "absent"
+    assert share["absent_vs_damaged_lead_size"] == 2.0
+    assert share["absent_vs_damaged_lead_size_louder"] == 2
+    assert share["absent_vs_damaged_lead_size_quieter"] == 1
     assert share["lean"].startswith("lead absent · 67% ·")
+    assert "mix size · 2×" in share["lean"]
+    assert "mix size sides · absent 2 · damaged 1" in share["lean"]
+    assert "mix size" in share["lean_meta"]
     # Race-board ownership stays distinct (missing vs ready, not absent).
     assert "lead missing ·" in share["lean"]
 

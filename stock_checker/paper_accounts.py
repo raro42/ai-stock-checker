@@ -585,6 +585,37 @@ def leaderboard_absent_vs_damaged_sample_gap(
     return "absent/damaged tied"
 
 
+def leaderboard_absent_vs_damaged_lead_size(
+    n_absent: int,
+    n_damaged: int,
+    *,
+    lead_name: str = "",
+) -> tuple[float | None, int | None, int | None]:
+    """How many times louder owns quieter after absent/damaged lead (display).
+
+    When ``lead_name`` already spoke (``absent|damaged``) and both counts are
+    >0, ``mix size · N×`` is louder÷quieter; zero quieter stays silent. Lead
+    name/% ≠ magnitude (postmortem skip-reason lead size + missing vs ready
+    lead size + portfolio AI count≠share + xang1234). Returns
+    ``(size, louder_n, quieter_n)`` or all-None. Not a new entry gate.
+    """
+    if str(lead_name or "").strip().casefold() not in {"absent", "damaged"}:
+        return None, None, None
+    try:
+        absent_n = max(0, int(n_absent))
+    except (TypeError, ValueError):
+        absent_n = 0
+    try:
+        damaged_n = max(0, int(n_damaged))
+    except (TypeError, ValueError):
+        damaged_n = 0
+    quieter = min(absent_n, damaged_n)
+    louder = max(absent_n, damaged_n)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -601,7 +632,11 @@ def leaderboard_missing_share(
     absent + damaged counts are >0, lean also speaks mix ownership
     ``lead absent|damaged · N%`` or ``absent/damaged tied`` (sole-side
     silent; ``absent`` ≠ race-board ``lead missing|ready``) so absolute
-    mix alone does not hide which unusable kind owns the board.
+    mix alone does not hide which unusable kind owns the board. When mix
+    ownership lead already spoke and quieter count >0, also append
+    ``mix size · N×`` + ``mix size sides · absent|damaged N ·
+    damaged|absent M`` (louder slot first) so name/% ≠ magnitude and
+    anonymous louder/quieter does not hide which unusable kind owns quieter.
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -640,6 +675,9 @@ def leaderboard_missing_share(
         "absent_vs_damaged_lead_name": "",
         "absent_vs_damaged_lead_pct": None,
         "absent_vs_damaged_sample_gap": "",
+        "absent_vs_damaged_lead_size": None,
+        "absent_vs_damaged_lead_size_louder": None,
+        "absent_vs_damaged_lead_size_quieter": None,
         "vs_ready_lead": "",
         "vs_ready_lead_name": "",
         "vs_ready_lead_pct": None,
@@ -715,6 +753,24 @@ def leaderboard_missing_share(
     if mix_own:
         lean_parts.append(mix_own)
         meta_parts.append("absent/damaged")
+    mix_size, mix_louder, mix_quieter = leaderboard_absent_vs_damaged_lead_size(
+        n_absent, n_damaged, lead_name=mix_name
+    )
+    out["absent_vs_damaged_lead_size"] = mix_size
+    out["absent_vs_damaged_lead_size_louder"] = mix_louder
+    out["absent_vs_damaged_lead_size_quieter"] = mix_quieter
+    if (
+        mix_size is not None
+        and mix_louder is not None
+        and mix_quieter is not None
+    ):
+        mix_other = "damaged" if mix_name == "absent" else "absent"
+        lean_parts.append(f"mix size · {mix_size:g}×")
+        lean_parts.append(
+            f"mix size sides · {mix_name} {mix_louder} · "
+            f"{mix_other} {mix_quieter}"
+        )
+        meta_parts.append("mix size")
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
         lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")
