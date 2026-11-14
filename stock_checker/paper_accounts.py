@@ -616,6 +616,85 @@ def leaderboard_absent_vs_damaged_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def leaderboard_absent_vs_damaged_share_bands(
+    n_absent: int,
+    n_damaged: int,
+    *,
+    hot: float = MISSING_SHARE_HOT,
+    quiet: float = MISSING_SHARE_QUIET,
+) -> tuple[float | None, str, float | None, str]:
+    """Per-kind ownership of the unusable mix (display only).
+
+    Absolute mix + lead + mix size hid whether empty-shell vs corrupt *share*
+    of unusable is extreme (postmortem skip-reason share bands + portfolio AI
+    count≠share + xang1234). Both sides must be >0; sole-side / zero → silent.
+    Returns ``(absent_pct, absent_sev, damaged_pct, damaged_sev)`` with
+    ``hot|quiet|\"\"`` severities. Not a new entry gate.
+    """
+    try:
+        absent = max(0, int(n_absent))
+    except (TypeError, ValueError):
+        absent = 0
+    try:
+        damaged = max(0, int(n_damaged))
+    except (TypeError, ValueError):
+        damaged = 0
+    total = absent + damaged
+    if total <= 0 or absent <= 0 or damaged <= 0:
+        return None, "", None, ""
+    absent_pct = round(100.0 * absent / total)
+    damaged_pct = round(100.0 * damaged / total)
+
+    def _sev(pct: float) -> str:
+        if pct >= hot:
+            return "hot"
+        if pct <= quiet:
+            return "quiet"
+        return ""
+
+    return absent_pct, _sev(absent_pct), damaged_pct, _sev(damaged_pct)
+
+
+def leaderboard_absent_vs_damaged_lean(
+    absent_severity: str,
+    damaged_severity: str,
+) -> tuple[str, bool]:
+    """Lean agreement of absent vs damaged mix-share bands (display only).
+
+    Absolute mix + ownership lead + mix size hid whether the two *severity*
+    bands agree (postmortem skip-reason lean / missing vs ready lean +
+    portfolio AI speak-both-sides + xang1234 severity). Both sides use
+    ``hot|quiet`` of unusable. Align when complementary ``hot|quiet`` /
+    ``quiet|hot``; clash when exactly one lean spoke or both hot (e.g.
+    50/50). Adverse clash (any ``hot``) warns. Mid both silent. Lives under
+    the missing lean fold. Not a new entry gate.
+    """
+    a = str(absent_severity or "").strip().casefold()
+    d = str(damaged_severity or "").strip().casefold()
+    a_lean = a in {"hot", "quiet"}
+    d_lean = d in {"hot", "quiet"}
+    if a_lean and d_lean:
+        complementary = (a == "hot" and d == "quiet") or (
+            a == "quiet" and d == "hot"
+        )
+        if complementary:
+            return f"absent vs damaged align · {a}|{d}", False
+        return (
+            f"absent vs damaged clash · absent {a} · damaged {d}",
+            True,
+        )
+    if a_lean != d_lean:
+        a_label = a if a_lean else (a or "ok")
+        d_label = d if d_lean else (d or "ok")
+        warn = a == "hot" or d == "hot"
+        return (
+            "absent vs damaged clash · absent "
+            f"{a_label} · damaged {d_label}",
+            warn,
+        )
+    return "", False
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -637,6 +716,10 @@ def leaderboard_missing_share(
     ``mix size · N×`` + ``mix size sides · absent|damaged N ·
     damaged|absent M`` (louder slot first) so name/% ≠ magnitude and
     anonymous louder/quieter does not hide which unusable kind owns quieter.
+    When both absent + damaged share severity bands already spoke, also
+    append ``absent vs damaged align · hot|quiet`` / ``clash · absent hot ·
+    damaged ok`` so sides/lead/size alone do not hide severity agreement
+    (postmortem skip-reason lean parity).
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -678,6 +761,12 @@ def leaderboard_missing_share(
         "absent_vs_damaged_lead_size": None,
         "absent_vs_damaged_lead_size_louder": None,
         "absent_vs_damaged_lead_size_quieter": None,
+        "absent_vs_damaged_absent_share_pct": None,
+        "absent_vs_damaged_absent_severity": "",
+        "absent_vs_damaged_damaged_share_pct": None,
+        "absent_vs_damaged_damaged_severity": "",
+        "absent_vs_damaged_lean": "",
+        "absent_vs_damaged_lean_warn": False,
         "vs_ready_lead": "",
         "vs_ready_lead_name": "",
         "vs_ready_lead_pct": None,
@@ -771,6 +860,26 @@ def leaderboard_missing_share(
             f"{mix_other} {mix_quieter}"
         )
         meta_parts.append("mix size")
+    (
+        absent_mix_pct,
+        absent_mix_sev,
+        damaged_mix_pct,
+        damaged_mix_sev,
+    ) = leaderboard_absent_vs_damaged_share_bands(n_absent, n_damaged)
+    out["absent_vs_damaged_absent_share_pct"] = absent_mix_pct
+    out["absent_vs_damaged_absent_severity"] = absent_mix_sev
+    out["absent_vs_damaged_damaged_share_pct"] = damaged_mix_pct
+    out["absent_vs_damaged_damaged_severity"] = damaged_mix_sev
+    mix_sev_bit, mix_sev_warn = leaderboard_absent_vs_damaged_lean(
+        absent_mix_sev, damaged_mix_sev
+    )
+    out["absent_vs_damaged_lean"] = mix_sev_bit
+    out["absent_vs_damaged_lean_warn"] = mix_sev_warn
+    if mix_sev_bit:
+        lean_parts.append(mix_sev_bit)
+        meta_parts.append("mix severity")
+        if mix_sev_warn:
+            out["lean_warn"] = True
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
         lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")

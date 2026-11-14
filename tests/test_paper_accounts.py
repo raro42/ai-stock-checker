@@ -19,7 +19,9 @@ from stock_checker.paper_accounts import (
     ensure_account_ledger,
     leaderboard_absent_vs_damaged_lead,
     leaderboard_absent_vs_damaged_lead_size,
+    leaderboard_absent_vs_damaged_lean,
     leaderboard_absent_vs_damaged_sample_gap,
+    leaderboard_absent_vs_damaged_share_bands,
     leaderboard_missing_share,
     leaderboard_missing_vs_ready_delta,
     leaderboard_missing_vs_ready_delta_lead,
@@ -148,7 +150,15 @@ def test_leaderboard_missing_damaged_mix_bit(tmp_path: Path) -> None:
     # Mix ownership: 1+1 → tied (distinct from race-board missing/ready).
     assert share["absent_vs_damaged_sample_gap"] == "absent/damaged tied"
     assert share["absent_vs_damaged_lead"] == ""
+    # 50/50 → both hot → severity clash (postmortem skip-reason parity).
+    assert share["absent_vs_damaged_lean"] == (
+        "absent vs damaged clash · absent hot · damaged hot"
+    )
+    assert share["absent_vs_damaged_lean_warn"] is True
+    assert share["lean_warn"] is True
     assert share["lean"].startswith("absent/damaged tied ·")
+    assert "absent vs damaged clash · absent hot · damaged hot" in share["lean"]
+    assert "mix severity" in share["lean_meta"]
     assert "absent/damaged" in share["lean_meta"]
 
 
@@ -188,6 +198,49 @@ def test_leaderboard_absent_vs_damaged_lead_size() -> None:
     ) == (3.0, 3, 1)
 
 
+def test_leaderboard_absent_vs_damaged_share_bands_and_lean() -> None:
+    """Mix share bands + severity lean mirror postmortem skip-reason."""
+    assert leaderboard_absent_vs_damaged_share_bands(3, 1) == (
+        75,
+        "hot",
+        25,
+        "quiet",
+    )
+    assert leaderboard_absent_vs_damaged_share_bands(2, 1) == (
+        67,
+        "hot",
+        33,
+        "",
+    )
+    assert leaderboard_absent_vs_damaged_share_bands(1, 1) == (
+        50,
+        "hot",
+        50,
+        "hot",
+    )
+    assert leaderboard_absent_vs_damaged_share_bands(2, 0) == (
+        None,
+        "",
+        None,
+        "",
+    )
+    assert leaderboard_absent_vs_damaged_lean("hot", "quiet") == (
+        "absent vs damaged align · hot|quiet",
+        False,
+    )
+    assert leaderboard_absent_vs_damaged_lean("quiet", "hot") == (
+        "absent vs damaged align · quiet|hot",
+        False,
+    )
+    bit, warn = leaderboard_absent_vs_damaged_lean("hot", "")
+    assert bit == "absent vs damaged clash · absent hot · damaged ok"
+    assert warn is True
+    bit, warn = leaderboard_absent_vs_damaged_lean("hot", "hot")
+    assert bit == "absent vs damaged clash · absent hot · damaged hot"
+    assert warn is True
+    assert leaderboard_absent_vs_damaged_lean("", "") == ("", False)
+
+
 def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     """Strict mix lead speaks on lean when absent ≠ damaged."""
     (tmp_path / "portfolio.json").write_text(
@@ -215,6 +268,13 @@ def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
     assert "mix size · 2×" in share["lean"]
     assert "mix size sides · absent 2 · damaged 1" in share["lean"]
     assert "mix size" in share["lean_meta"]
+    # 2+1 → absent hot · damaged mid → sole-hot clash.
+    assert share["absent_vs_damaged_lean"] == (
+        "absent vs damaged clash · absent hot · damaged ok"
+    )
+    assert share["absent_vs_damaged_lean_warn"] is True
+    assert "absent vs damaged clash · absent hot · damaged ok" in share["lean"]
+    assert "mix severity" in share["lean_meta"]
     # Race-board ownership stays distinct (missing vs ready, not absent).
     assert "lead missing ·" in share["lean"]
 
