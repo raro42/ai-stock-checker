@@ -451,6 +451,8 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert clash["crypto_vs_stock_lean_vs_delta"] == "align · wide"
     assert clash["crypto_vs_stock_lean_vs_delta_warn"] is False
     assert clash["crypto_vs_stock_delta_lead"] == "stock"
+    # Sole-side 100% → quieter 0 → Δ lead size silent.
+    assert clash["crypto_vs_stock_delta_lead_size"] is None
     assert clash["vs_fills_bit"] == "closes clash · fills crypto-heavy"
     assert clash["delta_lead_vs_fills_bit"] == (
         "closes Δ lead clash · fills crypto · closes stock"
@@ -516,6 +518,8 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert agree["crypto_vs_stock_lean_vs_delta"] == "align · wide"
     assert agree["crypto_vs_stock_lean_vs_delta_warn"] is True
     assert agree["crypto_vs_stock_delta_lead"] == "crypto"
+    # Sole-side 100% → quieter 0 → Δ lead size silent.
+    assert agree["crypto_vs_stock_delta_lead_size"] is None
     assert agree["vs_fills_bit"] == "closes agree"
     assert agree["delta_lead_vs_fills_bit"] == "closes Δ lead agree"
     assert agree["delta_lead_vs_fills_warn"] is False
@@ -615,6 +619,7 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert mid["crypto_vs_stock_lean_vs_delta"] == "clash · lean · Δ mid"
     assert mid["crypto_vs_stock_lean_vs_delta_warn"] is True
     assert mid["crypto_vs_stock_delta_lead"] == ""
+    assert mid["crypto_vs_stock_delta_lead_size"] is None
     assert mid["delta_lead_vs_fills_bit"] == ""
     assert mid["delta_moods_bit"] == ""
     assert mid["lean_moods_bit"] == "closes lean moods align · both clash"
@@ -630,6 +635,40 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         " · closes crypto vs stock clash · crypto hot · stock ok"
         " · closes lean/Δ clash · lean · Δ mid"
         " · closes lean moods align · both clash"
+    )
+    # 80/20 closes → Δ lead size 4× (lead name ≠ magnitude).
+    heavy = window_a_close_sleeve_mix(
+        {"crypto_closes": 4, "stock_closes": 1},
+        fill_severity="crypto_heavy",
+        fill_delta_lead="crypto",
+        fill_lean_vs_delta="align · wide",
+        fill_crypto_vs_stock="align · hot|thin",
+    )
+    assert heavy["crypto_vs_stock_delta_lead"] == "crypto"
+    assert heavy["crypto_vs_stock_delta_lead_size"] == 4.0
+    assert heavy["crypto_vs_stock_delta_lead_size_louder"] == 80.0
+    assert heavy["crypto_vs_stock_delta_lead_size_quieter"] == 20.0
+    assert "closes Δ lead size · 4×" in heavy["lean_bit"]
+    assert "closes Δ lead size sides · crypto 80% · stock 20%" in (
+        heavy["lean_bit"]
+    )
+    assert heavy["lean_bit"].index("closes Δ lead · crypto") < heavy[
+        "lean_bit"
+    ].index("closes Δ lead size · 4×")
+    assert heavy["lean_bit"].index("closes Δ lead size · 4×") < heavy[
+        "lean_bit"
+    ].index("closes Δ lead agree")
+    stock_heavy = window_a_close_sleeve_mix(
+        {"crypto_closes": 1, "stock_closes": 4},
+        fill_severity="stock_heavy",
+        fill_delta_lead="stock",
+        fill_lean_vs_delta="align · wide",
+        fill_crypto_vs_stock="align · quiet|strong",
+    )
+    assert stock_heavy["crypto_vs_stock_delta_lead"] == "stock"
+    assert stock_heavy["crypto_vs_stock_delta_lead_size"] == 4.0
+    assert "closes Δ lead size sides · stock 80% · crypto 20%" in (
+        stock_heavy["lean_bit"]
     )
     sample = window_a_sample_readiness(
         {
@@ -668,6 +707,8 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     )
     assert sample["close_sleeve_crypto_vs_stock_lean_vs_delta_warn"] is False
     assert sample["close_sleeve_crypto_vs_stock_delta_lead"] == "stock"
+    # Close sole-side 100% → size silent; fill 80/20 still speaks size.
+    assert sample["close_sleeve_crypto_vs_stock_delta_lead_size"] is None
     assert sample["sleeve_crypto_vs_stock_delta_lead"] == "crypto"
     assert sample["sleeve_crypto_vs_stock_delta_lead_size"] == 4.0
     assert sample["sleeve_crypto_vs_stock_delta_lead_size_louder"] == 80.0
@@ -676,6 +717,7 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert "Δ lead size sides · crypto 80% · stock 20%" in (
         sample["sleeve_lean_bit"]
     )
+    assert "closes Δ lead size" not in sample["close_sleeve_lean_bit"]
     assert sample["close_sleeve_delta_lead_vs_fills_bit"] == (
         "closes Δ lead clash · fills crypto · closes stock"
     )
