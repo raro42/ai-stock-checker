@@ -4187,6 +4187,22 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short lean/Δ",
     ),
+    # How many times louder owns quieter after short Δ lead (Charts /
+    # Mode A / Screener Δ lead size + portfolio AI count≠share +
+    # xang1234). Longer prefixes first so ``short Δ lead size sides`` ≠
+    # ``short Δ lead size`` ≠ ``short Δ lead``. Named sides so anonymous
+    # louder/quieter does not hide which pair sleeve owns quieter.
+    (
+        re.compile(
+            r"^short Δ lead size sides · (short|gap) "
+            r"\d+(?:\.\d+)?% · (gap|short) \d+(?:\.\d+)?%"
+        ),
+        "short Δ sides",
+    ),
+    (
+        re.compile(r"^short Δ lead size · \d+(?:\.\d+)?×"),
+        "short Δ size",
+    ),
     # Which pair sleeve owns the spoken Δ (unique vs dup / Yahoo mix
     # Δ lead parity). Prefixed ``short Δ lead`` so Screener bare
     # ``Δ lead`` does not claim the young/short pair. Side name rides
@@ -4716,6 +4732,7 @@ def build_soft_allow_glance(
         soft_allow_short_vs_gap_delta,
         soft_allow_short_vs_gap_lean_vs_delta,
         soft_allow_short_vs_gap_delta_lead,
+        soft_allow_short_vs_gap_delta_lead_size,
         soft_allow_short_delta_moods,
         soft_allow_short_lean_moods,
         soft_allow_short_lean_vs_delta_moods,
@@ -4862,6 +4879,9 @@ def build_soft_allow_glance(
         "short_history_delta_vs_delta_lead_moods": "",
         "short_history_delta_vs_delta_lead_moods_warn": False,
         "short_history_vs_gap_delta_lead": "",
+        "short_history_vs_gap_delta_lead_size": None,
+        "short_history_vs_gap_delta_lead_size_louder": None,
+        "short_history_vs_gap_delta_lead_size_quieter": None,
         "short_history_last_vs_share": "",
         "short_history_last_vs_share_warn": False,
         "short_history_last_vs_ring_share": "",
@@ -5371,6 +5391,11 @@ def build_soft_allow_glance(
         short_history_vs_gap_lean_vs_delta_warn,
     ) = soft_allow_short_vs_gap_lean_vs_delta(rows)
     short_history_vs_gap_delta_lead = soft_allow_short_vs_gap_delta_lead(rows)
+    (
+        short_history_vs_gap_delta_lead_size,
+        short_history_vs_gap_delta_lead_size_louder,
+        short_history_vs_gap_delta_lead_size_quieter,
+    ) = soft_allow_short_vs_gap_delta_lead_size(rows)
     short_history_delta_moods, short_history_delta_moods_warn = (
         soft_allow_short_delta_moods(rows)
     )
@@ -6349,6 +6374,15 @@ def build_soft_allow_glance(
             short_history_vs_gap_lean_vs_delta_warn
         ),
         "short_history_vs_gap_delta_lead": short_history_vs_gap_delta_lead,
+        "short_history_vs_gap_delta_lead_size": (
+            short_history_vs_gap_delta_lead_size
+        ),
+        "short_history_vs_gap_delta_lead_size_louder": (
+            short_history_vs_gap_delta_lead_size_louder
+        ),
+        "short_history_vs_gap_delta_lead_size_quieter": (
+            short_history_vs_gap_delta_lead_size_quieter
+        ),
         "short_history_delta_moods": short_history_delta_moods,
         "short_history_delta_moods_warn": short_history_delta_moods_warn,
         "short_history_lean_moods": short_history_lean_moods,

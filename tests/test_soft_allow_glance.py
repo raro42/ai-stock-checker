@@ -928,6 +928,7 @@ def test_soft_allow_glance_short_history_count() -> None:
         "short share/ring align · both align · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short last/lean align · fresh · hot|thin · "
         "short share/lean align · both align · "
         "short ring/lean align · both align"
@@ -1000,13 +1001,14 @@ def test_soft_allow_glance_short_history_count() -> None:
         "short share/ring align · both align · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short last/lean align · fresh · hot|thin · "
         "short share/lean align · both align · "
         "short ring/lean align · both align · "
         "1 gap · last AAPL · fresh"
     ) == (
-        "quiet · 14 folds · short IPO fresh · tied hot 66.7% · "
-        "short last/ring align fresh hot · vs gap thin 1 33% · +10"
+        "quiet · 16 folds · short IPO fresh · tied hot 66.7% · "
+        "short last/ring align fresh hot · vs gap thin 1 33% · +12"
     )
     assert soft_allow_lean_meta("3 short · 2 bench · last SPY · fresh") == (
         "quiet · 1 fold · short 2 bench SPY fresh"
@@ -1039,10 +1041,12 @@ def test_soft_allow_glance_short_history_count() -> None:
         "short bench lean/Δ align wide · short bench Δ lead bench"
     )
     assert soft_allow_lean_meta(
-        "short Δ lead · short · short Δ moods align · both wide"
+        "short Δ lead · short · short Δ lead size · 3× · "
+        "short Δ lead size sides · short 75% · gap 25% · "
+        "short Δ moods align · both wide"
     ) == (
-        "quiet · 2 folds · short Δ lead short · "
-        "short Δ moods align both wide"
+        "quiet · 4 folds · short Δ lead short · short Δ size · "
+        "short Δ sides short gap · short Δ moods align both wide"
     )
     assert soft_allow_lean_meta(
         "short Δ moods clash · short/gap wide · bench/young thin"
@@ -1196,6 +1200,7 @@ def test_soft_allow_glance_short_history_bench_count() -> None:
         "short share/ring align · both align · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short lean moods clash · short/gap align · bench/young clash · "
         "short last/lean align · fresh · hot|thin · "
         "short share/lean align · both align · "
@@ -2035,6 +2040,7 @@ def test_soft_allow_glance_short_history_symbol_lead() -> None:
         "short share/ring align · both align · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short last/lean align · fresh · hot|thin · "
         "short lead/lean clash · lead clash · lean align · "
         "short share/lean align · both align · "

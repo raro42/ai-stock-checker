@@ -82,6 +82,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_vs_gap_delta,
         soft_allow_short_vs_gap_lean_vs_delta,
         soft_allow_short_vs_gap_delta_lead,
+        soft_allow_short_vs_gap_delta_lead_size,
         soft_allow_short_delta_moods,
         soft_allow_short_lean_moods,
         soft_allow_short_lean_vs_delta_moods,
@@ -261,6 +262,14 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_vs_gap_delta_lead(None) == ""
     assert soft_allow_short_vs_gap_delta_lead([]) == ""
     assert soft_allow_short_vs_gap_delta_lead(mixed) == "short"
+    # Lead name alone hid magnitude (67÷33 ≈ 2.03×; Charts / Mode A size).
+    assert soft_allow_short_vs_gap_delta_lead_size(None) == (
+        None,
+        None,
+        None,
+    )
+    assert soft_allow_short_vs_gap_delta_lead_size([]) == (None, None, None)
+    assert soft_allow_short_vs_gap_delta_lead_size(mixed) == (2.03, 67.0, 33.0)
     # No bench lean/Δ → cross-pair Δ moods / lean moods silent.
     assert soft_allow_short_delta_moods(None) == ("", False)
     assert soft_allow_short_delta_moods([]) == ("", False)
@@ -286,7 +295,9 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(mixed) == (
         "2 short · last IPO · tied · hot · 66.7% · vs gap · thin · 1 · 33% · "
         "short vs gap align · hot|thin · short Δ wide · +34pp · "
-        "short lean/Δ align · wide · short Δ lead · short"
+        "short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 2.03× · "
+        "short Δ lead size sides · short 67% · gap 33%"
     )
     lead_rows = [
         {"gate": "rs", "reason": "NEW RS unknown — short history — allow"},
@@ -578,6 +589,7 @@ def test_soft_allow_short_history_count() -> None:
         "last SPY · tied · "
         "hot · 75% · vs gap · thin · 1 · 25% · short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short Δ moods align · both wide · short lean moods align · both align · "
         "short lean vs Δ moods align · both align · "
         "short Δ lead moods align · both adverse · "
@@ -1292,6 +1304,7 @@ def test_soft_allow_short_history_count() -> None:
         "short share/ring align · both align · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short last/lean align · fresh · hot|thin · "
         "short share/lean align · both align · "
         "short ring/lean align · both align"
@@ -1341,6 +1354,7 @@ def test_soft_allow_short_history_count() -> None:
         "short share/ring align · both clash · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short last/lean clash · expired · hot|thin · "
         "short share/lean align · both clash · "
         "short ring/lean align · both clash"
@@ -1497,6 +1511,7 @@ def test_soft_allow_short_history_count() -> None:
         "short share/ring align · both align · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short last/lean align · fresh · hot|thin · "
         "short lead/lean clash · lead clash · lean align · "
         "short share/lean align · both align · "
@@ -1564,6 +1579,7 @@ def test_soft_allow_short_history_count() -> None:
         "short share/ring align · both clash · "
         "short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
+        "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short last/lean clash · expired · hot|thin · "
         "short lead/lean align · both clash · "
         "short share/lean align · both clash · "
