@@ -739,6 +739,37 @@ def leaderboard_absent_vs_damaged_delta(
     return raw, "", "clash · lean · Δ mid", True
 
 
+def leaderboard_absent_vs_damaged_delta_lead(
+    delta_pp: int | None,
+    delta_severity: str,
+    *,
+    lean_vs_delta: str = "",
+) -> str:
+    """Name which unusable kind owns a spoken absent vs damaged Δ (display).
+
+    When lean vs Δ already spoke with a Δ (wide|thin) and ±pp ≠ 0,
+    positive ``absent% − damaged%`` → ``absent``; negative → ``damaged``.
+    Mid-Δ clash / 0pp stay silent. Signed pp alone hid which empty vs
+    corrupt slot owns the spread (missing vs ready Δ lead + portfolio AI
+    speak-both-sides + xang1234). Returns ``absent|damaged`` / ``\"\"``.
+    Prefixed ``mix Δ lead`` on the lean so it stays distinct from race-board
+    ``Δ lead · missing|ready``. Not a new entry gate.
+    """
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
+        return ""
+    if delta_pp is None:
+        return ""
+    try:
+        pp = int(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if pp == 0:
+        return ""
+    return "absent" if pp > 0 else "damaged"
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -766,7 +797,10 @@ def leaderboard_missing_share(
     (postmortem skip-reason lean parity). When mix severity lean already
     spoke, also append ``mix Δ wide|thin · ±Npp`` + ``mix lean vs Δ
     align|clash`` so lean alone does not hide absent%−damaged% spread
-    (missing vs ready share Δ parity; Δ lead nest deferred).
+    (missing vs ready share Δ parity). When lean vs Δ already spoke with a
+    non-zero Δ, also append ``mix Δ lead · absent|damaged`` so signed pp
+    alone does not hide which unusable kind owns the spread (Δ lead size
+    still deferred).
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -818,6 +852,7 @@ def leaderboard_missing_share(
         "absent_vs_damaged_delta_severity": "",
         "absent_vs_damaged_lean_vs_delta": "",
         "absent_vs_damaged_lean_vs_delta_warn": False,
+        "absent_vs_damaged_delta_lead": "",
         "vs_ready_lead": "",
         "vs_ready_lead_name": "",
         "vs_ready_lead_pct": None,
@@ -954,6 +989,15 @@ def leaderboard_missing_share(
             meta_parts.append("mix lean/Δ")
             if mix_lean_vs_delta_warn:
                 out["lean_warn"] = True
+        mix_delta_lead = leaderboard_absent_vs_damaged_delta_lead(
+            mix_delta_pp,
+            mix_delta_sev,
+            lean_vs_delta=mix_lean_vs_delta,
+        )
+        out["absent_vs_damaged_delta_lead"] = mix_delta_lead
+        if mix_delta_lead:
+            lean_parts.append(f"mix Δ lead · {mix_delta_lead}")
+            meta_parts.append("mix Δ lead")
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
         lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")
