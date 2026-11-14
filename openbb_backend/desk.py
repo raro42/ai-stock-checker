@@ -4233,6 +4233,20 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"^short Δ lead · (short|gap)"),
         "short Δ lead",
     ),
+    # Pair Δ lead size vs bench/young Δ lead size (portfolio AI
+    # count≠share + xang1234 after both sizes). Longer prefix before
+    # ``short Δ size`` / ``short Δ moods`` so magnitude mood ≠ bare
+    # size or lean/Δ severity mood. Verb + both/crossed ride so
+    # ``align · both 3×`` is not a silent confirm of dual fat.
+    (
+        re.compile(
+            r"^short Δ size moods (align|clash)"
+            r"(?: · (both \d+(?:\.\d+)?×)"
+            r"| · (short/gap \d+(?:\.\d+)?×)"
+            r" · (bench/young \d+(?:\.\d+)?×))?"
+        ),
+        "short Δ size moods",
+    ),
     # Pair lean/Δ mood vs bench/young lean/Δ mood (Yahoo mix share vs
     # gap + portfolio AI speak-both-sides after both Δ leads). Prefixed
     # ``short Δ moods`` so Screener bare mood / share vs gap does not
@@ -4756,6 +4770,7 @@ def build_soft_allow_glance(
         soft_allow_short_vs_gap_lean_vs_delta,
         soft_allow_short_vs_gap_delta_lead,
         soft_allow_short_vs_gap_delta_lead_size,
+        soft_allow_short_delta_lead_size_moods,
         soft_allow_short_delta_moods,
         soft_allow_short_lean_moods,
         soft_allow_short_lean_vs_delta_moods,
@@ -4892,6 +4907,8 @@ def build_soft_allow_glance(
         "short_history_vs_gap_delta_severity": "",
         "short_history_vs_gap_lean_vs_delta": "",
         "short_history_vs_gap_lean_vs_delta_warn": False,
+        "short_history_delta_lead_size_moods": "",
+        "short_history_delta_lead_size_moods_warn": False,
         "short_history_delta_moods": "",
         "short_history_delta_moods_warn": False,
         "short_history_lean_moods": "",
@@ -5427,6 +5444,10 @@ def build_soft_allow_glance(
         short_history_vs_gap_delta_lead_size_louder,
         short_history_vs_gap_delta_lead_size_quieter,
     ) = soft_allow_short_vs_gap_delta_lead_size(rows)
+    (
+        short_history_delta_lead_size_moods,
+        short_history_delta_lead_size_moods_warn,
+    ) = soft_allow_short_delta_lead_size_moods(rows)
     short_history_delta_moods, short_history_delta_moods_warn = (
         soft_allow_short_delta_moods(rows)
     )
@@ -6001,6 +6022,7 @@ def build_soft_allow_glance(
         or short_history_bench_vs_young_warn
         or short_history_bench_vs_young_severity == "thin"
         or short_history_bench_vs_young_lean_vs_delta_warn
+        or short_history_delta_lead_size_moods_warn
         or short_history_delta_moods_warn
         or short_history_lean_moods_warn
         or short_history_lean_vs_delta_moods_warn
@@ -6212,6 +6234,7 @@ def build_soft_allow_glance(
         or anchor_gap_vs_memory_clock_clash_warn
         or short_history_vs_gap_lean_warn
         or short_history_vs_gap_lean_vs_delta_warn
+        or short_history_delta_lead_size_moods_warn
         or short_history_delta_moods_warn
         or short_history_lean_moods_warn
         or short_history_lean_vs_delta_moods_warn
@@ -6422,6 +6445,12 @@ def build_soft_allow_glance(
         ),
         "short_history_vs_gap_delta_lead_size_quieter": (
             short_history_vs_gap_delta_lead_size_quieter
+        ),
+        "short_history_delta_lead_size_moods": (
+            short_history_delta_lead_size_moods
+        ),
+        "short_history_delta_lead_size_moods_warn": (
+            short_history_delta_lead_size_moods_warn
         ),
         "short_history_delta_moods": short_history_delta_moods,
         "short_history_delta_moods_warn": short_history_delta_moods_warn,

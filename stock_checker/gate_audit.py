@@ -1039,6 +1039,43 @@ def soft_allow_short_vs_gap_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def soft_allow_short_delta_lead_size_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Pair Δ lead size vs bench/young Δ lead size (display only).
+
+    Returns ``(bit, warn)``. When both ``short Δ lead size · N×`` and
+    ``short bench Δ lead size · M×`` already spoke: same →
+    ``align · both N×``; crossed →
+    ``clash · short/gap N× · bench/young M×``. Missing either silent.
+    Dual fat (≥2×) + clash warn; equal thin calm. Side-by-side size
+    bits alone hid whether magnitude agrees (Δ lead polarity can match
+    while 3× vs 2× — portfolio AI count≠share + xang1234 after both Δ
+    lead sizes). Prefixed ``short Δ size moods`` so ``short Δ size`` +
+    ``short Δ moods`` stay distinct. Not a gate.
+    """
+    pair_size, _pl, _pq = soft_allow_short_vs_gap_delta_lead_size(events)
+    bench_size, _bl, _bq = (
+        soft_allow_short_history_bench_vs_young_delta_lead_size(events)
+    )
+    if pair_size is None or bench_size is None:
+        return "", False
+    try:
+        pair_f = float(pair_size)
+        bench_f = float(bench_size)
+    except (TypeError, ValueError):
+        return "", False
+    pair_s = f"{pair_f:g}"
+    bench_s = f"{bench_f:g}"
+    if abs(pair_f - bench_f) < 1e-9:
+        # Dual fat agreement ≠ calm confirm (Δ moods dual wide).
+        return f"align · both {pair_s}×", pair_f >= 2.0
+    return (
+        f"clash · short/gap {pair_s}× · bench/young {bench_s}×",
+        True,
+    )
+
+
 def soft_allow_short_delta_moods(
     events: list[dict[str, Any]] | None,
 ) -> tuple[str, bool]:
@@ -1052,7 +1089,7 @@ def soft_allow_short_delta_moods(
     whether pair ownership spread mood matches primary-bench vs young
     (Yahoo mix share vs gap + portfolio AI speak-both-sides after short
     vs gap + bench vs young Δ). Pair + bench vs young Δ lead size both
-    shipped. Not a gate.
+    shipped; size moods compare magnitude separately. Not a gate.
     """
     pair_lvd, _ = soft_allow_short_vs_gap_lean_vs_delta(events)
     bench_lvd, _ = soft_allow_short_history_bench_vs_young_lean_vs_delta(
@@ -1982,13 +2019,17 @@ def format_soft_allow_short_history_bit(
     ``short Δ lead size sides · short|gap N% · gap|short M%`` follow so
     lead name alone cannot hide how many times louder owns quieter
     (Charts / Mode A / Screener Δ lead size + portfolio AI count≠share +
-    xang1234); when both pair and bench lean/Δ already spoke with align
-    severities, ``short Δ moods align|clash`` follows so side-by-side
-    ownership spreads cannot hide whether pair mood matches bench/young
-    mood (Yahoo mix share vs gap + portfolio AI speak-both-sides); when
-    both pair and bench lean already spoke, ``short lean moods
-    align|clash`` follows so Δ mood match alone cannot hide lean *verb*
-    mismatch (Window A close sleeve lean moods + FinRobot + portfolio AI
+    xang1234); when both pair and bench Δ lead sizes already spoke,
+    ``short Δ size moods align|clash`` follows so side-by-side
+    magnitudes cannot hide 3× vs 2× while polarity still matches
+    (portfolio AI count≠share + xang1234 after both sizes); when both
+    pair and bench lean/Δ already spoke with align severities,
+    ``short Δ moods align|clash`` follows so side-by-side ownership
+    spreads cannot hide whether pair mood matches bench/young mood
+    (Yahoo mix share vs gap + portfolio AI speak-both-sides); when both
+    pair and bench lean already spoke, ``short lean moods align|clash``
+    follows so Δ mood match alone cannot hide lean *verb* mismatch
+    (Window A close sleeve lean moods + FinRobot + portfolio AI
     speak-both-sides); when lean moods + Δ moods already spoke,
     ``short lean vs Δ moods align|clash`` follows so side-by-side
     relationship verbs alone cannot hide whether they agree (Window A
@@ -2311,6 +2352,12 @@ def format_soft_allow_short_history_bit(
                         f"short Δ lead size sides · {delta_lead} "
                         f"{d_louder:g}% · {other} {d_quieter:g}%"
                     )
+            # Side-by-side pair + bench Δ lead sizes alone hid whether
+            # magnitude agrees (polarity can match while 3× vs 2× —
+            # portfolio AI count≠share + xang1234 after both sizes).
+            size_moods, _ = soft_allow_short_delta_lead_size_moods(events)
+            if size_moods:
+                head = f"{head} · short Δ size moods {size_moods}"
             # Side-by-side pair lean/Δ + bench lean/Δ alone hid whether
             # ownership-spread moods agree (Yahoo mix share vs gap +
             # portfolio AI speak-both-sides after both Δ leads).
