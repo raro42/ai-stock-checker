@@ -669,6 +669,13 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert sample["close_sleeve_crypto_vs_stock_lean_vs_delta_warn"] is False
     assert sample["close_sleeve_crypto_vs_stock_delta_lead"] == "stock"
     assert sample["sleeve_crypto_vs_stock_delta_lead"] == "crypto"
+    assert sample["sleeve_crypto_vs_stock_delta_lead_size"] == 4.0
+    assert sample["sleeve_crypto_vs_stock_delta_lead_size_louder"] == 80.0
+    assert sample["sleeve_crypto_vs_stock_delta_lead_size_quieter"] == 20.0
+    assert "Δ lead size · 4×" in sample["sleeve_lean_bit"]
+    assert "Δ lead size sides · crypto 80% · stock 20%" in (
+        sample["sleeve_lean_bit"]
+    )
     assert sample["close_sleeve_delta_lead_vs_fills_bit"] == (
         "closes Δ lead clash · fills crypto · closes stock"
     )
@@ -815,10 +822,23 @@ def test_window_a_sleeve_mix_crypto_vs_stock() -> None:
         format_window_a_sleeve_core_bit,
         format_window_a_sleeve_lean_bit,
         window_a_sample_readiness,
+        window_a_sleeve_crypto_vs_stock_delta_lead_size,
         window_a_sleeve_lean_meta,
         window_a_sleeve_mix,
     )
 
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        80, 20, delta_lead="crypto"
+    ) == (4.0, 80.0, 20.0)
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        20, 80, delta_lead="stock"
+    ) == (4.0, 80.0, 20.0)
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        100, 0, delta_lead="crypto"
+    ) == (None, None, None)
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        80, 20, delta_lead=""
+    ) == (None, None, None)
     assert window_a_sleeve_mix(None)["bit"] == ""
     assert window_a_sleeve_mix({"trades": 4})["bit"] == ""
     crypto_only = window_a_sleeve_mix({"crypto_legs": 12, "stock_legs": 0})
@@ -834,6 +854,7 @@ def test_window_a_sleeve_mix_crypto_vs_stock() -> None:
     assert crypto_only["crypto_vs_stock_lean_vs_delta"] == "align · wide"
     assert crypto_only["crypto_vs_stock_lean_vs_delta_warn"] is True
     assert crypto_only["crypto_vs_stock_delta_lead"] == "crypto"
+    assert crypto_only["crypto_vs_stock_delta_lead_size"] is None
     lean_full = (
         "hot · 100% · vs 0 stock · thin · 0%"
         " · crypto vs stock align · hot|thin"
@@ -859,6 +880,7 @@ def test_window_a_sleeve_mix_crypto_vs_stock() -> None:
     assert stock_only["crypto_vs_stock_lean_vs_delta"] == "align · wide"
     assert stock_only["crypto_vs_stock_lean_vs_delta_warn"] is False
     assert stock_only["crypto_vs_stock_delta_lead"] == "stock"
+    assert stock_only["crypto_vs_stock_delta_lead_size"] is None
     assert stock_only["core_bit"] == "A stock-only · 10"
     assert (
         stock_only["bit"]
@@ -879,11 +901,16 @@ def test_window_a_sleeve_mix_crypto_vs_stock() -> None:
     assert heavy["crypto_vs_stock_lean_vs_delta"] == "align · wide"
     assert heavy["crypto_vs_stock_lean_vs_delta_warn"] is True
     assert heavy["crypto_vs_stock_delta_lead"] == "crypto"
+    assert heavy["crypto_vs_stock_delta_lead_size"] == 4.0
+    assert heavy["crypto_vs_stock_delta_lead_size_louder"] == 80.0
+    assert heavy["crypto_vs_stock_delta_lead_size_quieter"] == 20.0
     assert heavy["core_bit"] == "A crypto-heavy · 8/2"
     assert heavy["bit"] == (
         "A crypto-heavy · 8/2 · hot · 80% · vs 2 stock · thin · 20%"
         " · crypto vs stock align · hot|thin"
         " · Δ wide · +60pp · lean/Δ align · wide · Δ lead · crypto"
+        " · Δ lead size · 4×"
+        " · Δ lead size sides · crypto 80% · stock 20%"
     )
     assert heavy["warn"] is True
     stock_heavy = window_a_sleeve_mix({"crypto_legs": 2, "stock_legs": 8})
@@ -898,11 +925,16 @@ def test_window_a_sleeve_mix_crypto_vs_stock() -> None:
     assert stock_heavy["crypto_vs_stock_lean_vs_delta"] == "align · wide"
     assert stock_heavy["crypto_vs_stock_lean_vs_delta_warn"] is False
     assert stock_heavy["crypto_vs_stock_delta_lead"] == "stock"
+    assert stock_heavy["crypto_vs_stock_delta_lead_size"] == 4.0
+    assert stock_heavy["crypto_vs_stock_delta_lead_size_louder"] == 80.0
+    assert stock_heavy["crypto_vs_stock_delta_lead_size_quieter"] == 20.0
     assert (
         stock_heavy["bit"]
         == "A stock-heavy · 8/2 · quiet · 20% · vs 8 stock · strong · 80%"
         " · crypto vs stock align · quiet|strong"
         " · Δ wide · −60pp · lean/Δ align · wide · Δ lead · stock"
+        " · Δ lead size · 4×"
+        " · Δ lead size sides · stock 80% · crypto 20%"
     )
     assert stock_heavy["warn"] is False
     mid = window_a_sleeve_mix({"crypto_legs": 3, "stock_legs": 7})

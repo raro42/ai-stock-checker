@@ -2541,6 +2541,9 @@ def window_a_sample_readiness(
         "sleeve_crypto_vs_stock_lean_vs_delta": "",
         "sleeve_crypto_vs_stock_lean_vs_delta_warn": False,
         "sleeve_crypto_vs_stock_delta_lead": "",
+        "sleeve_crypto_vs_stock_delta_lead_size": None,
+        "sleeve_crypto_vs_stock_delta_lead_size_louder": None,
+        "sleeve_crypto_vs_stock_delta_lead_size_quieter": None,
         "crypto_closes": None,
         "stock_closes": None,
         "close_sleeve_severity": "",
@@ -3055,6 +3058,15 @@ def window_a_sample_readiness(
     )
     sleeve_crypto_vs_stock_delta_lead = str(
         sleeve.get("crypto_vs_stock_delta_lead") or ""
+    )
+    sleeve_crypto_vs_stock_delta_lead_size = sleeve.get(
+        "crypto_vs_stock_delta_lead_size"
+    )
+    sleeve_crypto_vs_stock_delta_lead_size_louder = sleeve.get(
+        "crypto_vs_stock_delta_lead_size_louder"
+    )
+    sleeve_crypto_vs_stock_delta_lead_size_quieter = sleeve.get(
+        "crypto_vs_stock_delta_lead_size_quieter"
     )
     # Close sleeve (sells only) — fill legs include buys; edge needs closes.
     close_sleeve = window_a_close_sleeve_mix(
@@ -6216,6 +6228,15 @@ def window_a_sample_readiness(
         "sleeve_crypto_vs_stock_delta_lead": (
             sleeve_crypto_vs_stock_delta_lead
         ),
+        "sleeve_crypto_vs_stock_delta_lead_size": (
+            sleeve_crypto_vs_stock_delta_lead_size
+        ),
+        "sleeve_crypto_vs_stock_delta_lead_size_louder": (
+            sleeve_crypto_vs_stock_delta_lead_size_louder
+        ),
+        "sleeve_crypto_vs_stock_delta_lead_size_quieter": (
+            sleeve_crypto_vs_stock_delta_lead_size_quieter
+        ),
         "crypto_closes": crypto_closes,
         "stock_closes": stock_closes,
         "close_sleeve_severity": close_sleeve_severity,
@@ -6948,6 +6969,39 @@ _SLEEVE_SEV_LABEL = {
 }
 
 
+def window_a_sleeve_crypto_vs_stock_delta_lead_size(
+    crypto_share_pct: float | int | None,
+    stock_share_pct: float | int | None,
+    *,
+    delta_lead: str = "",
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after fill sleeve Δ lead.
+
+    When ``delta_lead`` already spoke (``crypto|stock``) and both shares
+    are known, ``Δ lead size · N×`` is louder%÷quieter%; zero quieter
+    (sole-side 100%) stays silent. Desk names sides
+    ``crypto|stock N% · stock|crypto M%`` (louder first). Lead name ≠
+    magnitude (soft-allow short vs gap / Charts / Mode A / Screener Δ
+    lead size + portfolio AI count≠share + xang1234). Returns
+    ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
+    Display only; not a gate.
+    """
+    if str(delta_lead or "").strip().casefold() not in {"crypto", "stock"}:
+        return None, None, None
+    if crypto_share_pct is None or stock_share_pct is None:
+        return None, None, None
+    try:
+        crypto_pct = float(crypto_share_pct)
+        stock_pct = float(stock_share_pct)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(crypto_pct, stock_pct)
+    quieter = min(crypto_pct, stock_pct)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
     """Crypto vs stock fill mix for Window A (display / ops honesty).
 
@@ -6983,8 +7037,14 @@ def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
     When lean vs Δ already spoke with a Δ and ±pp ≠ 0, also speak
     ``Δ lead · crypto|stock`` (soft-allow short vs gap / Screener unique
     vs dup / Yahoo mix Δ lead parity). Signed pp alone hid which sleeve
-    owns the spread. Mid-Δ clash / 0pp stay silent. Δ lead size nest
-    still deferred.
+    owns the spread. Mid-Δ clash / 0pp stay silent.
+
+    When Δ lead already spoke and quieter% > 0, also speak
+    ``Δ lead size · N×`` + named ``Δ lead size sides · crypto|stock N% ·
+    stock|crypto M%`` (soft-allow short vs gap / Charts / Mode A Δ lead
+    size + portfolio AI count≠share + xang1234). Lead name alone hid
+    magnitude; sole-side 100% stays silent on size. Close sleeve Δ lead
+    size still deferred.
 
     Desk shows ``core_bit`` on the primary line and share/sides/lean/Δ/lead
     under a sleeve lean fold (``lean_bit``) — Yahoo mix / soft-allow /
@@ -7011,6 +7071,9 @@ def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
         "crypto_vs_stock_lean_vs_delta": "",
         "crypto_vs_stock_lean_vs_delta_warn": False,
         "crypto_vs_stock_delta_lead": "",
+        "crypto_vs_stock_delta_lead_size": None,
+        "crypto_vs_stock_delta_lead_size_louder": None,
+        "crypto_vs_stock_delta_lead_size_quieter": None,
     }
     if not isinstance(stats, dict):
         return empty
@@ -7105,11 +7168,32 @@ def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
         and abs(float(delta_pp)) >= 1e-9
     ):
         delta_lead = "crypto" if float(delta_pp) > 0 else "stock"
+    delta_size, delta_louder, delta_quieter = (
+        window_a_sleeve_crypto_vs_stock_delta_lead_size(
+            share_pct,
+            stock_share_pct,
+            delta_lead=delta_lead,
+        )
+    )
     delta_tail = ""
     if delta_sev and delta_pp is not None:
         delta_tail = f"Δ {delta_sev} · {_fmt_share_pp_signed(delta_pp)}"
     lvd_tail = f"lean/Δ {lean_vs_delta}" if lean_vs_delta else ""
     lead_tail = f"Δ lead · {delta_lead}" if delta_lead else ""
+    size_tail = ""
+    sides_tail = ""
+    if (
+        delta_size is not None
+        and delta_louder is not None
+        and delta_quieter is not None
+        and delta_lead
+    ):
+        other = "stock" if delta_lead == "crypto" else "crypto"
+        size_tail = f"Δ lead size · {delta_size:g}×"
+        sides_tail = (
+            f"Δ lead size sides · {delta_lead} {delta_louder:g}% · "
+            f"{other} {delta_quieter:g}%"
+        )
     lean_parts = [share_tail, stock_tail]
     if lean_tail:
         lean_parts.append(lean_tail)
@@ -7119,6 +7203,10 @@ def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
         lean_parts.append(lvd_tail)
     if lead_tail:
         lean_parts.append(lead_tail)
+    if size_tail:
+        lean_parts.append(size_tail)
+    if sides_tail:
+        lean_parts.append(sides_tail)
     lean_bit = " · ".join(p for p in lean_parts if p)
     meter = f"{core} · {lean_bit}" if lean_bit else core
     core_bit = f"A {core}"
@@ -7143,6 +7231,9 @@ def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
         "crypto_vs_stock_lean_vs_delta": lean_vs_delta,
         "crypto_vs_stock_lean_vs_delta_warn": lean_vs_delta_warn,
         "crypto_vs_stock_delta_lead": delta_lead,
+        "crypto_vs_stock_delta_lead_size": delta_size,
+        "crypto_vs_stock_delta_lead_size_louder": delta_louder,
+        "crypto_vs_stock_delta_lead_size_quieter": delta_quieter,
     }
 
 
@@ -7783,6 +7874,15 @@ _SLEEVE_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"Δ (?:wide|thin) · [+−\-±]?\d+(?:\.\d+)?pp"), "Δ"),
     (re.compile(r"lean/Δ .+?(?= · Δ lead |$)"), "lean/Δ"),
     (re.compile(r"Δ lead · (?:crypto|stock)"), "Δ lead"),
+    # Fill Δ lead size (after Δ lead; lead name ≠ magnitude).
+    (re.compile(r"Δ lead size · \d+(?:\.\d+)?×"), "Δ size"),
+    (
+        re.compile(
+            r"Δ lead size sides · (?:crypto|stock) \d+(?:\.\d+)?%"
+            r" · (?:crypto|stock) \d+(?:\.\d+)?%"
+        ),
+        "Δ sides",
+    ),
 )
 
 
