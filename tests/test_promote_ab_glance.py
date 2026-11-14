@@ -637,10 +637,12 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         " · closes lean moods align · both clash"
     )
     # 80/20 closes → Δ lead size 4× (lead name ≠ magnitude).
+    # Matching fill size 4× → size moods align · both 4× (dual fat warns).
     heavy = window_a_close_sleeve_mix(
         {"crypto_closes": 4, "stock_closes": 1},
         fill_severity="crypto_heavy",
         fill_delta_lead="crypto",
+        fill_delta_lead_size=4.0,
         fill_lean_vs_delta="align · wide",
         fill_crypto_vs_stock="align · hot|thin",
     )
@@ -652,16 +654,47 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert "closes Δ lead size sides · crypto 80% · stock 20%" in (
         heavy["lean_bit"]
     )
+    assert heavy["delta_lead_size_moods_bit"] == (
+        "closes Δ size moods align · both 4×"
+    )
+    assert heavy["delta_lead_size_moods_warn"] is True
     assert heavy["lean_bit"].index("closes Δ lead · crypto") < heavy[
         "lean_bit"
     ].index("closes Δ lead size · 4×")
     assert heavy["lean_bit"].index("closes Δ lead size · 4×") < heavy[
         "lean_bit"
     ].index("closes Δ lead agree")
+    assert heavy["lean_bit"].index("closes Δ lead agree") < heavy[
+        "lean_bit"
+    ].index("closes Δ size moods align · both 4×")
+    # Crossed fill 3× vs close 4× → size moods clash (warns).
+    size_clash = window_a_close_sleeve_mix(
+        {"crypto_closes": 4, "stock_closes": 1},
+        fill_severity="crypto_heavy",
+        fill_delta_lead="crypto",
+        fill_delta_lead_size=3.0,
+        fill_lean_vs_delta="align · wide",
+        fill_crypto_vs_stock="align · hot|thin",
+    )
+    assert size_clash["delta_lead_size_moods_bit"] == (
+        "closes Δ size moods clash · fills 3× · closes 4×"
+    )
+    assert size_clash["delta_lead_size_moods_warn"] is True
+    # Missing fill size → size moods silent.
+    no_fill_size = window_a_close_sleeve_mix(
+        {"crypto_closes": 4, "stock_closes": 1},
+        fill_severity="crypto_heavy",
+        fill_delta_lead="crypto",
+        fill_lean_vs_delta="align · wide",
+        fill_crypto_vs_stock="align · hot|thin",
+    )
+    assert no_fill_size["delta_lead_size_moods_bit"] == ""
+    assert no_fill_size["delta_lead_size_moods_warn"] is False
     stock_heavy = window_a_close_sleeve_mix(
         {"crypto_closes": 1, "stock_closes": 4},
         fill_severity="stock_heavy",
         fill_delta_lead="stock",
+        fill_delta_lead_size=4.0,
         fill_lean_vs_delta="align · wide",
         fill_crypto_vs_stock="align · quiet|strong",
     )
@@ -669,6 +702,9 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert stock_heavy["crypto_vs_stock_delta_lead_size"] == 4.0
     assert "closes Δ lead size sides · stock 80% · crypto 20%" in (
         stock_heavy["lean_bit"]
+    )
+    assert stock_heavy["delta_lead_size_moods_bit"] == (
+        "closes Δ size moods align · both 4×"
     )
     sample = window_a_sample_readiness(
         {
@@ -718,6 +754,9 @@ def test_window_a_close_sleeve_vs_fills() -> None:
         sample["sleeve_lean_bit"]
     )
     assert "closes Δ lead size" not in sample["close_sleeve_lean_bit"]
+    # Close size silent → size moods silent even when fill size spoke.
+    assert sample["close_sleeve_delta_lead_size_moods_bit"] == ""
+    assert sample["close_sleeve_delta_lead_size_moods_warn"] is False
     assert sample["close_sleeve_delta_lead_vs_fills_bit"] == (
         "closes Δ lead clash · fills crypto · closes stock"
     )
@@ -805,6 +844,39 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     assert format_window_a_close_sleeve_vs_fills_bit(sample) == (
         "closes clash · fills crypto-heavy"
     )
+    # Matching fill+close 80/20 → size moods align · both 4× (dual fat).
+    both_sizes = window_a_sample_readiness(
+        {
+            "trades": 10,
+            "buys": 5,
+            "sells": 5,
+            "crypto_legs": 8,
+            "stock_legs": 2,
+            "crypto_closes": 4,
+            "stock_closes": 1,
+            "wins": 3,
+            "losses": 2,
+            "avg_win": 20.0,
+            "avg_loss": 10.0,
+            "last_sell": "2026-09-08 12:00:00",
+        }
+    )
+    assert both_sizes["sleeve_crypto_vs_stock_delta_lead_size"] == 4.0
+    assert both_sizes["close_sleeve_crypto_vs_stock_delta_lead_size"] == 4.0
+    assert both_sizes["close_sleeve_delta_lead_size_moods_bit"] == (
+        "closes Δ size moods align · both 4×"
+    )
+    assert both_sizes["close_sleeve_delta_lead_size_moods_warn"] is True
+    assert "closes Δ size moods align · both 4×" in (
+        both_sizes["close_sleeve_lean_bit"]
+    )
+    # Cap-4 chip keeps closes·closes%·sides·lean; size moods live in lean_bit
+    # (+N overflow) — still warn-open so the fold is inspected.
+    assert both_sizes["close_sleeve_warn"] is True
+    meta = window_a_sleeve_lean_meta(
+        both_sizes["close_sleeve_lean_bit"], warn=True
+    )
+    assert "+" in meta
     g = build_promote_ab_glance(
         {"promote_experiment_strategy": False},
         as_of=date(2026, 9, 9),

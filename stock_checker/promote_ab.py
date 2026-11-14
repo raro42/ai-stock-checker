@@ -2567,6 +2567,8 @@ def window_a_sample_readiness(
         "close_sleeve_crypto_vs_stock_delta_lead_size_quieter": None,
         "close_sleeve_delta_lead_vs_fills_bit": "",
         "close_sleeve_delta_lead_vs_fills_warn": False,
+        "close_sleeve_delta_lead_size_moods_bit": "",
+        "close_sleeve_delta_lead_size_moods_warn": False,
         "close_sleeve_delta_moods_bit": "",
         "close_sleeve_delta_moods_warn": False,
         "close_sleeve_lean_moods_bit": "",
@@ -3076,6 +3078,7 @@ def window_a_sample_readiness(
         stats,
         fill_severity=sleeve_severity,
         fill_delta_lead=sleeve_crypto_vs_stock_delta_lead,
+        fill_delta_lead_size=sleeve_crypto_vs_stock_delta_lead_size,
         fill_lean_vs_delta=sleeve_crypto_vs_stock_lean_vs_delta,
         fill_crypto_vs_stock=sleeve_crypto_vs_stock,
     )
@@ -3129,6 +3132,12 @@ def window_a_sample_readiness(
     )
     close_sleeve_delta_lead_vs_fills_warn = bool(
         close_sleeve.get("delta_lead_vs_fills_warn")
+    )
+    close_sleeve_delta_lead_size_moods_bit = str(
+        close_sleeve.get("delta_lead_size_moods_bit") or ""
+    )
+    close_sleeve_delta_lead_size_moods_warn = bool(
+        close_sleeve.get("delta_lead_size_moods_warn")
     )
     close_sleeve_delta_moods_bit = str(
         close_sleeve.get("delta_moods_bit") or ""
@@ -6298,6 +6307,12 @@ def window_a_sample_readiness(
         "close_sleeve_delta_lead_vs_fills_warn": (
             close_sleeve_delta_lead_vs_fills_warn
         ),
+        "close_sleeve_delta_lead_size_moods_bit": (
+            close_sleeve_delta_lead_size_moods_bit
+        ),
+        "close_sleeve_delta_lead_size_moods_warn": (
+            close_sleeve_delta_lead_size_moods_warn
+        ),
         "close_sleeve_delta_moods_bit": close_sleeve_delta_moods_bit,
         "close_sleeve_delta_moods_warn": close_sleeve_delta_moods_warn,
         "close_sleeve_lean_moods_bit": close_sleeve_lean_moods_bit,
@@ -7295,6 +7310,7 @@ def window_a_close_sleeve_mix(
     *,
     fill_severity: str = "",
     fill_delta_lead: str = "",
+    fill_delta_lead_size: float | int | None = None,
     fill_lean_vs_delta: str = "",
     fill_crypto_vs_stock: str = "",
 ) -> dict[str, Any]:
@@ -7352,6 +7368,15 @@ def window_a_close_sleeve_mix(
     AI speak-both-sides + xang1234 fill≠close meters). Clash warns only.
     Missing / mid-Δ fill lead stays silent.
 
+    When both fill and close Δ lead sizes already spoke, also speak
+    ``closes Δ size moods align · both N×`` /
+    ``closes Δ size moods clash · fills N× · closes M×`` (soft-allow short
+    Δ lead size moods + portfolio AI count≠share + xang1234). Side-by-side
+    magnitudes + Δ lead polarity alone hid 3× vs 2× while leads still
+    match. Dual fat (≥2×) + clash warn; equal thin calm. Missing either
+    size silent. Prefixed ``closes Δ size moods`` so ``closes Δ size`` +
+    ``closes Δ moods`` stay distinct.
+
     When both fill and close lean/Δ already spoke with align severities,
     also speak ``closes Δ moods align · both wide|thin`` /
     ``closes Δ moods clash · fills wide · closes thin`` (soft-allow short
@@ -7404,10 +7429,10 @@ def window_a_close_sleeve_mix(
     moods + bare Δ moods stay distinct.
 
     Warn on crypto-only|heavy closes, fill≠close clash, lean clash,
-    lean/Δ mid|adverse, Δ lead vs fills clash, Δ moods dual-wide|clash,
-    lean moods both-clash|crossed, lean vs Δ moods both-clash|crossed,
-    lean vs Δ lead moods both-clash|crossed, or Δ vs Δ lead moods
-    both-clash|crossed. Not a gate.
+    lean/Δ mid|adverse, Δ lead vs fills clash, Δ size moods dual-fat|clash,
+    Δ moods dual-wide|clash, lean moods both-clash|crossed, lean vs Δ moods
+    both-clash|crossed, lean vs Δ lead moods both-clash|crossed, or Δ vs Δ
+    lead moods both-clash|crossed. Not a gate.
     """
     empty: dict[str, Any] = {
         "crypto_closes": None,
@@ -7434,6 +7459,8 @@ def window_a_close_sleeve_mix(
         "crypto_vs_stock_delta_lead_size_quieter": None,
         "delta_lead_vs_fills_bit": "",
         "delta_lead_vs_fills_warn": False,
+        "delta_lead_size_moods_bit": "",
+        "delta_lead_size_moods_warn": False,
         "delta_moods_bit": "",
         "delta_moods_warn": False,
         "lean_moods_bit": "",
@@ -7603,7 +7630,32 @@ def window_a_close_sleeve_mix(
                 f" · closes {delta_lead}"
             )
             lead_vs_fills_warn = True
-    # Ownership-spread mood vs fills (after Δ lead vs fills) — lean/Δ
+    # Fill vs close Δ lead size moods (after lead vs fills) — matching
+    # lead polarity alone hid 3× vs 2× (soft-allow short Δ lead size moods).
+    delta_lead_size_moods = ""
+    delta_lead_size_moods_warn = False
+    if delta_size is not None and fill_delta_lead_size is not None:
+        try:
+            close_sz = float(delta_size)
+            fill_sz = float(fill_delta_lead_size)
+        except (TypeError, ValueError):
+            close_sz = fill_sz = float("nan")
+        if close_sz == close_sz and fill_sz == fill_sz:  # not NaN
+            close_s = f"{close_sz:g}"
+            fill_s = f"{fill_sz:g}"
+            if abs(close_sz - fill_sz) < 1e-9:
+                delta_lead_size_moods = (
+                    f"closes Δ size moods align · both {close_s}×"
+                )
+                # Dual fat agreement ≠ calm confirm (short Δ size moods).
+                delta_lead_size_moods_warn = close_sz >= 2.0
+            else:
+                delta_lead_size_moods = (
+                    f"closes Δ size moods clash · fills {fill_s}×"
+                    f" · closes {close_s}×"
+                )
+                delta_lead_size_moods_warn = True
+    # Ownership-spread mood vs fills (after Δ lead size moods) — lean/Δ
     # labels + lead agree alone hid wide|thin mismatch (soft-allow short
     # Δ moods parity).
     delta_moods = ""
@@ -7702,8 +7754,9 @@ def window_a_close_sleeve_mix(
             delta_vs_delta_lead_moods_warn = True
     # Clash/agree before share·sides·lean·Δ·lead·size so the 96-char clip
     # keeps fill≠close. Size after close Δ lead; Δ lead vs fills after
-    # size; Δ moods after lead vs fills; lean moods after Δ moods; lean
-    # vs Δ moods then lean vs Δ lead moods then Δ vs Δ lead moods last.
+    # size; Δ size moods after lead vs fills; Δ moods after size moods;
+    # lean moods after Δ moods; lean vs Δ moods then lean vs Δ lead moods
+    # then Δ vs Δ lead moods last.
     lean_parts = [
         p
         for p in (
@@ -7717,6 +7770,7 @@ def window_a_close_sleeve_mix(
             size_tail,
             sides_tail,
             lead_vs_fills,
+            delta_lead_size_moods,
             delta_moods,
             lean_moods,
             lean_vs_delta_moods,
@@ -7754,6 +7808,8 @@ def window_a_close_sleeve_mix(
         "crypto_vs_stock_delta_lead_size_quieter": delta_quieter,
         "delta_lead_vs_fills_bit": lead_vs_fills,
         "delta_lead_vs_fills_warn": lead_vs_fills_warn,
+        "delta_lead_size_moods_bit": delta_lead_size_moods,
+        "delta_lead_size_moods_warn": delta_lead_size_moods_warn,
         "delta_moods_bit": delta_moods,
         "delta_moods_warn": delta_moods_warn,
         "lean_moods_bit": lean_moods,
@@ -7771,6 +7827,7 @@ def window_a_close_sleeve_mix(
             or crypto_vs_stock_warn
             or lean_vs_delta_warn
             or lead_vs_fills_warn
+            or delta_lead_size_moods_warn
             or delta_moods_warn
             or lean_moods_warn
             or lean_vs_delta_moods_warn
@@ -7793,6 +7850,9 @@ def format_window_a_close_sleeve_core_bit(sample: dict[str, Any] | None) -> str:
             fill_severity=str(sample.get("sleeve_severity") or ""),
             fill_delta_lead=str(
                 sample.get("sleeve_crypto_vs_stock_delta_lead") or ""
+            ),
+            fill_delta_lead_size=sample.get(
+                "sleeve_crypto_vs_stock_delta_lead_size"
             ),
             fill_lean_vs_delta=str(
                 sample.get("sleeve_crypto_vs_stock_lean_vs_delta") or ""
@@ -7820,6 +7880,9 @@ def format_window_a_close_sleeve_vs_fills_bit(
             fill_severity=str(sample.get("sleeve_severity") or ""),
             fill_delta_lead=str(
                 sample.get("sleeve_crypto_vs_stock_delta_lead") or ""
+            ),
+            fill_delta_lead_size=sample.get(
+                "sleeve_crypto_vs_stock_delta_lead_size"
             ),
             fill_lean_vs_delta=str(
                 sample.get("sleeve_crypto_vs_stock_lean_vs_delta") or ""
@@ -7893,7 +7956,17 @@ _SLEEVE_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "closes Δ lead vs",
     ),
-    # Close Δ moods vs fill lean/Δ (after lead vs fills; lead agree ≠ mood).
+    # Fill vs close Δ lead size moods (after lead vs fills; longer than
+    # ``closes Δ size`` / ``closes Δ moods`` so magnitude mood ≠ bare size
+    # or lean/Δ severity mood).
+    (
+        re.compile(
+            r"closes Δ size moods (?:align · both \d+(?:\.\d+)?×|"
+            r"clash · fills \d+(?:\.\d+)?× · closes \d+(?:\.\d+)?×)"
+        ),
+        "closes Δ size moods",
+    ),
+    # Close Δ moods vs fill lean/Δ (after size moods; lead agree ≠ mood).
     (
         re.compile(
             r"closes Δ moods (?:align · both (?:wide|thin)|"
