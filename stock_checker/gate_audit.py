@@ -195,6 +195,40 @@ def soft_allow_short_history_vs_other_lean(
     return "", False
 
 
+def soft_allow_short_history_last_vs_other(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last short freshness vs short/other lean (display only).
+
+    Returns ``(bit, warn)``. Cursor age ≠ ring-peer lean. Extremes only:
+    ``fresh``↔ lean ``align`` and ``expired``↔ lean ``clash`` speak
+    ``align``; crossed pairs speak ``clash`` (warn). ``aging`` / silent
+    lean stay silent — gap last/lean + short last/lean + last/bench
+    parity after short vs other lean + last freshness alone hid
+    age≠ring-peers (FinRobot last-row age + portfolio AI
+    speak-both-sides; xang1234 #668). Share Δ / Δ lead still deferred.
+    Not a gate.
+    """
+    last_fresh = soft_allow_short_history_last_freshness(events, now=now)
+    lean, _lean_warn = soft_allow_short_history_vs_other_lean(events)
+    if last_fresh not in {"fresh", "expired"} or not lean:
+        return "", False
+    if lean.startswith("align · "):
+        lean_align = True
+        lean_tail = lean[len("align · ") :]
+    elif lean.startswith("clash · "):
+        lean_align = False
+        lean_tail = lean[len("clash · ") :]
+    else:
+        return "", False
+    live_age = last_fresh == "fresh"
+    if live_age == lean_align:
+        return f"align · {last_fresh} · {lean_tail}", False
+    return f"clash · {last_fresh} · {lean_tail}", True
+
+
 def _short_history_symbol(reason: str) -> str:
     """First token of a short-history reason (asset / bench label)."""
     text = str(reason or "").strip()
@@ -2379,6 +2413,13 @@ def format_soft_allow_short_history_bit(
         other_lean, _ = soft_allow_short_history_vs_other_lean(events)
         if other_lean:
             head = f"{head} · short vs other {other_lean}"
+            # Age + ring-peer lean alone hid age≠peers (last/lean +
+            # last/bench parity after short vs other).
+            last_vs_other, _ = soft_allow_short_history_last_vs_other(
+                events, now=now
+            )
+            if last_vs_other:
+                head = f"{head} · short last/other {last_vs_other}"
     vs_gap = soft_allow_short_vs_gap(events)
     if vs_gap is not None:
         head = f"{head} · {vs_gap[0]}"

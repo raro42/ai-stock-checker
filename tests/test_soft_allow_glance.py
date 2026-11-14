@@ -925,10 +925,14 @@ def test_soft_allow_glance_short_history_count() -> None:
     assert g["short_history_other_share_severity"] == "thin"
     assert g["short_history_vs_other"] == "align · hot|thin"
     assert g["short_history_vs_other_warn"] is False
+    # Fresh + short/other align → last/other align (last/lean + last/bench).
+    assert g["short_history_last_vs_other"] == "align · fresh · hot|thin"
+    assert g["short_history_last_vs_other_warn"] is False
     assert g["short_history_bit"] == (
         "2 short · last IPO · fresh · tied · hot · 66.7% · "
         "short last/ring align · fresh · hot · "
         "vs 1 other · thin · 33.3% · short vs other align · hot|thin · "
+        "short last/other align · fresh · hot|thin · "
         "vs gap · thin · 1 · 33% · "
         "short last/share align · fresh · hot · "
         "short share/ring align · both align · "
@@ -946,6 +950,7 @@ def test_soft_allow_glance_short_history_count() -> None:
     assert "short Δ wide · +34pp" in g["line"]
     assert "short lean/Δ align · wide · short Δ lead · short" in g["line"]
     assert "short Δ lead · short" in g["line"]
+    assert "short last/other align · fresh · hot|thin" in g["line"]
     assert "short last/lean align · fresh · hot|thin" in g["line"]
     assert "short share/lean align · both align" in g["line"]
     assert "short ring/lean align · both align" in g["line"]
@@ -963,6 +968,7 @@ def test_soft_allow_glance_short_history_count() -> None:
     # short last/share + short/gap already fill it.
     assert "2 short · last IPO · fresh" in g["soft_lean"]
     assert "tied" in g["soft_lean"]
+    assert "short last/other align · fresh · hot|thin" in g["soft_lean"]
     assert "vs gap · thin · 1 · 33%" in g["soft_lean"]
     assert "short last/share align · fresh · hot" in g["soft_lean"]
     assert "short share/ring align · both align" in g["soft_lean"]
@@ -975,6 +981,9 @@ def test_soft_allow_glance_short_history_count() -> None:
     assert "1 gap" in g["soft_lean"]
     assert "short IPO fresh" in g["soft_lean_meta"]
     assert "tied" in g["soft_lean_meta"]
+    assert soft_allow_lean_meta(
+        "short last/other align · fresh · hot|thin"
+    ) == ("quiet · 1 fold · short last/other align fresh hot|thin")
     assert soft_allow_lean_meta("2 short") == "quiet · 1 fold · short"
     assert soft_allow_lean_meta("2 short · last IPO") == (
         "quiet · 1 fold · short IPO"
@@ -1219,6 +1228,7 @@ def test_soft_allow_glance_short_history_bench_count() -> None:
         "short last/ring align · fresh · hot · "
         "short ring/bench clash · ring align · bench clash · "
         "vs 1 other · thin · 33.3% · short vs other align · hot|thin · "
+        "short last/other align · fresh · hot|thin · "
         "vs gap · thin · "
         "1 · 33% · short last/share align · fresh · hot · "
         "short share/bench clash · share align · bench clash · "
@@ -1917,10 +1927,15 @@ def test_soft_allow_glance_short_history_last_freshness_expired() -> None:
     assert g["short_history_other_share_severity"] == "thin"
     assert g["short_history_vs_other"] == "align · hot|thin"
     assert g["short_history_vs_other_warn"] is False
+    assert g["short_history_last_vs_other"] == (
+        "clash · expired · hot|thin"
+    )
+    assert g["short_history_last_vs_other_warn"] is True
     assert g["short_history_bit"] == (
         "1 short · last IPO · expired · n=1 · hot · 100% · "
         "short last/ring clash · expired · hot · "
-        "vs 0 other · thin · 0% · short vs other align · hot|thin"
+        "vs 0 other · thin · 0% · short vs other align · hot|thin · "
+        "short last/other clash · expired · hot|thin"
     )
     assert "last IPO · expired" in g["line"]
     assert "hot · 100%" in g["line"]
@@ -2080,6 +2095,7 @@ def test_soft_allow_glance_short_history_symbol_lead() -> None:
         "short last/ring align · fresh · hot · "
         "short lead/ring clash · lead clash · ring align · "
         "vs 1 other · thin · 25% · short vs other align · hot|thin · "
+        "short last/other align · fresh · hot|thin · "
         "vs gap · thin · 1 · 25% · short last/share align · fresh · hot · "
         "short lead/share clash · lead clash · share align · "
         "short share/ring align · both align · "
