@@ -3974,6 +3974,20 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short lead/other",
     ),
+    # Short last/share vs last/other meta (share/lean + lead/other
+    # parity after last/other). Distinct ``short share/other`` so pair
+    # ``short share/lean`` / ``short share/ring`` are not treated as
+    # ring peers. Verb + both/crossed ride so ``align · both clash``
+    # is not a silent confirm.
+    (
+        re.compile(
+            r"^short share/other (align|clash)"
+            r"(?: · (both (?:align|clash))"
+            r"| · (share (?:align|clash))"
+            r" · (other (?:align|clash)))?"
+        ),
+        "short share/other",
+    ),
     # Bench vs young lean when inventory starts mid-cascade (junk vs ok /
     # gap vs other lean parity + #679). Sides alone hid whether
     # primary-bench heat and young/short remainder agree.
@@ -4858,6 +4872,7 @@ def build_soft_allow_glance(
         soft_allow_short_history_vs_other_lean,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
+        soft_allow_short_history_last_share_vs_other,
         soft_allow_short_history_last_freshness,
         soft_allow_short_history_last_symbol,
         soft_allow_short_history_symbol_lead,
@@ -4991,6 +5006,8 @@ def build_soft_allow_glance(
         "short_history_last_vs_other_warn": False,
         "short_history_last_lead_vs_other": "",
         "short_history_last_lead_vs_other_warn": False,
+        "short_history_last_share_vs_other": "",
+        "short_history_last_share_vs_other_warn": False,
         "short_history_last": "",
         "short_history_last_freshness": "",
         "short_history_symbol_lead": "",
@@ -5355,7 +5372,8 @@ def build_soft_allow_glance(
     # when last freshness extremes + vs-other lean already spoke,
     # ``short last/other`` follows (last/lean + last/bench parity);
     # when last/lead + last/other already spoke, ``short lead/other``
-    # follows (lead/bench parity).
+    # follows (lead/bench parity); when last/share + last/other already
+    # spoke, ``short share/other`` follows (share/lean parity).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
     )
@@ -5375,6 +5393,10 @@ def build_soft_allow_glance(
         short_history_last_lead_vs_other,
         short_history_last_lead_vs_other_warn,
     ) = soft_allow_short_history_last_lead_vs_other(rows, now=now)
+    (
+        short_history_last_share_vs_other,
+        short_history_last_share_vs_other_warn,
+    ) = soft_allow_short_history_last_share_vs_other(rows, now=now)
     (
         short_history_bench_n,
         short_history_bench_share_pct,
@@ -6171,6 +6193,7 @@ def build_soft_allow_glance(
         or short_history_vs_other_warn
         or short_history_last_vs_other_warn
         or short_history_last_lead_vs_other_warn
+        or short_history_last_share_vs_other_warn
         or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
         or short_history_vs_scan_clash_warn
@@ -6406,6 +6429,7 @@ def build_soft_allow_glance(
         or short_history_vs_other_warn
         or short_history_last_vs_other_warn
         or short_history_last_lead_vs_other_warn
+        or short_history_last_share_vs_other_warn
         or short_history_other_share_severity == "thin"
         or short_history_last_freshness == "expired"
     )
@@ -6539,6 +6563,10 @@ def build_soft_allow_glance(
         "short_history_last_lead_vs_other": short_history_last_lead_vs_other,
         "short_history_last_lead_vs_other_warn": (
             short_history_last_lead_vs_other_warn
+        ),
+        "short_history_last_share_vs_other": short_history_last_share_vs_other,
+        "short_history_last_share_vs_other_warn": (
+            short_history_last_share_vs_other_warn
         ),
         "short_history_last": short_history_last,
         "short_history_last_freshness": short_history_last_freshness,

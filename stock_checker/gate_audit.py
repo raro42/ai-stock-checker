@@ -270,6 +270,45 @@ def soft_allow_short_history_last_lead_vs_other(
     return f"clash · lead {lead_verb} · other {other_verb}", True
 
 
+def soft_allow_short_history_last_share_vs_other(
+    events: list[dict[str, Any]] | None,
+    *,
+    now: datetime | None = None,
+) -> tuple[str, bool]:
+    """Last/share vs last/other relationship agreement (display only).
+
+    Returns ``(bit, warn)``. Age↔short÷(short+gap) ≠ age↔ring-peer lean.
+    When both already spoke: same verb speaks
+    ``align · both align|clash`` — ``both align`` stays calm; ``both
+    clash`` warns (dual-clash agreement ≠ quiet confirm). Crossed verbs
+    speak ``clash · share align|clash · other align|clash`` (warn).
+    Missing either stays silent — share/lean + lead/other parity after
+    last/share + last/other alone hid whether pair ownership heat and
+    ring-peer lean agree *and* whether dual-clash agreement is adverse.
+    Closes lead↔share↔other with lead/share + lead/other. Share Δ / Δ
+    lead still deferred. Not a gate.
+    """
+    share_bit, _ = soft_allow_short_history_last_vs_share(events, now=now)
+    other_bit, _ = soft_allow_short_history_last_vs_other(events, now=now)
+    if not share_bit or not other_bit:
+        return "", False
+
+    def _verb(bit: str) -> str | None:
+        if bit.startswith("align · "):
+            return "align"
+        if bit.startswith("clash · "):
+            return "clash"
+        return None
+
+    share_verb = _verb(share_bit)
+    other_verb = _verb(other_bit)
+    if share_verb is None or other_verb is None:
+        return "", False
+    if share_verb == other_verb:
+        return f"align · both {share_verb}", share_verb == "clash"
+    return f"clash · share {share_verb} · other {other_verb}", True
+
+
 def _short_history_symbol(reason: str) -> str:
     """First token of a short-history reason (asset / bench label)."""
     text = str(reason or "").strip()
@@ -2495,6 +2534,14 @@ def format_soft_allow_short_history_bit(
             )
             if share_vs_ring:
                 head = f"{head} · short share/ring {share_vs_ring}"
+            # last/share + last/other alone hid pair ownership heat ≠
+            # age↔ring-peers (share/lean + lead/other parity after
+            # last/other).
+            share_vs_other, _ = soft_allow_short_history_last_share_vs_other(
+                events, now=now
+            )
+            if share_vs_other:
+                head = f"{head} · short share/other {share_vs_other}"
         lean, _ = soft_allow_short_vs_gap_lean(events)
         if lean:
             head = f"{head} · short vs gap {lean}"
