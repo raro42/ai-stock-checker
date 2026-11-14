@@ -526,6 +526,65 @@ def _leaderboard_unusable_noun(n_absent: int, n_damaged: int) -> str:
     return f"{absent} missing · {damaged} damaged"
 
 
+def leaderboard_absent_vs_damaged_lead(
+    n_absent: int,
+    n_damaged: int,
+) -> tuple[str, str, int | None]:
+    """Strict lead among empty-shell vs corrupt unusable books (display only).
+
+    Absolute ``N missing · M damaged`` hid which unusable kind owns the race
+    board (postmortem skip-reason lead + portfolio AI count≠share + xang1234).
+    Both sides must be >0 and total ≥2; strict lead → ``lead absent|damaged ·
+    N%``; ties / sole-side → silent (use
+    ``leaderboard_absent_vs_damaged_sample_gap``). Uses ``absent`` (not
+    ``missing``) so the bit stays distinct from ``lead missing|ready``.
+    Not a new entry gate.
+    """
+    try:
+        absent = max(0, int(n_absent))
+    except (TypeError, ValueError):
+        absent = 0
+    try:
+        damaged = max(0, int(n_damaged))
+    except (TypeError, ValueError):
+        damaged = 0
+    total = absent + damaged
+    if total < 2 or absent <= 0 or damaged <= 0 or absent == damaged:
+        return "", "", None
+    if absent > damaged:
+        name, n = "absent", absent
+    else:
+        name, n = "damaged", damaged
+    share = int(round(100.0 * n / total))
+    return f"lead {name} · {share}%", name, share
+
+
+def leaderboard_absent_vs_damaged_sample_gap(
+    n_absent: int,
+    n_damaged: int,
+) -> str:
+    """Speak ``absent/damaged tied`` when both unusable kinds spoke with no lead.
+
+    Lead / sole-side / zero stay silent. Display only.
+    """
+    try:
+        absent = max(0, int(n_absent))
+    except (TypeError, ValueError):
+        absent = 0
+    try:
+        damaged = max(0, int(n_damaged))
+    except (TypeError, ValueError):
+        damaged = 0
+    if absent <= 0 or damaged <= 0:
+        return ""
+    lead_bit, _name, _share = leaderboard_absent_vs_damaged_lead(
+        absent, damaged
+    )
+    if lead_bit:
+        return ""
+    return "absent/damaged tied"
+
+
 def leaderboard_missing_share(
     rows: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -538,7 +597,11 @@ def leaderboard_missing_share(
     ``n_missing`` stays total unusable (absent + damaged) for ready/share
     math. When any damaged named book exists, primary ``bit`` speaks the
     absent/damaged mix (``N damaged`` alone, or ``N missing · M damaged``)
-    so a corrupt ledger is not mistaken for an empty shell.
+    so a corrupt ledger is not mistaken for an empty shell. When both
+    absent + damaged counts are >0, lean also speaks mix ownership
+    ``lead absent|damaged · N%`` or ``absent/damaged tied`` (sole-side
+    silent; ``absent`` ≠ race-board ``lead missing|ready``) so absolute
+    mix alone does not hide which unusable kind owns the board.
 
     When missing already spoke, also fill ``lean`` with remaining ready books
     ``vs N ready · [strong|thin] · P%`` (strong ≥75% · thin <50%; all-missing
@@ -573,6 +636,10 @@ def leaderboard_missing_share(
         "missing_share_severity": "",
         "ready_share_pct": None,
         "ready_share_severity": "",
+        "absent_vs_damaged_lead": "",
+        "absent_vs_damaged_lead_name": "",
+        "absent_vs_damaged_lead_pct": None,
+        "absent_vs_damaged_sample_gap": "",
         "vs_ready_lead": "",
         "vs_ready_lead_name": "",
         "vs_ready_lead_pct": None,
@@ -635,6 +702,19 @@ def leaderboard_missing_share(
     ready_pct = round(100.0 * n_ready / n_named, 1)
     out["ready_share_pct"] = ready_pct
     lean_parts: list[str] = []
+    meta_parts: list[str] = []
+    mix_lead, mix_name, mix_pct = leaderboard_absent_vs_damaged_lead(
+        n_absent, n_damaged
+    )
+    mix_gap = leaderboard_absent_vs_damaged_sample_gap(n_absent, n_damaged)
+    out["absent_vs_damaged_lead"] = mix_lead
+    out["absent_vs_damaged_lead_name"] = mix_name
+    out["absent_vs_damaged_lead_pct"] = mix_pct
+    out["absent_vs_damaged_sample_gap"] = mix_gap
+    mix_own = mix_lead or mix_gap
+    if mix_own:
+        lean_parts.append(mix_own)
+        meta_parts.append("absent/damaged")
     if ready_pct >= READY_SHARE_STRONG:
         out["ready_share_severity"] = "strong"
         lean_parts.append(f"vs {n_ready} ready · strong · {ready_pct:g}%")
@@ -655,7 +735,7 @@ def leaderboard_missing_share(
     out["vs_ready_lead_pct"] = lead_pct
     out["vs_ready_sample_gap"] = sample_gap
     own = lead_bit or sample_gap
-    meta_parts = ["vs ready"]
+    meta_parts.append("vs ready")
     if own:
         lean_parts.append(own)
         meta_parts.append("ownership")

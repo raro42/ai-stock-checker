@@ -17,6 +17,8 @@ from stock_checker.paper_accounts import (
     account_switcher_options,
     build_leaderboard,
     ensure_account_ledger,
+    leaderboard_absent_vs_damaged_lead,
+    leaderboard_absent_vs_damaged_sample_gap,
     leaderboard_missing_share,
     leaderboard_missing_vs_ready_delta,
     leaderboard_missing_vs_ready_delta_lead,
@@ -142,6 +144,56 @@ def test_leaderboard_missing_damaged_mix_bit(tmp_path: Path) -> None:
     assert share["n_ready"] == 1
     assert share["bit"] == "1 missing · 1 damaged · hot · 66.7%"
     assert share["warn"] is True
+    # Mix ownership: 1+1 → tied (distinct from race-board missing/ready).
+    assert share["absent_vs_damaged_sample_gap"] == "absent/damaged tied"
+    assert share["absent_vs_damaged_lead"] == ""
+    assert share["lean"].startswith("absent/damaged tied ·")
+    assert "absent/damaged" in share["lean_meta"]
+
+
+def test_leaderboard_absent_vs_damaged_lead() -> None:
+    """Mix ownership lead uses absent|damaged (not missing|ready)."""
+    assert leaderboard_absent_vs_damaged_lead(2, 0) == ("", "", None)
+    assert leaderboard_absent_vs_damaged_lead(0, 2) == ("", "", None)
+    assert leaderboard_absent_vs_damaged_lead(1, 1) == ("", "", None)
+    assert leaderboard_absent_vs_damaged_sample_gap(1, 1) == "absent/damaged tied"
+    assert leaderboard_absent_vs_damaged_sample_gap(2, 0) == ""
+    assert leaderboard_absent_vs_damaged_lead(2, 1) == (
+        "lead absent · 67%",
+        "absent",
+        67,
+    )
+    assert leaderboard_absent_vs_damaged_lead(1, 2) == (
+        "lead damaged · 67%",
+        "damaged",
+        67,
+    )
+    assert leaderboard_absent_vs_damaged_sample_gap(2, 1) == ""
+
+
+def test_leaderboard_absent_vs_damaged_lead_on_lean(tmp_path: Path) -> None:
+    """Strict mix lead speaks on lean when absent ≠ damaged."""
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
+    anna = ensure_account_ledger(tmp_path, "anna")
+    (anna / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0, "holdings": {}})
+    )
+    ensure_account_ledger(tmp_path, "desk")  # absent
+    ensure_account_ledger(tmp_path, "cara")  # absent
+    ben = ensure_account_ledger(tmp_path, "ben")
+    (ben / "portfolio.json").write_text("{not-json")
+    rows = build_leaderboard(tmp_path)
+    share = leaderboard_missing_share(rows)
+    assert share["n_absent"] == 2
+    assert share["n_damaged"] == 1
+    assert share["bit"] == "2 missing · 1 damaged · hot · 75%"
+    assert share["absent_vs_damaged_lead"] == "lead absent · 67%"
+    assert share["absent_vs_damaged_lead_name"] == "absent"
+    assert share["lean"].startswith("lead absent · 67% ·")
+    # Race-board ownership stays distinct (missing vs ready, not absent).
+    assert "lead missing ·" in share["lean"]
 
 
 def test_max_accounts(tmp_path: Path) -> None:
