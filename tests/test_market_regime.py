@@ -4,6 +4,10 @@ from stock_checker.market_regime import (
     REGIME_OFF,
     REGIME_ON,
     REGIME_UNKNOWN,
+    STOCK_BENCHMARK,
+    STOCK_BENCHMARK_IDENTITY,
+    STOCK_BENCHMARK_KIND,
+    STOCK_BENCHMARK_NOT,
     classify_close_vs_sma,
     closes_from_binance_klines,
     closes_from_yfinance_hist,
@@ -11,6 +15,7 @@ from stock_checker.market_regime import (
     regime_analogue_label,
     simple_sma,
     snapshot_dict,
+    stock_benchmark_identity,
 )
 
 
@@ -111,6 +116,21 @@ def test_regime_analogue_rejects_weak_or_incomplete():
     snap = snapshot_dict(stock_regime=REGIME_ON, crypto_regime=REGIME_OFF)
     assert snap["score_kind"] == "heuristic_sma"
     assert snap["calibrated_probability"] is False
+    assert snap["stock_benchmark"] == STOCK_BENCHMARK
+    assert snap["stock_benchmark_kind"] == STOCK_BENCHMARK_KIND
+    assert snap["stock_benchmark_not"] == STOCK_BENCHMARK_NOT
+    assert snap["stock_benchmark_identity"] == STOCK_BENCHMARK_IDENTITY
+
+
+def test_stock_benchmark_identity_etf_proxy_not_index():
+    """tradermonty #765: SPY is an ETF proxy, not ^GSPC (display only)."""
+    ident = stock_benchmark_identity()
+    assert ident["symbol"] == "SPY"
+    assert ident["kind"] == "etf_proxy"
+    assert ident["not_index"] == "^GSPC"
+    assert ident["bit"] == STOCK_BENCHMARK_IDENTITY
+    assert "ETF proxy" in ident["bit"]
+    assert "^GSPC" in ident["bit"]
 
 
 def test_nan_closes_fail_open_as_unknown():

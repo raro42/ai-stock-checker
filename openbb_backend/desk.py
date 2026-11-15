@@ -29518,7 +29518,11 @@ def build_gate_params_glance() -> dict[str, Any]:
         CRYPTO_BENCHMARK,
         CRYPTO_SMA_PERIOD,
         STOCK_BENCHMARK,
+        STOCK_BENCHMARK_IDENTITY,
+        STOCK_BENCHMARK_KIND,
+        STOCK_BENCHMARK_NOT,
         STOCK_SMA_PERIOD,
+        stock_benchmark_identity,
     )
     from stock_checker.relative_strength import (
         RS_ANCHOR_MAX_MISS,
@@ -29537,19 +29541,26 @@ def build_gate_params_glance() -> dict[str, Any]:
     gap_pct = f"{gap_ceil * 100:.0f}%"
     gap_env = abs(gap_ceil - float(RS_ANCHOR_MAX_MISS)) > 1e-12
     gap_bit = f"gap≤{gap_pct} · env" if gap_env else f"gap≤{gap_pct}"
+    # tradermonty #765: SPY·ETF so bare SPY≥SMA is not read as ^GSPC.
+    stock_bench = f"{STOCK_BENCHMARK}·ETF"
     line = (
-        f"{STOCK_BENCHMARK}≥SMA{STOCK_SMA_PERIOD} · "
+        f"{stock_bench}≥SMA{STOCK_SMA_PERIOD} · "
         f"{crypto_label}≥SMA{CRYPTO_SMA_PERIOD} · "
         f"RS≥bench {lookback}d · {gap_bit} · "
         f"A/D≥{adv_pct} · ≥{leaders} leader · fail-open"
     )
     if len(line) > 96:
         line = line[:95] + "…"
+    identity = stock_benchmark_identity()
     return {
         "ready": True,
         "tone": "params",
         "line": line,
         "stock_benchmark": STOCK_BENCHMARK,
+        "stock_benchmark_kind": STOCK_BENCHMARK_KIND,
+        "stock_benchmark_not": STOCK_BENCHMARK_NOT,
+        "stock_benchmark_identity": STOCK_BENCHMARK_IDENTITY,
+        "stock_benchmark_identity_bit": identity["bit"],
         "stock_sma": int(STOCK_SMA_PERIOD),
         "crypto_benchmark": CRYPTO_BENCHMARK,
         "crypto_sma": int(CRYPTO_SMA_PERIOD),
@@ -35114,6 +35125,11 @@ def _trader_runtime_view() -> dict[str, Any]:
     regime_snap = _load_json(data_dir / "market_regime.json", {})
     if not isinstance(regime_snap, dict):
         regime_snap = {}
+    from stock_checker.market_regime import stock_benchmark_identity as _spy_ident
+
+    _spy_bench_id = str(
+        regime_snap.get("stock_benchmark_identity") or _spy_ident()["bit"]
+    )
     calm_snap = _load_json(data_dir / "paper_calm.json", {})
     if not isinstance(calm_snap, dict):
         calm_snap = {}
@@ -35167,6 +35183,7 @@ def _trader_runtime_view() -> dict[str, Any]:
         "crypto_regime": str(regime_snap.get("crypto_regime") or "—"),
         "stock_regime_label": _regime_analogue_label(regime_snap, "stock"),
         "crypto_regime_label": _regime_analogue_label(regime_snap, "crypto"),
+        "stock_benchmark_identity": _spy_bench_id,
         "regime_updated": str(regime_snap.get("updated_at") or ""),
         "calm_streak_days": int(calm_snap.get("streak_days") or 0),
         "calm_required_days": int(calm_snap.get("required_days") or 30),

@@ -15,7 +15,12 @@ from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
 # Daily SMA lookbacks — stocks slower, crypto faster (24/7).
+# SPY is an S&P 500 *ETF proxy*, not the official ^GSPC index
+# (tradermonty #765 instrument identity — prices/volume are SPY's own).
 STOCK_BENCHMARK = "SPY"
+STOCK_BENCHMARK_KIND = "etf_proxy"
+STOCK_BENCHMARK_NOT = "^GSPC"
+STOCK_BENCHMARK_IDENTITY = "SPY · ETF proxy · not ^GSPC"
 STOCK_SMA_PERIOD = 200
 CRYPTO_BENCHMARK = "BTCUSDT"
 CRYPTO_SMA_PERIOD = 50
@@ -63,6 +68,20 @@ def classify_close_vs_sma(closes: Sequence[float], period: int) -> str:
     if last >= sma:
         return REGIME_ON
     return REGIME_OFF
+
+
+def stock_benchmark_identity() -> dict[str, str]:
+    """Desk/API identity for the equity regime/RS bench (display only).
+
+    Friends must not read ``SPY`` as the S&P 500 index — SMA and RS use the
+    ETF's own series (tradermonty #765 instrument identity). Not a new gate.
+    """
+    return {
+        "symbol": STOCK_BENCHMARK,
+        "kind": STOCK_BENCHMARK_KIND,
+        "not_index": STOCK_BENCHMARK_NOT,
+        "bit": STOCK_BENCHMARK_IDENTITY,
+    }
 
 
 def regime_analogue_label(
@@ -143,6 +162,9 @@ def snapshot_dict(
         "score_kind": "heuristic_sma",
         "calibrated_probability": False,
         "stock_benchmark": STOCK_BENCHMARK,
+        "stock_benchmark_kind": STOCK_BENCHMARK_KIND,
+        "stock_benchmark_not": STOCK_BENCHMARK_NOT,
+        "stock_benchmark_identity": STOCK_BENCHMARK_IDENTITY,
         "stock_sma_period": STOCK_SMA_PERIOD,
         "stock_regime": stock_regime,
         "stock_close": _json_float(stock_close),

@@ -411,13 +411,13 @@
       <label class="ops-field ops-check">
         <input type="checkbox" name="regime_gate" id="ops-regime"
                {% if snap.runtime.regime_gate %}checked{% endif %} />
-        <span class="ops-label">SMA regime gate (SPY / BTC)</span>
+        <span class="ops-label" title="SPY is an S&P 500 ETF proxy — SMA uses SPY prices, not the ^GSPC index.">SMA regime gate (SPY ETF / BTC)</span>
       </label>
 
       <label class="ops-field ops-check">
         <input type="checkbox" name="rs_gate" id="ops-rs"
                {% if snap.runtime.rs_gate %}checked{% endif %} />
-        <span class="ops-label">Relative-strength gate (vs SPY / BTC)</span>
+        <span class="ops-label" title="Stock RS benches SPY (ETF proxy), not ^GSPC. Crypto benches BTC.">Relative-strength gate (vs SPY ETF / BTC)</span>
       </label>
 
       <label class="ops-field ops-check">
@@ -554,8 +554,8 @@
       <dd>{{ snap.runtime.fee_allowance_remaining }} / {{ snap.runtime.free_legs_per_month }}</dd>
     </div>
     <div>
-      <dt>SPY / BTC regime</dt>
-      <dd title="Close versus SMA is a heuristic sleeve, not a calibrated market-top probability. A close hugging the average, or missing prices, is not a comparable episode.">{{ snap.runtime.stock_regime_label }} / {{ snap.runtime.crypto_regime_label }}{% if snap.runtime.regime_updated %} · {{ snap.runtime.regime_updated }}{% endif %}</dd>
+      <dt title="SPY is an S&P 500 ETF proxy, not the ^GSPC index. Regime SMA uses SPY's own close/volume.">SPY ETF / BTC regime</dt>
+      <dd title="Close versus SMA is a heuristic sleeve, not a calibrated market-top probability. A close hugging the average, or missing prices, is not a comparable episode. SPY · ETF proxy · not ^GSPC.">{{ snap.runtime.stock_regime_label }} / {{ snap.runtime.crypto_regime_label }}{% if snap.runtime.regime_updated %} · {{ snap.runtime.regime_updated }}{% endif %}</dd>
     </div>
     <div id="calm-h">
       <dt>Paper calm streak</dt>

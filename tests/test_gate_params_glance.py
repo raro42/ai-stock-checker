@@ -9,6 +9,9 @@ from openbb_backend.desk import build_gate_params_glance, load_desk_snapshot
 from stock_checker.market_regime import (
     CRYPTO_SMA_PERIOD,
     STOCK_BENCHMARK,
+    STOCK_BENCHMARK_IDENTITY,
+    STOCK_BENCHMARK_KIND,
+    STOCK_BENCHMARK_NOT,
     STOCK_SMA_PERIOD,
 )
 from stock_checker.relative_strength import DEFAULT_RS_LOOKBACK, RS_ANCHOR_MAX_MISS
@@ -24,6 +27,9 @@ def test_gate_params_glance_line() -> None:
     assert g["tone"] == "params"
     assert g["fail_open"] is True
     assert g["stock_benchmark"] == STOCK_BENCHMARK
+    assert g["stock_benchmark_kind"] == STOCK_BENCHMARK_KIND
+    assert g["stock_benchmark_not"] == STOCK_BENCHMARK_NOT
+    assert g["stock_benchmark_identity"] == STOCK_BENCHMARK_IDENTITY
     assert g["stock_sma"] == STOCK_SMA_PERIOD
     assert g["crypto_sma"] == CRYPTO_SMA_PERIOD
     assert g["rs_lookback"] == DEFAULT_RS_LOOKBACK
@@ -31,7 +37,7 @@ def test_gate_params_glance_line() -> None:
     assert g["rs_anchor_max_miss_env"] is False
     assert g["min_advance_ratio"] == DEFAULT_MIN_ADVANCE_RATIO
     assert g["min_stock_leaders"] == DEFAULT_MIN_STOCK_LEADERS
-    assert f"SMA{STOCK_SMA_PERIOD}" in g["line"]
+    assert f"{STOCK_BENCHMARK}·ETF≥SMA{STOCK_SMA_PERIOD}" in g["line"]
     assert f"SMA{CRYPTO_SMA_PERIOD}" in g["line"]
     assert f"{DEFAULT_RS_LOOKBACK}d" in g["line"]
     assert f"gap≤{RS_ANCHOR_MAX_MISS * 100:.0f}%" in g["line"]
