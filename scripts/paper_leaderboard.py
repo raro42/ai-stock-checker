@@ -6,7 +6,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from stock_checker.paper_accounts import build_leaderboard, leaderboard_missing_share
+from stock_checker.paper_accounts import (
+    build_leaderboard,
+    leaderboard_missing_share,
+    shared_desk_pin,
+)
 
 
 def main() -> None:
@@ -21,6 +25,10 @@ def main() -> None:
         print("No paper books found.")
         return
     print("Paper leaderboard (cost-basis equity · fees shown · not live marks)")
+    pin = shared_desk_pin(root)
+    pin_bit = str(pin.get("bit") or "")
+    if pin_bit:
+        print(pin_bit)
     print(f"{'#':>2}  {'account':<16}  {'equity':>12}  {'cash':>12}  {'fees':>10}  {'pos':>3}  last trade")
     for i, row in enumerate(rows, 1):
         aid = row.get("account_id") or "legacy"

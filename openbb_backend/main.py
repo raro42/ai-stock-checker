@@ -245,10 +245,15 @@ def paper_desk_leaderboard():
     from stock_checker.paper_accounts import (
         build_leaderboard,
         leaderboard_missing_share,
+        shared_desk_pin,
     )
 
     rows = build_leaderboard(DATA_DIR)
-    return {"rows": rows, "missing": leaderboard_missing_share(rows)}
+    return {
+        "rows": rows,
+        "missing": leaderboard_missing_share(rows),
+        "shared_desk": shared_desk_pin(DATA_DIR),
+    }
 
 
 @app.get("/desk/api/config")

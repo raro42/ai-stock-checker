@@ -91,10 +91,12 @@ Friends can keep separate paper ledgers and a leaderboard ([GitHub #4](https://g
 
 ```bash
 python3 scripts/reset_paper_portfolio.py --account anna --capital 100000
+# Shared named desk (signoff) — create when ops wants the race id:
+python3 scripts/reset_paper_portfolio.py --account desk --capital 100000
 python3 scripts/paper_leaderboard.py
 ```
 
-Desk: `?account=anna` (or `desk`) · Overview shows the board. Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
+Desk: `?account=anna` (or `desk`) · Overview shows the board. Header speaks `desk missing` until `accounts/desk/` has a portfolio (legacy root ≠ signed named desk). Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
 
 ## Rules of the group
 

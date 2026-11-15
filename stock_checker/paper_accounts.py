@@ -107,6 +107,23 @@ def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
     return account_ledger_status(data_dir, account_id) in {"missing", "damaged"}
 
 
+def shared_desk_pin(data_dir: Path | str) -> dict[str, Any]:
+    """Human-signed Mode A shared ``desk`` account pin (display only).
+
+    Issue #4 signoff: shared zeitfenster book may use named ``desk``. Legacy
+    root alone is not that signed book — absent/corrupt
+    ``accounts/desk/portfolio.json`` must speak (xang1234 claim honesty +
+    portfolio AI empty-vs-missing after Mode A missing nests hid the pin).
+    Ready speaks calm; missing/damaged warn. Not a new entry gate.
+    """
+    status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
+    if status == "ok":
+        return {"status": "ok", "bit": "desk ready", "warn": False}
+    if status == "damaged":
+        return {"status": "damaged", "bit": "desk damaged", "warn": True}
+    return {"status": "missing", "bit": "desk missing", "warn": True}
+
+
 def account_label(
     account_id: str = "",
     *,

@@ -25,6 +25,9 @@ check() {
 echo "smoke desk @ ${BASE}"
 check "/health" "" || check "/" ""
 check "/desk" "Overview"
+# Mode A #4: signed shared desk account pin (legacy root ≠ named desk).
+check "/desk" "desk "
+check "/desk/api/leaderboard" "shared_desk"
 check "/desk/charts" "Charts"
 check "/desk/screener" "Screener"
 check "/desk/breadth" "Scan pulse"

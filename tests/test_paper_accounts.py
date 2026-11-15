@@ -37,6 +37,7 @@ from stock_checker.paper_accounts import (
     ledger_dir,
     list_account_ids,
     normalize_account_id,
+    shared_desk_pin,
 )
 
 
@@ -67,6 +68,29 @@ def test_ledger_dir_and_ensure(tmp_path: Path) -> None:
     )
     assert account_label("") == "paper · legacy root"
     assert account_label("", missing=True) == "paper · legacy root"
+
+
+def test_shared_desk_pin(tmp_path: Path) -> None:
+    """#4 signoff named desk — legacy root ≠ desk ready (claim honesty)."""
+    pin = shared_desk_pin(tmp_path)
+    assert pin["status"] == "missing"
+    assert pin["bit"] == "desk missing"
+    assert pin["warn"] is True
+
+    path = ensure_account_ledger(tmp_path, SHARED_DESK_ACCOUNT_ID)
+    (path / "portfolio.json").write_text("not-json{")
+    damaged = shared_desk_pin(tmp_path)
+    assert damaged["status"] == "damaged"
+    assert damaged["bit"] == "desk damaged"
+    assert damaged["warn"] is True
+
+    (path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
+    ready = shared_desk_pin(tmp_path)
+    assert ready["status"] == "ok"
+    assert ready["bit"] == "desk ready"
+    assert ready["warn"] is False
 
 
 def test_account_ledger_missing(tmp_path: Path) -> None:
