@@ -979,6 +979,7 @@ def test_soft_allow_glance_short_history_count() -> None:
         "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short other lean moods align · both align · short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03× · "
+        "short other Δ moods align · both wide · "
         "short last/lean align · fresh · hot|thin · "
         "short share/lean align · both align · "
         "short ring/lean align · both align · "
@@ -1135,6 +1136,15 @@ def test_soft_allow_glance_short_history_count() -> None:
     ) == (
         "quiet · 1 fold · short other Δ size moods clash "
         "short/other 2× short/gap 2.03×"
+    )
+    assert soft_allow_lean_meta(
+        "short other Δ moods align · both wide"
+    ) == ("quiet · 1 fold · short other Δ moods align both wide")
+    assert soft_allow_lean_meta(
+        "short other Δ moods clash · short/other wide · short/gap thin"
+    ) == (
+        "quiet · 1 fold · short other Δ moods clash "
+        "short/other wide short/gap thin"
     )
     assert soft_allow_lean_meta(
         "short other/bench Δ size moods clash · short/other 3× · "
@@ -1313,6 +1323,7 @@ def test_soft_allow_glance_short_history_bench_count() -> None:
         "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
         "short other lean moods align · both align · short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03× · "
+        "short other Δ moods align · both wide · "
         "short lean moods clash · short/gap align · bench/young clash · "
         "short other/bench lean moods clash · short/other align · bench/young clash · "
         "short last/lean align · fresh · hot|thin · "
@@ -2246,6 +2257,7 @@ def test_soft_allow_glance_short_history_symbol_lead() -> None:
         "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short other lean moods align · both align · short other Δ lead moods align · both adverse · "
         "short other Δ size moods align · both 3× · "
+        "short other Δ moods align · both wide · "
         "short last/lean align · fresh · hot|thin · "
         "short lead/lean clash · lead clash · lean align · "
         "short share/lean align · both align · "

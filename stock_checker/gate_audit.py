@@ -502,6 +502,44 @@ def soft_allow_short_other_vs_bench_lean_moods(
     )
 
 
+def soft_allow_short_other_delta_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other lean/Δ mood vs short/gap lean/Δ mood (display only).
+
+    Returns ``(bit, warn)``. When both lean vs Δ already spoke with an
+    align severity (``wide|thin``): same → ``align · both wide|thin``;
+    crossed → ``clash · short/other … · short/gap …``. Mid-Δ clash /
+    missing side stay silent. Dual wide warns (Yahoo mix share vs gap
+    wide-align warn); clash warns. Side-by-side ``short other lean/Δ``
+    beside ``short lean/Δ`` alone hid whether ring-peer ownership-spread
+    mood agrees with the RS-fail-open pair (pair≠bench ``short Δ moods``
+    + Screener junk/unique Δ moods + portfolio AI speak-both-sides +
+    xang1234 after other lean / Δ lead / size moods). Prefixed
+    ``short other Δ moods`` so pair ``short Δ moods`` stay distinct.
+    Not a gate.
+    """
+    other_lvd, _ = soft_allow_short_history_vs_other_lean_vs_delta(events)
+    pair_lvd, _ = soft_allow_short_vs_gap_lean_vs_delta(events)
+    other_s = str(other_lvd or "")
+    pair_s = str(pair_lvd or "")
+    if not other_s.startswith("align · ") or not pair_s.startswith(
+        "align · "
+    ):
+        return "", False
+    other_sev = other_s[len("align · ") :].strip()
+    pair_sev = pair_s[len("align · ") :].strip()
+    if other_sev not in {"wide", "thin"} or pair_sev not in {"wide", "thin"}:
+        return "", False
+    if other_sev == pair_sev:
+        # Dual wide agreement ≠ calm confirm (pair Δ moods).
+        return f"align · both {other_sev}", other_sev == "wide"
+    return (
+        f"clash · short/other {other_sev} · short/gap {pair_sev}",
+        True,
+    )
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -3044,6 +3082,18 @@ def format_soft_allow_short_history_bit(
                 head = (
                     f"{head} · short other/bench Δ size moods "
                     f"{other_bench_moods}"
+                )
+            # Side-by-side short/other lean/Δ + short/gap lean/Δ alone
+            # hid whether ring-peer ownership-spread mood agrees with
+            # the RS-fail-open pair (pair≠bench Δ moods + Screener
+            # junk/unique + portfolio AI speak-both-sides + xang1234
+            # after other lean / Δ lead / size moods). Prefixed
+            # ``short other Δ moods`` so pair ``short Δ moods`` stay
+            # distinct.
+            other_delta_moods, _ = soft_allow_short_other_delta_moods(events)
+            if other_delta_moods:
+                head = (
+                    f"{head} · short other Δ moods {other_delta_moods}"
                 )
             # Side-by-side pair lean/Δ + bench lean/Δ alone hid whether
             # ownership-spread moods agree (Yahoo mix share vs gap +
