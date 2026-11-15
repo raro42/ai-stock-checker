@@ -468,6 +468,40 @@ def soft_allow_short_other_vs_bench_delta_lead_size_moods(
     )
 
 
+def soft_allow_short_other_vs_bench_lean_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other lean verb vs bench/young lean verb (display only).
+
+    Returns ``(bit, warn)``. When both short vs other lean and bench vs
+    young lean already spoke: same → ``align · both align|clash``;
+    crossed → ``clash · short/other … · bench/young …``. Missing lean
+    silent. Dual-clash + crossed warn; both-align speaks, no warn.
+    Closes the lean-mood triangle after other≠pair
+    (``short other lean moods``) and pair≠bench (``short lean moods``)
+    — ring-peer lean *verb* beside primary-bench can still hide
+    clash vs align while other≠pair and pair≠bench moods look calm
+    (soft-allow other≠pair / pair≠bench lean moods + size-mood triangle
+    + Screener junk/unique + FinRobot + portfolio AI speak-both-sides
+    + xang1234). Prefixed ``short other/bench lean moods`` so
+    ``short other lean moods`` + ``short lean moods`` stay distinct.
+    Not a gate.
+    """
+    other_lean, _ = soft_allow_short_history_vs_other_lean(events)
+    bench_lean, _ = soft_allow_short_history_bench_vs_young_lean(events)
+    other_v = _short_lean_verb(other_lean)
+    bench_v = _short_lean_verb(bench_lean)
+    if not other_v or not bench_v:
+        return "", False
+    if other_v == bench_v:
+        # Dual-clash agreement ≠ calm confirm (pair lean moods).
+        return f"align · both {other_v}", other_v == "clash"
+    return (
+        f"clash · short/other {other_v} · bench/young {bench_v}",
+        True,
+    )
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -3022,6 +3056,21 @@ def format_soft_allow_short_history_bit(
             lean_moods, _ = soft_allow_short_lean_moods(events)
             if lean_moods:
                 head = f"{head} · short lean moods {lean_moods}"
+            # Side-by-side short/other + bench/young leans alone hid
+            # whether ring-peer lean *verb* agrees with primary-bench
+            # (closes other≠pair + pair≠bench lean-mood triangle;
+            # soft-allow size-mood triangle + Screener junk/unique +
+            # FinRobot + portfolio AI speak-both-sides + xang1234).
+            # Prefixed ``short other/bench lean moods`` so other≠pair
+            # + pair≠bench chips stay distinct.
+            other_bench_lean_moods, _ = (
+                soft_allow_short_other_vs_bench_lean_moods(events)
+            )
+            if other_bench_lean_moods:
+                head = (
+                    f"{head} · short other/bench lean moods "
+                    f"{other_bench_lean_moods}"
+                )
             # Side-by-side lean moods + Δ moods alone hid whether the
             # two relationships agree (Window A close sleeve lean vs Δ
             # moods + FinRobot + portfolio AI speak-both-sides).

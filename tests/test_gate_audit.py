@@ -87,6 +87,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_other_delta_lead_moods,
         soft_allow_short_other_delta_lead_size_moods,
         soft_allow_short_other_vs_bench_delta_lead_size_moods,
+        soft_allow_short_other_vs_bench_lean_moods,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -347,6 +348,8 @@ def test_soft_allow_short_history_count() -> None:
         "",
         False,
     )
+    assert soft_allow_short_other_vs_bench_lean_moods(None) == ("", False)
+    assert soft_allow_short_other_vs_bench_lean_moods([]) == ("", False)
     assert soft_allow_short_history_last_vs_other(None) == ("", False)
     assert soft_allow_short_history_last_vs_other([]) == ("", False)
     assert soft_allow_short_history_last_lead_vs_other(None) == ("", False)
@@ -395,6 +398,8 @@ def test_soft_allow_short_history_count() -> None:
         "",
         False,
     )
+    # No bench lean → other/bench lean moods silent.
+    assert soft_allow_short_other_vs_bench_lean_moods(mixed) == ("", False)
     # No freshness stamp → last/other silent (age extremes required).
     assert soft_allow_short_history_last_vs_other(mixed) == ("", False)
     assert soft_allow_short_history_last_lead_vs_other(mixed) == ("", False)
@@ -618,6 +623,12 @@ def test_soft_allow_short_history_count() -> None:
         "align · both align",
         False,
     )
+    # Ring-peer + bench both align → other/bench lean moods both align
+    # (closes lean-mood triangle after other≠pair + pair≠bench).
+    assert soft_allow_short_other_vs_bench_lean_moods(bench_rows) == (
+        "align · both align",
+        False,
+    )
     # Lean moods align + Δ moods align → lean vs Δ moods both align.
     assert soft_allow_short_lean_vs_delta_moods(bench_rows) == (
         "align · both align",
@@ -788,6 +799,7 @@ def test_soft_allow_short_history_count() -> None:
         "short Δ size moods clash · short/gap 3× · bench/young 2× · "
         "short other/bench Δ size moods clash · short/other 3× · bench/young 2× · "
         "short Δ moods align · both wide · short lean moods align · both align · "
+        "short other/bench lean moods align · both align · "
         "short lean vs Δ moods align · both align · "
         "short Δ lead moods align · both adverse · "
         "short lean vs Δ lead moods align · both align · "

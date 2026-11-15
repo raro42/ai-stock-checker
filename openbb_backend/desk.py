@@ -3990,6 +3990,23 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short other Δ size moods",
     ),
+    # Ring-peer lean verb vs primary-bench lean verb when both leans
+    # spoke (closes other≠pair + pair≠bench lean-mood triangle;
+    # soft-allow size-mood triangle + Screener junk/unique + FinRobot
+    # + portfolio AI speak-both-sides + xang1234). Longer
+    # ``other/bench`` prefix before ``short other lean moods`` /
+    # ``short lean moods`` so the slash chip is not eaten. Verb +
+    # both/crossed ride so ``align · both align`` is not a silent
+    # confirm of dual-clash.
+    (
+        re.compile(
+            r"^short other/bench lean moods (align|clash)"
+            r"(?: · (both (?:align|clash))"
+            r"| · (short/other (?:align|clash))"
+            r" · (bench/young (?:align|clash)))?"
+        ),
+        "short other/bench lean moods",
+    ),
     # Ring-peer lean verb vs pair lean verb when both leans spoke
     # (pair≠bench lean moods + Screener junk/unique + FinRobot +
     # portfolio AI speak-both-sides + xang1234 after other Δ lead
@@ -4994,6 +5011,7 @@ def build_soft_allow_glance(
         soft_allow_short_other_delta_lead_moods,
         soft_allow_short_other_delta_lead_size_moods,
         soft_allow_short_other_vs_bench_delta_lead_size_moods,
+        soft_allow_short_other_vs_bench_lean_moods,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -5143,6 +5161,8 @@ def build_soft_allow_glance(
         "short_history_other_delta_lead_size_moods_warn": False,
         "short_history_other_vs_bench_delta_lead_size_moods": "",
         "short_history_other_vs_bench_delta_lead_size_moods_warn": False,
+        "short_history_other_vs_bench_lean_moods": "",
+        "short_history_other_vs_bench_lean_moods_warn": False,
         "short_history_last_vs_other": "",
         "short_history_last_vs_other_warn": False,
         "short_history_last_lead_vs_other": "",
@@ -5567,6 +5587,10 @@ def build_soft_allow_glance(
         short_history_other_vs_bench_delta_lead_size_moods,
         short_history_other_vs_bench_delta_lead_size_moods_warn,
     ) = soft_allow_short_other_vs_bench_delta_lead_size_moods(rows)
+    (
+        short_history_other_vs_bench_lean_moods,
+        short_history_other_vs_bench_lean_moods_warn,
+    ) = soft_allow_short_other_vs_bench_lean_moods(rows)
     (
         short_history_last_vs_other,
         short_history_last_vs_other_warn,
@@ -6367,6 +6391,7 @@ def build_soft_allow_glance(
         or short_history_other_delta_lead_moods_warn
         or short_history_other_delta_lead_size_moods_warn
         or short_history_other_vs_bench_delta_lead_size_moods_warn
+        or short_history_other_vs_bench_lean_moods_warn
         or short_history_delta_lead_size_moods_warn
         or short_history_delta_moods_warn
         or short_history_lean_moods_warn
@@ -6590,6 +6615,7 @@ def build_soft_allow_glance(
         or short_history_other_delta_lead_moods_warn
         or short_history_other_delta_lead_size_moods_warn
         or short_history_other_vs_bench_delta_lead_size_moods_warn
+        or short_history_other_vs_bench_lean_moods_warn
         or short_history_delta_lead_size_moods_warn
         or short_history_delta_moods_warn
         or short_history_lean_moods_warn
@@ -6799,6 +6825,12 @@ def build_soft_allow_glance(
         ),
         "short_history_other_vs_bench_delta_lead_size_moods_warn": (
             short_history_other_vs_bench_delta_lead_size_moods_warn
+        ),
+        "short_history_other_vs_bench_lean_moods": (
+            short_history_other_vs_bench_lean_moods
+        ),
+        "short_history_other_vs_bench_lean_moods_warn": (
+            short_history_other_vs_bench_lean_moods_warn
         ),
         "short_history_last_vs_other": short_history_last_vs_other,
         "short_history_last_vs_other_warn": short_history_last_vs_other_warn,
