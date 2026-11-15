@@ -116,6 +116,25 @@ def _shared_desk_open_suffix(view_id: str | None) -> str:
     return f" · open is {view_id}"
 
 
+def _shared_desk_view_ledger(
+    data_dir: Path | str, view_id: str | None
+) -> str:
+    """Open named-book ledger status when viewing is set (legacy/desk silent)."""
+    if view_id is None or not view_id or view_id == SHARED_DESK_ACCOUNT_ID:
+        return ""
+    st = account_ledger_status(data_dir, view_id)
+    if st in {"missing", "damaged"}:
+        return st
+    return "ok"
+
+
+def _shared_desk_view_ledger_sfx(view_ledger: str) -> str:
+    """Speak open-book unusable state after viewing/open (not ok/empty)."""
+    if view_ledger in {"missing", "damaged"}:
+        return f" · {view_ledger}"
+    return ""
+
+
 def shared_desk_pin(
     data_dir: Path | str,
     *,
@@ -135,39 +154,47 @@ def shared_desk_pin(
     imply the open book is the signed one (xang1234 claim honesty + portfolio
     AI speak-both-sides). Unset/damaged pins use the same ``open is …`` suffix
     so bare ``named desk unset`` is not read as a login error or broken desk
-    (GitHub #5). Leaderboard/API without a view context stay absolute.
+    (GitHub #5). When the open named book itself is missing/damaged, also speak
+    ``· missing`` / ``· damaged`` (and warn) so ``viewing anna`` does not hide
+    an unusable open ledger. Leaderboard/API without a view context stay absolute.
     Not a new entry gate. There is **no login** — books switch via ``?account=``.
     """
     status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
     view_raw = "" if viewing is None else viewing
     view_id = normalize_account_id(view_raw) if viewing is not None else None
     view_out = "" if view_id is None else (view_id or "legacy")
+    view_ledger = _shared_desk_view_ledger(data_dir, view_id)
     open_sfx = _shared_desk_open_suffix(view_id)
+    ledger_sfx = _shared_desk_view_ledger_sfx(view_ledger)
+    view_warn = view_ledger in {"missing", "damaged"}
     if status == "ok":
         bit = "desk ready"
         if view_id is not None and view_id != SHARED_DESK_ACCOUNT_ID:
             if not view_id:
                 bit = "desk ready · viewing legacy"
             else:
-                bit = f"desk ready · viewing {view_id}"
+                bit = f"desk ready · viewing {view_id}{ledger_sfx}"
         return {
             "status": "ok",
             "bit": bit,
-            "warn": False,
+            "warn": view_warn,
             "viewing": view_out,
+            "viewing_ledger": view_ledger,
         }
     if status == "damaged":
         return {
             "status": "damaged",
-            "bit": f"named desk damaged{open_sfx}",
+            "bit": f"named desk damaged{open_sfx}{ledger_sfx}",
             "warn": True,
             "viewing": view_out,
+            "viewing_ledger": view_ledger,
         }
     return {
         "status": "missing",
-        "bit": f"named desk unset{open_sfx}",
+        "bit": f"named desk unset{open_sfx}{ledger_sfx}",
         "warn": True,
         "viewing": view_out,
+        "viewing_ledger": view_ledger,
     }
 
 

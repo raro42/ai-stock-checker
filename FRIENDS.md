@@ -107,7 +107,7 @@ python3 scripts/reset_paper_portfolio.py --account desk --capital 100000
 python3 scripts/paper_leaderboard.py
 ```
 
-Desk: `?account=anna` (or `desk`) · Overview shows the board. Header speaks `named desk unset` (and `· open is legacy|<id>` on desk pages) until `accounts/desk/` has a portfolio — not a login error; when desk is ready but you are on legacy/`anna`, it speaks `desk ready · viewing legacy|anna` so the pin does not imply the open book is the signed desk. Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
+Desk: `?account=anna` (or `desk`) · Overview shows the board. Header speaks `named desk unset` (and `· open is legacy|<id>` on desk pages) until `accounts/desk/` has a portfolio — not a login error; when desk is ready but you are on legacy/`anna`, it speaks `desk ready · viewing legacy|anna` so the pin does not imply the open book is the signed desk; if the open named book itself is missing/damaged, the pin adds `· missing` / `· damaged` (and warns) so `viewing anna` is not a calm ready-looking open ledger. Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
 
 ## Rules of the group
 
