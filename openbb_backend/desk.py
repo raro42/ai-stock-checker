@@ -39010,6 +39010,7 @@ def load_desk_snapshot(
         "shared_desk_pin_warn": bool(desk_pin.get("warn")),
         "shared_desk_pin_status": str(desk_pin.get("status") or ""),
         "shared_desk_pin_viewing": str(desk_pin.get("viewing") or ""),
+        "shared_desk_pin_desk_vs_open": str(desk_pin.get("desk_vs_open") or ""),
         "leaderboard": leaderboard_rows,
         "leaderboard_missing": leaderboard_missing,
         "leaderboard_missing_bit": str(leaderboard_missing.get("bit") or ""),

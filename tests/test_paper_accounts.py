@@ -77,24 +77,32 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert pin["bit"] == "named desk unset"
     assert pin["warn"] is True
     assert pin["viewing_ledger"] == ""
+    assert pin["desk_vs_open"] == ""
     # Desk pages pass viewing so unset is not read as a broken site (#5).
     legacy_unset = shared_desk_pin(tmp_path, viewing="")
     assert legacy_unset["bit"] == "named desk unset · open is legacy"
     assert legacy_unset["viewing"] == "legacy"
     assert legacy_unset["viewing_ledger"] == ""
-    # Open named book missing must speak (not calm viewing alone).
+    assert legacy_unset["desk_vs_open"] == ""
+    # Open named book missing must speak (not calm viewing alone) + both-warn align.
     other_unset = shared_desk_pin(tmp_path, viewing="anna")
-    assert other_unset["bit"] == "named desk unset · open is anna · missing"
+    assert other_unset["bit"] == (
+        "named desk unset · open is anna · missing · desk vs open align · both warn"
+    )
     assert other_unset["viewing_ledger"] == "missing"
+    assert other_unset["desk_vs_open"] == "desk vs open align · both warn"
     assert other_unset["warn"] is True
-    # Usable open book must speak · ok while signed desk warns (not infected).
+    # Usable open book must speak · ok while signed desk warns (not infected) + clash.
     anna = ensure_account_ledger(tmp_path, "anna")
     (anna / "portfolio.json").write_text(
         json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
     )
     unset_ok = shared_desk_pin(tmp_path, viewing="anna")
-    assert unset_ok["bit"] == "named desk unset · open is anna · ok"
+    assert unset_ok["bit"] == (
+        "named desk unset · open is anna · ok · desk vs open clash · unset · ok"
+    )
     assert unset_ok["viewing_ledger"] == "ok"
+    assert unset_ok["desk_vs_open"] == "desk vs open clash · unset · ok"
     assert unset_ok["warn"] is True
 
     path = ensure_account_ledger(tmp_path, SHARED_DESK_ACCOUNT_ID)
@@ -106,8 +114,11 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     damaged_legacy = shared_desk_pin(tmp_path, viewing="")
     assert damaged_legacy["bit"] == "named desk damaged · open is legacy"
     damaged_ok = shared_desk_pin(tmp_path, viewing="anna")
-    assert damaged_ok["bit"] == "named desk damaged · open is anna · ok"
+    assert damaged_ok["bit"] == (
+        "named desk damaged · open is anna · ok · desk vs open clash · damaged · ok"
+    )
     assert damaged_ok["viewing_ledger"] == "ok"
+    assert damaged_ok["desk_vs_open"] == "desk vs open clash · damaged · ok"
 
     (path / "portfolio.json").write_text(
         json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
@@ -126,24 +137,31 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert legacy["bit"] == "desk ready · viewing legacy"
     assert legacy["viewing"] == "legacy"
     assert legacy["warn"] is False
-    # Calm ready path stays quiet on open ok (no · ok clutter).
+    # Calm ready path stays quiet on open ok (no · ok / mood clutter).
     other_ok = shared_desk_pin(tmp_path, viewing="anna")
     assert other_ok["bit"] == "desk ready · viewing anna"
     assert other_ok["viewing_ledger"] == "ok"
+    assert other_ok["desk_vs_open"] == ""
     assert other_ok["warn"] is False
 
-    # Viewing a missing named book warns even when signed desk is ready.
+    # Viewing a missing named book warns even when signed desk is ready + clash.
     (anna / "portfolio.json").unlink()
     other = shared_desk_pin(tmp_path, viewing="anna")
-    assert other["bit"] == "desk ready · viewing anna · missing"
+    assert other["bit"] == (
+        "desk ready · viewing anna · missing · desk vs open clash · ready · missing"
+    )
     assert other["viewing"] == "anna"
     assert other["viewing_ledger"] == "missing"
+    assert other["desk_vs_open"] == "desk vs open clash · ready · missing"
     assert other["warn"] is True
 
     (anna / "portfolio.json").write_text("not-json{")
     other_dmg = shared_desk_pin(tmp_path, viewing="anna")
-    assert other_dmg["bit"] == "desk ready · viewing anna · damaged"
+    assert other_dmg["bit"] == (
+        "desk ready · viewing anna · damaged · desk vs open clash · ready · damaged"
+    )
     assert other_dmg["viewing_ledger"] == "damaged"
+    assert other_dmg["desk_vs_open"] == "desk vs open clash · ready · damaged"
     assert other_dmg["warn"] is True
 
 

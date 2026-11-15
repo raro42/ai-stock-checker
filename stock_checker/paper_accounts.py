@@ -144,6 +144,27 @@ def _shared_desk_view_ledger_sfx(
     return ""
 
 
+def _shared_desk_vs_open_sfx(status: str, view_ledger: str, *, ledger_spoke: bool) -> str:
+    """Mood when signed desk and spoken open-ledger sides disagree or both warn.
+
+    Absolute ``· ok`` / ``· missing`` alone hide whether the pin and the open
+    book agree (portfolio AI speak-both-sides + xang1234 after open-ok honesty).
+    Calm ready + quiet open ``ok`` stays silent (no ledger speak → no mood).
+    """
+    if not ledger_spoke or not view_ledger:
+        return ""
+    desk_warn = status != "ok"
+    open_warn = view_ledger in {"missing", "damaged"}
+    if desk_warn and not open_warn:
+        desk_label = "damaged" if status == "damaged" else "unset"
+        return f" · desk vs open clash · {desk_label} · ok"
+    if not desk_warn and open_warn:
+        return f" · desk vs open clash · ready · {view_ledger}"
+    if desk_warn and open_warn:
+        return " · desk vs open align · both warn"
+    return ""
+
+
 def shared_desk_pin(
     data_dir: Path | str,
     *,
@@ -167,6 +188,8 @@ def shared_desk_pin(
     ``· missing`` / ``· damaged`` (and warn) so ``viewing anna`` does not hide
     an unusable open ledger. When signed desk warns but the open named book is
     usable, also speak ``· ok`` so unset/damaged does not infect the open book.
+    When that open-ledger suffix already spoke, also speak ``desk vs open
+    clash|align`` so absolute sides do not hide pin↔open agreement.
     Leaderboard/API without a view context stay absolute.
     Not a new entry gate. There is **no login** — books switch via ``?account=``.
     """
@@ -179,35 +202,42 @@ def shared_desk_pin(
     # Speak open ``ok`` only while signed desk warns — calm ready path stays quiet.
     speak_ok = status != "ok"
     ledger_sfx = _shared_desk_view_ledger_sfx(view_ledger, speak_ok=speak_ok)
+    vs_open_sfx = _shared_desk_vs_open_sfx(
+        status, view_ledger, ledger_spoke=bool(ledger_sfx)
+    )
     view_warn = view_ledger in {"missing", "damaged"}
+    vs_open = vs_open_sfx.lstrip(" ·") if vs_open_sfx else ""
     if status == "ok":
         bit = "desk ready"
         if view_id is not None and view_id != SHARED_DESK_ACCOUNT_ID:
             if not view_id:
                 bit = "desk ready · viewing legacy"
             else:
-                bit = f"desk ready · viewing {view_id}{ledger_sfx}"
+                bit = f"desk ready · viewing {view_id}{ledger_sfx}{vs_open_sfx}"
         return {
             "status": "ok",
             "bit": bit,
             "warn": view_warn,
             "viewing": view_out,
             "viewing_ledger": view_ledger,
+            "desk_vs_open": vs_open,
         }
     if status == "damaged":
         return {
             "status": "damaged",
-            "bit": f"named desk damaged{open_sfx}{ledger_sfx}",
+            "bit": f"named desk damaged{open_sfx}{ledger_sfx}{vs_open_sfx}",
             "warn": True,
             "viewing": view_out,
             "viewing_ledger": view_ledger,
+            "desk_vs_open": vs_open,
         }
     return {
         "status": "missing",
-        "bit": f"named desk unset{open_sfx}{ledger_sfx}",
+        "bit": f"named desk unset{open_sfx}{ledger_sfx}{vs_open_sfx}",
         "warn": True,
         "viewing": view_out,
         "viewing_ledger": view_ledger,
+        "desk_vs_open": vs_open,
     }
 
 
