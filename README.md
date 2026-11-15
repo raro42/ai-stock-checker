@@ -2,7 +2,7 @@
 
 **We scan stocks, a short ETF and metal list, and crypto on your machine, paper-trade them with realistic fees and anti-churn rules, and show the book in a browser desk — so friends can test strategies honestly before risking real money.**
 
-Friends’ live paper desk: **[https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)**
+Friends’ live paper desk (**no login**): **[https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)** — optional Mode A books use `?account=`; header `named desk unset` ≠ error ([FRIENDS.md](FRIENDS.md)).
 
 Docker-first scanning, fee-aware paper fills, optional Ollama AI, and a quiet editorial UI — not dashboard theater.
 

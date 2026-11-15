@@ -6,6 +6,17 @@ Repo: https://github.com/raro42/ai-stock-checker
 
 **Shared paper desk (no install):** [https://stock.zeitfenster.de/desk](https://stock.zeitfenster.de/desk)
 
+### No login — what’s “named desk unset”?
+
+There is **no account login** on the shared desk. Anyone with the URL can read marks.
+Optional friend books use the header switcher / `?account=anna` (Mode A) — not a password.
+Default with no query is the **legacy root** book (`data/portfolio.json`) — that is normal and fine.
+
+Header `named desk unset · open is legacy` means only the optional signed `accounts/desk/`
+ledger has not been reset yet. It is **not** an error and **not** a login prompt. Ops can
+create it with `python3 scripts/reset_paper_portfolio.py --account desk --capital 100000`
+when the group wants that race id ([docs/MULTI_ACCOUNT.md](docs/MULTI_ACCOUNT.md)).
+
 Self-host below if you want your own book on your machine.
 
 ## 1. Install
@@ -96,7 +107,7 @@ python3 scripts/reset_paper_portfolio.py --account desk --capital 100000
 python3 scripts/paper_leaderboard.py
 ```
 
-Desk: `?account=anna` (or `desk`) · Overview shows the board. Header speaks `desk missing` until `accounts/desk/` has a portfolio; when desk is ready but you are on legacy/`anna`, it speaks `desk ready · viewing legacy|anna` so the pin does not imply the open book is the signed desk. Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
+Desk: `?account=anna` (or `desk`) · Overview shows the board. Header speaks `named desk unset` (and `· open is legacy|<id>` on desk pages) until `accounts/desk/` has a portfolio — not a login error; when desk is ready but you are on legacy/`anna`, it speaks `desk ready · viewing legacy|anna` so the pin does not imply the open book is the signed desk. Scan archives stay shared; only portfolio/trades are per account. Default with no query is still the legacy `data/portfolio.json` book. Autopaper Mode B (one trader per account) is optional later.
 
 ## Rules of the group
 

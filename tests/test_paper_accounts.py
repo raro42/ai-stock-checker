@@ -71,18 +71,26 @@ def test_ledger_dir_and_ensure(tmp_path: Path) -> None:
 
 
 def test_shared_desk_pin(tmp_path: Path) -> None:
-    """#4 signoff named desk — legacy root ≠ desk ready (claim honesty)."""
+    """#4/#5 named desk pin — unset ≠ login error; open book speaks."""
     pin = shared_desk_pin(tmp_path)
     assert pin["status"] == "missing"
-    assert pin["bit"] == "desk missing"
+    assert pin["bit"] == "named desk unset"
     assert pin["warn"] is True
+    # Desk pages pass viewing so unset is not read as a broken site (#5).
+    legacy_unset = shared_desk_pin(tmp_path, viewing="")
+    assert legacy_unset["bit"] == "named desk unset · open is legacy"
+    assert legacy_unset["viewing"] == "legacy"
+    other_unset = shared_desk_pin(tmp_path, viewing="anna")
+    assert other_unset["bit"] == "named desk unset · open is anna"
 
     path = ensure_account_ledger(tmp_path, SHARED_DESK_ACCOUNT_ID)
     (path / "portfolio.json").write_text("not-json{")
     damaged = shared_desk_pin(tmp_path)
     assert damaged["status"] == "damaged"
-    assert damaged["bit"] == "desk damaged"
+    assert damaged["bit"] == "named desk damaged"
     assert damaged["warn"] is True
+    damaged_legacy = shared_desk_pin(tmp_path, viewing="")
+    assert damaged_legacy["bit"] == "named desk damaged · open is legacy"
 
     (path / "portfolio.json").write_text(
         json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})

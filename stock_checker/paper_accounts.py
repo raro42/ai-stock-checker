@@ -107,6 +107,15 @@ def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
     return account_ledger_status(data_dir, account_id) in {"missing", "damaged"}
 
 
+def _shared_desk_open_suffix(view_id: str | None) -> str:
+    """Suffix when the open surface is not the signed ``desk`` book."""
+    if view_id is None or view_id == SHARED_DESK_ACCOUNT_ID:
+        return ""
+    if not view_id:
+        return " · open is legacy"
+    return f" · open is {view_id}"
+
+
 def shared_desk_pin(
     data_dir: Path | str,
     *,
@@ -124,12 +133,16 @@ def shared_desk_pin(
     the signed book is ready but the surface is not on ``desk``, also speak
     ``viewing legacy`` / ``viewing <id>`` so a calm ``desk ready`` pin does not
     imply the open book is the signed one (xang1234 claim honesty + portfolio
-    AI speak-both-sides). Leaderboard/API without a view context stay absolute.
-    Not a new entry gate.
+    AI speak-both-sides). Unset/damaged pins use the same ``open is …`` suffix
+    so bare ``named desk unset`` is not read as a login error or broken desk
+    (GitHub #5). Leaderboard/API without a view context stay absolute.
+    Not a new entry gate. There is **no login** — books switch via ``?account=``.
     """
     status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
     view_raw = "" if viewing is None else viewing
     view_id = normalize_account_id(view_raw) if viewing is not None else None
+    view_out = "" if view_id is None else (view_id or "legacy")
+    open_sfx = _shared_desk_open_suffix(view_id)
     if status == "ok":
         bit = "desk ready"
         if view_id is not None and view_id != SHARED_DESK_ACCOUNT_ID:
@@ -141,20 +154,20 @@ def shared_desk_pin(
             "status": "ok",
             "bit": bit,
             "warn": False,
-            "viewing": "" if view_id is None else (view_id or "legacy"),
+            "viewing": view_out,
         }
     if status == "damaged":
         return {
             "status": "damaged",
-            "bit": "desk damaged",
+            "bit": f"named desk damaged{open_sfx}",
             "warn": True,
-            "viewing": "" if view_id is None else (view_id or "legacy"),
+            "viewing": view_out,
         }
     return {
         "status": "missing",
-        "bit": "desk missing",
+        "bit": f"named desk unset{open_sfx}",
         "warn": True,
-        "viewing": "" if view_id is None else (view_id or "legacy"),
+        "viewing": view_out,
     }
 
 
