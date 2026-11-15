@@ -320,6 +320,45 @@ def soft_allow_short_history_vs_other_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def soft_allow_short_other_delta_lead_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other Δ lead polarity vs short/gap Δ lead polarity.
+
+    Returns ``(bit, warn)``. When both ``short|other`` and ``short|gap``
+    Δ leads already spoke: same polarity →
+    ``align · both adverse|healthy``; crossed →
+    ``clash · short/other … · short/gap …``. Missing either lead silent.
+    Adverse = ``short`` on either meter (ring short-history sleeve or
+    pair short-history sleeve); healthy = ``other|gap`` (non-short
+    ring peers or anchor-gap sleeve). Dual adverse + crossed warn;
+    both healthy calm. Side-by-side ``short other Δ lead · short`` and
+    ``short Δ lead · short`` alone hid whether ring-peer ownership and
+    RS-fail-open pair ownership pull the same way (soft-allow pair≠bench
+    Δ lead moods + Screener junk/unique Δ lead moods + FinRobot +
+    portfolio AI speak-both-sides + xang1234 after other Δ lead size /
+    size moods). Prefixed ``short other Δ lead moods`` so pair
+    ``short Δ lead moods`` + ``short other Δ size moods`` stay
+    distinct. Display only; not a gate.
+    """
+    other_lead = soft_allow_short_history_vs_other_delta_lead(events)
+    pair_lead = soft_allow_short_vs_gap_delta_lead(events)
+    other_s = str(other_lead or "").strip()
+    pair_s = str(pair_lead or "").strip()
+    if other_s not in {"short", "other"} or pair_s not in {"short", "gap"}:
+        return "", False
+    other_adverse = other_s == "short"
+    pair_adverse = pair_s == "short"
+    if other_adverse == pair_adverse:
+        band = "adverse" if other_adverse else "healthy"
+        # Dual adverse agreement ≠ calm confirm (pair Δ lead moods).
+        return f"align · both {band}", other_adverse
+    return (
+        f"clash · short/other {other_s} · short/gap {pair_s}",
+        True,
+    )
+
+
 def soft_allow_short_other_delta_lead_size_moods(
     events: list[dict[str, Any]] | None,
 ) -> tuple[str, bool]:
@@ -2882,6 +2921,20 @@ def format_soft_allow_short_history_bit(
                         f"short Δ lead size sides · {delta_lead} "
                         f"{d_louder:g}% · {other} {d_quieter:g}%"
                     )
+            # Side-by-side short/other + short/gap Δ leads alone hid
+            # whether ring-peer ownership polarity agrees with the
+            # RS-fail-open pair (pair≠bench Δ lead moods + Screener
+            # junk/unique + FinRobot + portfolio AI speak-both-sides +
+            # xang1234 after other Δ lead / size). Prefixed
+            # ``short other Δ lead moods`` so pair ``short Δ lead moods``
+            # + size moods stay distinct.
+            other_lead_moods, _ = soft_allow_short_other_delta_lead_moods(
+                events
+            )
+            if other_lead_moods:
+                head = (
+                    f"{head} · short other Δ lead moods {other_lead_moods}"
+                )
             # Side-by-side short/other + short/gap Δ lead sizes alone
             # hid whether ring-peer magnitude agrees with the
             # RS-fail-open pair (Mode A race≠mix size moods + portfolio

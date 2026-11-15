@@ -83,6 +83,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_history_vs_other_lean_vs_delta,
         soft_allow_short_history_vs_other_delta_lead,
         soft_allow_short_history_vs_other_delta_lead_size,
+        soft_allow_short_other_delta_lead_moods,
         soft_allow_short_other_delta_lead_size_moods,
         soft_allow_short_other_vs_bench_delta_lead_size_moods,
         soft_allow_short_history_last_vs_other,
@@ -331,6 +332,8 @@ def test_soft_allow_short_history_count() -> None:
         None,
         None,
     )
+    assert soft_allow_short_other_delta_lead_moods(None) == ("", False)
+    assert soft_allow_short_other_delta_lead_moods([]) == ("", False)
     assert soft_allow_short_other_delta_lead_size_moods(None) == ("", False)
     assert soft_allow_short_other_delta_lead_size_moods([]) == ("", False)
     assert soft_allow_short_other_vs_bench_delta_lead_size_moods(None) == (
@@ -369,6 +372,11 @@ def test_soft_allow_short_history_count() -> None:
         66.7,
         33.3,
     )
+    # Both Δ leads short → polarity both adverse (pair≠bench Δ lead moods).
+    assert soft_allow_short_other_delta_lead_moods(mixed) == (
+        "align · both adverse",
+        True,
+    )
     # Ring-peer 2× vs pair 2.03× → size moods clash (Mode A race≠mix).
     assert soft_allow_short_other_delta_lead_size_moods(mixed) == (
         "clash · short/other 2× · short/gap 2.03×",
@@ -394,6 +402,7 @@ def test_soft_allow_short_history_count() -> None:
         "short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 2.03× · "
         "short Δ lead size sides · short 67% · gap 33% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03×"
     )
     lead_rows = [
@@ -445,6 +454,8 @@ def test_soft_allow_short_history_count() -> None:
         None,
         None,
     )
+    # All-short → no pair Δ lead → other Δ lead moods silent.
+    assert soft_allow_short_other_delta_lead_moods(lead_rows) == ("", False)
     # All-short → other size silent → other vs pair size moods silent.
     assert soft_allow_short_other_delta_lead_size_moods(lead_rows) == (
         "",
@@ -763,6 +774,7 @@ def test_soft_allow_short_history_count() -> None:
         "vs gap · thin · 1 · 25% · short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods align · both 3× · "
         "short Δ size moods clash · short/gap 3× · bench/young 2× · "
         "short other/bench Δ size moods clash · short/other 3× · bench/young 2× · "
@@ -1553,6 +1565,7 @@ def test_soft_allow_short_history_count() -> None:
         "short vs gap align · hot|thin · short Δ wide · +34pp · "
         "short lean/Δ align · wide · short Δ lead · short · short Δ lead size · "
         "2.03× · short Δ lead size sides · short 67% · gap 33% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03× · "
         "short last/lean align · fresh · hot|thin · short share/lean align · "
         "both align · short ring/lean align · both align · "
@@ -1616,6 +1629,7 @@ def test_soft_allow_short_history_count() -> None:
         "short vs gap align · hot|thin · short Δ wide · +34pp · "
         "short lean/Δ align · wide · short Δ lead · short · short Δ lead size · "
         "2.03× · short Δ lead size sides · short 67% · gap 33% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03× · "
         "short last/lean clash · expired · hot|thin · short share/lean align · "
         "both clash · short ring/lean align · both clash · "
@@ -1783,7 +1797,8 @@ def test_soft_allow_short_history_count() -> None:
         "short share/other align · both align · "
         "short vs gap align · hot|thin · short Δ wide · +50pp · short lean/Δ align · wide · "
         "short Δ lead · short · short Δ lead size · 3× · short Δ lead size sides · short 75% · "
-        "gap 25% · short other Δ size moods align · both 3× · "
+        "gap 25% · short other Δ lead moods align · both adverse · "
+        "short other Δ size moods align · both 3× · "
         "short last/lean align · fresh · hot|thin · short lead/lean clash · lead clash · "
         "lean align · short share/lean align · both align · short ring/lean align · both align · "
         "short lean/other align · both align"
@@ -1857,7 +1872,8 @@ def test_soft_allow_short_history_count() -> None:
         "short share/other align · both clash · "
         "short vs gap align · hot|thin · short Δ wide · +50pp · short lean/Δ align · wide · "
         "short Δ lead · short · short Δ lead size · 3× · short Δ lead size sides · short 75% · "
-        "gap 25% · short other Δ size moods align · both 3× · "
+        "gap 25% · short other Δ lead moods align · both adverse · "
+        "short other Δ size moods align · both 3× · "
         "short last/lean clash · expired · hot|thin · short lead/lean align · "
         "both clash · short share/lean align · both clash · short ring/lean align · both clash · "
         "short lean/other align · both clash"

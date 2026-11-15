@@ -936,6 +936,9 @@ def test_soft_allow_glance_short_history_count() -> None:
     assert g["short_history_vs_other_delta_lead_size"] == 2.0
     assert g["short_history_vs_other_delta_lead_size_louder"] == 66.7
     assert g["short_history_vs_other_delta_lead_size_quieter"] == 33.3
+    # Both Δ leads short → polarity both adverse (pair≠bench Δ lead moods).
+    assert g["short_history_other_delta_lead_moods"] == "align · both adverse"
+    assert g["short_history_other_delta_lead_moods_warn"] is True
     # Ring-peer 2× vs pair 2.03× → size moods clash (Mode A race≠mix).
     assert g["short_history_other_delta_lead_size_moods"] == (
         "clash · short/other 2× · short/gap 2.03×"
@@ -968,6 +971,7 @@ def test_soft_allow_glance_short_history_count() -> None:
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03× · "
         "short last/lean align · fresh · hot|thin · "
         "short share/lean align · both align · "
@@ -1114,6 +1118,9 @@ def test_soft_allow_glance_short_history_count() -> None:
     assert soft_allow_lean_meta(
         "short Δ size moods align · both 3×"
     ) == ("quiet · 1 fold · short Δ size moods align both 3×")
+    assert soft_allow_lean_meta(
+        "short other Δ lead moods align · both adverse"
+    ) == ("quiet · 1 fold · short other Δ lead moods align both adverse")
     assert soft_allow_lean_meta(
         "short other Δ size moods clash · short/other 2× · short/gap 2.03×"
     ) == (
@@ -1283,6 +1290,7 @@ def test_soft_allow_glance_short_history_bench_count() -> None:
         "short vs gap align · hot|thin · "
         "short Δ wide · +34pp · short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 2.03× · short Δ lead size sides · short 67% · gap 33% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods clash · short/other 2× · short/gap 2.03× · "
         "short lean moods clash · short/gap align · bench/young clash · "
         "short last/lean align · fresh · hot|thin · "
@@ -1366,7 +1374,13 @@ def test_soft_allow_glance_short_delta_moods() -> None:
     assert g["short_history_lean_vs_delta_lead_moods_warn"] is False
     assert g["short_history_delta_vs_delta_lead_moods"] == "align · both align"
     assert g["short_history_delta_vs_delta_lead_moods_warn"] is False
+    # Ring-peer + pair both short → other Δ lead moods both adverse.
+    assert g["short_history_other_delta_lead_moods"] == "align · both adverse"
+    assert g["short_history_other_delta_lead_moods_warn"] is True
     assert "short Δ size moods clash · short/gap 3× · bench/young 2×" in g[
+        "short_history_bit"
+    ]
+    assert "short other Δ lead moods align · both adverse" in g[
         "short_history_bit"
     ]
     assert (
@@ -2190,6 +2204,7 @@ def test_soft_allow_glance_short_history_symbol_lead() -> None:
         "short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
+        "short other Δ lead moods align · both adverse · "
         "short other Δ size moods align · both 3× · "
         "short last/lean align · fresh · hot|thin · "
         "short lead/lean clash · lead clash · lean align · "
