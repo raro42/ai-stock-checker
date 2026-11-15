@@ -320,6 +320,43 @@ def soft_allow_short_history_vs_other_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def soft_allow_short_other_delta_lead_size_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other Δ lead size vs short/gap Δ lead size (display only).
+
+    Returns ``(bit, warn)``. When both ``short other Δ lead size · N×``
+    and ``short Δ lead size · M×`` already spoke: same →
+    ``align · both N×``; crossed →
+    ``clash · short/other N× · short/gap M×``. Missing either silent.
+    Dual fat (≥2×) + clash warn; equal thin calm. Side-by-side size
+    bits alone hid whether ring-peer magnitude agrees with the
+    RS-fail-open pair (Mode A race≠mix / soft-allow pair≠bench size
+    moods + portfolio AI count≠share + xang1234 after both Δ lead
+    sizes). Prefixed ``short other Δ size moods`` so pair
+    ``short Δ size moods`` stays distinct. Not a gate.
+    """
+    other_size, _ol, _oq = soft_allow_short_history_vs_other_delta_lead_size(
+        events
+    )
+    pair_size, _pl, _pq = soft_allow_short_vs_gap_delta_lead_size(events)
+    if other_size is None or pair_size is None:
+        return "", False
+    try:
+        other_f = float(other_size)
+        pair_f = float(pair_size)
+    except (TypeError, ValueError):
+        return "", False
+    other_s = f"{other_f:g}"
+    pair_s = f"{pair_f:g}"
+    if abs(other_f - pair_f) < 1e-9:
+        return f"align · both {other_s}×", other_f >= 2.0
+    return (
+        f"clash · short/other {other_s}× · short/gap {pair_s}×",
+        True,
+    )
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -2805,6 +2842,19 @@ def format_soft_allow_short_history_bit(
                         f"short Δ lead size sides · {delta_lead} "
                         f"{d_louder:g}% · {other} {d_quieter:g}%"
                     )
+            # Side-by-side short/other + short/gap Δ lead sizes alone
+            # hid whether ring-peer magnitude agrees with the
+            # RS-fail-open pair (Mode A race≠mix size moods + portfolio
+            # AI count≠share + xang1234 after both sizes). Prefixed
+            # ``short other Δ size moods`` so pair ``short Δ size moods``
+            # stays distinct.
+            other_size_moods, _ = soft_allow_short_other_delta_lead_size_moods(
+                events
+            )
+            if other_size_moods:
+                head = (
+                    f"{head} · short other Δ size moods {other_size_moods}"
+                )
             # Side-by-side pair + bench Δ lead sizes alone hid whether
             # magnitude agrees (polarity can match while 3× vs 2× —
             # portfolio AI count≠share + xang1234 after both sizes).
