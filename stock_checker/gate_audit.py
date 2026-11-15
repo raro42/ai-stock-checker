@@ -282,6 +282,44 @@ def soft_allow_short_history_vs_other_delta_lead(
     return "short" if pp > 0 else "other"
 
 
+def soft_allow_short_history_vs_other_delta_lead_size(
+    events: list[dict[str, Any]] | None,
+) -> tuple[float | None, float | None, float | None]:
+    """How many times louder owns quieter after short vs other Δ lead.
+
+    When ``delta_lead`` already spoke (``short|other``) and both ring
+    shares are known, ``short other Δ lead size · N×`` is
+    louder%÷quieter%; zero quieter (all-short) stays silent. Format
+    names sides ``short|other N% · other|short M%`` (louder first).
+    Lead name ≠ magnitude (short vs gap / Charts / Mode A / Screener Δ
+    lead size + portfolio AI count≠share + xang1234). Prefixed
+    ``short other Δ lead size`` so pair ``short Δ lead size`` is not
+    claimed. Returns ``(size, louder_pct, quieter_pct)`` or
+    ``(None, None, None)``. Display only; not a gate.
+    """
+    lead = soft_allow_short_history_vs_other_delta_lead(events)
+    if str(lead or "").strip().casefold() not in {"short", "other"}:
+        return None, None, None
+    short_n, short_share, _short_sev = soft_allow_short_history_share(
+        events
+    )
+    _other_n, other_share, _other_sev = soft_allow_short_history_vs_other(
+        events
+    )
+    if short_n <= 0 or short_share is None or other_share is None:
+        return None, None, None
+    try:
+        short_pct = float(short_share)
+        other_pct = float(other_share)
+    except (TypeError, ValueError):
+        return None, None, None
+    louder = max(short_pct, other_pct)
+    quieter = min(short_pct, other_pct)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -2658,6 +2696,31 @@ def format_soft_allow_short_history_bit(
                 head = (
                     f"{head} · short other Δ lead · {other_delta_lead}"
                 )
+                # Lead name alone hid magnitude (short vs gap / Charts /
+                # Mode A / Screener Δ lead size + portfolio AI
+                # count≠share + xang1234). Named sides so anonymous
+                # louder/quieter does not hide which ring-peer sleeve
+                # owns quieter. Prefixed ``short other Δ lead size`` so
+                # pair ``short Δ lead size`` stays distinct.
+                od_size, od_louder, od_quieter = (
+                    soft_allow_short_history_vs_other_delta_lead_size(
+                        events
+                    )
+                )
+                if (
+                    od_size is not None
+                    and od_louder is not None
+                    and od_quieter is not None
+                ):
+                    od_other = (
+                        "other" if other_delta_lead == "short" else "short"
+                    )
+                    head = (
+                        f"{head} · short other Δ lead size · "
+                        f"{od_size:g}× · short other Δ lead size sides · "
+                        f"{other_delta_lead} {od_louder:g}% · "
+                        f"{od_other} {od_quieter:g}%"
+                    )
             # Age + ring-peer lean alone hid age≠peers (last/lean +
             # last/bench parity after short vs other).
             last_vs_other, _ = soft_allow_short_history_last_vs_other(

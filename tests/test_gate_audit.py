@@ -82,6 +82,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_history_vs_other_delta,
         soft_allow_short_history_vs_other_lean_vs_delta,
         soft_allow_short_history_vs_other_delta_lead,
+        soft_allow_short_history_vs_other_delta_lead_size,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -318,6 +319,16 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_history_vs_other_lean_vs_delta([]) == ("", False)
     assert soft_allow_short_history_vs_other_delta_lead(None) == ""
     assert soft_allow_short_history_vs_other_delta_lead([]) == ""
+    assert soft_allow_short_history_vs_other_delta_lead_size(None) == (
+        None,
+        None,
+        None,
+    )
+    assert soft_allow_short_history_vs_other_delta_lead_size([]) == (
+        None,
+        None,
+        None,
+    )
     assert soft_allow_short_history_last_vs_other(None) == ("", False)
     assert soft_allow_short_history_last_vs_other([]) == ("", False)
     assert soft_allow_short_history_last_lead_vs_other(None) == ("", False)
@@ -340,6 +351,12 @@ def test_soft_allow_short_history_count() -> None:
     )
     # Signed +33.4pp hid that short owns the ring-peer spread.
     assert soft_allow_short_history_vs_other_delta_lead(mixed) == "short"
+    # Lead name alone hid magnitude (66.7÷33.3 ≈ 2×; short vs gap size).
+    assert soft_allow_short_history_vs_other_delta_lead_size(mixed) == (
+        2.0,
+        66.7,
+        33.3,
+    )
     # No freshness stamp → last/other silent (age extremes required).
     assert soft_allow_short_history_last_vs_other(mixed) == ("", False)
     assert soft_allow_short_history_last_lead_vs_other(mixed) == ("", False)
@@ -349,7 +366,7 @@ def test_soft_allow_short_history_count() -> None:
         "2 short · last IPO · tied · hot · 66.7% · "
         "vs 1 other · thin · 33.3% · short vs other align · hot|thin · "
         "short other Δ wide · +33.4pp · short other lean/Δ align · wide · "
-        "short other Δ lead · short · "
+        "short other Δ lead · short · short other Δ lead size · 2× · short other Δ lead size sides · short 66.7% · other 33.3% · "
         "vs gap · thin · 1 · 33% · "
         "short vs gap align · hot|thin · short Δ wide · +34pp · "
         "short lean/Δ align · wide · short Δ lead · short · "
@@ -399,6 +416,12 @@ def test_soft_allow_short_history_count() -> None:
         True,
     )
     assert soft_allow_short_history_vs_other_delta_lead(lead_rows) == "short"
+    # All-short → quieter 0% → size silent (same as sole-side pair size).
+    assert soft_allow_short_history_vs_other_delta_lead_size(lead_rows) == (
+        None,
+        None,
+        None,
+    )
     assert format_soft_allow_short_history_bit(lead_rows) == (
         "3 short · last NEW · lead IPO · 2 · 67% · last vs lead · NEW · "
         "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · "
@@ -698,7 +721,7 @@ def test_soft_allow_short_history_count() -> None:
         "short bench Δ lead size · 2× · "
         "short bench Δ lead size sides · bench 66.7% · young 33.3% · "
         "last SPY · tied · "
-        "hot · 75% · vs 1 other · thin · 25% · short vs other align · hot|thin · short other Δ wide · +50pp · short other lean/Δ align · wide · short other Δ lead · short · "
+        "hot · 75% · vs 1 other · thin · 25% · short vs other align · hot|thin · short other Δ wide · +50pp · short other lean/Δ align · wide · short other Δ lead · short · short other Δ lead size · 3× · short other Δ lead size sides · short 75% · other 25% · "
         "vs gap · thin · 1 · 25% · short vs gap align · hot|thin · "
         "short Δ wide · +50pp · short lean/Δ align · wide · short Δ lead · short · "
         "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
@@ -1483,7 +1506,7 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(fresh_align, now=now) == (
         "2 short · last IPO · fresh · tied · hot · 66.7% · "
         "short last/ring align · fresh · hot · vs 1 other · thin · 33.3% · "
-        "short vs other align · hot|thin · short other Δ wide · +33.4pp · short other lean/Δ align · wide · short other Δ lead · short · "
+        "short vs other align · hot|thin · short other Δ wide · +33.4pp · short other lean/Δ align · wide · short other Δ lead · short · short other Δ lead size · 2× · short other Δ lead size sides · short 66.7% · other 33.3% · "
         "short last/other align · fresh · hot|thin · vs gap · thin · 1 · 33% · "
         "short last/share align · fresh · hot · short share/ring align · "
         "both align · short share/other align · both align · "
@@ -1545,7 +1568,7 @@ def test_soft_allow_short_history_count() -> None:
     assert format_soft_allow_short_history_bit(expired_align, now=now) == (
         "2 short · last IPO · expired · tied · hot · 66.7% · "
         "short last/ring clash · expired · hot · vs 1 other · thin · 33.3% · "
-        "short vs other align · hot|thin · short other Δ wide · +33.4pp · short other lean/Δ align · wide · short other Δ lead · short · "
+        "short vs other align · hot|thin · short other Δ wide · +33.4pp · short other lean/Δ align · wide · short other Δ lead · short · short other Δ lead size · 2× · short other Δ lead size sides · short 66.7% · other 33.3% · "
         "short last/other clash · expired · hot|thin · vs gap · thin · 1 · 33% · "
         "short last/share clash · expired · hot · short share/ring align · "
         "both clash · short share/other align · both clash · "
@@ -1711,7 +1734,7 @@ def test_soft_allow_short_history_count() -> None:
         "3 short · last NEW · fresh · lead IPO · 2 · 67% · last vs lead · NEW · "
         "short last/lead clash · fresh · vs NEW · ahead thin · +1 · vs NEW · 1 · 33% · hot · 75% · "
         "short last/ring align · fresh · hot · short lead/ring clash · lead clash · ring align · "
-        "vs 1 other · thin · 25% · short vs other align · hot|thin · short other Δ wide · +50pp · short other lean/Δ align · wide · short other Δ lead · short · short last/other align · "
+        "vs 1 other · thin · 25% · short vs other align · hot|thin · short other Δ wide · +50pp · short other lean/Δ align · wide · short other Δ lead · short · short other Δ lead size · 3× · short other Δ lead size sides · short 75% · other 25% · short last/other align · "
         "fresh · hot|thin · short lead/other clash · lead clash · other align · "
         "vs gap · thin · 1 · 25% · short last/share align · fresh · hot · "
         "short lead/share clash · lead clash · share align · short share/ring align · both align · "
@@ -1784,7 +1807,7 @@ def test_soft_allow_short_history_count() -> None:
         "3 short · last IPO · expired · lead IPO · 2 · 67% · agree · short last/lead clash · "
         "expired · agree · ahead thin · +1 · vs NEW · 1 · 33% · hot · 75% · "
         "short last/ring clash · expired · hot · short lead/ring align · both clash · vs 1 other · "
-        "thin · 25% · short vs other align · hot|thin · short other Δ wide · +50pp · short other lean/Δ align · wide · short other Δ lead · short · short last/other clash · expired · "
+        "thin · 25% · short vs other align · hot|thin · short other Δ wide · +50pp · short other lean/Δ align · wide · short other Δ lead · short · short other Δ lead size · 3× · short other Δ lead size sides · short 75% · other 25% · short last/other clash · expired · "
         "hot|thin · short lead/other align · both clash · "
         "vs gap · thin · 1 · 25% · short last/share clash · expired · hot · "
         "short lead/share align · both clash · short share/ring align · both clash · "

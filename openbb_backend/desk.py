@@ -3960,6 +3960,24 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short other lean/Δ",
     ),
+    # How many times louder owns quieter after short other Δ lead
+    # (short vs gap / Charts / Mode A / Screener Δ lead size + portfolio
+    # AI count≠share + xang1234). Longer prefixes first so
+    # ``short other Δ lead size sides`` ≠ ``short other Δ lead size`` ≠
+    # ``short other Δ lead``. Named sides so anonymous louder/quieter
+    # does not hide which ring-peer sleeve owns quieter. Prefixed
+    # ``short other Δ …`` so pair ``short Δ lead size`` stays distinct.
+    (
+        re.compile(
+            r"^short other Δ lead size sides · (short|other) "
+            r"\d+(?:\.\d+)?% · (other|short) \d+(?:\.\d+)?%"
+        ),
+        "short other Δ sides",
+    ),
+    (
+        re.compile(r"^short other Δ lead size · \d+(?:\.\d+)?×"),
+        "short other Δ size",
+    ),
     # Short vs other Δ lead when lean vs Δ already spoke (short vs gap /
     # Screener / Mode A Δ lead parity). Prefixed ``short other Δ lead``
     # so pair ``short Δ lead`` does not claim ring peers.
@@ -4908,6 +4926,7 @@ def build_soft_allow_glance(
         soft_allow_short_history_vs_other_delta,
         soft_allow_short_history_vs_other_lean_vs_delta,
         soft_allow_short_history_vs_other_delta_lead,
+        soft_allow_short_history_vs_other_delta_lead_size,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -5046,6 +5065,9 @@ def build_soft_allow_glance(
         "short_history_vs_other_lean_vs_delta": "",
         "short_history_vs_other_lean_vs_delta_warn": False,
         "short_history_vs_other_delta_lead": "",
+        "short_history_vs_other_delta_lead_size": None,
+        "short_history_vs_other_delta_lead_size_louder": None,
+        "short_history_vs_other_delta_lead_size_quieter": None,
         "short_history_last_vs_other": "",
         "short_history_last_vs_other_warn": False,
         "short_history_last_lead_vs_other": "",
@@ -5423,8 +5445,10 @@ def build_soft_allow_glance(
     # last/lean + last/other already spoke, ``short lean/other``
     # follows (lean/bench parity); when vs-other lean already spoke,
     # ``short other Δ`` + ``short other lean/Δ`` + ``short other Δ lead``
-    # follow (short vs gap / Screener / Mode A share Δ + Δ lead parity;
-    # prefixed so pair ``short Δ`` / ``short Δ lead`` stay distinct).
+    # + ``short other Δ lead size`` follow (short vs gap / Screener /
+    # Mode A share Δ + Δ lead + size parity; prefixed so pair
+    # ``short Δ`` / ``short Δ lead`` / ``short Δ lead size`` stay
+    # distinct).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
     )
@@ -5447,6 +5471,11 @@ def build_soft_allow_glance(
     short_history_vs_other_delta_lead = (
         soft_allow_short_history_vs_other_delta_lead(rows)
     )
+    (
+        short_history_vs_other_delta_lead_size,
+        short_history_vs_other_delta_lead_size_louder,
+        short_history_vs_other_delta_lead_size_quieter,
+    ) = soft_allow_short_history_vs_other_delta_lead_size(rows)
     (
         short_history_last_vs_other,
         short_history_last_vs_other_warn,
@@ -6640,6 +6669,15 @@ def build_soft_allow_glance(
         ),
         "short_history_vs_other_delta_lead": (
             short_history_vs_other_delta_lead
+        ),
+        "short_history_vs_other_delta_lead_size": (
+            short_history_vs_other_delta_lead_size
+        ),
+        "short_history_vs_other_delta_lead_size_louder": (
+            short_history_vs_other_delta_lead_size_louder
+        ),
+        "short_history_vs_other_delta_lead_size_quieter": (
+            short_history_vs_other_delta_lead_size_quieter
         ),
         "short_history_last_vs_other": short_history_last_vs_other,
         "short_history_last_vs_other_warn": short_history_last_vs_other_warn,
