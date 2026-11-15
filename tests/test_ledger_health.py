@@ -100,6 +100,36 @@ def test_load_json_checked_lean_type_mismatch(tmp_path: Path) -> None:
     assert meta["state"] == "ok"
 
 
+def test_load_json_checked_rejects_duplicate_keys(tmp_path: Path) -> None:
+    """tradermonty #753: duplicate object keys → malformed, not last-wins ok."""
+    path = tmp_path / "portfolio.json"
+    path.write_text('{"cash": 100, "cash": 0}')
+    doc, meta = load_json_checked(path, {})
+    assert doc == {}
+    assert meta["state"] == "malformed"
+    assert meta["bad"] == 1
+
+    path.write_text('{"cash": 100, "holdings": {"AAPL": 1}}')
+    doc, meta = load_json_checked(path, {})
+    assert doc == {"cash": 100, "holdings": {"AAPL": 1}}
+    assert meta["state"] == "ok"
+
+
+def test_load_jsonl_checked_rejects_duplicate_keys(tmp_path: Path) -> None:
+    """tradermonty #753: duplicate keys on a JSONL row count as bad."""
+    path = tmp_path / "trades.jsonl"
+    path.write_text(
+        '{"type":"BUY","symbol":"AAPL"}\n'
+        '{"type":"SELL","type":"BUY"}\n'
+        '{"type":"SELL","symbol":"AAPL"}\n'
+    )
+    rows, meta = load_jsonl_checked(path)
+    assert [r["type"] for r in rows] == ["BUY", "SELL"]
+    assert meta["state"] == "thin"
+    assert meta["bad"] == 1
+    assert meta["good"] == 2
+
+
 def test_ledger_missing_portfolio_with_fills_is_thin(tmp_path: Path) -> None:
     (tmp_path / "trades.jsonl").write_text("{}\n")
     g = build_ledger_health(tmp_path)

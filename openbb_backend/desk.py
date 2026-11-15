@@ -22,13 +22,33 @@ from stock_checker.trade_postmortem import closed_rounds
 from stock_checker.yahoo_universe_discovery import _quiet_inventory_chip
 
 
+class _DuplicateKeyJSON(ValueError):
+    """Object key appears twice — stdlib json.loads would silently keep the last."""
+
+
+def _reject_duplicate_object_keys(pairs: list[tuple[Any, Any]]) -> dict[Any, Any]:
+    """tradermonty #753: ambiguous duplicate keys ≠ a healthy parse."""
+    out: dict[Any, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise _DuplicateKeyJSON(key)
+        out[key] = value
+    return out
+
+
+def _loads_json_reject_duplicates(text: str) -> Any:
+    return json.loads(text, object_pairs_hook=_reject_duplicate_object_keys)
+
+
 def load_json_checked(path: Path, default: Any) -> tuple[Any, dict[str, Any]]:
     """Parse one JSON file. Report missing, ok, malformed, or unreadable.
 
     A bad file returns ``default``. Callers must not treat that as an empty book.
     Parseable JSON whose container type mismatches ``default`` (e.g. a list when
     a dict is expected) is lean-fallback malformed — presence alone ≠ usable
-    (xang1234 #498 / #540 reject damaged descriptors).
+    (xang1234 #498 / #540 reject damaged descriptors). Duplicate object keys
+    are also malformed (tradermonty #753 reject ambiguous inputs — last-wins
+    overwrite is not a usable ledger).
     """
     if not path.exists():
         return default, {"state": "missing", "bad": 0}
@@ -37,8 +57,8 @@ def load_json_checked(path: Path, default: Any) -> tuple[Any, dict[str, Any]]:
     except OSError:
         return default, {"state": "unreadable", "bad": 1}
     try:
-        doc = json.loads(text)
-    except json.JSONDecodeError:
+        doc = _loads_json_reject_duplicates(text)
+    except (json.JSONDecodeError, _DuplicateKeyJSON):
         return default, {"state": "malformed", "bad": 1}
     if isinstance(default, dict) and not isinstance(doc, dict):
         return default, {"state": "malformed", "bad": 1}
@@ -52,6 +72,7 @@ def load_jsonl_checked(path: Path) -> tuple[list[dict], dict[str, Any]]:
 
     One bad line used to wipe the ledger. ``thin`` means some rows survived.
     ``malformed`` means the file exists but every non-empty line failed.
+    Duplicate object keys on a line count as bad (tradermonty #753).
     """
     if not path.exists():
         return [], {"state": "missing", "bad": 0, "good": 0}
@@ -65,8 +86,8 @@ def load_jsonl_checked(path: Path) -> tuple[list[dict], dict[str, Any]]:
         if not line.strip():
             continue
         try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
+            obj = _loads_json_reject_duplicates(line)
+        except (json.JSONDecodeError, _DuplicateKeyJSON):
             bad += 1
             continue
         if isinstance(obj, dict):

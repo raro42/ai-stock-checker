@@ -76,13 +76,26 @@ def list_account_ids(data_dir: Path | str) -> list[str]:
     return out
 
 
+def _reject_duplicate_object_keys(pairs: list) -> dict:
+    """tradermonty #753: duplicate keys are ambiguous — not a usable ledger."""
+    out: dict = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError(f"duplicate key: {key!r}")
+        out[key] = value
+    return out
+
+
 def _portfolio_file_status(path: Path) -> str:
     """Read one ``portfolio.json``: ``ok`` / ``missing`` / ``damaged``."""
     if not path.exists():
         return "missing"
     try:
-        doc = json.loads(path.read_text() or "{}")
-    except (OSError, json.JSONDecodeError, UnicodeError):
+        doc = json.loads(
+            path.read_text() or "{}",
+            object_pairs_hook=_reject_duplicate_object_keys,
+        )
+    except (OSError, json.JSONDecodeError, UnicodeError, ValueError):
         return "damaged"
     if not isinstance(doc, dict):
         return "damaged"

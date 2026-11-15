@@ -269,6 +269,14 @@ def test_account_ledger_missing(tmp_path: Path) -> None:
     assert account_ledger_status(tmp_path, "desk") == "ok"
 
 
+def test_account_ledger_duplicate_keys_damaged(tmp_path: Path) -> None:
+    """tradermonty #753: duplicate cash keys must not look like a reset book."""
+    path = ensure_account_ledger(tmp_path, "desk")
+    (path / "portfolio.json").write_text('{"cash": 100000, "cash": 0}')
+    assert account_ledger_status(tmp_path, "desk") == "damaged"
+    assert account_ledger_missing(tmp_path, "desk") is True
+
+
 def test_account_ledger_damaged_not_euro_zero_ready(tmp_path: Path) -> None:
     """Corrupt portfolio.json must not rank as a €0 reset / ready book.
 
