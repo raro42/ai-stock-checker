@@ -128,10 +128,19 @@ def _shared_desk_view_ledger(
     return "ok"
 
 
-def _shared_desk_view_ledger_sfx(view_ledger: str) -> str:
-    """Speak open-book unusable state after viewing/open (not ok/empty)."""
+def _shared_desk_view_ledger_sfx(
+    view_ledger: str, *, speak_ok: bool = False
+) -> str:
+    """Speak open-book ledger after viewing/open.
+
+    Adverse ``missing``/``damaged`` always speak. Usable ``ok`` speaks only when
+    ``speak_ok`` (signed desk warns) so a warn pin does not imply the open named
+    book is also broken (xang1234 claim honesty + portfolio AI speak-both-sides).
+    """
     if view_ledger in {"missing", "damaged"}:
         return f" · {view_ledger}"
+    if speak_ok and view_ledger == "ok":
+        return " · ok"
     return ""
 
 
@@ -156,7 +165,9 @@ def shared_desk_pin(
     so bare ``named desk unset`` is not read as a login error or broken desk
     (GitHub #5). When the open named book itself is missing/damaged, also speak
     ``· missing`` / ``· damaged`` (and warn) so ``viewing anna`` does not hide
-    an unusable open ledger. Leaderboard/API without a view context stay absolute.
+    an unusable open ledger. When signed desk warns but the open named book is
+    usable, also speak ``· ok`` so unset/damaged does not infect the open book.
+    Leaderboard/API without a view context stay absolute.
     Not a new entry gate. There is **no login** — books switch via ``?account=``.
     """
     status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
@@ -165,7 +176,9 @@ def shared_desk_pin(
     view_out = "" if view_id is None else (view_id or "legacy")
     view_ledger = _shared_desk_view_ledger(data_dir, view_id)
     open_sfx = _shared_desk_open_suffix(view_id)
-    ledger_sfx = _shared_desk_view_ledger_sfx(view_ledger)
+    # Speak open ``ok`` only while signed desk warns — calm ready path stays quiet.
+    speak_ok = status != "ok"
+    ledger_sfx = _shared_desk_view_ledger_sfx(view_ledger, speak_ok=speak_ok)
     view_warn = view_ledger in {"missing", "damaged"}
     if status == "ok":
         bit = "desk ready"

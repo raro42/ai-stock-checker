@@ -71,7 +71,7 @@ def test_ledger_dir_and_ensure(tmp_path: Path) -> None:
 
 
 def test_shared_desk_pin(tmp_path: Path) -> None:
-    """#4/#5 named desk pin — unset ≠ login error; open book speaks."""
+    """#4/#5 named desk pin — unset ≠ login error; open book speaks both sides."""
     pin = shared_desk_pin(tmp_path)
     assert pin["status"] == "missing"
     assert pin["bit"] == "named desk unset"
@@ -87,6 +87,15 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert other_unset["bit"] == "named desk unset · open is anna · missing"
     assert other_unset["viewing_ledger"] == "missing"
     assert other_unset["warn"] is True
+    # Usable open book must speak · ok while signed desk warns (not infected).
+    anna = ensure_account_ledger(tmp_path, "anna")
+    (anna / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
+    unset_ok = shared_desk_pin(tmp_path, viewing="anna")
+    assert unset_ok["bit"] == "named desk unset · open is anna · ok"
+    assert unset_ok["viewing_ledger"] == "ok"
+    assert unset_ok["warn"] is True
 
     path = ensure_account_ledger(tmp_path, SHARED_DESK_ACCOUNT_ID)
     (path / "portfolio.json").write_text("not-json{")
@@ -96,6 +105,9 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert damaged["warn"] is True
     damaged_legacy = shared_desk_pin(tmp_path, viewing="")
     assert damaged_legacy["bit"] == "named desk damaged · open is legacy"
+    damaged_ok = shared_desk_pin(tmp_path, viewing="anna")
+    assert damaged_ok["bit"] == "named desk damaged · open is anna · ok"
+    assert damaged_ok["viewing_ledger"] == "ok"
 
     (path / "portfolio.json").write_text(
         json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
@@ -114,27 +126,25 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert legacy["bit"] == "desk ready · viewing legacy"
     assert legacy["viewing"] == "legacy"
     assert legacy["warn"] is False
+    # Calm ready path stays quiet on open ok (no · ok clutter).
+    other_ok = shared_desk_pin(tmp_path, viewing="anna")
+    assert other_ok["bit"] == "desk ready · viewing anna"
+    assert other_ok["viewing_ledger"] == "ok"
+    assert other_ok["warn"] is False
+
     # Viewing a missing named book warns even when signed desk is ready.
+    (anna / "portfolio.json").unlink()
     other = shared_desk_pin(tmp_path, viewing="anna")
     assert other["bit"] == "desk ready · viewing anna · missing"
     assert other["viewing"] == "anna"
     assert other["viewing_ledger"] == "missing"
     assert other["warn"] is True
 
-    anna = ensure_account_ledger(tmp_path, "anna")
     (anna / "portfolio.json").write_text("not-json{")
     other_dmg = shared_desk_pin(tmp_path, viewing="anna")
     assert other_dmg["bit"] == "desk ready · viewing anna · damaged"
     assert other_dmg["viewing_ledger"] == "damaged"
     assert other_dmg["warn"] is True
-
-    (anna / "portfolio.json").write_text(
-        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
-    )
-    other_ok = shared_desk_pin(tmp_path, viewing="anna")
-    assert other_ok["bit"] == "desk ready · viewing anna"
-    assert other_ok["viewing_ledger"] == "ok"
-    assert other_ok["warn"] is False
 
 
 def test_account_ledger_missing(tmp_path: Path) -> None:

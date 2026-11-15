@@ -37,7 +37,7 @@
          title="{% if snap.account_ledger_damaged %}Named book portfolio.json is unreadable — run reset_paper_portfolio.py --account {{ snap.account_id }}{% elif snap.account_ledger_missing %}Named book has no portfolio.json yet — run reset_paper_portfolio.py --account {{ snap.account_id }}{% else %}Mode A paper ledger — scan archives stay shared{% endif %}">{{ snap.account_label }}</p>
       {% if snap.shared_desk_pin_bit %}
       <p class="leaderboard-note{% if snap.shared_desk_pin_warn %} is-missing{% endif %}"
-         title="No login. Named Mode A book accounts/desk/ — unset means that optional ledger is not reset yet; legacy root / ?account= books still work. Ready while viewing another book speaks viewing legacy|id; open named missing/damaged adds · missing|damaged. Ops: python3 scripts/reset_paper_portfolio.py --account desk">{{ snap.shared_desk_pin_bit }}</p>
+         title="No login. Named Mode A book accounts/desk/ — unset means that optional ledger is not reset yet; legacy root / ?account= books still work. Ready while viewing another book speaks viewing legacy|id; open named missing/damaged adds · missing|damaged; when signed desk warns but open named is usable, · ok so unset/damaged does not infect the open book. Ops: python3 scripts/reset_paper_portfolio.py --account desk">{{ snap.shared_desk_pin_bit }}</p>
       {% endif %}
       {% if snap.account_options and snap.account_options|length > 1 %}
       <nav class="account-switch" aria-label="Paper account">
