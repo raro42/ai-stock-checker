@@ -22,7 +22,12 @@ STOCK_BENCHMARK_KIND = "etf_proxy"
 STOCK_BENCHMARK_NOT = "^GSPC"
 STOCK_BENCHMARK_IDENTITY = "SPY · ETF proxy · not ^GSPC"
 STOCK_SMA_PERIOD = 200
+# BTCUSDT is a Binance spot pair for regime/RS SMA — not Yahoo BTC-USD
+# (paper live symbols) and not a CMC aggregate index (tradermonty #765/#766).
 CRYPTO_BENCHMARK = "BTCUSDT"
+CRYPTO_BENCHMARK_KIND = "binance_pair"
+CRYPTO_BENCHMARK_NOT = "BTC-USD"
+CRYPTO_BENCHMARK_IDENTITY = "BTCUSDT · Binance pair · not BTC-USD"
 CRYPTO_SMA_PERIOD = 50
 
 REGIME_ON = "risk_on"
@@ -81,6 +86,20 @@ def stock_benchmark_identity() -> dict[str, str]:
         "kind": STOCK_BENCHMARK_KIND,
         "not_index": STOCK_BENCHMARK_NOT,
         "bit": STOCK_BENCHMARK_IDENTITY,
+    }
+
+
+def crypto_benchmark_identity() -> dict[str, str]:
+    """Desk/API identity for the crypto regime/RS bench (display only).
+
+    Friends must not read bare ``BTC`` as Yahoo ``BTC-USD`` (paper symbols) —
+    SMA and RS use the Binance ``BTCUSDT`` series. Not a new gate.
+    """
+    return {
+        "symbol": CRYPTO_BENCHMARK,
+        "kind": CRYPTO_BENCHMARK_KIND,
+        "not_yahoo": CRYPTO_BENCHMARK_NOT,
+        "bit": CRYPTO_BENCHMARK_IDENTITY,
     }
 
 
@@ -169,7 +188,10 @@ def snapshot_dict(
         "stock_regime": stock_regime,
         "stock_close": _json_float(stock_close),
         "stock_sma": _json_float(stock_sma),
-        "crypto_benchmark": "BTC-USD",
+        "crypto_benchmark": CRYPTO_BENCHMARK,
+        "crypto_benchmark_kind": CRYPTO_BENCHMARK_KIND,
+        "crypto_benchmark_not": CRYPTO_BENCHMARK_NOT,
+        "crypto_benchmark_identity": CRYPTO_BENCHMARK_IDENTITY,
         "crypto_sma_period": CRYPTO_SMA_PERIOD,
         "crypto_regime": crypto_regime,
         "crypto_close": _json_float(crypto_close),

@@ -29516,12 +29516,16 @@ def build_gate_params_glance() -> dict[str, Any]:
     """
     from stock_checker.market_regime import (
         CRYPTO_BENCHMARK,
+        CRYPTO_BENCHMARK_IDENTITY,
+        CRYPTO_BENCHMARK_KIND,
+        CRYPTO_BENCHMARK_NOT,
         CRYPTO_SMA_PERIOD,
         STOCK_BENCHMARK,
         STOCK_BENCHMARK_IDENTITY,
         STOCK_BENCHMARK_KIND,
         STOCK_BENCHMARK_NOT,
         STOCK_SMA_PERIOD,
+        crypto_benchmark_identity,
         stock_benchmark_identity,
     )
     from stock_checker.relative_strength import (
@@ -29535,23 +29539,25 @@ def build_gate_params_glance() -> dict[str, Any]:
     gap_ceil = float(rs_anchor_max_miss())
     adv = float(min_advance_ratio())
     leaders = int(min_stock_leaders())
-    crypto_label = str(CRYPTO_BENCHMARK).replace("USDT", "").replace("USD", "")
     adv_pct = f"{adv * 100:.0f}%"
     # xang1234 #539: gap share is a live knob (0..1 clamped); speak beside RS days.
     gap_pct = f"{gap_ceil * 100:.0f}%"
     gap_env = abs(gap_ceil - float(RS_ANCHOR_MAX_MISS)) > 1e-12
     gap_bit = f"gap≤{gap_pct} · env" if gap_env else f"gap≤{gap_pct}"
-    # tradermonty #765: SPY·ETF so bare SPY≥SMA is not read as ^GSPC.
+    # tradermonty #765/#766: SPY·ETF / BTCUSDT·BN so bare benches are not
+    # read as ^GSPC or Yahoo BTC-USD.
     stock_bench = f"{STOCK_BENCHMARK}·ETF"
+    crypto_bench = f"{CRYPTO_BENCHMARK}·BN"
     line = (
         f"{stock_bench}≥SMA{STOCK_SMA_PERIOD} · "
-        f"{crypto_label}≥SMA{CRYPTO_SMA_PERIOD} · "
+        f"{crypto_bench}≥SMA{CRYPTO_SMA_PERIOD} · "
         f"RS≥bench {lookback}d · {gap_bit} · "
         f"A/D≥{adv_pct} · ≥{leaders} leader · fail-open"
     )
     if len(line) > 96:
         line = line[:95] + "…"
     identity = stock_benchmark_identity()
+    crypto_ident = crypto_benchmark_identity()
     return {
         "ready": True,
         "tone": "params",
@@ -29563,6 +29569,10 @@ def build_gate_params_glance() -> dict[str, Any]:
         "stock_benchmark_identity_bit": identity["bit"],
         "stock_sma": int(STOCK_SMA_PERIOD),
         "crypto_benchmark": CRYPTO_BENCHMARK,
+        "crypto_benchmark_kind": CRYPTO_BENCHMARK_KIND,
+        "crypto_benchmark_not": CRYPTO_BENCHMARK_NOT,
+        "crypto_benchmark_identity": CRYPTO_BENCHMARK_IDENTITY,
+        "crypto_benchmark_identity_bit": crypto_ident["bit"],
         "crypto_sma": int(CRYPTO_SMA_PERIOD),
         "rs_lookback": lookback,
         "rs_anchor_max_miss": gap_ceil,
@@ -35125,10 +35135,16 @@ def _trader_runtime_view() -> dict[str, Any]:
     regime_snap = _load_json(data_dir / "market_regime.json", {})
     if not isinstance(regime_snap, dict):
         regime_snap = {}
-    from stock_checker.market_regime import stock_benchmark_identity as _spy_ident
+    from stock_checker.market_regime import (
+        crypto_benchmark_identity as _btc_ident,
+        stock_benchmark_identity as _spy_ident,
+    )
 
     _spy_bench_id = str(
         regime_snap.get("stock_benchmark_identity") or _spy_ident()["bit"]
+    )
+    _btc_bench_id = str(
+        regime_snap.get("crypto_benchmark_identity") or _btc_ident()["bit"]
     )
     calm_snap = _load_json(data_dir / "paper_calm.json", {})
     if not isinstance(calm_snap, dict):
@@ -35184,6 +35200,7 @@ def _trader_runtime_view() -> dict[str, Any]:
         "stock_regime_label": _regime_analogue_label(regime_snap, "stock"),
         "crypto_regime_label": _regime_analogue_label(regime_snap, "crypto"),
         "stock_benchmark_identity": _spy_bench_id,
+        "crypto_benchmark_identity": _btc_bench_id,
         "regime_updated": str(regime_snap.get("updated_at") or ""),
         "calm_streak_days": int(calm_snap.get("streak_days") or 0),
         "calm_required_days": int(calm_snap.get("required_days") or 30),

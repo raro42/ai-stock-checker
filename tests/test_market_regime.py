@@ -1,6 +1,10 @@
 """Offline tests for SMA market-regime gate."""
 
 from stock_checker.market_regime import (
+    CRYPTO_BENCHMARK,
+    CRYPTO_BENCHMARK_IDENTITY,
+    CRYPTO_BENCHMARK_KIND,
+    CRYPTO_BENCHMARK_NOT,
     REGIME_OFF,
     REGIME_ON,
     REGIME_UNKNOWN,
@@ -11,6 +15,7 @@ from stock_checker.market_regime import (
     classify_close_vs_sma,
     closes_from_binance_klines,
     closes_from_yfinance_hist,
+    crypto_benchmark_identity,
     new_entry_allowed,
     regime_analogue_label,
     simple_sma,
@@ -120,6 +125,11 @@ def test_regime_analogue_rejects_weak_or_incomplete():
     assert snap["stock_benchmark_kind"] == STOCK_BENCHMARK_KIND
     assert snap["stock_benchmark_not"] == STOCK_BENCHMARK_NOT
     assert snap["stock_benchmark_identity"] == STOCK_BENCHMARK_IDENTITY
+    assert snap["crypto_benchmark"] == CRYPTO_BENCHMARK
+    assert snap["crypto_benchmark_kind"] == CRYPTO_BENCHMARK_KIND
+    assert snap["crypto_benchmark_not"] == CRYPTO_BENCHMARK_NOT
+    assert snap["crypto_benchmark_identity"] == CRYPTO_BENCHMARK_IDENTITY
+    assert snap["crypto_benchmark"] != "BTC-USD"
 
 
 def test_stock_benchmark_identity_etf_proxy_not_index():
@@ -131,6 +141,17 @@ def test_stock_benchmark_identity_etf_proxy_not_index():
     assert ident["bit"] == STOCK_BENCHMARK_IDENTITY
     assert "ETF proxy" in ident["bit"]
     assert "^GSPC" in ident["bit"]
+
+
+def test_crypto_benchmark_identity_binance_pair_not_yahoo():
+    """tradermonty #765/#766: BTCUSDT is Binance, not Yahoo BTC-USD."""
+    ident = crypto_benchmark_identity()
+    assert ident["symbol"] == "BTCUSDT"
+    assert ident["kind"] == "binance_pair"
+    assert ident["not_yahoo"] == "BTC-USD"
+    assert ident["bit"] == CRYPTO_BENCHMARK_IDENTITY
+    assert "Binance" in ident["bit"]
+    assert "BTC-USD" in ident["bit"]
 
 
 def test_nan_closes_fail_open_as_unknown():
