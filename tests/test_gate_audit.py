@@ -85,6 +85,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_history_vs_other_delta_lead_size,
         soft_allow_short_other_lean_moods,
         soft_allow_short_other_delta_moods,
+        soft_allow_short_other_vs_bench_delta_moods,
         soft_allow_short_other_delta_lead_moods,
         soft_allow_short_other_delta_lead_size_moods,
         soft_allow_short_other_vs_bench_delta_lead_size_moods,
@@ -339,6 +340,8 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_other_lean_moods([]) == ("", False)
     assert soft_allow_short_other_delta_moods(None) == ("", False)
     assert soft_allow_short_other_delta_moods([]) == ("", False)
+    assert soft_allow_short_other_vs_bench_delta_moods(None) == ("", False)
+    assert soft_allow_short_other_vs_bench_delta_moods([]) == ("", False)
     assert soft_allow_short_other_delta_lead_moods(None) == ("", False)
     assert soft_allow_short_other_delta_lead_moods([]) == ("", False)
     assert soft_allow_short_other_delta_lead_size_moods(None) == ("", False)
@@ -401,6 +404,8 @@ def test_soft_allow_short_history_count() -> None:
         "align · both wide",
         True,
     )
+    # No bench lean/Δ → other/bench Δ moods silent.
+    assert soft_allow_short_other_vs_bench_delta_moods(mixed) == ("", False)
     # No bench Δ lead size → other/bench size moods silent.
     assert soft_allow_short_other_vs_bench_delta_lead_size_moods(mixed) == (
         "",
@@ -632,6 +637,12 @@ def test_soft_allow_short_history_count() -> None:
         "align · both wide",
         True,
     )
+    # Ring-peer + bench both wide → other/bench Δ moods both wide
+    # (closes Δ-moods triangle after other≠pair + pair≠bench).
+    assert soft_allow_short_other_vs_bench_delta_moods(bench_rows) == (
+        "align · both wide",
+        True,
+    )
     # Both lean verbs align → lean moods align · both align (no warn).
     assert soft_allow_short_lean_moods(bench_rows) == (
         "align · both align",
@@ -680,6 +691,11 @@ def test_soft_allow_short_history_count() -> None:
     ) == ("align · thin", False)
     assert soft_allow_short_delta_moods(mood_clash) == (
         "clash · short/gap wide · bench/young thin",
+        True,
+    )
+    # Ring-peer wide vs bench thin → other/bench Δ moods clash (triangle).
+    assert soft_allow_short_other_vs_bench_delta_moods(mood_clash) == (
+        "clash · short/other wide · bench/young thin",
         True,
     )
     # Both lean verbs still align → lean moods calm even when Δ moods clash.
@@ -813,7 +829,9 @@ def test_soft_allow_short_history_count() -> None:
         "short Δ size moods clash · short/gap 3× · bench/young 2× · "
         "short other/bench Δ size moods clash · short/other 3× · bench/young 2× · "
         "short other Δ moods align · both wide · "
-        "short Δ moods align · both wide · short lean moods align · both align · "
+        "short Δ moods align · both wide · "
+        "short other/bench Δ moods align · both wide · "
+        "short lean moods align · both align · "
         "short other/bench lean moods align · both align · "
         "short lean vs Δ moods align · both align · "
         "short Δ lead moods align · both adverse · "

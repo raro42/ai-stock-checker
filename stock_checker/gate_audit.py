@@ -540,6 +540,49 @@ def soft_allow_short_other_delta_moods(
     )
 
 
+def soft_allow_short_other_vs_bench_delta_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other lean/Δ mood vs bench/young lean/Δ mood (display only).
+
+    Returns ``(bit, warn)``. When both lean vs Δ already spoke with an
+    align severity (``wide|thin``): same → ``align · both wide|thin``;
+    crossed → ``clash · short/other … · bench/young …``. Mid-Δ clash /
+    missing side stay silent. Dual wide warns; clash warns. Closes the
+    Δ-moods triangle after other≠pair (``short other Δ moods``) and
+    pair≠bench (``short Δ moods``) — matching other≠pair / pair≠bench
+    ownership-spread moods can still hide wide vs thin across ring-peer
+    vs primary-bench (soft-allow lean-mood / size-mood triangles +
+    Screener junk/unique + portfolio AI speak-both-sides + xang1234).
+    Prefixed ``short other/bench Δ moods`` so ``short other Δ moods`` +
+    ``short Δ moods`` stay distinct. Not a gate.
+    """
+    other_lvd, _ = soft_allow_short_history_vs_other_lean_vs_delta(events)
+    bench_lvd, _ = soft_allow_short_history_bench_vs_young_lean_vs_delta(
+        events
+    )
+    other_s = str(other_lvd or "")
+    bench_s = str(bench_lvd or "")
+    if not other_s.startswith("align · ") or not bench_s.startswith(
+        "align · "
+    ):
+        return "", False
+    other_sev = other_s[len("align · ") :].strip()
+    bench_sev = bench_s[len("align · ") :].strip()
+    if other_sev not in {"wide", "thin"} or bench_sev not in {
+        "wide",
+        "thin",
+    }:
+        return "", False
+    if other_sev == bench_sev:
+        # Dual wide agreement ≠ calm confirm (pair Δ moods).
+        return f"align · both {other_sev}", other_sev == "wide"
+    return (
+        f"clash · short/other {other_sev} · bench/young {bench_sev}",
+        True,
+    )
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -3101,6 +3144,21 @@ def format_soft_allow_short_history_bit(
             delta_moods, _ = soft_allow_short_delta_moods(events)
             if delta_moods:
                 head = f"{head} · short Δ moods {delta_moods}"
+            # Side-by-side short/other lean/Δ + bench/young lean/Δ alone
+            # hid whether ring-peer ownership-spread mood agrees with
+            # primary-bench (closes other≠pair + pair≠bench Δ-moods
+            # triangle; soft-allow lean-mood / size-mood triangles +
+            # Screener junk/unique + portfolio AI speak-both-sides +
+            # xang1234). Prefixed ``short other/bench Δ moods`` so
+            # other≠pair + pair≠bench chips stay distinct.
+            other_bench_delta_moods, _ = (
+                soft_allow_short_other_vs_bench_delta_moods(events)
+            )
+            if other_bench_delta_moods:
+                head = (
+                    f"{head} · short other/bench Δ moods "
+                    f"{other_bench_delta_moods}"
+                )
             # Δ mood match alone hid lean *verb* mismatch (Window A
             # close sleeve lean moods + FinRobot + portfolio AI).
             lean_moods, _ = soft_allow_short_lean_moods(events)
