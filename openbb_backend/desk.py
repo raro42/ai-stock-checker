@@ -3946,6 +3946,20 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short/other",
     ),
+    # Short vs other ownership Δ when lean already spoke (short vs gap /
+    # Screener / Mode A share Δ parity). Prefixed ``short other Δ`` so
+    # pair ``short Δ`` / ``short bench Δ`` do not claim ring peers.
+    (
+        re.compile(r"^short other Δ (wide|thin)"),
+        "short other Δ",
+    ),
+    (
+        re.compile(
+            r"^short other lean/Δ (align|clash)"
+            r"(?: · (wide|thin|lean · Δ mid))?"
+        ),
+        "short other lean/Δ",
+    ),
     # Short cursor age vs ring-peer lean (last/lean + last/bench parity
     # after short vs other). Distinct ``short last/other`` so pair
     # ``short last/lean`` (vs gap) is not treated as ring peers.
@@ -4884,6 +4898,8 @@ def build_soft_allow_glance(
         soft_allow_short_history_share,
         soft_allow_short_history_vs_other,
         soft_allow_short_history_vs_other_lean,
+        soft_allow_short_history_vs_other_delta,
+        soft_allow_short_history_vs_other_lean_vs_delta,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -5017,6 +5033,10 @@ def build_soft_allow_glance(
         "short_history_other_share_severity": "",
         "short_history_vs_other": "",
         "short_history_vs_other_warn": False,
+        "short_history_vs_other_delta_pp": None,
+        "short_history_vs_other_delta_severity": "",
+        "short_history_vs_other_lean_vs_delta": "",
+        "short_history_vs_other_lean_vs_delta_warn": False,
         "short_history_last_vs_other": "",
         "short_history_last_vs_other_warn": False,
         "short_history_last_lead_vs_other": "",
@@ -5392,7 +5412,10 @@ def build_soft_allow_glance(
     # follows (lead/bench parity); when last/share + last/other already
     # spoke, ``short share/other`` follows (share/lean parity); when
     # last/lean + last/other already spoke, ``short lean/other``
-    # follows (lean/bench parity).
+    # follows (lean/bench parity); when vs-other lean already spoke,
+    # ``short other Δ`` + ``short other lean/Δ`` follow (short vs gap /
+    # Screener / Mode A share Δ parity; prefixed so pair ``short Δ``
+    # stays distinct).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
     )
@@ -5404,6 +5427,14 @@ def build_soft_allow_glance(
     short_history_vs_other, short_history_vs_other_warn = (
         soft_allow_short_history_vs_other_lean(rows)
     )
+    (
+        short_history_vs_other_delta_pp,
+        short_history_vs_other_delta_severity,
+    ) = soft_allow_short_history_vs_other_delta(rows)
+    (
+        short_history_vs_other_lean_vs_delta,
+        short_history_vs_other_lean_vs_delta_warn,
+    ) = soft_allow_short_history_vs_other_lean_vs_delta(rows)
     (
         short_history_last_vs_other,
         short_history_last_vs_other_warn,
@@ -6214,6 +6245,7 @@ def build_soft_allow_glance(
         or short_history_last_lean_vs_bench_young_warn
         or short_history_share_severity == "hot"
         or short_history_vs_other_warn
+        or short_history_vs_other_lean_vs_delta_warn
         or short_history_last_vs_other_warn
         or short_history_last_lead_vs_other_warn
         or short_history_last_share_vs_other_warn
@@ -6451,6 +6483,7 @@ def build_soft_allow_glance(
         or short_history_last_lean_vs_bench_young_warn
         or short_history_share_severity == "hot"
         or short_history_vs_other_warn
+        or short_history_vs_other_lean_vs_delta_warn
         or short_history_last_vs_other_warn
         or short_history_last_lead_vs_other_warn
         or short_history_last_share_vs_other_warn
@@ -6583,6 +6616,16 @@ def build_soft_allow_glance(
         "short_history_other_share_severity": short_history_other_share_severity,
         "short_history_vs_other": short_history_vs_other,
         "short_history_vs_other_warn": short_history_vs_other_warn,
+        "short_history_vs_other_delta_pp": short_history_vs_other_delta_pp,
+        "short_history_vs_other_delta_severity": (
+            short_history_vs_other_delta_severity
+        ),
+        "short_history_vs_other_lean_vs_delta": (
+            short_history_vs_other_lean_vs_delta
+        ),
+        "short_history_vs_other_lean_vs_delta_warn": (
+            short_history_vs_other_lean_vs_delta_warn
+        ),
         "short_history_last_vs_other": short_history_last_vs_other,
         "short_history_last_vs_other_warn": short_history_last_vs_other_warn,
         "short_history_last_lead_vs_other": short_history_last_lead_vs_other,

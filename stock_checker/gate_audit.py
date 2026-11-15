@@ -195,6 +195,63 @@ def soft_allow_short_history_vs_other_lean(
     return "", False
 
 
+def soft_allow_short_history_vs_other_delta(
+    events: list[dict[str, Any]] | None,
+) -> tuple[float | None, str]:
+    """Short%−other% ring ownership spread when lean already spoke.
+
+    Returns ``(delta_pp, severity)``. Silent when short vs other lean did
+    not speak. Wide ≥``SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP`` · thin
+    <``SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP`` · mid stays silent on the Δ
+    bit (short vs gap / Screener junk vs ok / Mode A missing vs ready
+    share Δ parity). Lean labels alone hid how far short÷ring sits vs
+    non-short remainder (portfolio AI count≠spread + xang1234 after
+    short vs other lean). Pair ``short Δ`` stays on short÷(short+gap).
+    Display only; not a gate.
+    """
+    lean, _ = soft_allow_short_history_vs_other_lean(events)
+    short_n, short_share, _short_sev = soft_allow_short_history_share(events)
+    _other_n, other_share, _other_sev = soft_allow_short_history_vs_other(
+        events
+    )
+    if not lean or short_n <= 0 or short_share is None or other_share is None:
+        return None, ""
+    delta_pp = round(float(short_share) - float(other_share), 1)
+    mag = abs(delta_pp)
+    if mag < 1e-9:
+        return None, ""
+    if mag >= SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP:
+        return delta_pp, "wide"
+    if mag < SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP:
+        return delta_pp, "thin"
+    return None, ""
+
+
+def soft_allow_short_history_vs_other_lean_vs_delta(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short vs other lean vs ownership-Δ lean (display only).
+
+    Returns ``(bit, warn)``. When lean already spoke: Δ wide|thin speaks
+    ``align · wide|thin``; Δ mid (lean spoke, spread silent) speaks
+    ``clash · lean · Δ mid`` (warn). Adverse dual-wide confirm
+    (``align · hot|thin`` + Δ wide) warns — short vs gap lean vs Δ /
+    Screener junk vs ok / Mode A parity; favorable quiet|strong stays
+    calm. Lean alone hid whether ownership distance agrees with the lean
+    label (portfolio AI + xang1234 after short vs other lean). Prefixed
+    ``short other lean/Δ`` so pair ``short lean/Δ`` is not claimed.
+    Not a gate.
+    """
+    lean, _ = soft_allow_short_history_vs_other_lean(events)
+    if not lean:
+        return "", False
+    _delta_pp, delta_sev = soft_allow_short_history_vs_other_delta(events)
+    if delta_sev:
+        warn = delta_sev == "wide" and lean.startswith("align · hot|thin")
+        return f"align · {delta_sev}", warn
+    return "clash · lean · Δ mid", True
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -208,8 +265,8 @@ def soft_allow_short_history_last_vs_other(
     lean stay silent — gap last/lean + short last/lean + last/bench
     parity after short vs other lean + last freshness alone hid
     age≠ring-peers (FinRobot last-row age + portfolio AI
-    speak-both-sides; xang1234 #668). Share Δ / Δ lead still deferred.
-    Not a gate.
+    speak-both-sides; xang1234 #668). Share Δ / lean vs Δ shipped after
+    lean; Δ lead still deferred. Not a gate.
     """
     last_fresh = soft_allow_short_history_last_freshness(events, now=now)
     lean, _lean_warn = soft_allow_short_history_vs_other_lean(events)
@@ -2300,12 +2357,18 @@ def format_soft_allow_short_history_bit(
     When last/ring + last/lean already spoke, ``short ring/lean
     align|clash`` follows so the two age relationships cannot hide
     non-agreement or dual-clash (gap share/lean on short÷ring; pair
-    share/lean stays on short÷(short+gap)). When ring share already
+    share/lean stays on short÷(short+gap)).     When ring share already
     spoke, ``vs N other · [strong|thin ·] P%`` follows so short% alone
     cannot hide usable non-short ring rows; when both severities lean,
     ``short vs other align|clash`` follows so sides alone cannot hide
-    lean agreement (gap vs other / Screener junk vs ok parity). Display
-    only; not a gate.
+    lean agreement (gap vs other / Screener junk vs ok parity); when lean
+    already spoke, ``short other Δ wide|thin · ±Npp`` then
+    ``short other lean/Δ align|clash`` follow so lean labels alone cannot
+    hide how far short÷ring sits vs non-short remainder (short vs gap /
+    Screener / Mode A share Δ + lean vs Δ parity; mid Δ silent on the Δ
+    bit; lean-spoke + mid → clash · lean · Δ mid; prefixed so pair
+    ``short Δ`` / ``short lean/Δ`` stay distinct). Display only; not a
+    gate.
     """
     n, ring_share, ring_sev = soft_allow_short_history_share(events)
     if n <= 0 or ring_share is None:
@@ -2533,6 +2596,29 @@ def format_soft_allow_short_history_bit(
         other_lean, _ = soft_allow_short_history_vs_other_lean(events)
         if other_lean:
             head = f"{head} · short vs other {other_lean}"
+            # Lean alone hid how far short÷ring sits vs non-short
+            # remainder (short vs gap / Screener / Mode A share Δ
+            # parity). Prefixed ``short other Δ`` so pair ``short Δ``
+            # does not claim ring peers.
+            other_delta_pp, other_delta_sev = (
+                soft_allow_short_history_vs_other_delta(events)
+            )
+            if other_delta_sev and other_delta_pp is not None:
+                sign = (
+                    f"+{other_delta_pp:g}"
+                    if other_delta_pp > 0
+                    else f"{other_delta_pp:g}"
+                )
+                head = (
+                    f"{head} · short other Δ {other_delta_sev} · {sign}pp"
+                )
+            other_lean_vs_delta, _ = (
+                soft_allow_short_history_vs_other_lean_vs_delta(events)
+            )
+            if other_lean_vs_delta:
+                head = (
+                    f"{head} · short other lean/Δ {other_lean_vs_delta}"
+                )
             # Age + ring-peer lean alone hid age≠peers (last/lean +
             # last/bench parity after short vs other).
             last_vs_other, _ = soft_allow_short_history_last_vs_other(
