@@ -79,11 +79,15 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert pin["viewing_ledger"] == ""
     assert pin["desk_vs_open"] == ""
     # Desk pages pass viewing so unset is not read as a broken site (#5).
+    # Legacy open speaks · ok + clash like a usable named book (not infected).
     legacy_unset = shared_desk_pin(tmp_path, viewing="")
-    assert legacy_unset["bit"] == "named desk unset · open is legacy"
+    assert legacy_unset["bit"] == (
+        "named desk unset · open is legacy · ok"
+        " · desk vs open clash · unset · ok"
+    )
     assert legacy_unset["viewing"] == "legacy"
-    assert legacy_unset["viewing_ledger"] == ""
-    assert legacy_unset["desk_vs_open"] == ""
+    assert legacy_unset["viewing_ledger"] == "ok"
+    assert legacy_unset["desk_vs_open"] == "desk vs open clash · unset · ok"
     # Open named book missing must speak (not calm viewing alone) + both-warn align sides.
     other_unset = shared_desk_pin(tmp_path, viewing="anna")
     assert other_unset["bit"] == (
@@ -115,7 +119,12 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert damaged["bit"] == "named desk damaged"
     assert damaged["warn"] is True
     damaged_legacy = shared_desk_pin(tmp_path, viewing="")
-    assert damaged_legacy["bit"] == "named desk damaged · open is legacy"
+    assert damaged_legacy["bit"] == (
+        "named desk damaged · open is legacy · ok"
+        " · desk vs open clash · damaged · ok"
+    )
+    assert damaged_legacy["viewing_ledger"] == "ok"
+    assert damaged_legacy["desk_vs_open"] == "desk vs open clash · damaged · ok"
     # Damaged desk + missing open: align names both warn kinds (not bare both warn).
     (anna / "portfolio.json").unlink()
     damaged_missing = shared_desk_pin(tmp_path, viewing="anna")

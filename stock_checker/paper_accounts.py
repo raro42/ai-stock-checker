@@ -119,9 +119,18 @@ def _shared_desk_open_suffix(view_id: str | None) -> str:
 def _shared_desk_view_ledger(
     data_dir: Path | str, view_id: str | None
 ) -> str:
-    """Open named-book ledger status when viewing is set (legacy/desk silent)."""
-    if view_id is None or not view_id or view_id == SHARED_DESK_ACCOUNT_ID:
+    """Open-book ledger status when a desk page passes ``viewing``.
+
+    Named books speak ``ok`` / ``missing`` / ``damaged``. Legacy root
+    (``view_id == \"\"``) speaks ``ok`` so warn pins can add ``· ok`` + clash
+    parity with named opens (portfolio AI speak-both-sides + xang1234 claim
+    honesty — bare ``open is legacy`` hid that the open book is usable).
+    On ``desk`` or with no view context → silent.
+    """
+    if view_id is None or view_id == SHARED_DESK_ACCOUNT_ID:
         return ""
+    if not view_id:
+        return "ok"
     st = account_ledger_status(data_dir, view_id)
     if st in {"missing", "damaged"}:
         return st
@@ -194,7 +203,9 @@ def shared_desk_pin(
     clash|align`` so absolute sides do not hide pin↔open agreement. Align
     ``both warn`` also names desk|open warn kinds (``unset|damaged`` ·
     ``missing|damaged``) so clash-style side names are not dropped on agree.
-    Leaderboard/API without a view context stay absolute.
+    Legacy open (``viewing=\"\"``) uses the same ``· ok`` + clash path as a
+    usable named book so ``open is legacy`` alone does not look broken under
+    an unset/damaged pin. Leaderboard/API without a view context stay absolute.
     Not a new entry gate. There is **no login** — books switch via ``?account=``.
     """
     status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
@@ -214,10 +225,8 @@ def shared_desk_pin(
     if status == "ok":
         bit = "desk ready"
         if view_id is not None and view_id != SHARED_DESK_ACCOUNT_ID:
-            if not view_id:
-                bit = "desk ready · viewing legacy"
-            else:
-                bit = f"desk ready · viewing {view_id}{ledger_sfx}{vs_open_sfx}"
+            open_label = "legacy" if not view_id else view_id
+            bit = f"desk ready · viewing {open_label}{ledger_sfx}{vs_open_sfx}"
         return {
             "status": "ok",
             "bit": bit,
