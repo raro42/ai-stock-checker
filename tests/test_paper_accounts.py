@@ -84,13 +84,16 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert legacy_unset["viewing"] == "legacy"
     assert legacy_unset["viewing_ledger"] == ""
     assert legacy_unset["desk_vs_open"] == ""
-    # Open named book missing must speak (not calm viewing alone) + both-warn align.
+    # Open named book missing must speak (not calm viewing alone) + both-warn align sides.
     other_unset = shared_desk_pin(tmp_path, viewing="anna")
     assert other_unset["bit"] == (
-        "named desk unset · open is anna · missing · desk vs open align · both warn"
+        "named desk unset · open is anna · missing"
+        " · desk vs open align · both warn · unset · missing"
     )
     assert other_unset["viewing_ledger"] == "missing"
-    assert other_unset["desk_vs_open"] == "desk vs open align · both warn"
+    assert other_unset["desk_vs_open"] == (
+        "desk vs open align · both warn · unset · missing"
+    )
     assert other_unset["warn"] is True
     # Usable open book must speak · ok while signed desk warns (not infected) + clash.
     anna = ensure_account_ledger(tmp_path, "anna")
@@ -113,6 +116,28 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert damaged["warn"] is True
     damaged_legacy = shared_desk_pin(tmp_path, viewing="")
     assert damaged_legacy["bit"] == "named desk damaged · open is legacy"
+    # Damaged desk + missing open: align names both warn kinds (not bare both warn).
+    (anna / "portfolio.json").unlink()
+    damaged_missing = shared_desk_pin(tmp_path, viewing="anna")
+    assert damaged_missing["bit"] == (
+        "named desk damaged · open is anna · missing"
+        " · desk vs open align · both warn · damaged · missing"
+    )
+    assert damaged_missing["desk_vs_open"] == (
+        "desk vs open align · both warn · damaged · missing"
+    )
+    (anna / "portfolio.json").write_text("not-json{")
+    damaged_dmg = shared_desk_pin(tmp_path, viewing="anna")
+    assert damaged_dmg["bit"] == (
+        "named desk damaged · open is anna · damaged"
+        " · desk vs open align · both warn · damaged · damaged"
+    )
+    assert damaged_dmg["desk_vs_open"] == (
+        "desk vs open align · both warn · damaged · damaged"
+    )
+    (anna / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
     damaged_ok = shared_desk_pin(tmp_path, viewing="anna")
     assert damaged_ok["bit"] == (
         "named desk damaged · open is anna · ok · desk vs open clash · damaged · ok"

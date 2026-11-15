@@ -150,18 +150,20 @@ def _shared_desk_vs_open_sfx(status: str, view_ledger: str, *, ledger_spoke: boo
     Absolute ``· ok`` / ``· missing`` alone hide whether the pin and the open
     book agree (portfolio AI speak-both-sides + xang1234 after open-ok honesty).
     Calm ready + quiet open ``ok`` stays silent (no ledger speak → no mood).
+    Clash already names both sides; align · both warn also names desk|open warn
+    kinds so bare align does not hide unset vs damaged vs missing vs damaged.
     """
     if not ledger_spoke or not view_ledger:
         return ""
     desk_warn = status != "ok"
     open_warn = view_ledger in {"missing", "damaged"}
+    desk_label = "damaged" if status == "damaged" else "unset"
     if desk_warn and not open_warn:
-        desk_label = "damaged" if status == "damaged" else "unset"
         return f" · desk vs open clash · {desk_label} · ok"
     if not desk_warn and open_warn:
         return f" · desk vs open clash · ready · {view_ledger}"
     if desk_warn and open_warn:
-        return " · desk vs open align · both warn"
+        return f" · desk vs open align · both warn · {desk_label} · {view_ledger}"
     return ""
 
 
@@ -189,7 +191,9 @@ def shared_desk_pin(
     an unusable open ledger. When signed desk warns but the open named book is
     usable, also speak ``· ok`` so unset/damaged does not infect the open book.
     When that open-ledger suffix already spoke, also speak ``desk vs open
-    clash|align`` so absolute sides do not hide pin↔open agreement.
+    clash|align`` so absolute sides do not hide pin↔open agreement. Align
+    ``both warn`` also names desk|open warn kinds (``unset|damaged`` ·
+    ``missing|damaged``) so clash-style side names are not dropped on agree.
     Leaderboard/API without a view context stay absolute.
     Not a new entry gate. There is **no login** — books switch via ``?account=``.
     """
