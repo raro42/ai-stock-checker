@@ -92,6 +92,18 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert ready["bit"] == "desk ready"
     assert ready["warn"] is False
 
+    # Ready pin must not imply the open surface is the signed desk book.
+    on_desk = shared_desk_pin(tmp_path, viewing="desk")
+    assert on_desk["bit"] == "desk ready"
+    assert on_desk["viewing"] == "desk"
+    legacy = shared_desk_pin(tmp_path, viewing="")
+    assert legacy["bit"] == "desk ready · viewing legacy"
+    assert legacy["viewing"] == "legacy"
+    assert legacy["warn"] is False
+    other = shared_desk_pin(tmp_path, viewing="anna")
+    assert other["bit"] == "desk ready · viewing anna"
+    assert other["viewing"] == "anna"
+
 
 def test_account_ledger_missing(tmp_path: Path) -> None:
     assert account_ledger_missing(tmp_path, "") is False

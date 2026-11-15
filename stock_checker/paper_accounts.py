@@ -107,21 +107,55 @@ def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
     return account_ledger_status(data_dir, account_id) in {"missing", "damaged"}
 
 
-def shared_desk_pin(data_dir: Path | str) -> dict[str, Any]:
+def shared_desk_pin(
+    data_dir: Path | str,
+    *,
+    viewing: str | None = None,
+) -> dict[str, Any]:
     """Human-signed Mode A shared ``desk`` account pin (display only).
 
     Issue #4 signoff: shared zeitfenster book may use named ``desk``. Legacy
     root alone is not that signed book — absent/corrupt
     ``accounts/desk/portfolio.json`` must speak (xang1234 claim honesty +
     portfolio AI empty-vs-missing after Mode A missing nests hid the pin).
-    Ready speaks calm; missing/damaged warn. Not a new entry gate.
+    Ready speaks calm; missing/damaged warn.
+
+    When ``viewing`` is passed (active desk ``?account=`` / legacy ``\"\"``) and
+    the signed book is ready but the surface is not on ``desk``, also speak
+    ``viewing legacy`` / ``viewing <id>`` so a calm ``desk ready`` pin does not
+    imply the open book is the signed one (xang1234 claim honesty + portfolio
+    AI speak-both-sides). Leaderboard/API without a view context stay absolute.
+    Not a new entry gate.
     """
     status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
+    view_raw = "" if viewing is None else viewing
+    view_id = normalize_account_id(view_raw) if viewing is not None else None
     if status == "ok":
-        return {"status": "ok", "bit": "desk ready", "warn": False}
+        bit = "desk ready"
+        if view_id is not None and view_id != SHARED_DESK_ACCOUNT_ID:
+            if not view_id:
+                bit = "desk ready · viewing legacy"
+            else:
+                bit = f"desk ready · viewing {view_id}"
+        return {
+            "status": "ok",
+            "bit": bit,
+            "warn": False,
+            "viewing": "" if view_id is None else (view_id or "legacy"),
+        }
     if status == "damaged":
-        return {"status": "damaged", "bit": "desk damaged", "warn": True}
-    return {"status": "missing", "bit": "desk missing", "warn": True}
+        return {
+            "status": "damaged",
+            "bit": "desk damaged",
+            "warn": True,
+            "viewing": "" if view_id is None else (view_id or "legacy"),
+        }
+    return {
+        "status": "missing",
+        "bit": "desk missing",
+        "warn": True,
+        "viewing": "" if view_id is None else (view_id or "legacy"),
+    }
 
 
 def account_label(

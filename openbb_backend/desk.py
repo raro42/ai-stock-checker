@@ -38990,7 +38990,7 @@ def load_desk_snapshot(
     mark_note = f"{mark_base} {cov_bit}." if mark_base and cov_bit else mark_base
     leaderboard_rows = build_leaderboard(root)
     leaderboard_missing = leaderboard_missing_share(leaderboard_rows)
-    desk_pin = shared_desk_pin(root)
+    desk_pin = shared_desk_pin(root, viewing=account_id)
 
     snap = {
         "brand": "AI Stock Checker",
@@ -39009,6 +39009,7 @@ def load_desk_snapshot(
         "shared_desk_pin_bit": str(desk_pin.get("bit") or ""),
         "shared_desk_pin_warn": bool(desk_pin.get("warn")),
         "shared_desk_pin_status": str(desk_pin.get("status") or ""),
+        "shared_desk_pin_viewing": str(desk_pin.get("viewing") or ""),
         "leaderboard": leaderboard_rows,
         "leaderboard_missing": leaderboard_missing,
         "leaderboard_missing_bit": str(leaderboard_missing.get("bit") or ""),
