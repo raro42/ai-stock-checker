@@ -3960,6 +3960,13 @@ _SOFT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         "short other lean/Δ",
     ),
+    # Short vs other Δ lead when lean vs Δ already spoke (short vs gap /
+    # Screener / Mode A Δ lead parity). Prefixed ``short other Δ lead``
+    # so pair ``short Δ lead`` does not claim ring peers.
+    (
+        re.compile(r"^short other Δ lead · (short|other)"),
+        "short other Δ lead",
+    ),
     # Short cursor age vs ring-peer lean (last/lean + last/bench parity
     # after short vs other). Distinct ``short last/other`` so pair
     # ``short last/lean`` (vs gap) is not treated as ring peers.
@@ -4900,6 +4907,7 @@ def build_soft_allow_glance(
         soft_allow_short_history_vs_other_lean,
         soft_allow_short_history_vs_other_delta,
         soft_allow_short_history_vs_other_lean_vs_delta,
+        soft_allow_short_history_vs_other_delta_lead,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -5037,6 +5045,7 @@ def build_soft_allow_glance(
         "short_history_vs_other_delta_severity": "",
         "short_history_vs_other_lean_vs_delta": "",
         "short_history_vs_other_lean_vs_delta_warn": False,
+        "short_history_vs_other_delta_lead": "",
         "short_history_last_vs_other": "",
         "short_history_last_vs_other_warn": False,
         "short_history_last_lead_vs_other": "",
@@ -5413,9 +5422,9 @@ def build_soft_allow_glance(
     # spoke, ``short share/other`` follows (share/lean parity); when
     # last/lean + last/other already spoke, ``short lean/other``
     # follows (lean/bench parity); when vs-other lean already spoke,
-    # ``short other Δ`` + ``short other lean/Δ`` follow (short vs gap /
-    # Screener / Mode A share Δ parity; prefixed so pair ``short Δ``
-    # stays distinct).
+    # ``short other Δ`` + ``short other lean/Δ`` + ``short other Δ lead``
+    # follow (short vs gap / Screener / Mode A share Δ + Δ lead parity;
+    # prefixed so pair ``short Δ`` / ``short Δ lead`` stay distinct).
     short_history_n, short_history_share_pct, short_history_share_severity = (
         soft_allow_short_history_share(rows)
     )
@@ -5435,6 +5444,9 @@ def build_soft_allow_glance(
         short_history_vs_other_lean_vs_delta,
         short_history_vs_other_lean_vs_delta_warn,
     ) = soft_allow_short_history_vs_other_lean_vs_delta(rows)
+    short_history_vs_other_delta_lead = (
+        soft_allow_short_history_vs_other_delta_lead(rows)
+    )
     (
         short_history_last_vs_other,
         short_history_last_vs_other_warn,
@@ -6625,6 +6637,9 @@ def build_soft_allow_glance(
         ),
         "short_history_vs_other_lean_vs_delta_warn": (
             short_history_vs_other_lean_vs_delta_warn
+        ),
+        "short_history_vs_other_delta_lead": (
+            short_history_vs_other_delta_lead
         ),
         "short_history_last_vs_other": short_history_last_vs_other,
         "short_history_last_vs_other_warn": short_history_last_vs_other_warn,

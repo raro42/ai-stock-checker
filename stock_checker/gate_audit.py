@@ -252,6 +252,36 @@ def soft_allow_short_history_vs_other_lean_vs_delta(
     return "clash · lean · Δ mid", True
 
 
+def soft_allow_short_history_vs_other_delta_lead(
+    events: list[dict[str, Any]] | None,
+) -> str:
+    """Name which ring-peer side owns a spoken short vs other Δ.
+
+    Returns ``short|other`` / ``\"\"``. When lean vs Δ already spoke with
+    a Δ (wide|thin) and ±pp ≠ 0, positive short%−other% → ``short``;
+    negative → ``other``. Mid-Δ clash / 0pp stay silent. Signed pp alone
+    hid which sleeve owns the spread (short vs gap / Screener unique vs
+    dup / Mode A missing vs ready Δ lead parity after short vs other
+    share Δ). Prefixed ``short other Δ lead`` so pair ``short Δ lead``
+    is not claimed. Display only; not a gate.
+    """
+    lean_vs_delta, _ = soft_allow_short_history_vs_other_lean_vs_delta(
+        events
+    )
+    if not str(lean_vs_delta or "").startswith("align ·"):
+        return ""
+    delta_pp, delta_sev = soft_allow_short_history_vs_other_delta(events)
+    if not delta_sev or delta_pp is None:
+        return ""
+    try:
+        pp = float(delta_pp)
+    except (TypeError, ValueError):
+        return ""
+    if abs(pp) < 1e-9:
+        return ""
+    return "short" if pp > 0 else "other"
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -265,8 +295,8 @@ def soft_allow_short_history_last_vs_other(
     lean stay silent — gap last/lean + short last/lean + last/bench
     parity after short vs other lean + last freshness alone hid
     age≠ring-peers (FinRobot last-row age + portfolio AI
-    speak-both-sides; xang1234 #668). Share Δ / lean vs Δ shipped after
-    lean; Δ lead still deferred. Not a gate.
+    speak-both-sides; xang1234 #668). Share Δ / lean vs Δ / Δ lead
+    shipped after lean. Not a gate.
     """
     last_fresh = soft_allow_short_history_last_freshness(events, now=now)
     lean, _lean_warn = soft_allow_short_history_vs_other_lean(events)
@@ -2618,6 +2648,15 @@ def format_soft_allow_short_history_bit(
             if other_lean_vs_delta:
                 head = (
                     f"{head} · short other lean/Δ {other_lean_vs_delta}"
+                )
+            # Signed pp alone hid which ring-peer sleeve owns the
+            # spread (short vs gap / Screener / Mode A Δ lead parity).
+            other_delta_lead = soft_allow_short_history_vs_other_delta_lead(
+                events
+            )
+            if other_delta_lead:
+                head = (
+                    f"{head} · short other Δ lead · {other_delta_lead}"
                 )
             # Age + ring-peer lean alone hid age≠peers (last/lean +
             # last/bench parity after short vs other).
