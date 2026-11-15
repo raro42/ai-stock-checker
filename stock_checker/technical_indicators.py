@@ -4,15 +4,28 @@ Technical indicators for market analysis.
 Implements RSI, MACD, Bollinger Bands, and volume analysis.
 """
 
+from __future__ import annotations
+
+import math
+import numbers
 from typing import List, Dict, Optional
+
 import numpy as np
+
+
+def _valid_close(price: object) -> bool:
+    """tradermonty #655/#754: close must be a real finite positive number (never bool)."""
+    if isinstance(price, bool) or not isinstance(price, numbers.Real):
+        return False
+    value = float(price)
+    return math.isfinite(value) and value > 0.0
 
 
 class TechnicalIndicators:
     """Calculate technical indicators for trading signals."""
 
     @staticmethod
-    def calculate_rsi(prices: List[float], period: int = 14) -> float:
+    def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
         """
         Calculate Relative Strength Index (RSI) using Wilder smoothing.
 
@@ -21,9 +34,12 @@ class TechnicalIndicators:
             period: RSI period (default 14)
 
         Returns:
-            RSI value between 0-100, or None if insufficient data
+            RSI value between 0-100, or None if insufficient / invalid data
         """
         if len(prices) < period + 1:
+            return None
+        # Gap/zero/NaN closes must not become a fake oversold/overbought score
+        if any(not _valid_close(p) for p in prices):
             return None
 
         deltas = np.diff(np.asarray(prices, dtype=float))
@@ -44,6 +60,8 @@ class TechnicalIndicators:
 
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
+        if not math.isfinite(rsi):
+            return None
         return float(rsi)
 
     @staticmethod

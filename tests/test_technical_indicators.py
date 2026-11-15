@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Unit tests for technical indicators (no network)."""
 
+import math
+
+import pytest
+
 from stock_checker.technical_indicators import TechnicalIndicators
 
 
@@ -34,3 +38,23 @@ def test_rsi_wilder_differs_from_naive_mean_on_mixed_series():
     rsi = TechnicalIndicators.calculate_rsi([float(x) for x in prices], period=14)
     assert rsi is not None
     assert 0 < rsi < 100
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],
+)
+def test_rsi_invalid_close_is_unavailable(bad):
+    """tradermonty #655/#754: gap/zero/NaN closes ≠ a real RSI score."""
+    prices = [float(i) for i in range(1, 31)]
+    prices[15] = bad
+    assert TechnicalIndicators.calculate_rsi(prices, period=14) is None
+
+
+def test_rsi_clean_history_still_scores():
+    """Valid positive finite closes keep Wilder RSI (not unavailable)."""
+    prices = [float(i) for i in range(1, 31)]
+    rsi = TechnicalIndicators.calculate_rsi(prices, period=14)
+    assert rsi is not None
+    assert math.isfinite(rsi)
+    assert 0.0 <= rsi <= 100.0
