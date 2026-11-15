@@ -320,6 +320,38 @@ def soft_allow_short_history_vs_other_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
+def soft_allow_short_other_lean_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other lean verb vs short/gap lean verb (display only).
+
+    Returns ``(bit, warn)``. When both short vs other lean and short vs
+    gap lean already spoke: same → ``align · both align|clash``;
+    crossed → ``clash · short/other … · short/gap …``. Missing lean
+    silent. Dual-clash + crossed warn; both-align speaks, no warn.
+    Side-by-side ``short vs other align|clash`` beside ``short vs gap
+    align|clash`` alone hid whether ring-peer lean *verb* agrees with
+    the RS-fail-open pair (pair≠bench lean moods + Screener junk/unique
+    lean moods + FinRobot + portfolio AI speak-both-sides + xang1234
+    after other Δ lead moods / size-mood triangle). Prefixed
+    ``short other lean moods`` so pair ``short lean moods`` +
+    ``short other Δ lead moods`` stay distinct. Not a gate.
+    """
+    other_lean, _ = soft_allow_short_history_vs_other_lean(events)
+    pair_lean, _ = soft_allow_short_vs_gap_lean(events)
+    other_v = _short_lean_verb(other_lean)
+    pair_v = _short_lean_verb(pair_lean)
+    if not other_v or not pair_v:
+        return "", False
+    if other_v == pair_v:
+        # Dual-clash agreement ≠ calm confirm (pair lean moods).
+        return f"align · both {other_v}", other_v == "clash"
+    return (
+        f"clash · short/other {other_v} · short/gap {pair_v}",
+        True,
+    )
+
+
 def soft_allow_short_other_delta_lead_moods(
     events: list[dict[str, Any]] | None,
 ) -> tuple[str, bool]:
@@ -2921,6 +2953,17 @@ def format_soft_allow_short_history_bit(
                         f"short Δ lead size sides · {delta_lead} "
                         f"{d_louder:g}% · {other} {d_quieter:g}%"
                     )
+            # Side-by-side short/other + short/gap leans alone hid
+            # whether ring-peer lean *verb* agrees with the RS-fail-open
+            # pair (pair≠bench lean moods + Screener junk/unique +
+            # FinRobot + portfolio AI speak-both-sides + xang1234 after
+            # other Δ lead moods). Prefixed ``short other lean moods``
+            # so pair ``short lean moods`` stay distinct.
+            other_lean_moods, _ = soft_allow_short_other_lean_moods(events)
+            if other_lean_moods:
+                head = (
+                    f"{head} · short other lean moods {other_lean_moods}"
+                )
             # Side-by-side short/other + short/gap Δ leads alone hid
             # whether ring-peer ownership polarity agrees with the
             # RS-fail-open pair (pair≠bench Δ lead moods + Screener
