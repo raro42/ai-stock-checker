@@ -79,15 +79,43 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert pin["viewing_ledger"] == ""
     assert pin["desk_vs_open"] == ""
     # Desk pages pass viewing so unset is not read as a broken site (#5).
-    # Legacy open speaks · ok + clash like a usable named book (not infected).
+    # Empty legacy root must speak · missing (not hardcoded · ok).
+    legacy_unset_missing = shared_desk_pin(tmp_path, viewing="")
+    assert legacy_unset_missing["bit"] == (
+        "named desk unset · open is legacy · missing"
+        " · desk vs open align · both warn · unset · missing"
+    )
+    assert legacy_unset_missing["viewing"] == "legacy"
+    assert legacy_unset_missing["viewing_ledger"] == "missing"
+    assert legacy_unset_missing["desk_vs_open"] == (
+        "desk vs open align · both warn · unset · missing"
+    )
+    assert legacy_unset_missing["warn"] is True
+    # Usable legacy root speaks · ok + clash like a usable named book.
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
     legacy_unset = shared_desk_pin(tmp_path, viewing="")
     assert legacy_unset["bit"] == (
         "named desk unset · open is legacy · ok"
         " · desk vs open clash · unset · ok"
     )
-    assert legacy_unset["viewing"] == "legacy"
     assert legacy_unset["viewing_ledger"] == "ok"
     assert legacy_unset["desk_vs_open"] == "desk vs open clash · unset · ok"
+    # Corrupt legacy root speaks · damaged (not false · ok).
+    (tmp_path / "portfolio.json").write_text("not-json{")
+    legacy_unset_dmg = shared_desk_pin(tmp_path, viewing="")
+    assert legacy_unset_dmg["bit"] == (
+        "named desk unset · open is legacy · damaged"
+        " · desk vs open align · both warn · unset · damaged"
+    )
+    assert legacy_unset_dmg["viewing_ledger"] == "damaged"
+    assert legacy_unset_dmg["desk_vs_open"] == (
+        "desk vs open align · both warn · unset · damaged"
+    )
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
     # Open named book missing must speak (not calm viewing alone) + both-warn align sides.
     other_unset = shared_desk_pin(tmp_path, viewing="anna")
     assert other_unset["bit"] == (
@@ -153,6 +181,20 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     )
     assert damaged_ok["viewing_ledger"] == "ok"
     assert damaged_ok["desk_vs_open"] == "desk vs open clash · damaged · ok"
+    # Damaged desk + corrupt legacy: align names both warn kinds (not false · ok).
+    (tmp_path / "portfolio.json").write_text("not-json{")
+    damaged_legacy_dmg = shared_desk_pin(tmp_path, viewing="")
+    assert damaged_legacy_dmg["bit"] == (
+        "named desk damaged · open is legacy · damaged"
+        " · desk vs open align · both warn · damaged · damaged"
+    )
+    assert damaged_legacy_dmg["viewing_ledger"] == "damaged"
+    assert damaged_legacy_dmg["desk_vs_open"] == (
+        "desk vs open align · both warn · damaged · damaged"
+    )
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
+    )
 
     (path / "portfolio.json").write_text(
         json.dumps({"cash": 100_000.0, "initial_cash": 100_000.0})
@@ -170,6 +212,7 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     legacy = shared_desk_pin(tmp_path, viewing="")
     assert legacy["bit"] == "desk ready · viewing legacy"
     assert legacy["viewing"] == "legacy"
+    assert legacy["viewing_ledger"] == "ok"
     assert legacy["warn"] is False
     # Calm ready path stays quiet on open ok (no · ok / mood clutter).
     other_ok = shared_desk_pin(tmp_path, viewing="anna")
@@ -197,6 +240,19 @@ def test_shared_desk_pin(tmp_path: Path) -> None:
     assert other_dmg["viewing_ledger"] == "damaged"
     assert other_dmg["desk_vs_open"] == "desk vs open clash · ready · damaged"
     assert other_dmg["warn"] is True
+
+    # Ready desk + corrupt legacy root: warn (not calm viewing legacy alone).
+    (tmp_path / "portfolio.json").write_text("not-json{")
+    legacy_dmg = shared_desk_pin(tmp_path, viewing="")
+    assert legacy_dmg["bit"] == (
+        "desk ready · viewing legacy · damaged"
+        " · desk vs open clash · ready · damaged"
+    )
+    assert legacy_dmg["viewing_ledger"] == "damaged"
+    assert legacy_dmg["desk_vs_open"] == "desk vs open clash · ready · damaged"
+    assert legacy_dmg["warn"] is True
+    # Race board still treats legacy as never-missing / never-damaged.
+    assert account_ledger_status(tmp_path, "") == "ok"
 
 
 def test_account_ledger_missing(tmp_path: Path) -> None:

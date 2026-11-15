@@ -76,17 +76,8 @@ def list_account_ids(data_dir: Path | str) -> list[str]:
     return out
 
 
-def account_ledger_status(data_dir: Path | str, account_id: str = "") -> str:
-    """Named-book portfolio status: ``ok`` / ``missing`` / ``damaged``.
-
-    Absent ``portfolio.json`` → ``missing``. Unreadable / non-object JSON →
-    ``damaged`` (xang1234 tolerate-missing + portfolio AI empty-vs-missing —
-    corrupt must not read as a €0 reset). Legacy root → ``ok``. Display only.
-    """
-    aid = normalize_account_id(account_id)
-    if not aid:
-        return "ok"
-    path = ledger_dir(data_dir, aid) / "portfolio.json"
+def _portfolio_file_status(path: Path) -> str:
+    """Read one ``portfolio.json``: ``ok`` / ``missing`` / ``damaged``."""
     if not path.exists():
         return "missing"
     try:
@@ -96,6 +87,21 @@ def account_ledger_status(data_dir: Path | str, account_id: str = "") -> str:
     if not isinstance(doc, dict):
         return "damaged"
     return "ok"
+
+
+def account_ledger_status(data_dir: Path | str, account_id: str = "") -> str:
+    """Named-book portfolio status: ``ok`` / ``missing`` / ``damaged``.
+
+    Absent ``portfolio.json`` → ``missing``. Unreadable / non-object JSON →
+    ``damaged`` (xang1234 tolerate-missing + portfolio AI empty-vs-missing —
+    corrupt must not read as a €0 reset). Legacy root → ``ok`` for the race
+    board (never counted as a missing named shell). Pin open-ledger honesty
+    reads the root file via ``_shared_desk_view_ledger`` instead. Display only.
+    """
+    aid = normalize_account_id(account_id)
+    if not aid:
+        return "ok"
+    return _portfolio_file_status(ledger_dir(data_dir, aid) / "portfolio.json")
 
 
 def account_ledger_missing(data_dir: Path | str, account_id: str = "") -> bool:
@@ -122,15 +128,17 @@ def _shared_desk_view_ledger(
     """Open-book ledger status when a desk page passes ``viewing``.
 
     Named books speak ``ok`` / ``missing`` / ``damaged``. Legacy root
-    (``view_id == \"\"``) speaks ``ok`` so warn pins can add ``· ok`` + clash
-    parity with named opens (portfolio AI speak-both-sides + xang1234 claim
-    honesty — bare ``open is legacy`` hid that the open book is usable).
-    On ``desk`` or with no view context → silent.
+    (``view_id == \"\"``) reads ``data_dir/portfolio.json`` the same way so
+    warn pins can add ``· ok`` only when the root book is actually usable —
+    hardcoded ``ok`` hid missing/corrupt legacy (portfolio AI empty-vs-missing
+    + xang1234 claim honesty after legacy open-ok parity). Race-board
+    ``account_ledger_status(\"\")`` still returns ``ok`` (legacy never a
+    missing named shell). On ``desk`` or with no view context → silent.
     """
     if view_id is None or view_id == SHARED_DESK_ACCOUNT_ID:
         return ""
     if not view_id:
-        return "ok"
+        return _portfolio_file_status(Path(data_dir) / "portfolio.json")
     st = account_ledger_status(data_dir, view_id)
     if st in {"missing", "damaged"}:
         return st
@@ -203,10 +211,12 @@ def shared_desk_pin(
     clash|align`` so absolute sides do not hide pin↔open agreement. Align
     ``both warn`` also names desk|open warn kinds (``unset|damaged`` ·
     ``missing|damaged``) so clash-style side names are not dropped on agree.
-    Legacy open (``viewing=\"\"``) uses the same ``· ok`` + clash path as a
-    usable named book so ``open is legacy`` alone does not look broken under
-    an unset/damaged pin. Leaderboard/API without a view context stay absolute.
-    Not a new entry gate. There is **no login** — books switch via ``?account=``.
+    Legacy open (``viewing=\"\"``) uses the same ``· ok`` / ``· missing`` /
+    ``· damaged`` + clash|align path as a named book after reading root
+    ``portfolio.json`` — hardcoded legacy ``ok`` hid an empty or corrupt root
+    under an unset/damaged pin. Leaderboard/API without a view context stay
+    absolute. Not a new entry gate. There is **no login** — books switch via
+    ``?account=``.
     """
     status = account_ledger_status(data_dir, SHARED_DESK_ACCOUNT_ID)
     view_raw = "" if viewing is None else viewing
