@@ -84,6 +84,7 @@ def test_soft_allow_short_history_count() -> None:
         soft_allow_short_history_vs_other_delta_lead,
         soft_allow_short_history_vs_other_delta_lead_size,
         soft_allow_short_other_delta_lead_size_moods,
+        soft_allow_short_other_vs_bench_delta_lead_size_moods,
         soft_allow_short_history_last_vs_other,
         soft_allow_short_history_last_lead_vs_other,
         soft_allow_short_history_last_share_vs_other,
@@ -332,6 +333,14 @@ def test_soft_allow_short_history_count() -> None:
     )
     assert soft_allow_short_other_delta_lead_size_moods(None) == ("", False)
     assert soft_allow_short_other_delta_lead_size_moods([]) == ("", False)
+    assert soft_allow_short_other_vs_bench_delta_lead_size_moods(None) == (
+        "",
+        False,
+    )
+    assert soft_allow_short_other_vs_bench_delta_lead_size_moods([]) == (
+        "",
+        False,
+    )
     assert soft_allow_short_history_last_vs_other(None) == ("", False)
     assert soft_allow_short_history_last_vs_other([]) == ("", False)
     assert soft_allow_short_history_last_lead_vs_other(None) == ("", False)
@@ -364,6 +373,11 @@ def test_soft_allow_short_history_count() -> None:
     assert soft_allow_short_other_delta_lead_size_moods(mixed) == (
         "clash · short/other 2× · short/gap 2.03×",
         True,
+    )
+    # No bench Δ lead size → other/bench size moods silent.
+    assert soft_allow_short_other_vs_bench_delta_lead_size_moods(mixed) == (
+        "",
+        False,
     )
     # No freshness stamp → last/other silent (age extremes required).
     assert soft_allow_short_history_last_vs_other(mixed) == ("", False)
@@ -436,6 +450,9 @@ def test_soft_allow_short_history_count() -> None:
         "",
         False,
     )
+    assert soft_allow_short_other_vs_bench_delta_lead_size_moods(
+        lead_rows
+    ) == ("", False)
     assert format_soft_allow_short_history_bit(lead_rows) == (
         "3 short · last NEW · lead IPO · 2 · 67% · last vs lead · NEW · "
         "ahead thin · +1 · vs NEW · 1 · 33% · hot · 100% · "
@@ -564,6 +581,13 @@ def test_soft_allow_short_history_count() -> None:
     )
     assert soft_allow_short_delta_lead_size_moods(None) == ("", False)
     assert soft_allow_short_delta_lead_size_moods([]) == ("", False)
+    # Ring-peer 3× vs bench 2× → other/bench size moods clash (triangle).
+    assert soft_allow_short_other_vs_bench_delta_lead_size_moods(
+        bench_rows
+    ) == (
+        "clash · short/other 3× · bench/young 2×",
+        True,
+    )
     # Both lean/Δ wide → Δ moods align · both wide (Yahoo share vs gap warn).
     assert soft_allow_short_delta_moods(bench_rows) == (
         "align · both wide",
@@ -741,6 +765,7 @@ def test_soft_allow_short_history_count() -> None:
         "short Δ lead size · 3× · short Δ lead size sides · short 75% · gap 25% · "
         "short other Δ size moods align · both 3× · "
         "short Δ size moods clash · short/gap 3× · bench/young 2× · "
+        "short other/bench Δ size moods clash · short/other 3× · bench/young 2× · "
         "short Δ moods align · both wide · short lean moods align · both align · "
         "short lean vs Δ moods align · both align · "
         "short Δ lead moods align · both adverse · "

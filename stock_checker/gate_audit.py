@@ -357,6 +357,46 @@ def soft_allow_short_other_delta_lead_size_moods(
     )
 
 
+def soft_allow_short_other_vs_bench_delta_lead_size_moods(
+    events: list[dict[str, Any]] | None,
+) -> tuple[str, bool]:
+    """Short/other Δ lead size vs bench/young Δ lead size (display only).
+
+    Returns ``(bit, warn)``. When both ``short other Δ lead size · N×``
+    and ``short bench Δ lead size · M×`` already spoke: same →
+    ``align · both N×``; crossed →
+    ``clash · short/other N× · bench/young M×``. Missing either silent.
+    Dual fat (≥2×) + clash warn; equal thin calm. Closes the size-mood
+    triangle after other≠pair and pair≠bench — ring-peer magnitude
+    beside primary-bench can still hide 3× vs 2× while polarity matches
+    (soft-allow other≠pair / pair≠bench / Mode A race≠mix + portfolio
+    AI count≠share + xang1234). Prefixed ``short other/bench Δ size
+    moods`` so ``short other Δ size moods`` + ``short Δ size moods``
+    stay distinct. Not a gate.
+    """
+    other_size, _ol, _oq = soft_allow_short_history_vs_other_delta_lead_size(
+        events
+    )
+    bench_size, _bl, _bq = (
+        soft_allow_short_history_bench_vs_young_delta_lead_size(events)
+    )
+    if other_size is None or bench_size is None:
+        return "", False
+    try:
+        other_f = float(other_size)
+        bench_f = float(bench_size)
+    except (TypeError, ValueError):
+        return "", False
+    other_s = f"{other_f:g}"
+    bench_s = f"{bench_f:g}"
+    if abs(other_f - bench_f) < 1e-9:
+        return f"align · both {other_s}×", other_f >= 2.0
+    return (
+        f"clash · short/other {other_s}× · bench/young {bench_s}×",
+        True,
+    )
+
+
 def soft_allow_short_history_last_vs_other(
     events: list[dict[str, Any]] | None,
     *,
@@ -2861,6 +2901,20 @@ def format_soft_allow_short_history_bit(
             size_moods, _ = soft_allow_short_delta_lead_size_moods(events)
             if size_moods:
                 head = f"{head} · short Δ size moods {size_moods}"
+            # Side-by-side short/other + bench/young Δ lead sizes alone
+            # hid whether ring-peer magnitude agrees with primary-bench
+            # (closes other≠pair + pair≠bench triangle; Mode A race≠mix
+            # + portfolio AI count≠share + xang1234). Prefixed
+            # ``short other/bench Δ size moods`` so other≠pair +
+            # pair≠bench chips stay distinct.
+            other_bench_moods, _ = (
+                soft_allow_short_other_vs_bench_delta_lead_size_moods(events)
+            )
+            if other_bench_moods:
+                head = (
+                    f"{head} · short other/bench Δ size moods "
+                    f"{other_bench_moods}"
+                )
             # Side-by-side pair lean/Δ + bench lean/Δ alone hid whether
             # ownership-spread moods agree (Yahoo mix share vs gap +
             # portfolio AI speak-both-sides after both Δ leads).
