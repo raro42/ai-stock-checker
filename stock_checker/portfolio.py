@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import numbers
 from typing import Any, Dict, List, Optional
 from .risk_manager import RiskManager
 from .fees import (
@@ -11,18 +12,25 @@ from .fees import (
     free_legs_for_preset,
     rates_for_preset,
 )
+from .technical_indicators import _valid_close
 
 # Paper desk is long-only (tradermonty #681 reject unsupported equity shorts).
 UNSUPPORTED_SHORT_REASON = "Unsupported short — long-only book"
+INVALID_FILL_PRICE_REASON = "Invalid fill price — refuse bool/gap/NaN marks"
 
 
 def long_only_quantity_ok(quantity: Any) -> bool:
-    """True when qty is a finite positive number (no shorts / zero / NaN)."""
-    try:
-        q = float(quantity)
-    except (TypeError, ValueError):
+    """True when qty is a finite positive number (no shorts / zero / NaN / bool)."""
+    # float(True)==1.0 — bool must not invent a 1-share lot.
+    if isinstance(quantity, bool) or not isinstance(quantity, numbers.Real):
         return False
+    q = float(quantity)
     return math.isfinite(q) and q > 0
+
+
+def fill_price_ok(price: Any) -> bool:
+    """tradermonty #655/#754: fills must be real finite positive numbers (never bool)."""
+    return _valid_close(price)
 
 
 def unsupported_short_symbols(holdings: Any) -> List[str]:
@@ -206,10 +214,10 @@ class Portfolio:
         quantity: float,
         timestamp: str = "",
     ) -> bool:
-        """Check if we have enough cash to buy (long-only; qty must be > 0)."""
-        if not long_only_quantity_ok(quantity):
+        """Check if we have enough cash to buy (long-only; qty/price must be usable)."""
+        if not long_only_quantity_ok(quantity) or not fill_price_ok(price):
             return False
-        cost = price * quantity
+        cost = float(price) * float(quantity)
         commission = self.commission_for(cost, timestamp)
         total_cost = cost + commission
         return self.cash >= total_cost
@@ -222,6 +230,16 @@ class Portfolio:
             "success": False,
             "reason": UNSUPPORTED_SHORT_REASON,
             "quantity_requested": quantity,
+        }
+
+    @staticmethod
+    def _refuse_bad_fill(price: Any) -> Optional[Dict[str, Any]]:
+        if fill_price_ok(price):
+            return None
+        return {
+            "success": False,
+            "reason": INVALID_FILL_PRICE_REASON,
+            "price_requested": price,
         }
 
     def buy(
@@ -241,7 +259,12 @@ class Portfolio:
         refused = self._refuse_short(quantity)
         if refused:
             return refused
+        bad_px = self._refuse_bad_fill(price)
+        if bad_px:
+            return bad_px
 
+        price = float(price)
+        quantity = float(quantity)
         cost = price * quantity
         commission = self.commission_for(cost, timestamp)
         total_cost = cost + commission
@@ -318,6 +341,9 @@ class Portfolio:
         refused = self._refuse_short(quantity)
         if refused:
             return refused
+        bad_px = self._refuse_bad_fill(price)
+        if bad_px:
+            return bad_px
         if not self.can_sell(symbol, quantity):
             return {
                 "success": False,
@@ -326,6 +352,8 @@ class Portfolio:
                 "quantity_requested": quantity,
             }
 
+        price = float(price)
+        quantity = float(quantity)
         proceeds = price * quantity
         commission = self.commission_for(proceeds, timestamp)
         net_proceeds = proceeds - commission

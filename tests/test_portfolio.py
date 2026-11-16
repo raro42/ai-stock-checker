@@ -71,6 +71,41 @@ def test_can_buy_with_cash_and_refuses_short():
     assert over["reason"] == "Insufficient shares"
 
 
+def test_buy_sell_refuse_invalid_fill_marks():
+    """tradermonty #655/#754: bool/gap/NaN must not invent €1 fills (float(True)→1.0)."""
+    from stock_checker.portfolio import (
+        INVALID_FILL_PRICE_REASON,
+        fill_price_ok,
+        long_only_quantity_ok,
+    )
+
+    p = Portfolio(
+        initial_cash=10000.0,
+        commission_rate=0.001,
+        commission_min_eur=0.0,
+        fee_preset="binance_like",
+        enable_risk_management=False,
+    )
+    assert fill_price_ok(True) is False
+    assert fill_price_ok(0) is False
+    assert fill_price_ok(float("nan")) is False
+    assert long_only_quantity_ok(True) is False
+    assert p.can_buy("AAPL", True, 1) is False
+    assert p.can_buy("AAPL", 100.0, True) is False
+
+    bad_buy = p.buy("AAPL", price=True, quantity=1, timestamp="t1")
+    assert bad_buy["success"] is False
+    assert bad_buy["reason"] == INVALID_FILL_PRICE_REASON
+    assert "AAPL" not in p.holdings
+
+    ok = p.buy("AAPL", price=100.0, quantity=5, timestamp="t2")
+    assert ok["success"] is True
+    bad_sell = p.sell("AAPL", price=True, quantity=1, timestamp="t3")
+    assert bad_sell["success"] is False
+    assert bad_sell["reason"] == INVALID_FILL_PRICE_REASON
+    assert p.holdings["AAPL"] == 5
+
+
 def test_revolut_min_commission_floor():
     from stock_checker.fees import REVOLUT_STANDARD_MIN_EUR, REVOLUT_STANDARD_RATE
 
