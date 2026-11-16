@@ -58,3 +58,71 @@ def test_rsi_clean_history_still_scores():
     assert rsi is not None
     assert math.isfinite(rsi)
     assert 0.0 <= rsi <= 100.0
+
+
+def _enough_closes_for_macd(n: int = 50) -> list[float]:
+    return [10.0 + (i % 7) * 0.25 for i in range(n)]
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],
+)
+def test_macd_invalid_close_is_unavailable(bad):
+    """Same price-bar gate as RSI: gap/zero/NaN closes ≠ a real MACD histogram."""
+    prices = _enough_closes_for_macd()
+    prices[20] = bad
+    assert TechnicalIndicators.calculate_macd(prices) is None
+
+
+def test_macd_clean_history_still_scores():
+    prices = _enough_closes_for_macd()
+    macd = TechnicalIndicators.calculate_macd(prices)
+    assert macd is not None
+    assert all(math.isfinite(macd[k]) for k in ("macd", "signal", "histogram"))
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],
+)
+def test_bollinger_invalid_close_is_unavailable(bad):
+    """Same price-bar gate as RSI: gap/zero/NaN closes ≠ fake band position."""
+    prices = [float(i) for i in range(1, 31)]
+    prices[10] = bad
+    assert TechnicalIndicators.calculate_bollinger_bands(prices, period=20) is None
+
+
+def test_bollinger_clean_history_still_scores():
+    prices = [float(i) for i in range(1, 31)]
+    bb = TechnicalIndicators.calculate_bollinger_bands(prices, period=20)
+    assert bb is not None
+    assert all(math.isfinite(bb[k]) for k in ("upper", "middle", "lower", "position", "bandwidth"))
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],
+)
+def test_atr_invalid_ohlc_is_unavailable(bad):
+    """tradermonty #655/#754 on ATR: bad high/low/close ≠ real volatility."""
+    n = 30
+    highs = [11.0 + i * 0.1 for i in range(n)]
+    lows = [9.0 + i * 0.1 for i in range(n)]
+    closes = [10.0 + i * 0.1 for i in range(n)]
+    closes[12] = bad
+    assert TechnicalIndicators.calculate_atr(highs, lows, closes, period=14) is None
+    highs2 = list(highs)
+    highs2[5] = bad
+    assert TechnicalIndicators.calculate_atr(highs2, lows, closes, period=14) is None
+
+
+def test_atr_clean_history_still_scores():
+    n = 30
+    highs = [11.0 + i * 0.1 for i in range(n)]
+    lows = [9.0 + i * 0.1 for i in range(n)]
+    closes = [10.0 + i * 0.1 for i in range(n)]
+    atr = TechnicalIndicators.calculate_atr(highs, lows, closes, period=14)
+    assert atr is not None
+    assert math.isfinite(atr)
+    assert atr > 0

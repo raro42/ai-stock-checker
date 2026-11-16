@@ -70,7 +70,7 @@ class TechnicalIndicators:
         fast_period: int = 12,
         slow_period: int = 26,
         signal_period: int = 9
-    ) -> Dict[str, float]:
+    ) -> Optional[Dict[str, float]]:
         """
         Calculate MACD (Moving Average Convergence Divergence).
 
@@ -81,12 +81,15 @@ class TechnicalIndicators:
             signal_period: Signal line period (default 9)
 
         Returns:
-            Dict with macd, signal, histogram, or None if insufficient data
+            Dict with macd, signal, histogram, or None if insufficient / invalid data
         """
         if len(prices) < slow_period + signal_period:
             return None
+        # Gap/zero/NaN closes must not become a fake MACD histogram
+        if any(not _valid_close(p) for p in prices):
+            return None
 
-        prices_array = np.array(prices)
+        prices_array = np.asarray(prices, dtype=float)
 
         # Calculate EMAs
         fast_ema = TechnicalIndicators._calculate_ema(prices_array, fast_period)
@@ -99,11 +102,15 @@ class TechnicalIndicators:
         signal_line = TechnicalIndicators._calculate_ema(macd_line, signal_period)
 
         # Histogram
-        histogram = macd_line[-1] - signal_line[-1]
+        macd_v = float(macd_line[-1])
+        signal_v = float(signal_line[-1])
+        histogram = macd_v - signal_v
+        if not all(math.isfinite(v) for v in (macd_v, signal_v, histogram)):
+            return None
 
         return {
-            'macd': float(macd_line[-1]),
-            'signal': float(signal_line[-1]),
+            'macd': macd_v,
+            'signal': signal_v,
             'histogram': float(histogram)
         }
 
@@ -112,7 +119,7 @@ class TechnicalIndicators:
         prices: List[float],
         period: int = 20,
         std_dev: float = 2.0
-    ) -> Dict[str, float]:
+    ) -> Optional[Dict[str, float]]:
         """
         Calculate Bollinger Bands.
 
@@ -122,33 +129,39 @@ class TechnicalIndicators:
             std_dev: Standard deviation multiplier (default 2.0)
 
         Returns:
-            Dict with upper, middle, lower bands and current position
+            Dict with upper, middle, lower bands and current position, or None if invalid
         """
         if len(prices) < period:
             return None
+        # Gap/zero/NaN closes must not become fake band positions
+        if any(not _valid_close(p) for p in prices):
+            return None
 
-        prices_array = np.array(prices[-period:])
+        prices_array = np.asarray(prices[-period:], dtype=float)
 
         # Middle band (SMA)
-        middle = np.mean(prices_array)
+        middle = float(np.mean(prices_array))
 
         # Standard deviation
-        std = np.std(prices_array)
+        std = float(np.std(prices_array))
 
         # Upper and lower bands
         upper = middle + (std_dev * std)
         lower = middle - (std_dev * std)
 
         # Current price position
-        current_price = prices[-1]
+        current_price = float(prices[-1])
         position = (current_price - lower) / (upper - lower) if upper != lower else 0.5
+        bandwidth = (upper - lower) / middle if middle != 0 else 0.0
+        if not all(math.isfinite(v) for v in (upper, middle, lower, position, bandwidth)):
+            return None
 
         return {
             'upper': float(upper),
             'middle': float(middle),
             'lower': float(lower),
             'position': float(position),  # 0 = at lower band, 1 = at upper band
-            'bandwidth': float((upper - lower) / middle)  # Volatility measure
+            'bandwidth': float(bandwidth)  # Volatility measure
         }
 
     @staticmethod
@@ -195,7 +208,7 @@ class TechnicalIndicators:
         lows: List[float],
         closes: List[float],
         period: int = 14
-    ) -> float:
+    ) -> Optional[float]:
         """
         Calculate Average True Range (ATR) for volatility measurement.
 
@@ -206,20 +219,30 @@ class TechnicalIndicators:
             period: ATR period
 
         Returns:
-            ATR value
+            ATR value, or None if insufficient / invalid OHLC bars
         """
         if len(highs) < period + 1 or len(lows) < period + 1 or len(closes) < period + 1:
+            return None
+        if not (len(highs) == len(lows) == len(closes)):
+            return None
+        # Gap/zero/NaN OHLC must not become a fake volatility reading
+        if any(
+            not _valid_close(h) or not _valid_close(lo) or not _valid_close(c)
+            for h, lo, c in zip(highs, lows, closes)
+        ):
             return None
 
         true_ranges = []
         for i in range(1, len(closes)):
-            high_low = highs[i] - lows[i]
-            high_close = abs(highs[i] - closes[i-1])
-            low_close = abs(lows[i] - closes[i-1])
+            high_low = float(highs[i]) - float(lows[i])
+            high_close = abs(float(highs[i]) - float(closes[i - 1]))
+            low_close = abs(float(lows[i]) - float(closes[i - 1]))
             true_ranges.append(max(high_low, high_close, low_close))
 
-        atr = np.mean(true_ranges[-period:])
-        return float(atr)
+        atr = float(np.mean(true_ranges[-period:]))
+        if not math.isfinite(atr) or atr < 0:
+            return None
+        return atr
 
     @staticmethod
     def _calculate_ema(data: np.ndarray, period: int) -> np.ndarray:
