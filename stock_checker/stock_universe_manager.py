@@ -11,6 +11,7 @@ from pathlib import Path
 
 from stock_checker.german_universe import GERMAN_XETRA_SEED
 from stock_checker.listed_funds import LISTED_FUND_SEED
+from stock_checker.secret_redact import safe_exc_text
 
 # Yahoo US screens are not a Xetra listing file. Compare prune baselines
 # as MIC-lite venues (xang1234 ae9c507), not raw NYSE vs "US" strings.
@@ -440,7 +441,7 @@ class StockUniverseManager:
             if len(report) > 8:
                 claim_live = report[8]
         except Exception as e:
-            print(f"   ⚠️ Yahoo movers discovery failed: {str(e)[:120]}")
+            print(f"   ⚠️ Yahoo movers discovery failed: {safe_exc_text(e)}")
             meta["last_yahoo_discovery_status"] = "failed"
             meta["last_yahoo_discovery_fail"] = yahoo_stamp_utc_iso()
             meta["last_yahoo_screens_ok"] = 0
@@ -720,5 +721,5 @@ class StockUniverseManager:
                 force=force_yahoo, max_age_hours=age_h
             )
         except Exception as e:
-            print(f"⚠️  Yahoo discovery skipped: {str(e)[:100]}")
+            print(f"⚠️  Yahoo discovery skipped: {safe_exc_text(e, limit=100)}")
         return added

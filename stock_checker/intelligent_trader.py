@@ -21,6 +21,7 @@ from .symbol_filters import is_tradeable_symbol
 from .earnings_guard import is_in_earnings_blackout
 from .gate_audit import log_soft_allow
 from .fetcher import is_transient_network_error
+from .secret_redact import safe_exc_text
 from .market_regime import (
     CRYPTO_BENCHMARK,
     CRYPTO_SMA_PERIOD,
@@ -325,9 +326,9 @@ class IntelligentTrader:
             stock_close = float(closes[-1]) if closes else None
             detail_parts.append(f"SPY={stock_regime}")
         except Exception as e:
-            detail_parts.append(f"SPY fetch failed: {str(e)[:80]}")
+            detail_parts.append(f"SPY fetch failed: {safe_exc_text(e, limit=80)}")
             if not is_transient_network_error(e):
-                print(f"   ⚠️ Regime SPY: {str(e)[:120]}")
+                print(f"   ⚠️ Regime SPY: {safe_exc_text(e)}")
 
         try:
             from .binance_fetcher import BinanceFetcher
@@ -342,9 +343,9 @@ class IntelligentTrader:
             crypto_close = float(closes[-1]) if closes else None
             detail_parts.append(f"BTC={crypto_regime}")
         except Exception as e:
-            detail_parts.append(f"BTC fetch failed: {str(e)[:80]}")
+            detail_parts.append(f"BTC fetch failed: {safe_exc_text(e, limit=80)}")
             if not is_transient_network_error(e):
-                print(f"   ⚠️ Regime BTC: {str(e)[:120]}")
+                print(f"   ⚠️ Regime BTC: {safe_exc_text(e)}")
 
         self.stock_regime = stock_regime
         self.crypto_regime = crypto_regime
@@ -390,7 +391,7 @@ class IntelligentTrader:
             return closes_from_yfinance_hist(hist)
         except Exception as e:
             if not is_transient_network_error(e):
-                print(f"   ⚠️ RS history {symbol}: {str(e)[:100]}")
+                print(f"   ⚠️ RS history {symbol}: {safe_exc_text(e, limit=100)}")
             return []
 
     def _rs_entry_ok(

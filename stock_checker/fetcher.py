@@ -228,4 +228,7 @@ class StockFetcher:
                 },
             }
         except Exception as e:
-            raise ValueError(f"Failed to fetch historical data for {symbol}: {str(e)}")
+            # tradermonty #778: never echo raw provider URLs / token= in raises.
+            raise ValueError(
+                f"Failed to fetch historical data for {symbol}: {safe_exc_text(e)}"
+            ) from e

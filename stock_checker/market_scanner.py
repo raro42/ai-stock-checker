@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from .binance_fetcher import BinanceFetcher
 from .entry_slots import STOCK_BREAKOUT_SCORE_BASE
 from .fetcher import StockFetcher
+from .secret_redact import safe_exc_text
 from .stock_universe_manager import StockUniverseManager
 from .symbol_filters import filter_ranked_opportunities, is_tradeable_symbol
 
@@ -519,7 +520,7 @@ class MarketScanner:
                 time.sleep(0.15)  # Faster rate limiting
 
             except Exception as e:
-                print(f"⚠️  Error: {type(e).__name__}: {str(e)[:50]}")
+                print(f"⚠️  Error: {safe_exc_text(e, limit=50)}")
                 sys.stdout.flush()
                 # Mark as scanned even on error to avoid infinite retry loop
                 self.universe_manager.mark_scanned([symbol])
