@@ -7,7 +7,7 @@ from urllib.parse import quote, quote_plus
 
 from openbb_backend.desk_logs import read_log_tail
 from stock_checker.ops_audit import audited_ops_action, load_ops_actions
-from stock_checker.secret_redact import redact_secrets
+from stock_checker.secret_redact import redact_secrets, safe_exc_text
 
 
 def test_redact_query_param_token_and_apikey():
@@ -42,6 +42,28 @@ def test_redact_bearer_header():
     out = redact_secrets("Authorization: Bearer sk-live-ABCDEFGH1234")
     assert "sk-live-ABCDEFGH1234" not in out
     assert "Bearer REDACTED" in out
+
+
+def test_safe_exc_text_redacts_token_in_request_exception():
+    """tradermonty #778: console diagnostics must not echo token= URLs."""
+    secret = "finnhubExcLeak99"  # pragma: allowlist secret
+    exc = ConnectionError(
+        f"HTTPSConnectionPool(host='finnhub.io', port=443): "
+        f"Max retries exceeded with url: /api/v1/quote?symbol=AAPL&token={secret}"
+    )
+    out = safe_exc_text(exc, limit=200)
+    assert secret not in out
+    assert "ConnectionError" in out
+    assert "token=REDACTED" in out
+    assert "AAPL" in out
+
+
+def test_safe_exc_text_class_only_when_message_empty():
+    class EmptyMsg(Exception):
+        def __str__(self) -> str:
+            return ""
+
+    assert safe_exc_text(EmptyMsg()) == "EmptyMsg"
 
 
 def test_safe_detail_redacts_encoded_key_in_note(tmp_path: Path, monkeypatch):

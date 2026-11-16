@@ -1,9 +1,9 @@
 """Mask API-key echoes (raw + URL-encoded) in desk/ops diagnostics.
 
 Adapted from tradermonty/claude-trading-skills #556 (redact encoded keys through
-a shared fragment): Ops live tails and audit detail must not carry provider
-tokens from exception URLs or pasted query strings. Display/ops honesty only —
-not a trading gate.
+a shared fragment) and #778 (never print raw request exceptions that embed
+``token=`` URLs): Ops live tails, audit detail, and trader console must not
+carry provider tokens. Display/ops honesty only — not a trading gate.
 """
 
 from __future__ import annotations
@@ -93,3 +93,19 @@ def redact_secrets(text: str, *, extra: list[str] | None = None) -> str:
     if patterns:
         out = re.sub("|".join(patterns), _MARKER, out)
     return out
+
+
+def safe_exc_text(exc: BaseException, *, limit: int = 120) -> str:
+    """Class name + redacted message for console/log diagnostics.
+
+    tradermonty #778: ``requests`` exceptions often embed the full URL (including
+    ``token=`` / ``apikey=``) in ``str(e)``. Prefer this helper (or class-only)
+    over raw ``str(e)`` / ``{e}`` on provider failure paths.
+    """
+    name = type(exc).__name__
+    msg = redact_secrets(str(exc) or "").strip()
+    if not msg or msg == name:
+        return name
+    if limit > 0:
+        msg = msg[:limit]
+    return f"{name}: {msg}"

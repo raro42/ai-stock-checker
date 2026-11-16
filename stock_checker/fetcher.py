@@ -24,6 +24,8 @@ except ImportError:
     FINNHUB_AVAILABLE = False
     print("⚠️  Finnhub fetcher not available")
 
+from .secret_redact import safe_exc_text
+
 ProviderType = Literal["finnhub", "yfinance"]
 
 
@@ -105,7 +107,7 @@ class StockFetcher:
             try:
                 self.finnhub = FinnhubFetcher()
             except Exception as e:
-                print(f"⚠️  Finnhub unavailable ({e}), using yfinance only")
+                print(f"⚠️  Finnhub unavailable ({safe_exc_text(e)}), using yfinance only")
 
         if not self.finnhub and not YFINANCE_AVAILABLE:
             raise ValueError("No stock data sources available - need either Finnhub API key or yfinance")
@@ -124,11 +126,18 @@ class StockFetcher:
                 result = self.finnhub.get_stock_info(symbol)
                 return result
             except Exception as e:
+                detail = safe_exc_text(e)
                 if self._is_network_error(e):
-                    print(f"⚠️  Finnhub network error for {symbol}, switching to yfinance: {e}")
+                    print(
+                        f"⚠️  Finnhub network error for {symbol}, "
+                        f"switching to yfinance: {detail}"
+                    )
                     self.semaphore.switch_provider("yfinance")
                 else:
-                    print(f"⚠️  Finnhub failed for {symbol}, falling back to yfinance: {e}")
+                    print(
+                        f"⚠️  Finnhub failed for {symbol}, "
+                        f"falling back to yfinance: {detail}"
+                    )
 
         # Try yfinance (either as primary or fallback)
         if self.yfinance_fallback:
@@ -171,16 +180,23 @@ class StockFetcher:
             except Exception as e:
                 # If yfinance fails and we have finnhub, try switching back to finnhub
                 if self.finnhub and primary_provider == "yfinance":
-                    print(f"⚠️  yfinance failed for {symbol}, switching to finnhub: {e}")
+                    print(
+                        f"⚠️  yfinance failed for {symbol}, "
+                        f"switching to finnhub: {safe_exc_text(e)}"
+                    )
                     self.semaphore.switch_provider("finnhub")
                     # Try finnhub one more time
                     try:
                         return self.finnhub.get_stock_info(symbol)
                     except Exception as finnhub_error:
                         raise ValueError(
-                            f"All data sources failed for {symbol}: yfinance={str(e)}, finnhub={str(finnhub_error)}"
-                        )
-                raise ValueError(f"All data sources failed for {symbol}: {str(e)}")
+                            f"All data sources failed for {symbol}: "
+                            f"yfinance={safe_exc_text(e)}, "
+                            f"finnhub={safe_exc_text(finnhub_error)}"
+                        ) from finnhub_error
+                raise ValueError(
+                    f"All data sources failed for {symbol}: {safe_exc_text(e)}"
+                ) from e
 
         raise ValueError(f"No data sources available for {symbol}")
 

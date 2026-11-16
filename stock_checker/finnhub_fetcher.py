@@ -102,6 +102,11 @@ class FinnhubFetcher:
             }
 
         except requests.exceptions.RequestException as e:
-            raise ValueError(f"Failed to fetch Finnhub data for {symbol}: {str(e)}")
+            # tradermonty #778: RequestException str often embeds token= URL.
+            raise ValueError(
+                f"Failed to fetch Finnhub data for {symbol}: {type(e).__name__}"
+            ) from e
         except (KeyError, TypeError) as e:
-            raise ValueError(f"Failed to parse Finnhub response for {symbol}: {str(e)}")
+            raise ValueError(
+                f"Failed to parse Finnhub response for {symbol}: {type(e).__name__}"
+            ) from e
