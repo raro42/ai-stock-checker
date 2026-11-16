@@ -21,6 +21,14 @@ def _valid_close(price: object) -> bool:
     return math.isfinite(value) and value > 0.0
 
 
+def _valid_volume(volume: object) -> bool:
+    """Volume may be zero (no prints) but never negative / non-finite / non-numeric."""
+    if isinstance(volume, bool) or not isinstance(volume, numbers.Real):
+        return False
+    value = float(volume)
+    return math.isfinite(value) and value >= 0.0
+
+
 class TechnicalIndicators:
     """Calculate technical indicators for trading signals."""
 
@@ -169,7 +177,7 @@ class TechnicalIndicators:
         volumes: List[float],
         prices: List[float],
         period: int = 20
-    ) -> Dict[str, float]:
+    ) -> Optional[Dict[str, float]]:
         """
         Analyze volume patterns.
 
@@ -179,28 +187,41 @@ class TechnicalIndicators:
             period: Analysis period
 
         Returns:
-            Dict with volume analysis metrics
+            Dict with volume analysis metrics, or None if insufficient / invalid bars
         """
         if len(volumes) < period or len(prices) < period:
             return None
+        if len(volumes) != len(prices):
+            return None
+        # Gap/zero/NaN closes or bad volume must not become a fake surge/correlation
+        if any(not _valid_close(p) for p in prices):
+            return None
+        if any(not _valid_volume(v) for v in volumes):
+            return None
 
-        recent_volumes = np.array(volumes[-period:])
-        avg_volume = np.mean(recent_volumes)
-        current_volume = volumes[-1]
+        recent_volumes = np.asarray(volumes[-period:], dtype=float)
+        avg_volume = float(np.mean(recent_volumes))
+        current_volume = float(volumes[-1])
 
         # Volume surge detection
         volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
 
         # Price-volume correlation
-        recent_prices = np.array(prices[-period:])
-        correlation = np.corrcoef(recent_prices, recent_volumes)[0, 1] if len(recent_prices) > 1 else 0
+        recent_prices = np.asarray(prices[-period:], dtype=float)
+        if len(recent_prices) > 1:
+            correlation = float(np.corrcoef(recent_prices, recent_volumes)[0, 1])
+        else:
+            correlation = 0.0
 
-        return {
-            'current_volume': float(current_volume),
-            'avg_volume': float(avg_volume),
+        metrics = {
+            'current_volume': current_volume,
+            'avg_volume': avg_volume,
             'volume_ratio': float(volume_ratio),
-            'price_volume_correlation': float(correlation)
+            'price_volume_correlation': correlation,
         }
+        if not all(math.isfinite(v) for v in metrics.values()):
+            return None
+        return metrics
 
     @staticmethod
     def calculate_atr(

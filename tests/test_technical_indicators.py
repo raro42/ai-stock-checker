@@ -126,3 +126,50 @@ def test_atr_clean_history_still_scores():
     assert atr is not None
     assert math.isfinite(atr)
     assert atr > 0
+
+
+def _enough_volume_bars(n: int = 25) -> tuple[list[float], list[float]]:
+    prices = [10.0 + (i % 5) * 0.2 for i in range(n)]
+    volumes = [1000.0 + (i % 7) * 50.0 for i in range(n)]
+    return volumes, prices
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],
+)
+def test_analyze_volume_invalid_close_is_unavailable(bad):
+    """tradermonty #655/#754 lineage: gap/zero/NaN closes ≠ fake volume surge."""
+    volumes, prices = _enough_volume_bars()
+    prices[10] = bad
+    assert TechnicalIndicators.analyze_volume(volumes, prices, period=20) is None
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, True, "100", -1, float("nan"), float("inf"), -float("inf")],
+)
+def test_analyze_volume_invalid_volume_is_unavailable(bad):
+    """Negative / non-finite / non-numeric volume ≠ a real ratio/correlation."""
+    volumes, prices = _enough_volume_bars()
+    volumes[8] = bad
+    assert TechnicalIndicators.analyze_volume(volumes, prices, period=20) is None
+
+
+def test_analyze_volume_length_mismatch_is_unavailable():
+    volumes, prices = _enough_volume_bars()
+    assert TechnicalIndicators.analyze_volume(volumes[:-1], prices, period=20) is None
+
+
+def test_analyze_volume_clean_history_still_scores():
+    volumes, prices = _enough_volume_bars()
+    # Zero prints are allowed (no trades that bar)
+    volumes[3] = 0.0
+    out = TechnicalIndicators.analyze_volume(volumes, prices, period=20)
+    assert out is not None
+    assert all(
+        math.isfinite(out[k])
+        for k in ("current_volume", "avg_volume", "volume_ratio", "price_volume_correlation")
+    )
+    assert out["current_volume"] >= 0.0
+    assert out["avg_volume"] > 0.0
