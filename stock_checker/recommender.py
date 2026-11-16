@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from typing import Dict, Optional, List
-from .technical_indicators import TechnicalIndicators
+from .technical_indicators import TechnicalIndicators, _finite_signed, _valid_close
 
 
 class RecommendationEngine:
@@ -101,31 +101,19 @@ class RecommendationEngine:
         """Multi-timeframe momentum scoring with trend confirmation."""
         score = 0.0
 
-        # Safely extract and convert values
+        # Bool/NaN % prints must not invent mild daily up (float(True)→1.0).
         daily_change = 0.0
         weekly_change = 0.0
         monthly_change = 0.0
-
-        try:
-            dc = stock_data.get("daily_change")
-            if dc is not None:
-                daily_change = float(dc)
-        except (TypeError, ValueError):
-            daily_change = 0.0
-
-        try:
-            wc = stock_data.get("weekly_change")
-            if wc is not None:
-                weekly_change = float(wc)
-        except (TypeError, ValueError):
-            weekly_change = 0.0
-
-        try:
-            mc = stock_data.get("monthly_change")
-            if mc is not None:
-                monthly_change = float(mc)
-        except (TypeError, ValueError):
-            monthly_change = 0.0
+        dc = stock_data.get("daily_change")
+        if _finite_signed(dc):
+            daily_change = float(dc)
+        wc = stock_data.get("weekly_change")
+        if _finite_signed(wc):
+            weekly_change = float(wc)
+        mc = stock_data.get("monthly_change")
+        if _finite_signed(mc):
+            monthly_change = float(mc)
 
         # Daily momentum (35% weight)
         if daily_change > 3:
@@ -159,52 +147,42 @@ class RecommendationEngine:
         """Technical indicators scoring for trend strength."""
         score = 0
 
-        # RSI (Relative Strength Index)
+        # RSI (Relative Strength Index) — bool/NaN unavailable (True→1.0 ≠ oversold)
         rsi = stock_data.get("rsi")
-        if rsi is not None:
-            try:
-                rsi = float(rsi)
-                if rsi < 30:
-                    score += 12  # Oversold
-                elif rsi > 70:
-                    score -= 6   # Overbought
-                elif rsi > 60:
-                    score += 3   # Bullish
-                elif rsi < 40:
-                    score -= 2   # Bearish
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(rsi):
+            rsi_v = float(rsi)
+            if rsi_v < 30:
+                score += 12  # Oversold
+            elif rsi_v > 70:
+                score -= 6   # Overbought
+            elif rsi_v > 60:
+                score += 3   # Bullish
+            elif rsi_v < 40:
+                score -= 2   # Bearish
 
         # MACD signal
         macd_signal = stock_data.get("macd_histogram")
-        if macd_signal is not None:
-            try:
-                macd_signal = float(macd_signal)
-                if macd_signal > 0.1:
-                    score += 8   # Bullish divergence
-                elif macd_signal < -0.1:
-                    score -= 4   # Bearish divergence
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(macd_signal):
+            macd_v = float(macd_signal)
+            if macd_v > 0.1:
+                score += 8   # Bullish divergence
+            elif macd_v < -0.1:
+                score -= 4   # Bearish divergence
 
-        # Moving average alignment (trend strength)
+        # Moving average alignment — gap/bool marks unavailable (True→$1 invent)
         current_price = stock_data.get("current_price")
         sma_20 = stock_data.get("sma_20")
         sma_50 = stock_data.get("sma_50")
-
-        if current_price is not None and sma_20 is not None and sma_50 is not None:
-            try:
-                current_price = float(current_price)
-                sma_20 = float(sma_20)
-                sma_50 = float(sma_50)
-                # Price above both MAs = bullish
-                if current_price > sma_20 > sma_50:
-                    score += 5
-                # Price below both MAs = bearish
-                elif current_price < sma_20 < sma_50:
-                    score -= 3
-            except (TypeError, ValueError):
-                pass
+        if (
+            _valid_close(current_price)
+            and _valid_close(sma_20)
+            and _valid_close(sma_50)
+        ):
+            px, s20, s50 = float(current_price), float(sma_20), float(sma_50)
+            if px > s20 > s50:
+                score += 5
+            elif px < s20 < s50:
+                score -= 3
 
         return score
 
@@ -214,37 +192,27 @@ class RecommendationEngine:
 
         # 52-week position (value consideration)
         range_position = stock_data.get("52_week_position")
-        if range_position is not None:
-            try:
-                range_position = float(range_position)
-                if range_position < 25:
-                    score += 8  # Potential value
-                elif range_position > 90:
-                    score -= 3  # Potentially overextended
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(range_position):
+            rp = float(range_position)
+            if rp < 25:
+                score += 8  # Potential value
+            elif rp > 90:
+                score -= 3  # Potentially overextended
 
         # P/E ratio (if available)
         pe_ratio = stock_data.get("pe_ratio")
-        if pe_ratio is not None:
-            try:
-                pe_ratio = float(pe_ratio)
-                if pe_ratio < 20:
-                    score += 7
-                elif pe_ratio > 35:
-                    score -= 5
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(pe_ratio):
+            pe = float(pe_ratio)
+            if pe < 20:
+                score += 7
+            elif pe > 35:
+                score -= 5
 
         # Market cap consideration (smaller caps = higher risk/reward)
         market_cap = stock_data.get("market_cap")
-        if market_cap is not None:
-            try:
-                market_cap = float(market_cap)
-                if market_cap < 5000000000:  # Under $5B
-                    score += 5  # Small/mid cap premium
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(market_cap) and float(market_cap) > 0:
+            if float(market_cap) < 5000000000:  # Under $5B
+                score += 5  # Small/mid cap premium
 
         # Analyst recommendations
         analyst_rating = stock_data.get("analyst_rating", "N/A")

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-import numbers
 import time
 import json
 from datetime import datetime
@@ -17,14 +15,7 @@ from .fetcher import StockFetcher
 from .secret_redact import redact_secrets, safe_exc_text
 from .stock_universe_manager import StockUniverseManager
 from .symbol_filters import filter_ranked_opportunities, is_tradeable_symbol
-from .technical_indicators import _valid_close, _valid_volume
-
-
-def _finite_signed(value: object) -> bool:
-    """Finite real number (may be ≤0); never bool — ``float(True)`` is 1.0."""
-    if isinstance(value, bool) or not isinstance(value, numbers.Real):
-        return False
-    return math.isfinite(float(value))
+from .technical_indicators import _finite_signed, _valid_close, _valid_volume
 
 
 def coerce_scan_price(value: object) -> Optional[float]:

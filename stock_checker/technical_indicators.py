@@ -21,6 +21,13 @@ def _valid_close(price: object) -> bool:
     return math.isfinite(value) and value > 0.0
 
 
+def _finite_signed(value: object) -> bool:
+    """Finite real (may be ≤0); never bool — ``float(True)`` is 1.0."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return False
+    return math.isfinite(float(value))
+
+
 def _valid_volume(volume: object) -> bool:
     """Volume may be zero (no prints) but never negative / non-finite / non-numeric."""
     if isinstance(volume, bool) or not isinstance(volume, numbers.Real):
