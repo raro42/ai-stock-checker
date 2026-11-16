@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
-from typing import Dict, List
+from __future__ import annotations
+
+import math
+import numbers
 import time
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 import pytz
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from .binance_fetcher import BinanceFetcher
@@ -13,6 +17,32 @@ from .fetcher import StockFetcher
 from .secret_redact import redact_secrets, safe_exc_text
 from .stock_universe_manager import StockUniverseManager
 from .symbol_filters import filter_ranked_opportunities, is_tradeable_symbol
+from .technical_indicators import _valid_close, _valid_volume
+
+
+def _finite_signed(value: object) -> bool:
+    """Finite real number (may be ≤0); never bool — ``float(True)`` is 1.0."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        return False
+    return math.isfinite(float(value))
+
+
+def coerce_scan_price(value: object) -> Optional[float]:
+    """tradermonty #655/#754: scan marks must be real finite positive (never bool)."""
+    if not _valid_close(value):
+        return None
+    return float(value)
+
+
+def breakout_from_high(
+    price: object, high_52w: object
+) -> Optional[Tuple[float, float, float]]:
+    """Return ``(price, high_52w, pct_from_high)`` or None when either mark is unusable."""
+    px = coerce_scan_price(price)
+    hi = coerce_scan_price(high_52w)
+    if px is None or hi is None:
+        return None
+    return px, hi, ((px - hi) / hi) * 100.0
 
 
 class MarketScanner:
@@ -323,19 +353,28 @@ class MarketScanner:
             if not data:
                 print(f"   ⚠️  No price for {bsym}")
                 continue
-            price = float(data["current_price"])
-            chg = float(data.get("change_24h") or 0)
-            high = float(data.get("high_24h") or price)
-            low = float(data.get("low_24h") or price)
+            price = coerce_scan_price(data.get("current_price"))
+            if price is None:
+                print(f"   ⚠️  Invalid price for {bsym} (unavailable)")
+                continue
+            chg_raw = data.get("change_24h")
+            chg = float(chg_raw) if _finite_signed(chg_raw) else 0.0
+            high = coerce_scan_price(data.get("high_24h")) or price
+            low = coerce_scan_price(data.get("low_24h")) or price
+            if low > high:
+                print(f"   ⚠️  Invalid day range for {bsym} (unavailable)")
+                continue
             vol_range = ((high - low) / low) * 100 if low > 0 else 0.0
-            volume_usdt = float(data.get("volume_24h") or 0) * price
+            vol_raw = data.get("volume_24h")
+            volume_base = float(vol_raw) if _valid_volume(vol_raw) else 0.0
+            volume_usdt = volume_base * price
             score = chg + min(vol_range * 0.5, 20) + min(volume_usdt / 10_000_000, 10)
             row = {
                 "symbol": normalize_live_crypto_symbol(yf_sym),
                 "binance_symbol": bsym,
                 "price": price,
                 "change_24h": chg,
-                "volume_24h": float(data.get("volume_24h") or 0),
+                "volume_24h": volume_base,
                 "volume_usdt": volume_usdt,
                 "volatility": vol_range,
                 "score": score,
@@ -432,59 +471,35 @@ class MarketScanner:
                         self.persistence.track_scanned_symbol(symbol, "paper")
                         continue
 
-                if not data.get('current_price'):
-                    print("✓ (no price data)")
+                price_raw = data.get("current_price")
+                if not _valid_close(price_raw):
+                    # bool True is truthy — refuse True→$1 invent; None/0 stay "no price"
+                    label = "no price data" if not price_raw else "invalid price"
+                    print(f"✓ ({label})")
                     sys.stdout.flush()
-                    # Mark as scanned immediately after attempt
                     self.universe_manager.mark_scanned([symbol])
-                    # Track symbol as paper
                     self.persistence.track_scanned_symbol(symbol, "paper")
                     continue
 
-                price = data['current_price']
-                high_52w = data.get('52_week_high')
-                try:
-                    day_chg = float(data.get("daily_change_pct") or 0)
-                    stock_priced += 1
-                    if day_chg > 0:
-                        stock_up += 1
-                    elif day_chg < 0:
-                        stock_down += 1
-                    else:
-                        stock_flat += 1
-                except (TypeError, ValueError):
-                    day_chg = 0.0
+                high_52w_raw = data.get("52_week_high")
+                chg_raw = data.get("daily_change_pct")
+                day_chg = float(chg_raw) if _finite_signed(chg_raw) else 0.0
+                stock_priced += 1
+                if day_chg > 0:
+                    stock_up += 1
+                elif day_chg < 0:
+                    stock_down += 1
+                else:
+                    stock_flat += 1
 
-                # Skip if no 52-week high data
-                if high_52w is None or high_52w == 0 or high_52w == "None":
-                    print("✓ (no 52w high)")
+                broke = breakout_from_high(price_raw, high_52w_raw)
+                if broke is None:
+                    print("✓ (no/invalid 52w high)")
                     sys.stdout.flush()
-                    # Mark as scanned immediately after attempt
                     self.universe_manager.mark_scanned([symbol])
-                    # Track symbol as paper
                     self.persistence.track_scanned_symbol(symbol, "paper")
                     continue
-
-                try:
-                    price = float(price)
-                    # Handle None before float conversion
-                    if high_52w is None:
-                        # Mark as scanned immediately after attempt
-                        self.universe_manager.mark_scanned([symbol])
-                        # Track symbol as paper
-                        self.persistence.track_scanned_symbol(symbol, "paper")
-                        continue
-                    high_52w = float(high_52w)
-                    # Calculate distance from 52-week high
-                    pct_from_high = ((price - high_52w) / high_52w) * 100
-                except (TypeError, ValueError, ZeroDivisionError):
-                    print(f"⚠️  Error: {type(high_52w).__name__} = {repr(high_52w)[:30]}")
-                    sys.stdout.flush()
-                    # Mark as scanned immediately after attempt
-                    self.universe_manager.mark_scanned([symbol])
-                    # Track symbol as paper
-                    self.persistence.track_scanned_symbol(symbol, "paper")
-                    continue
+                price, high_52w, pct_from_high = broke
 
                 # Breakout if within 5% of 52-week high
                 if pct_from_high >= -5:
@@ -914,13 +929,11 @@ class MarketScanner:
         from stock_checker.atr_risk import note_from_day_range
 
         for crypto in crypto_leaders:
-            try:
-                px = float(crypto.get("price") or 0)
-                vol = float(crypto.get("volatility") or 0)
-            except (TypeError, ValueError):
+            px = coerce_scan_price(crypto.get("price"))
+            if px is None:
                 continue
-            if px <= 0:
-                continue
+            vol_raw = crypto.get("volatility")
+            vol = float(vol_raw) if _finite_signed(vol_raw) else 0.0
             risk = note_from_day_range(entry=px, volatility_pct=vol)
             crypto["risk_note"] = risk.get("summary") or "risk n/a"
             crypto["risk_rr"] = risk.get("rr")
