@@ -306,12 +306,11 @@ class Backtester:
 
             prices = {}
             for s in symbols:
-                try:
-                    px = float(historical_data[s][i]["close"])
-                except (TypeError, ValueError):
+                raw = historical_data[s][i].get("close")
+                # Gap/zero/NaN/bool closes must not invent fills (tradermonty #655/#754)
+                if not _valid_close(raw):
                     continue
-                if px == px and px > 0:
-                    prices[s] = px
+                prices[s] = float(raw)
             if not prices:
                 continue
             signals = strategy_func(historical_data, i, portfolio) or {}
@@ -319,6 +318,8 @@ class Backtester:
             # Process sells first
             for symbol, action in list(signals.items()):
                 if action != "SELL" or symbol not in portfolio["positions"]:
+                    continue
+                if symbol not in prices:
                     continue
                 pos = portfolio["positions"][symbol]
                 entry_i = int(pos.get("entry_i", i))
@@ -350,6 +351,8 @@ class Backtester:
             # Process buys
             for symbol, action in list(signals.items()):
                 if action != "BUY" or symbol in portfolio["positions"]:
+                    continue
+                if symbol not in prices:
                     continue
                 if self.max_positions > 0 and len(portfolio["positions"]) >= self.max_positions:
                     break
@@ -388,20 +391,16 @@ class Backtester:
             last_i = min_len - 1
             last_ts = parse_ts(historical_data[symbols[0]][last_i], last_i)
             for symbol, pos in list(portfolio["positions"].items()):
-                try:
-                    raw_close = float(historical_data[symbol][last_i]["close"])
-                except (TypeError, ValueError):
-                    raw_close = float("nan")
-                if not (raw_close == raw_close and raw_close > 0):
-                    # Walk back to last finite close
+                raw = historical_data[symbol][last_i].get("close")
+                if _valid_close(raw):
+                    raw_close = float(raw)
+                else:
+                    # Walk back to last usable close (never bool/gap/zero/NaN)
                     raw_close = float(pos["entry_price"])
                     for j in range(last_i, -1, -1):
-                        try:
-                            c = float(historical_data[symbol][j]["close"])
-                        except (TypeError, ValueError):
-                            continue
-                        if c == c and c > 0:
-                            raw_close = c
+                        c = historical_data[symbol][j].get("close")
+                        if _valid_close(c):
+                            raw_close = float(c)
                             break
                 exit_price = raw_close * (1 - self.slippage_pct)
                 proceeds = pos["shares"] * exit_price

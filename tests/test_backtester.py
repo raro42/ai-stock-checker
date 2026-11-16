@@ -101,3 +101,24 @@ def test_commission_min_floor_applied():
     ts = datetime(2026, 1, 1)
     assert bt._fee(100.0, ts, ledger) == 5.0
     assert bt._fee(100_000.0, ts, ledger) == 10.0  # 0.01% of 100k = 10 > floor
+
+
+def test_invalid_close_does_not_invent_fill():
+    """Bool/None/0/NaN closes must not become tradeable prices (True→1.0 trap)."""
+
+    def buy_at_10(bars_by_symbol, index, portfolio):
+        if index == 10 and "AAA" not in portfolio.get("positions", {}):
+            return {"AAA": "BUY"}
+        return {}
+
+    for bad in (True, None, 0, float("nan"), "oops"):
+        bars = _make_uptrend(40)
+        bars[10] = {**bars[10], "close": bad}
+        bt = Backtester(
+            initial_capital=10_000,
+            commission_rate=0.0,
+            slippage_pct=0.0,
+            position_fraction=0.5,
+        )
+        result = bt.backtest({"AAA": bars}, buy_at_10)
+        assert result.trades == [], f"invented fill from close={bad!r}"
