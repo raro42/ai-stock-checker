@@ -73,13 +73,13 @@ class ProviderSemaphore:
             return "yfinance"
 
         try:
-            with open(self.semaphore_file, "r") as f:
+            with open(self.semaphore_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 provider = data.get("primary_provider", "yfinance")
                 if provider not in ["finnhub", "yfinance"]:
                     return "yfinance"
                 return provider
-        except (json.JSONDecodeError, IOError):
+        except (json.JSONDecodeError, IOError, UnicodeDecodeError):
             return "yfinance"
 
     def switch_provider(self, new_provider: ProviderType):
@@ -89,7 +89,7 @@ class ProviderSemaphore:
             "last_switch_time": datetime.now().isoformat(),
             "last_switch_reason": "provider_failure"
         }
-        with open(self.semaphore_file, "w") as f:
+        with open(self.semaphore_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         print(f"🔄 Switched primary provider to: {new_provider}")
 

@@ -690,13 +690,13 @@ class MarketScanner:
             json_path = archive_dir / json_filename
             report_path = archive_dir / report_filename
             
-            # Save JSON data
-            with open(json_path, 'w') as f:
-                json.dump(results, f, indent=2, default=str)
+            # Save JSON data (explicit UTF-8 — locale encoding must not mangle notes)
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(results, f, indent=2, default=str, ensure_ascii=False)
             
             # Generate and save human-readable report
             report = self._format_opportunities_report(results)
-            with open(report_path, 'w') as f:
+            with open(report_path, "w", encoding="utf-8") as f:
                 f.write(report)
             
             # Create symlinks to latest (for easy access)
@@ -713,7 +713,9 @@ class MarketScanner:
                 latest_report.symlink_to(report_filename)
             except Exception as symlink_error:
                 # Symlinks are optional, don't fail if they can't be created
-                print(f"⚠️  Could not create symlinks: {symlink_error}")
+                print(
+                    f"⚠️  Could not create symlinks: {safe_exc_text(symlink_error)}"
+                )
             
             print(f"\n{'='*80}")
             print(f"💾 OPPORTUNITY LIST SAVED TO ARCHIVE")
