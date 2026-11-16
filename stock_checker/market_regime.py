@@ -235,38 +235,50 @@ def load_regime_snapshot(data_dir: Path | str) -> dict[str, Any]:
         return {}
 
 
+def _close_or_nan(raw: object) -> float:
+    """Positional close for regime/RS loaders.
+
+    Gap/zero/NaN/non-numeric stays ``nan`` so callers see a hole instead of a
+    silently shortened series (xang1234 / portfolio AI claim honesty; same
+    lineage as ``simple_sma`` refuse-to-strip).
+    """
+    if isinstance(raw, bool):
+        return float("nan")
+    try:
+        val = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return float("nan")
+    if not _finite(val) or val <= 0.0:
+        return float("nan")
+    return val
+
+
 def closes_from_yfinance_hist(hist_data: dict[str, Any]) -> list[float]:
-    """Extract chronological closes from StockFetcher.get_historical_data payload."""
+    """Extract chronological closes from StockFetcher.get_historical_data payload.
+
+    Invalid / missing closes keep a ``nan`` slot (do not drop bars).
+    """
     rows = hist_data.get("data") if isinstance(hist_data, dict) else None
     if not isinstance(rows, dict) or not rows:
         return []
     closes: list[float] = []
     for _ts, bar in sorted(rows.items(), key=lambda kv: str(kv[0])):
         if not isinstance(bar, dict):
+            closes.append(float("nan"))
             continue
         close = bar.get("Close", bar.get("close"))
-        if close is None:
-            continue
-        try:
-            val = float(close)
-        except (TypeError, ValueError):
-            continue
-        if _finite(val):
-            closes.append(val)
+        closes.append(_close_or_nan(close))
     return closes
 
 
 def closes_from_binance_klines(klines: list[dict[str, Any]] | None) -> list[float]:
+    """Extract closes; bad/missing candles keep a ``nan`` slot (no compress)."""
     if not klines:
         return []
     out: list[float] = []
     for k in klines:
         if not isinstance(k, dict):
+            out.append(float("nan"))
             continue
-        try:
-            val = float(k["close"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if _finite(val):
-            out.append(val)
+        out.append(_close_or_nan(k.get("close")))
     return out

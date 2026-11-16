@@ -59,6 +59,22 @@ def test_note_from_day_range_and_ohlc():
     assert ohlc["entry"] == 11.0
 
 
+def test_note_from_day_range_entry_outside_range_unavailable():
+    """Day-range ATR proxy must not invent vol when entry is outside OHLC."""
+    bad = note_from_day_range(entry=60.0, day_high=52.0, day_low=48.0)
+    assert bad["stop"] is None
+    assert str(bad["summary"]).startswith("risk n/a")
+
+
+def test_note_from_ohlc_rows_refuses_bad_bar_without_compress():
+    """Do not drop inverted/out-of-range bars into a shorter ATR window."""
+    rows = [{"high": 11, "low": 9, "close": 10}] * 16
+    rows[4] = {"high": 8, "low": 10, "close": 9}  # inverted
+    note = note_from_ohlc_rows(rows, entry=10.0)
+    assert note["stop"] is None
+    assert str(note["summary"]).startswith("risk n/a")
+
+
 def test_risk_note_has_vol_and_coverage():
     assert risk_note_has_vol("stop atr €100.00 (−4.8%) · tgt +20%") is True
     assert risk_note_has_vol("risk n/a") is False

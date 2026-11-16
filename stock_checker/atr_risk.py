@@ -193,22 +193,29 @@ def note_from_day_range(
     Display-only — not an exit order.
     """
     atr = None
+    swing = None
     try:
         e = float(entry)
     except (TypeError, ValueError):
         return risk_reward_note(entry=0.0, atr=None)
+    day_ok = False
     if day_high is not None and day_low is not None:
         try:
             hi, lo = float(day_high), float(day_low)
-            if _finite(hi) and _finite(lo) and hi > lo > 0:
+            # tradermonty/#655 + xang1234 OHLC integrity: entry must sit in
+            # [low, high] or the day range is not a usable ATR/swing proxy.
+            if _valid_ohlc_bar(hi, lo, e) and hi > lo:
                 atr = hi - lo
+                swing = lo
+                day_ok = True
         except (TypeError, ValueError):
             atr = None
+            swing = None
     if atr is None and volatility_pct is not None and _finite(float(volatility_pct)):
         # Treat quoted volatility % as a rough ATR% of price.
         atr = e * (abs(float(volatility_pct)) / 100.0)
-    swing = None
-    if day_low is not None:
+    # Bare day_low without a coherent day OHLC must not invent a swing stop.
+    if swing is None and not day_ok and day_low is not None and day_high is None:
         try:
             swing = float(day_low)
         except (TypeError, ValueError):
@@ -231,17 +238,20 @@ def note_from_ohlc_rows(
     closes: list[float] = []
     for r in rows:
         if not isinstance(r, Mapping):
-            continue
+            # Non-bar slot would compress the series — refuse the note.
+            return risk_reward_note(entry=entry or 0.0, atr=None)
         try:
             h = float(r.get("high", r.get("High")))
             l = float(r.get("low", r.get("Low")))
             c = float(r.get("close", r.get("Close")))
         except (TypeError, ValueError):
-            continue
-        if _finite(h) and _finite(l) and _finite(c):
-            highs.append(h)
-            lows.append(l)
-            closes.append(c)
+            return risk_reward_note(entry=entry or 0.0, atr=None)
+        if not _valid_ohlc_bar(h, l, c):
+            # Do not skip bad bars into a shorter ATR window (claim honesty).
+            return risk_reward_note(entry=entry or 0.0, atr=None)
+        highs.append(h)
+        lows.append(l)
+        closes.append(c)
     if not closes:
         return risk_reward_note(entry=entry or 0.0, atr=None)
     px = float(entry) if entry is not None else closes[-1]

@@ -94,7 +94,31 @@ def test_close_extractors():
     }
     assert closes_from_yfinance_hist(hist) == [9.0, 10.0]
     klines = [{"close": 1}, {"close": "2.5"}, {"close": "x"}]
-    assert closes_from_binance_klines(klines) == [1.0, 2.5]
+    out = closes_from_binance_klines(klines)
+    assert out[0] == 1.0 and out[1] == 2.5
+    assert len(out) == 3
+    assert out[2] != out[2]  # invalid close keeps a nan slot
+
+
+def test_close_extractors_preserve_gap_slots():
+    """xang1234 / portfolio AI: do not compress regime/RS series on bad bars."""
+    hist = {
+        "data": {
+            "2024-01-01": {"Close": 9.0},
+            "2024-01-02": {"Close": None},
+            "2024-01-03": {"Close": 0.0},
+            "2024-01-04": {"Close": 11.0},
+        }
+    }
+    closes = closes_from_yfinance_hist(hist)
+    assert len(closes) == 4
+    assert closes[0] == 9.0 and closes[3] == 11.0
+    assert closes[1] != closes[1] and closes[2] != closes[2]
+    klines = [{"close": 1.0}, "bad", {"close": -2}, {"close": 3.0}]
+    kn = closes_from_binance_klines(klines)
+    assert len(kn) == 4
+    assert kn[0] == 1.0 and kn[3] == 3.0
+    assert kn[1] != kn[1] and kn[2] != kn[2]
 
 
 def test_regime_analogue_rejects_weak_or_incomplete():
