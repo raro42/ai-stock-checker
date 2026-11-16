@@ -9,6 +9,8 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
+from stock_checker.secret_redact import redact_secrets, safe_exc_text
+
 
 def _env_truthy(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
@@ -73,12 +75,12 @@ class OllamaAnalyzer:
 
         except urllib.error.URLError as e:
             return (
-                f"Error connecting to Ollama: {str(e)}\n"
+                f"Error connecting to Ollama: {safe_exc_text(e)}\n"
                 f"Make sure Ollama is running at {self.base_url} "
                 f"(or set LLM_BACKEND=openai for a cloud API)."
             )
         except Exception as e:
-            return f"Error analyzing stock: {str(e)}"
+            return f"Error analyzing stock: {safe_exc_text(e)}"
 
 
 class OpenAICompatibleAnalyzer:
@@ -151,12 +153,17 @@ class OpenAICompatibleAnalyzer:
                 return "\n".join(parts).strip() or "No response from model"
             return str(content or "No response from model")
         except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")[:400]
+            body = redact_secrets(
+                e.read().decode("utf-8", errors="replace")[:400]
+            )
             return f"Error from cloud LLM HTTP {e.code}: {body}"
         except urllib.error.URLError as e:
-            return f"Error connecting to cloud LLM at {self.base_url}: {e}"
+            return (
+                f"Error connecting to cloud LLM at {self.base_url}: "
+                f"{safe_exc_text(e)}"
+            )
         except Exception as e:
-            return f"Error analyzing stock: {str(e)}"
+            return f"Error analyzing stock: {safe_exc_text(e)}"
 
 
 def resolve_llm_backend() -> str:

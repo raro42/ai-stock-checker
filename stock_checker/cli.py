@@ -7,6 +7,7 @@ import sys
 from stock_checker.fetcher import StockFetcher
 from stock_checker.ai_analyzer import OllamaAnalyzer
 from stock_checker.market_analyzer import MarketAnalyzer
+from stock_checker.secret_redact import safe_exc_text
 
 
 def format_stock_info(data: dict) -> str:
@@ -63,7 +64,7 @@ def cmd_info(args):
             print(json.dumps(data, indent=2))
 
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {safe_exc_text(e)}", file=sys.stderr)
         return 1
     return 0
 
@@ -79,7 +80,7 @@ def cmd_history(args):
             print(json.dumps(data, indent=2))
 
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {safe_exc_text(e)}", file=sys.stderr)
         return 1
     return 0
 
@@ -136,7 +137,7 @@ def cmd_bitcoin(args):
             print(json.dumps(data, indent=2, default=str))
 
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {safe_exc_text(e)}", file=sys.stderr)
         return 1
     return 0
 
@@ -180,7 +181,7 @@ def cmd_movers(args):
             print(json.dumps(movers, indent=2))
 
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Error: {safe_exc_text(e)}", file=sys.stderr)
         return 1
     return 0
 

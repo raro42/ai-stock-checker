@@ -4,6 +4,8 @@ import yfinance as yf
 from typing import List, Dict
 from datetime import datetime
 
+from stock_checker.secret_redact import safe_exc_text
+
 
 class MarketAnalyzer:
     """Analyze market trends and identify top movers."""
@@ -114,7 +116,9 @@ class MarketAnalyzer:
                 "historical_data": hist.tail(30).to_dict(orient="index"),
             }
         except Exception as e:
-            raise ValueError(f"Failed to fetch Bitcoin data: {str(e)}")
+            raise ValueError(
+                f"Failed to fetch Bitcoin data: {safe_exc_text(e)}"
+            ) from e
 
     def _get_period_change(self, ticker, period: str) -> float:
         """Helper to calculate price change over a period."""

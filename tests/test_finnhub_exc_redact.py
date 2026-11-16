@@ -122,3 +122,62 @@ def test_scanner_universe_ai_console_has_no_raw_exc_echo():
         assert "str(e)" not in src, name
         assert "{e}" not in src, name
         assert "safe_exc_text" in src, name
+
+
+def test_cli_ai_market_analyzer_has_no_raw_exc_echo():
+    """tradermonty #778 follow-up: friend CLI + analyzer return strings redact."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "stock_checker"
+    for name in ("cli.py", "ai_analyzer.py", "market_analyzer.py"):
+        src = (root / name).read_text(encoding="utf-8")
+        assert "str(e)" not in src, name
+        assert "safe_exc_text" in src, name
+
+
+def test_ai_analyzer_urlerror_is_redacted(monkeypatch):
+    """Ollama URLError returns must not echo token= query strings."""
+    import urllib.error
+    import urllib.request
+
+    from stock_checker.ai_analyzer import OllamaAnalyzer
+
+    secret = "ollamaExcLeak99"  # pragma: allowlist secret
+
+    def boom(*_a, **_k):
+        raise urllib.error.URLError(
+            f"https://localhost/api/generate?token={secret}"
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    out = OllamaAnalyzer().analyze_stock({"symbol": "AAPL", "name": "Apple"})
+    assert secret not in out
+    assert "token=REDACTED" in out
+
+
+def test_market_analyzer_bitcoin_exc_is_redacted(monkeypatch):
+    """Bitcoin fetch ValueError must not echo token= query strings."""
+    secret = "btcExcLeak99"  # pragma: allowlist secret
+    from stock_checker.market_analyzer import MarketAnalyzer
+
+    class BoomTicker:
+        @property
+        def info(self):
+            raise ConnectionError(
+                f"Max retries with url: /v8/finance/chart/BTC-USD?token={secret}"
+            )
+
+        def history(self, *_a, **_k):
+            raise ConnectionError(
+                f"Max retries with url: /v8/finance/chart/BTC-USD?token={secret}"
+            )
+
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.yf.Ticker",
+        lambda *_a, **_k: BoomTicker(),
+    )
+    with pytest.raises(ValueError) as caught:
+        MarketAnalyzer().get_bitcoin_data()
+    msg = str(caught.value)
+    assert secret not in msg
+    assert "token=REDACTED" in msg
