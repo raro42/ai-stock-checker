@@ -1,5 +1,6 @@
 """Offline tests for promoted champion entry filter."""
 
+import math
 from datetime import datetime, timedelta
 
 from stock_checker.promoted_strategy import (
@@ -32,6 +33,22 @@ def test_bars_from_closes_length():
     assert len(bars) == 3
     assert bars[0]["date"] == datetime(2024, 1, 1)
     assert bars[2]["date"] == datetime(2024, 1, 1) + timedelta(days=2)
+
+
+def test_bars_from_closes_refuses_invalid():
+    """tradermonty #655/#754: bool/gap/NaN cannot invent champion bars (True→1.0)."""
+    bars = bars_from_closes(
+        [10.0, True, 0, -1, math.nan, None, "12.5", 11.0],  # type: ignore[list-item]
+        start=datetime(2024, 1, 1),
+        volumes=[1e6, True, 1e6, 1e6, 1e6, 1e6, 1e6, -5],  # type: ignore[list-item]
+    )
+    assert len(bars) == 2
+    assert bars[0]["close"] == 10.0
+    assert bars[1]["close"] == 11.0
+    assert bars[0]["volume"] == 1_000_000.0
+    # invalid volume on the valid close falls back to default (no True→1 invent)
+    assert bars[1]["volume"] == 1_000_000.0
+    assert bars[1]["date"] == datetime(2024, 1, 2)
 
 
 def test_filter_rejects_when_signal_fn_says_no():

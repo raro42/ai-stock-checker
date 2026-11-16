@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 from stock_checker.experiment_strategy import generate_signals as champion_signals
+from stock_checker.technical_indicators import _valid_close, _valid_volume
 
 # Stable name for docs / Ops — always the current experiment champion file.
 PROMOTED_SOURCE = "stock_checker.experiment_strategy"
@@ -33,15 +34,23 @@ def bars_from_closes(
     start: Optional[datetime] = None,
     volumes: Optional[List[float]] = None,
 ) -> List[Dict[str, Any]]:
-    """Build minimal OHLCV bars for champion generate_signals."""
+    """Build minimal OHLCV bars for champion generate_signals.
+
+    Bool/gap/zero/NaN closes are refused (no ``True→1.0`` invent). Dropped
+    slots shorten the series so ``champion_wants_buy`` still fail-opens below 60.
+    """
     day0 = start or datetime(2020, 1, 1)
     bars: List[Dict[str, Any]] = []
+    day_i = 0
     for i, close in enumerate(closes):
+        if not _valid_close(close):
+            continue
         px = float(close)
-        vol = float(volumes[i]) if volumes and i < len(volumes) else 1_000_000.0
+        raw_vol = volumes[i] if volumes and i < len(volumes) else None
+        vol = float(raw_vol) if raw_vol is not None and _valid_volume(raw_vol) else 1_000_000.0
         bars.append(
             {
-                "date": day0 + timedelta(days=i),
+                "date": day0 + timedelta(days=day_i),
                 "open": px,
                 "high": px,
                 "low": px,
@@ -49,6 +58,7 @@ def bars_from_closes(
                 "volume": vol,
             }
         )
+        day_i += 1
     return bars
 
 
@@ -123,7 +133,11 @@ def filter_opportunities(
 
 
 def load_daily_closes_yfinance(symbol: str, *, period: str = "1y") -> List[float]:
-    """Best-effort daily closes; empty on failure (offline-safe)."""
+    """Best-effort daily closes; empty on failure (offline-safe).
+
+    Bool/gap/zero/NaN closes are dropped (``_valid_close``) so promote bars
+    cannot invent from corrupted Yahoo prints.
+    """
     try:
         import yfinance as yf
     except ImportError:
@@ -132,7 +146,7 @@ def load_daily_closes_yfinance(symbol: str, *, period: str = "1y") -> List[float
         hist = yf.Ticker(symbol).history(period=period, interval="1d")
         if hist is None or hist.empty:
             return []
-        return [float(x) for x in hist["Close"].tolist() if x == x]
+        return [float(x) for x in hist["Close"].tolist() if _valid_close(x)]
     except Exception:
         return []
 
