@@ -5,8 +5,14 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import math
+
 from openbb_backend import main as backend
-from openbb_backend.desk import load_desk_snapshot
+from openbb_backend.desk import (
+    _coerce_desk_mark,
+    _prices_from_scan,
+    load_desk_snapshot,
+)
 
 
 def _seed_portfolio(data: Path) -> None:
@@ -159,6 +165,53 @@ def test_portfolio_endpoints_direct(tmp_path: Path, monkeypatch):
     assert home.headers["location"] == "/desk"
     widgets = json.loads((Path(backend.__file__).parent / "widgets.json").read_text())
     assert "portfolio_markdown" in widgets
+
+
+def test_coerce_desk_mark_refuses_invalid():
+    assert _coerce_desk_mark(105.0) == 105.0
+    assert _coerce_desk_mark(True) is None
+    assert _coerce_desk_mark(False) is None
+    assert _coerce_desk_mark(0) is None
+    assert _coerce_desk_mark(-1) is None
+    assert _coerce_desk_mark(math.nan) is None
+    assert _coerce_desk_mark(None) is None
+    assert _coerce_desk_mark("12.5") is None
+
+
+def test_prices_from_scan_skips_bool_and_nan():
+    prices = _prices_from_scan(
+        {
+            "stock_breakouts": [
+                {"symbol": "AAPL", "price": True},
+                {"symbol": "MSFT", "price": math.nan},
+                {"symbol": "IBM", "price": 190.5},
+            ],
+            "crypto_leaders": [
+                {"symbol": "BTC-USD", "price": False},
+                {"symbol": "ETH-USD", "price": 3000.0},
+            ],
+        }
+    )
+    assert prices == {"IBM": 190.5, "ETH-USD": 3000.0}
+
+
+def test_desk_snapshot_invalid_scan_mark_falls_to_cost(tmp_path: Path):
+    """Bool scan price must not mark the book at $1 (True→1.0)."""
+    _seed_portfolio(tmp_path)
+    arch = tmp_path / "archive" / "opportunities_latest.json"
+    doc = json.loads(arch.read_text())
+    for row in doc["stock_breakouts"]:
+        if row.get("symbol") == "AAPL":
+            row["price"] = True
+    arch.write_text(json.dumps(doc))
+    snap = load_desk_snapshot(
+        tmp_path,
+        live_marks=False,
+        price_fetcher=lambda _syms: {},
+    )
+    aapl = next(h for h in snap["holdings"] if h["symbol"] == "AAPL")
+    assert aapl["marked"] is False
+    assert aapl["last"] == 100
 
 
 def test_desk_snapshot_rich(tmp_path: Path):

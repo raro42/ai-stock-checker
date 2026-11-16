@@ -38068,17 +38068,23 @@ def _fmt_hold(seconds: float) -> str:
     return f"{seconds / 86400:.1f}d"
 
 
+def _coerce_desk_mark(value: object) -> Optional[float]:
+    """Refuse bool/gap/NaN marks so Overview cannot invent $1 equity (True→1.0)."""
+    from stock_checker.technical_indicators import _valid_close
+
+    if not _valid_close(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
 def _prices_from_scan(opp: dict[str, Any]) -> dict[str, float]:
     prices: dict[str, float] = {}
     for key in ("crypto_leaders", "stock_breakouts"):
         for row in scan_list_rows(opp.get(key)):
             sym = row.get("symbol")
-            px = row.get("price")
+            px = _coerce_desk_mark(row.get("price"))
             if sym is not None and px is not None:
-                try:
-                    prices[str(sym)] = float(px)
-                except (TypeError, ValueError):
-                    continue
+                prices[str(sym)] = px
     return prices
 
 
@@ -38095,14 +38101,13 @@ def _fetch_yfinance_prices(
             t = yf.Ticker(sym)
             hist = t.history(period="1d")
             if hist is not None and not hist.empty:
-                return sym, float(hist["Close"].iloc[-1])
+                return sym, _coerce_desk_mark(hist["Close"].iloc[-1])
             info = getattr(t, "fast_info", None)
             if info is not None:
                 last = getattr(info, "last_price", None) or (
                     info.get("lastPrice") if hasattr(info, "get") else None
                 )
-                if last is not None:
-                    return sym, float(last)
+                return sym, _coerce_desk_mark(last)
         except Exception:
             return sym, None
         return sym, None
@@ -38115,7 +38120,7 @@ def _fetch_yfinance_prices(
             remaining = max(0.05, deadline - time.time())
             try:
                 sym, px = fut.result(timeout=remaining)
-                if px is not None and px > 0:
+                if px is not None:
                     out[sym] = px
             except FuturesTimeout:
                 continue
