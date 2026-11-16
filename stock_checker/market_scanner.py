@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from .binance_fetcher import BinanceFetcher
 from .entry_slots import STOCK_BREAKOUT_SCORE_BASE
 from .fetcher import StockFetcher
-from .secret_redact import safe_exc_text
+from .secret_redact import redact_secrets, safe_exc_text
 from .stock_universe_manager import StockUniverseManager
 from .symbol_filters import filter_ranked_opportunities, is_tradeable_symbol
 
@@ -67,7 +67,7 @@ class MarketScanner:
             now_et = datetime.now(et_tz)
             return now_et.weekday() >= 5  # Saturday = 5, Sunday = 6
         except Exception as e:
-            print(f"⚠️  Weekend detection failed: {e}, assuming not weekend")
+            print(f"⚠️  Weekend detection failed: {safe_exc_text(e)}, assuming not weekend")
             return False
 
     def is_market_closed(self) -> bool:
@@ -82,7 +82,7 @@ class MarketScanner:
 
             return is_us_cash_session_closed()
         except Exception as e:
-            print(f"⚠️  Market hours detection failed: {e}, assuming market might be open")
+            print(f"⚠️  Market hours detection failed: {safe_exc_text(e)}, assuming market might be open")
             return False
 
     def is_symbol_session_closed(self, symbol: str) -> bool:
@@ -92,7 +92,7 @@ class MarketScanner:
 
             return is_equity_session_closed(symbol)
         except Exception as e:
-            print(f"⚠️  Symbol session detection failed for {symbol}: {e}")
+            print(f"⚠️  Symbol session detection failed for {symbol}: {safe_exc_text(e)}")
             return self.is_market_closed()
 
     def scan_crypto_momentum(self, top_n: int = 10) -> List[Dict]:
@@ -579,7 +579,7 @@ class MarketScanner:
             else:
                 print("   ℹ️  Universe unchanged this pass")
         except Exception as e:
-            print(f"   ⚠️  Error expanding stock universe: {e}")
+            print(f"   ⚠️  Error expanding stock universe: {safe_exc_text(e)}")
 
     def _format_opportunities_report(self, results: dict) -> str:
         """
@@ -728,9 +728,10 @@ class MarketScanner:
             return json_path, report_path
             
         except Exception as e:
-            print(f"⚠️  Failed to save opportunities to archive: {e}")
             import traceback
-            traceback.print_exc()
+
+            print(f"⚠️  Failed to save opportunities to archive: {safe_exc_text(e)}")
+            print(redact_secrets(traceback.format_exc()))
             return None, None
 
     @staticmethod

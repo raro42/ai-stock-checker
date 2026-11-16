@@ -7,6 +7,7 @@ import sys
 from typing import Dict
 
 from stock_checker.ai_analyzer import make_analyzer
+from stock_checker.secret_redact import redact_secrets, safe_exc_text
 
 
 def _ai_verbose() -> bool:
@@ -73,18 +74,18 @@ class AIRecommender:
                 )
             return parsed
         except Exception as e:
-            print(f"⚠️  AI Error for {symbol}: {str(e)}", flush=True)
+            print(f"⚠️  AI Error for {symbol}: {safe_exc_text(e)}", flush=True)
             sys.stdout.flush()
             if _ai_verbose():
                 import traceback
 
-                traceback.print_exc()
+                print(redact_secrets(traceback.format_exc()), flush=True)
                 sys.stdout.flush()
             return {
                 "action": "HOLD",
                 "confidence": "LOW",
                 "score": 0,
-                "reasons": [f"AI error: {str(e)}"],
+                "reasons": [f"AI error: {safe_exc_text(e)}"],
                 "ai_reasoning": None,
             }
 
@@ -314,19 +315,19 @@ class AIRecommender:
                 )
             return parsed
         except Exception as e:
-            print(f"⚠️  AI Error for BTC-USD: {str(e)}", flush=True)
+            print(f"⚠️  AI Error for BTC-USD: {safe_exc_text(e)}", flush=True)
             sys.stdout.flush()
             if _ai_verbose():
                 import traceback
 
-                traceback.print_exc()
+                print(redact_secrets(traceback.format_exc()), flush=True)
                 sys.stdout.flush()
             return {
                 "symbol": "BTC-USD",
                 "action": "HOLD",
                 "confidence": "LOW",
                 "score": 0,
-                "reasons": [f"AI error: {str(e)}"],
+                "reasons": [f"AI error: {safe_exc_text(e)}"],
                 "ai_reasoning": None,
             }
 

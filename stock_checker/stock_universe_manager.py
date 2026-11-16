@@ -75,7 +75,7 @@ class StockUniverseManager:
                 with open(self.universe_file, 'r') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"⚠️  Error loading universe: {e}")
+                print(f"⚠️  Error loading universe: {safe_exc_text(e)}")
                 return self._create_empty_universe()
         return self._create_empty_universe()
 
@@ -104,7 +104,7 @@ class StockUniverseManager:
                 with open(self.scan_history_file, 'r') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"⚠️  Error loading scan history: {e}")
+                print(f"⚠️  Error loading scan history: {safe_exc_text(e)}")
                 return {"scanned": {}, "last_full_cycle": None}
         return {"scanned": {}, "last_full_cycle": None}
 

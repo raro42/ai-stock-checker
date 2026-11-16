@@ -106,3 +106,19 @@ def test_intelligent_trader_console_has_no_raw_str_e():
     assert "str(e)" not in src
     assert "safe_exc_text" in src
     assert "redact_secrets(traceback.format_exc())" in src
+
+
+def test_scanner_universe_ai_console_has_no_raw_exc_echo():
+    """tradermonty #778 follow-up: scanner/universe/AI recommender console redact."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "stock_checker"
+    for name in (
+        "market_scanner.py",
+        "stock_universe_manager.py",
+        "ai_recommender.py",
+    ):
+        src = (root / name).read_text(encoding="utf-8")
+        assert "str(e)" not in src, name
+        assert "{e}" not in src, name
+        assert "safe_exc_text" in src, name
