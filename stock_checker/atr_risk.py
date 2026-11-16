@@ -19,6 +19,13 @@ def _finite(x: float) -> bool:
     return x == x and x not in (float("inf"), float("-inf"))
 
 
+def _valid_ohlc_bar(high: float, low: float, close: float) -> bool:
+    """Positive finite OHLC with high ≥ low and close inside [low, high]."""
+    if not all(_finite(v) and v > 0.0 for v in (high, low, close)):
+        return False
+    return high >= low and low <= close <= high
+
+
 def true_range(high: float, low: float, prev_close: float) -> float:
     return max(high - low, abs(high - prev_close), abs(low - prev_close))
 
@@ -34,14 +41,17 @@ def average_true_range(
         return None
     if not (len(highs) == len(lows) == len(closes)):
         return None
-    trs: list[float] = []
-    for i in range(1, len(closes)):
+    # Inverted / out-of-range bars must not become a fake ATR stop on Screener
+    for i in range(len(closes)):
         try:
-            h, l, pc = float(highs[i]), float(lows[i]), float(closes[i - 1])
+            h, l, c = float(highs[i]), float(lows[i]), float(closes[i])
         except (TypeError, ValueError):
             return None
-        if not all(_finite(v) for v in (h, l, pc)):
+        if not _valid_ohlc_bar(h, l, c):
             return None
+    trs: list[float] = []
+    for i in range(1, len(closes)):
+        h, l, pc = float(highs[i]), float(lows[i]), float(closes[i - 1])
         trs.append(true_range(h, l, pc))
     if len(trs) < period:
         return None

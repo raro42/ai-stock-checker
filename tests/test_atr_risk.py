@@ -20,6 +20,23 @@ def test_average_true_range_simple():
     assert atr > 0
 
 
+def test_average_true_range_inverted_ohlc_unavailable():
+    """Screener ATR must not invent stops from high < low bars."""
+    highs = [10.0] * 15 + [12.0]
+    lows = [9.0] * 15 + [8.0]
+    closes = [9.5] * 15 + [11.0]
+    highs[5], lows[5] = 8.0, 10.0
+    assert average_true_range(highs, lows, closes, period=14) is None
+
+
+def test_average_true_range_close_outside_range_unavailable():
+    highs = [10.0] * 15 + [12.0]
+    lows = [9.0] * 15 + [8.0]
+    closes = [9.5] * 15 + [11.0]
+    closes[3] = 10.5  # above high
+    assert average_true_range(highs, lows, closes, period=14) is None
+
+
 def test_risk_reward_prefer_higher_stop():
     note = risk_reward_note(entry=100.0, atr=2.0, swing_low=90.0, atr_mult=2.0)
     # ATR stop = 96; swing stop = 88.2 → prefer ATR (higher)

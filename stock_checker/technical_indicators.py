@@ -29,6 +29,14 @@ def _valid_volume(volume: object) -> bool:
     return math.isfinite(value) and value >= 0.0
 
 
+def _valid_ohlc_bar(high: object, low: object, close: object) -> bool:
+    """Positive finite OHLC with high ≥ low and close inside [low, high]."""
+    if not (_valid_close(high) and _valid_close(low) and _valid_close(close)):
+        return False
+    h, lo, c = float(high), float(low), float(close)
+    return h >= lo and lo <= c <= h
+
+
 class TechnicalIndicators:
     """Calculate technical indicators for trading signals."""
 
@@ -246,11 +254,8 @@ class TechnicalIndicators:
             return None
         if not (len(highs) == len(lows) == len(closes)):
             return None
-        # Gap/zero/NaN OHLC must not become a fake volatility reading
-        if any(
-            not _valid_close(h) or not _valid_close(lo) or not _valid_close(c)
-            for h, lo, c in zip(highs, lows, closes)
-        ):
+        # Gap/zero/NaN or inverted OHLC must not become a fake volatility reading
+        if any(not _valid_ohlc_bar(h, lo, c) for h, lo, c in zip(highs, lows, closes)):
             return None
 
         true_ranges = []

@@ -128,6 +128,29 @@ def test_atr_clean_history_still_scores():
     assert atr > 0
 
 
+def test_atr_inverted_high_low_is_unavailable():
+    """high < low is not a real bar — refuse ATR (xang1234 claim honesty)."""
+    n = 30
+    highs = [11.0 + i * 0.1 for i in range(n)]
+    lows = [9.0 + i * 0.1 for i in range(n)]
+    closes = [10.0 + i * 0.1 for i in range(n)]
+    highs[10], lows[10] = lows[10], highs[10]
+    assert TechnicalIndicators.calculate_atr(highs, lows, closes, period=14) is None
+
+
+def test_atr_close_outside_range_is_unavailable():
+    """Close above high or below low ≠ usable OHLC for volatility."""
+    n = 30
+    highs = [11.0 + i * 0.1 for i in range(n)]
+    lows = [9.0 + i * 0.1 for i in range(n)]
+    closes = [10.0 + i * 0.1 for i in range(n)]
+    closes[8] = highs[8] + 1.0
+    assert TechnicalIndicators.calculate_atr(highs, lows, closes, period=14) is None
+    closes[8] = 10.0 + 8 * 0.1
+    closes[9] = lows[9] - 1.0
+    assert TechnicalIndicators.calculate_atr(highs, lows, closes, period=14) is None
+
+
 def _enough_volume_bars(n: int = 25) -> tuple[list[float], list[float]]:
     prices = [10.0 + (i % 5) * 0.2 for i in range(n)]
     volumes = [1000.0 + (i % 7) * 50.0 for i in range(n)]
