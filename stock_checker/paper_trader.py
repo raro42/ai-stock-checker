@@ -16,6 +16,7 @@ from stock_checker.trade_context import buy_note_from_opportunity
 from stock_checker.portfolio import Portfolio
 from stock_checker.persistence import DataPersistence
 from stock_checker import __version__
+from stock_checker.secret_redact import safe_exc_text
 
 
 class PaperTrader:
@@ -446,7 +447,7 @@ class PaperTrader:
             self.execute_trade(recommendation, price, data)
 
         except Exception as e:
-            self.log(f"[ERROR] Failed to check {symbol}: {str(e)}")
+            self.log(f"[ERROR] Failed to check {symbol}: {safe_exc_text(e)}")
             self.log(f"[TRACEBACK] {traceback.format_exc()}")
 
     def check_bitcoin(self):
@@ -531,7 +532,7 @@ class PaperTrader:
             self.execute_trade(recommendation, price, data)
 
         except Exception as e:
-            self.log(f"[ERROR] Failed to check Bitcoin: {str(e)}")
+            self.log(f"[ERROR] Failed to check Bitcoin: {safe_exc_text(e)}")
 
     def run(self):
         """Run enhanced paper trading loop."""
@@ -621,7 +622,7 @@ class PaperTrader:
                 break
 
             except Exception as e:
-                self.log(f"[ERROR] Unexpected error: {str(e)}")
+                self.log(f"[ERROR] Unexpected error: {safe_exc_text(e)}")
                 time.sleep(60)
 
 

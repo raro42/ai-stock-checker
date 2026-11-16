@@ -3,6 +3,8 @@
 import requests
 from typing import List, Dict
 
+from .secret_redact import safe_exc_text
+
 
 class CoinMarketCapFetcher:
     """
@@ -75,7 +77,7 @@ class CoinMarketCapFetcher:
             }
 
         except Exception as e:
-            print(f"[ERROR] Failed to fetch CoinMarketCap data: {str(e)}")
+            print(f"[ERROR] Failed to fetch CoinMarketCap data: {safe_exc_text(e)}")
             return {'gainers': [], 'losers': [], 'timestamp': ''}
 
     def get_top_movers(self) -> Dict[str, List[Dict]]:
@@ -127,5 +129,5 @@ class CoinMarketCapFetcher:
             }
 
         except Exception as e:
-            print(f"[ERROR] Failed to fetch CoinMarketCap top movers: {str(e)}")
+            print(f"[ERROR] Failed to fetch CoinMarketCap top movers: {safe_exc_text(e)}")
             return {'gainers': [], 'losers': []}

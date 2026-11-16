@@ -3,6 +3,8 @@
 from typing import Dict, Optional, List
 import requests
 
+from .secret_redact import safe_exc_text
+
 
 class BinanceFetcher:
     """Fetch real-time crypto data from Binance API (no auth required for market data)."""
@@ -47,7 +49,7 @@ class BinanceFetcher:
             }
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch Binance data for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to fetch Binance data for {symbol}: {safe_exc_text(e)}")
             return None
 
     def get_orderbook_depth(self, symbol: str, limit: int = 10) -> Optional[Dict]:
@@ -81,7 +83,7 @@ class BinanceFetcher:
             }
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch order book for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to fetch order book for {symbol}: {safe_exc_text(e)}")
             return None
 
     def convert_symbol(self, yf_symbol: str) -> str:
@@ -131,7 +133,7 @@ class BinanceFetcher:
             return result
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch multiple prices: {str(e)}")
+            print(f"[ERROR] Failed to fetch multiple prices: {safe_exc_text(e)}")
             return {}
 
     def get_all_tickers(self, min_volume_usdt: float = 10000000) -> Dict[str, Dict]:
@@ -183,7 +185,7 @@ class BinanceFetcher:
             return result
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch all tickers: {str(e)}")
+            print(f"[ERROR] Failed to fetch all tickers: {safe_exc_text(e)}")
             return {}
 
     def get_klines(self, symbol: str, interval: str = "1h", limit: int = 24) -> Optional[list]:
@@ -229,7 +231,7 @@ class BinanceFetcher:
             return candles
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch klines for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to fetch klines for {symbol}: {safe_exc_text(e)}")
             return None
 
     def analyze_breakout(self, symbol: str) -> Optional[Dict]:
@@ -284,7 +286,7 @@ class BinanceFetcher:
             }
 
         except Exception as e:
-            print(f"[ERROR] Breakout analysis failed for {symbol}: {str(e)}")
+            print(f"[ERROR] Breakout analysis failed for {symbol}: {safe_exc_text(e)}")
             return None
 
     def check_liquidity(self, symbol: str) -> Optional[Dict]:
@@ -343,7 +345,7 @@ class BinanceFetcher:
             }
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to check liquidity for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to check liquidity for {symbol}: {safe_exc_text(e)}")
             return None
 
     def get_technical_indicators(self, symbol: str) -> Optional[Dict]:
@@ -389,7 +391,7 @@ class BinanceFetcher:
             return result
             
         except Exception as e:
-            print(f"[ERROR] Failed to calculate technical indicators for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to calculate technical indicators for {symbol}: {safe_exc_text(e)}")
             return None
 
     def get_klines_extended(self, symbol: str, interval: str = "1h", limit: int = 100) -> Optional[list]:
@@ -444,7 +446,7 @@ class BinanceFetcher:
             return candles
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch extended klines for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to fetch extended klines for {symbol}: {safe_exc_text(e)}")
             return None
 
     def get_recent_trades(self, symbol: str, limit: int = 100) -> Optional[list]:
@@ -498,7 +500,7 @@ class BinanceFetcher:
             return parsed_trades
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch recent trades for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to fetch recent trades for {symbol}: {safe_exc_text(e)}")
             return None
 
     def get_agg_trades(self, symbol: str, limit: int = 500) -> Optional[list]:
@@ -550,7 +552,7 @@ class BinanceFetcher:
             return parsed_trades
 
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch aggregated trades for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to fetch aggregated trades for {symbol}: {safe_exc_text(e)}")
             return None
 
     def analyze_buy_sell_pressure(self, symbol: str, limit: int = 100) -> Optional[Dict]:
@@ -603,7 +605,7 @@ class BinanceFetcher:
             }
             
         except Exception as e:
-            print(f"[ERROR] Failed to analyze buy/sell pressure for {symbol}: {str(e)}")
+            print(f"[ERROR] Failed to analyze buy/sell pressure for {symbol}: {safe_exc_text(e)}")
             return None
 
     def get_trending_coins(self, min_volume_usdt: float = 10000000, top_n: int = 20) -> List[Dict]:
@@ -689,5 +691,5 @@ class BinanceFetcher:
             return trending[:top_n]
             
         except requests.exceptions.RequestException as e:
-            print(f"[ERROR] Failed to fetch trending coins: {str(e)}")
+            print(f"[ERROR] Failed to fetch trending coins: {safe_exc_text(e)}")
             return []

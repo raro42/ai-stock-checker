@@ -53,3 +53,42 @@ def test_historical_data_exception_is_redacted(monkeypatch):
     assert secret not in msg
     assert "token=REDACTED" in msg
     assert "AAPL" in msg
+
+
+def test_binance_console_exception_is_redacted(monkeypatch, capsys):
+    """tradermonty #778 follow-up: Binance console must not echo token= URLs."""
+    secret = "binanceExcLeak99"  # pragma: allowlist secret
+    from stock_checker.binance_fetcher import BinanceFetcher
+
+    fetcher = BinanceFetcher()
+
+    def boom(*_a, **_k):
+        raise requests.exceptions.ConnectionError(
+            f"Max retries with url: /api/v3/ticker/24hr?symbol=BTCUSDT&token={secret}"
+        )
+
+    monkeypatch.setattr(fetcher.session, "get", boom)
+    assert fetcher.get_crypto_price("BTCUSDT") is None
+    err = capsys.readouterr().out
+    assert secret not in err
+    assert "token=REDACTED" in err
+
+
+def test_cmc_console_exception_is_redacted(monkeypatch, capsys):
+    """tradermonty #778 follow-up: CMC console must not echo apikey= URLs."""
+    secret = "cmcExcLeakKey99"  # pragma: allowlist secret
+    from stock_checker.coinmarketcap_fetcher import CoinMarketCapFetcher
+
+    fetcher = CoinMarketCapFetcher()
+
+    def boom(*_a, **_k):
+        raise requests.exceptions.ConnectionError(
+            f"HTTPSConnectionPool: url: /data-api/v3/spotlight?apikey={secret}"
+        )
+
+    monkeypatch.setattr(fetcher.session, "get", boom)
+    out = fetcher.get_trending_gainers_losers()
+    assert out["gainers"] == []
+    err = capsys.readouterr().out
+    assert secret not in err
+    assert "apikey=REDACTED" in err

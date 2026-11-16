@@ -10,6 +10,7 @@ from stock_checker.market_analyzer import MarketAnalyzer
 from stock_checker.recommender import RecommendationEngine
 from stock_checker.ai_recommender import AIRecommender
 from stock_checker.ai_analyzer import OllamaAnalyzer
+from stock_checker.secret_redact import safe_exc_text
 
 
 class ContinuousMonitor:
@@ -104,14 +105,14 @@ class ContinuousMonitor:
                 try:
                     ai_insight = self.ai_analyzer.analyze_stock(data)
                 except Exception as e:
-                    ai_insight = f"AI analysis failed: {str(e)}"
+                    ai_insight = f"AI analysis failed: {safe_exc_text(e)}"
 
             # Only log BUY/SELL recommendations, skip HOLD to reduce noise
             if recommendation["action"] in ["BUY", "SELL"]:
                 self.log_recommendation(recommendation, ai_insight)
 
         except Exception as e:
-            print(f"[ERROR] Failed to check {symbol}: {str(e)}", file=sys.stderr)
+            print(f"[ERROR] Failed to check {symbol}: {safe_exc_text(e)}", file=sys.stderr)
             sys.stderr.flush()
 
     def check_bitcoin(self):
@@ -146,13 +147,13 @@ class ContinuousMonitor:
                     }
                     ai_insight = self.ai_analyzer.analyze_stock(btc_summary)
                 except Exception as e:
-                    ai_insight = f"AI analysis failed: {str(e)}"
+                    ai_insight = f"AI analysis failed: {safe_exc_text(e)}"
 
             # Always log Bitcoin recommendations
             self.log_recommendation(recommendation, ai_insight)
 
         except Exception as e:
-            print(f"[ERROR] Failed to check Bitcoin: {str(e)}", file=sys.stderr)
+            print(f"[ERROR] Failed to check Bitcoin: {safe_exc_text(e)}", file=sys.stderr)
             sys.stderr.flush()
 
     def check_sp500_movers(self):
@@ -182,7 +183,7 @@ class ContinuousMonitor:
                 sys.stdout.flush()
 
         except Exception as e:
-            print(f"[ERROR] Failed to check S&P 500 movers: {str(e)}", file=sys.stderr)
+            print(f"[ERROR] Failed to check S&P 500 movers: {safe_exc_text(e)}", file=sys.stderr)
             sys.stderr.flush()
 
     def run(self):
@@ -241,7 +242,7 @@ class ContinuousMonitor:
                 sys.stdout.flush()
                 break
             except Exception as e:
-                print(f"\n[ERROR] Unexpected error: {str(e)}", file=sys.stderr)
+                print(f"\n[ERROR] Unexpected error: {safe_exc_text(e)}", file=sys.stderr)
                 sys.stderr.flush()
                 time.sleep(60)  # Wait a minute before retrying
 
