@@ -10,7 +10,9 @@ Export generate_signals(bars_by_symbol, index, portfolio) -> {symbol: 'BUY'|'SEL
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional, Sequence
+
+from stock_checker.technical_indicators import _valid_close, _valid_volume
 
 
 # idea: Increasing the Medium SMA reference period from 50 to 60. This makes the structural stack (S>M) and the associated trend confirmation significantly slower and more stable, filtering out short-term noise in favor of deeper, longer-term structural alignment.
@@ -41,6 +43,34 @@ MIN_STRUCTURAL_RSI_FOR_STACK = 50.0 # MODIFIED: Lowered threshold from 55.0 to 5
 
 # New exit requirement: Price must drop below 95% of the Short Momentum SMA for confirmation.
 EXIT_PRICE_CONFIRMATION_MULTIPLIER = 0.95
+
+
+def _closes_until(bars: Sequence[Dict], index: int) -> Optional[List[float]]:
+    """Closes through ``index``, or None if any bar is bool/gap/zero/NaN/non-numeric."""
+    if index < 0 or index >= len(bars):
+        return None
+    out: List[float] = []
+    for bar in bars[: index + 1]:
+        close = bar.get("close") if isinstance(bar, dict) else None
+        if not _valid_close(close):
+            return None
+        out.append(float(close))
+    return out
+
+
+def _vols_until(bars: Sequence[Dict], index: int) -> Optional[List[float]]:
+    """Volumes through ``index``, or None if any print is bool/negative/NaN/non-numeric."""
+    if index < 0 or index >= len(bars):
+        return None
+    out: List[float] = []
+    for bar in bars[: index + 1]:
+        raw = bar.get("volume", 0) if isinstance(bar, dict) else None
+        if raw is None:
+            raw = 0
+        if not _valid_volume(raw):
+            return None
+        out.append(float(raw))
+    return out
 
 
 def _sma(closes: List[float], period: int, exclude_last: bool = False) -> float:
@@ -146,102 +176,85 @@ def generate_signals(
     )
 
     # --- SPY Filters (Market Context) ---
+    # Bad SPY prints → skip SPY filters (fail-open); do not invent uptrend/RS from bool/gap.
     spy_ok = True
     spy_ret = 0.0
-    spy_m_prev = 0.0 # Initialize previous SMA value
     if "SPY" in bars_by_symbol and index >= need:
-        # Use float conversion on the fly for safety
-        spy_closes = [float(b["close"]) for b in bars_by_symbol["SPY"][: index + 1]]
-        
-        # Check SPY UPTREND (Medium SMA)
-        if REQUIRE_SPY_UPTREND and index >= MED_SMA + 1:
-            spy_m_now = _sma(spy_closes, MED_SMA)
-            # Calculate previous medium SMA using the helper function with exclusion
-            spy_m_prev = _sma(spy_closes, MED_SMA, exclude_last=True)
-            spy_ok = spy_m_now >= spy_m_prev
-
-        # SPY Relative Strength calculation (used only if REQUIRE_REL_STRENGTH is True)
-        if REQUIRE_REL_STRENGTH:
-            spy_ret = _period_return(spy_closes, RS_LOOKBACK)
+        spy_closes = _closes_until(bars_by_symbol["SPY"], index)
+        if spy_closes is not None:
+            if REQUIRE_SPY_UPTREND and index >= MED_SMA + 1:
+                spy_m_now = _sma(spy_closes, MED_SMA)
+                spy_m_prev = _sma(spy_closes, MED_SMA, exclude_last=True)
+                spy_ok = spy_m_now >= spy_m_prev
+            if REQUIRE_REL_STRENGTH:
+                spy_ret = _period_return(spy_closes, RS_LOOKBACK)
 
     # --- Signal Generation Loop ---
     for symbol, bars in bars_by_symbol.items():
         if index < need or index >= len(bars):
             continue
 
-        closes = [float(b["close"]) for b in bars[: index + 1]]
+        closes = _closes_until(bars, index)
+        if closes is None:
+            continue
         in_pos = symbol in portfolio.get("positions", {})
 
-        # Calculate current and previous SMAs
         sma_s = _sma(closes, SHORT_SMA)
         sma_m = _sma(closes, MED_SMA)
         sma_l = _sma(closes, LONG_SMA)
         sma_mon = _sma(closes, SHORT_MOMENTUM_SMA)
-        
-        # NEW: Calculate previous Medium SMA
         sma_m_prev = _sma(closes, MED_SMA, exclude_last=True)
-        
-        current_close = float(bars[-1]["close"])
+        current_close = closes[-1]
 
         # 1. Volume Confirmation Check
         vol_ok = True
         if REQUIRE_VOLUME_CONFIRM:
-            vols = [float(b.get("volume", 0) or 0) for b in bars[: index + 1]]
+            vols = _vols_until(bars, index)
+            if vols is None or len(vols) < VOLUME_LOOKBACK:
+                continue
             avg_vol = sum(vols[-VOLUME_LOOKBACK:]) / VOLUME_LOOKBACK
             cur_vol = vols[-1]
             if avg_vol > 0:
-                # Check ratio against the increased threshold
                 vol_ok = (cur_vol / avg_vol) >= MIN_VOLUME_RATIO
 
         # 2. Volatility Gate Check
         calm = _return_stdev(closes, VOLATILITY_LOOKBACK) <= MAX_RETURN_STDEV
-        
+
         # 3. RSI Filter Check
         rsi_val = _rsi(closes, RSI_PERIOD)
-        # Ensure RSI is within the neutral band [MIN_ENTRY_RSI, MAX_ENTRY_RSI]
-        rsi_ok = (rsi_val >= MIN_ENTRY_RSI and rsi_val <= MAX_ENTRY_RSI)
+        rsi_ok = MIN_ENTRY_RSI <= rsi_val <= MAX_ENTRY_RSI
 
         # 4. Market Context Checks
         market_ok = spy_ok or symbol == "SPY"
         rs_ok = True
         if REQUIRE_REL_STRENGTH and symbol != "SPY":
-            current_ret = _period_return(closes, RS_LOOKBACK)
-            # Check if the asset's relative strength beats or matches SPY's return
-            rs_ok = current_ret >= spy_ret
+            rs_ok = _period_return(closes, RS_LOOKBACK) >= spy_ret
 
         # --- ENTRY LOGIC (BUY) ---
-        # Entry requires: 1. Short > Medium (Structural Stack), 2. Short > Momentum SMA, 3. Medium SMA is rising, 4. All filters pass.
-        
-        # Structural requirement check:
-        # If RSI is strong (> 50), we require the full stack (Short > Medium > Long).
-        # Otherwise, we use the relaxed stack (Short > Medium).
-        structural_ok = False
         if rsi_val >= MIN_STRUCTURAL_RSI_FOR_STACK:
-            # Strict stack required
             structural_ok = (sma_s > sma_m) and (sma_m > sma_l)
         else:
-            # Relaxed stack (current working assumption)
             structural_ok = sma_s > sma_m
-        
+
         if (
-            structural_ok # Conditional structural requirement
-            and sma_s > sma_mon # Momentum confirmation: Short SMA must be above its 5-period SMA
-            and sma_m >= sma_m_prev # Medium SMA must be non-decreasing (confirming accelerating trend)
+            structural_ok
+            and sma_s > sma_mon
+            and sma_m >= sma_m_prev
             and vol_ok
             and calm
             and market_ok
             and rs_ok
-            and rsi_ok # RSI filter must be within the neutral band
+            and rsi_ok
             and not in_pos
         ):
             signals[symbol] = "BUY"
 
         # --- EXIT LOGIC (SELL) ---
-        # Exit if price drops below the long-term structural average (LONG_SMA) AND confirms weakness by falling below the structural trend line (Short_SMA - (Medium_SMA - Short_SMA)).
         elif (
-            current_close < sma_l # Structural requirement: Price below long-term SMA
+            current_close < sma_l
             and in_pos
-            and current_close < (sma_s - (sma_m - sma_s)) * EXIT_PRICE_CONFIRMATION_MULTIPLIER # New exit filter: Price must fall below the line extrapolated from the short-term trend spread
+            and current_close
+            < (sma_s - (sma_m - sma_s)) * EXIT_PRICE_CONFIRMATION_MULTIPLIER
         ):
             signals[symbol] = "SELL"
 
