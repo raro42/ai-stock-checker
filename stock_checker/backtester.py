@@ -13,6 +13,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 from stock_checker.fees import FeeAllowanceLedger
+from stock_checker.technical_indicators import _valid_close
 
 
 @dataclass
@@ -187,14 +188,25 @@ def momentum_cross_strategy(
     Simple long-only momentum: buy if close > SMA(lookback), sell if below.
 
     strategy_func signature for Backtester.backtest.
+    Gap/zero/NaN closes in the SMA window or signal bar are unavailable.
     """
     signals: Dict[str, str] = {}
     for symbol, bars in bars_by_symbol.items():
         if index < lookback or index >= len(bars):
             continue
-        window = [float(b["close"]) for b in bars[index - lookback : index]]
+        window: list[float] = []
+        ok = True
+        for bar in bars[index - lookback : index]:
+            c = bar.get("close") if isinstance(bar, dict) else None
+            if not _valid_close(c):
+                ok = False
+                break
+            window.append(float(c))
+        signal_close = bars[index].get("close") if isinstance(bars[index], dict) else None
+        if not ok or not _valid_close(signal_close):
+            continue
         sma = sum(window) / lookback
-        close = float(bars[index]["close"])
+        close = float(signal_close)
         in_pos = symbol in portfolio.get("positions", {})
         if close > sma and not in_pos:
             signals[symbol] = "BUY"
