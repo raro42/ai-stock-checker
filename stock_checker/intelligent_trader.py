@@ -55,12 +55,14 @@ from .exit_policy import (
     book_action_mode,
     crypto_entry_price_ok,
     exit_thresholds_for_asset,
+    mark_price_ok,
     opportunity_symbol_set,
     pick_overweight_trim_candidate,
     should_allow_rebuy,
     should_rebalance_exit,
     should_stop_loss,
     should_take_profit,
+    unrealized_profit_pct,
 )
 from .market_hours import is_equity_session_closed
 from .crypto_policy import (
@@ -824,14 +826,15 @@ class IntelligentTrader:
                 else:
                     data = fetcher.get_stock_info(symbol)
                     current_price = data.get("current_price")
-                    if not current_price:
-                        continue
+
+                profit_pct = unrealized_profit_pct(current_price, avg_buy)
+                if profit_pct is None:
+                    continue
 
                 # Calculate metrics
-                position_value = quantity * current_price
+                position_value = quantity * float(current_price)
                 total_position_value += position_value
-                profit_loss = position_value - (quantity * avg_buy)
-                profit_pct = ((current_price - avg_buy) / avg_buy) * 100
+                profit_loss = position_value - (quantity * float(avg_buy))
 
                 # Hold time
                 if symbol in self.position_entry_times:
@@ -891,12 +894,17 @@ class IntelligentTrader:
                 else:
                     data = fetcher.get_stock_info(symbol)
                     price = data.get("current_price")
-                    if not price:
-                        continue
 
                 # Check profit-taking and stop-loss
                 avg_buy = self.portfolio.avg_buy_price[symbol]
-                profit_pct = ((price - avg_buy) / avg_buy) * 100
+                profit_pct = unrealized_profit_pct(price, avg_buy)
+                if profit_pct is None:
+                    print(
+                        f"   ⏸️  Skipping {symbol}: invalid mark/cost "
+                        f"(unavailable — refuse TP/SL on bad price)"
+                    )
+                    continue
+                price = float(price)
                 hold_seconds = (
                     now - float(self.position_entry_times[symbol])
                     if symbol in self.position_entry_times
@@ -1112,9 +1120,15 @@ class IntelligentTrader:
                         print(f"   ⚠️ Could not fetch price for {symbol}")
                         continue
                     current_price = binance_data["current_price"]
+                    if not mark_price_ok(current_price):
+                        print(
+                            f"   ⏸️  Skipping {symbol}: invalid crypto mark "
+                            f"(unavailable)"
+                        )
+                        continue
                     if not crypto_entry_price_ok(current_price):
                         print(
-                            f"   ⏸️  Skipping {symbol}: crypto price ${current_price:.4f} "
+                            f"   ⏸️  Skipping {symbol}: crypto price ${float(current_price):.4f} "
                             f"below $1 floor (meme/churn filter)"
                         )
                         continue
@@ -1129,9 +1143,11 @@ class IntelligentTrader:
                 else:
                     data = fetcher.get_stock_info(symbol)
                     current_price = data.get("current_price")
-                    if not current_price:
-                        print(f"   ⚠️ Could not fetch price for {symbol}")
+                    if not mark_price_ok(current_price):
+                        print(f"   ⚠️ Could not fetch usable price for {symbol}")
                         continue
+
+                current_price = float(current_price)
 
                 allowed, guard_why, size_mult = self._scan_entry_allowed(opportunity)
                 if not allowed:
@@ -1410,12 +1426,19 @@ class IntelligentTrader:
                         if not binance_data:
                             continue
                         price = binance_data["current_price"]
+                        if not mark_price_ok(price):
+                            print(
+                                f"   ⏸️  Skipping {symbol}: invalid crypto mark "
+                                f"(unavailable)"
+                            )
+                            continue
                         if not crypto_entry_price_ok(price):
                             print(
-                                f"   ⏸️  Skipping {symbol}: crypto price ${price:.4f} "
+                                f"   ⏸️  Skipping {symbol}: crypto price ${float(price):.4f} "
                                 f"below $1 floor (meme/churn filter)"
                             )
                             continue
+                        price = float(price)
                         data = {
                             "symbol": symbol,
                             "current_price": price,
@@ -1425,10 +1448,12 @@ class IntelligentTrader:
                             "source": "binance"
                         }
                     else:
-                        data = fetcher.get_stock_info(symbol)
+                        data = fetcher.get_stock_info(symbol) or {}
                         price = data.get("current_price")
-                        if not price:
+                        if not mark_price_ok(price):
                             continue
+                        price = float(price)
+                        data = {**data, "current_price": price}
 
                     allowed, guard_why, size_mult = self._scan_entry_allowed(opp)
                     if not allowed:

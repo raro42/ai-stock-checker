@@ -12,7 +12,9 @@ Design intent (learned from Jul 26–28 book + SCHW churn 2026-07-28):
 
 from __future__ import annotations
 
-from typing import Iterable, Set, Tuple
+from typing import Iterable, Optional, Set, Tuple
+
+from .technical_indicators import _valid_close
 
 # Gross % moves (price vs avg buy), before commission.
 # Asymmetric on purpose (Aug 2026): thin +3% rotates lost to −5% stops.
@@ -170,11 +172,26 @@ def pick_overweight_trim_candidate(
 DEFAULT_CRYPTO_ENTRY_MIN_USD = 1.0
 
 
+def mark_price_ok(price: object) -> bool:
+    """tradermonty #655/#754: live marks must be real finite positive numbers (never bool)."""
+    return _valid_close(price)
+
+
+def unrealized_profit_pct(price: object, avg_buy: object) -> Optional[float]:
+    """
+    Gross mark % vs avg buy, or None when mark/cost is unusable.
+
+    Gap/zero/NaN/bool marks must not invent TP/SL or trim decisions.
+    """
+    if not mark_price_ok(price) or not mark_price_ok(avg_buy):
+        return None
+    return ((float(price) - float(avg_buy)) / float(avg_buy)) * 100.0
+
+
 def crypto_entry_price_ok(
-    price: float, *, min_usd: float = DEFAULT_CRYPTO_ENTRY_MIN_USD
+    price: object, *, min_usd: float = DEFAULT_CRYPTO_ENTRY_MIN_USD
 ) -> bool:
-    """Block sub-$1 meme pumps (ESP/BANK-style) from new entries."""
-    try:
-        return float(price) >= float(min_usd)
-    except (TypeError, ValueError):
+    """Block sub-$1 meme pumps and invalid marks from new crypto entries."""
+    if not mark_price_ok(price):
         return False
+    return float(price) >= float(min_usd)

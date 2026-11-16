@@ -1,13 +1,17 @@
 """Tests for paper exit / rotation policy."""
 
+import math
+
 from stock_checker.exit_policy import (
     book_action_mode,
     crypto_entry_price_ok,
+    mark_price_ok,
     opportunity_symbol_set,
     should_allow_rebuy,
     should_rebalance_exit,
     should_stop_loss,
     should_take_profit,
+    unrealized_profit_pct,
 )
 
 
@@ -133,3 +137,26 @@ def test_crypto_price_floor():
     assert crypto_entry_price_ok(64000)
     assert not crypto_entry_price_ok(0.33)
     assert not crypto_entry_price_ok(0.09)
+    # tradermonty #655/#754: bool/NaN/None must not look like a $1+ mark
+    assert not crypto_entry_price_ok(True)
+    assert not crypto_entry_price_ok(math.nan)
+    assert not crypto_entry_price_ok(None)
+
+
+def test_mark_price_ok_refuses_invalid():
+    assert mark_price_ok(100.0)
+    assert not mark_price_ok(True)
+    assert not mark_price_ok(0)
+    assert not mark_price_ok(-1)
+    assert not mark_price_ok(math.nan)
+    assert not mark_price_ok(None)
+    assert not mark_price_ok("12.5")
+
+
+def test_unrealized_profit_pct_refuses_invalid_mark():
+    assert unrealized_profit_pct(110.0, 100.0) == 10.0
+    assert unrealized_profit_pct(True, 100.0) is None
+    assert unrealized_profit_pct(110.0, True) is None
+    assert unrealized_profit_pct(0, 100.0) is None
+    assert unrealized_profit_pct(math.nan, 100.0) is None
+    assert unrealized_profit_pct(110.0, 0) is None
