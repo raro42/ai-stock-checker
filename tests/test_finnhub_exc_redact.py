@@ -92,3 +92,17 @@ def test_cmc_console_exception_is_redacted(monkeypatch, capsys):
     err = capsys.readouterr().out
     assert secret not in err
     assert "apikey=REDACTED" in err
+
+
+def test_intelligent_trader_console_has_no_raw_str_e():
+    """tradermonty #778: buy/sell/AI/trade console paths must use safe_exc_text."""
+    from pathlib import Path
+
+    src = (
+        Path(__file__).resolve().parents[1]
+        / "stock_checker"
+        / "intelligent_trader.py"
+    ).read_text(encoding="utf-8")
+    assert "str(e)" not in src
+    assert "safe_exc_text" in src
+    assert "redact_secrets(traceback.format_exc())" in src

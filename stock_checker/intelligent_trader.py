@@ -21,7 +21,7 @@ from .symbol_filters import is_tradeable_symbol
 from .earnings_guard import is_in_earnings_blackout
 from .gate_audit import log_soft_allow
 from .fetcher import is_transient_network_error
-from .secret_redact import safe_exc_text
+from .secret_redact import redact_secrets, safe_exc_text
 from .market_regime import (
     CRYPTO_BENCHMARK,
     CRYPTO_SMA_PERIOD,
@@ -763,7 +763,7 @@ class IntelligentTrader:
                 validated_opportunities.append(opp)
 
             except Exception as e:
-                print(f"   ⚠️  AI validation error for {symbol}: {str(e)}")
+                print(f"   ⚠️  AI validation error for {symbol}: {safe_exc_text(e)}")
                 sys.stdout.flush()
                 if not is_transient_network_error(e):
                     traceback.print_exc()
@@ -849,7 +849,7 @@ class IntelligentTrader:
                       f"€{profit_loss:>8.2f} {profit_pct:>7.2f}% {hold_time:<15} €{position_value:>10.2f}")
 
             except Exception as e:
-                print(f"⚠️  {symbol:<10} Error: {str(e)[:40]}")
+                print(f"⚠️  {symbol:<10} Error: {safe_exc_text(e, limit=40)}")
 
         print(f"{'-'*90}")
         print(f"{'TOTAL POSITIONS VALUE:':<75} €{total_position_value:>12,.2f}")
@@ -968,10 +968,10 @@ class IntelligentTrader:
                         self._record_exit(symbol)
 
             except Exception as e:
-                print(f"   ⚠️ Error checking {symbol}: {str(e)[:120]}")
+                print(f"   ⚠️ Error checking {symbol}: {safe_exc_text(e, limit=120)}")
                 # DNS/provider blips are expected; dumping chained Tracebacks wakes the watchdog
                 if not is_transient_network_error(e):
-                    print(f"   Traceback: {traceback.format_exc()}")
+                    print(f"   Traceback: {redact_secrets(traceback.format_exc())}")
 
         # Overweight trim: sell past-min-hold names (worst first) until at_cap.
         # Cap loops so a bad mark list cannot spin forever.
@@ -1194,9 +1194,9 @@ class IntelligentTrader:
                     print(f"   ❌ Trade failed for {symbol}: {result.get('message', 'Unknown error')}")
 
             except Exception as e:
-                print(f"   ⚠️ Error executing trade for {symbol}: {str(e)[:100]}")
+                print(f"   ⚠️ Error executing trade for {symbol}: {safe_exc_text(e, limit=100)}")
                 if not is_transient_network_error(e):
-                    print(f"   Traceback: {traceback.format_exc()}")
+                    print(f"   Traceback: {redact_secrets(traceback.format_exc())}")
 
         if trades_executed > 0:
             print(f"\n💼 Executed {trades_executed} new trade(s)")
@@ -1336,7 +1336,7 @@ class IntelligentTrader:
                     rebalanced = True
 
             except Exception as e:
-                print(f"   ⚠️ Error selling {symbol}: {str(e)[:50]}")
+                print(f"   ⚠️ Error selling {symbol}: {safe_exc_text(e, limit=50)}")
 
         # Buy missing opportunities if we have cash and room under max_positions
         if available_pct >= self.position_size and not self._entries_blocked_this_cycle():
@@ -1493,7 +1493,7 @@ class IntelligentTrader:
                                     break
 
                 except Exception as e:
-                    print(f"   ⚠️ Error buying {symbol}: {str(e)[:50]}")
+                    print(f"   ⚠️ Error buying {symbol}: {safe_exc_text(e, limit=50)}")
 
         return rebalanced
 
