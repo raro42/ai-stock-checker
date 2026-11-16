@@ -52,24 +52,39 @@ def _finite(x: float) -> bool:
     return x == x and x not in (float("inf"), float("-inf"))
 
 
+def _valid_sma_close(price: object) -> bool:
+    """tradermonty #655/#754 + portfolio AI claim honesty: SMA bars must be
+    real finite positive closes. Gap/zero/NaN is not a shorter window."""
+    if isinstance(price, bool):
+        return False
+    try:
+        value = float(price)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    return _finite(value) and value > 0.0
+
+
 def simple_sma(closes: Sequence[float], period: int) -> Optional[float]:
     if period <= 0 or len(closes) < period:
         return None
-    window = [float(c) for c in closes[-period:]]
-    if not all(_finite(c) for c in window):
+    window = list(closes[-period:])
+    # Do not drop bad bars — a hole is unavailable, not a compressed SMA
+    if any(not _valid_sma_close(c) for c in window):
         return None
-    return sum(window) / float(period)
+    return sum(float(c) for c in window) / float(period)
 
 
 def classify_close_vs_sma(closes: Sequence[float], period: int) -> str:
     """
-    risk_on if last close >= SMA(period); risk_off if below; unknown if short history.
+    risk_on if last close >= SMA(period); risk_off if below; unknown if short
+    history or any gap/zero/NaN in the SMA window (never strip bad bars).
     """
-    clean = [float(c) for c in closes if _finite(float(c))]
-    sma = simple_sma(clean, period)
-    if sma is None or not clean:
+    if period <= 0 or len(closes) < period:
         return REGIME_UNKNOWN
-    last = clean[-1]
+    sma = simple_sma(closes, period)
+    if sma is None:
+        return REGIME_UNKNOWN
+    last = float(closes[-1])
     if last >= sma:
         return REGIME_ON
     return REGIME_OFF

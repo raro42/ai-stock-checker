@@ -156,7 +156,16 @@ def test_crypto_benchmark_identity_binance_pair_not_yahoo():
 
 def test_nan_closes_fail_open_as_unknown():
     assert classify_close_vs_sma([float("nan")] * 60, 50) == REGIME_UNKNOWN
-    # Trailing NaN stripped; last finite close below SMA → risk_off
+    # Gap in the SMA window is unknown — do not strip NaN and score risk_off
+    # (xang1234 / portfolio AI claim honesty after silent shorten)
     series = [100.0] * 49 + [float("nan"), 50.0]
-    assert classify_close_vs_sma(series, 50) == REGIME_OFF
+    assert classify_close_vs_sma(series, 50) == REGIME_UNKNOWN
+    assert simple_sma(series, 50) is None
+
+
+def test_zero_or_negative_close_fail_open_as_unknown():
+    """tradermonty #655/#754: zero/neg close ≠ a real regime episode."""
+    assert classify_close_vs_sma([100.0] * 49 + [0.0], 50) == REGIME_UNKNOWN
+    assert classify_close_vs_sma([100.0] * 49 + [-1.0], 50) == REGIME_UNKNOWN
+    assert simple_sma([100.0] * 49 + [0.0], 50) is None
 
