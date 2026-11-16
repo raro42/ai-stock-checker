@@ -22,7 +22,7 @@ def fee_burn_facts(
     if not path.exists():
         return None
     try:
-        p = json.loads(path.read_text())
+        p = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
 

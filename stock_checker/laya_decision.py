@@ -270,7 +270,7 @@ def load_laya_decisions(data_dir: Path | str) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
     events = raw.get("events") if isinstance(raw, dict) else None

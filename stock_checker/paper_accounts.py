@@ -91,8 +91,10 @@ def _portfolio_file_status(path: Path) -> str:
     if not path.exists():
         return "missing"
     try:
+        # tradermonty #737: explicit UTF-8 — locale decode must not garble
+        # non-ASCII notes into a fake-ok ledger.
         doc = json.loads(
-            path.read_text() or "{}",
+            path.read_text(encoding="utf-8") or "{}",
             object_pairs_hook=_reject_duplicate_object_keys,
         )
     except (OSError, json.JSONDecodeError, UnicodeError, ValueError):
@@ -314,7 +316,8 @@ def _load_portfolio(path: Path) -> tuple[dict[str, Any], str]:
     if not path.exists():
         return {}, "missing"
     try:
-        doc = json.loads(path.read_text() or "{}")
+        # tradermonty #737: explicit UTF-8 (parity with _portfolio_file_status).
+        doc = json.loads(path.read_text(encoding="utf-8") or "{}")
     except (OSError, json.JSONDecodeError, UnicodeError):
         return {}, "damaged"
     if not isinstance(doc, dict):
@@ -327,7 +330,7 @@ def _last_trade_at(trades_path: Path) -> str:
         return ""
     last = ""
     try:
-        with trades_path.open() as fh:
+        with trades_path.open(encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:

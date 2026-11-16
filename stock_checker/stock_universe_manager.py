@@ -72,7 +72,7 @@ class StockUniverseManager:
         """Load stock universe from disk."""
         if self.universe_file.exists():
             try:
-                with open(self.universe_file, 'r') as f:
+                with open(self.universe_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
                 print(f"⚠️  Error loading universe: {safe_exc_text(e)}")
@@ -94,14 +94,14 @@ class StockUniverseManager:
         self.universe["last_updated"] = datetime.now().isoformat()
         self.universe["total_stocks"] = len(self.universe["stocks"])
 
-        with open(self.universe_file, 'w') as f:
+        with open(self.universe_file, "w", encoding="utf-8") as f:
             json.dump(self.universe, f, indent=2)
 
     def _load_scan_history(self) -> Dict:
         """Load scan history from disk."""
         if self.scan_history_file.exists():
             try:
-                with open(self.scan_history_file, 'r') as f:
+                with open(self.scan_history_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
                 print(f"⚠️  Error loading scan history: {safe_exc_text(e)}")
@@ -110,7 +110,7 @@ class StockUniverseManager:
 
     def _save_scan_history(self):
         """Save scan history to disk."""
-        with open(self.scan_history_file, 'w') as f:
+        with open(self.scan_history_file, "w", encoding="utf-8") as f:
             json.dump(self.scan_history, f, indent=2)
 
     def _seed_initial_universe(self):

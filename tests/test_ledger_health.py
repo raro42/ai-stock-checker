@@ -100,6 +100,37 @@ def test_load_json_checked_lean_type_mismatch(tmp_path: Path) -> None:
     assert meta["state"] == "ok"
 
 
+def test_load_json_checked_utf8_non_ascii_ok(tmp_path: Path) -> None:
+    """tradermonty #737: explicit UTF-8 keeps non-ASCII notes usable."""
+    path = tmp_path / "portfolio.json"
+    path.write_text(
+        '{"cash": 100, "note": "München · 東京"}\n', encoding="utf-8"
+    )
+    doc, meta = load_json_checked(path, {})
+    assert meta["state"] == "ok"
+    assert doc["note"] == "München · 東京"
+
+
+def test_load_json_checked_invalid_utf8_is_unreadable(tmp_path: Path) -> None:
+    """tradermonty #737: undecodable bytes → unreadable, not a fake book."""
+    path = tmp_path / "portfolio.json"
+    path.write_bytes(b'{"cash": 1, "note": "\xff\xfe bad"}\n')
+    doc, meta = load_json_checked(path, {})
+    assert doc == {}
+    assert meta["state"] == "unreadable"
+    assert meta["bad"] == 1
+
+
+def test_load_jsonl_checked_invalid_utf8_is_unreadable(tmp_path: Path) -> None:
+    """tradermonty #737: bad encoding on JSONL is unreadable, not thin."""
+    path = tmp_path / "trades.jsonl"
+    path.write_bytes(b'{"type":"BUY"}\n\xff\xfe\n')
+    rows, meta = load_jsonl_checked(path)
+    assert rows == []
+    assert meta["state"] == "unreadable"
+    assert meta["bad"] == 1
+
+
 def test_load_json_checked_rejects_duplicate_keys(tmp_path: Path) -> None:
     """tradermonty #753: duplicate object keys → malformed, not last-wins ok."""
     path = tmp_path / "portfolio.json"

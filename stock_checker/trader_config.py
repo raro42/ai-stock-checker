@@ -203,7 +203,7 @@ def load_trader_config(data_dir: Path | str) -> dict[str, Any]:
     if not path.is_file():
         return base
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return base
     return normalize_config(raw if isinstance(raw, dict) else {}, base=base)
@@ -737,7 +737,7 @@ def config_precedence_status(
         }
 
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {
             **empty,

@@ -30,20 +30,20 @@ class DataPersistence:
     def save_portfolio(self, portfolio_data: Dict):
         """Save current portfolio state."""
         portfolio_data["last_updated"] = datetime.now().isoformat()
-        with open(self.portfolio_file, "w") as f:
+        with open(self.portfolio_file, "w", encoding="utf-8") as f:
             json.dump(portfolio_data, f, indent=2)
 
     def load_portfolio(self) -> Optional[Dict]:
         """Load portfolio state from disk."""
         if self.portfolio_file.exists():
-            with open(self.portfolio_file) as f:
+            with open(self.portfolio_file, encoding="utf-8") as f:
                 return json.load(f)
         return None
 
     def append_trade(self, trade: Dict):
         """Append a trade to the trades log (JSONL format for streaming)."""
         trade["timestamp"] = trade.get("timestamp", datetime.now().isoformat())
-        with open(self.trades_file, "a") as f:
+        with open(self.trades_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(trade) + "\n")
 
     def load_trades(self, limit: Optional[int] = None) -> List[Dict]:
@@ -52,7 +52,7 @@ class DataPersistence:
             return []
 
         trades = []
-        with open(self.trades_file) as f:
+        with open(self.trades_file, encoding="utf-8") as f:
             for line in f:
                 trades.append(json.loads(line.strip()))
 
@@ -78,7 +78,7 @@ class DataPersistence:
         }
         """
         finding["timestamp"] = finding.get("timestamp", datetime.now().isoformat())
-        with open(self.findings_file, "a") as f:
+        with open(self.findings_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(finding) + "\n")
 
     def load_findings(
@@ -92,7 +92,7 @@ class DataPersistence:
             return []
 
         findings = []
-        with open(self.findings_file) as f:
+        with open(self.findings_file, encoding="utf-8") as f:
             for line in f:
                 finding = json.loads(line.strip())
 
@@ -111,37 +111,37 @@ class DataPersistence:
     def save_state(self, state: Dict):
         """Save general application state."""
         state["last_updated"] = datetime.now().isoformat()
-        with open(self.state_file, "w") as f:
+        with open(self.state_file, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
 
     def load_state(self) -> Optional[Dict]:
         """Load application state."""
         if self.state_file.exists():
-            with open(self.state_file) as f:
+            with open(self.state_file, encoding="utf-8") as f:
                 return json.load(f)
         return None
 
     def save_entry_times(self, entry_times: Dict[str, float]):
         """Save position entry times."""
-        with open(self.entry_times_file, "w") as f:
+        with open(self.entry_times_file, "w", encoding="utf-8") as f:
             json.dump(entry_times, f, indent=2)
 
     def load_entry_times(self) -> Dict[str, float]:
         """Load position entry times from disk."""
         if self.entry_times_file.exists():
-            with open(self.entry_times_file) as f:
+            with open(self.entry_times_file, encoding="utf-8") as f:
                 return json.load(f)
         return {}
 
     def save_exit_times(self, exit_times: Dict[str, float]):
         """Save last exit timestamps (anti rebuy cooldown)."""
-        with open(self.exit_times_file, "w") as f:
+        with open(self.exit_times_file, "w", encoding="utf-8") as f:
             json.dump(exit_times, f, indent=2)
 
     def load_exit_times(self) -> Dict[str, float]:
         """Load last exit timestamps from disk."""
         if self.exit_times_file.exists():
-            with open(self.exit_times_file) as f:
+            with open(self.exit_times_file, encoding="utf-8") as f:
                 data = json.load(f)
                 return data if isinstance(data, dict) else {}
         return {}
@@ -165,7 +165,7 @@ class DataPersistence:
         }
         
         # Save back to disk
-        with open(self.scanned_symbols_file, "w") as f:
+        with open(self.scanned_symbols_file, "w", encoding="utf-8") as f:
             json.dump(scanned_symbols, f, indent=2)
 
     def track_scanned_symbols_batch(self, symbols: List[str], source: str):
@@ -191,7 +191,7 @@ class DataPersistence:
                 # Keep existing first_scanned timestamp
         
         # Save back to disk
-        with open(self.scanned_symbols_file, "w") as f:
+        with open(self.scanned_symbols_file, "w", encoding="utf-8") as f:
             json.dump(scanned_symbols, f, indent=2)
 
     def load_scanned_symbols(self) -> Dict[str, Dict]:
@@ -206,7 +206,7 @@ class DataPersistence:
             }
         """
         if self.scanned_symbols_file.exists():
-            with open(self.scanned_symbols_file) as f:
+            with open(self.scanned_symbols_file, encoding="utf-8") as f:
                 return json.load(f)
         return {}
 
@@ -252,7 +252,7 @@ class DataPersistence:
         trades = self.load_trades()
         if trades:
             trades_csv = output_dir / "trades.csv"
-            with open(trades_csv, "w", newline="") as f:
+            with open(trades_csv, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=trades[0].keys())
                 writer.writeheader()
                 writer.writerows(trades)
@@ -261,7 +261,7 @@ class DataPersistence:
         findings = self.load_findings()
         if findings:
             findings_csv = output_dir / "findings.csv"
-            with open(findings_csv, "w", newline="") as f:
+            with open(findings_csv, "w", newline="", encoding="utf-8") as f:
                 # Flatten nested lists/dicts
                 flattened = []
                 for finding in findings:

@@ -41,7 +41,7 @@ def load_paper_calm(data_dir: Path | str) -> dict[str, Any]:
             "days": [],
         }
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
         return raw if isinstance(raw, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}

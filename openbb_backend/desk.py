@@ -53,8 +53,12 @@ def load_json_checked(path: Path, default: Any) -> tuple[Any, dict[str, Any]]:
     if not path.exists():
         return default, {"state": "missing", "bad": 0}
     try:
-        text = path.read_text()
+        # tradermonty #737: explicit UTF-8 — locale decode can garble or
+        # raise; undecodable bytes are unreadable, not a fake empty book.
+        text = path.read_text(encoding="utf-8")
     except OSError:
+        return default, {"state": "unreadable", "bad": 1}
+    except UnicodeDecodeError:
         return default, {"state": "unreadable", "bad": 1}
     try:
         doc = _loads_json_reject_duplicates(text)
@@ -77,8 +81,11 @@ def load_jsonl_checked(path: Path) -> tuple[list[dict], dict[str, Any]]:
     if not path.exists():
         return [], {"state": "missing", "bad": 0, "good": 0}
     try:
-        lines = path.read_text().splitlines()
+        # tradermonty #737: explicit UTF-8 (same as load_json_checked).
+        lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
+        return [], {"state": "unreadable", "bad": 1, "good": 0}
+    except UnicodeDecodeError:
         return [], {"state": "unreadable", "bad": 1, "good": 0}
     rows: list[dict] = []
     bad = 0

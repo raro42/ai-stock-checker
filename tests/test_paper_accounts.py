@@ -277,6 +277,23 @@ def test_account_ledger_duplicate_keys_damaged(tmp_path: Path) -> None:
     assert account_ledger_missing(tmp_path, "desk") is True
 
 
+def test_account_ledger_utf8_non_ascii_ok(tmp_path: Path) -> None:
+    """tradermonty #737: explicit UTF-8 keeps non-ASCII notes usable."""
+    path = ensure_account_ledger(tmp_path, "desk")
+    (path / "portfolio.json").write_text(
+        '{"cash": 100000, "note": "München · 東京"}', encoding="utf-8"
+    )
+    assert account_ledger_status(tmp_path, "desk") == "ok"
+
+
+def test_account_ledger_invalid_utf8_damaged(tmp_path: Path) -> None:
+    """tradermonty #737: undecodable bytes → damaged, not a fake €0 book."""
+    path = ensure_account_ledger(tmp_path, "desk")
+    (path / "portfolio.json").write_bytes(b'{"cash": 1, "note": "\xff\xfe"}')
+    assert account_ledger_status(tmp_path, "desk") == "damaged"
+    assert account_ledger_missing(tmp_path, "desk") is True
+
+
 def test_account_ledger_damaged_not_euro_zero_ready(tmp_path: Path) -> None:
     """Corrupt portfolio.json must not rank as a €0 reset / ready book.
 
