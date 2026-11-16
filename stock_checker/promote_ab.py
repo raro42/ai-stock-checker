@@ -10080,22 +10080,29 @@ def summarize_window_trades(
 
 
 def load_trades_jsonl(path: Path | str) -> list[dict[str, Any]]:
-    """Load trades.jsonl rows (skip bad lines)."""
+    """Load trades.jsonl rows (skip bad lines).
+
+    tradermonty #737: explicit UTF-8 — locale decode can garble Xetra notes or
+    raise; undecodable bytes return [] (not a fake thin Window A sample).
+    """
     p = Path(path)
     if not p.is_file():
         return []
     rows: list[dict[str, Any]] = []
-    with p.open() as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except Exception:
-                continue
-            if isinstance(row, dict):
-                rows.append(row)
+    try:
+        with p.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+    except (OSError, UnicodeDecodeError):
+        return []
     return rows
 
 

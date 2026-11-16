@@ -9,6 +9,7 @@ from pathlib import Path
 
 from stock_checker.promote_ab import (
     WINDOW_A_START_UTC,
+    load_trades_jsonl,
     summarize_window_trades,
 )
 
@@ -79,15 +80,16 @@ def main() -> None:
 
     start = _parse_since(args.since)
     end = _parse_since(args.until)
-    # Load via summarize helper (filters when start set).
-    import json
-
-    trades: list[dict] = []
-    with path.open() as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                trades.append(json.loads(line))
+    # tradermonty #737: UTF-8 via load_trades_jsonl (locale decode is not a ledger).
+    try:
+        path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        print(f"Unreadable trades file (not UTF-8) at {path}")
+        raise SystemExit(2) from None
+    except OSError as exc:
+        print(f"Unreadable trades file at {path}: {exc}")
+        raise SystemExit(2) from exc
+    trades = load_trades_jsonl(path)
 
     if start is None and end is None:
         s = summarize_window_trades(

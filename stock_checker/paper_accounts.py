@@ -342,7 +342,8 @@ def _last_trade_at(trades_path: Path) -> str:
                 ts = str(row.get("timestamp") or "").strip()
                 if ts:
                     last = ts
-    except OSError:
+    except (OSError, UnicodeDecodeError):
+        # tradermonty #737: undecodable trades.jsonl is not a last-fill stamp.
         return ""
     return last
 
