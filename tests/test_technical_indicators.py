@@ -154,6 +154,75 @@ def test_atr_clean_history_still_scores():
     assert atr > 0
 
 
+def _ohlc_with_early_wide_bar(n: int = 30, period: int = 14):
+    """Quiet bars then one early spike so Wilder ≠ trailing SMA of last N TRs."""
+    highs = [10.5] * n
+    lows = [9.5] * n
+    closes = [10.0] * n
+    # First TR window index 1..period — spike at bar period//2 so it seeds Wilder
+    # but falls outside a trailing SMA of the last `period` TRs on long history.
+    spike = period // 2
+    highs[spike] = 20.0
+    lows[spike] = 9.5
+    closes[spike] = 15.0
+    return highs, lows, closes
+
+
+def _trailing_sma_atr(highs, lows, closes, period: int = 14) -> float:
+    trs = []
+    for i in range(1, len(closes)):
+        trs.append(
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+        )
+    return sum(trs[-period:]) / float(period)
+
+
+def _wilder_atr_reference(highs, lows, closes, period: int = 14) -> float:
+    trs = []
+    for i in range(1, len(closes)):
+        trs.append(
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+        )
+    atr = sum(trs[:period]) / float(period)
+    for tr in trs[period:]:
+        atr = ((atr * (period - 1)) + tr) / float(period)
+    return atr
+
+
+def test_atr_uses_wilder_not_trailing_sma():
+    """xang1234 #749: ATR must be Wilder RMA, not mean of last N true ranges."""
+    highs, lows, closes = _ohlc_with_early_wide_bar()
+    atr = TechnicalIndicators.calculate_atr(highs, lows, closes, period=14)
+    assert atr is not None
+    assert atr == pytest.approx(_wilder_atr_reference(highs, lows, closes), rel=1e-9)
+    sma = _trailing_sma_atr(highs, lows, closes, period=14)
+    assert atr != pytest.approx(sma, rel=1e-6)
+
+
+def test_atr_wilder_seed_on_short_history():
+    """Exactly period+1 bars → ATR equals seed mean of first period TRs."""
+    n = 15  # period 14 → 14 true ranges
+    highs = [10.5 + (i % 3) * 0.1 for i in range(n)]
+    lows = [9.5 + (i % 3) * 0.05 for i in range(n)]
+    closes = [10.0 + (i % 3) * 0.08 for i in range(n)]
+    # Keep close inside [low, high]
+    for i in range(n):
+        closes[i] = min(max(closes[i], lows[i]), highs[i])
+    atr = TechnicalIndicators.calculate_atr(highs, lows, closes, period=14)
+    assert atr is not None
+    assert atr == pytest.approx(_wilder_atr_reference(highs, lows, closes), rel=1e-9)
+    # On exact seed length, Wilder seed == trailing SMA of all TRs
+    assert atr == pytest.approx(_trailing_sma_atr(highs, lows, closes), rel=1e-9)
+
+
 def test_atr_inverted_high_low_is_unavailable():
     """high < low is not a real bar — refuse ATR (xang1234 claim honesty)."""
     n = 30

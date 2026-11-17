@@ -258,7 +258,12 @@ class TechnicalIndicators:
         period: int = 14
     ) -> Optional[float]:
         """
-        Calculate Average True Range (ATR) for volatility measurement.
+        Calculate Average True Range (ATR) with Wilder smoothing (RMA).
+
+        Seeds with the mean of the first ``period`` true ranges, then
+        ``atr = (atr*(period-1) + tr) / period`` — same alpha=1/period as RSI.
+        A trailing SMA of the last N TRs (or span-EMA) is not Wilder and
+        over-reacts to a single wide bar (xang1234 #749).
 
         Args:
             highs: List of high prices
@@ -269,6 +274,8 @@ class TechnicalIndicators:
         Returns:
             ATR value, or None if insufficient / invalid OHLC bars
         """
+        if period <= 0:
+            return None
         if len(highs) < period + 1 or len(lows) < period + 1 or len(closes) < period + 1:
             return None
         if not (len(highs) == len(lows) == len(closes)):
@@ -277,14 +284,20 @@ class TechnicalIndicators:
         if any(not _valid_ohlc_bar(h, lo, c) for h, lo, c in zip(highs, lows, closes)):
             return None
 
-        true_ranges = []
+        true_ranges: List[float] = []
         for i in range(1, len(closes)):
             high_low = float(highs[i]) - float(lows[i])
             high_close = abs(float(highs[i]) - float(closes[i - 1]))
             low_close = abs(float(lows[i]) - float(closes[i - 1]))
             true_ranges.append(max(high_low, high_close, low_close))
 
-        atr = float(np.mean(true_ranges[-period:]))
+        if len(true_ranges) < period:
+            return None
+
+        atr = float(sum(true_ranges[:period]) / float(period))
+        for tr in true_ranges[period:]:
+            atr = ((atr * (period - 1)) + tr) / float(period)
+
         if not math.isfinite(atr) or atr < 0:
             return None
         return atr

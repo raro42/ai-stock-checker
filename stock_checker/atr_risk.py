@@ -26,10 +26,6 @@ def _valid_ohlc_bar(high: float, low: float, close: float) -> bool:
     return high >= low and low <= close <= high
 
 
-def true_range(high: float, low: float, prev_close: float) -> float:
-    return max(high - low, abs(high - prev_close), abs(low - prev_close))
-
-
 def average_true_range(
     highs: Sequence[float],
     lows: Sequence[float],
@@ -37,26 +33,20 @@ def average_true_range(
     *,
     period: int = 14,
 ) -> Optional[float]:
-    if period <= 0 or len(closes) < period + 1:
+    """Wilder ATR (RMA) for Screener notes — same math as ``TechnicalIndicators``.
+
+    xang1234 #749: trailing SMA / span-EMA of true range is not Wilder.
+    Display-only; live stock exits stay TP/SL via ``exit_policy``.
+    """
+    from stock_checker.technical_indicators import TechnicalIndicators
+
+    try:
+        h = [float(x) for x in highs]
+        lo = [float(x) for x in lows]
+        c = [float(x) for x in closes]
+    except (TypeError, ValueError):
         return None
-    if not (len(highs) == len(lows) == len(closes)):
-        return None
-    # Inverted / out-of-range bars must not become a fake ATR stop on Screener
-    for i in range(len(closes)):
-        try:
-            h, l, c = float(highs[i]), float(lows[i]), float(closes[i])
-        except (TypeError, ValueError):
-            return None
-        if not _valid_ohlc_bar(h, l, c):
-            return None
-    trs: list[float] = []
-    for i in range(1, len(closes)):
-        h, l, pc = float(highs[i]), float(lows[i]), float(closes[i - 1])
-        trs.append(true_range(h, l, pc))
-    if len(trs) < period:
-        return None
-    window = trs[-period:]
-    return sum(window) / float(period)
+    return TechnicalIndicators.calculate_atr(h, lo, c, period=period)
 
 
 def risk_reward_note(

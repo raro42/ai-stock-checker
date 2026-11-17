@@ -1,5 +1,7 @@
 """Offline tests for ATR / R:R display helpers."""
 
+import pytest
+
 from stock_checker.atr_risk import (
     atr_vol_coverage,
     average_true_range,
@@ -18,6 +20,22 @@ def test_average_true_range_simple():
     atr = average_true_range(highs, lows, closes, period=14)
     assert atr is not None
     assert atr > 0
+
+
+def test_average_true_range_wilder_matches_indicators():
+    """Screener ATR delegates to TechnicalIndicators Wilder RMA (xang1234 #749)."""
+    from stock_checker.technical_indicators import TechnicalIndicators
+
+    n = 30
+    highs = [10.5] * n
+    lows = [9.5] * n
+    closes = [10.0] * n
+    highs[3] = 18.0
+    closes[3] = 14.0
+    desk = average_true_range(highs, lows, closes, period=14)
+    core = TechnicalIndicators.calculate_atr(highs, lows, closes, period=14)
+    assert desk is not None and core is not None
+    assert desk == pytest.approx(core, rel=1e-12)
 
 
 def test_average_true_range_inverted_ohlc_unavailable():
