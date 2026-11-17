@@ -123,18 +123,55 @@ def _load_jsonl(path: Path) -> list[dict]:
 RECENT_FILLS_LIMIT = 20
 
 
+def _fill_commission(value: object) -> Optional[float]:
+    """Commission may be 0; refuse bool/NaN/negative (``True→€1`` invent)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None:
+        return 0.0
+    if not _finite_signed(value):
+        return None
+    c = float(value)
+    if c < 0.0:
+        return None
+    return c
+
+
+def _fill_signed(value: object) -> Optional[float]:
+    """P&L / % may be ≤0; refuse bool/NaN (``True→+1`` invent)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None:
+        return None
+    if not _finite_signed(value):
+        return None
+    return float(value)
+
+
 def _serialize_trade_row(t: dict, names: dict[str, str]) -> dict[str, Any]:
+    """Desk fill row — parity with Charts equity-curve refuse (tradermonty #700/#655).
+
+    Bool/gap/0 qty·price or bad commission must not invent 1-share / €1 / €0 fee.
+    Damaged rows stay visible as ``fill_ok=False`` with n/a meta (not silent skip).
+    """
+    from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+
     sym = t.get("symbol") or "—"
+    qty_ok = long_only_quantity_ok(t.get("quantity"))
+    px_ok = fill_price_ok(t.get("price"))
+    commission = _fill_commission(t.get("commission"))
+    fill_ok = bool(qty_ok and px_ok and commission is not None)
     return {
         "timestamp": t.get("timestamp") or "—",
         "type": t.get("type") or "—",
         "symbol": sym,
         "name": display_name(str(sym), names),
-        "quantity": float(t.get("quantity") or 0),
-        "price": float(t.get("price") or 0),
-        "commission": float(t.get("commission") or 0),
-        "profit_loss": t.get("profit_loss"),
-        "profit_loss_pct": t.get("profit_loss_pct"),
+        "quantity": float(t["quantity"]) if qty_ok else None,
+        "price": float(t["price"]) if px_ok else None,
+        "commission": commission,
+        "fill_ok": fill_ok,
+        "profit_loss": _fill_signed(t.get("profit_loss")),
+        "profit_loss_pct": _fill_signed(t.get("profit_loss_pct")),
         "strategy": t.get("strategy"),
         "note": t.get("note"),
         "score": t.get("score"),
