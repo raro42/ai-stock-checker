@@ -64,6 +64,7 @@ from .exit_policy import (
     should_take_profit,
     unrealized_profit_pct,
 )
+from .technical_indicators import coerce_unix_ts
 from .market_hours import is_equity_session_closed
 from .crypto_policy import (
     DEFAULT_MAX_CRYPTO_POSITIONS,
@@ -426,8 +427,16 @@ class IntelligentTrader:
 
     def _rebuy_allowed(self, symbol: str) -> Tuple[bool, str]:
         """Block buys inside min-hold cooldown after an exit (fee anti-churn)."""
-        exit_ts = self.position_exit_times.get(symbol)
-        since = (time.time() - float(exit_ts)) if exit_ts is not None else None
+        raw_exit = self.position_exit_times.get(symbol)
+        exit_ts = coerce_unix_ts(raw_exit)
+        if raw_exit is not None and exit_ts is None:
+            # Damaged/bool stamp present → treat as just exited (fail-closed).
+            # True→1.0 must not invent ~1970 cooldown-clear.
+            since: float | None = 0.0
+        elif exit_ts is not None:
+            since = time.time() - exit_ts
+        else:
+            since = None
         ok, why = should_allow_rebuy(
             seconds_since_exit=since,
             cooldown_seconds=float(self.min_hold_time),
@@ -836,9 +845,10 @@ class IntelligentTrader:
                 total_position_value += position_value
                 profit_loss = position_value - (quantity * float(avg_buy))
 
-                # Hold time
-                if symbol in self.position_entry_times:
-                    hold_seconds = current_time - self.position_entry_times[symbol]
+                # Hold time — refuse bool/gap stamps (True→1.0 invents ~1970 age)
+                entry_ts = coerce_unix_ts(self.position_entry_times.get(symbol))
+                if entry_ts is not None:
+                    hold_seconds = current_time - entry_ts
                     if hold_seconds < 3600:
                         hold_time = f"{int(hold_seconds/60)}m"
                     else:
@@ -905,11 +915,10 @@ class IntelligentTrader:
                     )
                     continue
                 price = float(price)
-                hold_seconds = (
-                    now - float(self.position_entry_times[symbol])
-                    if symbol in self.position_entry_times
-                    else 0.0  # unknown entry → enforce min-hold (do not treat as aged-in)
-                )
+                entry_ts = coerce_unix_ts(self.position_entry_times.get(symbol))
+                # unknown/invalid entry → enforce min-hold (do not treat as aged-in;
+                # True→1.0 must not invent ~1970 past-min-hold unlock)
+                hold_seconds = (now - entry_ts) if entry_ts is not None else 0.0
                 marks.append(
                     {
                         "symbol": symbol,
@@ -1286,9 +1295,8 @@ class IntelligentTrader:
         # Never crystallize a loss just because the scanner found a shinier name.
         for symbol in stale_holdings:
             try:
-                hold_time = 0.0
-                if symbol in self.position_entry_times:
-                    hold_time = time.time() - self.position_entry_times[symbol]
+                entry_ts = coerce_unix_ts(self.position_entry_times.get(symbol))
+                hold_time = (time.time() - entry_ts) if entry_ts is not None else 0.0
 
                 # Get current price
                 is_crypto = "-USD" in symbol

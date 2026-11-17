@@ -40,6 +40,20 @@ def _finite_signed(value: object) -> bool:
     return math.isfinite(float(value))
 
 
+def coerce_unix_ts(value: object) -> Optional[float]:
+    """Unix epoch seconds, or None when bool/gap/NaN/non-positive.
+
+    tradermonty #655 / xang1234 / portfolio AI: ``float(True)==1.0`` invents
+    ~1970 hold age (past min-hold / cooldown clear). Missing/invalid → unknown.
+    """
+    if not _finite_signed(value):
+        return None
+    ts = float(value)  # type: ignore[arg-type]
+    if ts <= 0.0:
+        return None
+    return ts
+
+
 def _valid_volume(volume: object) -> bool:
     """Volume may be zero (no prints) but never negative / non-finite / non-numeric."""
     if isinstance(volume, bool) or not isinstance(volume, numbers.Real):

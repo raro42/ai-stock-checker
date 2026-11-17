@@ -38123,6 +38123,13 @@ def _coerce_desk_signed_pct(value: object) -> Optional[float]:
     return coerce_signed_pct(value)
 
 
+def _coerce_entry_ts(value: object) -> Optional[float]:
+    """Refuse bool/gap/NaN entry stamps so hold age cannot invent ~1970 unlock."""
+    from stock_checker.technical_indicators import coerce_unix_ts
+
+    return coerce_unix_ts(value)
+
+
 def _prices_from_scan(opp: dict[str, Any]) -> dict[str, float]:
     prices: dict[str, float] = {}
     for key in ("crypto_leaders", "stock_breakouts"):
@@ -38300,7 +38307,7 @@ def load_desk_snapshot(
         market_value += mv
         unreal = mv - basis
         unreal_pct = (unreal / basis * 100) if basis else 0.0
-        entry_ts = float(entry_times.get(symbol) or 0) or None
+        entry_ts = _coerce_entry_ts(entry_times.get(symbol))
         held_s = (now - entry_ts) if entry_ts else None
         rows.append(
             {

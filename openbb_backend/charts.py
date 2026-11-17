@@ -1579,7 +1579,7 @@ def build_from_buy_panels(
     avg = portfolio.get("avg_buy_price") or {}
     entry_times = _load_json(data_dir / "entry_times.json", {})
     opportunities, _pin = _load_opportunities(data_dir)
-    from openbb_backend.desk import _prices_from_scan
+    from openbb_backend.desk import _coerce_entry_ts, _prices_from_scan
 
     marks = _prices_from_scan(opportunities)
     symbols = [str(s) for s in holdings.keys() if s][:10]
@@ -1591,8 +1591,7 @@ def build_from_buy_panels(
         qty = _finite(holdings.get(sym))
         if buy_price <= 0 or qty <= 0:
             continue
-        entry_raw = entry_times.get(sym)
-        entry_ts = _finite(entry_raw) if entry_raw not in (None, "") else 0.0
+        entry_ts = _coerce_entry_ts(entry_times.get(sym)) or 0.0
         buy_dt: Optional[datetime] = None
         if entry_ts > 0:
             buy_dt = datetime.fromtimestamp(entry_ts, tz=timezone.utc)
@@ -1757,6 +1756,8 @@ def build_unrealized_curve(
             "False",
             "no",
         }
+    from openbb_backend.desk import _coerce_entry_ts
+
     portfolio = _load_json(data_dir / "portfolio.json", {})
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
@@ -1769,8 +1770,7 @@ def build_unrealized_curve(
         if q <= 0 or buy <= 0:
             continue
         lots[str(sym)] = {"qty": q, "cost": q * buy}
-        entry_raw = entry_times.get(sym)
-        entry_ts = _finite(entry_raw) if entry_raw not in (None, "") else 0.0
+        entry_ts = _coerce_entry_ts(entry_times.get(sym)) or 0.0
         if entry_ts > 0:
             dt = datetime.fromtimestamp(entry_ts, tz=timezone.utc)
             if start_ts is None or dt < start_ts:
@@ -1822,8 +1822,7 @@ def build_unrealized_curve(
         market_value = 0.0
         active = 0
         for sym, v in lots.items():
-            entry_raw = entry_times.get(sym)
-            entry_ts = _finite(entry_raw) if entry_raw not in (None, "") else 0.0
+            entry_ts = _coerce_entry_ts(entry_times.get(sym)) or 0.0
             if entry_ts > 0:
                 bought = datetime.fromtimestamp(entry_ts, tz=timezone.utc).date()
                 if day < bought:
@@ -2313,6 +2312,8 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     import time
 
     from openbb_backend.desk import (
+        _coerce_entry_ts,
+        _coerce_desk_mark,
         _fmt_hold,
         _prices_from_scan,
         build_stuck_capital_glance,
@@ -2343,12 +2344,9 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
             continue
         if q <= 0 or buy <= 0:
             continue
-        last = float(marks.get(str(sym)) or 0) or buy
+        last = _coerce_desk_mark(marks.get(str(sym))) or buy
         unreal_pct = ((last - buy) / buy) * 100.0
-        try:
-            entry_ts = float(entry_times.get(sym) or 0) or None
-        except (TypeError, ValueError):
-            entry_ts = None
+        entry_ts = _coerce_entry_ts(entry_times.get(sym))
         if not entry_ts:
             continue
         held_s = now - entry_ts
@@ -2405,7 +2403,7 @@ def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
     """Open lots still inside min-hold (display only; pairs with stuck-capital)."""
     import time
 
-    from openbb_backend.desk import build_min_hold_lock_glance
+    from openbb_backend.desk import _coerce_entry_ts, build_min_hold_lock_glance
     from stock_checker.trader_config import load_trader_config
 
     portfolio = _load_json(data_dir / "portfolio.json", {})
@@ -2431,11 +2429,9 @@ def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
             continue
         if q <= 0:
             continue
-        try:
-            entry_ts = float(entry_times.get(sym) or 0) or None
-        except (TypeError, ValueError):
-            entry_ts = None
-        # Missing stamp → held_seconds None (ghost / UNKNOWN hold age); do not skip.
+        entry_ts = _coerce_entry_ts(entry_times.get(sym))
+        # Missing/invalid stamp → held_seconds None (ghost / UNKNOWN hold age);
+        # do not skip — bool True→1.0 must not invent ~1970 past-min-hold.
         held_s = max(0.0, now - entry_ts) if entry_ts else None
         rows.append(
             {
