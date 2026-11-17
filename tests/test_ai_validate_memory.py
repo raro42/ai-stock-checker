@@ -9,6 +9,7 @@ from pathlib import Path
 from openbb_backend.desk import build_ai_debate_glance, load_desk_snapshot
 from stock_checker.ai_multi_role import consensus_from_multi_role
 from stock_checker.ai_validate_memory import (
+    _score,
     latest_ai_actions,
     latest_ai_confidences,
     latest_ai_gated,
@@ -17,6 +18,30 @@ from stock_checker.ai_validate_memory import (
     record_ai_validate,
     summarize_ai_debates,
 )
+
+
+def test_score_refuses_bool_gap_invents() -> None:
+    """tradermonty #700/#655 + staskh n/a: bool/None must not invent 0 / True→1."""
+    assert _score(35) == 35
+    assert _score(-40) == -40
+    assert _score(0) == 0
+    assert _score(True) is None
+    assert _score(False) is None
+    assert _score(None) is None
+    assert _score("x") is None
+    assert _score(float("nan")) is None
+
+
+def test_record_refuses_bool_score(tmp_path: Path) -> None:
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": True, "reasons": ["bogus"]},
+        symbol="BOOL",
+        kept=True,
+    )
+    events = load_ai_validate_memory(tmp_path)
+    assert len(events) == 1
+    assert events[0]["score"] is None
 
 
 def test_record_and_recent_ai_debates(tmp_path: Path) -> None:

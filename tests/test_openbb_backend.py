@@ -321,6 +321,49 @@ def test_trades_table_refuses_invalid_invents(tmp_path: Path, monkeypatch):
     assert by_sym["OKSELL"]["profit_loss"] == -2.5
 
 
+def test_opportunities_markdown_refuses_invalid_score(tmp_path: Path, monkeypatch):
+    """tradermonty #700/#655 + staskh n/a: OpenBB opp widget must not invent scores."""
+    data = tmp_path
+    arch = data / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-11-18T00:00:00",
+                "recommendations": [
+                    {
+                        "symbol": "ETH-USD",
+                        "asset_class": "crypto",
+                        "score": 33.5,
+                        "reasoning": "ok momentum",
+                    },
+                    {
+                        "symbol": "BAD-USD",
+                        "asset_class": "crypto",
+                        "score": True,
+                        "reasoning": "bool invent",
+                    },
+                    {
+                        "symbol": "GAP",
+                        "asset_class": "stock",
+                        "score": None,
+                        "reasoning": "missing",
+                    },
+                ],
+            }
+        )
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    monkeypatch.setattr(backend, "API_KEY", "")
+
+    md = backend.opportunities_markdown().body.decode()
+    assert "ETH-USD" in md
+    assert "score=33.5" in md
+    assert "score=n/a" in md
+    assert "score=True" not in md
+    assert "score=1" not in md  # True must not invent 1
+
+
 def test_coerce_desk_mark_refuses_invalid():
     assert _coerce_desk_mark(105.0) == 105.0
     assert _coerce_desk_mark(True) is None
@@ -549,6 +592,8 @@ def test_desk_snapshot_refuses_invalid_opportunity_price_score(
     msft = next(s for s in snap["stock_breakouts"] if s["symbol"] == "MSFT")
     assert aapl["price"] is None
     assert msft["price"] == 400.0
+    # Book scan Score map reuses `_coerce_desk_score` (bool ETH rec / BTC False
+    # cannot invent True→1.0); strip stays on book_risk, not snapshot top-level.
 
 
 def test_prices_from_scan_skips_bool_and_nan():

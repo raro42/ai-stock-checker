@@ -32,11 +32,21 @@ def _clip(text: Any, n: int = 200) -> str:
     return s[: n - 1] + "…"
 
 
-def _score(raw: Any) -> int:
+def _score(raw: Any) -> int | None:
+    """Refuse bool/gap/NaN so Ideas cannot invent score 0 / ``True→1``.
+
+    Missing or unreadable → ``None`` (staskh dash-for-null / portfolio AI);
+    never ``float(raw or 0)`` which turned ``None``/``False`` into flat 0.
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
     try:
-        return max(-100, min(100, int(float(raw or 0))))
+        v = float(raw)
     except (TypeError, ValueError):
-        return 0
+        return None
+    if v != v or v in (float("inf"), float("-inf")):  # NaN / inf
+        return None
+    return max(-100, min(100, int(v)))
 
 
 def _clip_reasons(raw: Any, *, max_lines: int = 8, line_n: int = 200) -> list[str]:

@@ -27,6 +27,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
     _coerce_desk_cash,
+    _coerce_desk_score,
     _fill_commission,
     _fill_signed,
     build_breadth_day_meta,
@@ -744,6 +745,9 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
 
     Hard-reading ``opportunities_latest.txt``/``.json`` alone hid a missing,
     dangling, or stale pin that desk/Charts already fall back from.
+
+    tradermonty #700/#655 + staskh dash-for-null: JSON fallback must not dump
+    bool/gap scores as printable marks (``True→1`` / bare ``True``).
     """
     archive_res = resolve_opportunities_archive(data_dir)
     path = Path(archive_res["path"])
@@ -764,9 +768,11 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
         for r in recs[:15]:
             if not isinstance(r, dict):
                 continue
+            score = _coerce_desk_score(r.get("score"))
+            score_s = f"{score:g}" if score is not None else "n/a"
             lines.append(
                 f"- **{r.get('symbol')}** ({r.get('asset_class')}) "
-                f"score={r.get('score')} — {r.get('reasoning')}"
+                f"score={score_s} — {r.get('reasoning')}"
             )
         body = "\n".join(lines) if recs else "# No recommendations"
         return f"{prefix}{body}" if prefix else body
@@ -778,7 +784,11 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
 def opportunities_markdown(
     x_api_key: Optional[str] = Header(default=None, alias="X-API-KEY"),
 ):
-    """Latest archived opportunities (keep-newest parity with desk)."""
+    """Latest archived opportunities (keep-newest parity with desk).
+
+    tradermonty #700/#655 + desk Opportunities: bool/gap scores speak ``n/a``
+    on the JSON fallback path (``True→1.0`` refuse).
+    """
     _check_key(x_api_key)
     return PlainTextResponse(_opportunities_markdown_body(DATA_DIR))
 

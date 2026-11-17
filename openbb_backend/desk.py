@@ -39070,10 +39070,9 @@ def load_desk_snapshot(
             sym = str(item.get("symbol") or "").strip().upper()
             if not sym:
                 continue
-            try:
-                sc = float(item.get("score"))
-            except (TypeError, ValueError):
-                sc = None
+            # tradermonty #700/#655: bool/gap must not invent scan Score marks
+            # (``True→1.0``); parity with Opportunities `_coerce_desk_score`.
+            sc = _coerce_desk_score(item.get("score"))
             if sc is not None:
                 prev = scan_scores.get(sym)
                 if prev is None or sc > prev:
