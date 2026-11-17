@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from stock_checker.technical_indicators import daily_pct_change
+
 DECISION_FILE = "laya_decisions.json"
 DECISION_CAP = 40
 
@@ -113,15 +115,12 @@ def build_paper_entry_state(stock_data: dict[str, Any]) -> str:
     pe = stock_data.get("pe_ratio")
     volume = stock_data.get("volume")
     strategy = stock_data.get("strategy") or stock_data.get("signal") or ""
-    daily = 0.0
-    if price is not None and prev not in (None, 0, 0.0):
-        try:
-            daily = ((float(price) - float(prev)) / float(prev)) * 100.0
-        except (TypeError, ValueError, ZeroDivisionError):
-            daily = 0.0
+    # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→1.0)
+    daily = daily_pct_change(price, prev)
+    daily_bit = f"{daily:+.2f}" if daily is not None else "n/a"
     lines = [
         f"Paper desk candidate: {name} ({symbol})",
-        f"Price: {price}  PrevClose: {prev}  Daily%: {daily:+.2f}",
+        f"Price: {price}  PrevClose: {prev}  Daily%: {daily_bit}",
         f"52w High/Low: {hi} / {lo}",
         "Fees: Revolut-like ~0.25%/side · €1 min; min hold ≥24h; no loss-rotation.",
         "Live crypto buys: BTC/ETH only. Prefer HOLD over weak BUY.",

@@ -21,6 +21,18 @@ def _valid_close(price: object) -> bool:
     return math.isfinite(value) and value > 0.0
 
 
+def daily_pct_change(price: object, prev: object) -> Optional[float]:
+    """Daily % change, or None when either print is bool/gap/NaN/non-positive.
+
+    tradermonty #798/#655: missing/invalid marks are unavailable — never invent
+    a flat ``+0.00`` (or ``True→1.0``) for AI prompts.
+    """
+    if not (_valid_close(price) and _valid_close(prev)):
+        return None
+    p, q = float(price), float(prev)
+    return ((p - q) / q) * 100.0
+
+
 def _finite_signed(value: object) -> bool:
     """Finite real (may be ≤0); never bool — ``float(True)`` is 1.0."""
     if isinstance(value, bool) or not isinstance(value, numbers.Real):

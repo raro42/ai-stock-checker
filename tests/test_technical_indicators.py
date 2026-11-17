@@ -5,7 +5,33 @@ import math
 
 import pytest
 
-from stock_checker.technical_indicators import TechnicalIndicators
+from stock_checker.technical_indicators import TechnicalIndicators, daily_pct_change
+
+
+def test_daily_pct_change_healthy():
+    assert daily_pct_change(110.0, 100.0) == pytest.approx(10.0)
+    assert daily_pct_change(99.0, 100.0) == pytest.approx(-1.0)
+
+
+@pytest.mark.parametrize(
+    "price,prev",
+    [
+        (None, 100.0),
+        (100.0, None),
+        (True, 100.0),
+        (100.0, True),
+        (True, True),
+        (0, 100.0),
+        (100.0, 0),
+        (float("nan"), 100.0),
+        (100.0, float("nan")),
+        ("100", 100.0),
+        (100.0, "100"),
+    ],
+)
+def test_daily_pct_change_invalid_is_unavailable(price, prev):
+    """tradermonty #798/#655: bad marks ≠ invented flat +0.00."""
+    assert daily_pct_change(price, prev) is None
 
 
 def test_rsi_insufficient_data_returns_none():

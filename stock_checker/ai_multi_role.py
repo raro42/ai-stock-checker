@@ -10,6 +10,8 @@ import os
 import re
 from typing import Any
 
+from stock_checker.technical_indicators import daily_pct_change
+
 
 def multi_role_enabled() -> bool:
     return os.getenv("AI_MULTI_ROLE", "1").strip().lower() not in {"0", "false", "no", "off"}
@@ -25,12 +27,9 @@ def build_multi_role_prompt(stock_data: dict) -> str:
     pe = stock_data.get("pe_ratio")
     volume = stock_data.get("volume")
 
-    daily = 0.0
-    if price and prev:
-        try:
-            daily = ((float(price) - float(prev)) / float(prev)) * 100.0
-        except (TypeError, ValueError, ZeroDivisionError):
-            daily = 0.0
+    # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→1.0)
+    daily = daily_pct_change(price, prev)
+    daily_bit = f"{daily:+.2f}" if daily is not None else "n/a"
 
     lines = [
         "You are three paper-trading officers debating ONE name. Be skeptical of churn.",
@@ -40,7 +39,7 @@ def build_multi_role_prompt(stock_data: dict) -> str:
         "3) RISK — set ok=false if earnings risk, illiquidity, or chase risk",
         "",
         f"Name: {name} ({symbol})",
-        f"Price: {price}  PrevClose: {prev}  Daily%: {daily:+.2f}",
+        f"Price: {price}  PrevClose: {prev}  Daily%: {daily_bit}",
         f"52w High/Low: {hi} / {lo}",
     ]
     if pe is not None:

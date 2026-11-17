@@ -43,7 +43,21 @@ def test_build_state_includes_symbol() -> None:
     )
     assert "AAPL" in text
     assert "breakout" in text
+    assert "Daily%: +1.01" in text
     assert "anti-churn" in text or "min hold" in text.lower() or "24h" in text
+
+
+def test_build_state_daily_pct_unavailable_on_bool_or_missing() -> None:
+    """tradermonty #798: bool/missing marks speak n/a — never invent flat +0.00."""
+    for data in (
+        {"symbol": "X", "current_price": True, "previous_close": 100},
+        {"symbol": "X", "current_price": 100, "previous_close": True},
+        {"symbol": "X", "current_price": None, "previous_close": 100},
+        {"symbol": "X"},
+    ):
+        text = build_paper_entry_state(data)
+        assert "Daily%: n/a" in text
+        assert "Daily%: +0.00" not in text
 
 
 def test_parse_system_one_answers() -> None:
