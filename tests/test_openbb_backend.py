@@ -10,6 +10,7 @@ import math
 from openbb_backend import main as backend
 from openbb_backend.desk import (
     _coerce_desk_mark,
+    _coerce_desk_signed_pct,
     _prices_from_scan,
     load_desk_snapshot,
 )
@@ -176,6 +177,91 @@ def test_coerce_desk_mark_refuses_invalid():
     assert _coerce_desk_mark(math.nan) is None
     assert _coerce_desk_mark(None) is None
     assert _coerce_desk_mark("12.5") is None
+
+
+def test_coerce_desk_signed_pct_refuses_invalid():
+    """Opportunities archive % — never invent flat 0.0 / True→1.0."""
+    assert _coerce_desk_signed_pct(-1.5) == -1.5
+    assert _coerce_desk_signed_pct(0.0) == 0.0
+    assert _coerce_desk_signed_pct(2.25) == 2.25
+    assert _coerce_desk_signed_pct(True) is None
+    assert _coerce_desk_signed_pct(False) is None
+    assert _coerce_desk_signed_pct(math.nan) is None
+    assert _coerce_desk_signed_pct(None) is None
+    assert _coerce_desk_signed_pct("1.2") is None
+
+
+def test_desk_opportunities_signed_pct_refuse_invalid(
+    tmp_path: Path, monkeypatch
+):
+    """Missing/bool archive % stay None — pulse does not invent flat or near-high."""
+    data = tmp_path
+    _seed_portfolio(data)
+    arch = data / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-11-17T06:00:00",
+                "recommendations": [],
+                "crypto_leaders": [
+                    {
+                        "symbol": "BTC-USD",
+                        "price": 60000,
+                        "change_24h": True,
+                        "score": 70,
+                    },
+                    {
+                        "symbol": "ETH-USD",
+                        "price": 3000,
+                        "change_24h": None,
+                        "score": 40,
+                    },
+                    {
+                        "symbol": "SOL-USD",
+                        "price": 150,
+                        "change_24h": 3.0,
+                        "score": 20,
+                    },
+                ],
+                "stock_breakouts": [
+                    {
+                        "symbol": "AAPL",
+                        "sector": "tech",
+                        "price": 105,
+                        "pct_from_high": False,
+                        "strength": "STRONG",
+                    },
+                    {
+                        "symbol": "MSFT",
+                        "sector": "tech",
+                        "price": 400,
+                        "pct_from_high": 1.5,
+                        "strength": "STRONG",
+                    },
+                ],
+            }
+        )
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    snap = load_desk_snapshot(data)
+    btc = next(c for c in snap["crypto_leaders"] if c["symbol"] == "BTC-USD")
+    eth = next(c for c in snap["crypto_leaders"] if c["symbol"] == "ETH-USD")
+    sol = next(c for c in snap["crypto_leaders"] if c["symbol"] == "SOL-USD")
+    assert btc["change_24h"] is None
+    assert eth["change_24h"] is None
+    assert sol["change_24h"] == 3.0
+    aapl = next(s for s in snap["stock_breakouts"] if s["symbol"] == "AAPL")
+    msft = next(s for s in snap["stock_breakouts"] if s["symbol"] == "MSFT")
+    assert aapl["pct_from_high"] is None
+    assert msft["pct_from_high"] == 1.5
+    sb = snap["scan_breadth"]
+    assert sb["crypto_n"] == 3
+    assert sb["crypto_up"] == 1
+    assert sb["crypto_down"] == 0
+    assert sb["crypto_flat"] == 0  # unavailable ≠ invent flat
+    assert abs(sb["crypto_avg_chg"] - 3.0) < 1e-9
+    assert sb["stock_within_5pct_high"] == 1  # MSFT only; bool AAPL refused
 
 
 def test_prices_from_scan_skips_bool_and_nan():

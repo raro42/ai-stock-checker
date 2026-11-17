@@ -38077,6 +38077,13 @@ def _coerce_desk_mark(value: object) -> Optional[float]:
     return float(value)  # type: ignore[arg-type]
 
 
+def _coerce_desk_signed_pct(value: object) -> Optional[float]:
+    """Refuse bool/gap/NaN % so Opportunities cannot invent flat / near-high."""
+    from stock_checker.market_scanner import coerce_signed_pct
+
+    return coerce_signed_pct(value)
+
+
 def _prices_from_scan(opp: dict[str, Any]) -> dict[str, float]:
     prices: dict[str, float] = {}
     for key in ("crypto_leaders", "stock_breakouts"):
@@ -38330,19 +38337,24 @@ def load_desk_snapshot(
     stock_raw = stock_raw_all[:6]
 
     # StockBee-lite pulse from latest scan lists (not a full market A/D line).
-    crypto_up = sum(
-        1 for r in crypto_raw_all if float(r.get("change_24h") or 0) > 0
-    )
-    crypto_down = sum(
-        1 for r in crypto_raw_all if float(r.get("change_24h") or 0) < 0
-    )
-    crypto_changes = [float(r.get("change_24h") or 0) for r in crypto_raw_all]
+    # Refuse bool/gap/NaN % — never invent flat 0.0 / True→1.0 into A/D or near-high.
+    crypto_changes = [
+        chg
+        for r in crypto_raw_all
+        if (chg := _coerce_desk_signed_pct(r.get("change_24h"))) is not None
+    ]
+    crypto_up = sum(1 for c in crypto_changes if c > 0)
+    crypto_down = sum(1 for c in crypto_changes if c < 0)
+    crypto_flat_known = sum(1 for c in crypto_changes if c == 0.0)
     crypto_avg = (
         sum(crypto_changes) / len(crypto_changes) if crypto_changes else 0.0
     )
     crypto_big = sum(1 for c in crypto_changes if abs(c) >= 4.0)
     stock_near = sum(
-        1 for r in stock_raw_all if float(r.get("pct_from_high") or 99) <= 5.0
+        1
+        for r in stock_raw_all
+        if (pct := _coerce_desk_signed_pct(r.get("pct_from_high"))) is not None
+        and pct <= 5.0
     )
     crypto_mover_pct = crypto_mover_ratio_pct(crypto_big, len(crypto_raw_all))
     near_high_pct = near_high_ratio_pct(stock_near, len(stock_raw_all))
@@ -38376,7 +38388,8 @@ def load_desk_snapshot(
         "crypto_n": len(crypto_raw_all),
         "crypto_up": crypto_up,
         "crypto_down": crypto_down,
-        "crypto_flat": max(0, len(crypto_raw_all) - crypto_up - crypto_down),
+        # Known 0% only — missing/bool % ≠ flat (claim honesty after scan refuse).
+        "crypto_flat": crypto_flat_known,
         "crypto_avg_chg": crypto_avg,
         "crypto_big_movers": crypto_big,
         "crypto_mover_pct": crypto_mover_pct,
@@ -38494,7 +38507,7 @@ def load_desk_snapshot(
                 "symbol": sym,
                 "name": display_name(str(sym or ""), names),
                 "price": float(r.get("price") or 0),
-                "change_24h": float(r.get("change_24h") or 0),
+                "change_24h": _coerce_desk_signed_pct(r.get("change_24h")),
                 "score": float(r.get("score") or 0),
                 "volume_surge_pct": float(r.get("volume_surge_pct") or 0),
                 "tradeable": bool(r.get("tradeable", True)),
@@ -38513,7 +38526,7 @@ def load_desk_snapshot(
                 "name": display_name(str(sym or ""), names),
                 "sector": r.get("sector") or "",
                 "price": float(r.get("price") or 0),
-                "pct_from_high": float(r.get("pct_from_high") or 0),
+                "pct_from_high": _coerce_desk_signed_pct(r.get("pct_from_high")),
                 "strength": r.get("strength") or "",
                 "risk_note": r.get("risk_note") or "",
                 "risk_rr": r.get("risk_rr"),
@@ -38939,10 +38952,7 @@ def load_desk_snapshot(
                 prev = scan_scores.get(sym)
                 if prev is None or sc > prev:
                     scan_scores[sym] = sc
-            try:
-                pfh = float(item.get("pct_from_high"))
-            except (TypeError, ValueError):
-                pfh = None
+            pfh = _coerce_desk_signed_pct(item.get("pct_from_high"))
             if pfh is not None:
                 prev_h = scan_pct_from_high.get(sym)
                 # Prefer closest-to-high when symbol appears on multiple lists.
@@ -38952,11 +38962,9 @@ def load_desk_snapshot(
             for chg_key in ("change_24h", "daily_change_pct", "change_pct", "change"):
                 if chg_key not in item or item.get(chg_key) is None:
                     continue
-                try:
-                    chg = float(item[chg_key])
-                except (TypeError, ValueError):
-                    continue
-                break
+                chg = _coerce_desk_signed_pct(item[chg_key])
+                if chg is not None:
+                    break
             if chg is not None:
                 prev_c = scan_change_24h.get(sym)
                 # Prefer largest |day move| across lists (StockBee heat).
