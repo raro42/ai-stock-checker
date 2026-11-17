@@ -36,6 +36,22 @@ def coerce_signed_pct(value: object) -> Optional[float]:
     return float(value)
 
 
+def stock_pulse_side(day_chg: object) -> Optional[str]:
+    """Scan-batch A/D bucket: ``up`` / ``down`` / ``flat``, or None when % unavailable.
+
+    xang1234 breadth + tradermonty #798/#655: bool/gap/NaN must not inflate
+    ``stock_scan_n`` as invented flat (that silently boosts advance/decline).
+    """
+    pct = coerce_signed_pct(day_chg)
+    if pct is None:
+        return None
+    if pct > 0:
+        return "up"
+    if pct < 0:
+        return "down"
+    return "flat"
+
+
 def breakout_from_high(
     price: object, high_52w: object
 ) -> Optional[Tuple[float, float, float]]:
@@ -486,15 +502,16 @@ class MarketScanner:
                     continue
 
                 high_52w_raw = data.get("52_week_high")
-                chg_raw = data.get("daily_change_pct")
-                day_chg = float(chg_raw) if _finite_signed(chg_raw) else 0.0
-                stock_priced += 1
-                if day_chg > 0:
-                    stock_up += 1
-                elif day_chg < 0:
-                    stock_down += 1
-                else:
-                    stock_flat += 1
+                day_chg = coerce_signed_pct(data.get("daily_change_pct"))
+                side = stock_pulse_side(day_chg)
+                if side is not None:
+                    stock_priced += 1
+                    if side == "up":
+                        stock_up += 1
+                    elif side == "down":
+                        stock_down += 1
+                    else:
+                        stock_flat += 1
 
                 broke = breakout_from_high(price_raw, high_52w_raw)
                 if broke is None:
@@ -940,8 +957,8 @@ class MarketScanner:
             px = coerce_scan_price(crypto.get("price"))
             if px is None:
                 continue
-            vol_raw = crypto.get("volatility")
-            vol = float(vol_raw) if _finite_signed(vol_raw) else 0.0
+            # Unavailable vol → None (never invent flat 0% ATR% risk note)
+            vol = coerce_signed_pct(crypto.get("volatility"))
             risk = note_from_day_range(entry=px, volatility_pct=vol)
             crypto["risk_note"] = risk.get("summary") or "risk n/a"
             crypto["risk_rr"] = risk.get("rr")

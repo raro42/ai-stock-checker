@@ -8,6 +8,7 @@ from stock_checker.market_scanner import (
     breakout_from_high,
     coerce_scan_price,
     coerce_signed_pct,
+    stock_pulse_side,
 )
 
 
@@ -31,6 +32,18 @@ def test_coerce_signed_pct_refuses_invalid_and_keeps_signed():
     assert coerce_signed_pct(math.nan) is None
     assert coerce_signed_pct(None) is None
     assert coerce_signed_pct("1.2") is None
+
+
+def test_stock_pulse_side_refuses_invalid_no_invent_flat():
+    """xang1234 breadth: unavailable % must not count as flat in stock_scan_n."""
+    assert stock_pulse_side(1.5) == "up"
+    assert stock_pulse_side(-0.25) == "down"
+    assert stock_pulse_side(0.0) == "flat"
+    assert stock_pulse_side(True) is None
+    assert stock_pulse_side(False) is None
+    assert stock_pulse_side(math.nan) is None
+    assert stock_pulse_side(None) is None
+    assert stock_pulse_side("1.2") is None
 
 
 def test_breakout_from_high_refuses_bool_and_gap():
