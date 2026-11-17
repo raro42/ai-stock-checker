@@ -279,26 +279,28 @@ class RecommendationEngine:
         score = 0
 
         current_price = btc_data.get("current_price")
-        change_1d = btc_data.get("daily_change") or 0
-        change_7d = btc_data.get("weekly_change") or 0
-        change_30d = btc_data.get("monthly_change") or 0
-        volatility = btc_data.get("volatility_30d") or 0
+        # Bool/NaN/% gaps unavailable — never invent flat 0 / True→1.0 momentum.
+        change_1d = 0.0
+        change_7d = 0.0
+        change_30d = 0.0
+        volatility = 0.0
+        volume_ratio = 0.0
+        dc = btc_data.get("daily_change")
+        if _finite_signed(dc):
+            change_1d = float(dc)
+        wc = btc_data.get("weekly_change")
+        if _finite_signed(wc):
+            change_7d = float(wc)
+        mc = btc_data.get("monthly_change")
+        if _finite_signed(mc):
+            change_30d = float(mc)
+        vol = btc_data.get("volatility_30d")
+        if _finite_signed(vol):
+            volatility = float(vol)
+        vr = btc_data.get("volume_ratio")
+        if _finite_signed(vr):
+            volume_ratio = float(vr)
         rsi = btc_data.get("rsi")
-        volume_ratio = btc_data.get("volume_ratio") or 1.0
-
-        # Ensure all values are numeric
-        try:
-            change_1d = float(change_1d) if change_1d is not None else 0
-            change_7d = float(change_7d) if change_7d is not None else 0
-            change_30d = float(change_30d) if change_30d is not None else 0
-            volatility = float(volatility) if volatility is not None else 0
-            volume_ratio = float(volume_ratio) if volume_ratio is not None else 1.0
-        except (TypeError, ValueError):
-            change_1d = 0
-            change_7d = 0
-            change_30d = 0
-            volatility = 0
-            volume_ratio = 1.0
 
         # SHORT-TERM MOMENTUM (40% weight)
         if change_1d > 5:
@@ -326,16 +328,13 @@ class RecommendationEngine:
         elif change_30d < -20:
             score += 4.5
 
-        # TECHNICAL FACTORS (15% weight)
-        if rsi is not None:
-            try:
-                rsi = float(rsi)
-                if rsi < 30:
-                    score += 4.5  # Oversold
-                elif rsi > 70:
-                    score -= 2.25  # Overbought
-            except (TypeError, ValueError):
-                pass
+        # TECHNICAL FACTORS (15% weight) — bool RSI unavailable (True→1.0 ≠ oversold)
+        if _finite_signed(rsi):
+            rsi_v = float(rsi)
+            if rsi_v < 30:
+                score += 4.5  # Oversold
+            elif rsi_v > 70:
+                score -= 2.25  # Overbought
 
         if volume_ratio > 1.5:
             score += 2.25  # Volume confirmation

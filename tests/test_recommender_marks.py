@@ -43,3 +43,16 @@ def test_technical_score_ignores_bool_rsi_and_marks():
         == 5
     )
     assert eng._calculate_technical_score({"rsi": 25.0}) == 12
+
+
+def test_bitcoin_recommendation_ignores_bool_pct_and_rsi():
+    eng = RecommendationEngine()
+    # float(True)==1.0 would invent mild +0.5d momentum (+8) and True RSI≠oversold
+    bad = eng.analyze_bitcoin_recommendation(
+        {"daily_change": True, "weekly_change": False, "rsi": True, "volume_ratio": True}
+    )
+    assert bad["score"] == 0
+    assert bad["action"] == "HOLD"
+    good = eng.analyze_bitcoin_recommendation({"daily_change": 3.0})
+    assert good["score"] == 12
+    assert good["action"] == "BUY"
