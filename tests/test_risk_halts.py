@@ -26,6 +26,23 @@ def test_realized_pnl_sums_sells_for_day(tmp_path: Path) -> None:
     assert realized_pnl_for_utc_day(tmp_path, day=day) == -700.5
 
 
+def test_realized_pnl_refuses_bool_and_gap(tmp_path: Path) -> None:
+    """tradermonty #700/#655: True→+€1 / missing or 0 must not invent daily P&L."""
+    import json
+
+    day = "2026-08-28"
+    rows = [
+        {"type": "SELL", "timestamp": "2026-08-28 13:00:00", "profit_loss": -100.0},
+        {"type": "SELL", "timestamp": "2026-08-28 14:00:00", "profit_loss": True},
+        {"type": "SELL", "timestamp": "2026-08-28 15:00:00", "profit_loss": None},
+        {"type": "SELL", "timestamp": "2026-08-28 16:00:00"},  # missing key
+    ]
+    (tmp_path / "trades.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in rows)
+    )
+    assert realized_pnl_for_utc_day(tmp_path, day=day) == -100.0
+
+
 def test_daily_loss_halt_triggers(tmp_path: Path) -> None:
     (tmp_path / "trades.jsonl").write_text(
         '{"type":"SELL","timestamp":"2026-08-28 10:00:00","profit_loss":-2100.0}\n'

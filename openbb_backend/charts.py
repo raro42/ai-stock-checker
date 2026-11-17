@@ -124,6 +124,17 @@ def _curve_cash(value: Any) -> Optional[float]:
     return c
 
 
+def _curve_signed(value: Any) -> Optional[float]:
+    """Signed P&L may be ≤0; refuse bool/NaN (``True→+€1`` invent)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None:
+        return None
+    if not _finite_signed(value):
+        return None
+    return float(value)
+
+
 def build_equity_curve(data_dir: Path) -> list[dict[str, Any]]:
     """Book equity after each fill (cash + cost basis of open lots)."""
     from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
@@ -2302,7 +2313,10 @@ def _daily_loss_glance_from_data(
     from openbb_backend.desk import build_daily_loss_glance
     from stock_checker.risk_halts import realized_pnl_for_utc_day
 
-    initial = float(portfolio.get("initial_cash") or 0)
+    # tradermonty #700/#655: bool/gap start must not invent €1 capital.
+    initial = _curve_cash(portfolio.get("initial_cash"))
+    if initial is None:
+        initial = 0.0
     return build_daily_loss_glance(realized_pnl_for_utc_day(data_dir), initial)
 
 
@@ -2323,8 +2337,13 @@ def _fee_burn_glance_from_portfolio(
     """Fee-drag % of start + vs realized sell P&L (display only)."""
     from openbb_backend.desk import build_fee_burn_glance
 
-    fees = float(portfolio.get("total_fees_paid") or 0)
-    initial = float(portfolio.get("initial_cash") or 0)
+    # tradermonty #700/#655: bool/gap fees·start / sell P&L must not invent €1.
+    fees = _curve_cash(portfolio.get("total_fees_paid"))
+    if fees is None:
+        fees = 0.0
+    initial = _curve_cash(portfolio.get("initial_cash"))
+    if initial is None:
+        initial = 0.0
     trades = _load_jsonl(data_dir / "trades.jsonl")
     sells = [
         t
@@ -2333,7 +2352,10 @@ def _fee_burn_glance_from_portfolio(
     ]
     realized: float | None = None
     if sells:
-        realized = sum(float(t.get("profit_loss") or 0) for t in sells)
+        parts = [_curve_signed(t.get("profit_loss")) for t in sells]
+        readable = [p for p in parts if p is not None]
+        # All sells unreadable → None (do not invent flat €0 vs fees).
+        realized = sum(readable) if readable else None
     return build_fee_burn_glance(fees, initial, realized_pnl=realized)
 
 
@@ -2399,17 +2421,20 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
     avg = portfolio.get("avg_buy_price") or {}
     if not isinstance(holdings, dict) or not isinstance(avg, dict):
         return build_stuck_capital_glance([])
+    from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+
     marks = _prices_from_scan(opp)
     now = time.time()
     stuck: list[dict[str, Any]] = []
     for sym, qty in holdings.items():
-        try:
-            q = float(qty)
-            buy = float(avg.get(sym) or 0)
-        except (TypeError, ValueError):
+        # Bool/0/gap qty·avg must not invent 1-share / €1 stuck rows.
+        if not long_only_quantity_ok(qty):
             continue
-        if q <= 0 or buy <= 0:
+        buy_raw = avg.get(sym)
+        if not fill_price_ok(buy_raw):
             continue
+        q = float(qty)
+        buy = float(buy_raw)
         last = _coerce_desk_mark(marks.get(str(sym))) or buy
         unreal_pct = ((last - buy) / buy) * 100.0
         entry_ts = _coerce_entry_ts(entry_times.get(sym))
@@ -2446,15 +2471,14 @@ def _book_posture_glance_from_data(data_dir: Path) -> dict[str, Any]:
         min_hold_h = float(cfg.get("min_hold_hours") or 24)
     except (TypeError, ValueError):
         min_hold_h = 24.0
+    from stock_checker.portfolio import long_only_quantity_ok
+
     holdings = portfolio.get("holdings") or {}
     rows: list[dict[str, Any]] = []
     if isinstance(holdings, dict):
         for sym, qty in holdings.items():
-            try:
-                q = float(qty)
-            except (TypeError, ValueError):
-                continue
-            if q <= 0:
+            # Bool/0/gap qty must not invent a 1-share posture slot.
+            if not long_only_quantity_ok(qty):
                 continue
             rows.append({"symbol": str(sym), "held_seconds": 0.0})
     return build_book_posture_glance(
@@ -2483,17 +2507,16 @@ def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
         min_hold_h = float(cfg.get("min_hold_hours") or 24)
     except (TypeError, ValueError):
         min_hold_h = 24.0
+    from stock_checker.portfolio import long_only_quantity_ok
+
     holdings = portfolio.get("holdings") or {}
     if not isinstance(holdings, dict):
         return build_min_hold_lock_glance([], min_hold_hours=min_hold_h)
     now = time.time()
     rows: list[dict[str, Any]] = []
     for sym, qty in holdings.items():
-        try:
-            q = float(qty)
-        except (TypeError, ValueError):
-            continue
-        if q <= 0:
+        # Bool/0/gap qty must not invent a 1-share min-hold lock row.
+        if not long_only_quantity_ok(qty):
             continue
         entry_ts = _coerce_entry_ts(entry_times.get(sym))
         # Missing/invalid stamp → held_seconds None (ghost / UNKNOWN hold age);
@@ -2550,7 +2573,10 @@ def load_chart_payload(data_dir: Path) -> dict[str, Any]:
     portfolio = _load_json(data_dir / "portfolio.json", {})
     if not isinstance(portfolio, dict):
         portfolio = {}
-    initial = float(portfolio.get("initial_cash") or 0)
+    # tradermonty #700/#655: bool/gap start must not invent €1 pretrade capital.
+    initial = _curve_cash(portfolio.get("initial_cash"))
+    if initial is None:
+        initial = 0.0
     pretrade_level, pretrade_notes = pretrade_status(data_dir, initial_cash=initial)
     laya_tone, debate_tone = memory_advisory_clock_tones(data_dir)
     price_panels = build_price_panels(data_dir)

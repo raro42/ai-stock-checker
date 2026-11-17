@@ -76,6 +76,77 @@ def test_allocation_refuses_invalid_holdings_values(tmp_path: Path, monkeypatch)
     assert abs(by_sym["AAPL"]["weight_pct"] - 100.0) < 1e-6
 
 
+def test_chart_glances_refuse_invalid_cash_fees_qty(tmp_path: Path, monkeypatch):
+    """Fee-burn / posture / min-hold must not invent €1 fees or 1-share slots."""
+    import time
+
+    from openbb_backend.charts import (
+        _book_posture_glance_from_data,
+        _fee_burn_glance_from_portfolio,
+        _min_hold_lock_glance_from_data,
+        _stuck_capital_glance_from_data,
+    )
+
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    now = 1_700_000_000.0
+    monkeypatch.setattr(time, "time", lambda: now)
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": True,  # refuse invent €1 start
+                "cash": 5000,
+                "holdings": {"AAPL": 10, "BAD": True},
+                "avg_buy_price": {"AAPL": 100, "BAD": 50},
+                "total_fees_paid": True,  # refuse invent €1 fees
+            }
+        )
+    )
+    (tmp_path / "trades.jsonl").write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-07-20 12:00:00",
+                "type": "SELL",
+                "symbol": "MSFT",
+                "quantity": 1,
+                "price": 100,
+                "profit_loss": True,  # refuse invent +€1 P&L
+                "commission": 1,
+            }
+        )
+        + "\n"
+    )
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"AAPL": now - 48 * 3600, "BAD": now - 48 * 3600})
+    )
+    (tmp_path / "trader_config.json").write_text(json.dumps({"min_hold_hours": 24}))
+    (tmp_path / "archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "stock_breakouts": [
+                    {"symbol": "AAPL", "price": 90.0, "pct_from_high": 0.1}
+                ]
+            }
+        )
+    )
+    portfolio = json.loads((tmp_path / "portfolio.json").read_text())
+    fee = _fee_burn_glance_from_portfolio(tmp_path, portfolio)
+    assert fee["ready"] is False  # bool fees/start → empty, not €1 invent
+    assert fee["realized"] is None  # bool sell P&L skipped → not flat €0
+    stuck = _stuck_capital_glance_from_data(tmp_path)
+    assert stuck["ready"] is True
+    assert stuck["count"] == 1
+    assert "AAPL" in stuck["line"]
+    assert "BAD" not in stuck["line"]
+    posture = _book_posture_glance_from_data(tmp_path)
+    assert posture["ready"] is True
+    assert "BAD" not in posture["line"]
+    lock = _min_hold_lock_glance_from_data(tmp_path)
+    # AAPL past min-hold → not locked; BAD qty refused → not a ghost lock row
+    assert "BAD" not in (lock.get("line") or "")
+
+
 def test_equity_curve_refuses_invalid_fills(tmp_path: Path):
     """tradermonty #700/#655: bool/0/gap fills must not invent curve points."""
     import math

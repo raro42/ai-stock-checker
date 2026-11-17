@@ -157,7 +157,13 @@ def iter_trades(data_dir: Path | str) -> Iterable[dict[str, Any]]:
 
 
 def realized_pnl_for_utc_day(data_dir: Path | str, day: Optional[str] = None) -> float:
-    """Sum SELL profit_loss for the given UTC day (default today)."""
+    """Sum SELL profit_loss for the given UTC day (default today).
+
+    tradermonty #700/#655 / xang1234 / portfolio AI: bool/gap/NaN P&L must not
+    invent ``True→+€1`` / flat ``or 0`` into the daily-loss sample.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
     target = day or utc_day_key()
     total = 0.0
     for row in iter_trades(data_dir):
@@ -165,10 +171,10 @@ def realized_pnl_for_utc_day(data_dir: Path | str, day: Optional[str] = None) ->
             continue
         if _parse_trade_day(str(row.get("timestamp") or "")) != target:
             continue
-        try:
-            total += float(row.get("profit_loss") or 0.0)
-        except (TypeError, ValueError):
+        pl = row.get("profit_loss")
+        if not _finite_signed(pl):
             continue
+        total += float(pl)  # type: ignore[arg-type]
     return total
 
 
