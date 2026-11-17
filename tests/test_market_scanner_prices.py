@@ -8,6 +8,7 @@ from stock_checker.market_scanner import (
     breakout_from_high,
     coerce_scan_price,
     coerce_signed_pct,
+    day_range_pct,
     stock_pulse_side,
 )
 
@@ -53,3 +54,17 @@ def test_breakout_from_high_refuses_bool_and_gap():
     assert breakout_from_high(0, 100.0) is None
     assert breakout_from_high(95.0, math.nan) is None
     assert breakout_from_high(95.0, None) is None
+
+
+def test_day_range_pct_refuses_invalid_no_invent_flat():
+    """Missing high/low must not invent 0% vol via last-print fallback."""
+    assert day_range_pct(110.0, 100.0) == 10.0
+    assert day_range_pct(100.0, 100.0) == 0.0  # real flat day
+    assert day_range_pct(True, 100.0) is None
+    assert day_range_pct(110.0, True) is None
+    assert day_range_pct(None, 100.0) is None
+    assert day_range_pct(110.0, None) is None
+    assert day_range_pct(math.nan, 100.0) is None
+    assert day_range_pct(90.0, 100.0) is None  # inverted
+    assert day_range_pct(0, 100.0) is None
+    assert day_range_pct(110.0, 0) is None

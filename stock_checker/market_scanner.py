@@ -63,6 +63,20 @@ def breakout_from_high(
     return px, hi, ((px - hi) / hi) * 100.0
 
 
+def day_range_pct(high: object, low: object) -> Optional[float]:
+    """Return ``((high-low)/low)*100`` or None when day OHLC is unusable.
+
+    xang1234/portfolio AI + tradermonty #798/#655: missing/bool/gap high·low
+    must not fall back to last print and invent flat ``0%`` day-range vol.
+    Real flat days (high==low) stay ``0.0``.
+    """
+    hi = coerce_scan_price(high)
+    lo = coerce_scan_price(low)
+    if hi is None or lo is None or lo > hi:
+        return None
+    return ((hi - lo) / lo) * 100.0
+
+
 class MarketScanner:
     """
     Advanced market scanner to identify top performers and opportunities.
@@ -379,12 +393,10 @@ class MarketScanner:
             if chg is None:
                 print(f"   ⚠️  Invalid 24h% for {bsym} (unavailable)")
                 continue
-            high = coerce_scan_price(data.get("high_24h")) or price
-            low = coerce_scan_price(data.get("low_24h")) or price
-            if low > high:
+            vol_range = day_range_pct(data.get("high_24h"), data.get("low_24h"))
+            if vol_range is None:
                 print(f"   ⚠️  Invalid day range for {bsym} (unavailable)")
                 continue
-            vol_range = ((high - low) / low) * 100 if low > 0 else 0.0
             vol_raw = data.get("volume_24h")
             volume_base = float(vol_raw) if _valid_volume(vol_raw) else 0.0
             volume_usdt = volume_base * price
