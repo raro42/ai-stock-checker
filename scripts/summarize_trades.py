@@ -15,20 +15,37 @@ from stock_checker.promote_ab import (
 
 
 def _parse_since(raw: str | None) -> datetime | None:
+    """Parse UTC bound; raise ValueError on garbage (tradermonty #809)."""
     if not raw:
         return None
     text = str(raw).strip()
     if text.lower() in {"window-a", "a", "promote-a"}:
         return WINDOW_A_START_UTC
-    if len(text) == 10 and text[4] == "-" and text[7] == "-":
-        d = date.fromisoformat(text)
-        return datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    dt = datetime.fromisoformat(text)
+    try:
+        if len(text) == 10 and text[4] == "-" and text[7] == "-":
+            d = date.fromisoformat(text)
+            return datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        dt = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(
+            f"invalid date (expected YYYY-MM-DD or ISO datetime): {raw!r}"
+        ) from exc
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def _require_ordered_range(
+    start: datetime | None, end: datetime | None
+) -> None:
+    """Refuse inverted --since/--until so empty windows are not silent ok."""
+    if start is not None and end is not None and start > end:
+        raise ValueError(
+            f"--since {start.date().isoformat()} is later than "
+            f"--until {end.date().isoformat()}"
+        )
 
 
 def main() -> None:
@@ -78,8 +95,12 @@ def main() -> None:
         print(f"No trades file at {path}")
         return
 
-    start = _parse_since(args.since)
-    end = _parse_since(args.until)
+    try:
+        start = _parse_since(args.since)
+        end = _parse_since(args.until)
+        _require_ordered_range(start, end)
+    except ValueError as exc:
+        raise SystemExit(f"error: {exc}") from exc
     # tradermonty #737: UTF-8 via load_trades_jsonl (locale decode is not a ledger).
     try:
         path.read_text(encoding="utf-8")
