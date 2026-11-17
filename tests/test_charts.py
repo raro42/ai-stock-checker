@@ -47,6 +47,75 @@ def test_equity_curve_from_fills(tmp_path: Path, monkeypatch):
     assert pts[1]["label"].startswith("BUY")
 
 
+def test_equity_curve_refuses_invalid_fills(tmp_path: Path):
+    """tradermonty #700/#655: bool/0/gap fills must not invent curve points."""
+    import math
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": 100000,
+                "holdings": {},
+                "avg_buy_price": {},
+            }
+        )
+    )
+    junk = [
+        {
+            "timestamp": "2026-07-20 09:00:00",
+            "type": "BUY",
+            "symbol": "BAD0",
+            "quantity": 10,
+            "price": 0,
+            "commission": 1,
+        },
+        {
+            "timestamp": "2026-07-20 09:01:00",
+            "type": "BUY",
+            "symbol": "BADBOOL",
+            "quantity": True,
+            "price": 50,
+            "commission": 1,
+        },
+        {
+            "timestamp": "2026-07-20 09:02:00",
+            "type": "BUY",
+            "symbol": "BADPX",
+            "quantity": 5,
+            "price": True,
+            "commission": 1,
+        },
+        {
+            "timestamp": "2026-07-20 09:03:00",
+            "type": "BUY",
+            "symbol": "BADNAN",
+            "quantity": 5,
+            "price": math.nan,
+            "commission": 1,
+        },
+        {
+            "timestamp": "2026-07-20 10:00:00",
+            "type": "BUY",
+            "symbol": "AAPL",
+            "quantity": 10,
+            "price": 100,
+            "commission": 1,
+            "cash_remaining": 89999,
+        },
+    ]
+    (tmp_path / "trades.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in junk)
+    )
+    pts = build_equity_curve(tmp_path)
+    labels = [p["label"] for p in pts]
+    assert labels[0] == "start"
+    assert "BUY AAPL" in labels
+    assert not any("BAD" in lab for lab in labels)
+    buy = next(p for p in pts if p["label"] == "BUY AAPL")
+    assert buy["cash"] == 89999
+
+
 def test_chart_payload_offline(tmp_path: Path, monkeypatch):
     _seed(tmp_path)
     monkeypatch.setenv("DESK_LIVE_MARKS", "0")

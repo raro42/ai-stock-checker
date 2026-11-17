@@ -98,11 +98,43 @@ def _parse_trade_ts(raw: str) -> Optional[datetime]:
         return None
 
 
+def _curve_commission(value: Any) -> Optional[float]:
+    """Commission may be 0; refuse bool/NaN/negative (``True→€1`` invent)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None:
+        return 0.0
+    if not _finite_signed(value):
+        return None
+    c = float(value)
+    if c < 0.0:
+        return None
+    return c
+
+
+def _curve_cash(value: Any) -> Optional[float]:
+    """Cash / cash_remaining: finite ≥0, never bool."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if not _finite_signed(value):
+        return None
+    c = float(value)
+    if c < 0.0:
+        return None
+    return c
+
+
 def build_equity_curve(data_dir: Path) -> list[dict[str, Any]]:
     """Book equity after each fill (cash + cost basis of open lots)."""
+    from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+    from stock_checker.technical_indicators import _valid_close
+
     portfolio = _load_json(data_dir / "portfolio.json", {})
     trades = _load_jsonl(data_dir / "trades.jsonl")
-    initial = float(portfolio.get("initial_cash") or 0)
+    # tradermonty #700 / #655: missing/bool initial must not invent €0 / €1 start
+    initial = _curve_cash(portfolio.get("initial_cash"))
+    if initial is None:
+        initial = 0.0
     cash = initial
     lots: dict[str, dict[str, float]] = {}  # symbol -> {qty, cost}
     points: list[dict[str, Any]] = []
@@ -126,11 +158,21 @@ def build_equity_curve(data_dir: Path) -> list[dict[str, Any]]:
     )
 
     for trade in trades:
+        if not isinstance(trade, dict):
+            continue
         side = str(trade.get("type") or "").upper()
         sym = str(trade.get("symbol") or "")
-        qty = float(trade.get("quantity") or 0)
-        price = float(trade.get("price") or 0)
-        commission = float(trade.get("commission") or 0)
+        # tradermonty #700 silent entry_price 0 + #655 True→1.0: skip junk fills
+        # rather than invent €0 / 1-share / €1 commission into the curve.
+        if not long_only_quantity_ok(trade.get("quantity")):
+            continue
+        if not fill_price_ok(trade.get("price")):
+            continue
+        commission = _curve_commission(trade.get("commission"))
+        if commission is None:
+            continue
+        qty = float(trade.get("quantity"))
+        price = float(trade.get("price"))
         ts = _parse_trade_ts(str(trade.get("timestamp") or "")) or start_ts
 
         if side == "BUY":
@@ -139,8 +181,11 @@ def build_equity_curve(data_dir: Path) -> list[dict[str, Any]]:
             lot = lots.setdefault(sym, {"qty": 0.0, "cost": 0.0})
             lot["qty"] += qty
             lot["cost"] += qty * price
-            if trade.get("cash_remaining") is not None:
-                cash = float(trade["cash_remaining"])
+            rem = trade.get("cash_remaining")
+            if rem is not None:
+                rem_ok = _curve_cash(rem)
+                if rem_ok is not None:
+                    cash = rem_ok
         elif side == "SELL":
             lot = lots.setdefault(sym, {"qty": 0.0, "cost": 0.0})
             avg = (lot["cost"] / lot["qty"]) if lot["qty"] else price
@@ -150,8 +195,13 @@ def build_equity_curve(data_dir: Path) -> list[dict[str, Any]]:
             lot["cost"] = max(0.0, lot["qty"] * avg)
             if lot["qty"] <= 1e-12:
                 lots.pop(sym, None)
-            if trade.get("cash_remaining") is not None:
-                cash = float(trade["cash_remaining"])
+            rem = trade.get("cash_remaining")
+            if rem is not None:
+                rem_ok = _curve_cash(rem)
+                if rem_ok is not None:
+                    cash = rem_ok
+        else:
+            continue
 
         invested = sum(v["cost"] for v in lots.values())
         # Prefer live portfolio cash if this is the last trade
@@ -170,10 +220,17 @@ def build_equity_curve(data_dir: Path) -> list[dict[str, Any]]:
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     if holdings:
-        cash_now = float(portfolio.get("cash") or cash)
-        invested_now = sum(
-            float(q) * float(avg.get(s, 0) or 0) for s, q in holdings.items()
-        )
+        cash_now = _curve_cash(portfolio.get("cash"))
+        if cash_now is None:
+            cash_now = cash
+        invested_now = 0.0
+        for s, q in holdings.items():
+            if not long_only_quantity_ok(q):
+                continue
+            cost = avg.get(s)
+            if not _valid_close(cost):
+                continue
+            invested_now += float(q) * float(cost)
         points.append(
             {
                 "t": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
