@@ -1288,7 +1288,7 @@
   heading_id='min-hold-lock-glance-h',
   link_href='/desk/ops#ops-min-hold',
   link_label='Ops hold →',
-  sub='Lots still inside min-hold cannot rotate/trim — warns within ~15m of unlock. Not a gate.'
+  sub='Lots still inside min-hold cannot rotate/trim — warns within ~15m of unlock. Missing entry stamp speaks no entry (hold age unknown). Not a gate.'
 ) -%}
 {% set glance = snap.min_hold_lock_glance if snap.min_hold_lock_glance is mapping else {} %}
 {% if glance.ready %}

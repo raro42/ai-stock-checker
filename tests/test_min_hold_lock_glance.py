@@ -11,7 +11,17 @@ from openbb_backend.desk import (
 def test_min_hold_lock_glance_empty() -> None:
     assert build_min_hold_lock_glance(None)["ready"] is False
     assert build_min_hold_lock_glance([])["ready"] is False
-    assert build_min_hold_lock_glance([{"symbol": "AAPL"}])["ready"] is False
+
+
+def test_min_hold_lock_glance_all_ghost_no_entry() -> None:
+    """mphinance order-lifecycle UNKNOWN — open lots without entry stamp speak."""
+    g = build_min_hold_lock_glance([{"symbol": "AAPL"}, {"symbol": "MSFT"}])
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["ghost"] == 2
+    assert g["timed"] == 0
+    assert "2 no entry" in g["line"]
+    assert "hold age unknown" in g["line"]
 
 
 def test_min_hold_lock_glance_all_unlocked() -> None:
@@ -26,8 +36,26 @@ def test_min_hold_lock_glance_all_unlocked() -> None:
     assert g["tone"] == "quiet"
     assert g["locked"] == 0
     assert g["timed"] == 2
+    assert g["ghost"] == 0
     assert "all 2 past min-hold" in g["line"]
     assert "rotate/trim OK" in g["line"]
+
+
+def test_min_hold_lock_glance_past_plus_ghost() -> None:
+    """Past-unlock strip must not claim rotate/trim OK when ghosts remain."""
+    g = build_min_hold_lock_glance(
+        [
+            {"symbol": "AAPL", "held_seconds": 90_000},
+            {"symbol": "MSFT"},  # no entry
+        ],
+        min_hold_hours=24,
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["ghost"] == 1
+    assert g["timed"] == 1
+    assert "1 no entry" in g["line"]
+    assert "rotate/trim OK" not in g["line"]
 
 
 def test_min_hold_lock_glance_partial_lock() -> None:
@@ -46,6 +74,21 @@ def test_min_hold_lock_glance_partial_lock() -> None:
     assert g["earliest_symbol"] == "BTC-USD"
     assert "2/3 in min-hold lock" in g["line"]
     assert "BTC-USD" in g["line"]
+
+
+def test_min_hold_lock_glance_lock_plus_ghost() -> None:
+    g = build_min_hold_lock_glance(
+        [
+            {"symbol": "AAPL", "held_seconds": 3_600},
+            {"symbol": "GHOST"},
+        ],
+        min_hold_hours=24,
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["ghost"] == 1
+    assert g["locked"] == 1
+    assert "1 no entry" in g["line"]
 
 
 def test_min_hold_lock_glance_all_locked() -> None:
@@ -95,4 +138,4 @@ def test_apply_min_hold_lock_fields_missing_entry() -> None:
     row = {"symbol": "AAPL", "held_seconds": None}
     out = apply_min_hold_lock_fields(row, 24 * 3600)
     assert out["past_min_hold"] is False
-    assert out["min_hold_note"] == ""
+    assert out["min_hold_note"] == "no entry"

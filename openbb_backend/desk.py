@@ -33863,7 +33863,8 @@ def apply_min_hold_lock_fields(
     """Annotate one holding with min-hold lock state (display only).
 
     Complements stuck-capital: locked lots cannot rotate/trim for scan-chase yet.
-    Missing entry time → empty note (A7: do not treat as already past min-hold).
+    Missing entry time → ``no entry`` (A7: do not treat as already past min-hold;
+    mphinance order-lifecycle UNKNOWN / reconcile — hold age unproven).
     """
     hold_s = max(0.0, float(min_hold_seconds or 0.0))
     held = row.get("held_seconds")
@@ -33871,7 +33872,7 @@ def apply_min_hold_lock_fields(
         row["past_min_hold"] = False
         row["min_hold_left_seconds"] = None
         row["min_hold_left"] = ""
-        row["min_hold_note"] = ""
+        row["min_hold_note"] = "no entry"
         return row
     try:
         held_s = max(0.0, float(held))
@@ -33879,7 +33880,7 @@ def apply_min_hold_lock_fields(
         row["past_min_hold"] = False
         row["min_hold_left_seconds"] = None
         row["min_hold_left"] = ""
-        row["min_hold_note"] = ""
+        row["min_hold_note"] = "no entry"
         return row
     left = max(0.0, hold_s - held_s)
     past = left <= 0.0
@@ -33900,6 +33901,8 @@ def build_min_hold_lock_glance(
 
     Pairs with stuck-capital (underwater *after* unlock) and book-limits.
     Warns when the earliest lot unlocks within one scan interval.
+    Open lots with missing ``held_seconds`` speak ``N no entry`` (A7 + order-
+    lifecycle UNKNOWN) — silent skip used to hide unproven hold age.
     Anti-churn packaging honesty — not a new gate.
     """
     empty = {
@@ -33908,6 +33911,7 @@ def build_min_hold_lock_glance(
         "line": "",
         "locked": 0,
         "timed": 0,
+        "ghost": 0,
         "min_hold_hours": float(min_hold_hours or 0),
         "earliest_symbol": "",
         "earliest_left": "",
@@ -33921,6 +33925,7 @@ def build_min_hold_lock_glance(
         hold_h = 0.0
     hold_s = max(4.0, hold_h) * 3600.0 if hold_h > 0 else 0.0
     timed: list[dict[str, Any]] = []
+    ghost_n = 0
     for r in holdings:
         if not isinstance(r, dict):
             continue
@@ -33929,27 +33934,54 @@ def build_min_hold_lock_glance(
             continue
         held = r.get("held_seconds")
         if held is None:
+            ghost_n += 1
             continue
         try:
             held_s = max(0.0, float(held))
         except (TypeError, ValueError):
+            ghost_n += 1
             continue
         left = max(0.0, hold_s - held_s)
         timed.append({"symbol": sym, "left": left, "past": left <= 0.0})
-    if not timed:
+    if not timed and ghost_n <= 0:
         return empty
+    hold_txt = f"{hold_h:g}h" if hold_h else "min-hold"
+    ghost_sfx = f" · {ghost_n} no entry" if ghost_n > 0 else ""
+
+    if not timed:
+        line = f"{ghost_n} no entry · hold age unknown"
+        if len(line) > 96:
+            line = line[:95] + "…"
+        return {
+            "ready": True,
+            "tone": "warn",
+            "line": line,
+            "locked": 0,
+            "timed": 0,
+            "ghost": ghost_n,
+            "min_hold_hours": hold_h,
+            "earliest_symbol": "",
+            "earliest_left": "",
+            "expiring_soon": False,
+        }
+
     locked_rows = [t for t in timed if not t["past"]]
     locked_n = len(locked_rows)
     timed_n = len(timed)
-    hold_txt = f"{hold_h:g}h" if hold_h else "min-hold"
     if locked_n <= 0:
-        line = f"all {timed_n} past min-hold ({hold_txt}) · rotate/trim OK"
+        if ghost_n > 0:
+            line = f"all {timed_n} past min-hold ({hold_txt}){ghost_sfx}"
+            tone = "warn"
+        else:
+            line = f"all {timed_n} past min-hold ({hold_txt}) · rotate/trim OK"
+            tone = "quiet"
         return {
             "ready": True,
-            "tone": "quiet",
+            "tone": tone,
             "line": line[:96] if len(line) > 96 else line,
             "locked": 0,
             "timed": timed_n,
+            "ghost": ghost_n,
             "min_hold_hours": hold_h,
             "earliest_symbol": "",
             "earliest_left": "",
@@ -33972,6 +34004,12 @@ def build_min_hold_lock_glance(
         tone = "warn"
     else:
         tone = "flat"
+    if ghost_n > 0:
+        line = f"{line}{ghost_sfx}"
+        if tone == "quiet":
+            tone = "warn"
+        elif tone == "flat":
+            tone = "warn"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
@@ -33980,6 +34018,7 @@ def build_min_hold_lock_glance(
         "line": line,
         "locked": locked_n,
         "timed": timed_n,
+        "ghost": ghost_n,
         "min_hold_hours": hold_h,
         "earliest_symbol": str(earliest["symbol"]),
         "earliest_left": left_txt,

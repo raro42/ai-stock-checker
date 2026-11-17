@@ -2435,12 +2435,12 @@ def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
             entry_ts = float(entry_times.get(sym) or 0) or None
         except (TypeError, ValueError):
             entry_ts = None
-        if not entry_ts:
-            continue
+        # Missing stamp → held_seconds None (ghost / UNKNOWN hold age); do not skip.
+        held_s = max(0.0, now - entry_ts) if entry_ts else None
         rows.append(
             {
                 "symbol": str(sym),
-                "held_seconds": max(0.0, now - entry_ts),
+                "held_seconds": held_s,
             }
         )
     return build_min_hold_lock_glance(rows, min_hold_hours=min_hold_h)
