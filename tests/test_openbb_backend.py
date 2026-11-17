@@ -10,6 +10,7 @@ import math
 from openbb_backend import main as backend
 from openbb_backend.desk import (
     _coerce_desk_mark,
+    _coerce_desk_score,
     _coerce_desk_signed_pct,
     _prices_from_scan,
     load_desk_snapshot,
@@ -179,6 +180,17 @@ def test_coerce_desk_mark_refuses_invalid():
     assert _coerce_desk_mark("12.5") is None
 
 
+def test_coerce_desk_score_refuses_bool_allows_zero():
+    """tradermonty #700/#655: score may be 0; bool/NaN must not invent 1.0."""
+    assert _coerce_desk_score(0) == 0.0
+    assert _coerce_desk_score(42.5) == 42.5
+    assert _coerce_desk_score(True) is None
+    assert _coerce_desk_score(False) is None
+    assert _coerce_desk_score(math.nan) is None
+    assert _coerce_desk_score(None) is None
+    assert _coerce_desk_score("9") is None
+
+
 def test_coerce_desk_signed_pct_refuses_invalid():
     """Opportunities archive % — never invent flat 0.0 / True→1.0."""
     assert _coerce_desk_signed_pct(-1.5) == -1.5
@@ -262,6 +274,91 @@ def test_desk_opportunities_signed_pct_refuse_invalid(
     assert sb["crypto_flat"] == 0  # unavailable ≠ invent flat
     assert abs(sb["crypto_avg_chg"] - 3.0) < 1e-9
     assert sb["stock_within_5pct_high"] == 1  # MSFT only; bool AAPL refused
+
+
+def test_desk_snapshot_refuses_invalid_opportunity_price_score(
+    tmp_path: Path, monkeypatch
+):
+    """Bool/gap price·score must not invent €1 / score 0 on Screener rows."""
+    data = tmp_path
+    _seed_portfolio(data)
+    arch = data / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-11-17T18:00:00",
+                "recommendations": [
+                    {
+                        "rank": 1,
+                        "symbol": "ETH-USD",
+                        "asset_class": "crypto",
+                        "strategy": "momentum",
+                        "score": True,
+                        "reasoning": "test",
+                    },
+                    {
+                        "rank": 2,
+                        "symbol": "AAPL",
+                        "asset_class": "stock",
+                        "strategy": "breakout",
+                        "score": 38.8,
+                        "reasoning": "ok",
+                    },
+                ],
+                "crypto_leaders": [
+                    {
+                        "symbol": "BTC-USD",
+                        "price": True,
+                        "change_24h": 1.0,
+                        "score": False,
+                        "volume_surge_pct": True,
+                    },
+                    {
+                        "symbol": "ETH-USD",
+                        "price": 3000,
+                        "change_24h": 2.0,
+                        "score": 40,
+                        "volume_surge_pct": 12.5,
+                    },
+                ],
+                "stock_breakouts": [
+                    {
+                        "symbol": "AAPL",
+                        "sector": "tech",
+                        "price": 0,
+                        "pct_from_high": 1.0,
+                        "strength": "STRONG",
+                    },
+                    {
+                        "symbol": "MSFT",
+                        "sector": "tech",
+                        "price": 400,
+                        "pct_from_high": 1.5,
+                        "strength": "STRONG",
+                    },
+                ],
+            }
+        )
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    snap = load_desk_snapshot(data, live_marks=False, price_fetcher=lambda _s: {})
+    eth_rec = next(r for r in snap["recommendations"] if r["symbol"] == "ETH-USD")
+    aapl_rec = next(r for r in snap["recommendations"] if r["symbol"] == "AAPL")
+    assert eth_rec["score"] is None
+    assert aapl_rec["score"] == 38.8
+    btc = next(c for c in snap["crypto_leaders"] if c["symbol"] == "BTC-USD")
+    eth = next(c for c in snap["crypto_leaders"] if c["symbol"] == "ETH-USD")
+    assert btc["price"] is None
+    assert btc["score"] is None
+    assert btc["volume_surge_pct"] is None
+    assert eth["price"] == 3000.0
+    assert eth["score"] == 40.0
+    assert eth["volume_surge_pct"] == 12.5
+    aapl = next(s for s in snap["stock_breakouts"] if s["symbol"] == "AAPL")
+    msft = next(s for s in snap["stock_breakouts"] if s["symbol"] == "MSFT")
+    assert aapl["price"] is None
+    assert msft["price"] == 400.0
 
 
 def test_prices_from_scan_skips_bool_and_nan():

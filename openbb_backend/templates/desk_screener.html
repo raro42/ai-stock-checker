@@ -409,7 +409,7 @@
     <li>
       <span class="rank">#{{ r.rank }}</span>
       {{ ticker(r.symbol, r.name) }}
-      <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · score {{ "%.1f"|format(r.score) }}</span>
+      <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · {% if r.score is none %}n/a score{% else %}score {{ "%.1f"|format(r.score) }}{% endif %}</span>
       <span class="why">{{ r.reasoning }}</span>
       {% if r.risk_note %}
       <span class="meta risk {% if r.risk_rr_ok %}up{% elif r.risk_rr_ok is sameas false %}down{% endif %}">{{ r.risk_note }}</span>
@@ -431,14 +431,14 @@
       <li>
         {{ ticker(c.symbol, c.name) }}
         {% if c.change_24h is none %}
-        <span class="meta">n/a 24h · score {{ "%.0f"|format(c.score) }}</span>
+        <span class="meta">n/a 24h · {% if c.score is none %}n/a score{% else %}score {{ "%.0f"|format(c.score) }}{% endif %}</span>
         {% else %}
         <span class="meta {% if c.change_24h >= 0 %}up{% else %}down{% endif %}">
-          {{ "%+.1f"|format(c.change_24h) }}% 24h · score {{ "%.0f"|format(c.score) }}
+          {{ "%+.1f"|format(c.change_24h) }}% 24h · {% if c.score is none %}n/a score{% else %}score {{ "%.0f"|format(c.score) }}{% endif %}
         </span>
         {% endif %}
         {% if c.risk_note %}<span class="meta risk">{{ c.risk_note }}</span>{% endif %}
-        <span class="amt">€{{ "{:,.4g}".format(c.price) }}</span>
+        <span class="amt">{% if c.price is none %}n/a{% else %}€{{ "{:,.4g}".format(c.price) }}{% endif %}</span>
       </li>
       {% endfor %}
     </ul>
@@ -455,7 +455,7 @@
         {{ ticker(s.symbol, s.name) }}
         <span class="meta">{{ s.sector }} · {{ s.strength }} · {% if s.pct_from_high is none %}n/a from high{% else %}{{ "%.1f"|format(s.pct_from_high) }}% from high{% endif %}</span>
         {% if s.risk_note %}<span class="meta risk">{{ s.risk_note }}</span>{% endif %}
-        <span class="amt">€{{ "{:,.2f}".format(s.price) }}</span>
+        <span class="amt">{% if s.price is none %}n/a{% else %}€{{ "{:,.2f}".format(s.price) }}{% endif %}</span>
       </li>
       {% endfor %}
     </ul>

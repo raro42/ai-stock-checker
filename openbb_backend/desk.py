@@ -38160,6 +38160,15 @@ def _coerce_desk_signed_pct(value: object) -> Optional[float]:
     return coerce_signed_pct(value)
 
 
+def _coerce_desk_score(value: object) -> Optional[float]:
+    """Refuse bool/gap/NaN scores so Screener cannot invent 0 / True→1.0."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)
+
+
 def _coerce_entry_ts(value: object) -> Optional[float]:
     """Refuse bool/gap/NaN entry stamps so hold age cannot invent ~1970 unlock."""
     from stock_checker.technical_indicators import coerce_unix_ts
@@ -38574,7 +38583,7 @@ def load_desk_snapshot(
                 "name": display_name(str(sym or ""), names),
                 "asset_class": r.get("asset_class"),
                 "strategy": r.get("strategy"),
-                "score": float(r.get("score") or 0),
+                "score": _coerce_desk_score(r.get("score")),
                 "reasoning": r.get("reasoning") or "",
                 "risk_note": r.get("risk_note") or "",
                 "risk_rr": r.get("risk_rr"),
@@ -38589,10 +38598,10 @@ def load_desk_snapshot(
             {
                 "symbol": sym,
                 "name": display_name(str(sym or ""), names),
-                "price": float(r.get("price") or 0),
+                "price": _coerce_desk_mark(r.get("price")),
                 "change_24h": _coerce_desk_signed_pct(r.get("change_24h")),
-                "score": float(r.get("score") or 0),
-                "volume_surge_pct": float(r.get("volume_surge_pct") or 0),
+                "score": _coerce_desk_score(r.get("score")),
+                "volume_surge_pct": _coerce_desk_signed_pct(r.get("volume_surge_pct")),
                 "tradeable": bool(r.get("tradeable", True)),
                 "risk_note": r.get("risk_note") or "",
                 "risk_rr": r.get("risk_rr"),
@@ -38608,7 +38617,7 @@ def load_desk_snapshot(
                 "symbol": sym,
                 "name": display_name(str(sym or ""), names),
                 "sector": r.get("sector") or "",
-                "price": float(r.get("price") or 0),
+                "price": _coerce_desk_mark(r.get("price")),
                 "pct_from_high": _coerce_desk_signed_pct(r.get("pct_from_high")),
                 "strength": r.get("strength") or "",
                 "risk_note": r.get("risk_note") or "",

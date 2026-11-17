@@ -371,7 +371,7 @@
     <li>
       <span class="rank">#{{ r.rank }}</span>
       {{ ticker(r.symbol, r.name) }}
-      <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · score {{ "%.1f"|format(r.score) }}</span>
+      <span class="meta">{{ r.asset_class }} · {{ r.strategy }} · {% if r.score is none %}n/a score{% else %}score {{ "%.1f"|format(r.score) }}{% endif %}</span>
       <span class="why">{{ r.reasoning }}</span>
     </li>
     {% endfor %}
