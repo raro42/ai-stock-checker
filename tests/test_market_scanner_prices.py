@@ -1,10 +1,14 @@
-"""tradermonty #655/#754: scan marks refuse bool/gap/NaN (True→$1 invent)."""
+"""tradermonty #655/#754/#798: scan marks/% refuse bool/gap/NaN invent."""
 
 from __future__ import annotations
 
 import math
 
-from stock_checker.market_scanner import breakout_from_high, coerce_scan_price
+from stock_checker.market_scanner import (
+    breakout_from_high,
+    coerce_scan_price,
+    coerce_signed_pct,
+)
 
 
 def test_coerce_scan_price_refuses_invalid():
@@ -16,6 +20,17 @@ def test_coerce_scan_price_refuses_invalid():
     assert coerce_scan_price(math.nan) is None
     assert coerce_scan_price(None) is None
     assert coerce_scan_price("12.5") is None
+
+
+def test_coerce_signed_pct_refuses_invalid_and_keeps_signed():
+    assert coerce_signed_pct(-1.5) == -1.5
+    assert coerce_signed_pct(0.0) == 0.0
+    assert coerce_signed_pct(2.25) == 2.25
+    assert coerce_signed_pct(True) is None
+    assert coerce_signed_pct(False) is None
+    assert coerce_signed_pct(math.nan) is None
+    assert coerce_signed_pct(None) is None
+    assert coerce_signed_pct("1.2") is None
 
 
 def test_breakout_from_high_refuses_bool_and_gap():

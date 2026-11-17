@@ -25,6 +25,17 @@ def coerce_scan_price(value: object) -> Optional[float]:
     return float(value)
 
 
+def coerce_signed_pct(value: object) -> Optional[float]:
+    """Finite signed % (may be ≤0); never invent flat ``0.0`` / ``True→1.0``.
+
+    tradermonty #798/#655 + xang1234/portfolio AI claim honesty: missing 24h%
+    or pct-from-high is unavailable — do not score as flat or near-high.
+    """
+    if not _finite_signed(value):
+        return None
+    return float(value)
+
+
 def breakout_from_high(
     price: object, high_52w: object
 ) -> Optional[Tuple[float, float, float]]:
@@ -348,8 +359,10 @@ class MarketScanner:
             if price is None:
                 print(f"   ⚠️  Invalid price for {bsym} (unavailable)")
                 continue
-            chg_raw = data.get("change_24h")
-            chg = float(chg_raw) if _finite_signed(chg_raw) else 0.0
+            chg = coerce_signed_pct(data.get("change_24h"))
+            if chg is None:
+                print(f"   ⚠️  Invalid 24h% for {bsym} (unavailable)")
+                continue
             high = coerce_scan_price(data.get("high_24h")) or price
             low = coerce_scan_price(data.get("low_24h")) or price
             if low > high:
@@ -892,16 +905,19 @@ class MarketScanner:
 
         # Top stock breakouts — score band so near-highs can compete with crypto
         # momentum points without raw 24h% domination (review A11).
-        for i, stock in enumerate(breakouts[:3], len(recommendations) + 1):
+        stock_rank = len(recommendations) + 1
+        for stock in breakouts[:3]:
+            pct = coerce_signed_pct(stock.get("pct_from_high"))
+            if pct is None:
+                continue
             risk_bit = stock.get("risk_note") or ""
-            pct = float(stock.get("pct_from_high") or 0)
             reasoning = (
                 f"{stock['strength']} breakout, {pct:+.2f}% from 52w high"
             )
             if risk_bit and risk_bit != "risk n/a":
                 reasoning = f"{reasoning} · {risk_bit}"
             recommendations.append({
-                'rank': i,
+                'rank': stock_rank,
                 'symbol': stock['symbol'],
                 'asset_class': 'stock',
                 'strategy': 'breakout',
@@ -915,6 +931,7 @@ class MarketScanner:
                 'risk_rr_ok': stock.get('risk_rr_ok'),
                 'risk_pct': stock.get('risk_pct'),
             })
+            stock_rank += 1
 
         # Crypto risk notes (volatility as ATR%)
         from stock_checker.atr_risk import note_from_day_range
