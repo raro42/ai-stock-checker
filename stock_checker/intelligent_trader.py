@@ -1320,12 +1320,17 @@ class IntelligentTrader:
                 else:
                     data = fetcher.get_stock_info(symbol)
                     price = data.get("current_price")
-                    if not price:
-                        continue
 
-                # Check P&L before selling
+                # Check P&L before selling — refuse bool/gap marks (True→1.0)
                 avg_buy = self.portfolio.avg_buy_price[symbol]
-                profit_pct = ((price - avg_buy) / avg_buy) * 100
+                profit_pct = unrealized_profit_pct(price, avg_buy)
+                if profit_pct is None:
+                    print(
+                        f"   ⏸️  Skipping {symbol}: invalid mark/cost "
+                        f"(unavailable — refuse rotate on bad price)"
+                    )
+                    continue
+                price = float(price)
 
                 sell_ok, why = should_rebalance_exit(
                     profit_pct=profit_pct,

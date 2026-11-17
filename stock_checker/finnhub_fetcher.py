@@ -1,10 +1,33 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
+import math
+import numbers
 import os
-import requests
 import time
 from collections import deque
-from typing import Optional, Dict
+from typing import Dict, Optional
+
+import requests
+
+
+def finnhub_market_cap_dollars(raw: object) -> Optional[float]:
+    """Finnhub profile ``marketCapitalization`` is millions USD → full dollars.
+
+    tradermonty #810 unit honesty (Elite Market Cap millions): raw millions must
+    not be scored/displayed as dollars — mega-caps otherwise look mid-cap under
+    Yahoo-scale thresholds (e.g. recommender ``<$5B``). Bool/gap/NaN/≤0 → None.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, numbers.Real):
+        return None
+    millions = float(raw)
+    if not math.isfinite(millions) or millions <= 0.0:
+        return None
+    dollars = millions * 1_000_000.0
+    if not math.isfinite(dollars):
+        return None
+    return dollars
 
 
 class FinnhubFetcher:
@@ -93,7 +116,10 @@ class FinnhubFetcher:
                 "day_high": quote.get("h"),
                 "day_low": quote.get("l"),
                 "volume": None,
-                "market_cap": profile.get("marketCapitalization"),
+                # profile2 marketCapitalization is millions — normalize to dollars
+                "market_cap": finnhub_market_cap_dollars(
+                    profile.get("marketCapitalization")
+                ),
                 "pe_ratio": None,
                 "dividend_yield": None,
                 "52_week_high": profile.get("52WeekHigh"),
