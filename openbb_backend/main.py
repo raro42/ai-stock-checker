@@ -27,6 +27,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
     _coerce_desk_cash,
+    _fill_commission,
+    _fill_signed,
     build_breadth_day_meta,
     build_breadth_glance,
     build_ledger_health,
@@ -707,19 +709,31 @@ def trades_table(
     limit: int = Query(40, ge=1, le=200),
     x_api_key: Optional[str] = Header(default=None, alias="X-API-KEY"),
 ):
-    """Recent trades table."""
+    """Recent trades table.
+
+    tradermonty #700/#655 + desk Recent fills: bool/gap/0 qty·price or bad
+    commission/P&L must not invent 1-share / €1 / flat +€1 Workspace rows
+    (``True→1.0``). Damaged rows stay visible with nulls + ``fill_ok=False``.
+    """
     _check_key(x_api_key)
     rows = []
     for t in reversed(_load_trades(limit)):
+        if not isinstance(t, dict):
+            continue
+        qty_ok = long_only_quantity_ok(t.get("quantity"))
+        px_ok = fill_price_ok(t.get("price"))
+        commission = _fill_commission(t.get("commission"))
+        fill_ok = bool(qty_ok and px_ok and commission is not None)
         rows.append(
             {
                 "timestamp": t.get("timestamp"),
                 "type": t.get("type"),
                 "symbol": t.get("symbol"),
-                "quantity": t.get("quantity"),
-                "price": t.get("price"),
-                "commission": t.get("commission"),
-                "profit_loss": t.get("profit_loss"),
+                "quantity": float(t["quantity"]) if qty_ok else None,
+                "price": float(t["price"]) if px_ok else None,
+                "commission": commission,
+                "profit_loss": _fill_signed(t.get("profit_loss")),
+                "fill_ok": fill_ok,
             }
         )
     return rows

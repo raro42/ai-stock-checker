@@ -230,6 +230,97 @@ def test_portfolio_widgets_refuse_invalid_invents(tmp_path: Path, monkeypatch):
     assert "€1.00" not in md  # True must not invent €1 anywhere
 
 
+def test_trades_table_refuses_invalid_invents(tmp_path: Path, monkeypatch):
+    """tradermonty #700/#655: OpenBB trades widget must not invent qty/€1 fills."""
+    data = tmp_path
+    (data / "portfolio.json").write_text(json.dumps({"cash": 1000, "holdings": {}}))
+    (data / "trades.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2026-11-17 10:00:00",
+                        "type": "BUY",
+                        "symbol": "GOOD",
+                        "quantity": 2,
+                        "price": 50,
+                        "commission": 1.25,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-11-17 11:00:00",
+                        "type": "BUY",
+                        "symbol": "BOOLQ",
+                        "quantity": True,
+                        "price": 50,
+                        "commission": 1,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-11-17 12:00:00",
+                        "type": "SELL",
+                        "symbol": "ZEROPX",
+                        "quantity": 1,
+                        "price": 0,
+                        "commission": 1,
+                        "profit_loss": 3,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-11-17 13:00:00",
+                        "type": "SELL",
+                        "symbol": "BOOLFEE",
+                        "quantity": 1,
+                        "price": 20,
+                        "commission": True,
+                        "profit_loss": True,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2026-11-17 14:00:00",
+                        "type": "SELL",
+                        "symbol": "OKSELL",
+                        "quantity": 1,
+                        "price": 30,
+                        "commission": 0,
+                        "profit_loss": -2.5,
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    monkeypatch.setattr(backend, "API_KEY", "")
+
+    rows = backend.trades_table(limit=20)
+    by_sym = {r["symbol"]: r for r in rows}
+    assert by_sym["GOOD"]["fill_ok"] is True
+    assert by_sym["GOOD"]["quantity"] == 2.0
+    assert by_sym["GOOD"]["price"] == 50.0
+    assert by_sym["GOOD"]["commission"] == 1.25
+
+    assert by_sym["BOOLQ"]["fill_ok"] is False
+    assert by_sym["BOOLQ"]["quantity"] is None
+    assert by_sym["BOOLQ"]["price"] == 50.0
+
+    assert by_sym["ZEROPX"]["fill_ok"] is False
+    assert by_sym["ZEROPX"]["price"] is None
+    assert by_sym["ZEROPX"]["quantity"] == 1.0
+
+    assert by_sym["BOOLFEE"]["fill_ok"] is False
+    assert by_sym["BOOLFEE"]["commission"] is None
+    assert by_sym["BOOLFEE"]["profit_loss"] is None
+
+    assert by_sym["OKSELL"]["fill_ok"] is True
+    assert by_sym["OKSELL"]["commission"] == 0.0
+    assert by_sym["OKSELL"]["profit_loss"] == -2.5
+
+
 def test_coerce_desk_mark_refuses_invalid():
     assert _coerce_desk_mark(105.0) == 105.0
     assert _coerce_desk_mark(True) is None
