@@ -26,6 +26,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
+    _coerce_desk_cash,
     build_breadth_day_meta,
     build_breadth_glance,
     build_ledger_health,
@@ -36,6 +37,8 @@ from openbb_backend.desk import (
     resolve_opportunities_archive,
     scan_breadth_pulse_for_day,
 )
+from openbb_backend.charts import _curve_signed
+from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
 from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
 from openbb_backend.repo_meta import load_repo_meta
 
@@ -602,20 +605,34 @@ def apps():
 
 @app.get("/portfolio_table")
 def portfolio_table(x_api_key: Optional[str] = Header(default=None, alias="X-API-KEY")):
-    """Holdings table for OpenBB."""
+    """Holdings table for OpenBB.
+
+    tradermonty #700/#655 + desk Overview: bool/gap qty·avg must not invent
+    1-share / €1 cost rows (``True→1.0``).
+    """
     _check_key(x_api_key)
     portfolio = _load_json(DATA_DIR / "portfolio.json", {})
     holdings = portfolio.get("holdings") or {}
+    if not isinstance(holdings, dict):
+        holdings = {}
     avg = portfolio.get("avg_buy_price") or {}
+    if not isinstance(avg, dict):
+        avg = {}
     rows = []
     for symbol, qty in holdings.items():
-        buy = float(avg.get(symbol, 0) or 0)
+        if not long_only_quantity_ok(qty):
+            continue
+        buy_raw = avg.get(symbol)
+        if not fill_price_ok(buy_raw):
+            continue
+        buy = float(buy_raw)
+        q = float(qty)
         rows.append(
             {
                 "symbol": symbol,
-                "quantity": round(float(qty), 6),
+                "quantity": round(q, 6),
                 "avg_buy_price": round(buy, 4),
-                "cost_basis": round(float(qty) * buy, 2),
+                "cost_basis": round(q * buy, 2),
             }
         )
     rows.sort(key=lambda r: r["cost_basis"], reverse=True)
@@ -626,20 +643,45 @@ def portfolio_table(x_api_key: Optional[str] = Header(default=None, alias="X-API
 def portfolio_markdown(
     x_api_key: Optional[str] = Header(default=None, alias="X-API-KEY"),
 ):
-    """Markdown summary of paper portfolio health."""
+    """Markdown summary of paper portfolio health.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap cash·fees·
+    lots·P&L so OpenBB widgets cannot invent €1 book / flat +€1 realized.
+    """
     _check_key(x_api_key)
     portfolio = _load_json(DATA_DIR / "portfolio.json", {})
     trades = _load_trades(5000)
     sells = [t for t in trades if t.get("type") == "SELL"]
-    fees = float(portfolio.get("total_fees_paid") or 0)
-    realized = sum(float(t.get("profit_loss") or 0) for t in sells)
-    cash = float(portfolio.get("cash") or 0)
-    initial = float(portfolio.get("initial_cash") or 0)
+    fees = _coerce_desk_cash(portfolio.get("total_fees_paid"))
+    if fees is None:
+        fees = 0.0
+    realized = 0.0
+    for t in sells:
+        pl = _curve_signed(t.get("profit_loss"))
+        if pl is not None:
+            realized += pl
+    cash = _coerce_desk_cash(portfolio.get("cash"))
+    if cash is None:
+        cash = 0.0
+    initial = _coerce_desk_cash(portfolio.get("initial_cash"))
+    if initial is None:
+        initial = 0.0
     holdings = portfolio.get("holdings") or {}
-    cost = sum(
-        float(q) * float((portfolio.get("avg_buy_price") or {}).get(s, 0) or 0)
-        for s, q in holdings.items()
-    )
+    if not isinstance(holdings, dict):
+        holdings = {}
+    avg = portfolio.get("avg_buy_price") or {}
+    if not isinstance(avg, dict):
+        avg = {}
+    cost = 0.0
+    n_pos = 0
+    for s, q in holdings.items():
+        if not long_only_quantity_ok(q):
+            continue
+        buy_raw = avg.get(s)
+        if not fill_price_ok(buy_raw):
+            continue
+        cost += float(q) * float(buy_raw)
+        n_pos += 1
     approx_equity = cash + cost
     ret = ((approx_equity / initial) - 1) * 100 if initial else 0.0
 
@@ -649,7 +691,7 @@ def portfolio_markdown(
 - **Cash:** €{cash:,.2f}
 - **Holdings (cost basis):** €{cost:,.2f}
 - **Approx equity:** €{approx_equity:,.2f} ({ret:+.2f}%)
-- **Positions:** {len(holdings)}
+- **Positions:** {n_pos}
 - **Fees paid:** €{fees:,.2f}
 - **Realized P&L (sells):** €{realized:,.2f}
 - **Trades logged:** {len(trades)}

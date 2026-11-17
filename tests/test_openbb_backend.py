@@ -169,6 +169,67 @@ def test_portfolio_endpoints_direct(tmp_path: Path, monkeypatch):
     assert "portfolio_markdown" in widgets
 
 
+def test_portfolio_widgets_refuse_invalid_invents(tmp_path: Path, monkeypatch):
+    """tradermonty #700/#655: OpenBB widgets must not invent €1 from bool marks."""
+    data = tmp_path
+    (data / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": True,
+                "cash": True,
+                "holdings": {"GOOD": 2, "BAD": True, "ZERO": 0},
+                "avg_buy_price": {"GOOD": 50, "BAD": 10, "ZERO": 10, "GHOST": True},
+                "total_fees_paid": True,
+                "last_updated": "2026-11-17T00:00:00",
+            }
+        )
+    )
+    (data / "trades.jsonl").write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-11-17 12:00:00",
+                "type": "SELL",
+                "symbol": "X",
+                "quantity": 1,
+                "price": 10,
+                "commission": 1,
+                "profit_loss": True,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "timestamp": "2026-11-17 13:00:00",
+                "type": "SELL",
+                "symbol": "Y",
+                "quantity": 1,
+                "price": 20,
+                "commission": 1,
+                "profit_loss": 5.5,
+            }
+        )
+        + "\n"
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    monkeypatch.setattr(backend, "API_KEY", "")
+
+    rows = backend.portfolio_table()
+    assert len(rows) == 1
+    assert rows[0]["symbol"] == "GOOD"
+    assert rows[0]["quantity"] == 2.0
+    assert rows[0]["avg_buy_price"] == 50.0
+    assert rows[0]["cost_basis"] == 100.0
+
+    md = backend.portfolio_markdown().body.decode()
+    assert "**Initial capital:** €0.00" in md
+    assert "**Cash:** €0.00" in md
+    assert "**Fees paid:** €0.00" in md
+    assert "**Holdings (cost basis):** €100.00" in md
+    assert "**Positions:** 1" in md
+    assert "**Realized P&L (sells):** €5.50" in md
+    assert "€1.00" not in md  # True must not invent €1 anywhere
+
+
 def test_coerce_desk_mark_refuses_invalid():
     assert _coerce_desk_mark(105.0) == 105.0
     assert _coerce_desk_mark(True) is None
