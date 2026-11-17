@@ -97,6 +97,35 @@ def test_period_return_tolerates_light_interior_hole():
     assert abs(ret - (closes[-1] / closes[0] - 1.0)) < 1e-9
 
 
+def test_period_return_rejects_bool_zero_non_numeric_endpoints():
+    """tradermonty #796/#655: bool/zero/junk anchors are unavailable RS."""
+    lb = 5
+    base = _series(100.0, 0.01, lb + 1)
+
+    bool_end = list(base)
+    bool_end[-1] = True  # float(True)==1.0 must not invent a return
+    assert period_return(bool_end, lb) is None
+    assert anchor_miss_ratio(bool_end, lb) == 1 / float(lb + 1)
+
+    zero_start = list(base)
+    zero_start[0] = 0.0
+    assert period_return(zero_start, lb) is None
+
+    junk_end = list(base)
+    junk_end[-1] = "n/a"
+    assert period_return(junk_end, lb) is None
+    assert anchor_miss_ratio(junk_end, lb) == 1 / float(lb + 1)
+
+    # Fail-open: do not invent lagging from bool-compressed endpoints.
+    bench = _series(100.0, 0.0, lb + 1)
+    ok, why = beats_benchmark(
+        bool_end, bench, lb, asset_label="BOOL", bench_label="SPY"
+    )
+    assert ok
+    assert "anchor gap" in why or "RS unknown" in why
+    assert "lagging" not in why
+
+
 def test_beats_benchmark_fail_open_anchor_gap():
     lb = 5
     bench = _series(100.0, 0.0, lb + 1)

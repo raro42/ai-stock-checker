@@ -11,6 +11,8 @@ from __future__ import annotations
 import os
 from typing import Optional, Sequence, Tuple
 
+from stock_checker.technical_indicators import _valid_close
+
 # ~3 months of sessions (RyanJHamby / Minervini-style RS window).
 DEFAULT_RS_LOOKBACK = 63
 STOCK_BENCHMARK = "SPY"
@@ -67,9 +69,10 @@ def rs_anchor_max_miss() -> float:
 
 def anchor_miss_ratio(closes: Sequence[float], lookback: int) -> Optional[float]:
     """
-    Fraction of non-finite bars in the last lookback+1 *positional* slots.
+    Fraction of unusable bars in the last lookback+1 *positional* slots.
 
-    None when the series is shorter than the window (short-history path).
+    Bool / gap / zero / NaN / non-numeric count as misses (tradermonty #796 /
+    #655 — never ``float(True)→1.0``). None when shorter than the window.
     """
     if lookback <= 0:
         return None
@@ -77,7 +80,7 @@ def anchor_miss_ratio(closes: Sequence[float], lookback: int) -> Optional[float]
     if len(closes) < need:
         return None
     window = closes[-need:]
-    miss = sum(1 for c in window if not _finite(float(c)))
+    miss = sum(1 for c in window if not _valid_close(c))
     return miss / float(need)
 
 
@@ -85,25 +88,24 @@ def period_return(closes: Sequence[float], lookback: int) -> Optional[float]:
     """
     Return over `lookback` steps on a positional window: (last / first) - 1.
 
-    Needs lookback+1 raw slots with finite start+end anchors and miss rate
-    ≤ ``rs_anchor_max_miss()``. Does not drop NaNs to steal older bars
-    (anchor-gap honesty). Returns None if insufficient, gappy, or invalid.
+    Needs lookback+1 raw slots with valid start+end anchors and miss rate
+    ≤ ``rs_anchor_max_miss()``. Does not drop holes to steal older bars
+    (anchor-gap honesty). Returns None if insufficient, gappy, or invalid
+    (tradermonty #796: bool/gap/zero/NaN endpoints are unavailable RS).
     """
     if lookback <= 0:
         return None
     need = lookback + 1
     if len(closes) < need:
         return None
-    window = [float(c) for c in closes[-need:]]
-    miss = sum(1 for c in window if not _finite(c)) / float(need)
+    window = closes[-need:]
+    miss = sum(1 for c in window if not _valid_close(c)) / float(need)
     if miss > rs_anchor_max_miss():
         return None
     start, end = window[0], window[-1]
-    if not _finite(start) or not _finite(end):
+    if not _valid_close(start) or not _valid_close(end):
         return None
-    if start <= 0 or end <= 0:
-        return None
-    return (end / start) - 1.0
+    return (float(end) / float(start)) - 1.0
 
 
 def beats_benchmark(
