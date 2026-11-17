@@ -1,6 +1,9 @@
+import math
+
 from stock_checker.entry_guards import (
     ai_entry_allows,
     breakout_pullback_allows,
+    implied_risk_pct,
     parse_risk_pct_from_note,
     scan_entry_guards,
     scan_risk_allows,
@@ -45,6 +48,29 @@ def test_breakout_allows_pullback_band() -> None:
         {"asset_class": "stock", "strategy": "breakout", "pct_from_high": -2.5}
     )
     assert ok
+
+
+def test_breakout_refuses_bool_nan_pct_fail_open() -> None:
+    """tradermonty #798/#655: True→1.0 must not invent 'too extended'."""
+    for bad in (True, False, math.nan, "n/a"):
+        ok, why = breakout_pullback_allows(
+            {"asset_class": "stock", "strategy": "breakout", "pct_from_high": bad}
+        )
+        assert ok
+        assert "unreadable" in why
+
+
+def test_implied_risk_refuses_bool_nan() -> None:
+    """tradermonty #798/#655: True→1.0 must not invent a 1% implied stop."""
+    assert implied_risk_pct({"risk_pct": True}) is None
+    assert implied_risk_pct({"risk_pct": math.nan}) is None
+    assert implied_risk_pct({"risk_pct": False}) is None
+    assert implied_risk_pct({"risk_pct": -7.2}) == 7.2
+    # Note path still works when risk_pct is unusable.
+    assert (
+        implied_risk_pct({"risk_pct": True, "risk_note": "stop swing (−5.1%)"})
+        == 5.1
+    )
 
 
 def test_scan_risk_blocks_tight_stop() -> None:

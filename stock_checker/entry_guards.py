@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Tuple
 
+from stock_checker.technical_indicators import _finite_signed
+
 # Breakout band: need a real pullback (CACI −0.5% / froth entries hurt Aug 2026).
 BREAKOUT_PCT_MIN = -5.0
 BREAKOUT_PCT_MAX = -2.0
@@ -36,11 +38,9 @@ def parse_risk_pct_from_note(note: str) -> float | None:
 
 def implied_risk_pct(opportunity: Mapping[str, Any]) -> float | None:
     raw = opportunity.get("risk_pct")
-    if raw is not None:
-        try:
-            return abs(float(raw))
-        except (TypeError, ValueError):
-            pass
+    # tradermonty #798/#655: bool/NaN must not invent −1% risk (float(True)→1.0).
+    if _finite_signed(raw):
+        return abs(float(raw))
     parsed = parse_risk_pct_from_note(str(opportunity.get("risk_note") or ""))
     return parsed
 
@@ -80,10 +80,11 @@ def breakout_pullback_allows(
     pct_raw = opportunity.get("pct_from_high")
     if pct_raw is None:
         return True, "no pct_from_high"
-    try:
-        pct = float(pct_raw)
-    except (TypeError, ValueError):
+    # tradermonty #798/#655 + xang1234: bool/NaN cannot invent ±1% pullback
+    # (float(True)→1.0 would false-block as "too extended").
+    if not _finite_signed(pct_raw):
         return True, "pct unreadable"
+    pct = float(pct_raw)
     if pct > BREAKOUT_PCT_MAX:
         return (
             False,
