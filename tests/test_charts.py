@@ -47,6 +47,35 @@ def test_equity_curve_from_fills(tmp_path: Path, monkeypatch):
     assert pts[1]["label"].startswith("BUY")
 
 
+def test_allocation_refuses_invalid_holdings_values(tmp_path: Path, monkeypatch):
+    """Bool/gap allocation value must not invent €1 pie slices / €1 equity divisor."""
+    from openbb_backend.charts import build_allocation
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": True,  # refuse invent €1 cash sleeve
+                "holdings": {"AAPL": 10, "BAD": True},
+                "avg_buy_price": {"AAPL": 100, "BAD": 50},
+                "total_fees_paid": 0,
+            }
+        )
+    )
+    (tmp_path / "trades.jsonl").write_text("")
+    (tmp_path / "archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text("{}")
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    rows = build_allocation(tmp_path)
+    by_sym = {r["symbol"]: r for r in rows}
+    assert "BAD" not in by_sym
+    assert by_sym["AAPL"]["value"] == 1000.0
+    assert by_sym["CASH"]["value"] == 0.0
+    # equity = cash(0) + AAPL(1000); cash weight 0% — not invent divisor €1
+    assert by_sym["CASH"]["weight_pct"] == 0.0
+    assert abs(by_sym["AAPL"]["weight_pct"] - 100.0) < 1e-6
+
+
 def test_equity_curve_refuses_invalid_fills(tmp_path: Path):
     """tradermonty #700/#655: bool/0/gap fills must not invent curve points."""
     import math

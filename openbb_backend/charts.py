@@ -252,26 +252,35 @@ def build_allocation(data_dir: Path) -> list[dict[str, Any]]:
         live_marks=False,
         price_fetcher=lambda _s: {},
     )
-    # Prefer MTM weights from snapshot holdings
+    # Prefer MTM weights from snapshot holdings (refuse bool/gap invent).
     rows = []
     for h in snap.get("holdings") or []:
+        mv = _curve_cash(h.get("market_value"))
+        w = _curve_cash(h.get("weight_pct"))
+        if mv is None:
+            continue
         rows.append(
             {
                 "symbol": h["symbol"],
                 "name": h.get("name") or "",
-                "value": round(float(h.get("market_value") or 0), 2),
-                "weight_pct": round(float(h.get("weight_pct") or 0), 2),
+                "value": round(mv, 2),
+                "weight_pct": round(w if w is not None else 0.0, 2),
                 "kind": h.get("kind") or "stock",
             }
         )
-    cash = float(snap.get("cash") or 0)
-    equity = float(snap.get("equity") or 0) or 1.0
+    cash = _curve_cash(snap.get("cash"))
+    if cash is None:
+        cash = 0.0
+    equity = _curve_cash(snap.get("equity"))
+    if equity is None or equity <= 0.0:
+        equity = cash  # no invent €1 divisor when book equity is unreadable
+    cash_w = (cash / equity * 100) if equity > 0 else 0.0
     rows.append(
         {
             "symbol": "CASH",
             "name": "Cash",
             "value": round(cash, 2),
-            "weight_pct": round(cash / equity * 100, 2),
+            "weight_pct": round(cash_w, 2),
             "kind": "cash",
         }
     )

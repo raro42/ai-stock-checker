@@ -276,6 +276,44 @@ def test_desk_opportunities_signed_pct_refuse_invalid(
     assert sb["stock_within_5pct_high"] == 1  # MSFT only; bool AAPL refused
 
 
+def test_desk_snapshot_refuses_invalid_holdings_cash(tmp_path: Path, monkeypatch):
+    """Bool/gap qty·avg·cash must not invent €1 Overview lots or book cash."""
+    data = tmp_path
+    _seed_portfolio(data)
+    (data / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": True,  # invent €1 start if floated
+                "cash": False,
+                "holdings": {
+                    "AAPL": 10,
+                    "BADQTY": True,
+                    "BADPX": 5,
+                    "ZERO": 0,
+                },
+                "avg_buy_price": {
+                    "AAPL": 100,
+                    "BADQTY": 50,
+                    "BADPX": True,
+                    "ZERO": 10,
+                },
+                "total_fees_paid": True,
+            }
+        )
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    snap = load_desk_snapshot(data, live_marks=False, price_fetcher=lambda _s: {})
+    symbols = {h["symbol"] for h in snap["holdings"]}
+    assert symbols == {"AAPL"}
+    assert snap["cash"] == 0.0
+    assert snap["initial"] == 0.0
+    assert snap["fees"] == 0.0
+    aapl = snap["holdings"][0]
+    assert aapl["quantity"] == 10.0
+    assert aapl["avg_buy"] == 100.0
+    assert aapl["cost_basis"] == 1000.0
+
+
 def test_desk_snapshot_refuses_invalid_opportunity_price_score(
     tmp_path: Path, monkeypatch
 ):

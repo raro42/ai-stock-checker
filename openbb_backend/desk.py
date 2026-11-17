@@ -38153,6 +38153,18 @@ def _coerce_desk_mark(value: object) -> Optional[float]:
     return float(value)  # type: ignore[arg-type]
 
 
+def _coerce_desk_cash(value: object) -> Optional[float]:
+    """Cash / initial / fees: finite ≥0, never bool (``True→€1`` invent)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if not _finite_signed(value):
+        return None
+    c = float(value)
+    if c < 0.0:
+        return None
+    return c
+
+
 def _coerce_desk_signed_pct(value: object) -> Optional[float]:
     """Refuse bool/gap/NaN % so Opportunities cannot invent flat / near-high."""
     from stock_checker.market_scanner import coerce_signed_pct
@@ -38284,9 +38296,16 @@ def load_desk_snapshot(
     opp_path = Path(archive_res["path"])
     opportunities = _load_json(opp_path, {})
 
-    cash = float(portfolio.get("cash") or 0)
-    initial = float(portfolio.get("initial_cash") or 0)
-    fees = float(portfolio.get("total_fees_paid") or 0)
+    # tradermonty #700/#655: bool/gap cash·initial·fees must not invent €1 book.
+    cash = _coerce_desk_cash(portfolio.get("cash"))
+    if cash is None:
+        cash = 0.0
+    initial = _coerce_desk_cash(portfolio.get("initial_cash"))
+    if initial is None:
+        initial = 0.0
+    fees = _coerce_desk_cash(portfolio.get("total_fees_paid"))
+    if fees is None:
+        fees = 0.0
     from stock_checker.trader_config import load_trader_config
 
     cfg_fees = load_trader_config(root)
@@ -38314,13 +38333,29 @@ def load_desk_snapshot(
         or "revolut_standard"
     )
     holdings = portfolio.get("holdings") or {}
+    if not isinstance(holdings, dict):
+        holdings = {}
     avg = portfolio.get("avg_buy_price") or {}
+    if not isinstance(avg, dict):
+        avg = {}
     now = time.time()
+
+    from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+
+    # Usable lots only — bool/0/gap qty·avg cannot invent Overview €1 rows.
+    usable_holdings: dict[str, float] = {}
+    for symbol, qty in holdings.items():
+        if not long_only_quantity_ok(qty):
+            continue
+        buy_raw = avg.get(symbol)
+        if not fill_price_ok(buy_raw):
+            continue
+        usable_holdings[str(symbol)] = float(qty)
 
     scan_prices = _prices_from_scan(opportunities)
     marks = dict(scan_prices)
     mark_source = "scan" if scan_prices else "cost"
-    missing = [s for s in holdings if s not in marks or marks[s] <= 0]
+    missing = [s for s in usable_holdings if s not in marks or marks[s] <= 0]
     if live_marks and missing:
         fetcher = price_fetcher or (
             lambda syms: _fetch_yfinance_prices(syms, timeout_s=4.0)
@@ -38338,9 +38373,8 @@ def load_desk_snapshot(
     rows: list[dict[str, Any]] = []
     cost = 0.0
     market_value = 0.0
-    for symbol, qty in holdings.items():
-        q = float(qty)
-        buy = float(avg.get(symbol, 0) or 0)
+    for symbol, q in usable_holdings.items():
+        buy = float(avg[symbol])
         basis = q * buy
         cost += basis
         last = marks.get(symbol)
