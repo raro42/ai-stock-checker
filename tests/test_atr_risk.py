@@ -55,6 +55,29 @@ def test_average_true_range_close_outside_range_unavailable():
     assert average_true_range(highs, lows, closes, period=14) is None
 
 
+def test_average_true_range_refuses_bool_before_float():
+    """tradermonty #655/#798: True→1.0 must not invent Screener ATR."""
+    highs = [10.0] * 15 + [12.0]
+    lows = [9.0] * 15 + [8.0]
+    closes = [9.5] * 15 + [11.0]
+    highs[4] = True
+    assert average_true_range(highs, lows, closes, period=14) is None
+
+
+def test_risk_reward_refuses_bool_entry_and_atr():
+    """Bool entry/ATR/swing must speak risk n/a — never invent €1 stops."""
+    bad_entry = risk_reward_note(entry=True, atr=2.0)  # type: ignore[arg-type]
+    assert bad_entry["stop"] is None
+    assert str(bad_entry["summary"]).startswith("risk n/a")
+
+    bad_atr = risk_reward_note(entry=100.0, atr=True)  # type: ignore[arg-type]
+    assert bad_atr["stop"] is None
+    assert str(bad_atr["summary"]).startswith("risk n/a")
+
+    bad_swing = risk_reward_note(entry=100.0, atr=None, swing_low=True)  # type: ignore[arg-type]
+    assert bad_swing["stop"] is None
+
+
 def test_risk_reward_prefer_higher_stop():
     note = risk_reward_note(entry=100.0, atr=2.0, swing_low=90.0, atr_mult=2.0)
     # ATR stop = 96; swing stop = 88.2 → prefer ATR (higher)
@@ -91,6 +114,23 @@ def test_note_from_ohlc_rows_refuses_bad_bar_without_compress():
     note = note_from_ohlc_rows(rows, entry=10.0)
     assert note["stop"] is None
     assert str(note["summary"]).startswith("risk n/a")
+
+
+def test_note_from_ohlc_rows_refuses_bool_bar_and_entry():
+    """Bool OHLC/entry must not invent a Wilder ATR R:R note."""
+    rows = [{"high": 11, "low": 9, "close": 10}] * 16
+    rows[2] = {"high": True, "low": 9, "close": 10}
+    assert str(note_from_ohlc_rows(rows, entry=10.0)["summary"]).startswith("risk n/a")
+
+    clean = [{"high": 11, "low": 9, "close": 10}] * 16
+    assert str(note_from_ohlc_rows(clean, entry=True)["summary"]).startswith("risk n/a")  # type: ignore[arg-type]
+
+
+def test_note_from_day_range_refuses_bool_marks():
+    bad = note_from_day_range(entry=True, day_high=52.0, day_low=48.0)  # type: ignore[arg-type]
+    assert bad["stop"] is None
+    bad_hi = note_from_day_range(entry=50.0, day_high=True, day_low=48.0)  # type: ignore[arg-type]
+    assert bad_hi["stop"] is None
 
 
 def test_risk_note_has_vol_and_coverage():

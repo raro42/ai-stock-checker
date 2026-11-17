@@ -9,21 +9,17 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional, Sequence
 
+from stock_checker.technical_indicators import (
+    TechnicalIndicators,
+    _finite_signed,
+    _valid_close,
+    _valid_ohlc_bar,
+)
+
 # Soft Screener framing only — live stock exits use exit_policy TP/SL, not ATR.
 DEFAULT_ATR_MULT = 2.0
 DEFAULT_ATR_TARGET_PCT = 0.20
 DEFAULT_ATR_MIN_RR = 2.0
-
-
-def _finite(x: float) -> bool:
-    return x == x and x not in (float("inf"), float("-inf"))
-
-
-def _valid_ohlc_bar(high: float, low: float, close: float) -> bool:
-    """Positive finite OHLC with high ≥ low and close inside [low, high]."""
-    if not all(_finite(v) and v > 0.0 for v in (high, low, close)):
-        return False
-    return high >= low and low <= close <= high
 
 
 def average_true_range(
@@ -36,16 +32,20 @@ def average_true_range(
     """Wilder ATR (RMA) for Screener notes — same math as ``TechnicalIndicators``.
 
     xang1234 #749: trailing SMA / span-EMA of true range is not Wilder.
-    Display-only; live stock exits stay TP/SL via ``exit_policy``.
+    tradermonty #655/#798: validate OHLC *before* ``float()`` so ``True→1.0``
+    cannot invent a Screener stop. Display-only; live exits stay TP/SL.
     """
-    from stock_checker.technical_indicators import TechnicalIndicators
-
-    try:
-        h = [float(x) for x in highs]
-        lo = [float(x) for x in lows]
-        c = [float(x) for x in closes]
-    except (TypeError, ValueError):
+    if len(highs) != len(lows) or len(highs) != len(closes):
         return None
+    h: list[float] = []
+    lo: list[float] = []
+    c: list[float] = []
+    for hi, low, close in zip(highs, lows, closes):
+        if not _valid_ohlc_bar(hi, low, close):
+            return None
+        h.append(float(hi))
+        lo.append(float(low))
+        c.append(float(close))
     return TechnicalIndicators.calculate_atr(h, lo, c, period=period)
 
 
@@ -75,22 +75,22 @@ def risk_reward_note(
         "stop_type": "none",
         "summary": "risk n/a",
     }
-    try:
-        e = float(entry)
-    except (TypeError, ValueError):
+    # tradermonty #655/#798: never ``float(True)`` → invent €1 entry / stop.
+    if not _valid_close(entry):
         return out
-    if not _finite(e) or e <= 0:
+    if not (_finite_signed(target_pct) and _finite_signed(atr_mult) and _finite_signed(min_rr)):
         return out
+    e = float(entry)
     out["entry"] = e
     out["target"] = e * (1.0 + float(target_pct))
     out["reward_pct"] = float(target_pct) * 100.0
 
     atr_stop = None
-    if atr is not None and _finite(float(atr)) and float(atr) > 0:
+    if atr is not None and _valid_close(atr):
         atr_stop = e - float(atr_mult) * float(atr)
 
     swing_stop = None
-    if swing_low is not None and _finite(float(swing_low)) and float(swing_low) > 0:
+    if swing_low is not None and _valid_close(swing_low):
         swing_stop = float(swing_low) * 0.98
 
     stop = None
@@ -184,32 +184,29 @@ def note_from_day_range(
     """
     atr = None
     swing = None
-    try:
-        e = float(entry)
-    except (TypeError, ValueError):
+    if not _valid_close(entry):
         return risk_reward_note(entry=0.0, atr=None)
+    e = float(entry)
     day_ok = False
     if day_high is not None and day_low is not None:
-        try:
+        # tradermonty/#655 + xang1234 OHLC integrity: entry must sit in
+        # [low, high] or the day range is not a usable ATR/swing proxy.
+        # Validate *before* float so bool/gap cannot invent a day ATR.
+        if _valid_ohlc_bar(day_high, day_low, e):
             hi, lo = float(day_high), float(day_low)
-            # tradermonty/#655 + xang1234 OHLC integrity: entry must sit in
-            # [low, high] or the day range is not a usable ATR/swing proxy.
-            if _valid_ohlc_bar(hi, lo, e) and hi > lo:
+            if hi > lo:
                 atr = hi - lo
                 swing = lo
                 day_ok = True
-        except (TypeError, ValueError):
-            atr = None
-            swing = None
-    if atr is None and volatility_pct is not None and _finite(float(volatility_pct)):
-        # Treat quoted volatility % as a rough ATR% of price.
+    if atr is None and volatility_pct is not None and _finite_signed(volatility_pct):
+        # Treat quoted volatility % as a rough ATR% of price (signed ok; abs).
         atr = e * (abs(float(volatility_pct)) / 100.0)
+        if not _valid_close(atr):
+            atr = None
     # Bare day_low without a coherent day OHLC must not invent a swing stop.
     if swing is None and not day_ok and day_low is not None and day_high is None:
-        try:
+        if _valid_close(day_low):
             swing = float(day_low)
-        except (TypeError, ValueError):
-            swing = None
     return risk_reward_note(entry=e, atr=atr, swing_low=swing)
 
 
@@ -230,21 +227,23 @@ def note_from_ohlc_rows(
         if not isinstance(r, Mapping):
             # Non-bar slot would compress the series — refuse the note.
             return risk_reward_note(entry=entry or 0.0, atr=None)
-        try:
-            h = float(r.get("high", r.get("High")))
-            l = float(r.get("low", r.get("Low")))
-            c = float(r.get("close", r.get("Close")))
-        except (TypeError, ValueError):
+        h_raw = r.get("high", r.get("High"))
+        l_raw = r.get("low", r.get("Low"))
+        c_raw = r.get("close", r.get("Close"))
+        # Validate before float — bool/gap must not compress into Wilder ATR.
+        if not _valid_ohlc_bar(h_raw, l_raw, c_raw):
             return risk_reward_note(entry=entry or 0.0, atr=None)
-        if not _valid_ohlc_bar(h, l, c):
-            # Do not skip bad bars into a shorter ATR window (claim honesty).
-            return risk_reward_note(entry=entry or 0.0, atr=None)
-        highs.append(h)
-        lows.append(l)
-        closes.append(c)
+        highs.append(float(h_raw))
+        lows.append(float(l_raw))
+        closes.append(float(c_raw))
     if not closes:
         return risk_reward_note(entry=entry or 0.0, atr=None)
-    px = float(entry) if entry is not None else closes[-1]
+    if entry is not None:
+        if not _valid_close(entry):
+            return risk_reward_note(entry=0.0, atr=None)
+        px = float(entry)
+    else:
+        px = closes[-1]
     atr = average_true_range(highs, lows, closes, period=atr_period)
     swing = None
     if len(lows) >= 2:
