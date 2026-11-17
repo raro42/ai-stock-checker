@@ -11,14 +11,12 @@ from __future__ import annotations
 import os
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
+from stock_checker.technical_indicators import _finite_signed
+
 # Fraction of directional names that must be "up" (crypto) before new crypto buys.
 DEFAULT_MIN_ADVANCE_RATIO = 0.40
 # Stocks: require at least this many near-high / breakout-ish names on the scan list.
 DEFAULT_MIN_STOCK_LEADERS = 1
-
-
-def _finite(x: float) -> bool:
-    return x == x and x not in (float("inf"), float("-inf"))
 
 
 def breadth_gate_enabled() -> bool:
@@ -59,16 +57,42 @@ def _is_crypto_symbol(symbol: str) -> bool:
 
 
 def _change_pct(row: Mapping[str, Any]) -> Optional[float]:
+    """Signed % for crypto A/D — refuse bool/gap/NaN (``True→1.0`` ≠ up).
+
+    tradermonty #798/#655 + xang1234 breadth: soft gate must not invent advance.
+    """
     for key in ("change_24h", "change_pct", "pct_change", "change"):
         if key not in row or row.get(key) is None:
             continue
-        try:
-            v = float(row[key])
-        except (TypeError, ValueError):
+        raw = row[key]
+        if not _finite_signed(raw):
             continue
-        if _finite(v):
-            return v
+        return float(raw)
     return None
+
+
+def _pct_from_high(row: Mapping[str, Any]) -> Optional[float]:
+    """Near-high % for stock leaders — refuse bool/gap/NaN (``True→1.0`` ≠ leader)."""
+    raw = row.get("pct_from_high")
+    if raw is None:
+        return None
+    if not _finite_signed(raw):
+        return None
+    return float(raw)
+
+
+def _score_near_high_fallback(row: Mapping[str, Any]) -> float:
+    """Infer pct_from_high from enriched score band, else far-from-high.
+
+    Unavailable/bool scores stay non-leaders (99) — never ``True→1.0`` invent.
+    """
+    raw = row.get("score")
+    if not _finite_signed(raw):
+        return 99.0
+    score = float(raw)
+    if 30.0 <= score <= 45.0:
+        return score - 40.0
+    return 99.0
 
 
 def pulse_from_opportunities(
@@ -95,20 +119,10 @@ def pulse_from_opportunities(
                 crypto_down += 1
         else:
             stock_n += 1
-            try:
-                near = float(row.get("pct_from_high")) if row.get("pct_from_high") is not None else None
-            except (TypeError, ValueError):
-                near = None
+            near = _pct_from_high(row)
             if near is None:
                 # Fall back: stock score band is 40 + pct_from_high when enriched.
-                try:
-                    score = float(row.get("score") or 0)
-                except (TypeError, ValueError):
-                    score = 0.0
-                if 30.0 <= score <= 45.0:
-                    near = score - 40.0
-                else:
-                    near = 99.0
+                near = _score_near_high_fallback(row)
             if near <= 5.0:
                 stock_near += 1
     return {

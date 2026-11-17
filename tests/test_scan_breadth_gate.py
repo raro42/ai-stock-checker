@@ -1,5 +1,7 @@
 """Offline tests for scan-list breadth gate."""
 
+import math
+
 from stock_checker.scan_breadth_gate import (
     new_entry_breadth_allowed,
     pulse_from_opportunities,
@@ -19,6 +21,26 @@ def test_pulse_from_opportunities():
     assert pulse["crypto_down"] == 1
     assert pulse["stock_leaders"] == 1
     assert pulse["stock_n"] == 2
+
+
+def test_pulse_refuses_bool_nan_no_invent_breadth():
+    """tradermonty #798/#655 + xang1234: True→1.0 must not invent up / leader."""
+    pulse = pulse_from_opportunities(
+        [
+            {"symbol": "BTC-USD", "change_24h": True},
+            {"symbol": "ETH-USD", "change_24h": math.nan},
+            {"symbol": "SOL-USD", "change_24h": False},
+            {"symbol": "AAPL", "pct_from_high": True, "score": True},
+            {"symbol": "MSFT", "pct_from_high": math.nan},
+            {"symbol": "NVDA", "pct_from_high": 1.0},  # real near-high
+        ]
+    )
+    assert pulse["crypto_up"] == 0
+    assert pulse["crypto_down"] == 0
+    assert pulse["crypto_n"] == 0
+    assert pulse["crypto_missing_chg"] == 3
+    assert pulse["stock_n"] == 3
+    assert pulse["stock_leaders"] == 1
 
 
 def test_crypto_breadth_blocks_when_weak():
