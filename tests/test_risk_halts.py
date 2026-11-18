@@ -1954,6 +1954,18 @@ def test_entry_buy_source_mark_returns_scan_rebal_other_none() -> None:
     assert "src " not in out["note"]
 
 
+def test_normalize_buy_score_refuses_bool() -> None:
+    """tradermonty #700/#655: True→1.0 must not invent a 'lo' buy-score band."""
+    from stock_checker.risk_halts import _normalize_buy_score
+
+    assert _normalize_buy_score(True) == "none"
+    assert _normalize_buy_score(False) == "none"
+    assert _normalize_buy_score(None) == "none"
+    assert _normalize_buy_score(0) == "lo"
+    assert _normalize_buy_score(30.0) == "mid"
+    assert _normalize_buy_score(62.0) == "hi"
+
+
 def test_entry_buy_score_mark_returns_hi_mid_lo_none() -> None:
     from stock_checker.risk_halts import (
         book_risk_report,

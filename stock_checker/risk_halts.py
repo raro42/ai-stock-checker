@@ -2434,11 +2434,12 @@ def entry_buy_source_mark_returns(
 
 def _normalize_buy_score(raw: Any) -> str:
     """Map ledger buy score to hi / mid / lo / none (display only)."""
-    if raw is None or raw == "":
-        return "none"
-    try:
-        sc = float(raw)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import coerce_score
+
+    # tradermonty #700/#655 + xang1234/portfolio AI: bool/gap → none
+    # (never True→1.0 "lo" band on entry-buy score marks).
+    sc = coerce_score(raw)
+    if sc is None:
         return "none"
     if sc >= float(SCAN_SCORE_HI):
         return "hi"

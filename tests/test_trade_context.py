@@ -1,6 +1,17 @@
 from stock_checker.trade_context import buy_note_from_opportunity
 
 
+def test_buy_note_refuses_bool_score() -> None:
+    """tradermonty #700/#655: True→1.0 must not invent a ledger buy score."""
+    ctx = buy_note_from_opportunity(
+        {"strategy": "momentum", "score": True},
+        source="scan",
+    )
+    assert "score" not in ctx
+    ctx0 = buy_note_from_opportunity({"score": 0}, source="scan")
+    assert ctx0["score"] == 0.0
+
+
 def test_buy_note_prefers_scan_reasoning() -> None:
     ctx = buy_note_from_opportunity(
         {

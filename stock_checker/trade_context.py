@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stock_checker.technical_indicators import _finite_signed, coerce_score
+
 NOTE_MAX = 160
 
 
@@ -40,13 +42,9 @@ def buy_note_from_opportunity(
     strategy = str(row.get("strategy") or rec.get("strategy") or "").strip()
     confidence = rec.get("confidence") or row.get("ai_confidence") or row.get("confidence")
 
-    score = None
-    score_raw = rec.get("score", row.get("score"))
-    if score_raw is not None:
-        try:
-            score = round(float(score_raw), 1)
-        except (TypeError, ValueError):
-            score = None
+    # tradermonty #700/#655 + xang1234/portfolio AI: never float(True)→1.0 score.
+    score_raw = coerce_score(rec.get("score", row.get("score")))
+    score = round(score_raw, 1) if score_raw is not None else None
 
     ctx: dict[str, Any] = {"source": str(source)[:24]}
     if strategy:
@@ -69,11 +67,14 @@ def sell_note_from_exit(
 ) -> dict[str, Any]:
     """Short ledger note for SELL rows (Book / audit)."""
     reason = str(exit_reason or "exit")[:24]
+    # Refuse bool/gap so True→+1.0% cannot invent TP/SL note copy.
+    pct = float(profit_pct) if _finite_signed(profit_pct) else None  # type: ignore[arg-type]
+    thr = float(threshold) if _finite_signed(threshold) else None  # type: ignore[arg-type]
     note = ""
-    if reason == "tp" and profit_pct is not None and threshold is not None:
-        note = f"Profit target {profit_pct:+.1f}% (thr +{threshold:g}%)"
-    elif reason == "sl" and profit_pct is not None and threshold is not None:
-        note = f"Stop loss {profit_pct:+.1f}% (thr −{threshold:g}%)"
+    if reason == "tp" and pct is not None and thr is not None:
+        note = f"Profit target {pct:+.1f}% (thr +{thr:g}%)"
+    elif reason == "sl" and pct is not None and thr is not None:
+        note = f"Stop loss {pct:+.1f}% (thr −{thr:g}%)"
     elif reason == "rotation":
         note = detail or "Scan rotation (winner past hurdle)"
     elif reason == "trim":
