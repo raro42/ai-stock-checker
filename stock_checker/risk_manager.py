@@ -4,11 +4,19 @@ Risk management system for intelligent trading.
 Implements stop-loss, position sizing, and drawdown protection.
 
 Display/quarantine helper (A10) — not the live entry sizer. Still refuse
-non-finite / impossible Kelly inputs (tradermonty a1d65fd).
+non-finite / impossible Kelly inputs (tradermonty a1d65fd). ATR stops size
+risk against the cent-rounded reported stop (tradermonty #813).
 """
 
 import math
 from typing import Dict, Optional, Tuple
+
+
+def _positive_finite(x: object) -> bool:
+    """True for finite >0 numbers; bool/NaN refuse (True→1.0 trap)."""
+    if isinstance(x, bool) or not isinstance(x, (int, float)):
+        return False
+    return math.isfinite(float(x)) and float(x) > 0.0
 
 
 class RiskManager:
@@ -104,23 +112,30 @@ class RiskManager:
             atr: Average True Range (optional, for dynamic stops)
 
         Returns:
-            Stop loss price
+            Stop loss price (cent-rounded). ATR path uses the reported stop
+            for risk_per_share (tradermonty #813); invalid ATR falls back to %.
         """
-        if self.use_atr_stops and atr is not None:
-            # ATR-based stop (more dynamic)
-            stop_distance = atr * self.atr_multiplier
-            stop_price = entry_price - stop_distance
-        else:
-            # Percentage-based stop
-            stop_price = entry_price * (1 - self.stop_loss_pct)
+        if not _positive_finite(entry_price):
+            return 0.0
+        entry = float(entry_price)
+        stop_price: Optional[float] = None
+        if self.use_atr_stops and atr is not None and _positive_finite(atr):
+            if _positive_finite(self.atr_multiplier):
+                raw = entry - float(atr) * float(self.atr_multiplier)
+                reported = round(raw, 2)
+                # Size / track risk at the monetized stop, not atr×mult.
+                if 0.0 < reported < entry:
+                    stop_price = reported
+        if stop_price is None:
+            if not _positive_finite(self.stop_loss_pct) or self.stop_loss_pct >= 1.0:
+                return 0.0
+            stop_price = round(entry * (1.0 - float(self.stop_loss_pct)), 2)
+            if not (0.0 < stop_price < entry):
+                return 0.0
 
         self.stop_losses[symbol] = stop_price
-        self.entry_prices[symbol] = entry_price
-
-        # Calculate risk for this position
-        risk_per_share = entry_price - stop_price
-        self.position_risks[symbol] = risk_per_share
-
+        self.entry_prices[symbol] = entry
+        self.position_risks[symbol] = entry - stop_price
         return stop_price
 
     def check_stop_loss(self, symbol: str, current_price: float) -> bool:

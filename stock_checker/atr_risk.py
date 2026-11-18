@@ -106,25 +106,32 @@ def risk_reward_note(
     elif swing_stop is not None:
         stop, stop_type = swing_stop, "swing"
 
-    if stop is None or stop >= e:
+    if stop is None:
         out["summary"] = "risk n/a (stop ≥ entry)"
         return out
 
-    risk = e - stop
+    # tradermonty #813: report risk against the monetized (cent) stop, not
+    # raw atr×mult — display stop and −risk% must agree with €stop.2f.
+    reported = round(float(stop), 2)
+    if not (0.0 < reported < e):
+        out["summary"] = "risk n/a (stop ≥ entry)"
+        return out
+
+    risk = e - reported
     risk_pct = risk / e
     reward = out["target"] - e
     rr = reward / risk if risk > 0 else None
-    out["stop"] = stop
+    out["stop"] = reported
     out["stop_type"] = stop_type
     out["risk_pct"] = risk_pct * 100.0
     out["rr"] = rr
     out["rr_ok"] = bool(rr is not None and rr >= float(min_rr))
     flag = "ok" if out["rr_ok"] else "thin"
     out["summary"] = (
-        f"stop {stop_type} €{stop:.2f} (−{risk_pct*100:.1f}%) · "
+        f"stop {stop_type} €{reported:.2f} (−{risk_pct*100:.1f}%) · "
         f"tgt +{target_pct*100:.0f}% · R:R {rr:.1f} ({flag})"
         if rr is not None
-        else f"stop {stop_type} €{stop:.2f}"
+        else f"stop {stop_type} €{reported:.2f}"
     )
     return out
 

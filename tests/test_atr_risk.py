@@ -87,6 +87,17 @@ def test_risk_reward_prefer_higher_stop():
     assert note["rr"] is not None and note["rr"] >= 2.0
 
 
+def test_risk_reward_uses_reported_cent_stop():
+    """tradermonty #813: −risk% from rounded €stop, not raw atr×mult."""
+    # entry 5 · atr 0.024 · mult 1.5 → raw 4.964 → report 4.96 · risk 0.04
+    note = risk_reward_note(entry=5.0, atr=0.024, atr_mult=1.5)
+    assert note["stop_type"] == "atr"
+    assert note["stop"] == 4.96
+    assert note["risk_pct"] == pytest.approx(0.8, rel=1e-9)
+    assert "€4.96" in str(note["summary"])
+    assert "−0.8%" in str(note["summary"])
+
+
 def test_note_from_day_range_and_ohlc():
     day = note_from_day_range(entry=50.0, day_high=52.0, day_low=48.0)
     assert day["stop"] is not None
