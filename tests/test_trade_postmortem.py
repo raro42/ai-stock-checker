@@ -227,3 +227,54 @@ def test_closed_rounds_unobserved_zero_or_nan_buy_skips() -> None:
     assert all(is_unobserved_postmortem(r) for r in rounds)
     assert all(r["profit_loss"] is None for r in rounds)
     assert all(r["accounting"] == ACCOUNTING_SKIPPED for r in rounds)
+
+
+def test_closed_rounds_refuses_bool_qty_and_price() -> None:
+    """tradermonty #700/#655: bool must not invent 1-share / $1 postmortem fills."""
+    # Bool qty on BUY/SELL → drop the row (no invent lot / unmatched remainder).
+    assert (
+        closed_rounds(
+            [
+                {
+                    "type": "BUY",
+                    "symbol": "BOOL",
+                    "quantity": True,
+                    "price": 100,
+                    "timestamp": "2026-11-10T10:00:00+00:00",
+                },
+                {
+                    "type": "SELL",
+                    "symbol": "BOOL",
+                    "quantity": True,
+                    "price": 110,
+                    "timestamp": "2026-11-11T10:00:00+00:00",
+                },
+            ]
+        )
+        == []
+    )
+    # Bool price → unobserved (not a measured $1→€100 invent).
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "FAKE",
+            "quantity": 1,
+            "price": True,
+            "timestamp": "2026-11-10T10:00:00+00:00",
+            "note": "Bool buy",
+        },
+        {
+            "type": "SELL",
+            "symbol": "FAKE",
+            "quantity": 1,
+            "price": 100,
+            "timestamp": "2026-11-11T10:00:00+00:00",
+            "exit_reason": "tp",
+        },
+    ]
+    rounds = closed_rounds(trades)
+    assert len(rounds) == 1
+    assert is_unobserved_postmortem(rounds[0]) is True
+    assert rounds[0]["buy_price"] is None
+    assert rounds[0]["profit_loss"] is None
+    assert rounds[0]["accounting"] == ACCOUNTING_SKIPPED

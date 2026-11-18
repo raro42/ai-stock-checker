@@ -10,10 +10,11 @@ skip accounting — never invent a flat or −100% mark from empty fills.
 
 from __future__ import annotations
 
-import math
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from typing import Any, Deque, Mapping, Optional
+
+from .portfolio import fill_price_ok, long_only_quantity_ok
 
 QTY_EPS = 1e-9
 DEFAULT_LIMIT = 12
@@ -27,16 +28,19 @@ ACCOUNTING_SKIPPED = "skipped"
 
 
 def _observed_price(raw: Any) -> Optional[float]:
-    """Finite price > 0, else None (do not coerce missing → 0)."""
-    if raw is None or raw == "":
+    """Finite price > 0, else None (never bool / gap / NaN → $1 invent)."""
+    # tradermonty #700/#655 + xang1234/portfolio AI: float(True)==1.0 must not
+    # invent a measured fill for postmortem P&L.
+    if raw is None or raw == "" or not fill_price_ok(raw):
         return None
-    try:
-        price = float(raw)
-    except (TypeError, ValueError):
+    return float(raw)  # type: ignore[arg-type]
+
+
+def _observed_qty(raw: Any) -> Optional[float]:
+    """Finite qty > 0, else None (never bool → 1-share invent)."""
+    if not long_only_quantity_ok(raw):
         return None
-    if not math.isfinite(price) or price <= QTY_EPS:
-        return None
-    return price
+    return float(raw)  # type: ignore[arg-type]
 
 
 def _parse_ts(raw: Any) -> Optional[datetime]:
@@ -102,11 +106,8 @@ def closed_rounds(
         sym = str(raw.get("symbol") or "").strip().upper()
         if not sym:
             continue
-        try:
-            qty = float(raw.get("quantity") or 0)
-        except (TypeError, ValueError):
-            continue
-        if qty <= QTY_EPS:
+        qty = _observed_qty(raw.get("quantity"))
+        if qty is None:
             continue
 
         if side == "BUY":
