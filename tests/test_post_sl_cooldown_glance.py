@@ -22,6 +22,37 @@ def test_post_sl_glance_clear_without_sl() -> None:
     assert "4h" in g["line"]
 
 
+def test_post_sl_glance_refuses_bool_epoch_cooldown() -> None:
+    """tradermonty #700/#655: True→1970 epoch / True→1s cooldown must not invent."""
+    now = 1_000_000.0
+    # Bool epoch → treat as no SL (not invent ~1970 clear age).
+    g = build_post_sl_cooldown_glance("AAPL", True, now=now)  # type: ignore[arg-type]
+    assert g["ready"] is True
+    assert g["tone"] == "clear"
+    assert g["active"] is False
+    assert "no recent SL" in g["line"]
+    # Bool cooldown → default 4h (not invent 1s / off from False).
+    g2 = build_post_sl_cooldown_glance(
+        "EXPE",
+        now - 1800.0,
+        cooldown_seconds=True,  # type: ignore[arg-type]
+        now=now,
+    )
+    assert g2["ready"] is True
+    assert g2["active"] is True
+    assert g2["tone"] == "active"
+    assert g2["cooldown_hours"] == 4.0
+    g3 = build_post_sl_cooldown_glance(
+        "EXPE",
+        now - 1800.0,
+        cooldown_seconds=False,  # type: ignore[arg-type]
+        now=now,
+    )
+    assert g3["ready"] is True
+    assert g3["active"] is True
+    assert g3["cooldown_hours"] == 4.0
+
+
 def test_post_sl_glance_off() -> None:
     g = build_post_sl_cooldown_glance("AAPL", 1.0, cooldown_seconds=0)
     assert g["ready"] is True

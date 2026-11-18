@@ -11,6 +11,19 @@ def test_daily_loss_glance_empty_without_capital() -> None:
     assert g["ready"] is False
 
 
+def test_daily_loss_glance_refuses_bool_pnl_capital_threshold() -> None:
+    """tradermonty #700/#655: True→€1 PnL / €1 start / 1% halt must not invent."""
+    assert build_daily_loss_glance(True, 100_000.0)["ready"] is False  # type: ignore[arg-type]
+    assert build_daily_loss_glance(-100.0, True)["ready"] is False  # type: ignore[arg-type]
+    assert build_daily_loss_glance(False, 100_000.0)["ready"] is False  # type: ignore[arg-type]
+    # Damaged threshold falls back to default 2% (not invent "off" from False).
+    g = build_daily_loss_glance(50.0, 100_000.0, threshold_pct=False)  # type: ignore[arg-type]
+    assert g["ready"] is True
+    assert g["tone"] == "clear"
+    assert g["threshold_pct"] == 2.0
+    assert "−2%" in g["line"] or "-2%" in g["line"]
+
+
 def test_daily_loss_glance_clear() -> None:
     g = build_daily_loss_glance(50.0, 100_000.0)
     assert g["ready"] is True

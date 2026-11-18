@@ -32552,14 +32552,14 @@ def build_post_sl_cooldown_glance(
     Not a new entry gate.
     """
     from stock_checker.risk_halts import DEFAULT_POST_SL_COOLDOWN_SEC
+    from stock_checker.technical_indicators import _finite_signed
 
-    try:
-        cd = float(
-            cooldown_seconds
-            if cooldown_seconds is not None
-            else DEFAULT_POST_SL_COOLDOWN_SEC
-        )
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→1s cooldown / True→1970 epoch.
+    if cooldown_seconds is None:
+        cd = float(DEFAULT_POST_SL_COOLDOWN_SEC)
+    elif _finite_signed(cooldown_seconds):
+        cd = float(cooldown_seconds)  # type: ignore[arg-type]
+    else:
         cd = float(DEFAULT_POST_SL_COOLDOWN_SEC)
     hold_h = cd / 3600.0 if cd > 0 else 0.0
     hold_txt = f"{hold_h:g}h" if hold_h != int(hold_h) else f"{int(hold_h)}h"
@@ -32574,11 +32574,18 @@ def build_post_sl_cooldown_glance(
             "cooldown_hours": 0.0,
             "expiring_soon": False,
         }
-    ts_now = float(now if now is not None else time.time())
-    try:
-        epoch = float(last_sl_epoch) if last_sl_epoch is not None else None
-    except (TypeError, ValueError):
+    if now is None or not _finite_signed(now):
+        ts_now = float(time.time())
+    else:
+        ts_now = float(now)  # type: ignore[arg-type]
+    if last_sl_epoch is None or not _finite_signed(last_sl_epoch):
         epoch = None
+    else:
+        epoch = float(last_sl_epoch)  # type: ignore[arg-type]
+    if expiry_warn_seconds is None or not _finite_signed(expiry_warn_seconds):
+        warn_sec = float(DEFAULT_COOLDOWN_EXPIRY_WARN_SEC)
+    else:
+        warn_sec = float(expiry_warn_seconds)  # type: ignore[arg-type]
     sym = str(last_sl_symbol or "").strip().upper()
     if epoch is None:
         return {
@@ -32611,7 +32618,7 @@ def build_post_sl_cooldown_glance(
         }
     left_txt = _fmt_cooldown_left(left)
     bit = f"{sym} " if sym else ""
-    expiring = _cooldown_expiring_soon(left, warn_seconds=expiry_warn_seconds)
+    expiring = _cooldown_expiring_soon(left, warn_seconds=warn_sec)
     if expiring:
         tone = "expiring"
         line = (
@@ -32647,6 +32654,7 @@ def build_daily_loss_glance(
     Pretrade FAIL when tripped; this line shows headroom before that. Not a new gate.
     """
     from stock_checker.risk_halts import DEFAULT_DAILY_LOSS_PCT
+    from stock_checker.technical_indicators import _finite_signed
 
     empty = {
         "ready": False,
@@ -32658,17 +32666,24 @@ def build_daily_loss_glance(
         "halted": False,
         "ratio": 0.0,
     }
-    try:
-        pnl_v = float(realized_pnl) if realized_pnl is not None else 0.0
-        init_v = float(initial) if initial is not None else 0.0
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→€1 PnL / €1 capital / 1% halt.
+    if realized_pnl is None:
+        pnl_v = 0.0
+    elif _finite_signed(realized_pnl):
+        pnl_v = float(realized_pnl)  # type: ignore[arg-type]
+    else:
         return empty
+    if initial is None or not _finite_signed(initial):
+        return empty
+    init_v = float(initial)  # type: ignore[arg-type]
     if init_v <= 0:
         return empty
-    try:
-        thr = abs(float(threshold_pct if threshold_pct is not None else DEFAULT_DAILY_LOSS_PCT))
-    except (TypeError, ValueError):
-        thr = float(DEFAULT_DAILY_LOSS_PCT)
+    if threshold_pct is None:
+        thr = abs(float(DEFAULT_DAILY_LOSS_PCT))
+    elif _finite_signed(threshold_pct):
+        thr = abs(float(threshold_pct))  # type: ignore[arg-type]
+    else:
+        thr = abs(float(DEFAULT_DAILY_LOSS_PCT))
     if thr <= 0:
         return {
             "ready": True,
