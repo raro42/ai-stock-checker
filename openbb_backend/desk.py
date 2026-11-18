@@ -33791,6 +33791,16 @@ def build_improve_tick_glance(
     }
 
 
+def _fee_allowance_int(raw: object) -> int:
+    """Non-negative count, or 0 when bool/gap — never ``int(True)→1`` free leg."""
+    if isinstance(raw, bool) or raw is None:
+        return 0
+    try:
+        return max(0, int(raw))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+
+
 def build_fee_allowance_glance(
     runtime: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -33813,18 +33823,10 @@ def build_fee_allowance_glance(
     }
     if not isinstance(runtime, dict):
         return empty
-    try:
-        free = max(0, int(runtime.get("free_legs_per_month") or 0))
-    except (TypeError, ValueError):
-        free = 0
-    try:
-        remaining = max(0, int(runtime.get("fee_allowance_remaining") or 0))
-    except (TypeError, ValueError):
-        remaining = 0
-    try:
-        used = max(0, int(runtime.get("fee_allowance_used") or 0))
-    except (TypeError, ValueError):
-        used = 0
+    # tradermonty #700/#655: refuse bool — int(True) invents 1 free leg / used.
+    free = _fee_allowance_int(runtime.get("free_legs_per_month"))
+    remaining = _fee_allowance_int(runtime.get("fee_allowance_remaining"))
+    used = _fee_allowance_int(runtime.get("fee_allowance_used"))
     if "fee_allowance_remaining" not in runtime and free > 0:
         remaining = max(0, free - used)
     elif free > 0:
@@ -33879,6 +33881,8 @@ def build_fee_burn_glance(
     known, fees vs realized sell P&L so friends see churn eat edge before the
     2% pretrade WARN. Not an entry gate.
     """
+    from stock_checker.technical_indicators import _finite_signed
+
     empty = {
         "ready": False,
         "tone": "flat",
@@ -33890,20 +33894,30 @@ def build_fee_burn_glance(
         "realized": None,
         "fees_gt_realized": False,
     }
-    try:
-        fee_v = float(fees) if fees is not None else 0.0
-        init_v = float(initial) if initial is not None else 0.0
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→€1 fees / €1 start / flat €1 P&L.
+    if fees is None:
+        fee_v = 0.0
+    elif _finite_signed(fees):
+        fee_v = float(fees)  # type: ignore[arg-type]
+    else:
         return empty
+    if initial is None or not _finite_signed(initial):
+        return empty
+    init_v = float(initial)  # type: ignore[arg-type]
     if fee_v <= 0 or init_v <= 0:
         return empty
     realized_v: float | None
-    try:
-        realized_v = float(realized_pnl) if realized_pnl is not None else None
-    except (TypeError, ValueError):
+    if realized_pnl is None:
+        realized_v = None
+    elif _finite_signed(realized_pnl):
+        realized_v = float(realized_pnl)  # type: ignore[arg-type]
+    else:
         realized_v = None
     ratio = fee_v / init_v
-    thr = float(threshold) if threshold > 0 else 0.02
+    if _finite_signed(threshold) and float(threshold) > 0:  # type: ignore[arg-type]
+        thr = float(threshold)  # type: ignore[arg-type]
+    else:
+        thr = 0.02
     fees_gt = bool(realized_v is not None and fee_v > realized_v)
     high = ratio >= thr or fees_gt
     tone = "warn" if high else "quiet"

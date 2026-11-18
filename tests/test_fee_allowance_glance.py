@@ -15,6 +15,25 @@ def test_fee_allowance_glance_empty() -> None:
     assert "crypto fees not modeled" in g["line"]
 
 
+def test_fee_allowance_glance_refuses_bool_counts() -> None:
+    """tradermonty #700/#655: int(True)→1 free leg / used must not invent quota."""
+    g = build_fee_allowance_glance(
+        {
+            "fee_preset": "revolut_standard",
+            "free_legs_per_month": True,
+            "fee_allowance_remaining": True,
+            "fee_allowance_used": False,
+            "fee_allowance_month": "2026-11",
+        }
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "none"
+    assert g["free_legs"] == 0
+    assert g["remaining"] == 0
+    assert g["used"] == 0
+    assert "no free legs" in g["line"]
+
+
 def test_fee_allowance_glance_open() -> None:
     g = build_fee_allowance_glance(
         {

@@ -12,6 +12,24 @@ def test_fee_burn_glance_empty() -> None:
     assert build_fee_burn_glance(-1, 10_000)["ready"] is False
 
 
+def test_fee_burn_glance_refuses_bool_fees_capital_realized() -> None:
+    """tradermonty #700/#655: True→€1 fees / €1 start / €1 P&L must not invent."""
+    assert build_fee_burn_glance(True, 10_000.0)["ready"] is False  # type: ignore[arg-type]
+    assert build_fee_burn_glance(50.0, True)["ready"] is False  # type: ignore[arg-type]
+    assert build_fee_burn_glance(False, 10_000.0)["ready"] is False  # type: ignore[arg-type]
+    # Damaged realized stays silent (no invent fees>P&L from True→€1).
+    g = build_fee_burn_glance(50.0, 10_000.0, realized_pnl=True)  # type: ignore[arg-type]
+    assert g["ready"] is True
+    assert g["realized"] is None
+    assert g["fees_gt_realized"] is False
+    assert "P&L" not in g["line"]
+    # Damaged threshold falls back to 2% (not invent "off" from False).
+    g2 = build_fee_burn_glance(50.0, 10_000.0, threshold=False)  # type: ignore[arg-type]
+    assert g2["ready"] is True
+    assert g2["tone"] == "quiet"
+    assert g2["high"] is False
+
+
 def test_fee_burn_glance_quiet() -> None:
     g = build_fee_burn_glance(50.0, 10_000.0)
     assert g["ready"] is True
