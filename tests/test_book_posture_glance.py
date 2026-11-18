@@ -51,7 +51,7 @@ def test_book_posture_glance_overweight_next_trim_winner() -> None:
 
 
 def test_book_posture_glance_refuses_bool_pct_for_trim() -> None:
-    """Bool unrealized_pct must not invent True→+1% into weak-winner trim pick."""
+    """Bool unrealized_pct must not invent True→+1% or flat 0% into trim pick."""
     hold = 100_000.0
     rows = [
         {"symbol": "BOOL", "held_seconds": hold, "unrealized_pct": True},
@@ -63,9 +63,22 @@ def test_book_posture_glance_refuses_bool_pct_for_trim() -> None:
     ]
     g = build_book_posture_glance(rows, max_positions=5, min_hold_hours=24)
     assert g["posture"] == "overweight"
-    # True→1.0 would beat WEAK 0.5 as "weakest winner"; refuse keeps BOOL at 0.
+    # True→1.0 would beat WEAK 0.5; inventing flat 0% would also distort ranking.
     assert g["trim_symbol"] == "WEAK"
     assert "BOOL" not in g["line"]
+
+
+def test_book_posture_glance_bool_only_trim_paused() -> None:
+    """All-bool marks → trim paused (not invent flat 0% worst-mark trim)."""
+    hold = 100_000.0
+    rows = [
+        {"symbol": f"B{i}", "held_seconds": hold, "unrealized_pct": True}
+        for i in range(6)
+    ]
+    g = build_book_posture_glance(rows, max_positions=5, min_hold_hours=24)
+    assert g["posture"] == "overweight"
+    assert g["trim_symbol"] == ""
+    assert "trim paused" in g["line"]
 
 
 def test_book_posture_glance_overweight_trim_paused_min_hold() -> None:

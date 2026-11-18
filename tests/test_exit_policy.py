@@ -132,6 +132,36 @@ def test_pick_overweight_trim_none_past_min_hold():
     assert "min hold" in why2
 
 
+def test_pick_overweight_trim_refuses_bool_hold_and_pct():
+    """tradermonty #700/#655: True must not invent +1% winner or 1s past-hold."""
+    import math
+
+    from stock_checker.exit_policy import pick_overweight_trim_candidate
+
+    pick, why = pick_overweight_trim_candidate(
+        [
+            {"symbol": "BOOL_PCT", "profit_pct": True, "hold_seconds": 90000},
+            {"symbol": "BOOL_HOLD", "profit_pct": 3.0, "hold_seconds": True},
+            {"symbol": "NAN", "profit_pct": math.nan, "hold_seconds": 90000},
+            {"symbol": "WEAK", "profit_pct": 0.5, "hold_seconds": 90000},
+            {"symbol": "LOSE", "profit_pct": -2.0, "hold_seconds": 90000},
+        ],
+        min_hold_seconds=14400,
+    )
+    assert pick == "WEAK"
+    assert "winner" in why
+
+    none, why2 = pick_overweight_trim_candidate(
+        [
+            {"symbol": "BOOL", "profit_pct": True, "hold_seconds": 90000},
+            {"symbol": "FLAT", "profit_pct": False, "hold_seconds": 90000},
+        ],
+        min_hold_seconds=14400,
+    )
+    assert none is None
+    assert "min hold" in why2
+
+
 def test_crypto_price_floor():
     assert crypto_entry_price_ok(1.0)
     assert crypto_entry_price_ok(64000)

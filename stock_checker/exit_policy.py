@@ -14,7 +14,24 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, Set, Tuple
 
-from .technical_indicators import _valid_close
+from .technical_indicators import _finite_signed, _valid_close
+
+
+def _coerce_hold_seconds(value: object) -> Optional[float]:
+    """Hold age seconds, or None when bool/gap/NaN/negative (``True→1s`` invent)."""
+    if value is None or not _finite_signed(value):
+        return None
+    hold = float(value)  # type: ignore[arg-type]
+    if hold < 0.0:
+        return None
+    return hold
+
+
+def _coerce_profit_pct(value: object) -> Optional[float]:
+    """Unrealized %, or None when bool/gap/NaN (``True→+1%`` invent)."""
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
 
 # Gross % moves (price vs avg buy), before commission.
 # Asymmetric on purpose (Aug 2026): thin +3% rotates lost to −5% stops.
@@ -139,18 +156,23 @@ def pick_overweight_trim_candidate(
     - Returns one candidate; caller may loop until at_cap while eligible.
     """
     eligible: list[tuple[float, str]] = []
+    try:
+        need = max(0.0, float(min_hold_seconds))
+    except (TypeError, ValueError):
+        need = 0.0
     for row in rows or []:
         if not isinstance(row, dict):
             continue
         sym = row.get("symbol")
         if not sym:
             continue
-        try:
-            hold = float(row.get("hold_seconds") or 0)
-            pnl = float(row.get("profit_pct"))
-        except (TypeError, ValueError):
+        # tradermonty #700/#655 + xang1234/portfolio AI: never float(or 0) /
+        # True→+1% winner or True→1s past-min-hold into overweight trim.
+        hold = _coerce_hold_seconds(row.get("hold_seconds"))
+        pnl = _coerce_profit_pct(row.get("profit_pct"))
+        if hold is None or pnl is None:
             continue
-        if hold < float(min_hold_seconds):
+        if hold < need:
             continue
         eligible.append((pnl, str(sym)))
 

@@ -1013,13 +1013,16 @@ class IntelligentTrader:
             row = next(m for m in still if m["symbol"] == pick)
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             quantity = self.portfolio.holdings[pick]
+            from .exit_policy import _coerce_profit_pct
+
+            trim_pct = _coerce_profit_pct(row.get("profit_pct"))
             result = self._sell_position(
                 pick,
                 float(row["price"]),
                 quantity,
                 timestamp,
                 exit_reason="trim",
-                profit_pct=float(row.get("profit_pct") or 0),
+                profit_pct=trim_pct,
                 detail=why,
             )
             if not result["success"]:

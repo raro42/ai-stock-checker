@@ -27826,6 +27826,8 @@ def build_book_posture_glance(
     ``suggest_trim=False`` when marks are cost-flat. Display only — not a new gate.
     """
     from stock_checker.exit_policy import (
+        _coerce_hold_seconds,
+        _coerce_profit_pct,
         book_action_mode,
         pick_overweight_trim_candidate,
     )
@@ -27848,19 +27850,24 @@ def build_book_posture_glance(
             sym = str(r.get("symbol") or "").strip()
             if not sym:
                 continue
-            held = r.get("held_seconds")
-            if held is None:
-                held = r.get("hold_seconds")
-            try:
-                held_s = max(0.0, float(held)) if held is not None else 0.0
-            except (TypeError, ValueError):
-                held_s = 0.0
+            held_raw = r.get("held_seconds")
+            if held_raw is None:
+                held_raw = r.get("hold_seconds")
+            # Missing hold → 0 (fail-closed vs min-hold); bool/NaN → skip trim.
+            if held_raw is None:
+                held_s: float | None = 0.0
+            else:
+                held_s = _coerce_hold_seconds(held_raw)
             pnl_raw = r.get("unrealized_pct")
             if pnl_raw is None:
                 pnl_raw = r.get("profit_pct")
-            # Refuse bool/NaN — never invent True→+1% into trim ranking.
-            pnl_ok = _fill_signed(pnl_raw)
-            pnl = 0.0 if pnl_ok is None else pnl_ok
+            # Refuse bool/NaN — never invent True→+1% or flat 0% into trim.
+            pnl = _coerce_profit_pct(pnl_raw)
+            if held_s is None or pnl is None:
+                rows.append(
+                    {"symbol": sym, "hold_seconds": 0.0, "profit_pct": None}
+                )
+                continue
             rows.append(
                 {
                     "symbol": sym,
@@ -27889,15 +27896,25 @@ def build_book_posture_glance(
             if pick:
                 trim_sym = str(pick)
                 trim_why = str(why or "")
-                pnl = next(
-                    (float(r["profit_pct"]) for r in rows if r["symbol"] == pick),
-                    0.0,
+                pnl_v = next(
+                    (
+                        r["profit_pct"]
+                        for r in rows
+                        if r["symbol"] == pick and r.get("profit_pct") is not None
+                    ),
+                    None,
                 )
                 kind = "winner" if "winner" in trim_why.lower() else "worst"
-                line = (
-                    f"live overweight {slots} · next trim {trim_sym} "
-                    f"({pnl:+.1f}% {kind})"
-                )
+                if pnl_v is None:
+                    line = (
+                        f"live overweight {slots} · next trim {trim_sym} "
+                        f"(n/a% {kind})"
+                    )
+                else:
+                    line = (
+                        f"live overweight {slots} · next trim {trim_sym} "
+                        f"({float(pnl_v):+.1f}% {kind})"
+                    )
             else:
                 trim_why = str(why or "no trim candidates past min hold")
                 line = f"live overweight {slots} · trim paused (min-hold)"
@@ -33950,9 +33967,11 @@ def apply_min_hold_lock_fields(
         row["min_hold_left"] = ""
         row["min_hold_note"] = "no entry"
         return row
-    try:
-        held_s = max(0.0, float(held))
-    except (TypeError, ValueError):
+    from stock_checker.exit_policy import _coerce_hold_seconds
+
+    # tradermonty #700/#655: bool/NaN hold must not invent True→1s past-unlock.
+    held_s = _coerce_hold_seconds(held)
+    if held_s is None:
         row["past_min_hold"] = False
         row["min_hold_left_seconds"] = None
         row["min_hold_left"] = ""
@@ -33999,6 +34018,8 @@ def build_min_hold_lock_glance(
         hold_h = float(min_hold_hours or 0)
     except (TypeError, ValueError):
         hold_h = 0.0
+    from stock_checker.exit_policy import _coerce_hold_seconds
+
     hold_s = max(4.0, hold_h) * 3600.0 if hold_h > 0 else 0.0
     timed: list[dict[str, Any]] = []
     ghost_n = 0
@@ -34012,9 +34033,8 @@ def build_min_hold_lock_glance(
         if held is None:
             ghost_n += 1
             continue
-        try:
-            held_s = max(0.0, float(held))
-        except (TypeError, ValueError):
+        held_s = _coerce_hold_seconds(held)
+        if held_s is None:
             ghost_n += 1
             continue
         left = max(0.0, hold_s - held_s)
