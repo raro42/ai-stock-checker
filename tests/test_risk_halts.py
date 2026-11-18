@@ -2523,6 +2523,42 @@ def test_entry_concentration_mark_returns_at_vs_under() -> None:
     assert no_equity["entry_conc_unknown_lots"] == 1
     assert no_equity["entry_conc_marks_ready"] is False
 
+    # Bool MV must not invent True→€1 weight (falls back to cost → at-cap).
+    bool_mv = entry_concentration_mark_returns(
+        [
+            {
+                "symbol": "AAPL",
+                "kind": "stock",
+                "cost_basis": 40_000,
+                "market_value": True,  # type: ignore[dict-item]
+                "unrealized_pct": -2.0,
+                "marked": True,
+            }
+        ],
+        equity=100_000,
+        max_name_pct=30.0,
+    )
+    assert bool_mv["entry_conc_at_lots"] == 1
+    assert bool_mv["entry_conc_under_lots"] == 0
+    assert bool_mv["entry_conc_at_pct"] == -2.0
+
+    bool_equity = entry_concentration_mark_returns(
+        [
+            {
+                "symbol": "AAPL",
+                "kind": "stock",
+                "cost_basis": 40_000,
+                "market_value": 40_000,
+                "unrealized_pct": -2.0,
+                "marked": True,
+            }
+        ],
+        equity=True,  # type: ignore[arg-type]
+        max_name_pct=30.0,
+    )
+    assert bool_equity["entry_conc_unknown_lots"] == 1
+    assert bool_equity["entry_conc_marks_ready"] is False
+
     out = book_risk_report(
         cash=45_000,
         equity=100_000,

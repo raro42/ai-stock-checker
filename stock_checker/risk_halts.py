@@ -2916,19 +2916,23 @@ def _entry_concentration_bucket(
     max_name_pct: float,
 ) -> str | None:
     """at / under soft single-name cap from market weight; None if unreadable."""
-    if equity <= 0 or max_name_pct <= 0:
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655 + xang1234/portfolio AI: never True→€1 equity/cap.
+    if not _finite_signed(equity) or not _finite_signed(max_name_pct):
         return None
-    try:
-        mv = float(h.get("market_value") or 0.0)
-    except (TypeError, ValueError):
+    equity_f = float(equity)  # type: ignore[arg-type]
+    cap = abs(float(max_name_pct))  # type: ignore[arg-type]
+    if equity_f <= 0 or cap <= 0:
         return None
-    if mv <= 0:
-        # Fall back to cost when mark is missing (cost-flat desk rows).
+    # Refuse bool/gap MV invents; missing mark → cost basis (cost-flat desk).
+    mv = _holding_money(h.get("market_value"))
+    if mv is None:
         mv = _holding_cost_basis(h)
     if mv <= 0:
         return None
-    weight_pct = (mv / equity) * 100.0
-    if weight_pct >= max_name_pct:
+    weight_pct = (mv / equity_f) * 100.0
+    if weight_pct >= cap:
         return "at"
     return "under"
 
@@ -2947,10 +2951,13 @@ def entry_concentration_mark_returns(
     → skipped. Cluster n on labels. Strip only; not a new gate — live soft
     halt stays ``concentration_allows``.
     """
-    try:
-        equity_f = float(equity)
-        cap = abs(float(max_name_pct))
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: bool/gap equity must not invent True→€1 book.
+    if _finite_signed(equity) and _finite_signed(max_name_pct):
+        equity_f = float(equity)  # type: ignore[arg-type]
+        cap = abs(float(max_name_pct))  # type: ignore[arg-type]
+    else:
         equity_f = 0.0
         cap = 0.0
     bands: dict[str, dict[str, Any]] = {
