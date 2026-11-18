@@ -10,7 +10,7 @@ import os
 import re
 from typing import Any
 
-from stock_checker.technical_indicators import daily_pct_change
+from stock_checker.technical_indicators import coerce_score, daily_pct_change
 
 
 def multi_role_enabled() -> bool:
@@ -106,10 +106,10 @@ def consensus_from_multi_role(payload: dict, symbol: str) -> dict[str, Any]:
     confidence = str(payload.get("confidence", "LOW")).upper()
     if confidence not in {"HIGH", "MEDIUM", "LOW"}:
         confidence = "LOW"
-    try:
-        score = int(float(payload.get("score", 0)))
-    except (TypeError, ValueError):
-        score = 0
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap invent
+    # (True→1); missing/invalid → flat 0 (HOLD-safe).
+    sc = coerce_score(payload.get("score"))
+    score = int(sc) if sc is not None else 0
     score = max(-100, min(100, score))
     reasoning = str(payload.get("reasoning") or "multi-role consensus")
 

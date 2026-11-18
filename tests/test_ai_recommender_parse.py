@@ -68,6 +68,18 @@ def test_parse_json_response():
     assert out["parse_mode"] == "json"
 
 
+def test_parse_json_score_refuses_bool():
+    """tradermonty #700/#655: True must not invent score 1."""
+    rec = _parser()
+    out = rec._parse_ai_response(
+        '{"action":"BUY","confidence":"HIGH","score":true,"reasoning":"bad"}',
+        {"symbol": "AAPL"},
+    )
+    assert out["parse_mode"] == "json"
+    assert out["score"] == 0
+    assert out["action"] == "BUY"
+
+
 def test_parse_text_response():
     rec = _parser()
     text = "ACTION: SELL\nCONFIDENCE: MEDIUM\nSCORE: -20\nREASONING: Extended rally"

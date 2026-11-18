@@ -8,7 +8,11 @@ from typing import Dict
 
 from stock_checker.ai_analyzer import make_analyzer
 from stock_checker.secret_redact import redact_secrets, safe_exc_text
-from stock_checker.technical_indicators import _valid_close, daily_pct_change
+from stock_checker.technical_indicators import (
+    _valid_close,
+    coerce_score,
+    daily_pct_change,
+)
 
 
 def _ai_verbose() -> bool:
@@ -198,10 +202,10 @@ class AIRecommender:
                 confidence = str(payload.get("confidence", "LOW")).upper()
                 if confidence not in {"HIGH", "MEDIUM", "LOW"}:
                     confidence = "LOW"
-                try:
-                    score = int(float(payload.get("score", 0)))
-                except (TypeError, ValueError):
-                    score = 0
+                # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap
+                # invent (True→1); missing/invalid → flat 0 (HOLD-safe).
+                sc = coerce_score(payload.get("score"))
+                score = int(sc) if sc is not None else 0
                 score = max(-100, min(100, score))
                 reasoning = str(payload.get("reasoning") or payload.get("reason") or "No reasoning")
                 return {

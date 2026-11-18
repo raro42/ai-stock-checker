@@ -45,6 +45,25 @@ def test_bull_bear_disagreement_hold():
     assert out["confidence"] == "MEDIUM"
 
 
+def test_consensus_score_refuses_bool():
+    """tradermonty #700/#655: True must not invent consensus score 1."""
+    out = consensus_from_multi_role(
+        {
+            "bull": {"bias": "BUY", "note": "up"},
+            "bear": {"bias": "HOLD", "note": "ok"},
+            "risk": {"ok": True, "note": "fine"},
+            "action": "BUY",
+            "confidence": "HIGH",
+            "score": True,
+            "reasoning": "bool score",
+        },
+        "AAPL",
+    )
+    assert out["action"] == "BUY"
+    assert out["score"] == 0
+    assert out["multi_role_gated"] is False
+
+
 def test_parse_multi_role_json():
     raw = """```json
 {"bull":{"bias":"HOLD","note":"meh"},"bear":{"bias":"HOLD","note":"meh"},

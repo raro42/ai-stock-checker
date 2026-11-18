@@ -79,6 +79,27 @@ def test_parse_system_one_answers() -> None:
     assert parsed["fee_churn"] == 0.15
 
 
+def test_parse_system_one_refuses_bool_edge_fee_probs() -> None:
+    """tradermonty #700/#655: True must not invent edge 1 / fee 1 / prob 1."""
+    parsed = parse_system_one_answers(
+        {
+            "answers": {
+                "entry": {
+                    "choice": "pass",
+                    "probabilities": {"pass": True, "hold": 0.2, "reject": False},
+                },
+                "edge": {"score": True},
+                "fee_churn": {"noul": True},
+            }
+        }
+    )
+    assert parsed["edge_score"] is None
+    assert parsed["fee_churn"] is None
+    assert "pass" not in parsed["probabilities"]
+    assert "reject" not in parsed["probabilities"]
+    assert parsed["probabilities"]["hold"] == 0.2
+
+
 def test_evaluate_fail_open_when_not_configured(monkeypatch) -> None:
     monkeypatch.delenv("LAYA_BASE_URL", raising=False)
     monkeypatch.delenv("JEV_BASE_URL", raising=False)

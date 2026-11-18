@@ -20,7 +20,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from stock_checker.technical_indicators import daily_pct_change
+from stock_checker.technical_indicators import (
+    _finite_signed,
+    coerce_score,
+    daily_pct_change,
+)
 
 DECISION_FILE = "laya_decisions.json"
 DECISION_CAP = 40
@@ -165,34 +169,23 @@ def parse_system_one_answers(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(probs, dict):
         probs = {}
 
-    edge_score = edge.get("score")
-    try:
-        edge_f = float(edge_score) if edge_score is not None else None
-    except (TypeError, ValueError):
-        edge_f = None
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap invent
+    # (True→1.0 edge / 100% fee churn / True→1.0 probs).
+    edge_f = coerce_score(edge.get("score"))
 
     noul = fee.get("noul")
     if noul is None:
         noul = fee.get("probability")
-    try:
-        fee_churn = float(noul) if noul is not None else None
-    except (TypeError, ValueError):
-        fee_churn = None
+    fee_churn = float(noul) if _finite_signed(noul) else None  # type: ignore[arg-type]
 
     return {
         "entry": choice or None,
-        "probabilities": {str(k): float(v) for k, v in probs.items() if _is_num(v)},
+        "probabilities": {
+            str(k): float(v) for k, v in probs.items() if _finite_signed(v)
+        },
         "edge_score": edge_f,
         "fee_churn": fee_churn,
     }
-
-
-def _is_num(v: Any) -> bool:
-    try:
-        float(v)
-        return True
-    except (TypeError, ValueError):
-        return False
 
 
 def evaluate_paper_entry(
