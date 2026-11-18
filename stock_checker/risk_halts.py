@@ -3243,15 +3243,19 @@ def scan_score_mark_returns(
     if score_by_symbol is None:
         return out
 
+    from stock_checker.technical_indicators import coerce_score
+
     scores: dict[str, float] = {}
     for raw_sym, raw_score in score_by_symbol.items():
         sym = str(raw_sym or "").strip().upper()
         if not sym:
             continue
-        try:
-            scores[sym] = float(raw_score)
-        except (TypeError, ValueError):
+        # tradermonty #700/#655 + xang1234/portfolio AI: bool/gap/NaN must not
+        # invent True→1.0 into lo-band membership (float(True) succeeds).
+        sc = coerce_score(raw_score)
+        if sc is None:
             continue
+        scores[sym] = sc
 
     for h in holdings:
         if not isinstance(h, dict):
@@ -3347,15 +3351,19 @@ def scan_near_high_mark_returns(
     if pct_from_high_by_symbol is None:
         return out
 
+    from stock_checker.technical_indicators import coerce_score
+
     highs: dict[str, float] = {}
     for raw_sym, raw_pct in pct_from_high_by_symbol.items():
         sym = str(raw_sym or "").strip().upper()
         if not sym:
             continue
-        try:
-            highs[sym] = float(raw_pct)
-        except (TypeError, ValueError):
+        # tradermonty #700/#655 + xang1234/portfolio AI: bool/gap/NaN must not
+        # invent True→1.0 into near-high band (float(True) succeeds).
+        pct_h = coerce_score(raw_pct)
+        if pct_h is None:
             continue
+        highs[sym] = pct_h
 
     for h in holdings:
         if not isinstance(h, dict):
@@ -3450,15 +3458,19 @@ def scan_mover_mark_returns(
     if change_by_symbol is None:
         return out
 
+    from stock_checker.technical_indicators import coerce_score
+
     changes: dict[str, float] = {}
     for raw_sym, raw_chg in change_by_symbol.items():
         sym = str(raw_sym or "").strip().upper()
         if not sym:
             continue
-        try:
-            changes[sym] = float(raw_chg)
-        except (TypeError, ValueError):
+        # tradermonty #700/#655 + xang1234/portfolio AI: bool/gap/NaN must not
+        # invent True→1.0 into quiet/hot mover band (float(True) succeeds).
+        chg = coerce_score(raw_chg)
+        if chg is None:
             continue
+        changes[sym] = chg
 
     floor = float(SCAN_MOVER_PCT)
     for h in holdings:

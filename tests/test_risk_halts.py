@@ -2909,6 +2909,35 @@ def test_scan_score_mark_returns_hi_mid_lo_off() -> None:
     # Score marks stay off the glance note (Book strip only)
     assert "score " not in out["note"]
 
+    # Bool/gap scores are unavailable — never invent True→1.0 lo-band.
+    bool_scores = scan_score_mark_returns(
+        [
+            {
+                "symbol": "NVDA",
+                "kind": "stock",
+                "cost_basis": 10_000,
+                "unrealized_pct": 2.0,
+                "marked": True,
+            }
+        ],
+        {"NVDA": True},  # type: ignore[dict-item]
+    )
+    assert bool_scores["scan_score_off_lots"] == 1
+    assert bool_scores["scan_score_lo_lots"] == 0
+    nan_scores = scan_score_mark_returns(
+        [
+            {
+                "symbol": "AAPL",
+                "kind": "stock",
+                "cost_basis": 5_000,
+                "unrealized_pct": 1.0,
+                "marked": True,
+            }
+        ],
+        {"AAPL": float("nan")},
+    )
+    assert nan_scores["scan_score_off_lots"] == 1
+
 
 def test_scan_near_high_mark_returns_near_mid_deep_off() -> None:
     from stock_checker.risk_halts import (
@@ -2998,6 +3027,22 @@ def test_scan_near_high_mark_returns_near_mid_deep_off() -> None:
     assert out["scan_near_high_mid_label"] == "+1.0%×1"
     assert "high " not in out["note"]
 
+    # Bool/gap pct_from_high unavailable — never invent True→1.0 near band.
+    bool_high = scan_near_high_mark_returns(
+        [
+            {
+                "symbol": "NVDA",
+                "kind": "stock",
+                "cost_basis": 10_000,
+                "unrealized_pct": 2.0,
+                "marked": True,
+            }
+        ],
+        {"NVDA": True},  # type: ignore[dict-item]
+    )
+    assert bool_high["scan_near_high_off_lots"] == 1
+    assert bool_high["scan_near_high_near_lots"] == 0
+
 
 def test_scan_mover_mark_returns_hot_cold_quiet_off() -> None:
     from stock_checker.risk_halts import (
@@ -3084,6 +3129,22 @@ def test_scan_mover_mark_returns_hot_cold_quiet_off() -> None:
     assert out["scan_mover_hot_label"] == "+4.0%×1"
     assert out["scan_mover_cold_label"] == "+1.0%×1"
     assert "move " not in out["note"]
+
+    # Bool/gap day-change unavailable — never invent True→1.0 quiet band.
+    bool_move = scan_mover_mark_returns(
+        [
+            {
+                "symbol": "NVDA",
+                "kind": "stock",
+                "cost_basis": 10_000,
+                "unrealized_pct": 2.0,
+                "marked": True,
+            }
+        ],
+        {"NVDA": True},  # type: ignore[dict-item]
+    )
+    assert bool_move["scan_mover_off_lots"] == 1
+    assert bool_move["scan_mover_quiet_lots"] == 0
 
 
 def test_ai_debate_mark_returns_buy_hold_sell_none() -> None:
