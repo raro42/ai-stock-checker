@@ -90,6 +90,40 @@ def test_concentration_glance_refuses_bool_and_nan() -> None:
         assert "AAPL" in g["line"]
 
 
+def test_concentration_glance_refuses_bool_cap_and_open_count() -> None:
+    """tradermonty #700/#655: True→1% cap / False→off / True→1 open invent."""
+    # Bool cap → default 30% (not invent 1% WARN or off).
+    g = build_concentration_glance(
+        {"largest_symbol": "AAPL", "largest_pct": 18.0},
+        max_name_pct=True,  # type: ignore[arg-type]
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "clear"
+    assert g["cap_pct"] == 30.0
+    assert "30%" in g["line"]
+    g_off = build_concentration_glance(
+        {"largest_symbol": "AAPL", "largest_pct": 18.0},
+        max_name_pct=False,  # type: ignore[arg-type]
+    )
+    assert g_off["ready"] is True
+    assert g_off["tone"] == "clear"
+    assert g_off["cap_pct"] == 30.0
+    assert "off" not in g_off["line"]
+    # Bool open_positions alone → empty book (not invent mv unreadable).
+    g_open = build_concentration_glance(
+        {
+            "largest_symbol": "",
+            "largest_pct": None,
+            "open_positions": True,
+            "concentration_warn": False,
+        }
+    )
+    assert g_open["ready"] is True
+    assert g_open["tone"] == "clear"
+    assert "no open names" in g_open["line"]
+    assert "mv unreadable" not in g_open["line"]
+
+
 def test_concentration_glance_open_lots_mv_unreadable() -> None:
     """Open slots with no readable MV ≠ empty-book 'no open names'."""
     g = build_concentration_glance(

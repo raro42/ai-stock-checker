@@ -7279,14 +7279,23 @@ def book_matrix_fold_meta(
         if not book_risk.get(key):
             continue
         if key == "live_rr_marks_ready":
-            try:
-                thin_lots = int(book_risk.get("live_rr_thin_lots") or 0)
-            except (TypeError, ValueError):
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents RR hit/thin.
+            thin_raw = book_risk.get("live_rr_thin_lots")
+            hit_raw = book_risk.get("live_rr_hit_lots")
+            if isinstance(thin_raw, bool) or thin_raw is None:
                 thin_lots = 0
-            try:
-                hit_lots = int(book_risk.get("live_rr_hit_lots") or 0)
-            except (TypeError, ValueError):
+            else:
+                try:
+                    thin_lots = int(thin_raw)
+                except (TypeError, ValueError):
+                    thin_lots = 0
+            if isinstance(hit_raw, bool) or hit_raw is None:
                 hit_lots = 0
+            else:
+                try:
+                    hit_lots = int(hit_raw)
+                except (TypeError, ValueError):
+                    hit_lots = 0
             if hit_lots > 0:
                 hot.append("RR hit")
             elif thin_lots > 0:
@@ -7478,6 +7487,7 @@ def build_concentration_glance(
     30% default so friends see single-name risk before adds. Not a new gate.
     """
     from stock_checker.risk_halts import DEFAULT_MAX_NAME_PCT
+    from stock_checker.technical_indicators import _finite_signed
 
     empty = {
         "ready": False,
@@ -7489,11 +7499,12 @@ def build_concentration_glance(
         "headroom_pp": 0.0,
         "warn": False,
     }
-    try:
-        cap = float(
-            max_name_pct if max_name_pct is not None else DEFAULT_MAX_NAME_PCT
-        )
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→1% cap / False→off invent.
+    if max_name_pct is None:
+        cap = float(DEFAULT_MAX_NAME_PCT)
+    elif _finite_signed(max_name_pct):
+        cap = float(max_name_pct)  # type: ignore[arg-type]
+    else:
         cap = float(DEFAULT_MAX_NAME_PCT)
     if cap <= 0:
         return {
@@ -7508,7 +7519,6 @@ def build_concentration_glance(
         }
     if not isinstance(book_risk, dict):
         return empty
-    from stock_checker.technical_indicators import _finite_signed
 
     sym = str(book_risk.get("largest_symbol") or "").strip().upper()
     # Refuse bool/gap/NaN — never invent flat 0% / True→1% headroom (tradermonty #700/#655).
@@ -7520,9 +7530,16 @@ def build_concentration_glance(
         pct_v = float(raw_pct)
         pct = pct_v if pct_v >= 0.0 else None
     cap_txt = f"{cap:g}"
-    try:
-        open_n = int(book_risk.get("open_positions") or 0)
-    except (TypeError, ValueError):
+    # Refuse bool open count — True→1 invents "mv unreadable" vs empty book.
+    raw_open = book_risk.get("open_positions")
+    if isinstance(raw_open, bool) or raw_open is None:
+        open_n = 0
+    else:
+        try:
+            open_n = int(raw_open)
+        except (TypeError, ValueError):
+            open_n = 0
+    if open_n < 0:
         open_n = 0
     # Open lots with unreadable MV ≠ empty book ("no open names").
     if not sym and open_n > 0 and pct is None:
@@ -27831,12 +27848,16 @@ def build_book_posture_glance(
         book_action_mode,
         pick_overweight_trim_candidate,
     )
-
-    try:
-        max_n = max(1, int(max_positions))
-    except (TypeError, ValueError):
-        max_n = 5
     from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — int(True)→1 slot invents at_cap.
+    if isinstance(max_positions, bool) or not _finite_signed(max_positions):
+        max_n = 5
+    else:
+        try:
+            max_n = max(1, int(max_positions))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            max_n = 5
 
     # tradermonty #700/#655: refuse bool — float(True or 0) invents 1h unlock.
     if _finite_signed(min_hold_hours):

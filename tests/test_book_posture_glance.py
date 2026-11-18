@@ -81,6 +81,23 @@ def test_book_posture_glance_bool_only_trim_paused() -> None:
     assert "trim paused" in g["line"]
 
 
+def test_book_posture_glance_refuses_bool_max_positions() -> None:
+    """tradermonty #700/#655: True→1 slot must not invent at_cap 1/1."""
+    rows = [
+        {"symbol": "AAPL", "held_seconds": 100_000.0, "unrealized_pct": 1.0}
+    ]
+    g = build_book_posture_glance(rows, max_positions=True)  # type: ignore[arg-type]
+    assert g["ready"] is True
+    assert g["max_positions"] == 5
+    assert g["posture"] == "open"
+    assert "1/1" not in g["line"]
+    assert "0/5" not in g["line"]
+    assert "live open 1/5" in g["line"]
+    g_off = build_book_posture_glance(rows, max_positions=False)  # type: ignore[arg-type]
+    assert g_off["max_positions"] == 5
+    assert g_off["posture"] == "open"
+
+
 def test_book_posture_glance_overweight_trim_paused_min_hold() -> None:
     rows = [
         {"symbol": f"S{i}", "held_seconds": 60.0, "unrealized_pct": 3.0}

@@ -92,6 +92,28 @@ def test_book_matrix_fold_meta_rr_thin_hit_warn() -> None:
     assert warn is True
 
 
+def test_book_matrix_fold_meta_refuses_bool_rr_lots() -> None:
+    """tradermonty #700/#655: True→1 thin/hit must not invent RR warn."""
+    meta, warn = book_matrix_fold_meta(
+        {
+            "live_rr_marks_ready": True,
+            "live_rr_thin_lots": True,
+            "live_rr_hit_lots": True,
+        }
+    )
+    assert meta == "quiet · 1 fold · RR"
+    assert warn is False
+    meta2, warn2 = book_matrix_fold_meta(
+        {
+            "live_rr_marks_ready": True,
+            "live_rr_thin_lots": False,
+            "live_rr_hit_lots": False,
+        }
+    )
+    assert meta2 == "quiet · 1 fold · RR"
+    assert warn2 is False
+
+
 def test_book_matrix_fold_meta_clips_storm_and_keeps_rr_hit() -> None:
     ready = {key: True for key, _label in (
         ("entry_session_marks_ready", "Session"),
