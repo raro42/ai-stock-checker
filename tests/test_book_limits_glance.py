@@ -12,6 +12,40 @@ def test_book_limits_glance_empty() -> None:
     assert build_book_limits_glance({"max_positions": 5})["ready"] is False
 
 
+def test_book_limits_glance_refuses_bool_slots_hold() -> None:
+    """tradermonty #700/#655: True→1 slot / True→1h must not invent packaging."""
+    assert (
+        build_book_limits_glance(
+            {
+                "max_positions": True,
+                "min_hold_hours": 24,
+                "fee_preset": "revolut_standard",
+            }
+        )["ready"]
+        is False
+    )
+    assert (
+        build_book_limits_glance(
+            {
+                "max_positions": 5,
+                "min_hold_hours": True,
+                "fee_preset": "revolut_standard",
+            }
+        )["ready"]
+        is False
+    )
+    assert (
+        build_book_limits_glance(
+            {
+                "max_positions": False,
+                "min_hold_hours": False,
+                "fee_preset": "revolut_standard",
+            }
+        )["ready"]
+        is False
+    )
+
+
 def test_book_limits_glance_defaults() -> None:
     g = build_book_limits_glance(
         {

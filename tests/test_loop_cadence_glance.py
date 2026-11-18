@@ -17,6 +17,28 @@ def test_loop_cadence_glance_empty() -> None:
     assert build_loop_cadence_glance({"scan_interval_min": 15})["ready"] is False
 
 
+def test_loop_cadence_glance_refuses_bool_intervals() -> None:
+    """tradermonty #700/#655: True→1m must not invent a live scan/trade cadence."""
+    assert (
+        build_loop_cadence_glance(
+            {"scan_interval_min": True, "trade_interval_min": 5}
+        )["ready"]
+        is False
+    )
+    assert (
+        build_loop_cadence_glance(
+            {"scan_interval_min": 15, "trade_interval_min": True}
+        )["ready"]
+        is False
+    )
+    assert (
+        build_loop_cadence_glance(
+            {"scan_interval_min": False, "trade_interval_min": False}
+        )["ready"]
+        is False
+    )
+
+
 def test_loop_cadence_glance_ok() -> None:
     g = build_loop_cadence_glance(
         {"scan_interval_min": 15, "trade_interval_min": 5}

@@ -32420,13 +32420,21 @@ def build_book_limits_glance(
     }
     if not isinstance(runtime, dict):
         return empty
-    try:
-        slots = int(runtime.get("max_positions") or 0)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — int(True)→1 slot / float(True)→1h.
+    raw_slots = runtime.get("max_positions")
+    if isinstance(raw_slots, bool):
         slots = 0
-    try:
-        hold_h = float(runtime.get("min_hold_hours") or 0)
-    except (TypeError, ValueError):
+    else:
+        try:
+            slots = int(raw_slots)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            slots = 0
+    raw_hold = runtime.get("min_hold_hours")
+    if _finite_signed(raw_hold):
+        hold_h = float(raw_hold)  # type: ignore[arg-type]
+    else:
         hold_h = 0.0
     preset = str(runtime.get("fee_preset") or "").strip().lower()
     if slots < 1 or hold_h <= 0:
@@ -32730,14 +32738,23 @@ def build_loop_cadence_glance(
     }
     if not isinstance(runtime, dict):
         return empty
-    try:
-        scan_m = int(runtime.get("scan_interval_min") or 0)
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — int(True)→1m invents below-floor cadence.
+    raw_scan = runtime.get("scan_interval_min")
+    if isinstance(raw_scan, bool):
         scan_m = 0
-    try:
-        trade_m = int(runtime.get("trade_interval_min") or 0)
-    except (TypeError, ValueError):
+    else:
+        try:
+            scan_m = int(raw_scan)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            scan_m = 0
+    raw_trade = runtime.get("trade_interval_min")
+    if isinstance(raw_trade, bool):
         trade_m = 0
+    else:
+        try:
+            trade_m = int(raw_trade)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            trade_m = 0
     if scan_m < 1 or trade_m < 1:
         return empty
     below = (
