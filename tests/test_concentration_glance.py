@@ -90,6 +90,24 @@ def test_concentration_glance_refuses_bool_and_nan() -> None:
         assert "AAPL" in g["line"]
 
 
+def test_concentration_glance_open_lots_mv_unreadable() -> None:
+    """Open slots with no readable MV ≠ empty-book 'no open names'."""
+    g = build_concentration_glance(
+        {
+            "largest_symbol": "",
+            "largest_pct": None,
+            "open_positions": 2,
+            "concentration_warn": False,
+        }
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["warn"] is True
+    assert g["largest_pct"] is None
+    assert "mv unreadable" in g["line"]
+    assert "no open names" not in g["line"]
+
+
 def test_concentration_glance_in_snapshot(tmp_path) -> None:
     (tmp_path / "portfolio.json").write_text(
         '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '

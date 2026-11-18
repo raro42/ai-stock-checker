@@ -256,21 +256,31 @@ def _format_mark_pct(
     return f"{sign}{abs(pct):.1f}%{n_bit}"
 
 
+def _holding_money(value: object) -> float | None:
+    """Finite € >0 for cost/MV, or None when bool/gap/NaN (never ``True→€1``)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    amount = float(value)  # type: ignore[arg-type]
+    if amount <= 0.0:
+        return None
+    return amount
+
+
 def _holding_cost_basis(h: dict[str, Any]) -> float:
-    try:
-        basis = float(h.get("cost_basis") or 0.0)
-    except (TypeError, ValueError):
-        basis = 0.0
-    if basis > 0:
+    """Cost basis for sleeve weights; 0 when unreadable (not ``True→€1``)."""
+    basis = _holding_money(h.get("cost_basis"))
+    if basis is not None:
         return basis
-    try:
-        return float(h.get("market_value") or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
+    mv = _holding_money(h.get("market_value"))
+    return mv if mv is not None else 0.0
 
 
 def _holding_marked_pct(h: dict[str, Any]) -> float | None:
     """Since-buy unrealized % when the row is marked; else None."""
+    from stock_checker.technical_indicators import _finite_signed
+
     marked = h.get("marked")
     if marked is None:
         # Explicit unrealized_pct without marked flag still counts
@@ -278,10 +288,11 @@ def _holding_marked_pct(h: dict[str, Any]) -> float | None:
         marked = "unrealized_pct" in h
     if not marked:
         return None
-    try:
-        return float(h.get("unrealized_pct"))
-    except (TypeError, ValueError):
+    raw = h.get("unrealized_pct")
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap invents.
+    if raw is None or not _finite_signed(raw):
         return None
+    return float(raw)  # type: ignore[arg-type]
 
 
 def sleeve_mark_returns(holdings: list[dict[str, Any]]) -> dict[str, Any]:
@@ -4277,11 +4288,20 @@ def book_risk_report(
         "ai_roles_marks_ready": False,
         "ai_roles_marks_bit": "",
     }
+    from stock_checker.technical_indicators import _finite_signed
+
     try:
-        cash_f = float(cash)
-        equity_f = float(equity)
+        # Refuse bool cash/equity — ``float(True)==1.0`` invents a €1 book.
+        if (
+            not _finite_signed(cash)
+            or not _finite_signed(equity)
+            or not _finite_signed(max_name_pct)
+        ):
+            raise TypeError("unreadable book money")
+        cash_f = float(cash)  # type: ignore[arg-type]
+        equity_f = float(equity)  # type: ignore[arg-type]
         max_n = int(max_positions)
-        cap_pct = abs(float(max_name_pct))
+        cap_pct = abs(float(max_name_pct))  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return {
             "cash_pct": 0.0,
@@ -4312,14 +4332,16 @@ def book_risk_report(
     cash_pct = (cash_f / equity_f * 100.0) if equity_f > 0 else 0.0
 
     largest_symbol = ""
-    largest_pct = 0.0
+    largest_pct: float | None = 0.0
     equity_mv = 0.0
     crypto_mv = 0.0
+    readable_mv_n = 0
     for h in rows:
-        try:
-            mv = float(h.get("market_value") or 0.0)
-        except (TypeError, ValueError):
-            mv = 0.0
+        # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap MV invents.
+        mv = _holding_money(h.get("market_value"))
+        if mv is None:
+            continue
+        readable_mv_n += 1
         sym = str(h.get("symbol") or "")
         kind = str(h.get("kind") or "")
         if not kind:
@@ -4329,9 +4351,14 @@ def book_risk_report(
         else:
             equity_mv += mv
         w = (mv / equity_f * 100.0) if equity_f > 0 else 0.0
-        if w > largest_pct:
+        if largest_pct is None or w > largest_pct:
             largest_pct = w
             largest_symbol = sym
+
+    # Open lots with no readable MV ≠ empty book / flat 0% largest.
+    if open_n > 0 and readable_mv_n == 0:
+        largest_symbol = ""
+        largest_pct = None
 
     invested = equity_mv + crypto_mv
     if invested > 0:
@@ -4387,10 +4414,16 @@ def book_risk_report(
     ai_debate = ai_debate_mark_returns(rows, ai_actions)
     ai_conf = ai_confidence_mark_returns(rows, ai_confidences)
     ai_roles = ai_gated_mark_returns(rows, ai_gated)
-    concentration_warn = bool(largest_symbol) and largest_pct >= cap_pct
+    concentration_warn = (
+        bool(largest_symbol)
+        and largest_pct is not None
+        and largest_pct >= cap_pct
+    )
     bits = [f"{open_n}/{max_n} slots · {posture}"]
-    if largest_symbol:
+    if largest_symbol and largest_pct is not None:
         bits.append(f"largest {largest_symbol} {largest_pct:.0f}%")
+    elif open_n > 0 and largest_pct is None:
+        bits.append("largest n/a · mv unreadable")
     bits.append(f"cash {cash_pct:.0f}%")
     if invested > 0:
         bits.append(f"mix equity {eq_share:.0f}% / crypto {cr_share:.0f}%")
@@ -4406,7 +4439,9 @@ def book_risk_report(
         "max_positions": max_n,
         "posture": posture,
         "largest_symbol": largest_symbol,
-        "largest_pct": round(largest_pct, 1),
+        "largest_pct": (
+            round(largest_pct, 1) if largest_pct is not None else None
+        ),
         "equity_pct": round(eq_share, 1),
         "crypto_pct": round(cr_share, 1),
         "concentration_warn": concentration_warn,

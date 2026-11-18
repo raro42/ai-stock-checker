@@ -213,6 +213,71 @@ def test_book_risk_report_sleeve_marks_weighted() -> None:
     assert out["tenure_unknown_lots"] == 3
 
 
+def test_book_risk_report_refuses_bool_mv_and_mark_pct() -> None:
+    """tradermonty #700/#655 + xang1234: True→€1 / ±1% must not invent conc/sleeve."""
+    import math
+
+    from stock_checker.risk_halts import book_risk_report, sleeve_mark_returns
+
+    # Bool MV skipped — only readable AAPL owns largest weight.
+    out = book_risk_report(
+        cash=20_000,
+        equity=100_000,
+        max_positions=5,
+        holdings=[
+            {"symbol": "AAPL", "market_value": 10_000, "kind": "stock"},
+            {"symbol": "FAKE", "market_value": True, "kind": "stock"},
+            {"symbol": "GAP", "market_value": math.nan, "kind": "stock"},
+        ],
+    )
+    assert out["largest_symbol"] == "AAPL"
+    assert out["largest_pct"] == 10.0
+    assert out["concentration_warn"] is False
+    assert out["open_positions"] == 3
+
+    # All MV unreadable → largest n/a (not empty-book 0% / invent €1).
+    bad = book_risk_report(
+        cash=20_000,
+        equity=100_000,
+        holdings=[
+            {"symbol": "X", "market_value": True, "kind": "stock"},
+            {"symbol": "Y", "market_value": False, "kind": "crypto"},
+        ],
+        max_positions=5,
+    )
+    assert bad["open_positions"] == 2
+    assert bad["largest_symbol"] == ""
+    assert bad["largest_pct"] is None
+    assert bad["concentration_warn"] is False
+    assert "largest n/a · mv unreadable" in bad["note"]
+
+    # Bool cash/equity → unreadable book inputs (not €1 book).
+    junk = book_risk_report(
+        cash=True,  # type: ignore[arg-type]
+        equity=100_000,
+        holdings=[{"symbol": "AAPL", "market_value": 10_000, "kind": "stock"}],
+    )
+    assert junk["note"] == "unreadable book inputs"
+    assert junk["largest_pct"] == 0.0
+
+    # Bool unrealized_pct → unmarked (—), not invent +1.0%.
+    marks = sleeve_mark_returns(
+        [
+            {
+                "symbol": "AAPL",
+                "kind": "stock",
+                "cost_basis": 10_000,
+                "market_value": 10_000,
+                "unrealized_pct": True,
+                "marked": True,
+            }
+        ]
+    )
+    assert marks["equity_mark_pct"] is None
+    assert marks["equity_mark_label"] == "—×1"
+    assert marks["equity_marked"] == 0
+
+
 def test_tenure_mark_returns_week_month_buckets() -> None:
     from stock_checker.risk_halts import (
         TENURE_MONTH_SEC,

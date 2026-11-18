@@ -7520,6 +7520,25 @@ def build_concentration_glance(
         pct_v = float(raw_pct)
         pct = pct_v if pct_v >= 0.0 else None
     cap_txt = f"{cap:g}"
+    try:
+        open_n = int(book_risk.get("open_positions") or 0)
+    except (TypeError, ValueError):
+        open_n = 0
+    # Open lots with unreadable MV ≠ empty book ("no open names").
+    if not sym and open_n > 0 and pct is None:
+        line = f"n/a · cap {cap_txt}% · mv unreadable"
+        if len(line) > 96:
+            line = line[:95] + "…"
+        return {
+            "ready": True,
+            "tone": "warn",
+            "line": line,
+            "symbol": "",
+            "largest_pct": None,
+            "cap_pct": cap,
+            "headroom_pp": None,
+            "warn": True,
+        }
     if not sym:
         return {
             "ready": True,
