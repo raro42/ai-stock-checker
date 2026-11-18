@@ -76,6 +76,43 @@ def test_allocation_refuses_invalid_holdings_values(tmp_path: Path, monkeypatch)
     assert abs(by_sym["AAPL"]["weight_pct"] - 100.0) < 1e-6
 
 
+def test_chart_finite_refuses_bool_invent():
+    """tradermonty #700/#655: True→1.0 must not invent closes/qty/cash/marks."""
+    import math
+
+    from openbb_backend.charts import _finite
+
+    assert _finite(True) == 0.0
+    assert _finite(False) == 0.0
+    assert math.isnan(_finite(True, default=float("nan")))
+    assert _finite(100) == 100.0
+    assert _finite("12.5") == 12.5
+    assert _finite(None) == 0.0
+    assert math.isnan(_finite("nope", default=float("nan")))
+
+
+def test_chart_next_buy_and_book_risk_refuse_bool_cash(tmp_path: Path):
+    """Charts next-buy / book-risk helpers must not invent €1 via _finite(True)."""
+    from openbb_backend.charts import (
+        _book_risk_report_from_portfolio,
+        _next_buy_glance_from_portfolio,
+    )
+
+    # Pure bool junk — before refuse this invented cash=€1 + 1×€1 lot.
+    portfolio = {
+        "cash": True,
+        "holdings": {"BAD": True},
+        "avg_buy_price": {"BAD": True},
+    }
+    (tmp_path / "trader_config.json").write_text("{}")
+    risk = _book_risk_report_from_portfolio(tmp_path, portfolio)
+    assert risk.get("cash_pct") == 0.0
+    assert risk.get("largest_symbol") == ""
+    next_buy = _next_buy_glance_from_portfolio(tmp_path, portfolio)
+    assert float(next_buy.get("eur") or 0) == 0.0
+    assert next_buy.get("capped_by") in {"", "no_cash", "unreadable"}
+
+
 def test_chart_glances_refuse_invalid_cash_fees_qty(tmp_path: Path, monkeypatch):
     """Fee-burn / posture / min-hold must not invent €1 fees or 1-share slots."""
     import time

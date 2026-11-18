@@ -18,6 +18,10 @@ _CHART_CACHE_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 
 
 def _finite(value: Any, default: float = 0.0) -> float:
+    # tradermonty #700/#655 + xang1234/portfolio AI: bool must not invent
+    # True→1.0 into closes / qty / cash / marks (float(True) succeeds).
+    if isinstance(value, bool):
+        return default
     try:
         n = float(value)
     except (TypeError, ValueError):
