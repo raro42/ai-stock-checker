@@ -59,6 +59,18 @@ AI_MODEL=gemma4:latest
 OLLAMA_AUTOSEARCH_MODEL=gemma4:latest
 ```
 
+### Remote Ollama on amvara8 (desk on amvara3)
+
+amvara3 has no GPU Ollama. amvara8 does. Public `:11434` is firewalled.
+On amvara3, tunnel it over SSH, then use the same `OLLAMA_HOST`:
+
+```bash
+sudo ./scripts/install_ollama_tunnel_amvara8.sh
+# needs root SSH Host "amvara8" that can curl 127.0.0.1:11434 there
+```
+
+See [docs/history/ollama_amvara8_tunnel_2026-11-18.md](docs/history/ollama_amvara8_tunnel_2026-11-18.md).
+
 ### Picks (Ollama)
 
 | Job | Default | Notes |

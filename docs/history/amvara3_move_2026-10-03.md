@@ -24,10 +24,10 @@ ssh -L 7779:127.0.0.1:7779 amvara3
 
 Then open `http://127.0.0.1:7779/desk`.
 
-- `AI_MODE=off` on the server. The host has no Ollama. Do not turn validate mode on until a model is reachable.
-- **2026-11-18:** Ops had flipped `ai_mode` to `validate` anyway; dead Ollama HOLD-filtered every candidate and froze ~€100k cash. Reset to `off`. See `desk_idle_cash_2026-11-18.md`.
+- Local Ollama is not installed on amvara3. Use the amvara8 SSH tunnel (`./scripts/install_ollama_tunnel_amvara8.sh`) and keep `OLLAMA_HOST=http://host.docker.internal:11434`.
+- **2026-11-18:** Ops had flipped `ai_mode` to `validate` with no model path; dead Ollama HOLD-filtered every candidate and froze ~€100k cash. Fixed with fail-open + AI-off breakout guard, then wired amvara8 Ollama via tunnel. See `desk_idle_cash_2026-11-18.md` and `ollama_amvara8_tunnel_2026-11-18.md`.
 - The Mac loops are removed. The LaunchAgent plist is gone, and the Mac `intelligent-trader` and `openbb-backend` containers are removed. The mac-stats overnight harness stays.
-- **2026-10-04:** Linux keep-alive is the systemd timer `ai-stock-checker-overnight-loops` (`./scripts/install_overnight_keepalive.sh`). It brings loops back after reboot. Ollama is still not on this host; the Ollama research loop is skipped while `:11434` is down.
+- **2026-10-04:** Linux keep-alive is the systemd timer `ai-stock-checker-overnight-loops` (`./scripts/install_overnight_keepalive.sh`). It brings loops back after reboot.
 
 ## Certificate
 
