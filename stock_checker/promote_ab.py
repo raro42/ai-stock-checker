@@ -9514,6 +9514,36 @@ def filter_trades_in_window(
     return out
 
 
+def _coerce_window_pnl(value: object) -> float | None:
+    """Signed sell P&L, or None when bool/gap/NaN (never ``True→€1`` / ``or 0``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — Window A WR/Kelly/expectancy
+    must not invent flat €0 or fake wins from unreadable ``profit_loss``.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def _coerce_window_commission(value: object) -> float | None:
+    """Fee ≥0, or None when bool/NaN/negative. Missing → 0.0 (optional field).
+
+    tradermonty #700/#655: ``True→€1`` must not invent fee drag into net edge.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None:
+        return 0.0
+    if not _finite_signed(value):
+        return None
+    fee = float(value)  # type: ignore[arg-type]
+    if fee < 0.0:
+        return None
+    return fee
+
+
 def _dated_decided_pnls(
     sells: Iterable[dict[str, Any]],
 ) -> list[tuple[datetime, float]]:
@@ -9525,11 +9555,8 @@ def _dated_decided_pnls(
         ts = parse_trade_timestamp(sell.get("timestamp"))
         if ts is None:
             continue
-        try:
-            pnl = float(sell.get("profit_loss") or 0)
-        except (TypeError, ValueError):
-            continue
-        if pnl == 0:
+        pnl = _coerce_window_pnl(sell.get("profit_loss"))
+        if pnl is None or pnl == 0:
             continue
         dated.append((ts, pnl))
     dated.sort(key=lambda row: row[0])
@@ -9891,10 +9918,10 @@ def sell_exit_pnl(sells: Iterable[dict[str, Any]]) -> dict[str, float] | None:
         bucket = exit_reason_bucket(row.get("exit_reason"))
         if not bucket:
             continue
-        try:
-            pnl[bucket] += float(row.get("profit_loss") or 0)
-        except (TypeError, ValueError):
+        signed = _coerce_window_pnl(row.get("profit_loss"))
+        if signed is None:
             continue
+        pnl[bucket] += signed
     return {k: round(v, 2) for k, v in pnl.items()}
 
 
@@ -9944,28 +9971,29 @@ def summarize_window_trades(
     window = filter_trades_in_window(trades, start=start_dt, end=end)
     buys = [t for t in window if str(t.get("type") or "").upper() == "BUY"]
     sells = [t for t in window if str(t.get("type") or "").upper() == "SELL"]
-    fees = sum(float(t.get("commission") or 0) for t in window)
-    realized = sum(float(t.get("profit_loss") or 0) for t in sells)
-    sell_fees = sum(float(t.get("commission") or 0) for t in sells)
+    fees = 0.0
+    for t in window:
+        fee = _coerce_window_commission(t.get("commission"))
+        if fee is not None:
+            fees += fee
+    sell_pnls = [_coerce_window_pnl(t.get("profit_loss")) for t in sells]
+    realized = sum(p for p in sell_pnls if p is not None)
+    sell_fees = 0.0
+    for t in sells:
+        fee = _coerce_window_commission(t.get("commission"))
+        if fee is not None:
+            sell_fees += fee
     crypto_legs = sum(
         1 for t in window if is_crypto_symbol(str(t.get("symbol") or ""))
     )
     crypto_closes = sum(
         1 for t in sells if is_crypto_symbol(str(t.get("symbol") or ""))
     )
-    wins = sum(1 for t in sells if float(t.get("profit_loss") or 0) > 0)
-    losses = sum(1 for t in sells if float(t.get("profit_loss") or 0) < 0)
-    flat_closes = sum(1 for t in sells if float(t.get("profit_loss") or 0) == 0)
-    win_pnls = [
-        float(t.get("profit_loss") or 0)
-        for t in sells
-        if float(t.get("profit_loss") or 0) > 0
-    ]
-    loss_pnls = [
-        abs(float(t.get("profit_loss") or 0))
-        for t in sells
-        if float(t.get("profit_loss") or 0) < 0
-    ]
+    wins = sum(1 for p in sell_pnls if p is not None and p > 0)
+    losses = sum(1 for p in sell_pnls if p is not None and p < 0)
+    flat_closes = sum(1 for p in sell_pnls if p is not None and p == 0)
+    win_pnls = [p for p in sell_pnls if p is not None and p > 0]
+    loss_pnls = [abs(p) for p in sell_pnls if p is not None and p < 0]
     avg_win = (sum(win_pnls) / len(win_pnls)) if win_pnls else None
     avg_loss = (sum(loss_pnls) / len(loss_pnls)) if loss_pnls else None
     payoff_ratio = (

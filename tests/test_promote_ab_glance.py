@@ -1247,6 +1247,79 @@ def test_summarize_window_trades_filters_and_fees() -> None:
     assert "3 fills" in bit
 
 
+def test_summarize_window_trades_refuses_bool_gap_pnl_and_fees() -> None:
+    """tradermonty #700/#655 + xang1234/portfolio AI: no True→€1 / or-0 invent."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_START_UTC,
+        _dated_decided_pnls,
+        sell_exit_pnl,
+        summarize_window_trades,
+    )
+
+    trades = [
+        {
+            "timestamp": "2026-08-13 10:00:00",
+            "type": "SELL",
+            "symbol": "OK",
+            "commission": 2.0,
+            "profit_loss": 50.0,
+            "exit_reason": "take_profit",
+        },
+        {
+            "timestamp": "2026-08-13 11:00:00",
+            "type": "SELL",
+            "symbol": "BOOLWIN",
+            "commission": True,  # refuse invent €1 fee
+            "profit_loss": True,  # refuse invent €1 win
+            "exit_reason": "take_profit",
+        },
+        {
+            "timestamp": "2026-08-13 12:00:00",
+            "type": "SELL",
+            "symbol": "GAPFLAT",
+            "commission": None,  # missing fee → 0
+            "profit_loss": None,  # not a flat close
+            "exit_reason": "stop_loss",
+        },
+        {
+            "timestamp": "2026-08-13 13:00:00",
+            "type": "SELL",
+            "symbol": "REALFLAT",
+            "commission": 1.0,
+            "profit_loss": 0.0,
+            "exit_reason": "trim",
+        },
+        {
+            "timestamp": "2026-08-13 14:00:00",
+            "type": "SELL",
+            "symbol": "LOSS",
+            "commission": 1.5,
+            "profit_loss": -20.0,
+            "exit_reason": "stop_loss",
+        },
+    ]
+    s = summarize_window_trades(trades, start=WINDOW_A_START_UTC)
+    assert s["sells"] == 5
+    assert s["fees"] == 4.5  # 2 + 0 + 1 + 1.5 (True skipped)
+    assert s["realized_pnl"] == 30.0  # 50 + 0 + (-20); True/None skipped
+    assert s["wins"] == 1
+    assert s["losses"] == 1
+    assert s["flat_closes"] == 1  # only REALFLAT; None is not flat
+    assert s["avg_win"] == 50.0
+    assert s["avg_loss"] == 20.0
+    assert s["exit_pnl_tp"] == 50.0  # BOOLWIN invent skipped
+    assert s["exit_pnl_sl"] == -20.0  # GAPFLAT invent skipped
+    assert s["exit_pnl_trim"] == 0.0
+    dated = _dated_decided_pnls(trades)
+    assert [(p) for _ts, p in dated] == [50.0, -20.0]
+    assert sell_exit_pnl(trades) == {
+        "tp": 50.0,
+        "sl": -20.0,
+        "rot": 0.0,
+        "trim": 0.0,
+    }
+
+
 def test_format_window_stats_bit_prefers_net_after_all_fees() -> None:
     bit = format_window_stats_bit(
         {
