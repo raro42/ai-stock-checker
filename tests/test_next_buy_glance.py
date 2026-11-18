@@ -70,3 +70,19 @@ def test_next_buy_glance_line_cap() -> None:
     assert g["ready"] is True
     assert len(g["line"]) <= 96
     assert g["line"].endswith("…")
+
+
+def test_next_buy_glance_refuses_bool_eur() -> None:
+    """tradermonty #700/#655: True→€1 must not invent a next-buy line."""
+    g = build_next_buy_glance(
+        {
+            "eur": True,
+            "slots_open": True,
+            "capped_by": "cash_frac",
+            "note": "~10% of cash",
+        }
+    )
+    assert g["ready"] is True
+    assert g["eur"] == 0.0
+    assert g["slots_open"] == 0
+    assert g["line"].startswith("No new buy")

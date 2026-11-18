@@ -67,6 +67,19 @@ def test_daily_loss_halt_allows_small_loss(tmp_path: Path) -> None:
     assert why == "ok"
 
 
+def test_daily_loss_halt_refuses_bool_capital(tmp_path: Path) -> None:
+    """tradermonty #700/#655: True→€1 must not invent a tiny daily-loss base."""
+    (tmp_path / "trades.jsonl").write_text(
+        '{"type":"SELL","timestamp":"2026-08-28 10:00:00","profit_loss":-0.5}\n'
+    )
+    block, why, pnl = daily_loss_halt(
+        tmp_path, initial_cash=True, threshold_pct=2.0, day="2026-08-28"  # type: ignore[arg-type]
+    )
+    assert block is False
+    assert why == "no capital"
+    assert pnl == 0.0
+
+
 def test_concentration_cap() -> None:
     ok, _ = concentration_allows(notional=20_000, portfolio_value=100_000, max_name_pct=30)
     assert ok is True
@@ -134,6 +147,54 @@ def test_suggest_entry_notional_book_full() -> None:
     assert out["eur"] == 0.0
     assert out["capped_by"] == "book_full"
     assert out["slots_open"] == 0
+
+
+def test_suggest_entry_notional_refuses_bool_cash() -> None:
+    """tradermonty #700/#655: True→€1 must not invent a ~€0.10 next-buy."""
+    from stock_checker.risk_halts import suggest_entry_notional
+
+    out = suggest_entry_notional(
+        cash=True,  # type: ignore[arg-type]
+        equity=100_000,
+        open_positions=0,
+        max_positions=5,
+    )
+    assert out["eur"] == 0.0
+    assert out["capped_by"] == "unreadable"
+
+
+def test_buy_cash_frac_refuses_bool_invent() -> None:
+    """tradermonty #700/#655: True cost/cash must not invent fat Buy-% bands."""
+    from stock_checker.risk_halts import _buy_cash_frac_from_row
+
+    assert (
+        _buy_cash_frac_from_row(
+            {"total_cost": 1000.0, "cash_remaining": 9000.0}
+        )
+        == 0.1
+    )
+    assert (
+        _buy_cash_frac_from_row({"total_cost": True, "cash_remaining": 9000.0})
+        is None
+    )
+    assert (
+        _buy_cash_frac_from_row({"total_cost": 1000.0, "cash_remaining": True})
+        is None
+    )
+    assert (
+        _buy_cash_frac_from_row(
+            {"cost": True, "commission": 0.0, "cash_remaining": 9000.0}
+        )
+        is None
+    )
+    assert (
+        _buy_cash_frac_from_row(
+            {"cost": 900.0, "commission": True, "cash_remaining": 9100.0}
+        )
+        is None
+    )
+    # Missing cash_remaining stays unreadable (none band), not invent flat 0.
+    assert _buy_cash_frac_from_row({"total_cost": 500.0}) is None
 
 
 def test_book_risk_report_mix_and_warn() -> None:

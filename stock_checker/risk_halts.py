@@ -7,6 +7,7 @@ Does not change exits. Fail-open on unreadable trade logs.
 from __future__ import annotations
 
 import json
+import numbers
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Tuple
@@ -190,16 +191,18 @@ def daily_loss_halt(
 
     Blocks when realized sell P&L for the UTC day ≤ −threshold_pct of initial cash.
     """
-    try:
-        capital = float(initial_cash)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655 + xang1234/portfolio AI: never True→€1 capital.
+    if not _finite_signed(initial_cash):
         return False, "no capital", 0.0
+    capital = float(initial_cash)  # type: ignore[arg-type]
     if capital <= 0:
         return False, "no capital", 0.0
-    try:
-        thr = abs(float(threshold_pct))
-    except (TypeError, ValueError):
+    if not _finite_signed(threshold_pct):
         thr = DEFAULT_DAILY_LOSS_PCT
+    else:
+        thr = abs(float(threshold_pct))  # type: ignore[arg-type]
     if thr <= 0:
         return False, "halt off", 0.0
 
@@ -221,10 +224,19 @@ def concentration_allows(
     max_name_pct: float = DEFAULT_MAX_NAME_PCT,
 ) -> Tuple[bool, str]:
     """Block a new buy whose notional exceeds max_name_pct of marked equity."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: never True→€1 invent concentration %.
+    if (
+        not _finite_signed(notional)
+        or not _finite_signed(portfolio_value)
+        or not _finite_signed(max_name_pct)
+    ):
+        return True, "unreadable size"
     try:
-        equity = float(portfolio_value)
-        cost = float(notional)
-        cap = abs(float(max_name_pct))
+        equity = float(portfolio_value)  # type: ignore[arg-type]
+        cost = float(notional)  # type: ignore[arg-type]
+        cap = abs(float(max_name_pct))  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return True, "unreadable size"
     if equity <= 0 or cost <= 0 or cap <= 0:
@@ -2021,10 +2033,18 @@ def _buy_fee_events_by_symbol(
             continue
         if "commission" not in raw:
             continue
-        try:
-            fee = float(raw.get("commission") or 0.0)
-        except (TypeError, ValueError):
+        from stock_checker.technical_indicators import _finite_signed
+
+        fee_raw = raw.get("commission")
+        # tradermonty #700/#655: True→€1 must not invent paid vs free entry fees.
+        if fee_raw is None:
+            fee = 0.0
+        elif not _finite_signed(fee_raw):
             continue
+        else:
+            fee = float(fee_raw)  # type: ignore[arg-type]
+            if fee < 0:
+                continue
         out.setdefault(sym, []).append((float(epoch), fee))
     for sym, events in out.items():
         events.sort(key=lambda item: item[0])
@@ -2701,18 +2721,41 @@ def entry_buy_strategy_mark_returns(
 
 
 def _buy_cash_frac_from_row(raw: Mapping[str, Any]) -> float | None:
-    """BUY total_cost / (cash_remaining + total_cost); None if unreadable."""
-    try:
-        total_raw = raw.get("total_cost")
-        if total_raw is None:
-            cost = float(raw.get("cost") or 0.0)
-            commission = float(raw.get("commission") or 0.0)
-            total = cost + commission if cost > 0 else 0.0
+    """BUY total_cost / (cash_remaining + total_cost); None if unreadable.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap/NaN so
+    ``True→€1`` / ``float(… or 0)`` cannot invent fat/ok Buy-% bands.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    total_raw = raw.get("total_cost")
+    if total_raw is None:
+        cost_raw = raw.get("cost")
+        fee_raw = raw.get("commission")
+        if cost_raw is None:
+            return None
+        if not _finite_signed(cost_raw):
+            return None
+        cost = float(cost_raw)  # type: ignore[arg-type]
+        if cost <= 0:
+            return None
+        if fee_raw is None:
+            fee = 0.0
+        elif not _finite_signed(fee_raw):
+            return None
         else:
-            total = float(total_raw)
-        cash_rem = float(raw.get("cash_remaining"))
-    except (TypeError, ValueError):
+            fee = float(fee_raw)  # type: ignore[arg-type]
+            if fee < 0:
+                return None
+        total = cost + fee
+    else:
+        if not _finite_signed(total_raw):
+            return None
+        total = float(total_raw)  # type: ignore[arg-type]
+    cash_raw = raw.get("cash_remaining")
+    if cash_raw is None or not _finite_signed(cash_raw):
         return None
+    cash_rem = float(cash_raw)  # type: ignore[arg-type]
     if total <= 0 or cash_rem < 0:
         return None
     pre_cash = cash_rem + total
@@ -4497,21 +4540,36 @@ def suggest_entry_notional(
     Matches live defaults: ~10% of cash, capped by concentration vs equity
     and by open book slots. Does not place orders.
     """
+    from stock_checker.technical_indicators import _finite_signed
+
+    unreadable = {
+        "eur": 0.0,
+        "cash_frac": 0.10,
+        "slots_open": 0,
+        "capped_by": "unreadable",
+        "note": "unreadable book inputs",
+    }
+    # tradermonty #700/#655 + xang1234/portfolio AI: never True→€1 next-buy.
+    if (
+        not _finite_signed(cash)
+        or not _finite_signed(equity)
+        or not _finite_signed(position_size)
+        or not _finite_signed(max_name_pct)
+        or isinstance(open_positions, bool)
+        or isinstance(max_positions, bool)
+        or not isinstance(open_positions, numbers.Integral)
+        or not isinstance(max_positions, numbers.Integral)
+    ):
+        return unreadable
     try:
-        cash_f = float(cash)
-        equity_f = float(equity)
+        cash_f = float(cash)  # type: ignore[arg-type]
+        equity_f = float(equity)  # type: ignore[arg-type]
         open_n = int(open_positions)
         max_n = int(max_positions)
-        frac = float(position_size)
-        cap_pct = abs(float(max_name_pct))
+        frac = float(position_size)  # type: ignore[arg-type]
+        cap_pct = abs(float(max_name_pct))  # type: ignore[arg-type]
     except (TypeError, ValueError):
-        return {
-            "eur": 0.0,
-            "cash_frac": 0.10,
-            "slots_open": 0,
-            "capped_by": "unreadable",
-            "note": "unreadable book inputs",
-        }
+        return unreadable
 
     if max_n < 1:
         max_n = 1
@@ -4594,9 +4652,16 @@ def pretrade_status(
     except Exception:  # noqa: BLE001
         pass
 
-    ts = float(now if now is not None else _time.time())
+    from stock_checker.technical_indicators import _finite_signed
+
+    clock = now if now is not None else _time.time()
+    ts = float(clock) if _finite_signed(clock) else float(_time.time())
     derived = post_sl_buy_block_until(data_dir)
-    block_until = max(float(buy_block_until or 0.0), derived)
+    # tradermonty #700/#655: never True→1.0 invent a near-epoch cooldown.
+    if _finite_signed(buy_block_until) and float(buy_block_until) > 0:  # type: ignore[arg-type]
+        block_until = max(float(buy_block_until), derived)  # type: ignore[arg-type]
+    else:
+        block_until = derived
     if ts < block_until:
         notes.append("post-SL buy cooldown active")
         level = "WARN"

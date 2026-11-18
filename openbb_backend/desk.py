@@ -34144,14 +34144,26 @@ def build_next_buy_glance(
     capped_by = str(entry_size.get("capped_by") or "").strip()
     if not note and not capped_by:
         return empty
-    try:
-        eur = float(entry_size.get("eur") or 0.0)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655 + xang1234/portfolio AI: never True→€1 next-buy.
+    raw_eur = entry_size.get("eur")
+    if raw_eur is None or not _finite_signed(raw_eur):
         eur = 0.0
-    try:
-        slots_open = max(0, int(entry_size.get("slots_open") or 0))
-    except (TypeError, ValueError):
+    else:
+        eur = float(raw_eur)  # type: ignore[arg-type]
+        if eur < 0:
+            eur = 0.0
+    raw_slots = entry_size.get("slots_open")
+    if (
+        raw_slots is None
+        or isinstance(raw_slots, bool)
+        or not isinstance(raw_slots, (int, float))
+        or not _finite_signed(raw_slots)
+    ):
         slots_open = 0
+    else:
+        slots_open = max(0, int(raw_slots))
     if eur > 0:
         line = f"Next buy ~€{eur:,.0f}"
         if note:

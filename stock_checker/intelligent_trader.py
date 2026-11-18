@@ -188,10 +188,25 @@ class IntelligentTrader:
         try:
             from .risk_halts import pretrade_status
 
+            from .technical_indicators import _finite_signed
+
+            raw_cash = getattr(self.portfolio, "initial_cash", None)
+            # tradermonty #700/#655: never True→€1 / or 0 into daily-loss capital.
+            initial = (
+                float(raw_cash)  # type: ignore[arg-type]
+                if _finite_signed(raw_cash)
+                else 0.0
+            )
+            raw_block = getattr(self, "_buy_block_until", None)
+            block_until = 0.0
+            if _finite_signed(raw_block):
+                ts = float(raw_block)  # type: ignore[arg-type]
+                if ts > 0:
+                    block_until = ts
             level, notes = pretrade_status(
                 str(self.persistence.data_dir),
-                initial_cash=float(getattr(self.portfolio, "initial_cash", 0) or 0),
-                buy_block_until=float(getattr(self, "_buy_block_until", 0.0) or 0.0),
+                initial_cash=initial,
+                buy_block_until=block_until,
             )
             if level != "PASS":
                 print(f"   🧭 Pre-trade gate: {level} — {'; '.join(notes)}")
@@ -219,8 +234,16 @@ class IntelligentTrader:
             return True
         from .risk_halts import daily_loss_halt
 
+        from .technical_indicators import _finite_signed
+
         data_dir = str(self.persistence.data_dir)
-        initial = float(getattr(self.portfolio, "initial_cash", 0) or 0)
+        raw_cash = getattr(self.portfolio, "initial_cash", None)
+        # tradermonty #700/#655: never True→€1 / or 0 into daily-loss capital.
+        initial = (
+            float(raw_cash)  # type: ignore[arg-type]
+            if _finite_signed(raw_cash)
+            else 0.0
+        )
         halt, why, _pnl = daily_loss_halt(data_dir, initial_cash=initial)
         if halt:
             print(f"   ⏸️  New buys paused ({why})")
@@ -230,10 +253,18 @@ class IntelligentTrader:
     def _concentration_ok(self, *, notional: float) -> Tuple[bool, str]:
         from .risk_halts import concentration_allows
 
+        from .technical_indicators import _finite_signed
+
         try:
             equity = float(self.portfolio.get_total_value())
         except Exception:  # noqa: BLE001
-            equity = float(getattr(self.portfolio, "initial_cash", 0) or 0)
+            raw_cash = getattr(self.portfolio, "initial_cash", None)
+            # tradermonty #700/#655: never True→€1 fallback equity.
+            equity = (
+                float(raw_cash)  # type: ignore[arg-type]
+                if _finite_signed(raw_cash)
+                else 0.0
+            )
         return concentration_allows(notional=notional, portfolio_value=equity)
 
     def _arm_post_stop_cooldown(self) -> None:
