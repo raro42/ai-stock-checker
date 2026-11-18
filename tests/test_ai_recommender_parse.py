@@ -70,6 +70,88 @@ def test_trading_prompt_daily_change_refuses_missing_or_bool():
     assert "52-Week Position: 75.0% of range" in ok
 
 
+def test_trading_prompt_pe_volume_refuse_bool():
+    """tradermonty #700/#655: bool P/E/volume must not invent 1.00 / True prints."""
+    rec = _parser()
+    bad = rec._build_trading_prompt(
+        {
+            "symbol": "AAPL",
+            "current_price": 100.0,
+            "pe_ratio": True,
+            "volume": False,
+        }
+    )
+    assert "P/E Ratio:" not in bad
+    assert "Volume:" not in bad
+    assert "3. P/E ratio" not in bad
+
+    ok = rec._build_trading_prompt(
+        {
+            "symbol": "AAPL",
+            "current_price": 100.0,
+            "pe_ratio": 22.5,
+            "volume": 2_500_000,
+        }
+    )
+    assert "P/E Ratio: 22.50" in ok
+    assert "Volume: 2,500,000" in ok
+    assert "3. P/E ratio (valuation)" in ok
+
+
+def test_bitcoin_prompt_refuses_missing_or_bool():
+    """tradermonty #798/#655 + xang1234: never invent flat +0.00 / True→$1 on BTC AI."""
+    rec = _parser()
+    missing = rec._build_bitcoin_prompt({})
+    assert "Current Price: n/a" in missing
+    assert "1-Day Change: n/a" in missing
+    assert "7-Day Change: n/a" in missing
+    assert "30-Day Change: n/a" in missing
+    assert "30-Day Volatility: n/a" in missing
+    assert "52-Week High: n/a" in missing
+    assert "52-Week Low: n/a" in missing
+    assert "52-Week Position: n/a" in missing
+    assert "+0.00" not in missing
+
+    bool_marks = rec._build_bitcoin_prompt(
+        {
+            "current_price": True,
+            "change_1d": False,
+            "change_7d": True,
+            "change_30d": False,
+            "volatility_30d": True,
+            "52_week_high": True,
+            "52_week_low": False,
+        }
+    )
+    assert "Current Price: n/a" in bool_marks
+    assert "1-Day Change: n/a" in bool_marks
+    assert "7-Day Change: n/a" in bool_marks
+    assert "30-Day Volatility: n/a" in bool_marks
+    assert "52-Week Position: n/a" in bool_marks
+    assert "+0.00" not in bool_marks
+    assert "$1.00" not in bool_marks
+
+    ok = rec._build_bitcoin_prompt(
+        {
+            "current_price": 50_000.0,
+            "change_1d": 1.5,
+            "change_7d": -2.0,
+            "change_30d": 4.25,
+            "volatility_30d": 3.5,
+            "52_week_high": 60_000.0,
+            "52_week_low": 40_000.0,
+        }
+    )
+    assert "Current Price: $50,000.00" in ok
+    assert "1-Day Change: +1.50%" in ok
+    assert "7-Day Change: -2.00%" in ok
+    assert "30-Day Change: +4.25%" in ok
+    assert "30-Day Volatility: 3.50%" in ok
+    assert "52-Week High: $60,000.00" in ok
+    assert "52-Week Low: $40,000.00" in ok
+    assert "52-Week Position: 50.0% of range" in ok
+
+
 def test_parse_json_response():
     rec = _parser()
     out = rec._parse_ai_response(

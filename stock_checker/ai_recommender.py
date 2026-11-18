@@ -9,7 +9,9 @@ from typing import Dict
 from stock_checker.ai_analyzer import make_analyzer
 from stock_checker.secret_redact import redact_secrets, safe_exc_text
 from stock_checker.technical_indicators import (
+    _finite_signed,
     _valid_close,
+    _valid_volume,
     coerce_score,
     daily_pct_change,
 )
@@ -176,16 +178,16 @@ class AIRecommender:
             f"52-Week Position: {range_bit}",
         ]
 
-        # Only include P/E ratio if it has a meaningful value
-        if pe_ratio is not None:
-            prompt_lines.append(f"P/E Ratio: {pe_ratio:.2f}")
+        # Bool/gap P/E or volume must not invent 1.00 / 1-share prints (True→1).
+        if _finite_signed(pe_ratio):
+            prompt_lines.append(f"P/E Ratio: {float(pe_ratio):.2f}")
 
-        # Only include volume if available
-        if volume is not None:
-            if volume >= 1_000_000:
-                prompt_lines.append(f"Volume: {volume:,.0f}")
+        if _valid_volume(volume):
+            vol_n = float(volume)
+            if vol_n >= 1_000_000:
+                prompt_lines.append(f"Volume: {vol_n:,.0f}")
             else:
-                prompt_lines.append(f"Volume: {volume}")
+                prompt_lines.append(f"Volume: {vol_n}")
 
         prompt_lines.extend([
             "",
@@ -205,7 +207,7 @@ class AIRecommender:
             "2. Valuation position (52-week range)",
         ])
 
-        if pe_ratio is not None:
+        if _finite_signed(pe_ratio):
             prompt_lines.append("3. P/E ratio (valuation)")
             prompt_lines.append("4. Overall risk/reward")
         else:
@@ -387,29 +389,49 @@ class AIRecommender:
     def _build_bitcoin_prompt(self, btc_data: dict) -> str:
         """Build Bitcoin-specific trading prompt."""
         current_price = btc_data.get("current_price")
-        change_1d = btc_data.get("change_1d", 0)
-        change_7d = btc_data.get("change_7d", 0)
-        change_30d = btc_data.get("change_30d", 0)
-        volatility = btc_data.get("volatility_30d", 0)
         week_52_high = btc_data.get("52_week_high")
         week_52_low = btc_data.get("52_week_low")
 
-        # Calculate position
-        range_position = 0
-        if current_price and week_52_high and week_52_low:
-            range_position = ((current_price - week_52_low) / (week_52_high - week_52_low)) * 100
+        # Missing/bool/gap → n/a (never invent flat +0.00 / True→$1 / 0% vol).
+        def _pct_bit(raw: object) -> str:
+            if not _finite_signed(raw):
+                return "n/a"
+            return f"{float(raw):+.2f}%"
+
+        def _money_bit(raw: object) -> str:
+            if not _valid_close(raw):
+                return "n/a"
+            return f"${float(raw):,.2f}"
+
+        def _vol_bit(raw: object) -> str:
+            if not _finite_signed(raw):
+                return "n/a"
+            return f"{float(raw):.2f}%"
+
+        range_bit = "n/a"
+        if (
+            _valid_close(current_price)
+            and _valid_close(week_52_high)
+            and _valid_close(week_52_low)
+        ):
+            span = float(week_52_high) - float(week_52_low)
+            if span > 0:
+                range_bit = (
+                    f"{((float(current_price) - float(week_52_low)) / span) * 100.0:.1f}%"
+                    f" of range"
+                )
 
         prompt = f"""You are a cryptocurrency trading advisor. Analyze Bitcoin and provide a recommendation.
 
 Bitcoin (BTC-USD)
-Current Price: ${current_price:,.2f}
-1-Day Change: {change_1d:+.2f}%
-7-Day Change: {change_7d:+.2f}%
-30-Day Change: {change_30d:+.2f}%
-30-Day Volatility: {volatility:.2f}%
-52-Week High: ${week_52_high:,.2f}
-52-Week Low: ${week_52_low:,.2f}
-52-Week Position: {range_position:.1f}% of range
+Current Price: {_money_bit(current_price)}
+1-Day Change: {_pct_bit(btc_data.get("change_1d"))}
+7-Day Change: {_pct_bit(btc_data.get("change_7d"))}
+30-Day Change: {_pct_bit(btc_data.get("change_30d"))}
+30-Day Volatility: {_vol_bit(btc_data.get("volatility_30d"))}
+52-Week High: {_money_bit(week_52_high)}
+52-Week Low: {_money_bit(week_52_low)}
+52-Week Position: {range_bit}
 
 Based on this data, provide a trading recommendation following this EXACT format:
 
