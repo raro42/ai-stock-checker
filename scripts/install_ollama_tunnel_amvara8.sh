@@ -8,7 +8,19 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 UNIT_NAME="ai-stock-checker-ollama-amvara8.service"
 UNIT_PATH="/etc/systemd/system/${UNIT_NAME}"
 REMOTE_HOST="${OLLAMA_TUNNEL_HOST:-amvara8}"
-LOCAL_BIND="${OLLAMA_TUNNEL_BIND:-127.0.0.1:11434}"
+
+# Containers reach the host via host-gateway (usually docker0), not 127.0.0.1.
+# Binding only the docker bridge keeps Ollama off the public NIC.
+if [[ -n "${OLLAMA_TUNNEL_BIND:-}" ]]; then
+  LOCAL_BIND="${OLLAMA_TUNNEL_BIND}"
+else
+  DOCKER_GW="$(ip -4 -o addr show docker0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1 || true)"
+  if [[ -z "${DOCKER_GW}" ]]; then
+    echo "Could not find docker0 IPv4. Set OLLAMA_TUNNEL_BIND=172.17.0.1:11434 (or your host-gateway)."
+    exit 1
+  fi
+  LOCAL_BIND="${DOCKER_GW}:11434"
+fi
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "This tunnel installer is for the Linux desk host (amvara3)."
@@ -20,10 +32,12 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 SSH_BIN="$(command -v ssh)"
+systemctl stop "${UNIT_NAME}" 2>/dev/null || true
+
 cat >"${UNIT_PATH}" <<EOF
 [Unit]
 Description=AI Stock Checker — tunnel Ollama from ${REMOTE_HOST} to ${LOCAL_BIND}
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
@@ -47,16 +61,17 @@ systemctl enable --now "${UNIT_NAME}"
 sleep 1
 systemctl --no-pager --full status "${UNIT_NAME}" || true
 
+SMOKE_URL="http://${LOCAL_BIND}/api/tags"
 echo
-echo "Smoke: curl -sS -m 5 http://127.0.0.1:11434/api/tags | head -c 200"
-curl -sS -m 8 "http://127.0.0.1:11434/api/tags" | head -c 240 || {
+echo "Smoke host: curl -sS -m 8 ${SMOKE_URL} | head -c 200"
+curl -sS -m 8 "${SMOKE_URL}" | head -c 240 || {
   echo
   echo "Tunnel unit is up but Ollama did not answer yet. Check: journalctl -u ${UNIT_NAME} -n 50"
   exit 1
 }
 echo
 echo
-echo "Point the desk at the tunnel (already the compose default):"
-echo "  OLLAMA_HOST=http://host.docker.internal:11434"
-echo "Then Ops → ai_mode=validate (or edit data/trader_config.json) and restart intelligent-trader."
+echo "Bind is ${LOCAL_BIND} (docker bridge only — not 0.0.0.0)."
+echo "Compose default stays: OLLAMA_HOST=http://host.docker.internal:11434"
+echo "Then Ops → ai_mode=validate and restart intelligent-trader."
 echo "Repo note: ${ROOT}/docs/history/ollama_amvara8_tunnel_2026-11-18.md"

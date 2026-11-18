@@ -16,15 +16,18 @@ Install a systemd SSH local forward on amvara3:
 sudo ./scripts/install_ollama_tunnel_amvara8.sh
 ```
 
-That binds `127.0.0.1:11434` → amvara8 `127.0.0.1:11434`.
-Compose keeps `OLLAMA_HOST=http://host.docker.internal:11434` (host-gateway).
+That binds the **docker0 gateway** (e.g. `172.17.0.1:11434`) → amvara8 `127.0.0.1:11434`.
+Containers use `host.docker.internal` (= host-gateway). A `127.0.0.1` bind is not reachable from Docker on Linux.
+Do not bind `0.0.0.0` on amvara3 (firewall is open).
+
+Compose keeps `OLLAMA_HOST=http://host.docker.internal:11434`.
 
 Then set Ops `ai_mode=validate` (model `gemma4:latest`).
 
 ## Checks
 
 ```bash
-curl -sS -m 5 http://127.0.0.1:11434/api/tags
+curl -sS -m 5 http://172.17.0.1:11434/api/tags
 docker compose exec intelligent-trader \
   sh -c 'curl -sS -m 5 "$OLLAMA_HOST/api/tags" | head -c 200'
 systemctl status ai-stock-checker-ollama-amvara8.service
