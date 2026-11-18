@@ -32,6 +32,26 @@ class AccountIdError(ValueError):
     """Invalid or disallowed paper account id."""
 
 
+def _coerce_ledger_money(
+    value: object, *, missing_ok: bool = False
+) -> float | None:
+    """Finite ≥0 cash/fees/initial, or None when bool/gap/NaN.
+
+    ``missing_ok`` treats absent fields as 0.0 (optional fees/initial); bool
+    still refuses so ``True→€1`` cannot invent race equity or fee drag.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None:
+        return 0.0 if missing_ok else None
+    if not _finite_signed(value):
+        return None
+    amount = float(value)  # type: ignore[arg-type]
+    if amount < 0.0:
+        return None
+    return amount
+
+
 def normalize_account_id(raw: str | None) -> str:
     """Return validated account id, or ``\"\"`` for the legacy root book."""
     text = str(raw or "").strip().lower()
@@ -86,6 +106,40 @@ def _reject_duplicate_object_keys(pairs: list) -> dict:
     return out
 
 
+def _portfolio_money_ok(doc: dict[str, Any]) -> bool:
+    """True when cash/fees/initial refuse bool/gap invents."""
+    if _coerce_ledger_money(doc.get("cash")) is None:
+        return False
+    if _coerce_ledger_money(doc.get("total_fees_paid"), missing_ok=True) is None:
+        return False
+    if _coerce_ledger_money(doc.get("initial_cash"), missing_ok=True) is None:
+        return False
+    return True
+
+
+def _portfolio_lots_ok(doc: dict[str, Any]) -> bool:
+    """True when open lots have readable qty·avg (no ``True→€1`` invent)."""
+    from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+
+    holdings = doc.get("holdings") or {}
+    avg = doc.get("avg_buy_price") or {}
+    if not isinstance(holdings, dict) or not isinstance(avg, dict):
+        return False
+    for sym, qty in holdings.items():
+        if qty is None:
+            continue
+        if isinstance(qty, bool):
+            return False
+        if not long_only_quantity_ok(qty):
+            # Quiet non-positive numeric lots stay skippable; junk → damaged.
+            if isinstance(qty, (int, float)) and float(qty) <= 0:
+                continue
+            return False
+        if not fill_price_ok(avg.get(sym)):
+            return False
+    return True
+
+
 def _portfolio_file_status(path: Path) -> str:
     """Read one ``portfolio.json``: ``ok`` / ``missing`` / ``damaged``."""
     if not path.exists():
@@ -100,6 +154,9 @@ def _portfolio_file_status(path: Path) -> str:
     except (OSError, json.JSONDecodeError, UnicodeError, ValueError):
         return "damaged"
     if not isinstance(doc, dict):
+        return "damaged"
+    # Content invent refuse (parity with ledger_summary / switcher).
+    if not _portfolio_money_ok(doc) or not _portfolio_lots_ok(doc):
         return "damaged"
     return "ok"
 
@@ -322,6 +379,8 @@ def _load_portfolio(path: Path) -> tuple[dict[str, Any], str]:
         return {}, "damaged"
     if not isinstance(doc, dict):
         return {}, "damaged"
+    if not _portfolio_money_ok(doc) or not _portfolio_lots_ok(doc):
+        return doc, "damaged"
     return doc, "ok"
 
 
@@ -379,36 +438,50 @@ def ledger_summary(
     aid = normalize_account_id(account_id)
     ledger = ledger_dir(data_dir, aid)
     portfolio, file_status = _load_portfolio(ledger / "portfolio.json")
-    # Named books: absent or corrupt portfolio ≠ €0 reset / race loser.
-    if aid and file_status in {"missing", "damaged"}:
-        status = file_status
-    else:
-        status = "ok"
-    unusable = status in {"missing", "damaged"}
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     if not isinstance(holdings, dict):
         holdings = {}
     if not isinstance(avg, dict):
         avg = {}
-    cash = float(portfolio.get("cash") or 0)
-    fees = float(portfolio.get("total_fees_paid") or 0)
-    initial = float(portfolio.get("initial_cash") or 0)
+    cash = 0.0
+    fees = 0.0
+    initial = 0.0
     cost = 0.0
     open_n = 0
-    for sym, qty in holdings.items():
-        try:
-            q = float(qty)
-        except (TypeError, ValueError):
-            continue
-        if q <= 0:
-            continue
-        open_n += 1
-        try:
-            px = float(avg.get(sym) or 0)
-        except (TypeError, ValueError):
-            px = 0.0
-        cost += q * px
+    # Named books: absent or corrupt portfolio ≠ €0 reset / race loser.
+    # Content invent refuse lives in _load_portfolio / _portfolio_file_status.
+    if aid and file_status in {"missing", "damaged"}:
+        status = file_status
+    elif file_status != "ok":
+        # Legacy missing root: quiet €0 race row (never a missing named shell).
+        status = "ok"
+    else:
+        status = "ok"
+        cash = float(_coerce_ledger_money(portfolio.get("cash")) or 0.0)
+        fees = float(
+            _coerce_ledger_money(
+                portfolio.get("total_fees_paid"), missing_ok=True
+            )
+            or 0.0
+        )
+        initial = float(
+            _coerce_ledger_money(
+                portfolio.get("initial_cash"), missing_ok=True
+            )
+            or 0.0
+        )
+        from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+
+        for _sym, qty in holdings.items():
+            if not long_only_quantity_ok(qty):
+                continue
+            px_raw = avg.get(_sym)
+            if not fill_price_ok(px_raw):
+                continue
+            open_n += 1
+            cost += float(qty) * float(px_raw)
+    unusable = status in {"missing", "damaged"}
     last_trade = _last_trade_at(ledger / "trades.jsonl")
     return {
         "account_id": aid,

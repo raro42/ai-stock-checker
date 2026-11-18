@@ -35,6 +35,7 @@ from stock_checker.paper_accounts import (
     leaderboard_missing_vs_ready_lean,
     leaderboard_missing_vs_ready_sample_gap,
     ledger_dir,
+    ledger_summary,
     list_account_ids,
     normalize_account_id,
     shared_desk_pin,
@@ -339,6 +340,61 @@ def test_account_ledger_damaged_not_euro_zero_ready(tmp_path: Path) -> None:
     assert share["n_ready"] == 1
     # Corrupt ≠ empty shell on the race-board share bit.
     assert share["bit"] == "1 damaged · hot · 50%"
+
+
+def test_ledger_summary_refuses_bool_invent(tmp_path: Path) -> None:
+    """tradermonty #700/#655: True→€1 must not invent race equity / lots."""
+    path = ensure_account_ledger(tmp_path, "ben")
+    (path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": True,
+                "initial_cash": 100_000.0,
+                "total_fees_paid": False,
+                "holdings": {},
+                "avg_buy_price": {},
+            }
+        )
+    )
+    row = ledger_summary(tmp_path, "ben")
+    assert row["ledger_status"] == "damaged"
+    assert row["missing"] is True
+    assert row["equity_cost"] == 0.0
+    assert row["price_coverage"] == "damaged"
+
+    (path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": 50_000.0,
+                "initial_cash": 100_000.0,
+                "total_fees_paid": 0.0,
+                "holdings": {"WMT": True},
+                "avg_buy_price": {"WMT": 100.0},
+            }
+        )
+    )
+    # Bool qty ≠ 1-share invent — damaged (not quiet cash-only ready).
+    row = ledger_summary(tmp_path, "ben")
+    assert row["ledger_status"] == "damaged"
+    assert row["equity_cost"] == 0.0
+    assert account_ledger_status(tmp_path, "ben") == "damaged"
+
+    (path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": 50_000.0,
+                "initial_cash": 100_000.0,
+                "total_fees_paid": 0.0,
+                "holdings": {"WMT": 10},
+                "avg_buy_price": {"WMT": True},
+            }
+        )
+    )
+    row = ledger_summary(tmp_path, "ben")
+    assert row["ledger_status"] == "damaged"
+    assert row["equity_cost"] == 0.0
+    assert row["open_positions"] == 0
+    assert account_ledger_status(tmp_path, "ben") == "damaged"
 
 
 def test_leaderboard_missing_damaged_mix_bit(tmp_path: Path) -> None:

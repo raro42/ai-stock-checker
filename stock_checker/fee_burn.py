@@ -7,6 +7,18 @@ import json
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
+from stock_checker.technical_indicators import _finite_signed
+
+
+def _coerce_fee_burn_money(value: object) -> Optional[float]:
+    """Cash/fees ≥0, or None when bool/gap/NaN (never ``True→€1`` / ``or 0``)."""
+    if value is None or not _finite_signed(value):
+        return None
+    amount = float(value)  # type: ignore[arg-type]
+    if amount < 0.0:
+        return None
+    return amount
+
 
 def fee_burn_facts(
     data_dir: str = "/data",
@@ -26,9 +38,10 @@ def fee_burn_facts(
     except (json.JSONDecodeError, OSError):
         return None
 
-    initial = float(p.get("initial_cash") or 0)
-    fees = float(p.get("total_fees_paid") or 0)
-    if initial <= 0 or fees <= 0:
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap invents.
+    initial = _coerce_fee_burn_money(p.get("initial_cash"))
+    fees = _coerce_fee_burn_money(p.get("total_fees_paid"))
+    if initial is None or fees is None or initial <= 0 or fees <= 0:
         return None
 
     ratio = fees / initial

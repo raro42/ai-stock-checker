@@ -1,5 +1,7 @@
 """Tests for fee-burn startup warning."""
 
+import json
+
 from stock_checker.fee_burn import fee_burn_facts, fee_burn_warning
 
 
@@ -32,3 +34,15 @@ def test_fee_burn_quiet_below_threshold(tmp_path):
     p = tmp_path / "portfolio.json"
     p.write_text('{"initial_cash": 10000, "total_fees_paid": 100}')
     assert fee_burn_warning(str(tmp_path), fee_pct_of_capital=0.02) is None
+
+
+def test_fee_burn_refuses_bool_invent(tmp_path):
+    """tradermonty #700/#655: True→€1 must not invent fee burn."""
+    p = tmp_path / "portfolio.json"
+    p.write_text(json.dumps({"initial_cash": True, "total_fees_paid": True}))
+    assert fee_burn_facts(str(tmp_path)) is None
+    assert fee_burn_warning(str(tmp_path)) is None
+    p.write_text(json.dumps({"initial_cash": 10_000, "total_fees_paid": True}))
+    assert fee_burn_facts(str(tmp_path)) is None
+    p.write_text(json.dumps({"initial_cash": None, "total_fees_paid": 250}))
+    assert fee_burn_facts(str(tmp_path)) is None
