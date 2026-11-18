@@ -688,6 +688,27 @@ class IntelligentTrader:
                 # Get AI recommendation
                 ai_result = self.ai_recommender.get_ai_recommendation(stock_data)
 
+                # Backend down → keep scanner candidate (do not freeze cash).
+                if str(ai_result.get("parse_mode") or "") == "unavailable":
+                    print(
+                        f"   ⚠️  {symbol}: AI unavailable — fail-open "
+                        f"(scanner rules keep)"
+                    )
+                    sys.stdout.flush()
+                    # Leave ai_action unset so entry guards stay rules-only.
+                    opp["ai_validated"] = False
+                    opp.pop("ai_action", None)
+                    opp.pop("ai_confidence", None)
+                    opp["ai_reasoning"] = (ai_result.get("reasons") or [""])[0]
+                    record_ai_validate(
+                        self.persistence.data_dir,
+                        ai_result,
+                        symbol=symbol,
+                        kept=True,
+                    )
+                    validated_opportunities.append(opp)
+                    continue
+
                 # Apply AI filtering based on mode
                 if self.ai_mode == "validate":
                     # In validate mode: Keep if AI says BUY or HOLD (reject only if SELL)

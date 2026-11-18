@@ -54,6 +54,9 @@ def ai_entry_allows(
     action = str(ai_action or "").upper()
     conf = str(ai_confidence or "").upper()
     strat = str(strategy or "").lower()
+    # No AI verdict (mode off, backend down, or never validated) → rules-only.
+    if not action or action in {"UNAVAILABLE", "NONE", "N/A"}:
+        return True, "AI off"
     if action == "SELL":
         return False, "AI SELL"
     if action == "HOLD" and conf == "LOW":

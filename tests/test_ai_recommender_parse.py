@@ -3,13 +3,27 @@
 
 import math
 
-from stock_checker.ai_recommender import AIRecommender
+from stock_checker.ai_recommender import AIRecommender, ai_backend_unavailable
 
 
 def _parser() -> AIRecommender:
     # Avoid constructing Ollama client networking in __init__ path beyond analyzer
     rec = AIRecommender.__new__(AIRecommender)
     return rec
+
+
+def test_ai_backend_unavailable_detects_ollama_down():
+    assert ai_backend_unavailable(
+        "Error connecting to Ollama: <urlopen error [Errno 111] Connection refused>\n"
+        "Make sure Ollama is running at http://host.docker.internal:11434"
+    )
+    assert ai_backend_unavailable("Error connecting to cloud LLM at https://x: <urlopen error>")
+    assert not ai_backend_unavailable(
+        "ACTION: BUY\nCONFIDENCE: HIGH\nSCORE: 40\nREASONING: ok"
+    )
+    assert not ai_backend_unavailable(
+        '{"action":"HOLD","confidence":"LOW","score":0,"reasoning":"wait"}'
+    )
 
 
 def test_trading_prompt_daily_change_refuses_missing_or_bool():

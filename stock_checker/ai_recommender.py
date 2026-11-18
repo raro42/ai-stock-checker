@@ -19,6 +19,23 @@ def _ai_verbose() -> bool:
     return os.getenv("AI_VERBOSE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def ai_backend_unavailable(response: str | None) -> bool:
+    """True when the LLM transport failed (not a real model answer)."""
+    text = (response or "").strip().lower()
+    if not text:
+        return True
+    needles = (
+        "error connecting to ollama",
+        "error connecting to cloud llm",
+        "error from cloud llm http",
+        "error analyzing stock:",
+        "make sure ollama is running",
+        "couldn't connect to server",
+        "connection refused",
+    )
+    return any(n in text for n in needles)
+
+
 class AIRecommender:
     """AI-driven recommendation engine (Ollama or OpenAI-compatible cloud)."""
 
@@ -61,6 +78,27 @@ class AIRecommender:
             response = self.analyzer._query_ollama(prompt)
             self._log_block(f"🤖 AI RESPONSE for {symbol}", response)
 
+            if ai_backend_unavailable(response):
+                out = {
+                    "symbol": symbol,
+                    "action": "HOLD",
+                    "confidence": "LOW",
+                    "score": 0,
+                    "reasons": [
+                        "AI backend unreachable — fail-open (scanner rules keep)"
+                    ],
+                    "ai_reasoning": response,
+                    "current_price": stock_data.get("current_price"),
+                    "parse_mode": "unavailable",
+                }
+                if not _ai_verbose():
+                    print(
+                        f"🤖 AI {symbol}: unavailable "
+                        f"(backend down — fail-open)",
+                        flush=True,
+                    )
+                return out
+
             parsed = None
             if use_multi:
                 multi = parse_multi_role_response(response, stock_data)
@@ -87,11 +125,14 @@ class AIRecommender:
                 print(redact_secrets(traceback.format_exc()), flush=True)
                 sys.stdout.flush()
             return {
+                "symbol": symbol,
                 "action": "HOLD",
                 "confidence": "LOW",
                 "score": 0,
-                "reasons": [f"AI error: {safe_exc_text(e)}"],
+                "reasons": [f"AI error: {safe_exc_text(e)} — fail-open"],
                 "ai_reasoning": None,
+                "current_price": stock_data.get("current_price"),
+                "parse_mode": "unavailable",
             }
 
     def _build_trading_prompt(self, stock_data: dict) -> str:

@@ -16,6 +16,15 @@ def test_ai_blocks_hold_on_breakout() -> None:
     assert "BUY" in why
 
 
+def test_ai_off_allows_breakout_without_verdict() -> None:
+    # AI mode off / backend down must not freeze stock breakouts.
+    ok, why = ai_entry_allows(None, None, strategy="breakout")
+    assert ok
+    assert why == "AI off"
+    ok2, _ = ai_entry_allows("unavailable", "LOW", strategy="breakout")
+    assert ok2
+
+
 def test_ai_blocks_low_confidence_breakout() -> None:
     ok, why = ai_entry_allows("BUY", "LOW", strategy="breakout")
     assert not ok
