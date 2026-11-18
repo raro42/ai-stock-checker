@@ -139,3 +139,20 @@ def test_apply_min_hold_lock_fields_missing_entry() -> None:
     out = apply_min_hold_lock_fields(row, 24 * 3600)
     assert out["past_min_hold"] is False
     assert out["min_hold_note"] == "no entry"
+
+
+def test_min_hold_refuses_bool_hours() -> None:
+    """tradermonty #700/#655: True→1h must not invent unlock window."""
+    g = build_min_hold_lock_glance(
+        [{"symbol": "AAPL", "held_seconds": 3_600}],
+        min_hold_hours=True,  # type: ignore[arg-type]
+    )
+    # Falls back to 0 → no lock window spoken as 0h (not invent 1h).
+    assert g["min_hold_hours"] == 0.0
+    row = apply_min_hold_lock_fields(
+        {"symbol": "AAPL", "held_seconds": 3_600.0},
+        True,  # type: ignore[arg-type]
+    )
+    # Bool lock seconds → 0 → past unlock (fail-open display; not invent 1s).
+    assert row["past_min_hold"] is True
+    assert row["min_hold_note"] == "past min-hold"

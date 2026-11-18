@@ -27836,9 +27836,12 @@ def build_book_posture_glance(
         max_n = max(1, int(max_positions))
     except (TypeError, ValueError):
         max_n = 5
-    try:
-        hold_h = float(min_hold_hours or 0)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — float(True or 0) invents 1h unlock.
+    if _finite_signed(min_hold_hours):
+        hold_h = float(min_hold_hours)  # type: ignore[arg-type]
+    else:
         hold_h = 24.0
     hold_s = max(4.0, hold_h) * 3600.0 if hold_h > 0 else 0.0
 
@@ -33959,7 +33962,13 @@ def apply_min_hold_lock_fields(
     Missing entry time → ``no entry`` (A7: do not treat as already past min-hold;
     mphinance order-lifecycle UNKNOWN / reconcile — hold age unproven).
     """
-    hold_s = max(0.0, float(min_hold_seconds or 0.0))
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — float(True or 0) invents 1s lock.
+    if _finite_signed(min_hold_seconds):
+        hold_s = max(0.0, float(min_hold_seconds))  # type: ignore[arg-type]
+    else:
+        hold_s = 0.0
     held = row.get("held_seconds")
     if held is None:
         row["past_min_hold"] = False
@@ -34000,6 +34009,14 @@ def build_min_hold_lock_glance(
     lifecycle UNKNOWN) — silent skip used to hide unproven hold age.
     Anti-churn packaging honesty — not a new gate.
     """
+    from stock_checker.exit_policy import _coerce_hold_seconds
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — float(True or 0) invents 1h unlock.
+    if _finite_signed(min_hold_hours):
+        hold_h = float(min_hold_hours)  # type: ignore[arg-type]
+    else:
+        hold_h = 0.0
     empty = {
         "ready": False,
         "tone": "flat",
@@ -34007,18 +34024,13 @@ def build_min_hold_lock_glance(
         "locked": 0,
         "timed": 0,
         "ghost": 0,
-        "min_hold_hours": float(min_hold_hours or 0),
+        "min_hold_hours": hold_h,
         "earliest_symbol": "",
         "earliest_left": "",
         "expiring_soon": False,
     }
     if not isinstance(holdings, list) or not holdings:
         return empty
-    try:
-        hold_h = float(min_hold_hours or 0)
-    except (TypeError, ValueError):
-        hold_h = 0.0
-    from stock_checker.exit_policy import _coerce_hold_seconds
 
     hold_s = max(4.0, hold_h) * 3600.0 if hold_h > 0 else 0.0
     timed: list[dict[str, Any]] = []

@@ -40,6 +40,40 @@ def test_normalize_rejects_coder_model_and_bad_mode():
     assert out["rs_gate"] is False
 
 
+def test_normalize_refuses_bool_fee_hold_max():
+    """tradermonty #700/#655: True→100%/€1/1-slot/1h must not invent Ops knobs."""
+    base = {
+        "ai_mode": "off",
+        "ai_model": "gemma4:latest",
+        "fee_preset": "custom",
+        "commission_rate": 0.0025,
+        "commission_min_eur": 1.0,
+        "max_positions": 5,
+        "min_hold_hours": 24.0,
+    }
+    out = normalize_config(
+        {
+            "fee_preset": "custom",
+            "commission_rate": True,
+            "commission_min_eur": True,
+            "max_positions": True,
+            "min_hold_hours": True,
+        },
+        base=base,
+    )
+    assert abs(out["commission_rate"] - 0.0025) < 1e-9
+    assert abs(out["commission_min_eur"] - 1.0) < 1e-9
+    assert out["max_positions"] == 5
+    assert out["min_hold_hours"] == 24.0
+    # False→0.0 must not invent free custom fees either.
+    out_free = normalize_config(
+        {"fee_preset": "custom", "commission_rate": False, "commission_min_eur": False},
+        base=base,
+    )
+    assert abs(out_free["commission_rate"] - 0.0025) < 1e-9
+    assert abs(out_free["commission_min_eur"] - 1.0) < 1e-9
+
+
 def test_rs_gate_roundtrip(tmp_path: Path):
     saved = save_trader_config(tmp_path, {"rs_gate": False})
     assert saved["rs_gate"] is False

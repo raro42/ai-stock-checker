@@ -1610,9 +1610,24 @@ class IntelligentTrader:
         regime = bool(cfg.get("regime_gate", True))
         rs_gate = bool(cfg.get("rs_gate", True))
         breadth_gate = bool(cfg.get("breadth_gate", True))
+        from .technical_indicators import _finite_signed
+
         fee_preset = str(cfg.get("fee_preset") or DEFAULT_FEE_PRESET)
-        fee_rate = float(cfg.get("commission_rate") or rates_for_preset(fee_preset)[0])
-        fee_min = float(cfg.get("commission_min_eur") or rates_for_preset(fee_preset)[1])
+        preset_rate, preset_min = rates_for_preset(fee_preset)
+        raw_fee_rate = cfg.get("commission_rate")
+        raw_fee_min = cfg.get("commission_min_eur")
+        # tradermonty #700/#655: refuse bool/`or` invent — True→100% fees;
+        # 0.0 rate is a real free schedule (do not `or` into preset).
+        fee_rate = (
+            float(raw_fee_rate)  # type: ignore[arg-type]
+            if _finite_signed(raw_fee_rate)
+            else float(preset_rate)
+        )
+        fee_min = (
+            float(raw_fee_min)  # type: ignore[arg-type]
+            if _finite_signed(raw_fee_min)
+            else float(preset_min)
+        )
 
         os.environ["AI_MULTI_ROLE"] = "1" if multi else "0"
         os.environ["REGIME_GATE"] = "1" if regime else "0"
@@ -1638,14 +1653,20 @@ class IntelligentTrader:
                 f"{free} free leg(s)/mo"
             )
 
-        try:
-            new_max = int(cfg.get("max_positions") or self.max_positions)
-        except (TypeError, ValueError):
+        raw_max = cfg.get("max_positions")
+        # bool is an int subclass — int(True)==1 must not invent a 1-slot book.
+        if isinstance(raw_max, bool) or raw_max is None:
             new_max = self.max_positions
+        else:
+            try:
+                new_max = int(raw_max)
+            except (TypeError, ValueError):
+                new_max = self.max_positions
         new_max = max(1, min(12, new_max))
-        try:
-            new_hold_h = float(cfg.get("min_hold_hours") or (self.min_hold_time / 3600.0))
-        except (TypeError, ValueError):
+        raw_hold = cfg.get("min_hold_hours")
+        if _finite_signed(raw_hold):
+            new_hold_h = float(raw_hold)  # type: ignore[arg-type]
+        else:
             new_hold_h = self.min_hold_time / 3600.0
         new_hold_h = max(4.0, min(168.0, new_hold_h))
         new_hold_s = int(new_hold_h * 3600)

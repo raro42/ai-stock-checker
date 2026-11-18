@@ -123,3 +123,38 @@ def test_revolut_min_commission_floor():
     # Second leg pays €1 min on small notional
     small = p.buy("MSFT", price=10.0, quantity=5, timestamp="2026-08-01 11:00:00")
     assert abs(small["transaction"]["commission"] - 1.0) < 1e-6
+
+
+def test_portfolio_load_refuses_bool_fee_schedule(tmp_path):
+    """tradermonty #700/#655: True→100% / True→€1 must not invent ledger fees."""
+    from stock_checker.persistence import DataPersistence
+
+    persistence = DataPersistence(str(tmp_path))
+    p = Portfolio(
+        initial_cash=10_000.0,
+        commission_rate=0.0025,
+        commission_min_eur=1.0,
+        fee_preset="revolut_standard",
+        persistence=persistence,
+        enable_risk_management=False,
+    )
+    p.buy("AAPL", price=100.0, quantity=1, timestamp="t1")
+    state = persistence.load_portfolio()
+    assert state is not None
+    state["commission_rate"] = True
+    state["commission_min_eur"] = True
+    persistence.save_portfolio(state)
+
+    reloaded = Portfolio(
+        initial_cash=10_000.0,
+        commission_rate=0.0025,
+        commission_min_eur=1.0,
+        fee_preset="revolut_standard",
+        persistence=persistence,
+        enable_risk_management=False,
+    )
+    assert abs(reloaded.commission_rate - 0.0025) < 1e-9
+    assert abs(reloaded.commission_min_eur - 1.0) < 1e-9
+    reloaded.set_fee_schedule(rate=True, min_eur=True, persist=False)
+    assert abs(reloaded.commission_rate - 0.0025) < 1e-9
+    assert abs(reloaded.commission_min_eur - 1.0) < 1e-9

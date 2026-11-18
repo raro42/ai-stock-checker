@@ -136,21 +136,23 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
             out["fee_preset"] = preset
 
     # Custom numeric overrides only when preset is custom.
+    # tradermonty #700/#655: refuse bool — float(True)→1.0 / float(False)→0.0
+    # invents 100% fees, free legs, or €1 min (xang1234/portfolio AI claim honesty).
+    from stock_checker.technical_indicators import _finite_signed
+
     if out.get("fee_preset") == "custom":
         if "commission_rate" in raw:
-            try:
-                r = float(raw.get("commission_rate"))
+            raw_rate = raw.get("commission_rate")
+            if _finite_signed(raw_rate):
+                r = float(raw_rate)  # type: ignore[arg-type]
                 if 0 <= r <= 0.05:
                     out["commission_rate"] = r
-            except (TypeError, ValueError):
-                pass
         if "commission_min_eur" in raw:
-            try:
-                m = float(raw.get("commission_min_eur"))
+            raw_min = raw.get("commission_min_eur")
+            if _finite_signed(raw_min):
+                m = float(raw_min)  # type: ignore[arg-type]
                 if 0 <= m <= 50:
                     out["commission_min_eur"] = m
-            except (TypeError, ValueError):
-                pass
     else:
         preset = str(out.get("fee_preset") or DEFAULT_FEE_PRESET)
         rate, min_eur = rates_for_preset(preset)
@@ -159,20 +161,22 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
         out["free_legs_per_month"] = free_legs_for_preset(preset)
 
     if "max_positions" in raw:
-        try:
-            mp = int(raw.get("max_positions"))
-            if 1 <= mp <= 12:
-                out["max_positions"] = mp
-        except (TypeError, ValueError):
-            pass
+        raw_mp = raw.get("max_positions")
+        # bool is an int subclass — int(True)==1 must not invent a 1-slot book.
+        if not isinstance(raw_mp, bool):
+            try:
+                mp = int(raw_mp)  # type: ignore[arg-type]
+                if 1 <= mp <= 12:
+                    out["max_positions"] = mp
+            except (TypeError, ValueError):
+                pass
 
     if "min_hold_hours" in raw:
-        try:
-            mh = float(raw.get("min_hold_hours"))
+        raw_mh = raw.get("min_hold_hours")
+        if _finite_signed(raw_mh):
+            mh = float(raw_mh)  # type: ignore[arg-type]
             if 4.0 <= mh <= 168.0:
                 out["min_hold_hours"] = mh
-        except (TypeError, ValueError):
-            pass
 
     if "promote_experiment_strategy" in raw:
         out["promote_experiment_strategy"] = _as_bool(

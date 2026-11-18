@@ -12,7 +12,7 @@ from .fees import (
     free_legs_for_preset,
     rates_for_preset,
 )
-from .technical_indicators import _valid_close
+from .technical_indicators import _finite_signed, _valid_close
 
 # Paper desk is long-only (tradermonty #681 reject unsupported equity shorts).
 UNSUPPORTED_SHORT_REASON = "Unsupported short — long-only book"
@@ -79,11 +79,19 @@ class Portfolio:
             if loaded:
                 self.initial_cash = loaded["initial_cash"]
                 self.cash = loaded["cash"]
-                self.commission_rate = float(
-                    loaded.get("commission_rate", commission_rate)
+                # tradermonty #700/#655: bool/NaN must not invent True→100% fees
+                # or True→€1 min (float(True)==1.0).
+                raw_rate = loaded.get("commission_rate", commission_rate)
+                self.commission_rate = (
+                    float(raw_rate)  # type: ignore[arg-type]
+                    if _finite_signed(raw_rate)
+                    else float(commission_rate)
                 )
-                self.commission_min_eur = float(
-                    loaded.get("commission_min_eur", commission_min_eur)
+                raw_min = loaded.get("commission_min_eur", commission_min_eur)
+                self.commission_min_eur = (
+                    float(raw_min)  # type: ignore[arg-type]
+                    if _finite_signed(raw_min)
+                    else float(commission_min_eur)
                 )
                 self.fee_preset = str(
                     loaded.get("fee_preset") or self.fee_preset
@@ -157,8 +165,11 @@ class Portfolio:
         persist: bool = True,
     ) -> None:
         """Update live fee schedule (Ops hot-reload). Affects future fills only."""
-        self.commission_rate = float(rate)
-        self.commission_min_eur = max(0.0, float(min_eur))
+        # tradermonty #700/#655: refuse bool — float(True) invents 100% / €1.
+        if not _finite_signed(rate) or not _finite_signed(min_eur):
+            return
+        self.commission_rate = float(rate)  # type: ignore[arg-type]
+        self.commission_min_eur = max(0.0, float(min_eur))  # type: ignore[arg-type]
         self.fee_preset = str(preset or "custom")
         if free_legs_per_month is not None:
             self._fee_allowance.free_legs_per_month = max(0, int(free_legs_per_month))
