@@ -40,6 +40,17 @@ def _finite_signed(value: object) -> bool:
     return math.isfinite(float(value))
 
 
+def coerce_score(value: object) -> Optional[float]:
+    """Finite score, or None when bool/gap/NaN/non-numeric.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: never ``float(raw or 0)`` /
+    ``True→1.0`` into entry ranking or desk score columns. Zero is a real score.
+    """
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
 def coerce_unix_ts(value: object) -> Optional[float]:
     """Unix epoch seconds, or None when bool/gap/NaN/non-positive.
 

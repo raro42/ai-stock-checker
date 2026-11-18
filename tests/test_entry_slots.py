@@ -1,10 +1,13 @@
 """Entry slot interleave + breadth pulse honesty tests."""
 
+import math
+
 from stock_checker.entry_slots import interleave_asset_slots
 from stock_checker.scan_breadth_gate import (
     pulse_from_opportunities,
     pulse_from_scan_lists,
 )
+from stock_checker.technical_indicators import coerce_score
 
 
 def test_interleave_prefers_both_asset_classes():
@@ -20,6 +23,35 @@ def test_interleave_prefers_both_asset_classes():
     assert "BTC-USD" in syms and "AAPL" in syms
     assert "SOL-USD" not in syms  # crypto capped at 2
     assert syms.index("AAPL") < len(syms)
+
+
+def test_coerce_score_refuses_bool_allows_zero():
+    assert coerce_score(0) == 0.0
+    assert coerce_score(42.5) == 42.5
+    assert coerce_score(True) is None
+    assert coerce_score(False) is None
+    assert coerce_score(math.nan) is None
+    assert coerce_score(None) is None
+    assert coerce_score("9") is None
+
+
+def test_interleave_refuses_invalid_score_rank():
+    """Bool/gap scores sort last — never invent True→1.0 ahead of real names."""
+    opps = [
+        {"symbol": "BTC-USD", "asset_class": "crypto", "score": True},
+        {"symbol": "ETH-USD", "asset_class": "crypto", "score": 50},
+        {"symbol": "AAPL", "asset_class": "stock", "score": math.nan},
+        {"symbol": "MSFT", "asset_class": "stock", "score": 40},
+    ]
+    ordered = interleave_asset_slots(opps, max_crypto=2, max_stock=2)
+    syms = [o["symbol"] for o in ordered]
+    assert syms[0] == "ETH-USD"
+    assert "MSFT" in syms
+    # invalid crypto/stock still fill remaining slots after readable tops
+    assert "BTC-USD" in syms
+    assert "AAPL" in syms
+    assert syms.index("ETH-USD") < syms.index("BTC-USD")
+    assert syms.index("MSFT") < syms.index("AAPL")
 
 
 def test_pulse_from_enriched_recommendations():

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
 from stock_checker.experiment_strategy import generate_signals as champion_signals
-from stock_checker.technical_indicators import _valid_close, _valid_volume
+from stock_checker.technical_indicators import coerce_score, _valid_close, _valid_volume
 
 # Stable name for docs / Ops — always the current experiment champion file.
 PROMOTED_SOURCE = "stock_checker.experiment_strategy"
@@ -119,14 +119,18 @@ def filter_opportunities(
         if verdict is True:
             opp["promoted_filter"] = "buy"
             # Mild boost so champion-confirmed names rank ahead of unknowns
-            try:
-                opp["score"] = float(opp.get("score") or 0) * 1.15
-            except (TypeError, ValueError):
-                pass
+            # (refuse bool/gap — never invent True→1.0 / None→0 into boost).
+            base = coerce_score(opp.get("score"))
+            if base is not None:
+                opp["score"] = base * 1.15
         else:
             opp["promoted_filter"] = "skip_no_bars"
         kept.append(opp)
-    kept.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
+    def _rank_key(row: Dict[str, Any]) -> float:
+        score = coerce_score(row.get("score"))
+        return score if score is not None else float("-inf")
+
+    kept.sort(key=_rank_key, reverse=True)
     for i, rec in enumerate(kept, 1):
         rec["rank"] = i
     return kept

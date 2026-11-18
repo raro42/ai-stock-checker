@@ -64,7 +64,7 @@ from .exit_policy import (
     should_take_profit,
     unrealized_profit_pct,
 )
-from .technical_indicators import coerce_unix_ts
+from .technical_indicators import coerce_score, coerce_unix_ts
 from .market_hours import is_equity_session_closed
 from .crypto_policy import (
     DEFAULT_MAX_CRYPTO_POSITIONS,
@@ -691,14 +691,18 @@ class IntelligentTrader:
                             f"- keeping with lower confidence"
                         )
                         sys.stdout.flush()
-                        # Lower the opportunity score
-                        opp['score'] = opp.get('score', 0) * 0.7
+                        # Lower the opportunity score (refuse bool/gap invent)
+                        base = coerce_score(opp.get("score"))
+                        if base is not None:
+                            opp["score"] = base * 0.7
                     else:  # BUY
                         print(f"   ✅ {symbol}: AI confirms BUY")
                         print(f"      Reasoning: {ai_result['reasons'][0]}")
                         sys.stdout.flush()
-                        # Boost the score
-                        opp['score'] = opp.get('score', 0) * 1.2
+                        # Boost the score (refuse bool/gap invent)
+                        base = coerce_score(opp.get("score"))
+                        if base is not None:
+                            opp["score"] = base * 1.2
 
                     # Add AI metadata
                     opp['ai_validated'] = True

@@ -95,3 +95,29 @@ def test_promote_ignores_champion_sell_for_entry_filter():
 def test_champion_wants_buy_none_on_short_series():
     bars = {"AAA": bars_from_closes([1.0, 2.0, 3.0])}
     assert champion_wants_buy(bars, "AAA") is None
+
+
+def test_filter_refuses_invalid_score_boost_and_rank():
+    """tradermonty #700/#655: bool/gap scores cannot invent True→1.0 boost/rank."""
+
+    def always_buy(bars_by_symbol, index, portfolio):
+        return {s: "BUY" for s in bars_by_symbol if s != "SPY"}
+
+    bars = {
+        "AAA": bars_from_closes(_rising()),
+        "BBB": bars_from_closes(_rising()),
+        "SPY": bars_from_closes(_rising()),
+    }
+    opps = [
+        {"symbol": "AAA", "score": True, "rank": 1},
+        {"symbol": "BBB", "score": 20.0, "rank": 2},
+    ]
+    kept = filter_opportunities(opps, bars, signal_fn=always_buy)
+    assert len(kept) == 2
+    by_sym = {row["symbol"]: row for row in kept}
+    # bool score refused — no invent boost; stays True (unreadable)
+    assert by_sym["AAA"]["score"] is True
+    assert by_sym["BBB"]["score"] == 20.0 * 1.15
+    # readable score ranks first even when bool would have sorted as 1.0
+    assert kept[0]["symbol"] == "BBB"
+    assert kept[1]["symbol"] == "AAA"

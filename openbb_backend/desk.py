@@ -38195,11 +38195,9 @@ def _coerce_desk_signed_pct(value: object) -> Optional[float]:
 
 def _coerce_desk_score(value: object) -> Optional[float]:
     """Refuse bool/gap/NaN scores so Screener cannot invent 0 / True→1.0."""
-    from stock_checker.technical_indicators import _finite_signed
+    from stock_checker.technical_indicators import coerce_score
 
-    if value is None or not _finite_signed(value):
-        return None
-    return float(value)
+    return coerce_score(value)
 
 
 def _coerce_entry_ts(value: object) -> Optional[float]:

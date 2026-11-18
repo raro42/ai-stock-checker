@@ -5,6 +5,8 @@ from __future__ import annotations
 from itertools import zip_longest
 from typing import Any, Dict, List
 
+from stock_checker.technical_indicators import coerce_score
+
 # Stock breakouts map near-high % into this base so slots are not crypto-only.
 STOCK_BREAKOUT_SCORE_BASE = 40.0
 DEFAULT_MAX_CRYPTO_SLOTS = 2
@@ -15,6 +17,12 @@ def _is_crypto(opp: Dict[str, Any]) -> bool:
     sym = str(opp.get("symbol") or "").upper()
     ac = str(opp.get("asset_class") or "").lower()
     return ac == "crypto" or "-USD" in sym or sym.endswith("USDT")
+
+
+def _score_sort_key(opp: Dict[str, Any]) -> float:
+    """Readable scores first; bool/gap/NaN sort last (never invent True→1.0)."""
+    score = coerce_score(opp.get("score"))
+    return score if score is not None else float("-inf")
 
 
 def interleave_asset_slots(
@@ -33,8 +41,8 @@ def interleave_asset_slots(
     stock = [
         o for o in opportunities if isinstance(o, dict) and not _is_crypto(o)
     ]
-    crypto.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
-    stock.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
+    crypto.sort(key=_score_sort_key, reverse=True)
+    stock.sort(key=_score_sort_key, reverse=True)
     top_c = crypto[: max(0, int(max_crypto))]
     top_s = stock[: max(0, int(max_stock))]
     out: List[Dict[str, Any]] = []
