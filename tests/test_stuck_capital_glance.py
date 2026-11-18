@@ -23,6 +23,26 @@ def test_stuck_capital_glance_one() -> None:
     assert "EXPE -3.2%" in g["line"]
 
 
+def test_stuck_capital_glance_refuses_bool_pct() -> None:
+    """Bool/NaN unrealized_pct must not invent flat ±0.0% on the stuck line."""
+    import math
+
+    g = build_stuck_capital_glance(
+        [
+            {"symbol": "BOOL", "unrealized_pct": True, "held": "2d"},
+            {"symbol": "NAN", "unrealized_pct": math.nan, "held": "2d"},
+            {"symbol": "OK", "unrealized_pct": -2.5, "held": "2d"},
+        ]
+    )
+    assert g["ready"] is True
+    assert g["count"] == 3
+    assert "BOOL n/a" in g["line"]
+    assert "NAN n/a" in g["line"]
+    assert "OK -2.5%" in g["line"]
+    assert "+0.0%" not in g["line"]
+    assert "True" not in g["line"]
+
+
 def test_stuck_capital_glance_truncates_extra() -> None:
     stuck = [
         {"symbol": f"S{i}", "unrealized_pct": -1.0 * (i + 1)} for i in range(5)

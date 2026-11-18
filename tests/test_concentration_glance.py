@@ -72,6 +72,24 @@ def test_concentration_glance_warn() -> None:
     assert g["headroom_pp"] == 0.0
 
 
+def test_concentration_glance_refuses_bool_and_nan() -> None:
+    """Bool/NaN largest_pct must not invent flat 0% / True→1% headroom."""
+    import math
+
+    for bad in (True, False, math.nan, "12", -1.0):
+        g = build_concentration_glance(
+            {"largest_symbol": "AAPL", "largest_pct": bad, "concentration_warn": False}
+        )
+        assert g["ready"] is True
+        assert g["tone"] == "warn"
+        assert g["warn"] is True
+        assert g["largest_pct"] is None
+        assert g["headroom_pp"] is None
+        assert "n/a" in g["line"]
+        assert "unreadable" in g["line"]
+        assert "AAPL" in g["line"]
+
+
 def test_concentration_glance_in_snapshot(tmp_path) -> None:
     (tmp_path / "portfolio.json").write_text(
         '{"cash": 100000, "initial_cash": 100000, "holdings": {}, '

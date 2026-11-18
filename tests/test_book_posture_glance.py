@@ -50,6 +50,24 @@ def test_book_posture_glance_overweight_next_trim_winner() -> None:
     assert "winner" in g["line"]
 
 
+def test_book_posture_glance_refuses_bool_pct_for_trim() -> None:
+    """Bool unrealized_pct must not invent True→+1% into weak-winner trim pick."""
+    hold = 100_000.0
+    rows = [
+        {"symbol": "BOOL", "held_seconds": hold, "unrealized_pct": True},
+        {"symbol": "WEAK", "held_seconds": hold, "unrealized_pct": 0.5},
+        {"symbol": "S2", "held_seconds": hold, "unrealized_pct": 2.0},
+        {"symbol": "S3", "held_seconds": hold, "unrealized_pct": 3.0},
+        {"symbol": "S4", "held_seconds": hold, "unrealized_pct": 4.0},
+        {"symbol": "S5", "held_seconds": hold, "unrealized_pct": -1.0},
+    ]
+    g = build_book_posture_glance(rows, max_positions=5, min_hold_hours=24)
+    assert g["posture"] == "overweight"
+    # True→1.0 would beat WEAK 0.5 as "weakest winner"; refuse keeps BOOL at 0.
+    assert g["trim_symbol"] == "WEAK"
+    assert "BOOL" not in g["line"]
+
+
 def test_book_posture_glance_overweight_trim_paused_min_hold() -> None:
     rows = [
         {"symbol": f"S{i}", "held_seconds": 60.0, "unrealized_pct": 3.0}

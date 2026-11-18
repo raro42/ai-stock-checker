@@ -632,6 +632,47 @@ def test_desk_snapshot_invalid_scan_mark_falls_to_cost(tmp_path: Path):
     assert aapl["last"] == 100
 
 
+def test_desk_snapshot_realized_refuses_bool_pnl(tmp_path: Path):
+    """Overview realized must not invent True→€1 / flat or 0 into sell P&L sum."""
+    _seed_portfolio(tmp_path)
+    trades = (tmp_path / "trades.jsonl").read_text(encoding="utf-8").rstrip() + "\n"
+    trades += (
+        json.dumps(
+            {
+                "timestamp": "2026-07-29 12:00:00",
+                "type": "SELL",
+                "symbol": "BOOL",
+                "quantity": 1,
+                "price": 10,
+                "commission": 1,
+                "profit_loss": True,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "timestamp": "2026-07-29 13:00:00",
+                "type": "SELL",
+                "symbol": "OK",
+                "quantity": 1,
+                "price": 20,
+                "commission": 1,
+                "profit_loss": 2.5,
+            }
+        )
+        + "\n"
+    )
+    (tmp_path / "trades.jsonl").write_text(trades, encoding="utf-8")
+    snap = load_desk_snapshot(
+        tmp_path,
+        live_marks=False,
+        price_fetcher=lambda _syms: {},
+    )
+    # Seed sell +9 + OK +2.5; bool True must not add +1.
+    assert snap["realized"] == 11.5
+    assert snap["sell_count"] == 3
+
+
 def test_desk_snapshot_rich(tmp_path: Path):
     _seed_portfolio(tmp_path)
     snap = load_desk_snapshot(

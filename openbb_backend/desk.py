@@ -7508,11 +7508,17 @@ def build_concentration_glance(
         }
     if not isinstance(book_risk, dict):
         return empty
+    from stock_checker.technical_indicators import _finite_signed
+
     sym = str(book_risk.get("largest_symbol") or "").strip().upper()
-    try:
-        pct = float(book_risk.get("largest_pct") or 0.0)
-    except (TypeError, ValueError):
-        pct = 0.0
+    # Refuse bool/gap/NaN — never invent flat 0% / True→1% headroom (tradermonty #700/#655).
+    raw_pct = book_risk.get("largest_pct")
+    pct: float | None
+    if raw_pct is None or not _finite_signed(raw_pct):
+        pct = None
+    else:
+        pct_v = float(raw_pct)
+        pct = pct_v if pct_v >= 0.0 else None
     cap_txt = f"{cap:g}"
     if not sym:
         return {
@@ -7524,6 +7530,20 @@ def build_concentration_glance(
             "cap_pct": cap,
             "headroom_pp": cap,
             "warn": False,
+        }
+    if pct is None:
+        line = f"{sym} n/a · cap {cap_txt}% · pct unreadable"
+        if len(line) > 96:
+            line = line[:95] + "…"
+        return {
+            "ready": True,
+            "tone": "warn",
+            "line": line,
+            "symbol": sym,
+            "largest_pct": None,
+            "cap_pct": cap,
+            "headroom_pp": None,
+            "warn": True,
         }
     warn = bool(book_risk.get("concentration_warn")) or pct >= cap
     headroom = max(0.0, cap - pct)
@@ -27819,10 +27839,9 @@ def build_book_posture_glance(
             pnl_raw = r.get("unrealized_pct")
             if pnl_raw is None:
                 pnl_raw = r.get("profit_pct")
-            try:
-                pnl = float(pnl_raw) if pnl_raw is not None else 0.0
-            except (TypeError, ValueError):
-                pnl = 0.0
+            # Refuse bool/NaN — never invent True→+1% into trim ranking.
+            pnl_ok = _fill_signed(pnl_raw)
+            pnl = 0.0 if pnl_ok is None else pnl_ok
             rows.append(
                 {
                     "symbol": sym,
@@ -33872,11 +33891,12 @@ def build_stuck_capital_glance(
     bits: list[str] = []
     for r in rows[:3]:
         sym = str(r.get("symbol") or "").strip()
-        try:
-            pct = float(r.get("unrealized_pct") or 0)
-        except (TypeError, ValueError):
-            pct = 0.0
-        bits.append(f"{sym} {pct:+.1f}%")
+        # Refuse bool/gap/NaN — never invent flat ±0.0% (tradermonty #700/#655).
+        pct = _coerce_desk_signed_pct(r.get("unrealized_pct"))
+        if pct is None:
+            bits.append(f"{sym} n/a")
+        else:
+            bits.append(f"{sym} {pct:+.1f}%")
     line = f"{count} past min-hold underwater"
     if bits:
         line = f"{line} · {' · '.join(bits)}"
@@ -38440,20 +38460,35 @@ def load_desk_snapshot(
     min_hold_s = max(4.0, min_hold_h) * 3600.0
     for r in rows:
         apply_min_hold_lock_fields(r, min_hold_s)
-    stuck = [
-        {
-            "symbol": r["symbol"],
-            "unrealized_pct": r["unrealized_pct"],
-            "held": r["held"],
-            "held_seconds": r.get("held_seconds"),
-        }
-        for r in rows
-        if (r.get("held_seconds") or 0) >= min_hold_s and float(r.get("unrealized_pct") or 0) < 0
-    ]
+    stuck = []
+    for r in rows:
+        held_raw = r.get("held_seconds")
+        if held_raw is None:
+            continue
+        held_ok = _fill_signed(held_raw)
+        if held_ok is None or held_ok < min_hold_s:
+            continue
+        # Refuse bool/gap/NaN — never invent flat 0% into underwater filter.
+        pct = _coerce_desk_signed_pct(r.get("unrealized_pct"))
+        if pct is None or pct >= 0:
+            continue
+        stuck.append(
+            {
+                "symbol": r["symbol"],
+                "unrealized_pct": pct,
+                "held": r["held"],
+                "held_seconds": held_ok,
+            }
+        )
 
     sells = [t for t in trades if t.get("type") == "SELL"]
     buys = [t for t in trades if t.get("type") == "BUY"]
-    realized = sum(float(t.get("profit_loss") or 0) for t in sells)
+    # Refuse bool/gap/NaN P&L — parity with realized_pnl_for_utc_day / Charts.
+    realized = 0.0
+    for t in sells:
+        pl = _fill_signed(t.get("profit_loss"))
+        if pl is not None:
+            realized += pl
 
     # Object rows only — string/null slots ≠ usable scan chunks (xang1234 #498).
     recs_raw = scan_list_rows(opportunities.get("recommendations"))[:8]
