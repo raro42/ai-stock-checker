@@ -8,6 +8,7 @@ from typing import Dict
 
 from stock_checker.ai_analyzer import make_analyzer
 from stock_checker.secret_redact import redact_secrets, safe_exc_text
+from stock_checker.technical_indicators import _valid_close, daily_pct_change
 
 
 def _ai_verbose() -> bool:
@@ -100,15 +101,22 @@ class AIRecommender:
         pe_ratio = stock_data.get("pe_ratio")
         volume = stock_data.get("volume")
 
-        # Calculate daily change
-        daily_change = 0
-        if current_price and prev_close:
-            daily_change = ((current_price - prev_close) / prev_close) * 100
+        # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→1.0)
+        daily = daily_pct_change(current_price, prev_close)
+        daily_bit = f"{daily:+.2f}%" if daily is not None else "n/a"
 
-        # Calculate 52-week position
-        range_position = 0
-        if current_price and week_52_high and week_52_low:
-            range_position = ((current_price - week_52_low) / (week_52_high - week_52_low)) * 100
+        range_bit = "n/a"
+        if (
+            _valid_close(current_price)
+            and _valid_close(week_52_high)
+            and _valid_close(week_52_low)
+        ):
+            span = float(week_52_high) - float(week_52_low)
+            if span > 0:
+                range_bit = (
+                    f"{((float(current_price) - float(week_52_low)) / span) * 100.0:.1f}%"
+                    f" of range"
+                )
 
         # Build prompt with conditional fields
         prompt_lines = [
@@ -117,10 +125,10 @@ class AIRecommender:
             f"Stock: {name} ({symbol})",
             f"Current Price: ${current_price}",
             f"Previous Close: ${prev_close}",
-            f"Daily Change: {daily_change:+.2f}%",
+            f"Daily Change: {daily_bit}",
             f"52-Week High: ${week_52_high}",
             f"52-Week Low: ${week_52_low}",
-            f"52-Week Position: {range_position:.1f}% of range",
+            f"52-Week Position: {range_bit}",
         ]
 
         # Only include P/E ratio if it has a meaningful value

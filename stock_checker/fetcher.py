@@ -25,6 +25,7 @@ except ImportError:
     print("⚠️  Finnhub fetcher not available")
 
 from .secret_redact import safe_exc_text
+from .technical_indicators import daily_pct_change
 
 ProviderType = Literal["finnhub", "yfinance"]
 
@@ -149,10 +150,8 @@ class StockFetcher:
                 current_price = info.get("currentPrice") or info.get("regularMarketPrice")
                 prev_close = info.get("previousClose")
 
-                # Calculate basic daily change
-                daily_change = 0
-                if current_price and prev_close:
-                    daily_change = ((current_price - prev_close) / prev_close) * 100
+                # Missing/bool/gap → None (never invent flat 0.0 / True→1.0)
+                daily_change = daily_pct_change(current_price, prev_close)
 
                 result = {
                     "symbol": symbol.upper(),
