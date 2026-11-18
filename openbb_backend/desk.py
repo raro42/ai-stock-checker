@@ -32324,6 +32324,8 @@ def build_rebuy_cooldown_glance(
     Desk shows how many names are still cooling — not a new entry gate.
     Warns when the soonest lock clears within one scan interval.
     """
+    from stock_checker.technical_indicators import _finite_signed, coerce_unix_ts
+
     empty = {
         "ready": False,
         "tone": "flat",
@@ -32333,10 +32335,10 @@ def build_rebuy_cooldown_glance(
         "symbols": [],
         "expiring_soon": False,
     }
-    try:
-        cd = float(cooldown_seconds)
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→1s lock / False→off invent.
+    if not _finite_signed(cooldown_seconds):
         return empty
+    cd = float(cooldown_seconds)  # type: ignore[arg-type]
     if cd <= 0:
         return {
             "ready": True,
@@ -32347,16 +32349,23 @@ def build_rebuy_cooldown_glance(
             "symbols": [],
             "expiring_soon": False,
         }
-    ts_now = float(now if now is not None else time.time())
+    if now is None or not _finite_signed(now):
+        ts_now = float(time.time())
+    else:
+        ts_now = float(now)  # type: ignore[arg-type]
+    if expiry_warn_seconds is None or not _finite_signed(expiry_warn_seconds):
+        warn_sec = float(DEFAULT_COOLDOWN_EXPIRY_WARN_SEC)
+    else:
+        warn_sec = float(expiry_warn_seconds)  # type: ignore[arg-type]
     cooling: list[tuple[str, float]] = []
     if isinstance(exit_times, dict):
         for raw_sym, raw_ts in exit_times.items():
             sym = str(raw_sym or "").strip().upper()
             if not sym:
                 continue
-            try:
-                exit_ts = float(raw_ts)
-            except (TypeError, ValueError):
+            # Refuse bool/gap exit stamps — True→1970 must not invent cooling.
+            exit_ts = coerce_unix_ts(raw_ts)
+            if exit_ts is None:
                 continue
             left = cd - (ts_now - exit_ts)
             if left > 0:
@@ -32368,7 +32377,7 @@ def build_rebuy_cooldown_glance(
     shown = [f"{sym} {_fmt_cooldown_left(left)}" for sym, left in cooling[:3]]
     soonest = cooling[0][1] if cooling else 0.0
     expiring = bool(cooling) and _cooldown_expiring_soon(
-        soonest, warn_seconds=expiry_warn_seconds
+        soonest, warn_seconds=warn_sec
     )
     if n == 0:
         tone = "clear"
@@ -32482,6 +32491,8 @@ def build_crypto_policy_glance(
         is_crypto_symbol,
     )
 
+    from stock_checker.technical_indicators import _finite_signed
+
     empty = {
         "ready": False,
         "tone": "flat",
@@ -32501,7 +32512,11 @@ def build_crypto_policy_glance(
             sym = str(row or "").strip()
         if sym:
             symbols.append(sym)
-    cap = max(0, int(max_crypto if max_crypto is not None else DEFAULT_MAX_CRYPTO_POSITIONS))
+    # tradermonty #700/#655: refuse bool — False→0 invents over-cap / True→1 fake.
+    if max_crypto is None or not _finite_signed(max_crypto):
+        cap = int(DEFAULT_MAX_CRYPTO_POSITIONS)
+    else:
+        cap = max(0, int(max_crypto))  # type: ignore[arg-type]
     n = count_crypto_holdings(symbols)
     held = [s for s in symbols if is_crypto_symbol(s)][:3]
     slot_open = n < cap

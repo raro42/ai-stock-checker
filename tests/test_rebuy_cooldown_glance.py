@@ -15,6 +15,31 @@ def test_rebuy_cooldown_glance_off() -> None:
     assert "off" in g["line"]
 
 
+def test_rebuy_cooldown_glance_refuses_bool_knobs() -> None:
+    """tradermonty #700/#655: True→1s lock / False→off / True→1970 exit invent."""
+    now = 1_000_000.0
+    # Bool cooldown → empty (not invent 1s lock or off).
+    assert build_rebuy_cooldown_glance({}, cooldown_seconds=True)["ready"] is False  # type: ignore[arg-type]
+    assert build_rebuy_cooldown_glance({}, cooldown_seconds=False)["ready"] is False  # type: ignore[arg-type]
+    # Bool exit stamp → skip (not invent ~1970 cooling when now is also damaged).
+    g = build_rebuy_cooldown_glance(
+        {"SCHW": True},  # type: ignore[dict-item]
+        cooldown_seconds=86400.0,
+        now=True,  # type: ignore[arg-type]
+    )
+    assert g["ready"] is True
+    assert g["cooling"] == 0
+    assert g["tone"] == "clear"
+    # Bool now falls back to wall clock — synthetic 1970-ish exit stays expired.
+    g2 = build_rebuy_cooldown_glance(
+        {"SCHW": now - 3600.0},
+        cooldown_seconds=86400.0,
+        now=True,  # type: ignore[arg-type]
+    )
+    assert g2["ready"] is True
+    assert g2["cooling"] == 0
+
+
 def test_rebuy_cooldown_glance_clear() -> None:
     g = build_rebuy_cooldown_glance({}, cooldown_seconds=86400, now=1_000_000.0)
     assert g["ready"] is True

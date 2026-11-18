@@ -46,6 +46,26 @@ def test_crypto_policy_glance_over_cap() -> None:
     assert "over cap 2/1" in g["line"]
 
 
+def test_crypto_policy_glance_refuses_bool_cap() -> None:
+    """tradermonty #700/#655: False→0 invents over-cap; True→1 must not fake default."""
+    g = build_crypto_policy_glance(
+        ["BTC-USD"],
+        max_crypto=False,  # type: ignore[arg-type]
+    )
+    assert g["ready"] is True
+    assert g["cap"] == 1
+    assert g["tone"] == "full"
+    assert "slot full 1/1" in g["line"]
+    g2 = build_crypto_policy_glance(
+        ["BTC-USD", "ETH-USD"],
+        max_crypto=True,  # type: ignore[arg-type]
+    )
+    assert g2["ready"] is True
+    assert g2["cap"] == 1
+    assert g2["tone"] == "warn"
+    assert "over cap 2/1" in g2["line"]
+
+
 def test_crypto_policy_glance_empty_book() -> None:
     g = build_crypto_policy_glance([])
     assert g["ready"] is True
