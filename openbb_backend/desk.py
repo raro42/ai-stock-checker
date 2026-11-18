@@ -35395,7 +35395,8 @@ def _upsert_scan_breadth_daily(
         "crypto_n": int(pulse.get("crypto_n") or 0),
         "crypto_up": int(pulse.get("crypto_up") or 0),
         "crypto_down": int(pulse.get("crypto_down") or 0),
-        "crypto_avg_chg": float(pulse.get("crypto_avg_chg") or 0.0),
+        # Refuse bool/gap — never invent flat 0.0% / True→1.0 into daily history.
+        "crypto_avg_chg": _coerce_desk_signed_pct(pulse.get("crypto_avg_chg")),
         "crypto_big_movers": int(pulse.get("crypto_big_movers") or 0),
         "stock_breakouts_n": int(pulse.get("stock_breakouts_n") or 0),
         "stock_within_5pct_high": int(pulse.get("stock_within_5pct_high") or 0),
@@ -38507,8 +38508,9 @@ def load_desk_snapshot(
     crypto_up = sum(1 for c in crypto_changes if c > 0)
     crypto_down = sum(1 for c in crypto_changes if c < 0)
     crypto_flat_known = sum(1 for c in crypto_changes if c == 0.0)
+    # Empty / all-%-refused → None (never invent flat 0.0% avg).
     crypto_avg = (
-        sum(crypto_changes) / len(crypto_changes) if crypto_changes else 0.0
+        sum(crypto_changes) / len(crypto_changes) if crypto_changes else None
     )
     crypto_big = sum(1 for c in crypto_changes if abs(c) >= 4.0)
     stock_near = sum(

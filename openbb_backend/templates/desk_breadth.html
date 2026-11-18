@@ -374,9 +374,13 @@
     </div>
     <div>
       <span class="k">Crypto avg 24h</span>
-      <span class="v {% if (pulse.crypto_avg_chg|default(0)) >= 0 %}up{% else %}down{% endif %}">
-        {{ "%+.1f"|format(pulse.crypto_avg_chg|default(0)) }}%
+      {% if pulse.crypto_avg_chg is not none %}
+      <span class="v {% if pulse.crypto_avg_chg >= 0 %}up{% else %}down{% endif %}">
+        {{ "%+.1f"|format(pulse.crypto_avg_chg) }}%
       </span>
+      {% else %}
+      <span class="v meta" title="No readable 24h % on leaders this scan">n/a</span>
+      {% endif %}
     </div>
     <div>
       <span class="k">±4% movers</span>
@@ -760,7 +764,7 @@
             <span class="weight">({{ "%.0f"|format(d.crypto_advance_pct) }}%)</span>
             {% endif %}
           </td>
-          <td>{{ "%+.1f"|format(d.crypto_avg_chg) }}%</td>
+          <td>{% if d.crypto_avg_chg is not none %}{{ "%+.1f"|format(d.crypto_avg_chg) }}%{% else %}<span class="meta" title="No readable 24h % that day">n/a</span>{% endif %}</td>
           <td>
             {{ d.crypto_big_movers }}{% if d.crypto_mover_pct is not none %}
             <span class="weight">({{ "%.0f"|format(d.crypto_mover_pct) }}%)</span>

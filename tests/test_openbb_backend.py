@@ -471,6 +471,52 @@ def test_desk_opportunities_signed_pct_refuse_invalid(
     assert sb["stock_within_5pct_high"] == 1  # MSFT only; bool AAPL refused
 
 
+def test_desk_breadth_crypto_avg_refuses_empty_or_bool(
+    tmp_path: Path, monkeypatch
+):
+    """No readable 24h % → crypto_avg_chg None (never invent flat 0.0 / True→1)."""
+    data = tmp_path
+    _seed_portfolio(data)
+    arch = data / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-11-18T01:00:00",
+                "recommendations": [],
+                "crypto_leaders": [
+                    {
+                        "symbol": "BTC-USD",
+                        "price": 60000,
+                        "change_24h": True,
+                        "score": 70,
+                    },
+                    {
+                        "symbol": "ETH-USD",
+                        "price": 3000,
+                        "change_24h": None,
+                        "score": 40,
+                    },
+                ],
+                "stock_breakouts": [],
+            }
+        )
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    snap = load_desk_snapshot(data)
+    sb = snap["scan_breadth"]
+    assert sb["crypto_n"] == 2
+    assert sb["crypto_up"] == 0
+    assert sb["crypto_down"] == 0
+    assert sb["crypto_flat"] == 0
+    assert sb["crypto_avg_chg"] is None
+    hist = snap["scan_breadth_history"]
+    assert hist
+    assert hist[-1]["crypto_avg_chg"] is None
+    daily = json.loads((data / "scan_breadth_daily.json").read_text())
+    assert daily[-1]["crypto_avg_chg"] is None
+
+
 def test_desk_snapshot_refuses_invalid_holdings_cash(tmp_path: Path, monkeypatch):
     """Bool/gap qty·avg·cash must not invent €1 Overview lots or book cash."""
     data = tmp_path
