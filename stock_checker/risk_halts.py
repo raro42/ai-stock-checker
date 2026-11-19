@@ -4354,16 +4354,19 @@ def book_risk_report(
     from stock_checker.technical_indicators import _finite_signed
 
     try:
-        # Refuse bool cash/equity — ``float(True)==1.0`` invents a €1 book.
+        # Refuse bool cash/equity/slots — ``float(True)==1.0`` / ``int(True)→1``
+        # invent a €1 book or a fake 1-slot cap (tradermonty #700/#655).
         if (
             not _finite_signed(cash)
             or not _finite_signed(equity)
             or not _finite_signed(max_name_pct)
+            or isinstance(max_positions, bool)
+            or not _finite_signed(max_positions)
         ):
             raise TypeError("unreadable book money")
         cash_f = float(cash)  # type: ignore[arg-type]
         equity_f = float(equity)  # type: ignore[arg-type]
-        max_n = int(max_positions)
+        max_n = int(max_positions)  # type: ignore[arg-type]
         cap_pct = abs(float(max_name_pct))  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return {

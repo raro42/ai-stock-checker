@@ -29,6 +29,33 @@ def _finite(value: Any, default: float = 0.0) -> float:
     return n if math.isfinite(n) else default
 
 
+def _chart_count(value: object, default: int = 0) -> int:
+    """Non-neg panel/meter count; bool/gap → default (never ``True→1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — Charts bar lean helpers
+    must not invent a one-panel spoken/fresh/aging/stale sample from bool.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    return default if n is None else n
+
+
+def _chart_slots(value: object, default: int = 5) -> int:
+    """Book slot cap; bool/≤0 → default (never ``True→1`` slot)."""
+    n = _chart_count(value, default=-1)
+    return default if n < 1 else n
+
+
+def _chart_hold_hours(value: object, default: float = 24.0) -> float:
+    """Min-hold hours; bool/gap → default (never ``True→1h``)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if not _finite_signed(value):
+        return float(default)
+    return float(value)  # type: ignore[arg-type]
+
+
 def _load_json(path: Path, default: Any) -> Any:
     """Parse JSON via desk lean-checked loader (xang1234 #498 / #540)."""
     from openbb_backend.desk import load_json_checked
@@ -403,18 +430,9 @@ def chart_price_bars_vs_fresh(
     All-spoken → ``vs 0 fresh · thin · 0%``. ``strong`` ≥75% · ``thin``
     <50% · mid shows the percent only.
     """
-    try:
-        spoken = max(0, int(n_spoken))
-    except (TypeError, ValueError):
-        spoken = 0
-    try:
-        fresh = max(0, int(n_fresh))
-    except (TypeError, ValueError):
-        fresh = 0
-    try:
-        panels = max(0, int(n_panels))
-    except (TypeError, ValueError):
-        panels = 0
+    spoken = _chart_count(n_spoken)
+    fresh = _chart_count(n_fresh)
+    panels = _chart_count(n_panels)
     if spoken <= 0 or panels <= 0:
         return "", None, None, ""
     fresh = min(fresh, panels)
@@ -444,14 +462,8 @@ def chart_price_bars_spoken_vs_fresh_lead(
     ``lead fresh · N%``; ties / sole-side → silent (use
     ``chart_price_bars_spoken_vs_fresh_sample_gap`` for ``spoken/fresh tied``).
     """
-    try:
-        spoken = max(0, int(n_spoken))
-    except (TypeError, ValueError):
-        spoken = 0
-    try:
-        fresh = max(0, int(n_fresh))
-    except (TypeError, ValueError):
-        fresh = 0
+    spoken = _chart_count(n_spoken)
+    fresh = _chart_count(n_fresh)
     total = spoken + fresh
     if total < 2 or spoken <= 0 or fresh <= 0 or spoken == fresh:
         return "", "", None
@@ -481,14 +493,8 @@ def chart_price_bars_spoken_vs_fresh_lead_size(
     """
     if str(lead_name or "").strip().casefold() not in {"spoken", "fresh"}:
         return None, None, None
-    try:
-        spoken = max(0, int(n_spoken))
-    except (TypeError, ValueError):
-        spoken = 0
-    try:
-        fresh = max(0, int(n_fresh))
-    except (TypeError, ValueError):
-        fresh = 0
+    spoken = _chart_count(n_spoken)
+    fresh = _chart_count(n_fresh)
     quieter = min(spoken, fresh)
     louder = max(spoken, fresh)
     if quieter <= 0:
@@ -654,14 +660,8 @@ def chart_price_bars_spoken_vs_fresh_sample_gap(
     Prefixed so the bit stays distinct from ``aging/stale tied``. Lead /
     sole-side / zero stay silent. Display only.
     """
-    try:
-        spoken = max(0, int(n_spoken))
-    except (TypeError, ValueError):
-        spoken = 0
-    try:
-        fresh = max(0, int(n_fresh))
-    except (TypeError, ValueError):
-        fresh = 0
+    spoken = _chart_count(n_spoken)
+    fresh = _chart_count(n_fresh)
     if spoken <= 0 or fresh <= 0:
         return ""
     lead_bit, _name, _share = chart_price_bars_spoken_vs_fresh_lead(
@@ -727,14 +727,8 @@ def chart_price_bars_aging_stale_lead(
     → ``lead stale · N%`` / ``lead aging · N%``; ties / sole-side → silent
     (use ``chart_price_bars_aging_stale_sample_gap`` for ``aging/stale tied``).
     """
-    try:
-        aging = max(0, int(n_aging))
-    except (TypeError, ValueError):
-        aging = 0
-    try:
-        stale = max(0, int(n_stale))
-    except (TypeError, ValueError):
-        stale = 0
+    aging = _chart_count(n_aging)
+    stale = _chart_count(n_stale)
     total = aging + stale
     if total < 2 or aging <= 0 or stale <= 0 or aging == stale:
         return "", "", None
@@ -755,14 +749,8 @@ def chart_price_bars_aging_stale_sample_gap(
     Prefixed so the bit stays distinct from other glance ``tied`` chips.
     Lead / sole-side / zero stay silent. Display only.
     """
-    try:
-        aging = max(0, int(n_aging))
-    except (TypeError, ValueError):
-        aging = 0
-    try:
-        stale = max(0, int(n_stale))
-    except (TypeError, ValueError):
-        stale = 0
+    aging = _chart_count(n_aging)
+    stale = _chart_count(n_stale)
     if aging <= 0 or stale <= 0:
         return ""
     lead_bit, _name, _share = chart_price_bars_aging_stale_lead(aging, stale)
@@ -789,14 +777,8 @@ def chart_price_bars_aging_stale_lead_size(
     """
     if str(lead_name or "").strip().casefold() not in {"aging", "stale"}:
         return None, None, None
-    try:
-        aging = max(0, int(n_aging))
-    except (TypeError, ValueError):
-        aging = 0
-    try:
-        stale = max(0, int(n_stale))
-    except (TypeError, ValueError):
-        stale = 0
+    aging = _chart_count(n_aging)
+    stale = _chart_count(n_stale)
     quieter = min(aging, stale)
     louder = max(aging, stale)
     if quieter <= 0:
@@ -820,14 +802,8 @@ def chart_price_bars_aging_stale_share_bands(
     ``(aging_pct, aging_sev, stale_pct, stale_sev)`` with ``hot|quiet|\"\"``.
     Not a new entry gate.
     """
-    try:
-        aging = max(0, int(n_aging))
-    except (TypeError, ValueError):
-        aging = 0
-    try:
-        stale = max(0, int(n_stale))
-    except (TypeError, ValueError):
-        stale = 0
+    aging = _chart_count(n_aging)
+    stale = _chart_count(n_stale)
     total = aging + stale
     if total <= 0 or aging <= 0 or stale <= 0:
         return None, "", None, ""
@@ -2045,12 +2021,12 @@ def _book_risk_report_from_portfolio(
             rows.append({"symbol": str(sym), "market_value": mv})
     equity = cash + cost
     cfg = load_trader_config(data_dir)
-    max_pos = int(cfg.get("max_positions") or 5)
+    # Pass slots via refuse helper — int(True)→1 must not invent a 1-slot book.
     return book_risk_report(
         cash=cash,
         equity=equity,
         holdings=rows,
-        max_positions=max_pos,
+        max_positions=_chart_slots(cfg.get("max_positions")),
     )
 
 
@@ -2076,13 +2052,12 @@ def _next_buy_glance_from_portfolio(data_dir: Path, portfolio: dict[str, Any]) -
             cost += q * px
     equity = cash + cost
     cfg = load_trader_config(data_dir)
-    max_pos = int(cfg.get("max_positions") or 5)
     return build_next_buy_glance(
         suggest_entry_notional(
             cash=cash,
             equity=equity,
             open_positions=open_n,
-            max_positions=max_pos,
+            max_positions=_chart_slots(cfg.get("max_positions")),
             position_size=0.10,
         )
     )
@@ -2137,10 +2112,11 @@ def _calm_streak_glance_from_data(data_dir: Path) -> dict[str, Any]:
     calm = _load_json(data_dir / "paper_calm.json", {})
     if not isinstance(calm, dict):
         calm = {}
+    # Pass raw streak/required — pre-int(True) bypassed desk bool refuse.
     return build_calm_streak_glance(
         {
-            "calm_streak_days": int(calm.get("streak_days") or 0),
-            "calm_required_days": int(calm.get("required_days") or 30),
+            "calm_streak_days": calm.get("streak_days"),
+            "calm_required_days": calm.get("required_days"),
             "calm_ready": bool(calm.get("ready_for_compose_default")),
             "calm_detail": str(calm.get("detail") or ""),
         },
@@ -2161,13 +2137,14 @@ def _promote_ab_glance_from_data(data_dir: Path) -> dict[str, Any]:
         open_n = len(holds)
     elif isinstance(holds, list):
         open_n = len(holds)
+    # Raw knobs — desk/window_b already refuse bool (True→1 slot / 1h hold).
     return build_promote_ab_glance(
         {
             "promote_experiment_strategy": bool(
                 cfg.get("promote_experiment_strategy", False)
             ),
-            "max_positions": int(cfg.get("max_positions") or 5),
-            "min_hold_hours": float(cfg.get("min_hold_hours") or 24),
+            "max_positions": cfg.get("max_positions"),
+            "min_hold_hours": cfg.get("min_hold_hours"),
             "fee_preset": str(cfg.get("fee_preset") or "revolut_standard"),
             "regime_gate": bool(cfg.get("regime_gate", True)),
             "rs_gate": bool(cfg.get("rs_gate", True)),
@@ -2255,18 +2232,20 @@ def _improve_tick_glance_from_data(
     data_dir: Path, *, scan_time: str = ""
 ) -> dict[str, Any]:
     """Last Cursor improve tick age — match desk overnight honesty."""
-    from openbb_backend.desk import build_improve_tick_glance
+    from openbb_backend.desk import (
+        _coerce_scan_interval_min_to_sec,
+        build_improve_tick_glance,
+    )
     from stock_checker.trader_config import load_trader_config
 
     cfg = load_trader_config(data_dir)
-    try:
-        scan_m = int(cfg.get("scan_interval_min") or 15)
-    except (TypeError, ValueError):
-        scan_m = 15
+    # Refuse bool scan_interval_min — True→1m invents a fake improve/scan clash.
     return build_improve_tick_glance(
         data_dir,
         scan_time=scan_time,
-        scan_interval_sec=max(60, scan_m * 60),
+        scan_interval_sec=_coerce_scan_interval_min_to_sec(
+            cfg.get("scan_interval_min")
+        ),
     )
 
 
@@ -2303,7 +2282,8 @@ def _rebuy_cooldown_glance_from_data(data_dir: Path) -> dict[str, Any]:
     exit_times = _load_json(data_dir / "exit_times.json", {})
     if not isinstance(exit_times, dict):
         exit_times = {}
-    hold_h = float(cfg.get("min_hold_hours") or 24)
+    # Refuse bool min_hold — True→1h invents a 1h rebuy lock.
+    hold_h = _chart_hold_hours(cfg.get("min_hold_hours"))
     return build_rebuy_cooldown_glance(
         exit_times,
         cooldown_seconds=max(0.0, hold_h) * 3600.0,
@@ -2372,28 +2352,20 @@ def _fee_allowance_glance_from_data(data_dir: Path) -> dict[str, Any]:
     if not isinstance(portfolio, dict):
         portfolio = {}
     cfg = load_trader_config(data_dir)
-    try:
-        free_legs = int(
-            portfolio.get("free_legs_per_month")
-            or cfg.get("free_legs_per_month")
-            or 0
-        )
-    except (TypeError, ValueError):
-        free_legs = 0
-    try:
-        allowance_used = int(portfolio.get("fee_allowance_used") or 0)
-    except (TypeError, ValueError):
-        allowance_used = 0
     allowance_month = str(portfolio.get("fee_allowance_month") or "")
     current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+    used_raw = portfolio.get("fee_allowance_used")
     if allowance_month != current_month:
-        allowance_used = 0
+        used_raw = 0
+    # Raw free/used — desk _fee_allowance_int refuses bool (True→1 free leg).
+    free_raw = portfolio.get("free_legs_per_month")
+    if free_raw is None:
+        free_raw = cfg.get("free_legs_per_month")
     return build_fee_allowance_glance(
         {
             "fee_preset": cfg.get("fee_preset") or "revolut_standard",
-            "free_legs_per_month": max(0, free_legs),
-            "fee_allowance_used": max(0, allowance_used),
-            "fee_allowance_remaining": max(0, free_legs - allowance_used),
+            "free_legs_per_month": free_raw,
+            "fee_allowance_used": used_raw,
             "fee_allowance_month": current_month,
         }
     )
@@ -2420,7 +2392,8 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
         entry_times = {}
     opp, _pin = _load_opportunities(data_dir)
     cfg = load_trader_config(data_dir)
-    min_hold_s = max(4.0, float(cfg.get("min_hold_hours") or 24)) * 3600.0
+    # Refuse bool min_hold — True→1h invents early stuck unlock.
+    min_hold_s = max(4.0, _chart_hold_hours(cfg.get("min_hold_hours"))) * 3600.0
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
     if not isinstance(holdings, dict) or not isinstance(avg, dict):
@@ -2467,14 +2440,6 @@ def _book_posture_glance_from_data(data_dir: Path) -> dict[str, Any]:
     if not isinstance(portfolio, dict):
         portfolio = {}
     cfg = load_trader_config(data_dir)
-    try:
-        max_pos = int(cfg.get("max_positions") or 5)
-    except (TypeError, ValueError):
-        max_pos = 5
-    try:
-        min_hold_h = float(cfg.get("min_hold_hours") or 24)
-    except (TypeError, ValueError):
-        min_hold_h = 24.0
     from stock_checker.portfolio import long_only_quantity_ok
 
     holdings = portfolio.get("holdings") or {}
@@ -2485,10 +2450,11 @@ def _book_posture_glance_from_data(data_dir: Path) -> dict[str, Any]:
             if not long_only_quantity_ok(qty):
                 continue
             rows.append({"symbol": str(sym), "held_seconds": 0.0})
+    # Raw/slots helpers — desk posture refuse bool True→1 slot / 1h hold.
     return build_book_posture_glance(
         rows,
-        max_positions=max_pos,
-        min_hold_hours=min_hold_h,
+        max_positions=_chart_slots(cfg.get("max_positions")),
+        min_hold_hours=_chart_hold_hours(cfg.get("min_hold_hours")),
         suggest_trim=False,
     )
 
@@ -2507,10 +2473,7 @@ def _min_hold_lock_glance_from_data(data_dir: Path) -> dict[str, Any]:
     if not isinstance(entry_times, dict):
         entry_times = {}
     cfg = load_trader_config(data_dir)
-    try:
-        min_hold_h = float(cfg.get("min_hold_hours") or 24)
-    except (TypeError, ValueError):
-        min_hold_h = 24.0
+    min_hold_h = _chart_hold_hours(cfg.get("min_hold_hours"))
     from stock_checker.portfolio import long_only_quantity_ok
 
     holdings = portfolio.get("holdings") or {}

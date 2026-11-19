@@ -113,6 +113,78 @@ def test_chart_next_buy_and_book_risk_refuse_bool_cash(tmp_path: Path):
     assert next_buy.get("capped_by") in {"", "no_cash", "unreadable"}
 
 
+def test_chart_adapters_and_bar_lean_refuse_bool(tmp_path: Path):
+    """tradermonty #700/#655: Charts must not invent True→1 counts / slots / hours."""
+    import json
+
+    from openbb_backend.charts import (
+        _book_risk_report_from_portfolio,
+        _calm_streak_glance_from_data,
+        _fee_allowance_glance_from_data,
+        _promote_ab_glance_from_data,
+        chart_price_bars_aging_stale_lead,
+        chart_price_bars_spoken_vs_fresh_lead,
+        chart_price_bars_vs_fresh,
+    )
+
+    # Bar lean: bool panels must stay silent (never invent vs 1 fresh).
+    assert chart_price_bars_vs_fresh(True, True, True) == ("", None, None, "")
+    assert chart_price_bars_spoken_vs_fresh_lead(True, True) == ("", "", None)
+    assert chart_price_bars_aging_stale_lead(True, True) == ("", "", None)
+    assert chart_price_bars_vs_fresh(2, 1, 3)[0].startswith("vs 1 fresh")
+
+    # Bool Ops knobs — pre-int used to invent 1/1 calm + max pos 1≠5.
+    (tmp_path / "paper_calm.json").write_text(
+        json.dumps(
+            {
+                "streak_days": True,
+                "required_days": True,
+                "ready_for_compose_default": False,
+                "detail": "",
+            }
+        )
+    )
+    (tmp_path / "trader_config.json").write_text(
+        json.dumps(
+            {
+                "max_positions": True,
+                "min_hold_hours": True,
+                "scan_interval_min": True,
+                "free_legs_per_month": True,
+            }
+        )
+    )
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "cash": 1000.0,
+                "holdings": {},
+                "free_legs_per_month": True,
+                "fee_allowance_used": True,
+                "fee_allowance_month": "2099-01",
+            }
+        )
+    )
+    calm = _calm_streak_glance_from_data(tmp_path)
+    assert calm.get("streak") == 0
+    assert calm.get("required") == 30
+    promote = _promote_ab_glance_from_data(tmp_path)
+    # Bool max_pos/hold skipped as unknown — no fake max pos 1≠5 / hold 1h≠24h.
+    line = str(promote.get("line") or "") + str(promote.get("window_b_bit") or "")
+    assert "max pos 1" not in line
+    assert "hold 1h" not in line
+    fee = _fee_allowance_glance_from_data(tmp_path)
+    assert fee.get("free_legs") == 0
+    assert fee.get("used") == 0
+    risk = _book_risk_report_from_portfolio(
+        tmp_path,
+        {"cash": 1000.0, "holdings": {}, "avg_buy_price": {}},
+    )
+    # Bool max_positions → default 5 slots (not invent 1).
+    assert risk.get("max_positions") == 5
+    assert str(risk.get("slots") or "").endswith("/5")
+
+
 def test_chart_glances_refuse_invalid_cash_fees_qty(tmp_path: Path, monkeypatch):
     """Fee-burn / posture / min-hold must not invent €1 fees or 1-share slots."""
     import time
