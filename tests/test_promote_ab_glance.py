@@ -5887,6 +5887,65 @@ def test_window_a_edge_money_refuse_bool() -> None:
     assert real["closes_profit_factor"] is not None
 
 
+def test_window_a_exit_euro_refuse_bool() -> None:
+    """tradermonty #700/#655: bool exit_pnl_* must not invent True→€1 lead/conc."""
+    junk = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 1,
+            "exit_sl": 1,
+            "exit_rot": 1,
+            "exit_trim": 1,
+            "exit_pnl_tp": True,
+            "exit_pnl_sl": False,
+            "exit_pnl_rot": True,
+            "exit_pnl_trim": False,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert junk["closes_exit_euro_lead"] is None
+    assert junk["closes_exit_euro_lead_bit"] == ""
+    assert junk["closes_exit_euro_lead_hot"] is False
+    assert junk["closes_exit_euro_conc"] is None
+    assert junk["closes_exit_euro_conc_bit"] == ""
+    assert junk["closes_exit_euro_size_ratio"] is None
+    line = (junk.get("line") or "").lower()
+    assert "€ lead" not in line
+    assert "€ conc" not in line
+
+    real = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "exit_tp": 1,
+            "exit_sl": 1,
+            "exit_rot": 1,
+            "exit_trim": 1,
+            "exit_pnl_tp": 12.0,
+            "exit_pnl_sl": -200.0,
+            "exit_pnl_rot": 5.0,
+            "exit_pnl_trim": 3.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert real["closes_exit_euro_lead"] == "sl"
+    assert real["closes_exit_euro_pnl"] == -200.0
+    assert real["closes_exit_euro_lead_bit"] == "A exits € lead sl · −€200"
+
+
 def test_window_a_fill_progress_refuses_bool_counts() -> None:
     """tradermonty #700/#655: True→1 must not invent fill/close progress meters."""
     from stock_checker.promote_ab import format_window_a_fill_progress_bit

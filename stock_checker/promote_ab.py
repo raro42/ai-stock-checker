@@ -5560,10 +5560,14 @@ def window_a_sample_readiness(
                     if all(k in stats for k in euro_keys):
                         raws = [stats.get(k) for k in euro_keys]
                         if None not in raws:
-                            try:
-                                euros = tuple(float(v) for v in raws)
-                            except (TypeError, ValueError):
-                                euros = None
+                            # tradermonty #700/#655: refuse bool —
+                            # float(True)→€1 invents exit € lead/conc.
+                            coerced = [_coerce_window_pnl(v) for v in raws]
+                            euros = (
+                                tuple(coerced)  # type: ignore[arg-type]
+                                if all(v is not None for v in coerced)
+                                else None
+                            )
                             if euros is not None:
                                 (
                                     closes_exit_euro_lead,
