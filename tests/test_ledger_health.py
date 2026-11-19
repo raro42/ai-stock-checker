@@ -475,6 +475,15 @@ def test_ledger_short_vs_long_lead_helpers() -> None:
         None,
         None,
     )
+    # tradermonty #700/#655/#812: bool must not invent True→1 short lead.
+    assert ledger_short_vs_long_lead(True, 2) == ("", "", None)
+    assert ledger_short_vs_long_lead(False, 2) == ("", "", None)
+    assert ledger_short_vs_long_sample_gap(True, True) == ""
+    assert ledger_short_vs_long_lead_size(True, 2, lead_name="long") == (
+        None,
+        None,
+        None,
+    )
 
 
 def test_ledger_short_vs_long_lean_helpers() -> None:

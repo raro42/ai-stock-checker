@@ -27,6 +27,23 @@ def test_atr_display_glance_ready() -> None:
     assert f"−{DEFAULT_STOP_LOSS_PCT:g}%" in g["line"]
 
 
+def test_atr_display_glance_bool_vol_counts_refused(monkeypatch) -> None:
+    """tradermonty #700/#655/#812: bool coverage must not invent 1/1 with vol."""
+    import stock_checker.atr_risk as atr_mod
+
+    monkeypatch.setattr(
+        atr_mod,
+        "atr_vol_coverage",
+        lambda _rows: {"total": True, "with_vol": True, "missing": False},
+    )
+    g = build_atr_display_glance([{"risk_note": "x"}])
+    assert g["vol_total"] == 0
+    assert g["vol_with"] == 0
+    assert g["vol_missing"] == 0
+    assert g["tone"] == "display"
+    assert "with vol" not in g["line"]
+
+
 def test_atr_display_glance_vol_coverage() -> None:
     g = build_atr_display_glance(
         [

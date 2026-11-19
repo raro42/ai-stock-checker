@@ -2080,11 +2080,9 @@ def screener_weight_lean_meta(
         return _hot(_chip(unique_vs_dup_lean_vs_delta))
     if unique_vs_dup_warn and str(unique_vs_dup or "").strip():
         return _hot(_chip(unique_vs_dup))
-    try:
-        if int(n_junk or 0) > 0:
-            return _hot("junk")
-    except (TypeError, ValueError):
-        pass
+    # tradermonty #700/#655/#812: refuse bool — int(True)→1 invents junk warn.
+    if _sample_count(n_junk) > 0:
+        return _hot("junk")
     return _quiet_inventory_chip(
         weight_lean, _WEIGHT_LEAN_STAGE_RES, cap=_WEIGHT_LEAN_QUIET_NAME_CAP
     )
@@ -3124,6 +3122,18 @@ _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+def _sample_count(value: object) -> int:
+    """Non-neg sample count; bool/gap → 0 (never ``True→1``).
+
+    tradermonty #700/#655/#812 + xang1234/portfolio AI — decision-sample
+    lead, short/long lean, and ATR coverage meters must not invent a
+    one-row sample from a damaged bool.
+    """
+    from stock_checker.promote_ab import _window_count_or_zero
+
+    return _window_count_or_zero(value)
+
+
 def ledger_short_vs_long_lead(
     n_short: int,
     n_long: int,
@@ -3137,14 +3147,8 @@ def ledger_short_vs_long_lead(
     N%``; ties / sole-side → silent (use ``ledger_short_vs_long_sample_gap``
     for ``short/long tied``). Not a new entry gate.
     """
-    try:
-        short_n = max(0, int(n_short))
-    except (TypeError, ValueError):
-        short_n = 0
-    try:
-        long_n = max(0, int(n_long))
-    except (TypeError, ValueError):
-        long_n = 0
+    short_n = _sample_count(n_short)
+    long_n = _sample_count(n_long)
     total = short_n + long_n
     if total < 2 or short_n <= 0 or long_n <= 0 or short_n == long_n:
         return "", "", None
@@ -3165,14 +3169,8 @@ def ledger_short_vs_long_sample_gap(
     Prefixed so the bit stays distinct from Funds ``overlap/other tied``.
     Lead / sole-side / zero stay silent. Display only.
     """
-    try:
-        short_n = max(0, int(n_short))
-    except (TypeError, ValueError):
-        short_n = 0
-    try:
-        long_n = max(0, int(n_long))
-    except (TypeError, ValueError):
-        long_n = 0
+    short_n = _sample_count(n_short)
+    long_n = _sample_count(n_long)
     if short_n <= 0 or long_n <= 0:
         return ""
     lead_bit, _name, _share = ledger_short_vs_long_lead(short_n, long_n)
@@ -3197,14 +3195,8 @@ def ledger_short_vs_long_lead_size(
     """
     if str(lead_name or "").strip().casefold() not in {"short", "long"}:
         return None, None, None
-    try:
-        short_n = max(0, int(n_short))
-    except (TypeError, ValueError):
-        short_n = 0
-    try:
-        long_n = max(0, int(n_long))
-    except (TypeError, ValueError):
-        long_n = 0
+    short_n = _sample_count(n_short)
+    long_n = _sample_count(n_long)
     quieter = min(short_n, long_n)
     louder = max(short_n, long_n)
     if quieter <= 0:
@@ -7675,14 +7667,9 @@ def listed_fund_overlap_vs_other_lead(
     sole-side → silent (use ``listed_fund_overlap_vs_other_sample_gap`` for
     ``overlap/other tied``). Not a new entry gate.
     """
-    try:
-        overlap = max(0, int(n_overlap))
-    except (TypeError, ValueError):
-        overlap = 0
-    try:
-        other = max(0, int(n_other))
-    except (TypeError, ValueError):
-        other = 0
+    # tradermonty #700/#655/#812: refuse bool — int(True)→1 invents lead.
+    overlap = _sample_count(n_overlap)
+    other = _sample_count(n_other)
     total = overlap + other
     if total < 2 or overlap <= 0 or other <= 0 or overlap == other:
         return "", "", None
@@ -7703,14 +7690,8 @@ def listed_fund_overlap_vs_other_sample_gap(
     Prefixed so the bit stays distinct from multi-theme ``tied``. Lead /
     sole-side / zero stay silent. Display only.
     """
-    try:
-        overlap = max(0, int(n_overlap))
-    except (TypeError, ValueError):
-        overlap = 0
-    try:
-        other = max(0, int(n_other))
-    except (TypeError, ValueError):
-        other = 0
+    overlap = _sample_count(n_overlap)
+    other = _sample_count(n_other)
     if overlap <= 0 or other <= 0:
         return ""
     lead_bit, _name, _share = listed_fund_overlap_vs_other_lead(
@@ -29625,9 +29606,10 @@ def build_atr_display_glance(
     tp = float(DEFAULT_TAKE_PROFIT_PCT)
     sl = float(DEFAULT_STOP_LOSS_PCT)
     cov = atr_vol_coverage(rows)
-    total = int(cov.get("total") or 0)
-    with_vol = int(cov.get("with_vol") or 0)
-    missing = int(cov.get("missing") or 0)
+    # tradermonty #700/#655/#812: refuse bool — int(True)→1 invents vol meters.
+    total = _sample_count(cov.get("total"))
+    with_vol = _sample_count(cov.get("with_vol"))
+    missing = _sample_count(cov.get("missing"))
     if total > 0:
         mid = (
             f"{with_vol}/{total} with vol"
@@ -30504,11 +30486,12 @@ def _decision_sample_lead(
     after sample lead sides. Not a gate.
     """
     empty = ("", "", None, "", None, "", "", None, None)
-    total = sum(max(0, int(n or 0)) for _, n in buckets)
+    # tradermonty #700/#655/#812: refuse bool — int(True)→1 invents lead.
+    total = sum(_sample_count(n) for _, n in buckets)
     if total < 2:
         return empty
     ranked = sorted(
-        ((str(name), max(0, int(n or 0))) for name, n in buckets),
+        ((str(name), _sample_count(n)) for name, n in buckets),
         key=lambda x: x[1],
         reverse=True,
     )
@@ -30583,7 +30566,8 @@ def _decision_sample_gap(total: int, lead_name: str) -> str:
     sample thin + xang1234 sample honesty + portfolio AI speak-both-sides.
     Not a gate.
     """
-    n = max(0, int(total or 0))
+    # tradermonty #700/#655/#812: refuse bool — int(True)→1 invents n=1.
+    n = _sample_count(total)
     if n <= 0 or str(lead_name or "").strip():
         return ""
     if n < 2:
