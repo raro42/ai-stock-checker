@@ -13,6 +13,42 @@ from stock_checker.yahoo_universe_discovery import (
 )
 
 
+def test_universe_discovery_glance_refuses_bool_meta_counts(tmp_path) -> None:
+    """tradermonty #700/#655 + xang1234: True→1 must not invent +1 / 1 fail."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_added": True,
+                    "last_yahoo_dropped": False,
+                    "last_yahoo_screens_ok": True,
+                    "last_yahoo_screens_failed": True,
+                    "last_yahoo_claim_drops": True,
+                    "last_yahoo_claim_live": True,
+                    "yahoo_discovery_fail_streak": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["last_yahoo_added"] is None
+    assert g["last_yahoo_dropped"] is None
+    assert g["last_yahoo_screens_ok"] is None
+    assert g["last_yahoo_screens_failed"] is None
+    assert g["last_yahoo_claim_drops"] == 0
+    assert g["last_yahoo_claim_live"] == 0
+    assert g["yahoo_fail_streak"] == 0
+    # No invented +1 added / 1× streak / 1 claim on the primary clip.
+    assert "+1" not in (g.get("line") or "")
+    assert "1×" not in (g.get("line") or "")
+    assert "1 claim" not in (g.get("line") or "")
+
+
 def test_universe_discovery_glance_never_run(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path)
     assert g["ready"] is True

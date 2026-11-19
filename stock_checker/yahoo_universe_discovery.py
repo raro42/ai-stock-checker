@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any, List, Sequence
 
 from stock_checker.symbol_filters import is_tradeable_symbol
+from stock_checker.technical_indicators import coerce_nonneg_int
 
 # Keep discovery calm — we are not RyanJHamby's 3800-name firehose.
 DEFAULT_MOVER_COUNT = 25
@@ -41,6 +42,17 @@ _yahoo_screen_inflight_lock = threading.Lock()
 DEFAULT_SCREENS: tuple[str, ...] = ("day_gainers", "day_losers", "most_actives")
 # xang1234: a mostly empty snapshot is a failed fetch, not a quiet day.
 EMPTY_SCREEN_FRACTION = 0.2
+
+
+def _meta_count_or_zero(value: object) -> int:
+    """Non-negative meta count; bool/gap/NaN → 0 (never ``True→1`` / ``False→0``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — Universe claim-drop /
+    claim-live / fail-streak / screen meters must not invent a one-hit
+    sample from damaged JSON bools.
+    """
+    n = coerce_nonneg_int(value)
+    return 0 if n is None else n
 
 
 class YahooScreenEmptyError(Exception):
@@ -155,11 +167,7 @@ def yahoo_fail_streak(meta: Any) -> int:
     """
     if not isinstance(meta, dict):
         return 0
-    raw = meta.get("yahoo_discovery_fail_streak")
-    try:
-        return max(0, int(raw))
-    except (TypeError, ValueError):
-        return 0
+    return _meta_count_or_zero(meta.get("yahoo_discovery_fail_streak"))
 
 
 def bump_yahoo_fail_streak(meta: dict[str, Any]) -> int:
@@ -389,23 +397,17 @@ def set_yahoo_discovery_claim_live(
 
 
 def yahoo_discovery_claim_drops(meta: Any) -> int:
-    """Read last claim-release count; junk / missing → 0."""
+    """Read last claim-release count; junk / missing / bool → 0."""
     if not isinstance(meta, dict):
         return 0
-    try:
-        return max(0, int(meta.get("last_yahoo_claim_drops") or 0))
-    except (TypeError, ValueError):
-        return 0
+    return _meta_count_or_zero(meta.get("last_yahoo_claim_drops"))
 
 
 def yahoo_discovery_claim_live(meta: Any) -> int:
-    """Read last still-held screen claim count; junk / missing → 0."""
+    """Read last still-held screen claim count; junk / missing / bool → 0."""
     if not isinstance(meta, dict):
         return 0
-    try:
-        return max(0, int(meta.get("last_yahoo_claim_live") or 0))
-    except (TypeError, ValueError):
-        return 0
+    return _meta_count_or_zero(meta.get("last_yahoo_claim_live"))
 
 
 # Compact Ops labels — full Yahoo preset names blow the Universe clip.
@@ -520,14 +522,8 @@ def yahoo_discovery_claim_drop_reasons(
     total = yahoo_discovery_claim_drops(meta)
     if total <= 0:
         return "", 0, 0
-    try:
-        dead = max(0, int(meta.get("last_yahoo_claim_drops_dead") or 0))
-    except (TypeError, ValueError):
-        dead = 0
-    try:
-        stale = max(0, int(meta.get("last_yahoo_claim_drops_stale") or 0))
-    except (TypeError, ValueError):
-        stale = 0
+    dead = _meta_count_or_zero(meta.get("last_yahoo_claim_drops_dead"))
+    stale = _meta_count_or_zero(meta.get("last_yahoo_claim_drops_stale"))
     dead = min(dead, total)
     stale = min(stale, total - dead)
     if dead <= 0 and stale <= 0:
@@ -1154,17 +1150,11 @@ def yahoo_fail_plan_held(meta: Any) -> bool:
 
 
 def yahoo_discovery_error_sides(meta: Any) -> tuple[int, int]:
-    """Read persisted timeout/inflight fail counts; junk → ``(0, 0)``."""
+    """Read persisted timeout/inflight fail counts; junk / bool → ``(0, 0)``."""
     if not isinstance(meta, dict):
         return 0, 0
-    try:
-        timed = max(0, int(meta.get("last_yahoo_timeout_fails") or 0))
-    except (TypeError, ValueError):
-        timed = 0
-    try:
-        held = max(0, int(meta.get("last_yahoo_inflight_fails") or 0))
-    except (TypeError, ValueError):
-        held = 0
+    timed = _meta_count_or_zero(meta.get("last_yahoo_timeout_fails"))
+    held = _meta_count_or_zero(meta.get("last_yahoo_inflight_fails"))
     return timed, held
 
 

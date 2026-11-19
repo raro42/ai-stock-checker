@@ -12,7 +12,9 @@ from stock_checker.yahoo_universe_discovery import (
     screen_payload_failed,
     screens_bundle_failed,
     set_yahoo_discovery_error,
+    yahoo_discovery_claim_drop_reasons,
     yahoo_discovery_claim_drop_share,
+    yahoo_discovery_claim_drops,
     yahoo_discovery_claim_drop_vs_kept,
     yahoo_discovery_claim_drop_vs_kept_lean,
     yahoo_discovery_claim_drop_kept_vs_live_free,
@@ -23,10 +25,12 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_discovery_claim_hung_vs_live_free,
     yahoo_discovery_claim_lean_meta,
     yahoo_discovery_claim_lean_open,
+    yahoo_discovery_claim_live,
     yahoo_discovery_claim_live_share,
     yahoo_discovery_claim_live_vs_free,
     yahoo_discovery_claim_live_vs_free_lean,
     yahoo_discovery_error_class,
+    yahoo_discovery_error_sides,
     yahoo_fail_error_also_bit,
     yahoo_fail_error_also_counts,
     yahoo_fail_error_also_share,
@@ -704,6 +708,43 @@ def test_yahoo_fail_streak_bump_and_clear():
     assert yahoo_fail_streak(meta) == 2
     clear_yahoo_fail_streak(meta)
     assert yahoo_fail_streak(meta) == 0
+
+
+def test_yahoo_discovery_meta_counts_refuse_bool():
+    """tradermonty #700/#655 + xang1234: True→1 must not invent claim/fail meters."""
+    junk = {
+        "yahoo_discovery_fail_streak": True,
+        "last_yahoo_claim_drops": True,
+        "last_yahoo_claim_live": False,
+        "last_yahoo_claim_drops_dead": True,
+        "last_yahoo_claim_drops_stale": True,
+        "last_yahoo_timeout_fails": True,
+        "last_yahoo_inflight_fails": False,
+    }
+    assert yahoo_fail_streak(junk) == 0
+    assert yahoo_discovery_claim_drops(junk) == 0
+    assert yahoo_discovery_claim_live(junk) == 0
+    bit, dead, stale = yahoo_discovery_claim_drop_reasons(junk)
+    assert bit == ""
+    assert dead == 0 and stale == 0
+    assert yahoo_discovery_error_sides(junk) == (0, 0)
+
+    ok = {
+        "yahoo_discovery_fail_streak": 3,
+        "last_yahoo_claim_drops": 2,
+        "last_yahoo_claim_live": 1,
+        "last_yahoo_claim_drops_dead": 1,
+        "last_yahoo_claim_drops_stale": 1,
+        "last_yahoo_timeout_fails": 2,
+        "last_yahoo_inflight_fails": 1,
+    }
+    assert yahoo_fail_streak(ok) == 3
+    assert yahoo_discovery_claim_drops(ok) == 2
+    assert yahoo_discovery_claim_live(ok) == 1
+    bit2, dead2, stale2 = yahoo_discovery_claim_drop_reasons(ok)
+    assert "dead" in bit2 and "stale" in bit2
+    assert dead2 == 1 and stale2 == 1
+    assert yahoo_discovery_error_sides(ok) == (2, 1)
 
 
 def test_yahoo_fail_error_vs_seed_extremes():

@@ -28322,26 +28322,20 @@ def build_universe_discovery_glance(
             yahoo_status = str(
                 meta.get("last_yahoo_discovery_status") or ""
             ).strip().lower()
-            try:
-                last_added = int(meta.get("last_yahoo_added"))
-            except (TypeError, ValueError):
-                last_added = None
-            try:
-                last_dropped = int(meta.get("last_yahoo_dropped"))
-            except (TypeError, ValueError):
-                last_dropped = None
+            # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+            # int(True)→1 invents +1 added / 1 fail screen on Universe.
+            from stock_checker.technical_indicators import coerce_nonneg_int
+
+            last_added = coerce_nonneg_int(meta.get("last_yahoo_added"))
+            last_dropped = coerce_nonneg_int(meta.get("last_yahoo_dropped"))
             last_dropped_venue = str(
                 meta.get("last_yahoo_dropped_venue") or ""
             ).strip().upper()
             prune_skipped = bool(meta.get("last_yahoo_prune_skipped"))
-            try:
-                screens_ok = int(meta.get("last_yahoo_screens_ok"))
-            except (TypeError, ValueError):
-                screens_ok = None
-            try:
-                screens_failed = int(meta.get("last_yahoo_screens_failed"))
-            except (TypeError, ValueError):
-                screens_failed = None
+            screens_ok = coerce_nonneg_int(meta.get("last_yahoo_screens_ok"))
+            screens_failed = coerce_nonneg_int(
+                meta.get("last_yahoo_screens_failed")
+            )
 
     tone = "unknown"
     age_sec: int | None = None
