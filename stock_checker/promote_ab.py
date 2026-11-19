@@ -3004,22 +3004,14 @@ def window_a_sample_readiness(
     }
     if not isinstance(stats, dict):
         return empty
-    try:
-        fills = int(stats.get("trades") or 0)
-    except (TypeError, ValueError):
-        fills = 0
+    # tradermonty #700/#655: refuse bool — int(True)→1 invents a fill sample.
+    fills = _window_count_or_zero(stats.get("trades"))
     sides_known = "sells" in stats or "buys" in stats
     buys = 0
     sells = 0
     if sides_known:
-        try:
-            buys = int(stats.get("buys") or 0)
-        except (TypeError, ValueError):
-            buys = 0
-        try:
-            sells = int(stats.get("sells") or 0)
-        except (TypeError, ValueError):
-            sells = 0
+        buys = _window_count_or_zero(stats.get("buys")) if "buys" in stats else 0
+        sells = _window_count_or_zero(stats.get("sells")) if "sells" in stats else 0
         if "buys" not in stats and "sells" in stats:
             buys = max(0, fills - sells)
         elif "sells" not in stats and "buys" in stats:
@@ -3346,15 +3338,16 @@ def window_a_sample_readiness(
     if sides_known and sells > 0 and not open_only and (
         "wins" in stats or "losses" in stats
     ):
-        try:
-            closes_wins = int(stats.get("wins") or 0)
-        except (TypeError, ValueError):
-            closes_wins = 0
-        try:
-            closes_losses = int(stats.get("losses") or 0)
-        except (TypeError, ValueError):
-            closes_losses = 0
-        closes_polarity_known = True
+        # tradermonty #700/#655: refuse bool — True→1w/1l invents polarity.
+        closes_wins = (
+            _window_count_or_zero(stats.get("wins")) if "wins" in stats else 0
+        )
+        closes_losses = (
+            _window_count_or_zero(stats.get("losses")) if "losses" in stats else 0
+        )
+        # Both refused / absent → fail-open (do not claim known 0w/0l polarity).
+        if closes_wins > 0 or closes_losses > 0:
+            closes_polarity_known = True
         side_bit = f"{closes_wins}w/{closes_losses}l"
         if closes_wins > 0 and closes_losses == 0:
             closes_polarity = "all_win"
@@ -7121,13 +7114,9 @@ def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:
         return empty
     if "crypto_legs" not in stats and "stock_legs" not in stats:
         return empty
-    try:
-        crypto_n = int(stats.get("crypto_legs") or 0)
-        stock_n = int(stats.get("stock_legs") or 0)
-    except (TypeError, ValueError):
-        return empty
-    if crypto_n < 0 or stock_n < 0:
-        return empty
+    # tradermonty #700/#655: refuse bool — True→1 invents crypto/stock sleeve.
+    crypto_n = _window_count_or_zero(stats.get("crypto_legs"))
+    stock_n = _window_count_or_zero(stats.get("stock_legs"))
     total = crypto_n + stock_n
     if total <= 0:
         return empty
@@ -7484,13 +7473,9 @@ def window_a_close_sleeve_mix(
         return empty
     if "crypto_closes" not in stats and "stock_closes" not in stats:
         return empty
-    try:
-        crypto_n = int(stats.get("crypto_closes") or 0)
-        stock_n = int(stats.get("stock_closes") or 0)
-    except (TypeError, ValueError):
-        return empty
-    if crypto_n < 0 or stock_n < 0:
-        return empty
+    # tradermonty #700/#655: refuse bool — True→1 invents close-sleeve mix.
+    crypto_n = _window_count_or_zero(stats.get("crypto_closes"))
+    stock_n = _window_count_or_zero(stats.get("stock_closes"))
     total = crypto_n + stock_n
     if total <= 0:
         return empty
@@ -9520,6 +9505,28 @@ def filter_trades_in_window(
     return out
 
 
+def _coerce_window_count(value: object) -> int | None:
+    """Non-negative sample count, or None when bool/gap/NaN (never ``True→1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — Window A fill/sell/win
+    meters and sleeve legs must not invent a one-fill control sample.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    n = int(value)  # type: ignore[arg-type]
+    if n < 0:
+        return None
+    return n
+
+
+def _window_count_or_zero(value: object) -> int:
+    """Count for display meters; unreadable → 0 (not ``int(True)→1``)."""
+    n = _coerce_window_count(value)
+    return 0 if n is None else n
+
+
 def _coerce_window_pnl(value: object) -> float | None:
     """Signed sell P&L, or None when bool/gap/NaN (never ``True→€1`` / ``or 0``).
 
@@ -10171,16 +10178,23 @@ def format_window_stats_bit(
     """
     if not isinstance(stats, dict):
         return ""
-    try:
-        n = int(stats.get("trades") or 0)
-        fees = float(stats.get("fees") or 0)
-        realized = float(stats.get("realized_pnl") or 0)
-        if stats.get("net_after_all_fees") is not None:
-            net = float(stats.get("net_after_all_fees") or 0)
-        else:
-            net = realized - fees
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→1 fill / True→€1 invent.
+    n = _window_count_or_zero(stats.get("trades"))
+    fees_c = _coerce_window_commission(stats.get("fees"))
+    if fees_c is None:
         return ""
+    fees = fees_c
+    realized_c = _coerce_window_pnl(stats.get("realized_pnl"))
+    if stats.get("realized_pnl") is not None and realized_c is None:
+        return ""
+    realized = 0.0 if realized_c is None else realized_c
+    if stats.get("net_after_all_fees") is not None:
+        net_c = _coerce_window_pnl(stats.get("net_after_all_fees"))
+        if net_c is None:
+            return ""
+        net = net_c
+    else:
+        net = realized - fees
     if n <= 0 and fees <= 0 and realized == 0 and net == 0:
         return "0 fills" if include_fills else ""
     sign = "+" if net >= 0 else "−"

@@ -18,6 +18,9 @@ from stock_checker.promote_ab import (
     promote_ab_snapshot,
     summarize_window_trades,
     weekday_trading_days,
+    window_a_sample_readiness,
+    window_a_sleeve_mix,
+    window_b_readiness,
 )
 
 
@@ -5616,6 +5619,55 @@ def test_promote_ab_glance_refuses_bool_window_b_knobs() -> None:
     assert "hold 1h≠24h" not in g["line"]
     assert "scan 1m<15m" not in g["line"]
     assert "B blocked" not in (g.get("b_block_bit") or "")
+
+
+def test_window_a_sample_refuses_bool_counts() -> None:
+    """tradermonty #700/#655: bool stats must not invent True→1 fills/sells/wins."""
+    junk = window_a_sample_readiness(
+        {
+            "trades": True,
+            "buys": True,
+            "sells": True,
+            "wins": True,
+            "losses": False,
+            "fees": 10.0,
+            "realized_pnl": 20.0,
+        }
+    )
+    assert junk["fills"] == 0
+    assert junk["buys"] == 0
+    assert junk["sells"] == 0
+    assert junk["thin"] is True
+    assert "1 fills" not in (junk.get("thin_bit") or "")
+    assert junk.get("closes_polarity_bit") in ("", None) or "1w" not in (
+        junk.get("closes_polarity_bit") or ""
+    )
+
+    # Present sell side + bool wins must not invent all-win polarity.
+    sided = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 7,
+            "sells": 5,
+            "wins": True,
+            "losses": True,
+            "fees": 50.0,
+            "realized_pnl": 100.0,
+        }
+    )
+    assert sided["fills"] == 12
+    assert sided["sells"] == 5
+    assert sided["closes_wins"] == 0
+    assert sided["closes_losses"] == 0
+    assert sided["closes_polarity"] == ""
+
+    sleeve = window_a_sleeve_mix({"crypto_legs": True, "stock_legs": True})
+    assert sleeve["bit"] == ""
+    assert sleeve["crypto_legs"] is None
+
+    bit = format_window_stats_bit({"trades": True, "fees": 10.0, "realized_pnl": 5.0})
+    assert "1 fills" not in bit
+    assert bit == "€10 fees · +€5 net · 0 fills" or "0 fills" in bit
 
 
 def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
