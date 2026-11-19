@@ -3394,21 +3394,18 @@ def window_a_sample_readiness(
     if sides_known and sells > 0 and not open_only and (
         "avg_win" in stats or "avg_loss" in stats or "payoff_ratio" in stats
     ):
-        try:
-            aw = stats.get("avg_win")
-            closes_avg_win = float(aw) if aw is not None else None
-        except (TypeError, ValueError):
-            closes_avg_win = None
-        try:
-            al = stats.get("avg_loss")
-            closes_avg_loss = float(al) if al is not None else None
-        except (TypeError, ValueError):
-            closes_avg_loss = None
-        try:
-            pr = stats.get("payoff_ratio")
-            closes_payoff_ratio = float(pr) if pr is not None else None
-        except (TypeError, ValueError):
-            closes_payoff_ratio = None
+        # tradermonty #700/#655: refuse bool — float(True)→€1 / 1× invents payoff.
+        closes_avg_win = (
+            _coerce_window_pnl(stats.get("avg_win")) if "avg_win" in stats else None
+        )
+        closes_avg_loss = (
+            _coerce_window_pnl(stats.get("avg_loss")) if "avg_loss" in stats else None
+        )
+        closes_payoff_ratio = (
+            _coerce_window_pnl(stats.get("payoff_ratio"))
+            if "payoff_ratio" in stats
+            else None
+        )
         if (
             closes_payoff_ratio is None
             and closes_avg_win is not None
@@ -3449,11 +3446,8 @@ def window_a_sample_readiness(
         n_closed = closes_wins + closes_losses
         exp: float | None = None
         if "expectancy" in stats:
-            try:
-                raw_exp = stats.get("expectancy")
-                exp = float(raw_exp) if raw_exp is not None else None
-            except (TypeError, ValueError):
-                exp = None
+            # tradermonty #700/#655: refuse bool — float(True)→€1 invents expectancy.
+            exp = _coerce_window_pnl(stats.get("expectancy"))
         elif n_closed > 0:
             aw = closes_avg_win
             al = closes_avg_loss
@@ -3512,21 +3506,22 @@ def window_a_sample_readiness(
     closes_profit_factor_bit = ""
     closes_profit_factor_thin = False
     if sides_known and sells > 0 and not open_only and closes_wins > 0 and closes_losses > 0:
-        try:
-            gw = stats.get("gross_wins")
-            closes_gross_wins = float(gw) if gw is not None else None
-        except (TypeError, ValueError):
-            closes_gross_wins = None
-        try:
-            gl = stats.get("gross_losses")
-            closes_gross_losses = float(gl) if gl is not None else None
-        except (TypeError, ValueError):
-            closes_gross_losses = None
-        try:
-            pf = stats.get("profit_factor")
-            closes_profit_factor = float(pf) if pf is not None else None
-        except (TypeError, ValueError):
-            closes_profit_factor = None
+        # tradermonty #700/#655: refuse bool — float(True)→€1 / 1× invents PF.
+        closes_gross_wins = (
+            _coerce_window_pnl(stats.get("gross_wins"))
+            if "gross_wins" in stats
+            else None
+        )
+        closes_gross_losses = (
+            _coerce_window_pnl(stats.get("gross_losses"))
+            if "gross_losses" in stats
+            else None
+        )
+        closes_profit_factor = (
+            _coerce_window_pnl(stats.get("profit_factor"))
+            if "profit_factor" in stats
+            else None
+        )
         if (
             closes_gross_wins is None
             and closes_avg_win is not None
@@ -3580,13 +3575,8 @@ def window_a_sample_readiness(
         n_decided = closes_wins + closes_losses
         if n_decided > 0:
             if "win_rate" in stats:
-                try:
-                    wr_raw = stats.get("win_rate")
-                    closes_win_rate_pct = (
-                        float(wr_raw) if wr_raw is not None else None
-                    )
-                except (TypeError, ValueError):
-                    closes_win_rate_pct = None
+                # tradermonty #700/#655: refuse bool — float(True)→1% invents WR.
+                closes_win_rate_pct = _coerce_window_pnl(stats.get("win_rate"))
             if closes_win_rate_pct is None:
                 closes_win_rate_pct = 100.0 * closes_wins / n_decided
             closes_win_rate_pct = round(closes_win_rate_pct, 1)

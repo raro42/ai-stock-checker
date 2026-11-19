@@ -5826,6 +5826,67 @@ def test_window_a_fee_money_refuse_bool() -> None:
     assert "net expect" in real["closes_net_expectancy_bit"]
 
 
+def test_window_a_edge_money_refuse_bool() -> None:
+    """tradermonty #700/#655: bool avg/payoff/exp/PF/WR must not invent True→€1 / 1×."""
+    junk = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 100.0,
+            "wins": 2,
+            "losses": 2,
+            "avg_win": True,
+            "avg_loss": False,
+            "payoff_ratio": True,
+            "expectancy": True,
+            "gross_wins": True,
+            "gross_losses": False,
+            "profit_factor": True,
+            "win_rate": True,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert junk["closes_avg_win"] is None
+    assert junk["closes_avg_loss"] is None
+    assert junk["closes_payoff_ratio"] is None
+    assert junk["closes_payoff_bit"] == ""
+    assert junk["closes_expectancy"] is None
+    assert junk["closes_expectancy_bit"] == ""
+    assert junk["closes_gross_wins"] is None
+    assert junk["closes_gross_losses"] is None
+    assert junk["closes_profit_factor"] is None
+    assert junk["closes_profit_factor_bit"] == ""
+    # Bool WR refused → fall back to polarity math (2w/2l → 50%), not True→1%.
+    assert junk["closes_win_rate_pct"] == 50.0
+    assert junk["closes_win_rate_bit"] == "A win rate · 50%"
+    assert "payoff" not in (junk.get("line") or "").lower()
+    assert "expectancy" not in (junk.get("line") or "").lower()
+    assert " pf " not in f" {(junk.get('line') or '').lower()} "
+
+    real = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 20.0,
+            "realized_pnl": 200.0,
+            "wins": 3,
+            "losses": 1,
+            "avg_win": 80.0,
+            "avg_loss": 40.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert real["closes_payoff_ratio"] == 2.0
+    assert real["closes_payoff_bit"] == "A payoff strong · 2×"
+    assert real["closes_expectancy"] is not None
+    assert real["closes_profit_factor"] is not None
+
+
 def test_window_a_fill_progress_refuses_bool_counts() -> None:
     """tradermonty #700/#655: True→1 must not invent fill/close progress meters."""
     from stock_checker.promote_ab import format_window_a_fill_progress_bit
