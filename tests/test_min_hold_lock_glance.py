@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from openbb_backend.desk import (
+    _cooldown_expiring_soon,
+    _fmt_cooldown_left,
+    _fmt_hold,
     apply_min_hold_lock_fields,
     build_min_hold_lock_glance,
 )
@@ -156,3 +159,34 @@ def test_min_hold_refuses_bool_hours() -> None:
     # Bool lock seconds → 0 → past unlock (fail-open display; not invent 1s).
     assert row["past_min_hold"] is True
     assert row["min_hold_note"] == "past min-hold"
+
+
+def test_cooldown_expiry_refuses_bool() -> None:
+    """tradermonty #700/#655: True→1s left / True→1s warn must not invent soon."""
+    assert _cooldown_expiring_soon(True, warn_seconds=900) is False  # type: ignore[arg-type]
+    assert _cooldown_expiring_soon(100, warn_seconds=True) is False  # type: ignore[arg-type]
+    assert _cooldown_expiring_soon(False, warn_seconds=900) is False  # type: ignore[arg-type]
+    assert _cooldown_expiring_soon(600, warn_seconds=900) is True
+    assert _fmt_cooldown_left(True) == "—"  # type: ignore[arg-type]
+    assert _fmt_hold(True) == "—"  # type: ignore[arg-type]
+
+
+def test_min_hold_lock_glance_refuses_bool_expiry_warn() -> None:
+    """Bool expiry warn falls back to 15m default — not invent True→1s window."""
+    # 24h hold; held 23h 50m → ~10m left (inside default 15m warn).
+    g = build_min_hold_lock_glance(
+        [{"symbol": "AAPL", "held_seconds": 24 * 3600 - 600}],
+        min_hold_hours=24,
+        expiry_warn_seconds=True,  # type: ignore[arg-type]
+    )
+    assert g["ready"] is True
+    assert g["expiring_soon"] is True
+    assert g["tone"] == "expiring"
+    assert "unlocks soon" in g["line"]
+
+    g2 = build_min_hold_lock_glance(
+        [{"symbol": "AAPL", "held_seconds": 24 * 3600 - 600}],
+        min_hold_hours=24,
+        expiry_warn_seconds=False,  # type: ignore[arg-type]
+    )
+    assert g2["expiring_soon"] is True  # default 15m, not False→0 off

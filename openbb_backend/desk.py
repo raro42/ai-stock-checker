@@ -32375,7 +32375,12 @@ DEFAULT_COOLDOWN_EXPIRY_WARN_SEC = 15 * 60
 
 def _fmt_cooldown_left(seconds: float) -> str:
     """Short remaining-time label for rebuy cooldown glance."""
-    s = max(0.0, float(seconds))
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — True→~1s invent.
+    if not _finite_signed(seconds):
+        return "—"
+    s = max(0.0, float(seconds))  # type: ignore[arg-type]
     if s >= 3600.0:
         h = s / 3600.0
         if h >= 10:
@@ -32393,11 +32398,13 @@ def _cooldown_expiring_soon(
     warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
 ) -> bool:
     """True when a lock still active but clears within the warn window."""
-    try:
-        left = float(seconds_left)
-        warn = float(warn_seconds)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — True→1s left / True→1s warn invent.
+    if not _finite_signed(seconds_left) or not _finite_signed(warn_seconds):
         return False
+    left = float(seconds_left)  # type: ignore[arg-type]
+    warn = float(warn_seconds)  # type: ignore[arg-type]
     return warn > 0 and 0 < left <= warn
 
 
@@ -34249,8 +34256,13 @@ def build_min_hold_lock_glance(
     locked_rows.sort(key=lambda t: t["left"])
     earliest = locked_rows[0]
     left_txt = _fmt_hold(float(earliest["left"]))
+    # tradermonty #700/#655: refuse bool expiry — True→1s warn invents unlocks-soon.
+    if expiry_warn_seconds is None or not _finite_signed(expiry_warn_seconds):
+        warn_sec = float(DEFAULT_COOLDOWN_EXPIRY_WARN_SEC)
+    else:
+        warn_sec = float(expiry_warn_seconds)  # type: ignore[arg-type]
     expiring = _cooldown_expiring_soon(
-        float(earliest["left"]), warn_seconds=expiry_warn_seconds
+        float(earliest["left"]), warn_seconds=warn_sec
     )
     line = (
         f"{locked_n}/{timed_n} in min-hold lock ({hold_txt}) · "
@@ -38370,6 +38382,12 @@ def build_breadth_crypto_advance_spark(
 
 
 def _fmt_hold(seconds: float) -> str:
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — True→0m invent.
+    if not _finite_signed(seconds):
+        return "—"
+    seconds = float(seconds)  # type: ignore[arg-type]
     if seconds < 0:
         return "—"
     if seconds < 3600:
