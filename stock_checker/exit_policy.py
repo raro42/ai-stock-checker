@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, Set, Tuple
 
-from .technical_indicators import _finite_signed, _valid_close
+from .technical_indicators import _finite_signed, _valid_close, coerce_nonneg_int
 
 
 def _coerce_hold_seconds(value: object) -> Optional[float]:
@@ -125,11 +125,14 @@ def book_action_mode(n_holdings: int, max_positions: int) -> str:
     - at_cap: no new entries; rotation still allowed under exit_policy
     - overweight: TP/SL plus slow trim-to-cap (not scan rotation)
       (legacy books opened under a higher max must shrink via exits, not churn)
+
+    tradermonty #700/#655 + #812 attributable evidence: refuse bool —
+    ``int(True)→1`` must not invent a 1-slot ``at_cap`` / overweight book.
+    Unreadable knobs fail-open as ``open`` (same as TypeError path).
     """
-    try:
-        n = int(n_holdings)
-        cap = int(max_positions)
-    except (TypeError, ValueError):
+    n = coerce_nonneg_int(n_holdings)
+    cap = coerce_nonneg_int(max_positions)
+    if n is None or cap is None:
         return "open"
     if cap < 1:
         cap = 1

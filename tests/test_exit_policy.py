@@ -91,6 +91,18 @@ def test_book_action_mode():
     assert book_action_mode(9, 5) == "overweight"
 
 
+def test_book_action_mode_refuses_bool():
+    """tradermonty #700/#655/#812: True must not invent at_cap 1/1 or overweight 5/1."""
+    assert book_action_mode(True, 5) == "open"
+    assert book_action_mode(5, True) == "open"
+    assert book_action_mode(True, True) == "open"
+    assert book_action_mode(False, 5) == "open"
+    assert book_action_mode(5, False) == "open"
+    assert book_action_mode(None, 5) == "open"  # type: ignore[arg-type]
+    assert book_action_mode(5, None) == "open"  # type: ignore[arg-type]
+    assert book_action_mode(math.nan, 5) == "open"  # type: ignore[arg-type]
+
+
 def test_pick_overweight_trim_prefers_winner_when_available():
     from stock_checker.exit_policy import pick_overweight_trim_candidate
 
