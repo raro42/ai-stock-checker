@@ -70,7 +70,11 @@ def crypto_slot_available(
     max_crypto: int = DEFAULT_MAX_CRYPTO_POSITIONS,
 ) -> Tuple[bool, str]:
     """Whether the book can open another crypto position."""
-    cap = max(0, int(max_crypto))
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    # tradermonty #700/#655: refuse bool — False→0 invents full; True→1 fakes default.
+    n_cap = coerce_nonneg_int(max_crypto)
+    cap = int(DEFAULT_MAX_CRYPTO_POSITIONS) if n_cap is None else n_cap
     n = count_crypto_holdings(holdings)
     if n >= cap:
         return False, f"crypto slot full ({n}/{cap})"

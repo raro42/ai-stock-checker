@@ -1104,8 +1104,14 @@ class IntelligentTrader:
         if is_weekend:
             print(f"   📅 Weekend: crypto-only trading (stocks paused)")
 
-        max_c = max(1, int(self.top_crypto_count))
-        max_s = max(1, int(self.max_positions) - max_c + 1)
+        from .technical_indicators import coerce_nonneg_int
+
+        # tradermonty #700/#655: refuse bool — True→1 invents crypto/stock interleave.
+        raw_c = coerce_nonneg_int(self.top_crypto_count)
+        raw_pos = coerce_nonneg_int(self.max_positions)
+        max_c = max(1, 1 if raw_c is None else raw_c)
+        pos = _DEFAULT_MAX_POSITIONS if raw_pos is None else raw_pos
+        max_s = max(1, pos - max_c + 1)
         sorted_opportunities = order_entry_candidates(
             list(self.current_opportunities),
             max_crypto=max_c,

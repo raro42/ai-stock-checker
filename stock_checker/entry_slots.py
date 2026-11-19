@@ -5,7 +5,7 @@ from __future__ import annotations
 from itertools import zip_longest
 from typing import Any, Dict, List
 
-from stock_checker.technical_indicators import coerce_score
+from stock_checker.technical_indicators import coerce_nonneg_int, coerce_score
 
 # Stock breakouts map near-high % into this base so slots are not crypto-only.
 STOCK_BREAKOUT_SCORE_BASE = 40.0
@@ -43,8 +43,13 @@ def interleave_asset_slots(
     ]
     crypto.sort(key=_score_sort_key, reverse=True)
     stock.sort(key=_score_sort_key, reverse=True)
-    top_c = crypto[: max(0, int(max_crypto))]
-    top_s = stock[: max(0, int(max_stock))]
+    # tradermonty #700/#655: refuse bool — True→1 / False→0 invent slot caps.
+    c = coerce_nonneg_int(max_crypto)
+    s = coerce_nonneg_int(max_stock)
+    cap_c = DEFAULT_MAX_CRYPTO_SLOTS if c is None else c
+    cap_s = DEFAULT_MAX_STOCK_SLOTS if s is None else s
+    top_c = crypto[: max(0, cap_c)]
+    top_s = stock[: max(0, cap_s)]
     out: List[Dict[str, Any]] = []
     for a, b in zip_longest(top_c, top_s):
         if a is not None:

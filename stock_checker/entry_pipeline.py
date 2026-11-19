@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
-from .entry_slots import interleave_asset_slots
+from .entry_slots import (
+    DEFAULT_MAX_CRYPTO_SLOTS,
+    DEFAULT_MAX_STOCK_SLOTS,
+    interleave_asset_slots,
+)
 from .gate_audit import log_soft_allow
 from .promoted_strategy import (
     build_bars_for_symbols,
     filter_opportunities as filter_promoted_opportunities,
 )
+from .technical_indicators import coerce_nonneg_int
 
 
 def apply_promote_entry_filter(
@@ -46,8 +51,11 @@ def order_entry_candidates(
     max_stock: int,
 ) -> List[Dict]:
     """Interleave crypto/stock slots instead of pure global score sort."""
+    # tradermonty #700/#655: refuse bool — True→1 / False→0 invent interleave caps.
+    c = coerce_nonneg_int(max_crypto)
+    s = coerce_nonneg_int(max_stock)
     return interleave_asset_slots(
         list(opportunities),
-        max_crypto=max(1, int(max_crypto)),
-        max_stock=max(1, int(max_stock)),
+        max_crypto=max(1, DEFAULT_MAX_CRYPTO_SLOTS if c is None else c),
+        max_stock=max(1, DEFAULT_MAX_STOCK_SLOTS if s is None else s),
     )

@@ -51,6 +51,20 @@ def coerce_score(value: object) -> Optional[float]:
     return float(value)  # type: ignore[arg-type]
 
 
+def coerce_nonneg_int(value: object) -> Optional[int]:
+    """Non-negative int, or None when bool/gap/NaN (never ``True→1`` / ``False→0``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — slot caps, sample meters,
+    and book knobs must not invent a one-slot / one-fill count from a bool.
+    """
+    if value is None or not _finite_signed(value):
+        return None
+    n = int(value)  # type: ignore[arg-type]
+    if n < 0:
+        return None
+    return n
+
+
 def coerce_unix_ts(value: object) -> Optional[float]:
     """Unix epoch seconds, or None when bool/gap/NaN/non-positive.
 

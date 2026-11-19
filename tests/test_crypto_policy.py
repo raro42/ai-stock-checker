@@ -37,6 +37,22 @@ def test_crypto_slot_cap():
     assert count_crypto_holdings(["BTC-USD", "ETH-USD", "AAPL"]) == 2
 
 
+def test_crypto_slot_available_refuses_bool_cap():
+    """tradermonty #700/#655: False→0 invents full; True→1 must not fake default."""
+    ok, why = crypto_slot_available([], max_crypto=False)  # type: ignore[arg-type]
+    assert ok
+    assert "open" in why
+    blocked, why_full = crypto_slot_available(
+        ["BTC-USD"], max_crypto=True  # type: ignore[arg-type]
+    )
+    assert not blocked
+    assert "full" in why_full
+    # Explicit 0 still means no crypto slot (not confused with bool False).
+    no_slot, why_zero = crypto_slot_available([], max_crypto=0)
+    assert not no_slot
+    assert "full" in why_zero
+
+
 def test_crypto_exits_wider_than_stocks():
     tp_s, sl_s = exit_thresholds_for_asset(is_crypto=False)
     tp_c, sl_c = exit_thresholds_for_asset(is_crypto=True)

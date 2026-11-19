@@ -54,6 +54,40 @@ def test_interleave_refuses_invalid_score_rank():
     assert syms.index("MSFT") < syms.index("AAPL")
 
 
+def test_interleave_refuses_bool_slot_caps():
+    """tradermonty #700/#655: True→1 / False→0 must not invent interleave caps."""
+    from stock_checker.entry_pipeline import order_entry_candidates
+    from stock_checker.entry_slots import (
+        DEFAULT_MAX_CRYPTO_SLOTS,
+        DEFAULT_MAX_STOCK_SLOTS,
+    )
+
+    opps = [
+        {"symbol": "BTC-USD", "asset_class": "crypto", "score": 80},
+        {"symbol": "ETH-USD", "asset_class": "crypto", "score": 70},
+        {"symbol": "SOL-USD", "asset_class": "crypto", "score": 60},
+        {"symbol": "AAPL", "asset_class": "stock", "score": 38},
+        {"symbol": "MSFT", "asset_class": "stock", "score": 37},
+        {"symbol": "GOOG", "asset_class": "stock", "score": 36},
+        {"symbol": "AMZN", "asset_class": "stock", "score": 35},
+    ]
+    # Bool caps → defaults (2 crypto / 3 stock), not True→1 / False→0.
+    ordered = interleave_asset_slots(
+        opps,
+        max_crypto=True,  # type: ignore[arg-type]
+        max_stock=False,  # type: ignore[arg-type]
+    )
+    syms = [o["symbol"] for o in ordered]
+    assert len([s for s in syms if s.endswith("-USD")]) == DEFAULT_MAX_CRYPTO_SLOTS
+    assert len([s for s in syms if not s.endswith("-USD")]) == DEFAULT_MAX_STOCK_SLOTS
+    via_pipeline = order_entry_candidates(
+        opps,
+        max_crypto=True,  # type: ignore[arg-type]
+        max_stock=False,  # type: ignore[arg-type]
+    )
+    assert [o["symbol"] for o in via_pipeline] == syms
+
+
 def test_pulse_from_enriched_recommendations():
     """Recommendations without raw fields used to starve stock leaders — fixed."""
     pulse = pulse_from_opportunities(
