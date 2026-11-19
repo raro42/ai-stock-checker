@@ -72,7 +72,11 @@ def screen_payload_failed(payload: Any, *, expected: int) -> bool:
     quotes = _quotes_from_screen_payload(payload)
     if not quotes:
         return True
-    want = max(1, int(expected))
+    # tradermonty #700/#655: refuse bool — True→1 invents a 1-quote floor.
+    want_n = coerce_nonneg_int(expected)
+    if want_n is None or want_n <= 0:
+        return True
+    want = max(1, want_n)
     floor = max(1, int(want * EMPTY_SCREEN_FRACTION))
     return len(quotes) < floor
 
@@ -84,8 +88,9 @@ def screens_bundle_failed(ok: int, failed: int) -> bool:
     dead refresh is a failed fetch — do not stamp cache fresh or mix in
     leftover quotes from the one screen that still answered.
     """
-    ok_n = max(0, int(ok))
-    fail_n = max(0, int(failed))
+    # tradermonty #700/#655: refuse bool — True→1 invents a live screen.
+    ok_n = _meta_count_or_zero(ok)
+    fail_n = _meta_count_or_zero(failed)
     if ok_n <= 0:
         return True
     return fail_n > ok_n
@@ -100,7 +105,7 @@ def screens_bundle_partial(ok: int, failed: int) -> bool:
     """
     if screens_bundle_failed(ok, failed):
         return False
-    return max(0, int(failed)) > 0
+    return _meta_count_or_zero(failed) > 0
 
 
 def yahoo_cache_freshness(
@@ -118,8 +123,17 @@ def yahoo_cache_freshness(
         return "unknown"
     if age_sec is None:
         return "never"
-    limit = max(1, int(max_age_hours)) * 3600.0
-    age = max(0.0, float(age_sec))
+    # tradermonty #700/#655: refuse bool — True→1h invents a tiny age band;
+    # True→1s invents a fake age.
+    from stock_checker.technical_indicators import _finite_signed
+
+    hours = coerce_nonneg_int(max_age_hours)
+    if hours is None or hours <= 0:
+        hours = DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
+    limit = max(1, hours) * 3600.0
+    if not _finite_signed(age_sec):
+        return "unknown"
+    age = max(0.0, float(age_sec))  # type: ignore[arg-type]
     if age < limit:
         return "fresh"
     if age < 2 * limit:
@@ -226,17 +240,12 @@ def classify_yahoo_discovery_error(
     access, not a retryable provider outage — keep it out of the generic
     ``http`` bucket so the Universe glance speaks ``plan``.
     """
-    try:
-        timed_out = max(0, int(timeout_fails))
-    except (TypeError, ValueError):
-        timed_out = 0
-    try:
-        held = max(0, int(inflight_fails))
-    except (TypeError, ValueError):
-        held = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents timeout/thin class.
+    timed_out = _meta_count_or_zero(timeout_fails)
+    held = _meta_count_or_zero(inflight_fails)
     if screens_ok is not None and screens_failed is not None:
-        ok_n = max(0, int(screens_ok))
-        fail_n = max(0, int(screens_failed))
+        ok_n = _meta_count_or_zero(screens_ok)
+        fail_n = _meta_count_or_zero(screens_failed)
         other_fails = max(0, fail_n - timed_out - held)
         dead = ok_n <= 0 or screens_bundle_failed(ok_n, fail_n)
         # Prefer inflight when a refused second spend owns (or ties) timeouts.
@@ -302,16 +311,9 @@ def set_yahoo_discovery_error_sides(
     inflight_fails: int = 0,
 ) -> None:
     """Persist timeout/inflight screen counts for glance mix honesty."""
-    try:
-        timed = max(0, int(timeout_fails))
-    except (TypeError, ValueError):
-        timed = 0
-    try:
-        held = max(0, int(inflight_fails))
-    except (TypeError, ValueError):
-        held = 0
-    meta["last_yahoo_timeout_fails"] = timed
-    meta["last_yahoo_inflight_fails"] = held
+    # tradermonty #700/#655: refuse bool — True→1 invents a hung-screen side.
+    meta["last_yahoo_timeout_fails"] = _meta_count_or_zero(timeout_fails)
+    meta["last_yahoo_inflight_fails"] = _meta_count_or_zero(inflight_fails)
 
 
 def clear_yahoo_discovery_error(meta: dict[str, Any]) -> None:
@@ -333,18 +335,10 @@ def set_yahoo_discovery_claim_drops(
     ``dead`` = finished worker · ``stale`` = live zombie past claim TTL
     (xang1234 history: say what each release did — absolute N alone hid why).
     """
-    try:
-        n = max(0, int(drops))
-    except (TypeError, ValueError):
-        n = 0
-    try:
-        n_dead = max(0, int(dead))
-    except (TypeError, ValueError):
-        n_dead = 0
-    try:
-        n_stale = max(0, int(stale))
-    except (TypeError, ValueError):
-        n_stale = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents a claim-drop sample.
+    n = _meta_count_or_zero(drops)
+    n_dead = _meta_count_or_zero(dead)
+    n_stale = _meta_count_or_zero(stale)
     if n <= 0:
         meta["last_yahoo_claim_drops"] = 0
         meta["last_yahoo_claim_drops_dead"] = 0
@@ -374,10 +368,8 @@ def set_yahoo_discovery_claim_live(
     say what a stuck asset blocks — absolute N alone hid the sleeve).
     Junk / negative → 0. Returns the stored count.
     """
-    try:
-        n = max(0, int(live))
-    except (TypeError, ValueError):
-        n = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents a stuck claim live.
+    n = _meta_count_or_zero(live)
     meta["last_yahoo_claim_live"] = n
     if n <= 0:
         meta["last_yahoo_claim_live_screens"] = []
@@ -1172,14 +1164,9 @@ def yahoo_fail_error_also_bit(
     ``+held`` / ``\"\"`` (both sides must be >0; other classes stay silent).
     """
     k = str(klass or "").strip().lower()
-    try:
-        timed = max(0, int(timeout_fails))
-    except (TypeError, ValueError):
-        timed = 0
-    try:
-        held = max(0, int(inflight_fails))
-    except (TypeError, ValueError):
-        held = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents a hidden mix side.
+    timed = _meta_count_or_zero(timeout_fails)
+    held = _meta_count_or_zero(inflight_fails)
     if timed <= 0 or held <= 0:
         return ""
     if k == "inflight":
@@ -1206,14 +1193,9 @@ def yahoo_fail_error_also_counts(
     )
     if not also:
         return ""
-    try:
-        timed = max(0, int(timeout_fails))
-    except (TypeError, ValueError):
-        timed = 0
-    try:
-        held = max(0, int(inflight_fails))
-    except (TypeError, ValueError):
-        held = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents mix absolute sides.
+    timed = _meta_count_or_zero(timeout_fails)
+    held = _meta_count_or_zero(inflight_fails)
     return f"{timed} timeout · {held} held"
 
 
@@ -1235,14 +1217,9 @@ def yahoo_fail_error_also_share(
     )
     if not also:
         return "", None, ""
-    try:
-        timed = max(0, int(timeout_fails))
-    except (TypeError, ValueError):
-        timed = 0
-    try:
-        held = max(0, int(inflight_fails))
-    except (TypeError, ValueError):
-        held = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents mix ownership %.
+    timed = _meta_count_or_zero(timeout_fails)
+    held = _meta_count_or_zero(inflight_fails)
     total = timed + held
     if total <= 0:
         return "", None, ""
@@ -1276,14 +1253,9 @@ def yahoo_fail_error_also_vs_winner(
     k = str(klass or "").strip().lower()
     if k not in ("timeout", "inflight"):
         return "", None, ""
-    try:
-        timed = max(0, int(timeout_fails))
-    except (TypeError, ValueError):
-        timed = 0
-    try:
-        held = max(0, int(inflight_fails))
-    except (TypeError, ValueError):
-        held = 0
+    # tradermonty #700/#655: refuse bool — True→1 invents winner ownership %.
+    timed = _meta_count_or_zero(timeout_fails)
+    held = _meta_count_or_zero(inflight_fails)
     total = timed + held
     if total <= 0:
         return "", None, ""
@@ -1398,11 +1370,9 @@ def yahoo_fail_error_also_vs_delta_lead_size(
     louder: int | None = None
     quieter: int | None = None
     if timeout_fails is not None and inflight_fails is not None:
-        try:
-            timed = max(0, int(timeout_fails))
-            held = max(0, int(inflight_fails))
-        except (TypeError, ValueError):
-            timed = held = 0
+        # tradermonty #700/#655: refuse bool — True→1 invents Δ lead size.
+        timed = _meta_count_or_zero(timeout_fails)
+        held = _meta_count_or_zero(inflight_fails)
         if timed > 0 and held > 0:
             louder = max(timed, held)
             quieter = min(timed, held)
@@ -1453,11 +1423,9 @@ def yahoo_fail_error_also_vs_delta_lead_size_sides(
     if ratio <= 0:
         return "", None, None
     if timeout_fails is not None and inflight_fails is not None:
-        try:
-            timed = max(0, int(timeout_fails))
-            held = max(0, int(inflight_fails))
-        except (TypeError, ValueError):
-            timed = held = 0
+        # tradermonty #700/#655: refuse bool — True→1 invents Δ lead sides.
+        timed = _meta_count_or_zero(timeout_fails)
+        held = _meta_count_or_zero(inflight_fails)
         if timed > 0 and held > 0 and timed != held:
             if held > timed:
                 loud_name, quiet_name = "held", "timeout"

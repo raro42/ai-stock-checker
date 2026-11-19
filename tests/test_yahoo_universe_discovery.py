@@ -11,6 +11,7 @@ from stock_checker.yahoo_universe_discovery import (
     discover_yahoo_mover_symbols,
     screen_payload_failed,
     screens_bundle_failed,
+    screens_bundle_partial,
     set_yahoo_discovery_error,
     yahoo_discovery_claim_drop_reasons,
     yahoo_discovery_claim_drop_share,
@@ -745,6 +746,79 @@ def test_yahoo_discovery_meta_counts_refuse_bool():
     assert "dead" in bit2 and "stale" in bit2
     assert dead2 == 1 and stale2 == 1
     assert yahoo_discovery_error_sides(ok) == (2, 1)
+
+
+def test_yahoo_discovery_writers_refuse_bool():
+    """tradermonty #700/#655: True→1 must not invent write/classify meters."""
+    from stock_checker.yahoo_universe_discovery import (
+        set_yahoo_discovery_claim_drops,
+        set_yahoo_discovery_claim_live,
+        set_yahoo_discovery_error_sides,
+        yahoo_cache_freshness,
+    )
+
+    # Bundle: bool cannot invent a live screen or a fail majority.
+    assert screens_bundle_failed(True, False) is True
+    assert screens_bundle_failed(2, True) is False
+    assert screens_bundle_partial(2, True) is False
+    assert screens_bundle_partial(2, 1) is True
+
+    # Classify: bool timeout/inflight cannot invent hang/held class.
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=0, screens_failed=3, timeout_fails=True
+        )
+        == "empty"
+    )
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=True, screens_failed=True, timeout_fails=True
+        )
+        == "empty"
+    )
+
+    meta: dict = {}
+    set_yahoo_discovery_error_sides(
+        meta, timeout_fails=True, inflight_fails=False
+    )
+    assert meta["last_yahoo_timeout_fails"] == 0
+    assert meta["last_yahoo_inflight_fails"] == 0
+    set_yahoo_discovery_error_sides(meta, timeout_fails=2, inflight_fails=1)
+    assert meta["last_yahoo_timeout_fails"] == 2
+    assert meta["last_yahoo_inflight_fails"] == 1
+
+    assert set_yahoo_discovery_claim_drops(meta, True, dead=True, stale=False) == 0
+    assert yahoo_discovery_claim_drops(meta) == 0
+    assert set_yahoo_discovery_claim_drops(meta, 2, dead=1, stale=1) == 2
+    assert yahoo_discovery_claim_drops(meta) == 2
+
+    assert set_yahoo_discovery_claim_live(meta, True) == 0
+    assert yahoo_discovery_claim_live(meta) == 0
+    assert set_yahoo_discovery_claim_live(meta, 1) == 1
+
+    assert yahoo_fail_error_also_bit(
+        "timeout", timeout_fails=True, inflight_fails=True
+    ) == ""
+    assert yahoo_fail_error_also_bit(
+        "timeout", timeout_fails=2, inflight_fails=1
+    ) == "+held"
+
+    # Expected bool → failed screen (no True→1 quote floor).
+    assert (
+        screen_payload_failed({"quotes": [{"symbol": "A"}]}, expected=True)
+        is True
+    )
+    assert (
+        screen_payload_failed(
+            {"quotes": [{"symbol": f"S{i}"} for i in range(25)]},
+            expected=25,
+        )
+        is False
+    )
+
+    # Age bool / hours bool → unknown / default band (no True→1s / True→1h).
+    assert yahoo_cache_freshness(True, max_age_hours=24) == "unknown"
+    assert yahoo_cache_freshness(100.0, max_age_hours=True) == "fresh"
 
 
 def test_yahoo_fail_error_vs_seed_extremes():
