@@ -148,6 +148,53 @@ def _fill_signed(value: object) -> Optional[float]:
     return float(value)
 
 
+def _coerce_scan_interval_sec(
+    value: object,
+    *,
+    default: int = 900,
+) -> int:
+    """Scan sleep seconds; refuse bool (``True→1s`` invents fake fresh/stale)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    floor_default = max(60, int(default))
+    if isinstance(value, bool) or value is None or not _finite_signed(value):
+        return floor_default
+    try:
+        return max(60, int(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return floor_default
+
+
+def _coerce_scan_interval_min_to_sec(
+    minutes: object,
+    *,
+    default_min: int = 15,
+) -> int:
+    """Runtime ``scan_interval_min`` → seconds; refuse bool (``True→1m``)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if isinstance(minutes, bool) or minutes is None or not _finite_signed(minutes):
+        m = int(default_min)
+    else:
+        try:
+            m = int(minutes)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            m = int(default_min)
+        if m < 1:
+            m = int(default_min)
+    return _coerce_scan_interval_sec(m * 60, default=int(default_min) * 60)
+
+
+def _coerce_positive_hours(value: object, *, default: float) -> float:
+    """TTL hours; refuse bool/≤0 (``True→1h`` invents a fake cool-off)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return float(default)
+    h = float(value)  # type: ignore[arg-type]
+    return h if h > 0.0 else float(default)
+
+
 def _serialize_trade_row(t: dict, names: dict[str, str]) -> dict[str, Any]:
     """Desk fill row — parity with Charts equity-curve refuse (tradermonty #700/#655).
 
@@ -1767,7 +1814,8 @@ def build_scan_freshness(
     if clock.tzinfo is None:
         clock = clock.replace(tzinfo=timezone.utc)
     age_sec = max(0.0, (clock - when).total_seconds())
-    interval = max(60, int(scan_interval_sec or 900))
+    # tradermonty #700/#655: refuse bool — True→1s invents fresh/stale bands.
+    interval = _coerce_scan_interval_sec(scan_interval_sec)
     if age_sec < 2 * interval:
         tone = "fresh"
     elif age_sec < 8 * interval:
@@ -5168,10 +5216,13 @@ def build_soft_allow_glance(
         soft_allow_sample_gap,
     )
 
-    ttl = float(SOFT_ALLOW_FRESH_HOURS if fresh_hours is None else fresh_hours)
-    aging_ttl = float(
-        SOFT_ALLOW_AGING_HOURS if aging_hours is None else aging_hours
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool TTL /
+    # scan sleep — True→1h cool-off / True→1s scan invent fake bands.
+    ttl = _coerce_positive_hours(fresh_hours, default=float(SOFT_ALLOW_FRESH_HOURS))
+    aging_ttl = _coerce_positive_hours(
+        aging_hours, default=float(SOFT_ALLOW_AGING_HOURS)
     )
+    scan_interval_sec = _coerce_scan_interval_sec(scan_interval_sec)
     empty = {
         "ready": False,
         "tone": "flat",
@@ -39326,7 +39377,10 @@ def load_desk_snapshot(
     book_risk["matrix_meta"] = matrix_meta
     book_risk["matrix_warn"] = matrix_warn
     runtime = _trader_runtime_view()
-    scan_interval_sec = max(60, int(runtime.get("scan_interval_min") or 15) * 60)
+    # tradermonty #700/#655: refuse bool — True→1m invents fake scan freshness.
+    scan_interval_sec = _coerce_scan_interval_min_to_sec(
+        runtime.get("scan_interval_min")
+    )
     scan_time_raw = opportunities.get("scan_time") or ""
     laya_tone, debate_tone = memory_advisory_clock_tones(
         data_dir, scan_interval_sec=scan_interval_sec

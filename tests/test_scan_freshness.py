@@ -23,10 +23,37 @@ from openbb_backend.desk import (
     soft_allow_last_clock_tone,
     soft_allow_short_history_last_clock_tone,
     soft_allow_vs_cash_clock_clash,
+    _coerce_scan_interval_min_to_sec,
+    _coerce_scan_interval_sec,
     _scan_vs_cash_clash_delta,
     _scan_vs_cash_delta_vs_sleeve,
     _scan_vs_cash_print_clash,
 )
+
+
+def test_coerce_scan_interval_refuses_bool() -> None:
+    """tradermonty #700/#655: True→1s / True→1m must not invent freshness."""
+    assert _coerce_scan_interval_sec(True) == 900
+    assert _coerce_scan_interval_sec(False) == 900
+    assert _coerce_scan_interval_sec(None) == 900
+    assert _coerce_scan_interval_sec(120) == 120
+    assert _coerce_scan_interval_sec(30) == 60  # floor
+    assert _coerce_scan_interval_min_to_sec(True) == 900
+    assert _coerce_scan_interval_min_to_sec(False) == 900
+    assert _coerce_scan_interval_min_to_sec(None) == 900
+    assert _coerce_scan_interval_min_to_sec(20) == 1200
+
+
+def test_scan_freshness_refuses_bool_interval() -> None:
+    """Bool 1s interval would mark a 30s-old scan stale — keep default 900s."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    stamp = "2026-09-23T11:59:30Z"  # 30s old
+    g = build_scan_freshness(
+        stamp, now=now, scan_interval_sec=True  # type: ignore[arg-type]
+    )
+    assert g["tone"] == "fresh"
+    g_ok = build_scan_freshness(stamp, now=now, scan_interval_sec=900)
+    assert g_ok["tone"] == "fresh"
 
 
 def test_scan_archive_pin_size() -> None:

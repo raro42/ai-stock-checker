@@ -763,6 +763,38 @@ def test_soft_allow_glance_empty() -> None:
     assert empty["soft_lean_meta"] == "quiet"
 
 
+def test_soft_allow_glance_refuses_bool_ttl_and_scan_interval() -> None:
+    """tradermonty #700/#655: True→1h TTL / True→1s scan must not invent bands."""
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    event = {
+        "at": "2026-09-23T11:00:00Z",
+        "gate": "regime",
+        "reason": "unknown — no SPY bars",
+    }
+    g = build_soft_allow_glance(
+        [event],
+        now=now,
+        fresh_hours=True,  # type: ignore[arg-type]
+        aging_hours=False,  # type: ignore[arg-type]
+        scan_interval_sec=True,  # type: ignore[arg-type]
+    )
+    assert g["ready"] is True
+    assert g["fresh_hours"] == 24.0
+    assert g["aging_hours"] == 12.0
+    assert g["fresh_count"] == 1
+    assert g["severity"] == "hot"
+    # Bool 1h TTL would expire a 1h-old row; default 24h keeps it fresh.
+    g_zero = build_soft_allow_glance(
+        [event],
+        now=now,
+        fresh_hours=0.0,
+        aging_hours=-3.0,
+    )
+    assert g_zero["fresh_hours"] == 24.0
+    assert g_zero["aging_hours"] == 12.0
+    assert g_zero["fresh_count"] == 1
+
+
 def test_soft_allow_glance_one() -> None:
     now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
     g = build_soft_allow_glance(
