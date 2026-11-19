@@ -55,6 +55,20 @@ def _meta_count_or_zero(value: object) -> int:
     return 0 if n is None else n
 
 
+def _claim_screen_denom(screen_count: object | None) -> int:
+    """Mover-screen roster size for claim share bits; bool/≤0 → DEFAULT_SCREENS.
+
+    Display helpers must not invent a 1-screen denom from ``True`` /
+    ``int(True)`` (tradermonty #700/#655 + xang1234 claim honesty).
+    """
+    if screen_count is None:
+        return len(DEFAULT_SCREENS)
+    n = coerce_nonneg_int(screen_count)
+    if n is None or n < 1:
+        return len(DEFAULT_SCREENS)
+    return n
+
+
 class YahooScreenEmptyError(Exception):
     """Yahoo screen returned nothing usable (block / empty payload)."""
 
@@ -484,9 +498,9 @@ def yahoo_discovery_claim_live_screen_sample_gap(
 
 
 def yahoo_discovery_claim_live_share(
-    live: int,
+    live: object,
     *,
-    screen_count: int | None = None,
+    screen_count: object | None = None,
 ) -> tuple[str, int | None, str]:
     """Claim-live ownership of the mover screen roster (portfolio AI count≠share).
 
@@ -528,8 +542,8 @@ def yahoo_discovery_claim_drop_reasons(
 
 
 def _claim_two_side_lead(
-    left: int,
-    right: int,
+    left: object,
+    right: object,
     *,
     left_name: str,
     right_name: str,
@@ -538,16 +552,10 @@ def _claim_two_side_lead(
 
     Both sides must be >0 and total ≥2; strict lead → ``lead NAME · N%``;
     ties / sole-side / junk → silent. Shared by dead/stale reason lead and
-    drop/live activity lead.
+    drop/live activity lead. Bool/gap/NaN → 0 (never ``True→1``).
     """
-    try:
-        n_left = max(0, int(left))
-    except (TypeError, ValueError):
-        n_left = 0
-    try:
-        n_right = max(0, int(right))
-    except (TypeError, ValueError):
-        n_right = 0
+    n_left = _meta_count_or_zero(left)
+    n_right = _meta_count_or_zero(right)
     total = n_left + n_right
     if total < 2 or n_left <= 0 or n_right <= 0:
         return "", "", None
@@ -562,8 +570,8 @@ def _claim_two_side_lead(
 
 
 def yahoo_discovery_claim_drop_reason_lead(
-    dead: int,
-    stale: int,
+    dead: object,
+    stale: object,
 ) -> tuple[str, str, int | None]:
     """Strict lead among dead vs stale claim-drop reasons (display only).
 
@@ -580,24 +588,19 @@ def yahoo_discovery_claim_drop_reason_lead(
 
 
 def yahoo_discovery_claim_drop_reason_sample_gap(
-    dead: int,
-    stale: int,
+    dead: object,
+    stale: object,
 ) -> str:
     """Speak ``tied`` when dead/stale both spoke with no strict lead.
 
     ≥2 reasons with equal dead and stale speaks ``tied`` after the reason
     bit (soft-allow / Screener junk-list sample-gap parity). Lead cases /
     sole-side / zero stay silent on gap. Absolute sides alone hid that a
-    50/50 release has no owner. Display only.
+    50/50 release has no owner. Bool/gap → silent (never ``True→1``).
+    Display only.
     """
-    try:
-        n_dead = max(0, int(dead))
-    except (TypeError, ValueError):
-        n_dead = 0
-    try:
-        n_stale = max(0, int(stale))
-    except (TypeError, ValueError):
-        n_stale = 0
+    n_dead = _meta_count_or_zero(dead)
+    n_stale = _meta_count_or_zero(stale)
     if n_dead <= 0 or n_stale <= 0:
         return ""
     lead_bit, _name, _share = yahoo_discovery_claim_drop_reason_lead(
@@ -609,8 +612,8 @@ def yahoo_discovery_claim_drop_reason_sample_gap(
 
 
 def yahoo_discovery_claim_drop_vs_live_lead(
-    drops: int,
-    live: int,
+    drops: object,
+    live: object,
 ) -> tuple[str, str, int | None]:
     """Strict lead among claim-drop vs claim-live counts (display only).
 
@@ -627,24 +630,18 @@ def yahoo_discovery_claim_drop_vs_live_lead(
 
 
 def yahoo_discovery_claim_drop_vs_live_sample_gap(
-    drops: int,
-    live: int,
+    drops: object,
+    live: object,
 ) -> str:
     """Speak ``drop/live tied`` when both sides spoke with no strict lead.
 
     Prefixed ``drop/live`` so the bit stays distinct from claim-live screen
     ``tied`` after ``in …``. Lead cases / sole-side / zero stay silent.
     Absolute drop+live alone hid that a 50/50 claim activity has no owner.
-    Display only.
+    Bool/gap → silent (never ``True→1``). Display only.
     """
-    try:
-        n_drops = max(0, int(drops))
-    except (TypeError, ValueError):
-        n_drops = 0
-    try:
-        n_live = max(0, int(live))
-    except (TypeError, ValueError):
-        n_live = 0
+    n_drops = _meta_count_or_zero(drops)
+    n_live = _meta_count_or_zero(live)
     if n_drops <= 0 or n_live <= 0:
         return ""
     lead_bit, _name, _share = yahoo_discovery_claim_drop_vs_live_lead(
@@ -656,32 +653,23 @@ def yahoo_discovery_claim_drop_vs_live_sample_gap(
 
 
 def yahoo_discovery_claim_drop_share(
-    drops: int,
+    drops: object,
     *,
-    screen_count: int | None = None,
+    screen_count: object | None = None,
 ) -> tuple[str, int | None, str]:
     """Claim-drop ownership of the mover screen roster (portfolio AI count≠share).
 
     Absolute ``N claim drop`` hid whether one zombie or most of the bundle
     was cleared before spend. Share uses ``len(DEFAULT_SCREENS)`` unless
     ``screen_count`` is passed. ``hot`` ≥50% · ``quiet`` ≤25% · mid shows
-    the percent only. Zero / junk → silent. Returns ``(bit, pct, severity)``
-    ready to append after the count (``hot · 67%``).
+    the percent only. Zero / junk / bool → silent (never ``True→1`` /
+    ``True→1-screen`` denom). Returns ``(bit, pct, severity)`` ready to
+    append after the count (``hot · 67%``).
     """
-    try:
-        n = max(0, int(drops))
-    except (TypeError, ValueError):
-        n = 0
+    n = _meta_count_or_zero(drops)
     if n <= 0:
         return "", None, ""
-    try:
-        denom = (
-            len(DEFAULT_SCREENS)
-            if screen_count is None
-            else max(1, int(screen_count))
-        )
-    except (TypeError, ValueError):
-        denom = len(DEFAULT_SCREENS)
+    denom = _claim_screen_denom(screen_count)
     pct = int(round(100.0 * min(n, denom) / denom))
     if pct >= YAHOO_CLAIM_DROP_SHARE_HOT:
         return f"hot · {pct}%", pct, "hot"
@@ -691,33 +679,23 @@ def yahoo_discovery_claim_drop_share(
 
 
 def _yahoo_discovery_claim_vs_remainder(
-    held: int,
+    held: object,
     *,
     noun: str,
-    screen_count: int | None = None,
+    screen_count: object | None = None,
 ) -> tuple[str, int | None, int | None, str]:
     """Remaining screens opposite a held claim count (display only).
 
-    Shared by claim-drop→kept and claim-live→free. Zero / junk held →
-    silent. Remainder = denom − min(held, denom); ``strong`` ≥75% ·
-    ``thin`` <50% · mid shows the percent only. All-held →
-    ``vs 0 {noun} · thin · 0%``.
+    Shared by claim-drop→kept and claim-live→free. Zero / junk / bool held
+    → silent (never ``True→1``). Remainder = denom − min(held, denom);
+    ``strong`` ≥75% · ``thin`` <50% · mid shows the percent only. All-held
+    → ``vs 0 {noun} · thin · 0%``. Bool/≤0 ``screen_count`` → DEFAULT.
     """
-    try:
-        n = max(0, int(held))
-    except (TypeError, ValueError):
-        n = 0
+    n = _meta_count_or_zero(held)
     if n <= 0:
         return "", None, None, ""
     label = str(noun or "").strip() or "kept"
-    try:
-        denom = (
-            len(DEFAULT_SCREENS)
-            if screen_count is None
-            else max(1, int(screen_count))
-        )
-    except (TypeError, ValueError):
-        denom = len(DEFAULT_SCREENS)
+    denom = _claim_screen_denom(screen_count)
     rem = max(0, denom - min(n, denom))
     pct = int(round(100.0 * rem / denom))
     if pct >= YAHOO_CLAIM_DROP_KEPT_SHARE_STRONG:
@@ -733,9 +711,9 @@ def _yahoo_discovery_claim_vs_remainder(
 
 
 def yahoo_discovery_claim_drop_vs_kept(
-    drops: int,
+    drops: object,
     *,
-    screen_count: int | None = None,
+    screen_count: object | None = None,
 ) -> tuple[str, int | None, int | None, str]:
     """Remaining screens when claim-drop share already spoke (display only).
 
@@ -1061,9 +1039,9 @@ def yahoo_discovery_claim_lean_open(
 
 
 def yahoo_discovery_claim_live_vs_free(
-    live: int,
+    live: object,
     *,
-    screen_count: int | None = None,
+    screen_count: object | None = None,
 ) -> tuple[str, int | None, int | None, str]:
     """Remaining free screens when claim-live share already spoke (display only).
 

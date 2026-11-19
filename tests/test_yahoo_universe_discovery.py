@@ -1352,6 +1352,40 @@ def test_yahoo_discovery_claim_drop_share_bands():
     )
 
 
+def test_yahoo_discovery_claim_display_refuse_bool():
+    """tradermonty #700/#655: True→1 must not invent claim-display lean bits."""
+    from stock_checker.yahoo_universe_discovery import (
+        yahoo_discovery_claim_drop_reason_lead,
+        yahoo_discovery_claim_drop_reason_sample_gap,
+        yahoo_discovery_claim_drop_vs_live_lead,
+        yahoo_discovery_claim_drop_vs_live_sample_gap,
+    )
+
+    # Bool sides silent (never invent lead dead/stale or drop/live).
+    assert yahoo_discovery_claim_drop_share(True) == ("", None, "")
+    assert yahoo_discovery_claim_drop_share(False) == ("", None, "")
+    assert yahoo_discovery_claim_live_share(True) == ("", None, "")
+    # Bool screen_count falls back to DEFAULT (3), not invent 1-screen denom.
+    assert yahoo_discovery_claim_drop_share(1, screen_count=True) == (
+        "33%",
+        33,
+        "ok",
+    )
+    assert yahoo_discovery_claim_drop_vs_kept(True) == ("", None, None, "")
+    assert yahoo_discovery_claim_drop_vs_kept(1, screen_count=False) == (
+        "vs 2 kept · 67%",
+        2,
+        67,
+        "ok",
+    )
+    assert yahoo_discovery_claim_drop_reason_lead(True, True) == ("", "", None)
+    assert yahoo_discovery_claim_drop_reason_sample_gap(True, True) == ""
+    assert yahoo_discovery_claim_drop_reason_lead(2, 1)[0].startswith("lead")
+    assert yahoo_discovery_claim_drop_vs_live_lead(True, 1) == ("", "", None)
+    assert yahoo_discovery_claim_drop_vs_live_sample_gap(True, True) == ""
+    assert yahoo_discovery_claim_drop_vs_live_sample_gap(1, 1) == "drop/live tied"
+
+
 def test_yahoo_discovery_claim_live_share_bands():
     """portfolio AI count≠share after absolute claim live (xang1234 stuck)."""
     assert yahoo_discovery_claim_live_share(0) == ("", None, "")
