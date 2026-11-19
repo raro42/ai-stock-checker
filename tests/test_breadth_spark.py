@@ -78,6 +78,40 @@ def test_breadth_ratios_refuse_bool_counts():
     assert thrust_confirm_rate_pct(0, 4) == 0.0
 
 
+def test_breadth_ad_spark_refuses_bool_up_down():
+    """tradermonty #700/#655: True−False must not invent net +1 A/D spark."""
+    rows = [
+        {"day": "2026-09-01", "crypto_up": True, "crypto_down": False},
+        {"day": "2026-09-02", "crypto_up": True, "crypto_down": False},
+    ]
+    spark = build_breadth_ad_spark(rows)
+    assert spark["ready"] is True
+    assert spark["latest_net"] == 0
+    assert spark["n"] == 2
+
+
+def test_breadth_mover_spark_refuses_bool_pct():
+    """tradermonty #700/#655: float(True) must not invent a 1% mover spark."""
+    rows = [
+        {
+            "day": "2026-09-01",
+            "crypto_big_movers": 0,
+            "crypto_n": 4,
+            "crypto_mover_pct": True,
+        },
+        {
+            "day": "2026-09-02",
+            "crypto_big_movers": 0,
+            "crypto_n": 4,
+            "crypto_mover_pct": True,
+        },
+    ]
+    spark = build_breadth_mover_spark(rows)
+    assert spark["ready"] is True
+    # Bool % refused → resolve from counts → 0/4 = 0% (not True→1%).
+    assert spark["latest_pct"] == 0.0
+
+
 def test_near_high_ratio_pct():
     assert near_high_ratio_pct(2, 8) == 25.0
     assert near_high_ratio_pct(0, 5) == 0.0

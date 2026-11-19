@@ -35828,6 +35828,19 @@ def _breadth_count(value: object) -> int:
     return _window_count_or_zero(value)
 
 
+def _breadth_pct(value: object) -> float | None:
+    """Scan-breadth %; bool/gap/NaN → None (never ``True→1.0``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — thrust/tape density and
+    spark ratios must not invent a 1% print from a damaged bool.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)
+
+
 def scan_list_ratio_pct(part: object, whole: object) -> float | None:
     """Share of a scan-list count vs its denominator (StockBee-lite; display only)."""
     n = _breadth_count(whole)
@@ -37813,97 +37826,73 @@ def build_breadth_glance(
     tape_rate_sum = (
         build_breadth_tape_summary(hist_for_rate) if hist_for_rate else {}
     )
-    thrust_n = int(rate_sum.get("thrust_n") or 0) if rate_sum else 0
-    confirmed_n = int(rate_sum.get("confirmed_n") or 0) if rate_sum else 0
-    alone_n = int(rate_sum.get("alone_n") or 0) if rate_sum else 0
-    hist_days = int(rate_sum.get("days") or 0) if rate_sum else 0
-    confirm_rate = rate_sum.get("confirm_rate_pct") if rate_sum else None
-    density = rate_sum.get("density_pct") if rate_sum else None
-    conf_density = rate_sum.get("confirmed_density_pct") if rate_sum else None
-    alone_density = rate_sum.get("alone_density_pct") if rate_sum else None
-    dual_n = int(tape_rate_sum.get("dual_n") or 0) if tape_rate_sum else 0
-    split_n = int(tape_rate_sum.get("split_n") or 0) if tape_rate_sum else 0
-    risk_off_n = int(tape_rate_sum.get("risk_off_n") or 0) if tape_rate_sum else 0
-    mixed_n = int(tape_rate_sum.get("mixed_n") or 0) if tape_rate_sum else 0
-    tape_days = int(tape_rate_sum.get("days") or 0) if tape_rate_sum else 0
+    # tradermonty #700/#655: refuse bool — int(True)→1 invents thrust/tape samples.
+    thrust_n = _breadth_count(rate_sum.get("thrust_n")) if rate_sum else 0
+    confirmed_n = _breadth_count(rate_sum.get("confirmed_n")) if rate_sum else 0
+    alone_n = _breadth_count(rate_sum.get("alone_n")) if rate_sum else 0
+    hist_days = _breadth_count(rate_sum.get("days")) if rate_sum else 0
+    confirm_rate = (
+        _breadth_pct(rate_sum.get("confirm_rate_pct")) if rate_sum else None
+    )
+    density = _breadth_pct(rate_sum.get("density_pct")) if rate_sum else None
+    conf_density = (
+        _breadth_pct(rate_sum.get("confirmed_density_pct")) if rate_sum else None
+    )
+    alone_density = (
+        _breadth_pct(rate_sum.get("alone_density_pct")) if rate_sum else None
+    )
+    dual_n = _breadth_count(tape_rate_sum.get("dual_n")) if tape_rate_sum else 0
+    split_n = _breadth_count(tape_rate_sum.get("split_n")) if tape_rate_sum else 0
+    risk_off_n = (
+        _breadth_count(tape_rate_sum.get("risk_off_n")) if tape_rate_sum else 0
+    )
+    mixed_n = _breadth_count(tape_rate_sum.get("mixed_n")) if tape_rate_sum else 0
+    tape_days = _breadth_count(tape_rate_sum.get("days")) if tape_rate_sum else 0
     risk_on_density = (
-        tape_rate_sum.get("risk_on_density_pct") if tape_rate_sum else None
+        _breadth_pct(tape_rate_sum.get("risk_on_density_pct"))
+        if tape_rate_sum
+        else None
     )
     split_density = (
-        tape_rate_sum.get("split_density_pct") if tape_rate_sum else None
+        _breadth_pct(tape_rate_sum.get("split_density_pct"))
+        if tape_rate_sum
+        else None
     )
     risk_off_density = (
-        tape_rate_sum.get("risk_off_density_pct") if tape_rate_sum else None
+        _breadth_pct(tape_rate_sum.get("risk_off_density_pct"))
+        if tape_rate_sum
+        else None
     )
     mixed_density = (
-        tape_rate_sum.get("mixed_density_pct") if tape_rate_sum else None
+        _breadth_pct(tape_rate_sum.get("mixed_density_pct"))
+        if tape_rate_sum
+        else None
     )
-    flip_n = int(tape_rate_sum.get("flip_n") or 0) if tape_rate_sum else 0
-    pair_n = int(tape_rate_sum.get("pair_n") or 0) if tape_rate_sum else 0
+    flip_n = _breadth_count(tape_rate_sum.get("flip_n")) if tape_rate_sum else 0
+    pair_n = _breadth_count(tape_rate_sum.get("pair_n")) if tape_rate_sum else 0
     flip_density = (
-        tape_rate_sum.get("flip_density_pct") if tape_rate_sum else None
+        _breadth_pct(tape_rate_sum.get("flip_density_pct"))
+        if tape_rate_sum
+        else None
     )
-    if confirm_rate is not None:
-        try:
-            confirm_rate = float(confirm_rate)
-        except (TypeError, ValueError):
-            confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
-    if density is not None:
-        try:
-            density = float(density)
-        except (TypeError, ValueError):
-            density = thrust_density_pct(thrust_n, hist_days)
-    elif rate_sum:
+    if confirm_rate is None and rate_sum:
+        confirm_rate = thrust_confirm_rate_pct(confirmed_n, thrust_n)
+    if density is None and rate_sum:
         density = thrust_density_pct(thrust_n, hist_days)
-    if conf_density is not None:
-        try:
-            conf_density = float(conf_density)
-        except (TypeError, ValueError):
-            conf_density = confirmed_density_pct(confirmed_n, hist_days)
-    elif rate_sum:
+    if conf_density is None and rate_sum:
         conf_density = confirmed_density_pct(confirmed_n, hist_days)
-    if alone_density is not None:
-        try:
-            alone_density = float(alone_density)
-        except (TypeError, ValueError):
-            alone_density = alone_density_pct(alone_n, hist_days)
-    elif rate_sum:
+    if alone_density is None and rate_sum:
         alone_density = alone_density_pct(alone_n, hist_days)
     dens_days = tape_days or hist_days
-    if risk_on_density is not None:
-        try:
-            risk_on_density = float(risk_on_density)
-        except (TypeError, ValueError):
-            risk_on_density = tape_label_density_pct(dual_n, dens_days)
-    elif tape_rate_sum:
+    if risk_on_density is None and tape_rate_sum:
         risk_on_density = tape_label_density_pct(dual_n, dens_days)
-    if split_density is not None:
-        try:
-            split_density = float(split_density)
-        except (TypeError, ValueError):
-            split_density = tape_label_density_pct(split_n, dens_days)
-    elif tape_rate_sum:
+    if split_density is None and tape_rate_sum:
         split_density = tape_label_density_pct(split_n, dens_days)
-    if risk_off_density is not None:
-        try:
-            risk_off_density = float(risk_off_density)
-        except (TypeError, ValueError):
-            risk_off_density = tape_label_density_pct(risk_off_n, dens_days)
-    elif tape_rate_sum:
+    if risk_off_density is None and tape_rate_sum:
         risk_off_density = tape_label_density_pct(risk_off_n, dens_days)
-    if mixed_density is not None:
-        try:
-            mixed_density = float(mixed_density)
-        except (TypeError, ValueError):
-            mixed_density = tape_label_density_pct(mixed_n, dens_days)
-    elif tape_rate_sum:
+    if mixed_density is None and tape_rate_sum:
         mixed_density = tape_label_density_pct(mixed_n, dens_days)
-    if flip_density is not None:
-        try:
-            flip_density = float(flip_density)
-        except (TypeError, ValueError):
-            flip_density = tape_flip_density_pct(flip_n, pair_n)
-    elif tape_rate_sum:
+    if flip_density is None and tape_rate_sum:
         flip_density = tape_flip_density_pct(flip_n, pair_n)
     days_since_risk_on = (
         breadth_days_since_risk_on(hist, through_day=day_cut) if hist else None
@@ -38191,8 +38180,9 @@ def build_breadth_ad_spark(
         # Skip days that never recorded this A/D pair (old history rows).
         if up_key not in r and down_key not in r:
             continue
-        up = int(r.get(up_key) or 0)
-        down = int(r.get(down_key) or 0)
+        # tradermonty #700/#655: refuse bool — True−False invents net +1.
+        up = _breadth_count(r.get(up_key))
+        down = _breadth_count(r.get(down_key))
         series.append((day, up - down))
     empty = {
         "ready": False,
@@ -38278,7 +38268,8 @@ def build_breadth_ratio_spark(
             continue
         if count_key not in r and pct_key not in r:
             continue
-        pct = r.get(pct_key)
+        # tradermonty #700/#655: refuse bool — float(True) invents 1% spark.
+        pct = _breadth_pct(r.get(pct_key))
         if pct is None:
             pct = resolve_pct(r)
         if pct is None:
