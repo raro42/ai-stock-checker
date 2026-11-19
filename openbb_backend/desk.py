@@ -10761,13 +10761,10 @@ def build_calm_streak_glance(
                     window_a_closes_kelly_sample_thin = bool(
                         sample.get("closes_kelly_sample_thin")
                     )
-                    try:
-                        ksn = sample.get("closes_kelly_sample_n")
-                        window_a_closes_kelly_sample_n = (
-                            int(ksn) if ksn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_kelly_sample_n = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_kelly_sample_n = _coerce_window_count(
+                        sample.get("closes_kelly_sample_n")
+                    )
                     if window_a_closes_practical_kelly_bit:
                         status = status.replace(
                             f" · {window_a_closes_practical_kelly_bit}",
@@ -10801,13 +10798,10 @@ def build_calm_streak_glance(
                     window_a_closes_sell_sessions_few = bool(
                         sample.get("closes_sell_sessions_few")
                     )
-                    try:
-                        ssn = sample.get("closes_sell_sessions_n")
-                        window_a_closes_sell_sessions_n = (
-                            int(ssn) if ssn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_sell_sessions_n = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_sell_sessions_n = _coerce_window_count(
+                        sample.get("closes_sell_sessions_n")
+                    )
                     if window_a_closes_kelly_sample_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_sample_bit}",
@@ -11544,13 +11538,10 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_hot = bool(
                         sample.get("closes_loss_streak_hot")
                     )
-                    try:
-                        lsn = sample.get("closes_loss_streak")
-                        window_a_closes_loss_streak = (
-                            int(lsn) if lsn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_loss_streak = _coerce_window_count(
+                        sample.get("closes_loss_streak")
+                    )
                     if window_a_closes_kd_vs_kssd_bit:
                         status = status.replace(
                             f" · {window_a_closes_kd_vs_kssd_bit}",
@@ -11647,13 +11638,10 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_max_hot = bool(
                         sample.get("closes_loss_streak_max_hot")
                     )
-                    try:
-                        lsm = sample.get("closes_loss_streak_max")
-                        window_a_closes_loss_streak_max = (
-                            int(lsm) if lsm is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_max = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_loss_streak_max = _coerce_window_count(
+                        sample.get("closes_loss_streak_max")
+                    )
                     if window_a_closes_loss_streak_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_bit}",
@@ -11684,13 +11672,10 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_hot = bool(
                         sample.get("closes_win_streak_hot")
                     )
-                    try:
-                        wsn = sample.get("closes_win_streak")
-                        window_a_closes_win_streak = (
-                            int(wsn) if wsn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_win_streak = _coerce_window_count(
+                        sample.get("closes_win_streak")
+                    )
                     if window_a_closes_loss_streak_max_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_max_bit}",
@@ -11800,13 +11785,10 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_max_hot = bool(
                         sample.get("closes_win_streak_max_hot")
                     )
-                    try:
-                        wsm = sample.get("closes_win_streak_max")
-                        window_a_closes_win_streak_max = (
-                            int(wsm) if wsm is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_max = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_win_streak_max = _coerce_window_count(
+                        sample.get("closes_win_streak_max")
+                    )
                     if window_a_closes_win_streak_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_bit}",
@@ -11849,13 +11831,10 @@ def build_calm_streak_glance(
                     window_a_closes_flat_warn = bool(
                         sample.get("closes_flat_warn")
                     )
-                    try:
-                        fn = sample.get("closes_flat")
-                        window_a_closes_flat = (
-                            int(fn) if fn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_flat = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_flat = _coerce_window_count(
+                        sample.get("closes_flat")
+                    )
                     if window_a_closes_win_streak_max_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_max_bit}",
@@ -11913,13 +11892,10 @@ def build_calm_streak_glance(
                         )
                     except (TypeError, ValueError):
                         window_a_closes_loss_streak_mean = None
-                    try:
-                        lsr = sample.get("closes_loss_streak_runs")
-                        window_a_closes_loss_streak_runs = (
-                            int(lsr) if lsr is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_runs = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_loss_streak_runs = _coerce_window_count(
+                        sample.get("closes_loss_streak_runs")
+                    )
                     if window_a_closes_flat_bit:
                         status = status.replace(
                             f" · {window_a_closes_flat_bit}",
@@ -11985,13 +11961,10 @@ def build_calm_streak_glance(
                         )
                     except (TypeError, ValueError):
                         window_a_closes_win_streak_mean = None
-                    try:
-                        wsr = sample.get("closes_win_streak_runs")
-                        window_a_closes_win_streak_runs = (
-                            int(wsr) if wsr is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_runs = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_win_streak_runs = _coerce_window_count(
+                        sample.get("closes_win_streak_runs")
+                    )
                     if window_a_closes_loss_streak_mean_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_mean_bit}",
@@ -12216,13 +12189,10 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_min_hot = bool(
                         sample.get("closes_loss_streak_min_hot")
                     )
-                    try:
-                        lsmin = sample.get("closes_loss_streak_min")
-                        window_a_closes_loss_streak_min = (
-                            int(lsmin) if lsmin is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_min = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_loss_streak_min = _coerce_window_count(
+                        sample.get("closes_loss_streak_min")
+                    )
                     if window_a_closes_win_streak_median_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_median_bit}",
@@ -12306,13 +12276,10 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_min_hot = bool(
                         sample.get("closes_win_streak_min_hot")
                     )
-                    try:
-                        wsmin = sample.get("closes_win_streak_min")
-                        window_a_closes_win_streak_min = (
-                            int(wsmin) if wsmin is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_min = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
+                    window_a_closes_win_streak_min = _coerce_window_count(
+                        sample.get("closes_win_streak_min")
+                    )
                     if window_a_closes_loss_streak_min_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_min_bit}",

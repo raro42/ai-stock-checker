@@ -5718,6 +5718,71 @@ def test_window_a_exit_mix_and_flats_refuse_bool_counts() -> None:
     assert real["closes_exit_mix_bit"] == "A exits tp 3 · sl 1"
 
 
+def test_window_a_streak_session_refuse_bool_counts() -> None:
+    """tradermonty #700/#655: bool streak/session stats must not invent True→1."""
+    from stock_checker.promote_ab import format_window_a_side_bit
+
+    junk = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": True,
+            "sell_weekend_sessions": True,
+            "sell_weekend_closes": True,
+            "stock_closes": True,
+            "loss_streak": True,
+            "loss_streak_max": True,
+            "win_streak": False,
+            "win_streak_max": True,
+            "loss_streak_mean": True,
+            "loss_streak_runs": True,
+            "win_streak_mean": True,
+            "win_streak_runs": True,
+        }
+    )
+    assert junk["closes_sell_sessions_bit"] == ""
+    assert junk["closes_sell_sessions_n"] is None
+    assert junk["closes_sell_weekend"] is None
+    assert junk["closes_sell_weekend_bit"] == ""
+    assert junk["closes_loss_streak"] is None
+    assert junk["closes_loss_streak_bit"] == ""
+    assert junk["closes_win_streak"] is None
+    assert junk["closes_win_streak_bit"] == ""
+    assert junk["closes_loss_streak_mean"] is None
+    assert junk["closes_win_streak_mean"] is None
+    assert "sessions" not in (junk.get("line") or "")
+    assert "streak" not in (junk.get("line") or "").lower()
+
+    real = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "sell_sessions": 2,
+            "sell_weekend_sessions": 1,
+            "loss_streak": 2,
+            "win_streak": 0,
+        }
+    )
+    assert real["closes_sell_sessions"] == "few"
+    assert real["closes_sell_sessions_n"] == 2
+    assert real["closes_sell_weekend"] == 1
+    assert real["closes_loss_streak"] == 2
+    assert real["closes_loss_streak_hot"] is True
+    assert real["closes_win_streak"] == 0
+    assert "quiet" in real["closes_win_streak_bit"]
+
+    side = format_window_a_side_bit(
+        {"known": True, "sides_known": True, "buys": True, "sells": False}
+    )
+    assert side == "0b/0s"
+
+
 def test_window_a_fill_progress_refuses_bool_counts() -> None:
     """tradermonty #700/#655: True→1 must not invent fill/close progress meters."""
     from stock_checker.promote_ab import format_window_a_fill_progress_bit

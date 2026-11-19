@@ -4415,11 +4415,9 @@ def window_a_sample_readiness(
     ):
         raw_sessions = stats.get("sell_sessions")
         if raw_sessions is not None:
-            try:
-                n_sessions = int(raw_sessions)
-            except (TypeError, ValueError):
-                n_sessions = -1
-            if n_sessions >= 1:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents sessions.
+            n_sessions = _coerce_window_count(raw_sessions)
+            if n_sessions is not None and n_sessions >= 1:
                 closes_sell_sessions_n = n_sessions
                 need_sess = int(WINDOW_A_SELL_SESSION_MIN)
                 if n_sessions < need_sess:
@@ -4447,11 +4445,9 @@ def window_a_sample_readiness(
     ):
         raw_weekend = stats.get("sell_weekend_sessions")
         if raw_weekend is not None:
-            try:
-                n_weekend = int(raw_weekend)
-            except (TypeError, ValueError):
-                n_weekend = -1
-            if n_weekend > 0:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents weekend.
+            n_weekend = _coerce_window_count(raw_weekend)
+            if n_weekend is not None and n_weekend > 0:
                 closes_sell_weekend = n_weekend
                 closes_sell_weekend_warn = True
                 closes_sell_weekend_bit = (
@@ -4535,11 +4531,9 @@ def window_a_sample_readiness(
     ):
         raw_wknd_closes = stats.get("sell_weekend_closes")
         if raw_wknd_closes is not None:
-            try:
-                n_wknd_closes = int(raw_wknd_closes)
-            except (TypeError, ValueError):
-                n_wknd_closes = -1
-            if n_wknd_closes >= 1:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents weekend closes.
+            n_wknd_closes = _coerce_window_count(raw_wknd_closes)
+            if n_wknd_closes is not None and n_wknd_closes >= 1:
                 ratio = float(n_wknd_closes) / float(closes_sell_weekend)
                 closes_weekend_per_day_n = round(ratio, 2)
                 fat_need = float(WINDOW_A_CLOSES_PER_DAY_FAT)
@@ -4568,15 +4562,15 @@ def window_a_sample_readiness(
     ):
         raw_wknd_closes_share = stats.get("sell_weekend_closes")
         raw_stock_closes = stats.get("stock_closes")
-        try:
-            n_wknd_for_share = int(raw_wknd_closes_share)
-        except (TypeError, ValueError):
-            n_wknd_for_share = -1
-        try:
-            n_stock_closes = int(raw_stock_closes)
-        except (TypeError, ValueError):
-            n_stock_closes = 0
-        if n_wknd_for_share >= 1 and n_stock_closes >= 1:
+        # tradermonty #700/#655: refuse bool — int(True)→1 invents weekend close share.
+        n_wknd_for_share = _coerce_window_count(raw_wknd_closes_share)
+        n_stock_closes = _coerce_window_count(raw_stock_closes)
+        if (
+            n_wknd_for_share is not None
+            and n_stock_closes is not None
+            and n_wknd_for_share >= 1
+            and n_stock_closes >= 1
+        ):
             pct_c = round(
                 100.0 * float(n_wknd_for_share) / float(n_stock_closes)
             )
@@ -5007,11 +5001,9 @@ def window_a_sample_readiness(
     if sides_known and sells > 0 and not open_only and "loss_streak" in stats:
         raw_streak = stats.get("loss_streak")
         if raw_streak is not None:
-            try:
-                n_streak = int(raw_streak)
-            except (TypeError, ValueError):
-                n_streak = -1
-            if n_streak >= 0:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents loss streak.
+            n_streak = _coerce_window_count(raw_streak)
+            if n_streak is not None:
                 closes_loss_streak = n_streak
                 if n_streak >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_loss_streak_hot = True
@@ -5032,11 +5024,9 @@ def window_a_sample_readiness(
     ):
         raw_max = stats.get("loss_streak_max")
         if raw_max is not None:
-            try:
-                n_max = int(raw_max)
-            except (TypeError, ValueError):
-                n_max = -1
-            if n_max > closes_loss_streak:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents loss streak max.
+            n_max = _coerce_window_count(raw_max)
+            if n_max is not None and n_max > closes_loss_streak:
                 closes_loss_streak_max = n_max
                 closes_loss_streak_max_bit = f"A loss streak max · {n_max}"
                 if n_max >= WINDOW_A_LOSS_STREAK_HOT:
@@ -5055,13 +5045,19 @@ def window_a_sample_readiness(
         raw_mean = stats.get("loss_streak_mean")
         raw_runs = stats.get("loss_streak_runs")
         if raw_mean is not None and raw_runs is not None:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents loss-run n.
             try:
                 mean_v = float(raw_mean)
-                n_runs = int(raw_runs)
             except (TypeError, ValueError):
                 mean_v = -1.0
-                n_runs = -1
-            if n_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS and mean_v >= 0:
+            if isinstance(raw_mean, bool):
+                mean_v = -1.0
+            n_runs = _coerce_window_count(raw_runs)
+            if (
+                n_runs is not None
+                and n_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
+                and mean_v >= 0
+            ):
                 closes_loss_streak_mean = mean_v
                 closes_loss_streak_runs = n_runs
                 closes_loss_streak_mean_bit = (
@@ -5090,16 +5086,20 @@ def window_a_sample_readiness(
             and raw_mean_cmp is not None
             and raw_med_runs is not None
         ):
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents med-run n.
             try:
                 med_v = float(raw_med)
                 mean_cmp = float(raw_mean_cmp)
-                n_med_runs = int(raw_med_runs)
             except (TypeError, ValueError):
                 med_v = -1.0
                 mean_cmp = -1.0
-                n_med_runs = -1
+            if isinstance(raw_med, bool) or isinstance(raw_mean_cmp, bool):
+                med_v = -1.0
+                mean_cmp = -1.0
+            n_med_runs = _coerce_window_count(raw_med_runs)
             if (
-                n_med_runs >= WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS
+                n_med_runs is not None
+                and n_med_runs >= WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS
                 and med_v >= 0
                 and abs(med_v - mean_cmp) >= WINDOW_A_LOSS_STREAK_MEDIAN_GAP
             ):
@@ -5125,17 +5125,15 @@ def window_a_sample_readiness(
         raw_peak = stats.get("loss_streak_max")
         raw_min_runs = stats.get("loss_streak_runs")
         if raw_min is not None and raw_peak is not None and raw_min_runs is not None:
-            try:
-                n_min = int(raw_min)
-                n_peak = int(raw_peak)
-                n_min_runs = int(raw_min_runs)
-            except (TypeError, ValueError):
-                n_min = -1
-                n_peak = -1
-                n_min_runs = -1
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents min streak.
+            n_min = _coerce_window_count(raw_min)
+            n_peak = _coerce_window_count(raw_peak)
+            n_min_runs = _coerce_window_count(raw_min_runs)
             if (
-                n_min_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
-                and n_min >= 0
+                n_min is not None
+                and n_peak is not None
+                and n_min_runs is not None
+                and n_min_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
                 and n_min < n_peak
             ):
                 closes_loss_streak_min = n_min
@@ -5157,14 +5155,17 @@ def window_a_sample_readiness(
         raw_stdev = stats.get("loss_streak_stdev")
         raw_stdev_runs = stats.get("loss_streak_runs")
         if raw_stdev is not None and raw_stdev_runs is not None:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents σ-run n.
             try:
                 stdev_v = float(raw_stdev)
-                n_stdev_runs = int(raw_stdev_runs)
             except (TypeError, ValueError):
                 stdev_v = -1.0
-                n_stdev_runs = -1
+            if isinstance(raw_stdev, bool):
+                stdev_v = -1.0
+            n_stdev_runs = _coerce_window_count(raw_stdev_runs)
             if (
-                n_stdev_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+                n_stdev_runs is not None
+                and n_stdev_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
                 and stdev_v >= WINDOW_A_LOSS_STREAK_STDEV_MIN
             ):
                 closes_loss_streak_stdev = stdev_v
@@ -5188,14 +5189,17 @@ def window_a_sample_readiness(
         raw_cv = stats.get("loss_streak_cv")
         raw_cv_runs = stats.get("loss_streak_runs")
         if raw_cv is not None and raw_cv_runs is not None:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents CV-run n.
             try:
                 cv_v = float(raw_cv)
-                n_cv_runs = int(raw_cv_runs)
             except (TypeError, ValueError):
                 cv_v = -1.0
-                n_cv_runs = -1
+            if isinstance(raw_cv, bool):
+                cv_v = -1.0
+            n_cv_runs = _coerce_window_count(raw_cv_runs)
             if (
-                n_cv_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+                n_cv_runs is not None
+                and n_cv_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
                 and cv_v >= WINDOW_A_LOSS_STREAK_STDEV_MIN
             ):
                 closes_loss_streak_cv = cv_v
@@ -5212,11 +5216,9 @@ def window_a_sample_readiness(
     if sides_known and sells > 0 and not open_only and "win_streak" in stats:
         raw_win = stats.get("win_streak")
         if raw_win is not None:
-            try:
-                n_win = int(raw_win)
-            except (TypeError, ValueError):
-                n_win = -1
-            if n_win >= 0:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win streak.
+            n_win = _coerce_window_count(raw_win)
+            if n_win is not None:
                 closes_win_streak = n_win
                 if n_win >= WINDOW_A_LOSS_STREAK_HOT:
                     closes_win_streak_hot = True
@@ -5236,11 +5238,9 @@ def window_a_sample_readiness(
     ):
         raw_win_max = stats.get("win_streak_max")
         if raw_win_max is not None:
-            try:
-                n_win_max = int(raw_win_max)
-            except (TypeError, ValueError):
-                n_win_max = -1
-            if n_win_max > closes_win_streak:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win streak max.
+            n_win_max = _coerce_window_count(raw_win_max)
+            if n_win_max is not None and n_win_max > closes_win_streak:
                 closes_win_streak_max = n_win_max
                 closes_win_streak_max_bit = f"A win streak max · {n_win_max}"
                 if n_win_max >= WINDOW_A_LOSS_STREAK_HOT:
@@ -5259,14 +5259,17 @@ def window_a_sample_readiness(
         raw_win_mean = stats.get("win_streak_mean")
         raw_win_runs = stats.get("win_streak_runs")
         if raw_win_mean is not None and raw_win_runs is not None:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win-run n.
             try:
                 mean_win = float(raw_win_mean)
-                n_win_runs = int(raw_win_runs)
             except (TypeError, ValueError):
                 mean_win = -1.0
-                n_win_runs = -1
+            if isinstance(raw_win_mean, bool):
+                mean_win = -1.0
+            n_win_runs = _coerce_window_count(raw_win_runs)
             if (
-                n_win_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
+                n_win_runs is not None
+                and n_win_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
                 and mean_win >= 0
             ):
                 closes_win_streak_mean = mean_win
@@ -5297,16 +5300,20 @@ def window_a_sample_readiness(
             and raw_win_mean_cmp is not None
             and raw_win_med_runs is not None
         ):
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win med-run n.
             try:
                 med_win = float(raw_win_med)
                 mean_win_cmp = float(raw_win_mean_cmp)
-                n_win_med_runs = int(raw_win_med_runs)
             except (TypeError, ValueError):
                 med_win = -1.0
                 mean_win_cmp = -1.0
-                n_win_med_runs = -1
+            if isinstance(raw_win_med, bool) or isinstance(raw_win_mean_cmp, bool):
+                med_win = -1.0
+                mean_win_cmp = -1.0
+            n_win_med_runs = _coerce_window_count(raw_win_med_runs)
             if (
-                n_win_med_runs >= WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS
+                n_win_med_runs is not None
+                and n_win_med_runs >= WINDOW_A_LOSS_STREAK_MEDIAN_MIN_RUNS
                 and med_win >= 0
                 and abs(med_win - mean_win_cmp)
                 >= WINDOW_A_LOSS_STREAK_MEDIAN_GAP
@@ -5338,17 +5345,15 @@ def window_a_sample_readiness(
             and raw_win_peak is not None
             and raw_win_min_runs is not None
         ):
-            try:
-                n_win_min = int(raw_win_min)
-                n_win_peak = int(raw_win_peak)
-                n_win_min_runs = int(raw_win_min_runs)
-            except (TypeError, ValueError):
-                n_win_min = -1
-                n_win_peak = -1
-                n_win_min_runs = -1
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win min streak.
+            n_win_min = _coerce_window_count(raw_win_min)
+            n_win_peak = _coerce_window_count(raw_win_peak)
+            n_win_min_runs = _coerce_window_count(raw_win_min_runs)
             if (
-                n_win_min_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
-                and n_win_min >= 0
+                n_win_min is not None
+                and n_win_peak is not None
+                and n_win_min_runs is not None
+                and n_win_min_runs >= WINDOW_A_LOSS_STREAK_MEAN_MIN_RUNS
                 and n_win_min < n_win_peak
             ):
                 closes_win_streak_min = n_win_min
@@ -5370,14 +5375,17 @@ def window_a_sample_readiness(
         raw_win_stdev = stats.get("win_streak_stdev")
         raw_win_stdev_runs = stats.get("win_streak_runs")
         if raw_win_stdev is not None and raw_win_stdev_runs is not None:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win σ-run n.
             try:
                 stdev_win = float(raw_win_stdev)
-                n_win_stdev_runs = int(raw_win_stdev_runs)
             except (TypeError, ValueError):
                 stdev_win = -1.0
-                n_win_stdev_runs = -1
+            if isinstance(raw_win_stdev, bool):
+                stdev_win = -1.0
+            n_win_stdev_runs = _coerce_window_count(raw_win_stdev_runs)
             if (
-                n_win_stdev_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+                n_win_stdev_runs is not None
+                and n_win_stdev_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
                 and stdev_win >= WINDOW_A_LOSS_STREAK_STDEV_MIN
             ):
                 closes_win_streak_stdev = stdev_win
@@ -5401,14 +5409,17 @@ def window_a_sample_readiness(
         raw_win_cv = stats.get("win_streak_cv")
         raw_win_cv_runs = stats.get("win_streak_runs")
         if raw_win_cv is not None and raw_win_cv_runs is not None:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents win CV-run n.
             try:
                 cv_win = float(raw_win_cv)
-                n_win_cv_runs = int(raw_win_cv_runs)
             except (TypeError, ValueError):
                 cv_win = -1.0
-                n_win_cv_runs = -1
+            if isinstance(raw_win_cv, bool):
+                cv_win = -1.0
+            n_win_cv_runs = _coerce_window_count(raw_win_cv_runs)
             if (
-                n_win_cv_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
+                n_win_cv_runs is not None
+                and n_win_cv_runs >= WINDOW_A_LOSS_STREAK_STDEV_MIN_RUNS
                 and cv_win >= WINDOW_A_LOSS_STREAK_STDEV_MIN
             ):
                 closes_win_streak_cv = cv_win
@@ -9317,11 +9328,9 @@ def format_window_a_side_bit(sample: dict[str, Any] | None) -> str:
         return ""
     if not sample.get("sides_known"):
         return ""
-    try:
-        buys = int(sample.get("buys") or 0)
-        sells = int(sample.get("sells") or 0)
-    except (TypeError, ValueError):
-        return ""
+    # tradermonty #700/#655: refuse bool — int(True)→1 invents Nb/Ns.
+    buys = _window_count_or_zero(sample.get("buys"))
+    sells = _window_count_or_zero(sample.get("sells"))
     return f"{buys}b/{sells}s"
 
 
