@@ -11,12 +11,22 @@ from __future__ import annotations
 import os
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
-from stock_checker.technical_indicators import _finite_signed
+from stock_checker.technical_indicators import _finite_signed, coerce_nonneg_int
 
 # Fraction of directional names that must be "up" (crypto) before new crypto buys.
 DEFAULT_MIN_ADVANCE_RATIO = 0.40
 # Stocks: require at least this many near-high / breakout-ish names on the scan list.
 DEFAULT_MIN_STOCK_LEADERS = 1
+
+
+def _pulse_count(value: object) -> int:
+    """Non-neg pulse count; bool/gap/NaN → 0 (never ``True→1`` / ``False→0``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — soft breadth gate must not
+    invent a one-name advance / leader sample from a damaged bool pulse.
+    """
+    n = coerce_nonneg_int(value)
+    return 0 if n is None else n
 
 
 def breadth_gate_enabled() -> bool:
@@ -44,9 +54,12 @@ def min_stock_leaders() -> int:
     raw = os.getenv("BREADTH_MIN_STOCK_LEADERS", "").strip()
     if not raw:
         return DEFAULT_MIN_STOCK_LEADERS
+    # Env is always a string — parse digits; never int(True) from a bool knob.
     try:
         n = int(raw)
     except ValueError:
+        return DEFAULT_MIN_STOCK_LEADERS
+    if n < 0:
         return DEFAULT_MIN_STOCK_LEADERS
     return max(0, min(20, n))
 
@@ -171,13 +184,18 @@ def new_entry_breadth_allowed(
         return True, "scan breadth unknown — allow"
 
     if is_crypto:
-        up = int(pulse.get("crypto_up") or 0)
-        down = int(pulse.get("crypto_down") or 0)
+        up = _pulse_count(pulse.get("crypto_up"))
+        down = _pulse_count(pulse.get("crypto_down"))
         total = up + down
         if total <= 0:
             return True, "crypto breadth unknown — allow"
         ratio = up / float(total)
-        need = min_advance_ratio() if min_ratio is None else float(min_ratio)
+        if min_ratio is None:
+            need = min_advance_ratio()
+        elif isinstance(min_ratio, bool) or not _finite_signed(min_ratio):
+            need = min_advance_ratio()
+        else:
+            need = max(0.05, min(0.95, float(min_ratio)))
         if ratio < need:
             return (
                 False,
@@ -185,11 +203,15 @@ def new_entry_breadth_allowed(
             )
         return True, f"crypto breadth ok ({up} up / {down} down = {ratio:.0%})"
 
-    leaders = int(pulse.get("stock_leaders") or 0)
-    stock_n = int(pulse.get("stock_n") or 0)
+    leaders = _pulse_count(pulse.get("stock_leaders"))
+    stock_n = _pulse_count(pulse.get("stock_n"))
     if stock_n <= 0:
         return True, "stock breadth unknown — allow"
-    need_n = min_stock_leaders() if min_leaders is None else int(min_leaders)
+    if min_leaders is None:
+        need_n = min_stock_leaders()
+    else:
+        coerced = coerce_nonneg_int(min_leaders)
+        need_n = min_stock_leaders() if coerced is None else coerced
     if leaders < need_n:
         return (
             False,
@@ -202,8 +224,8 @@ def summarize_pulse(pulse: Mapping[str, Any] | None) -> str:
     if not isinstance(pulse, Mapping) or not pulse:
         return "no scan pulse"
     return (
-        f"crypto {int(pulse.get('crypto_up') or 0)}↑/"
-        f"{int(pulse.get('crypto_down') or 0)}↓ · "
-        f"stock leaders {int(pulse.get('stock_leaders') or 0)}/"
-        f"{int(pulse.get('stock_n') or 0)}"
+        f"crypto {_pulse_count(pulse.get('crypto_up'))}↑/"
+        f"{_pulse_count(pulse.get('crypto_down'))}↓ · "
+        f"stock leaders {_pulse_count(pulse.get('stock_leaders'))}/"
+        f"{_pulse_count(pulse.get('stock_n'))}"
     )
