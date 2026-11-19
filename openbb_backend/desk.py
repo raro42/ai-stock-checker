@@ -35690,17 +35690,20 @@ def _upsert_scan_breadth_daily(
     entry = {
         "day": day,
         "scan_time": scan_time or "",
-        "crypto_n": int(pulse.get("crypto_n") or 0),
-        "crypto_up": int(pulse.get("crypto_up") or 0),
-        "crypto_down": int(pulse.get("crypto_down") or 0),
+        # Refuse bool — never invent True→1 into daily A/D history.
+        "crypto_n": _breadth_count(pulse.get("crypto_n")),
+        "crypto_up": _breadth_count(pulse.get("crypto_up")),
+        "crypto_down": _breadth_count(pulse.get("crypto_down")),
         # Refuse bool/gap — never invent flat 0.0% / True→1.0 into daily history.
         "crypto_avg_chg": _coerce_desk_signed_pct(pulse.get("crypto_avg_chg")),
-        "crypto_big_movers": int(pulse.get("crypto_big_movers") or 0),
-        "stock_breakouts_n": int(pulse.get("stock_breakouts_n") or 0),
-        "stock_within_5pct_high": int(pulse.get("stock_within_5pct_high") or 0),
-        "stock_scan_n": int(pulse.get("stock_scan_n") or 0),
-        "stock_scan_up": int(pulse.get("stock_scan_up") or 0),
-        "stock_scan_down": int(pulse.get("stock_scan_down") or 0),
+        "crypto_big_movers": _breadth_count(pulse.get("crypto_big_movers")),
+        "stock_breakouts_n": _breadth_count(pulse.get("stock_breakouts_n")),
+        "stock_within_5pct_high": _breadth_count(
+            pulse.get("stock_within_5pct_high")
+        ),
+        "stock_scan_n": _breadth_count(pulse.get("stock_scan_n")),
+        "stock_scan_up": _breadth_count(pulse.get("stock_scan_up")),
+        "stock_scan_down": _breadth_count(pulse.get("stock_scan_down")),
         "archive_file": archive_name,
     }
     out = [r for r in rows if str(r.get("day")) != day]
@@ -35773,13 +35776,15 @@ def build_breadth_day_meta(
     covers = breadth_run_covers_day(day, scan_time)
     dt = _parse_book_ts(scan_time)
     scan_day = dt.strftime("%Y-%m-%d") if dt is not None else ""
-    crypto_n = int(row.get("crypto_n") or 0)
+    crypto_n = _breadth_count(row.get("crypto_n"))
     if crypto_n <= 0:
-        crypto_n = int(row.get("crypto_up") or 0) + int(row.get("crypto_down") or 0)
-    stock_n = int(row.get("stock_scan_n") or 0)
+        crypto_n = _breadth_count(row.get("crypto_up")) + _breadth_count(
+            row.get("crypto_down")
+        )
+    stock_n = _breadth_count(row.get("stock_scan_n"))
     if stock_n <= 0:
-        stock_n = int(row.get("stock_scan_up") or 0) + int(
-            row.get("stock_scan_down") or 0
+        stock_n = _breadth_count(row.get("stock_scan_up")) + _breadth_count(
+            row.get("stock_scan_down")
         )
     priced = max(0, crypto_n) + max(0, stock_n)
     if covers is False:
@@ -35818,12 +35823,23 @@ def build_breadth_day_meta(
     }
 
 
-def scan_list_ratio_pct(part: int, whole: int) -> float | None:
+def _breadth_count(value: object) -> int:
+    """Non-neg scan-breadth count; bool/gap → 0 (never ``True→1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — pulse meters and A/D
+    ratios must not invent a one-name sample from a damaged bool.
+    """
+    from stock_checker.promote_ab import _window_count_or_zero
+
+    return _window_count_or_zero(value)
+
+
+def scan_list_ratio_pct(part: object, whole: object) -> float | None:
     """Share of a scan-list count vs its denominator (StockBee-lite; display only)."""
-    n = int(whole or 0)
+    n = _breadth_count(whole)
     if n <= 0:
         return None
-    m = max(0, int(part or 0))
+    m = _breadth_count(part)
     return round(100.0 * m / n, 1)
 
 
@@ -36039,30 +36055,30 @@ def is_unconfirmed_thrust_day(
 
 
 def thrust_confirm_rate_pct(
-    confirmed_n: int, thrust_n: int
+    confirmed_n: object, thrust_n: object
 ) -> float | None:
     """Share of thrust days that were risk-on confirmed. Display only.
 
     StockBee quality: alone thrust can look hot; confirm rate shows how often
     movers+near-high also had dual-advance. None when no thrust days yet.
     """
-    t = int(thrust_n or 0)
+    t = _breadth_count(thrust_n)
     if t <= 0:
         return None
-    c = max(0, int(confirmed_n or 0))
+    c = _breadth_count(confirmed_n)
     return 100.0 * float(c) / float(t)
 
 
-def thrust_density_pct(thrust_n: int, days: int) -> float | None:
+def thrust_density_pct(thrust_n: object, days: object) -> float | None:
     """Share of history days that were thrust days. Display only.
 
     StockBee heat frequency: confirm rate is quality of heat; density is how
     often the scan-list tape heats (±4% + near-high). None when no days yet.
     """
-    d = int(days or 0)
+    d = _breadth_count(days)
     if d <= 0:
         return None
-    t = max(0, int(thrust_n or 0))
+    t = _breadth_count(thrust_n)
     return 100.0 * float(t) / float(d)
 
 
@@ -37536,25 +37552,29 @@ def _annotate_scan_history(
             row["scan_log_href"] = f"/desk/scan-log/{day}"
         else:
             row["scan_log_href"] = ""
-        crypto_n = int(row.get("crypto_n") or 0)
+        crypto_n = _breadth_count(row.get("crypto_n"))
         if crypto_n <= 0:
             # Legacy daily rows often omit crypto_n — infer from A/D counts.
-            crypto_n = int(row.get("crypto_up") or 0) + int(row.get("crypto_down") or 0)
-        movers = int(row.get("crypto_big_movers") or 0)
+            crypto_n = _breadth_count(row.get("crypto_up")) + _breadth_count(
+                row.get("crypto_down")
+            )
+        movers = _breadth_count(row.get("crypto_big_movers"))
         pct = crypto_mover_ratio_pct(movers, crypto_n)
         row["crypto_n_resolved"] = crypto_n
         row["crypto_mover_pct"] = pct
-        breakouts_n = int(row.get("stock_breakouts_n") or 0)
-        near = int(row.get("stock_within_5pct_high") or 0)
+        breakouts_n = _breadth_count(row.get("stock_breakouts_n"))
+        near = _breadth_count(row.get("stock_within_5pct_high"))
         near_pct = near_high_ratio_pct(near, breakouts_n)
         row["near_high_pct"] = near_pct
         row["is_thrust"] = is_breadth_thrust_day(pct, near_pct)
-        stock_up = int(row.get("stock_scan_up") or 0)
-        stock_down = int(row.get("stock_scan_down") or 0)
-        stock_n = int(row.get("stock_scan_n") or 0) or (stock_up + stock_down)
+        stock_up = _breadth_count(row.get("stock_scan_up"))
+        stock_down = _breadth_count(row.get("stock_scan_down"))
+        stock_n = _breadth_count(row.get("stock_scan_n")) or (
+            stock_up + stock_down
+        )
         row["stock_scan_n_resolved"] = stock_n
         stock_adv = stock_advance_ratio_pct(stock_up, stock_n)
-        crypto_up = int(row.get("crypto_up") or 0)
+        crypto_up = _breadth_count(row.get("crypto_up"))
         crypto_adv = crypto_advance_ratio_pct(crypto_up, crypto_n)
         row["stock_advance_pct"] = stock_adv
         row["crypto_advance_pct"] = crypto_adv
@@ -37703,16 +37723,16 @@ def build_breadth_glance(
     meta_severity = str(meta.get("severity") or "")
     meta_scan_day = str(meta.get("scan_day") or "")
     run_covers_day = meta.get("run_covers_day")
-    crypto_up = int(pulse.get("crypto_up") or 0)
-    crypto_down = int(pulse.get("crypto_down") or 0)
-    stock_up = int(pulse.get("stock_scan_up") or 0)
-    stock_down = int(pulse.get("stock_scan_down") or 0)
+    crypto_up = _breadth_count(pulse.get("crypto_up"))
+    crypto_down = _breadth_count(pulse.get("crypto_down"))
+    stock_up = _breadth_count(pulse.get("stock_scan_up"))
+    stock_down = _breadth_count(pulse.get("stock_scan_down"))
     # Infer n from up+down when daily rows omit crypto_n / stock_scan_n.
-    crypto_n = int(pulse.get("crypto_n") or 0) or (crypto_up + crypto_down)
-    stock_n = int(pulse.get("stock_scan_n") or 0) or (stock_up + stock_down)
-    near = int(pulse.get("stock_within_5pct_high") or 0)
-    breakouts_n = int(pulse.get("stock_breakouts_n") or 0)
-    movers = int(pulse.get("crypto_big_movers") or 0)
+    crypto_n = _breadth_count(pulse.get("crypto_n")) or (crypto_up + crypto_down)
+    stock_n = _breadth_count(pulse.get("stock_scan_n")) or (stock_up + stock_down)
+    near = _breadth_count(pulse.get("stock_within_5pct_high"))
+    breakouts_n = _breadth_count(pulse.get("stock_breakouts_n"))
+    movers = _breadth_count(pulse.get("crypto_big_movers"))
     mover_pct = crypto_mover_ratio_pct(movers, crypto_n)
     near_pct = near_high_ratio_pct(near, breakouts_n)
     advance_pct = stock_advance_ratio_pct(stock_up, stock_n)
@@ -38342,30 +38362,33 @@ def build_breadth_ratio_spark(
 
 
 def _resolve_crypto_mover_pct(row: dict[str, Any]) -> float | None:
-    crypto_n = int(row.get("crypto_n") or 0) or (
-        int(row.get("crypto_up") or 0) + int(row.get("crypto_down") or 0)
+    crypto_n = _breadth_count(row.get("crypto_n")) or (
+        _breadth_count(row.get("crypto_up"))
+        + _breadth_count(row.get("crypto_down"))
     )
-    return crypto_mover_ratio_pct(int(row.get("crypto_big_movers") or 0), crypto_n)
+    return crypto_mover_ratio_pct(
+        _breadth_count(row.get("crypto_big_movers")), crypto_n
+    )
 
 
 def _resolve_near_high_pct(row: dict[str, Any]) -> float | None:
     return near_high_ratio_pct(
-        int(row.get("stock_within_5pct_high") or 0),
-        int(row.get("stock_breakouts_n") or 0),
+        _breadth_count(row.get("stock_within_5pct_high")),
+        _breadth_count(row.get("stock_breakouts_n")),
     )
 
 
 def _resolve_stock_advance_pct(row: dict[str, Any]) -> float | None:
-    stock_up = int(row.get("stock_scan_up") or 0)
-    stock_down = int(row.get("stock_scan_down") or 0)
-    stock_n = int(row.get("stock_scan_n") or 0) or (stock_up + stock_down)
+    stock_up = _breadth_count(row.get("stock_scan_up"))
+    stock_down = _breadth_count(row.get("stock_scan_down"))
+    stock_n = _breadth_count(row.get("stock_scan_n")) or (stock_up + stock_down)
     return stock_advance_ratio_pct(stock_up, stock_n)
 
 
 def _resolve_crypto_advance_pct(row: dict[str, Any]) -> float | None:
-    crypto_up = int(row.get("crypto_up") or 0)
-    crypto_down = int(row.get("crypto_down") or 0)
-    crypto_n = int(row.get("crypto_n") or 0) or (crypto_up + crypto_down)
+    crypto_up = _breadth_count(row.get("crypto_up"))
+    crypto_down = _breadth_count(row.get("crypto_down"))
+    crypto_n = _breadth_count(row.get("crypto_n")) or (crypto_up + crypto_down)
     return crypto_advance_ratio_pct(crypto_up, crypto_n)
 
 
@@ -38830,10 +38853,11 @@ def load_desk_snapshot(
     stock_pulse = opportunities.get("stock_scan_pulse") or {}
     if not isinstance(stock_pulse, dict):
         stock_pulse = {}
-    stock_scan_n = int(stock_pulse.get("stock_scan_n") or 0)
-    stock_scan_up = int(stock_pulse.get("stock_scan_up") or 0)
-    stock_scan_down = int(stock_pulse.get("stock_scan_down") or 0)
-    stock_scan_flat = int(stock_pulse.get("stock_scan_flat") or 0)
+    # Refuse bool — True→1 must not invent a one-name stock A/D pulse.
+    stock_scan_n = _breadth_count(stock_pulse.get("stock_scan_n"))
+    stock_scan_up = _breadth_count(stock_pulse.get("stock_scan_up"))
+    stock_scan_down = _breadth_count(stock_pulse.get("stock_scan_down"))
+    stock_scan_flat = _breadth_count(stock_pulse.get("stock_scan_flat"))
     stock_advance_pct = stock_advance_ratio_pct(stock_scan_up, stock_scan_n)
     if stock_scan_n > 0:
         adv_bit = (

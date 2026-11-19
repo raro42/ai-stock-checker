@@ -517,6 +517,44 @@ def test_desk_breadth_crypto_avg_refuses_empty_or_bool(
     assert daily[-1]["crypto_avg_chg"] is None
 
 
+def test_desk_breadth_stock_pulse_refuses_bool_counts(
+    tmp_path: Path, monkeypatch
+):
+    """tradermonty #700/#655 + xang1234: True→1 must not invent stock A/D pulse."""
+    data = tmp_path
+    _seed_portfolio(data)
+    arch = data / "archive"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "scan_time": "2026-11-19T09:00:00",
+                "recommendations": [],
+                "crypto_leaders": [],
+                "stock_breakouts": [],
+                "stock_scan_pulse": {
+                    "stock_scan_n": True,
+                    "stock_scan_up": True,
+                    "stock_scan_down": False,
+                    "stock_scan_flat": True,
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(backend, "DATA_DIR", data)
+    snap = load_desk_snapshot(data)
+    sb = snap["scan_breadth"]
+    assert sb["stock_scan_n"] == 0
+    assert sb["stock_scan_up"] == 0
+    assert sb["stock_scan_down"] == 0
+    assert sb["stock_scan_flat"] == 0
+    assert sb["stock_advance_pct"] is None
+    daily = json.loads((data / "scan_breadth_daily.json").read_text())
+    assert daily[-1]["stock_scan_n"] == 0
+    assert daily[-1]["stock_scan_up"] == 0
+    assert daily[-1]["stock_scan_down"] == 0
+
+
 def test_desk_snapshot_refuses_invalid_holdings_cash(tmp_path: Path, monkeypatch):
     """Bool/gap qty·avg·cash must not invent €1 Overview lots or book cash."""
     data = tmp_path

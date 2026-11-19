@@ -65,6 +65,19 @@ def test_crypto_mover_ratio_pct():
     assert crypto_mover_ratio_pct(2, 0) is None
 
 
+def test_breadth_ratios_refuse_bool_counts():
+    """tradermonty #700/#655 + xang1234: True→1 must not invent A/D or thrust %."""
+    assert crypto_mover_ratio_pct(True, True) is None
+    assert near_high_ratio_pct(True, False) is None
+    assert stock_advance_ratio_pct(True, True) is None
+    assert crypto_advance_ratio_pct(False, True) is None
+    assert thrust_confirm_rate_pct(True, True) is None
+    assert thrust_density_pct(True, True) is None
+    # Real zeros still speak 0% when the denominator is readable.
+    assert crypto_mover_ratio_pct(0, 5) == 0.0
+    assert thrust_confirm_rate_pct(0, 4) == 0.0
+
+
 def test_near_high_ratio_pct():
     assert near_high_ratio_pct(2, 8) == 25.0
     assert near_high_ratio_pct(0, 5) == 0.0
