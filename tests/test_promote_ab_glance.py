@@ -5783,6 +5783,49 @@ def test_window_a_streak_session_refuse_bool_counts() -> None:
     assert side == "0b/0s"
 
 
+def test_window_a_fee_money_refuse_bool() -> None:
+    """tradermonty #700/#655: bool fees/pnl must not invent True→€1 fee drag."""
+    junk = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": True,
+            "realized_pnl": False,
+            "net_after_all_fees": True,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert junk["fee_drag"] is False
+    assert junk["fee_drag_bit"] == ""
+    assert junk["fees_ok"] is False
+    assert junk["fees_ok_bit"] == ""
+    assert junk["closes_net_expectancy"] is None
+    assert junk["closes_net_expectancy_bit"] == ""
+    assert junk["closes_net_profit_factor"] is None
+    assert junk["closes_net_profit_factor_bit"] == ""
+    assert "fee" not in (junk.get("line") or "").lower()
+
+    real = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 8,
+            "sells": 4,
+            "fees": 80.0,
+            "realized_pnl": 20.0,
+            "net_after_all_fees": -60.0,
+            "last_sell": "2026-09-11T15:00:00+00:00",
+        },
+        as_of=date(2026, 9, 14),
+    )
+    assert real["fee_drag"] is True
+    assert real["fee_drag_severity"] == "heavy"
+    assert real["fee_drag_bit"] == "A fee drag heavy · net −€60 · fees 4×"
+    assert real["closes_net_expectancy"] == -15.0
+    assert "net expect" in real["closes_net_expectancy_bit"]
+
+
 def test_window_a_fill_progress_refuses_bool_counts() -> None:
     """tradermonty #700/#655: True→1 must not invent fill/close progress meters."""
     from stock_checker.promote_ab import format_window_a_fill_progress_bit

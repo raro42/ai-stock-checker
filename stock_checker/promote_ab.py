@@ -3242,17 +3242,22 @@ def window_a_sample_readiness(
     fees_ok_ratio: float | None = None
     fees_ok_severity = ""
     if sides_known and sells > 0 and not open_only:
-        try:
-            fees = float(stats.get("fees") or 0)
-            realized = float(stats.get("realized_pnl") or 0)
+        # tradermonty #700/#655: refuse bool — float(True)→€1 invents fee drag.
+        fees_c = _coerce_window_commission(stats.get("fees"))
+        realized_c = _coerce_window_pnl(stats.get("realized_pnl"))
+        net: float | None = None
+        fees = 0.0
+        realized = 0.0
+        usable_money = fees_c is not None and not (
+            stats.get("realized_pnl") is not None and realized_c is None
+        )
+        if usable_money:
+            fees = fees_c
+            realized = 0.0 if realized_c is None else realized_c
             if stats.get("net_after_all_fees") is not None:
-                net = float(stats.get("net_after_all_fees") or 0)
+                net = _coerce_window_pnl(stats.get("net_after_all_fees"))
             else:
                 net = realized - fees
-        except (TypeError, ValueError):
-            fees = 0.0
-            realized = 0.0
-            net = 0.0
 
         def _ratio_bit(fees_v: float, realized_v: float) -> tuple[float | None, str]:
             if realized_v <= 0:
@@ -3275,7 +3280,8 @@ def window_a_sample_readiness(
                 return f"+{body}"
             return body
 
-        if fees > 0 and fees > realized:
+        # Damaged money stays silent — do not invent fee drag / fees-ok from €0.
+        if net is not None and fees > 0 and fees > realized:
             fee_drag = True
             fee_drag_net = net
             fee_drag_ratio, ratio_bit = _ratio_bit(fees, realized)
@@ -3297,7 +3303,12 @@ def window_a_sample_readiness(
                 fee_drag_bit = f"{head} · {ratio_bit}"
             else:
                 fee_drag_bit = f"{head} · fees > realized"
-        elif fees >= 0 and fees <= realized and (fees > 0 or realized > 0):
+        elif (
+            net is not None
+            and fees >= 0
+            and fees <= realized
+            and (fees > 0 or realized > 0)
+        ):
             # Quiet complement when churn did not eat closed-round edge.
             # Triad: comfortable (<0.25×) · ok (mid) · thin (≥0.5×, warn only).
             fees_ok = True
@@ -5691,10 +5702,10 @@ def window_a_sample_readiness(
                                 )
                                 keep_fees = None
                                 if "fees" in stats:
-                                    try:
-                                        keep_fees = float(stats.get("fees") or 0)
-                                    except (TypeError, ValueError):
-                                        keep_fees = None
+                                    # tradermonty #700/#655: refuse bool — True→€1 fees.
+                                    keep_fees = _coerce_window_commission(
+                                        stats.get("fees")
+                                    )
                                 (
                                     closes_exit_euro_size_sign_clash_keep_fees,
                                     closes_exit_euro_size_sign_clash_keep_fees_ratio,
@@ -6011,20 +6022,15 @@ def window_a_sample_readiness(
     closes_net_expectancy_ratio: float | None = None
     closes_net_expectancy_eats_edge = False
     if sides_known and sells > 0 and not open_only:
+        # tradermonty #700/#655: refuse bool — float(True)→€1 invents net expect.
         net_all: float | None = None
         if "net_after_all_fees" in stats:
-            try:
-                raw_net = stats.get("net_after_all_fees")
-                net_all = float(raw_net) if raw_net is not None else None
-            except (TypeError, ValueError):
-                net_all = None
+            net_all = _coerce_window_pnl(stats.get("net_after_all_fees"))
         elif "fees" in stats and "realized_pnl" in stats:
-            try:
-                net_all = float(stats.get("realized_pnl") or 0) - float(
-                    stats.get("fees") or 0
-                )
-            except (TypeError, ValueError):
-                net_all = None
+            fees_ne = _coerce_window_commission(stats.get("fees"))
+            realized_ne = _coerce_window_pnl(stats.get("realized_pnl"))
+            if fees_ne is not None and realized_ne is not None:
+                net_all = realized_ne - fees_ne
         if net_all is not None:
             closes_net_expectancy = round(net_all / sells, 2)
             abs_n = abs(closes_net_expectancy)
@@ -6168,12 +6174,10 @@ def window_a_sample_readiness(
         and sells > 0
         and not open_only
     ):
+        # tradermonty #700/#655: refuse bool — float(True)→€1 invents net PF.
         fees_for_pf: float | None = None
         if "fees" in stats:
-            try:
-                fees_for_pf = float(stats.get("fees") or 0)
-            except (TypeError, ValueError):
-                fees_for_pf = None
+            fees_for_pf = _coerce_window_commission(stats.get("fees"))
         if fees_for_pf is not None and fees_for_pf >= 0:
             closes_net_gross_wins = round(closes_gross_wins - fees_for_pf, 2)
             gross_pf_ok = (
