@@ -21,6 +21,34 @@ def test_calm_streak_glance_empty() -> None:
     assert build_calm_streak_glance({})["ready"] is False
 
 
+def test_calm_streak_glance_refuses_bool_days() -> None:
+    """tradermonty #700/#655: True→1 streak / True→1 required must not invent unlock."""
+    g = build_calm_streak_glance(
+        {
+            "calm_streak_days": True,
+            "calm_required_days": True,
+            "calm_ready": False,
+            "calm_detail": "book overweight",
+        }
+    )
+    assert g["ready"] is True
+    assert g["streak"] == 0
+    assert g["required"] == 30
+    assert "0/30" in g["line"]
+    assert g["tone"] == "blocked"
+
+    g2 = build_calm_streak_glance(
+        {
+            "calm_streak_days": False,
+            "calm_required_days": False,
+            "calm_ready": False,
+            "calm_detail": "book overweight",
+        }
+    )
+    assert g2["streak"] == 0
+    assert g2["required"] == 30
+
+
 def test_calm_detail_is_promote_off_pause() -> None:
     assert _calm_detail_is_promote_off_pause(
         "promote filter off — streak paused"

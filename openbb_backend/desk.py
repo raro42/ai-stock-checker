@@ -8541,8 +8541,26 @@ def build_calm_streak_glance(
         return empty
     if "calm_streak_days" not in runtime and "calm_required_days" not in runtime:
         return empty
-    streak = max(0, int(runtime.get("calm_streak_days") or 0))
-    need = max(1, int(runtime.get("calm_required_days") or 30))
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    # True→1 streak / True→1 required invents a fake promote-unlock meter.
+    raw_streak = runtime.get("calm_streak_days")
+    if raw_streak is None or not _finite_signed(raw_streak):
+        streak = 0
+    else:
+        try:
+            streak = max(0, int(raw_streak))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            streak = 0
+    raw_need = runtime.get("calm_required_days")
+    if raw_need is None or not _finite_signed(raw_need):
+        need = 30
+    else:
+        try:
+            need = max(1, int(raw_need))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            need = 30
     calm_ready = bool(runtime.get("calm_ready"))
     detail = str(runtime.get("calm_detail") or "").strip()
     promote_off_paused = (not calm_ready) and _calm_detail_is_promote_off_pause(
