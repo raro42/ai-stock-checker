@@ -222,6 +222,35 @@ def test_build_ai_debate_glance_empty(tmp_path: Path) -> None:
     assert g["freshness"] == ""
 
 
+def test_build_ai_debate_glance_refuses_bool_counts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """tradermonty #700/#655 + FinRobot: True→1 must not invent debate meters."""
+
+    def _fake_summary(_root):
+        return {
+            "count": True,
+            "buy": True,
+            "hold": False,
+            "sell": True,
+            "gated": True,
+            "latest_symbol": "NVDA",
+            "latest_action": "BUY",
+            "latest_confidence": "HIGH",
+            "latest_at": "2026-11-19T08:00:00Z",
+        }
+
+    monkeypatch.setattr(
+        "stock_checker.ai_validate_memory.summarize_ai_debates",
+        _fake_summary,
+    )
+    g = build_ai_debate_glance(tmp_path)
+    assert g["ready"] is True
+    assert g["count"] == 0
+    assert g["tone"] == "empty"
+    assert g["buy"] == 0
+
+
 def test_build_ai_debate_glance_freshness_stale(tmp_path: Path) -> None:
     """Newest debate age uses scan-cadence fresh/aging/stale (display only)."""
     record_ai_validate(

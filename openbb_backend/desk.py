@@ -9255,11 +9255,9 @@ def build_calm_streak_glance(
                 if sample.get("closes_polarity_known") and sample.get(
                     "closes_polarity"
                 ):
-                    try:
-                        nw = max(0, int(sample.get("closes_wins") or 0))
-                        nl = max(0, int(sample.get("closes_losses") or 0))
-                    except (TypeError, ValueError):
-                        nw, nl = 0, 0
+                    # tradermonty #700/#655: refuse bool — True→1w invents polarity.
+                    nw = _window_count_or_zero(sample.get("closes_wins"))
+                    nl = _window_count_or_zero(sample.get("closes_losses"))
                     if nw + nl > 0:
                         window_a_closes_polarity = str(
                             sample.get("closes_polarity") or ""
@@ -21910,21 +21908,16 @@ def build_calm_streak_glance(
                 if fill_bit:
                     status = f"{status} · {fill_bit}"
             if sample.get("known"):
-                try:
-                    window_a_fills = max(0, int(sample.get("fills") or 0))
-                    window_a_target_fills = max(
-                        1, int(sample.get("target_fills") or 10)
-                    )
-                except (TypeError, ValueError):
-                    pass
+                # tradermonty #700/#655: refuse bool — True→1 fill / True→1 target.
+                window_a_fills = _window_count_or_zero(sample.get("fills"))
+                tf = _coerce_window_count(sample.get("target_fills"))
+                window_a_target_fills = tf if tf is not None and tf >= 1 else 10
                 if sample.get("sides_known"):
-                    try:
-                        window_a_sells = max(0, int(sample.get("sells") or 0))
-                        window_a_target_sells = max(
-                            1, int(sample.get("target_sells") or 3)
-                        )
-                    except (TypeError, ValueError):
-                        pass
+                    window_a_sells = _window_count_or_zero(sample.get("sells"))
+                    ts = _coerce_window_count(sample.get("target_sells"))
+                    window_a_target_sells = (
+                        ts if ts is not None and ts >= 1 else 3
+                    )
                 # Day floor met + thin/open/stale sample ≠ ready for B.
                 # Fee drag / fees thin: sample ready can still be fee-eaten.
                 # All-loss / loss-lean: fee mood alone hid a red control book.
@@ -31187,10 +31180,14 @@ def build_laya_glance(
         model = str(st.get("model") or "systemone")
         if len(model) > 16:
             model = model[:15] + "…"
-        n_pass = int(stats.get("pass") or 0)
-        n_hold = int(stats.get("hold") or 0)
-        n_rej = int(stats.get("reject") or 0)
-        n_fo = int(stats.get("fail_open") or 0)
+        # tradermonty #700/#655 + FinRobot/portfolio AI: refuse bool —
+        # True→1 invents pass/hold/reject/fail-open sample meters.
+        from stock_checker.promote_ab import _window_count_or_zero
+
+        n_pass = _window_count_or_zero(stats.get("pass"))
+        n_hold = _window_count_or_zero(stats.get("hold"))
+        n_rej = _window_count_or_zero(stats.get("reject"))
+        n_fo = _window_count_or_zero(stats.get("fail_open"))
         bits = ["advisory on", model]
         # When fail-open sample lead will speak, skip age on the clip so
         # ``fail lead · N · P%`` fits (freshness stays in fields; Yahoo
@@ -31597,10 +31594,13 @@ def build_ai_debate_glance(
     Not a research score and not a new gate.
     """
     from stock_checker.ai_validate_memory import summarize_ai_debates
+    from stock_checker.promote_ab import _window_count_or_zero
 
     root = data_dir if data_dir is not None else Path(os.getenv("DATA_DIR", "data"))
     stats = summarize_ai_debates(root)
-    count = int(stats.get("count") or 0)
+    # tradermonty #700/#655 + FinRobot/portfolio AI: refuse bool —
+    # True→1 invents a one-debate memory strip.
+    count = _window_count_or_zero(stats.get("count"))
     empty_fresh = {
         "age_sec": None,
         "age_label": "",
@@ -31660,10 +31660,11 @@ def build_ai_debate_glance(
             **empty_fresh,
         }
 
-    buy = int(stats.get("buy") or 0)
-    hold = int(stats.get("hold") or 0)
-    sell = int(stats.get("sell") or 0)
-    gated = int(stats.get("gated") or 0)
+    # tradermonty #700/#655: refuse bool — True→1 invents BUY/HOLD/SELL/gated.
+    buy = _window_count_or_zero(stats.get("buy"))
+    hold = _window_count_or_zero(stats.get("hold"))
+    sell = _window_count_or_zero(stats.get("sell"))
+    gated = _window_count_or_zero(stats.get("gated"))
     sym = str(stats.get("latest_symbol") or "").strip()
     action = str(stats.get("latest_action") or "HOLD").upper()
     latest_at = str(stats.get("latest_at") or "").strip()

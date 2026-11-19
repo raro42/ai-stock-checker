@@ -197,6 +197,36 @@ def test_laya_glance_off(monkeypatch, tmp_path: Path) -> None:
     assert "not a gate" in g["line"]
 
 
+def test_laya_glance_refuses_bool_sample_counts(monkeypatch, tmp_path: Path) -> None:
+    """tradermonty #700/#655 + FinRobot: True→1 must not invent pass/hold meters."""
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+
+    def _fake_status(_root):
+        return {
+            "configured": True,
+            "advisory": True,
+            "model": "systemone",
+            "stats": {
+                "pass": True,
+                "hold": False,
+                "reject": True,
+                "fail_open": True,
+                "newest": None,
+            },
+        }
+
+    monkeypatch.setattr(
+        "stock_checker.laya_decision.laya_status", _fake_status
+    )
+    g = build_laya_glance(tmp_path)
+    assert g["ready"] is True
+    assert g["advisory"] is True
+    assert "no sample" in g["line"]
+    assert "1p/" not in g["line"]
+    assert "1 fail-open" not in g["line"]
+
+
 def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
