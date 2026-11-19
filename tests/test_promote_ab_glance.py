@@ -5670,6 +5670,54 @@ def test_window_a_sample_refuses_bool_counts() -> None:
     assert bit == "€10 fees · +€5 net · 0 fills" or "0 fills" in bit
 
 
+def test_window_a_exit_mix_and_flats_refuse_bool_counts() -> None:
+    """tradermonty #700/#655: bool exit/flat stats must not invent True→1 exits."""
+    junk = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "flat_closes": True,
+            "exit_tp": True,
+            "exit_sl": False,
+            "exit_rot": True,
+            "exit_trim": False,
+        }
+    )
+    assert junk["closes_flat"] is None
+    assert junk["closes_flat_bit"] == ""
+    assert junk["closes_exit_tp"] is None
+    assert junk["closes_exit_sl"] is None
+    assert junk["closes_exit_mix_bit"] == ""
+    assert junk["closes_exit_unknown"] is None
+    assert junk["closes_exit_unknown_bit"] == ""
+    assert "exits" not in (junk.get("line") or "")
+    assert "flats" not in (junk.get("line") or "")
+
+    # Real exit counts still speak.
+    real = window_a_sample_readiness(
+        {
+            "trades": 12,
+            "buys": 6,
+            "sells": 6,
+            "wins": 3,
+            "losses": 3,
+            "flat_closes": 2,
+            "exit_tp": 3,
+            "exit_sl": 1,
+            "exit_rot": 0,
+            "exit_trim": 0,
+        }
+    )
+    assert real["closes_flat"] == 2
+    assert real["closes_flat_bit"] == "A flats · 2"
+    assert real["closes_exit_tp"] == 3
+    assert real["closes_exit_sl"] == 1
+    assert real["closes_exit_mix_bit"] == "A exits tp 3 · sl 1"
+
+
 def test_window_a_fill_progress_refuses_bool_counts() -> None:
     """tradermonty #700/#655: True→1 must not invent fill/close progress meters."""
     from stock_checker.promote_ab import format_window_a_fill_progress_bit

@@ -12843,32 +12843,19 @@ def build_calm_streak_glance(
                     window_a_closes_exit_mix_hot = bool(
                         sample.get("closes_exit_mix_hot")
                     )
-                    try:
-                        window_a_closes_exit_tp = (
-                            int(sample["closes_exit_tp"])
-                            if sample.get("closes_exit_tp") is not None
-                            else None
-                        )
-                        window_a_closes_exit_sl = (
-                            int(sample["closes_exit_sl"])
-                            if sample.get("closes_exit_sl") is not None
-                            else None
-                        )
-                        window_a_closes_exit_rot = (
-                            int(sample["closes_exit_rot"])
-                            if sample.get("closes_exit_rot") is not None
-                            else None
-                        )
-                        window_a_closes_exit_trim = (
-                            int(sample["closes_exit_trim"])
-                            if sample.get("closes_exit_trim") is not None
-                            else None
-                        )
-                    except (TypeError, ValueError, KeyError):
-                        window_a_closes_exit_tp = None
-                        window_a_closes_exit_sl = None
-                        window_a_closes_exit_rot = None
-                        window_a_closes_exit_trim = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents exits.
+                    window_a_closes_exit_tp = _coerce_window_count(
+                        sample.get("closes_exit_tp")
+                    )
+                    window_a_closes_exit_sl = _coerce_window_count(
+                        sample.get("closes_exit_sl")
+                    )
+                    window_a_closes_exit_rot = _coerce_window_count(
+                        sample.get("closes_exit_rot")
+                    )
+                    window_a_closes_exit_trim = _coerce_window_count(
+                        sample.get("closes_exit_trim")
+                    )
                     if window_a_closes_win_streak_cv_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_cv_bit}",
@@ -12988,15 +12975,10 @@ def build_calm_streak_glance(
                     window_a_closes_exit_unknown_warn = bool(
                         sample.get("closes_exit_unknown_warn")
                     )
-                    try:
-                        window_a_closes_exit_unknown = (
-                            int(sample["closes_exit_unknown"])
-                            if sample.get("closes_exit_unknown")
-                            is not None
-                            else None
-                        )
-                    except (TypeError, ValueError, KeyError):
-                        window_a_closes_exit_unknown = None
+                    # tradermonty #700/#655: refuse bool — int(True)→1 invents unknown.
+                    window_a_closes_exit_unknown = _coerce_window_count(
+                        sample.get("closes_exit_unknown")
+                    )
                     if window_a_closes_exit_mix_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_mix_bit}",

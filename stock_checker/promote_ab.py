@@ -5424,11 +5424,9 @@ def window_a_sample_readiness(
     if sides_known and sells > 0 and not open_only and "flat_closes" in stats:
         raw_flat = stats.get("flat_closes")
         if raw_flat is not None:
-            try:
-                n_flat = int(raw_flat)
-            except (TypeError, ValueError):
-                n_flat = -1
-            if n_flat > 0:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents flats.
+            n_flat = _coerce_window_count(raw_flat)
+            if n_flat is not None and n_flat > 0:
                 closes_flat = n_flat
                 closes_flat_bit = f"A flats · {n_flat}"
                 closes_flat_warn = True
@@ -5453,15 +5451,13 @@ def window_a_sample_readiness(
         raw_rot = stats.get("exit_rot")
         raw_trim = stats.get("exit_trim")
         if None not in (raw_tp, raw_sl, raw_rot, raw_trim):
-            try:
-                n_tp = int(raw_tp)
-                n_sl = int(raw_sl)
-                n_rot = int(raw_rot)
-                n_trim = int(raw_trim)
-            except (TypeError, ValueError):
-                n_tp = n_sl = n_rot = n_trim = -1
-            known = n_tp + n_sl + n_rot + n_trim
-            if min(n_tp, n_sl, n_rot, n_trim) >= 0:
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents exits.
+            n_tp = _coerce_window_count(raw_tp)
+            n_sl = _coerce_window_count(raw_sl)
+            n_rot = _coerce_window_count(raw_rot)
+            n_trim = _coerce_window_count(raw_trim)
+            if None not in (n_tp, n_sl, n_rot, n_trim):
+                known = n_tp + n_sl + n_rot + n_trim
                 n_unknown = sells - known
                 if known > 0:
                     closes_exit_tp = n_tp
