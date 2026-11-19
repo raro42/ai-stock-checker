@@ -5670,6 +5670,48 @@ def test_window_a_sample_refuses_bool_counts() -> None:
     assert bit == "€10 fees · +€5 net · 0 fills" or "0 fills" in bit
 
 
+def test_window_a_fill_progress_refuses_bool_counts() -> None:
+    """tradermonty #700/#655: True→1 must not invent fill/close progress meters."""
+    from stock_checker.promote_ab import format_window_a_fill_progress_bit
+
+    junk = format_window_a_fill_progress_bit(
+        {
+            "known": True,
+            "sides_known": True,
+            "fills": True,
+            "target_fills": True,
+            "sells": True,
+            "target_sells": False,
+        }
+    )
+    assert "1/" not in junk
+    assert junk.startswith("0/")
+    assert "fills" in junk
+
+
+def test_promote_ab_glance_refuses_bool_sample_meters() -> None:
+    """Damaged sample bools must not invent True→1 fills on the promote glance."""
+    g = build_promote_ab_glance(
+        {"promote_experiment_strategy": False},
+        as_of=date(2026, 9, 13),
+        window_stats={
+            "trades": True,
+            "buys": True,
+            "sells": True,
+            "wins": True,
+            "losses": False,
+            "fees": 10.0,
+            "realized_pnl": 20.0,
+        },
+    )
+    assert g["ready"] is True
+    assert g["sample_fills"] == 0
+    assert g["sample_buys"] == 0
+    assert g["sample_sells"] == 0
+    assert "1/10 fills" not in (g.get("a_fill_progress_bit") or "")
+    assert "1 fills" not in (g.get("line") or "")
+
+
 def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
     g = build_promote_ab_glance(
         {"promote_experiment_strategy": False, "max_positions": 8},

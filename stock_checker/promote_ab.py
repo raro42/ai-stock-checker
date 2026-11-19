@@ -9339,12 +9339,10 @@ def format_window_a_sell_progress_bit(sample: dict[str, Any] | None) -> str:
         return ""
     if not sample.get("sides_known"):
         return ""
-    try:
-        sells = int(sample.get("sells") or 0)
-        need = int(sample.get("target_sells") or WINDOW_A_TARGET_SELLS)
-    except (TypeError, ValueError):
-        return ""
-    need = max(1, need)
+    # tradermonty #700/#655: refuse bool — int(True)→1 invents close progress.
+    sells = _window_count_or_zero(sample.get("sells"))
+    need_raw = _coerce_window_count(sample.get("target_sells"))
+    need = WINDOW_A_TARGET_SELLS if need_raw is None else max(1, need_raw)
     return f"{sells}/{need} sells"
 
 
@@ -9360,12 +9358,10 @@ def format_window_a_fill_progress_bit(sample: dict[str, Any] | None) -> str:
     """
     if not isinstance(sample, dict) or not sample.get("known"):
         return ""
-    try:
-        fills = int(sample.get("fills") or 0)
-        need = int(sample.get("target_fills") or WINDOW_A_TARGET_FILLS)
-    except (TypeError, ValueError):
-        return ""
-    need = max(1, need)
+    # tradermonty #700/#655: refuse bool — int(True)→1 invents fill progress.
+    fills = _window_count_or_zero(sample.get("fills"))
+    need_raw = _coerce_window_count(sample.get("target_fills"))
+    need = WINDOW_A_TARGET_FILLS if need_raw is None else max(1, need_raw)
     bit = f"{fills}/{need} fills"
     sells = format_window_a_sell_progress_bit(sample)
     if sells:

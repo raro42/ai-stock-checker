@@ -9146,6 +9146,9 @@ def build_calm_streak_glance(
         tone = "paused"
         status = "promote off · streak paused"
         from stock_checker.promote_ab import (
+            WINDOW_A_TARGET_TRADING_DAYS,
+            _coerce_window_count,
+            _window_count_or_zero,
             format_window_a_fill_progress_bit,
             format_window_a_sample_status_bit,
             format_window_stats_bit,
@@ -9156,8 +9159,14 @@ def build_calm_streak_glance(
 
         ab = promote_ab_snapshot(False, as_of=as_of)
         if ab.get("window") == "A":
-            window_a_days = max(0, int(ab.get("trading_days") or 0))
-            window_a_target_days = max(1, int(ab.get("target_days") or 10))
+            # tradermonty #700/#655: refuse bool — True→1d invents Window A age.
+            window_a_days = _window_count_or_zero(ab.get("trading_days"))
+            need_days = _coerce_window_count(ab.get("target_days"))
+            window_a_target_days = (
+                WINDOW_A_TARGET_TRADING_DAYS
+                if need_days is None
+                else max(1, need_days)
+            )
             day_bit = f"A {window_a_days}/{window_a_target_days}d"
             status = f"{status} · {day_bit}"
             stats = window_stats
@@ -23578,6 +23587,9 @@ def build_promote_ab_glance(
     blocked until A/B verdict + calm gate. Not an entry gate.
     """
     from stock_checker.promote_ab import (
+        WINDOW_A_TARGET_TRADING_DAYS,
+        _coerce_window_count,
+        _window_count_or_zero,
         format_window_a_aging_closes_bit,
         format_window_a_closes_expectancy_bit,
         format_window_a_closes_fee_take_bit,
@@ -24130,8 +24142,12 @@ def build_promote_ab_glance(
     as_of_day = as_of or date.today()
     snap = promote_ab_snapshot(promote_on, as_of=as_of_day)
     window = str(snap.get("window") or "A")
-    days = int(snap.get("trading_days") or 0)
-    need = int(snap.get("target_days") or 10)
+    # tradermonty #700/#655: refuse bool — True→1d invents Window A age meter.
+    days = _window_count_or_zero(snap.get("trading_days"))
+    need_raw = _coerce_window_count(snap.get("target_days"))
+    need = (
+        WINDOW_A_TARGET_TRADING_DAYS if need_raw is None else max(1, need_raw)
+    )
     target_met = bool(snap.get("target_met"))
     protocol_ok = bool(snap.get("protocol_ok"))
     promote_label = "on" if promote_on else "off"
@@ -24198,10 +24214,11 @@ def build_promote_ab_glance(
     )
     sample_ready = bool(sample.get("ready"))
     sample_known = bool(sample.get("known"))
-    sample_fills = int(sample.get("fills") or 0)
-    target_fills = int(sample.get("target_fills") or 0)
-    sample_buys = int(sample.get("buys") or 0)
-    sample_sells = int(sample.get("sells") or 0)
+    # tradermonty #700/#655: refuse bool — True→1 invents fill/close meters.
+    sample_fills = _window_count_or_zero(sample.get("fills"))
+    target_fills = _window_count_or_zero(sample.get("target_fills"))
+    sample_buys = _window_count_or_zero(sample.get("buys"))
+    sample_sells = _window_count_or_zero(sample.get("sells"))
     sample_open_only = bool(sample.get("open_only"))
     sample_thin_closes = bool(sample.get("thin_closes"))
     sample_stale_closes = bool(sample.get("stale_closes"))
@@ -35520,17 +35537,53 @@ def _trader_runtime_view() -> dict[str, Any]:
     portfolio = _load_json(data_dir / "portfolio.json", {})
     if not isinstance(portfolio, dict):
         portfolio = {}
-    free_legs = int(
-        portfolio.get("free_legs_per_month")
-        or cfg.get("free_legs_per_month")
-        or 0
-    )
-    allowance_used = int(portfolio.get("fee_allowance_used") or 0)
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool on raw
+    # portfolio / calm JSON — int(True)→1 invents free legs / unlock meter
+    # before glances see the runtime (True or 0 short-circuits to True).
+    raw_free = portfolio.get("free_legs_per_month")
+    if raw_free is None:
+        raw_free = cfg.get("free_legs_per_month")
+    free_legs = _fee_allowance_int(raw_free)
+    allowance_used = _fee_allowance_int(portfolio.get("fee_allowance_used"))
     allowance_month = str(portfolio.get("fee_allowance_month") or "")
     current_month = datetime.now(timezone.utc).strftime("%Y-%m")
     if allowance_month != current_month:
         allowance_used = 0
     allowance_remaining = max(0, free_legs - allowance_used)
+
+    raw_mp = cfg.get("max_positions")
+    if raw_mp is not None and _finite_signed(raw_mp):
+        max_positions = max(1, min(12, int(raw_mp)))  # type: ignore[arg-type]
+    else:
+        max_positions = 5
+    raw_mh = cfg.get("min_hold_hours")
+    if raw_mh is not None and _finite_signed(raw_mh):
+        min_hold_hours = max(4.0, min(168.0, float(raw_mh)))  # type: ignore[arg-type]
+    else:
+        min_hold_hours = 24.0
+    raw_rate = cfg.get("commission_rate")
+    if raw_rate is not None and _finite_signed(raw_rate):
+        commission_rate = float(raw_rate)  # type: ignore[arg-type]
+    else:
+        commission_rate = 0.0025
+    raw_min = cfg.get("commission_min_eur")
+    if raw_min is not None and _finite_signed(raw_min):
+        commission_min_eur = float(raw_min)  # type: ignore[arg-type]
+    else:
+        commission_min_eur = 1.0
+
+    raw_streak = calm_snap.get("streak_days")
+    if raw_streak is not None and _finite_signed(raw_streak):
+        calm_streak_days = max(0, int(raw_streak))  # type: ignore[arg-type]
+    else:
+        calm_streak_days = 0
+    raw_req = calm_snap.get("required_days")
+    if raw_req is not None and _finite_signed(raw_req):
+        calm_required_days = max(1, int(raw_req))  # type: ignore[arg-type]
+    else:
+        calm_required_days = 30
 
     return {
         "trader_version": __version__,
@@ -35545,8 +35598,8 @@ def _trader_runtime_view() -> dict[str, Any]:
         "ai_multi_role": bool(cfg.get("ai_multi_role", True)),
         # Match docker-compose intelligent-trader defaults (not live-parsed argv).
         # Prefer Ops/file knobs over hard-coded compose display defaults.
-        "max_positions": int(cfg.get("max_positions") or 5),
-        "min_hold_hours": float(cfg.get("min_hold_hours") or 24),
+        "max_positions": max_positions,
+        "min_hold_hours": min_hold_hours,
         "scan_interval_min": 15,
         "trade_interval_min": 5,
         "desk_live_marks": live_marks,
@@ -35557,8 +35610,8 @@ def _trader_runtime_view() -> dict[str, Any]:
             cfg.get("promote_experiment_strategy", False)
         ),
         "fee_preset": str(cfg.get("fee_preset") or "revolut_standard"),
-        "commission_rate": float(cfg.get("commission_rate") or 0.0025),
-        "commission_min_eur": float(cfg.get("commission_min_eur") or 1.0),
+        "commission_rate": commission_rate,
+        "commission_min_eur": commission_min_eur,
         "free_legs_per_month": free_legs,
         "fee_allowance_used": allowance_used,
         "fee_allowance_remaining": allowance_remaining,
@@ -35570,8 +35623,8 @@ def _trader_runtime_view() -> dict[str, Any]:
         "stock_benchmark_identity": _spy_bench_id,
         "crypto_benchmark_identity": _btc_bench_id,
         "regime_updated": str(regime_snap.get("updated_at") or ""),
-        "calm_streak_days": int(calm_snap.get("streak_days") or 0),
-        "calm_required_days": int(calm_snap.get("required_days") or 30),
+        "calm_streak_days": calm_streak_days,
+        "calm_required_days": calm_required_days,
         "calm_ready": bool(calm_snap.get("ready_for_compose_default")),
         "calm_detail": str(calm_snap.get("detail") or ""),
         "calm_hint": (
@@ -38575,26 +38628,24 @@ def load_desk_snapshot(
     fees = _coerce_desk_cash(portfolio.get("total_fees_paid"))
     if fees is None:
         fees = 0.0
+    from stock_checker.technical_indicators import _finite_signed
     from stock_checker.trader_config import load_trader_config
 
     cfg_fees = load_trader_config(root)
-    try:
-        commission_rate = float(
-            portfolio.get("commission_rate")
-            if portfolio.get("commission_rate") is not None
-            else cfg_fees.get("commission_rate")
-            or 0.0025
-        )
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→100%/€1 invents fee schedule.
+    raw_rate = portfolio.get("commission_rate")
+    if raw_rate is None:
+        raw_rate = cfg_fees.get("commission_rate")
+    if raw_rate is not None and _finite_signed(raw_rate):
+        commission_rate = float(raw_rate)  # type: ignore[arg-type]
+    else:
         commission_rate = 0.0025
-    try:
-        commission_min_eur = float(
-            portfolio.get("commission_min_eur")
-            if portfolio.get("commission_min_eur") is not None
-            else cfg_fees.get("commission_min_eur")
-            or 1.0
-        )
-    except (TypeError, ValueError):
+    raw_cmin = portfolio.get("commission_min_eur")
+    if raw_cmin is None:
+        raw_cmin = cfg_fees.get("commission_min_eur")
+    if raw_cmin is not None and _finite_signed(raw_cmin):
+        commission_min_eur = float(raw_cmin)  # type: ignore[arg-type]
+    else:
         commission_min_eur = 1.0
     fee_preset = str(
         portfolio.get("fee_preset")
@@ -38705,7 +38756,12 @@ def load_desk_snapshot(
 
     # Stuck capital (A15): past min-hold and underwater — visible, not silent.
     # Min-hold lock: which lots still cannot rotate/trim (portfolio AI honesty).
-    min_hold_h = float(cfg_fees.get("min_hold_hours") or 24)
+    # tradermonty #700/#655: refuse bool — True→1h invents unlock age.
+    raw_min_hold = cfg_fees.get("min_hold_hours")
+    if raw_min_hold is not None and _finite_signed(raw_min_hold):
+        min_hold_h = float(raw_min_hold)  # type: ignore[arg-type]
+    else:
+        min_hold_h = 24.0
     min_hold_s = max(4.0, min_hold_h) * 3600.0
     for r in rows:
         apply_min_hold_lock_fields(r, min_hold_s)
@@ -39330,7 +39386,12 @@ def load_desk_snapshot(
     ai_confidences = latest_ai_confidences(root)
     ai_gated = latest_ai_gated(root)
 
-    max_pos = int(cfg_fees.get("max_positions") or 5)
+    # tradermonty #700/#655: refuse bool — True→1 invents a 1-slot book.
+    raw_max_pos = cfg_fees.get("max_positions")
+    if raw_max_pos is not None and _finite_signed(raw_max_pos):
+        max_pos = max(1, int(raw_max_pos))  # type: ignore[arg-type]
+    else:
+        max_pos = 5
     pretrade_level, pretrade_notes = pretrade_status(ledger, initial_cash=initial)
     last_sl = latest_stop_loss_sell(ledger)
     post_sl_sym = last_sl[0] if last_sl else None
@@ -39582,7 +39643,7 @@ def load_desk_snapshot(
         "book_posture_glance": build_book_posture_glance(
             rows,
             max_positions=max_pos,
-            min_hold_hours=float(runtime.get("min_hold_hours") or 24),
+            min_hold_hours=min_hold_h,
         ),
         "junk_filter_glance": build_junk_filter_glance(),
         "universe_discovery_glance": build_universe_discovery_glance(root),
@@ -39596,8 +39657,7 @@ def load_desk_snapshot(
         "book_limits_glance": build_book_limits_glance(runtime),
         "rebuy_cooldown_glance": build_rebuy_cooldown_glance(
             exit_times_raw,
-            cooldown_seconds=max(0.0, float(runtime.get("min_hold_hours") or 24))
-            * 3600.0,
+            cooldown_seconds=max(0.0, min_hold_h) * 3600.0,
         ),
         "daily_loss_glance": build_daily_loss_glance(
             realized_pnl_for_utc_day(ledger),
