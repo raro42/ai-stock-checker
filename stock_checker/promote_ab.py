@@ -524,7 +524,13 @@ def window_b_readiness(
     A/B compare — surface it on the desk instead of saying "ready for B".
     FinRobot / TradingAgents AI honesty + RyanJHamby schedule floors +
     portfolio AI readiness.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool knobs —
+    ``int(True)→1`` / ``float(True)→1.0`` must not invent ``max pos 1≠5``,
+    ``hold 1h≠24h``, or ``scan 1m<15m`` blockers (treat as unknown / skip).
     """
+    from stock_checker.technical_indicators import _finite_signed
+
     cap = max(1, int(protocol_max))
     hold_need = float(protocol_min_hold_hours)
     fee_need = str(protocol_fee_preset or PROTOCOL_FEE_PRESET).strip().lower()
@@ -534,16 +540,16 @@ def window_b_readiness(
     scan_need = max(1, int(protocol_scan_interval_min))
     trade_need = max(1, int(protocol_trade_interval_min))
     blockers: list[str] = []
-    if max_positions is not None:
-        slots = int(max_positions)
+    if max_positions is not None and _finite_signed(max_positions):
+        slots = int(max_positions)  # type: ignore[arg-type]
         if slots != cap:
             blockers.append(f"max pos {slots}≠{cap}")
-    if open_positions is not None:
-        n = int(open_positions)
+    if open_positions is not None and _finite_signed(open_positions):
+        n = int(open_positions)  # type: ignore[arg-type]
         if n > cap:
             blockers.append(f"{n} open >{cap}")
-    if min_hold_hours is not None:
-        hold_h = float(min_hold_hours)
+    if min_hold_hours is not None and _finite_signed(min_hold_hours):
+        hold_h = float(min_hold_hours)  # type: ignore[arg-type]
         if abs(hold_h - hold_need) > 0.05:
             blockers.append(f"hold {hold_h:g}h≠{hold_need:g}h")
     if fee_preset is not None:
@@ -569,12 +575,12 @@ def window_b_readiness(
     ):
         want = "on" if protocol_ai_multi_role else "off"
         blockers.append(f"multi-role {'on' if ai_multi_role else 'off'}≠{want}")
-    if scan_interval_min is not None:
-        scan_m = int(scan_interval_min)
+    if scan_interval_min is not None and _finite_signed(scan_interval_min):
+        scan_m = int(scan_interval_min)  # type: ignore[arg-type]
         if scan_m < scan_need:
             blockers.append(f"scan {scan_m}m<{scan_need}m")
-    if trade_interval_min is not None:
-        trade_m = int(trade_interval_min)
+    if trade_interval_min is not None and _finite_signed(trade_interval_min):
+        trade_m = int(trade_interval_min)  # type: ignore[arg-type]
         if trade_m < trade_need:
             blockers.append(f"trade {trade_m}m<{trade_need}m")
     return {

@@ -5566,6 +5566,57 @@ def test_window_b_readiness_protocol_drift() -> None:
     assert not any(b.startswith("scan ") for b in cadence_ok["blockers"])
     assert not any(b.startswith("trade ") for b in cadence_ok["blockers"])
 
+    # tradermonty #700/#655: bool knobs must not invent True→1 blockers.
+    bool_junk = window_b_readiness(
+        max_positions=True,  # type: ignore[arg-type]
+        open_positions=True,  # type: ignore[arg-type]
+        min_hold_hours=True,  # type: ignore[arg-type]
+        scan_interval_min=True,  # type: ignore[arg-type]
+        trade_interval_min=False,  # type: ignore[arg-type]
+    )
+    assert bool_junk["ready"] is True
+    assert bool_junk["blockers"] == []
+    assert not any("max pos" in b for b in bool_junk["blockers"])
+    assert not any("hold " in b for b in bool_junk["blockers"])
+    assert not any(b.startswith("scan ") for b in bool_junk["blockers"])
+    assert not any(b.startswith("trade ") for b in bool_junk["blockers"])
+
+
+def test_promote_ab_glance_refuses_bool_window_b_knobs() -> None:
+    """Damaged runtime bools must not invent Window B protocol blockers."""
+    g = build_promote_ab_glance(
+        {
+            "promote_experiment_strategy": False,
+            "max_positions": True,
+            "open_positions": True,
+            "min_hold_hours": True,
+            "scan_interval_min": True,
+            "trade_interval_min": True,
+            "fee_preset": "revolut_standard",
+            "regime_gate": True,
+            "rs_gate": True,
+            "breadth_gate": True,
+            "ai_mode": "validate",
+            "ai_multi_role": True,
+        },
+        as_of=date(2026, 9, 13),
+        open_positions=True,  # type: ignore[arg-type]
+        window_stats={
+            "trades": 30,
+            "fees": 575.0,
+            "realized_pnl": 2788.0,
+            "buys": 20,
+            "sells": 10,
+            "wins": 6,
+            "losses": 4,
+        },
+    )
+    assert g["ready"] is True
+    assert "max pos 1≠5" not in g["line"]
+    assert "hold 1h≠24h" not in g["line"]
+    assert "scan 1m<15m" not in g["line"]
+    assert "B blocked" not in (g.get("b_block_bit") or "")
+
 
 def test_promote_ab_glance_b_blocked_on_max_pos_drift() -> None:
     g = build_promote_ab_glance(

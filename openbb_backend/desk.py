@@ -24138,13 +24138,25 @@ def build_promote_ab_glance(
     stats = window_stats
     if stats is None and data_dir is not None:
         stats = window_stats_from_data_dir(data_dir, promote_on=promote_on)
+    from stock_checker.technical_indicators import _finite_signed
+
+    # tradermonty #700/#655: refuse bool — True→1 slot/open/hold/scan invent.
     max_pos_raw = runtime.get("max_positions")
-    max_pos = int(max_pos_raw) if max_pos_raw is not None else None
+    if max_pos_raw is not None and _finite_signed(max_pos_raw):
+        max_pos = int(max_pos_raw)  # type: ignore[arg-type]
+    else:
+        max_pos = None
     open_n = open_positions
-    if open_n is None and runtime.get("open_positions") is not None:
-        open_n = int(runtime.get("open_positions") or 0)
+    if open_n is not None and not _finite_signed(open_n):
+        open_n = None
+    elif open_n is None and runtime.get("open_positions") is not None:
+        raw_open = runtime.get("open_positions")
+        open_n = int(raw_open) if _finite_signed(raw_open) else None  # type: ignore[arg-type]
     hold_raw = runtime.get("min_hold_hours")
-    hold_h = float(hold_raw) if hold_raw is not None else None
+    if hold_raw is not None and _finite_signed(hold_raw):
+        hold_h = float(hold_raw)  # type: ignore[arg-type]
+    else:
+        hold_h = None
     fee_raw = runtime.get("fee_preset")
     fee_preset = str(fee_raw).strip().lower() if fee_raw is not None else None
 
@@ -24156,9 +24168,15 @@ def build_promote_ab_glance(
     ai_raw = runtime.get("ai_mode")
     ai_mode = str(ai_raw).strip().lower() if ai_raw is not None else None
     scan_raw = runtime.get("scan_interval_min")
-    scan_m = int(scan_raw) if scan_raw is not None else None
+    if scan_raw is not None and _finite_signed(scan_raw):
+        scan_m = int(scan_raw)  # type: ignore[arg-type]
+    else:
+        scan_m = None
     trade_raw = runtime.get("trade_interval_min")
-    trade_m = int(trade_raw) if trade_raw is not None else None
+    if trade_raw is not None and _finite_signed(trade_raw):
+        trade_m = int(trade_raw)  # type: ignore[arg-type]
+    else:
+        trade_m = None
     b_ready_info = window_b_readiness(
         max_positions=max_pos,
         open_positions=open_n,
