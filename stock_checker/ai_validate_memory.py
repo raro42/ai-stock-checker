@@ -25,6 +25,40 @@ def validate_memory_path(data_dir: Path | str) -> Path:
     return Path(data_dir) / VALIDATE_MEMORY_FILE
 
 
+def _coerce_validate_memory_cap(
+    value: object, default: int = VALIDATE_MEMORY_CAP
+) -> int:
+    """Ring retention length, or ``default`` when bool/gap.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1``
+    / ``False→0→max(1,0)→1`` must not invent a one-row debate ring (Ops audit
+    / soft-allow retention peer).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
+def _coerce_recent_debates_limit(
+    value: object, default: int = IDEAS_LIMIT
+) -> int:
+    """Ideas transcript length, or ``default`` when bool/gap.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1``
+    must not invent a one-row Ideas strip; ``False→0`` must not wipe the
+    transcript.
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
 def _clip(text: Any, n: int = 200) -> str:
     s = str(text or "").strip()
     if len(s) <= n:
@@ -78,7 +112,7 @@ def recent_ai_debates(
     data_dir: Path | str, *, limit: int = IDEAS_LIMIT
 ) -> list[dict[str, Any]]:
     """Newest-first debates for Ideas (display only)."""
-    lim = max(0, int(limit))
+    lim = max(0, _coerce_recent_debates_limit(limit))
     events = load_ai_validate_memory(data_dir)
     return list(reversed(events[-lim:])) if lim else []
 
@@ -263,7 +297,9 @@ def record_ai_validate(
     path = validate_memory_path(data_dir)
     events = load_ai_validate_memory(data_dir)
     events.append(event)
-    keep = max(1, int(cap))
+    # Ops audit / soft-allow retention already refused bool; AI debate ring
+    # was still open to int(True)→1 / False→0→max(1,0)→1.
+    keep = max(1, _coerce_validate_memory_cap(cap))
     events = events[-keep:]
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
