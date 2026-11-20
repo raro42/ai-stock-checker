@@ -19,6 +19,17 @@ def _positive_finite(x: object) -> bool:
     return math.isfinite(float(x)) and float(x) > 0.0
 
 
+def _coerce_risk_frac(value: object, default: float) -> float:
+    """Positive finite risk fraction, or ``default`` when bool/gap/NaN.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)==1.0`` must
+    not invent a 100% size / risk / drawdown / stop or a 1× ATR stop.
+    """
+    if not _positive_finite(value):
+        return float(default)
+    return float(value)  # type: ignore[arg-type]
+
+
 class RiskManager:
     """Manage trading risk through position sizing, stop-losses, and drawdown limits."""
 
@@ -31,12 +42,13 @@ class RiskManager:
         use_atr_stops: bool = True,  # Use ATR-based dynamic stops
         atr_multiplier: float = 2.0,  # ATR multiplier for stops
     ):
-        self.max_position_size = max_position_size
-        self.max_total_risk = max_total_risk
-        self.max_drawdown = max_drawdown
-        self.stop_loss_pct = stop_loss_pct
-        self.use_atr_stops = use_atr_stops
-        self.atr_multiplier = atr_multiplier
+        # tradermonty #700/#655: refuse bool knobs — True→100% size / 1× ATR.
+        self.max_position_size = _coerce_risk_frac(max_position_size, 0.10)
+        self.max_total_risk = _coerce_risk_frac(max_total_risk, 0.25)
+        self.max_drawdown = _coerce_risk_frac(max_drawdown, 0.15)
+        self.stop_loss_pct = _coerce_risk_frac(stop_loss_pct, 0.05)
+        self.use_atr_stops = bool(use_atr_stops)
+        self.atr_multiplier = _coerce_risk_frac(atr_multiplier, 2.0)
 
         # Track stop losses for each position
         self.stop_losses: Dict[str, float] = {}  # symbol -> stop price
@@ -66,8 +78,12 @@ class RiskManager:
         Returns:
             Number of shares to buy
         """
+        # tradermonty #700/#655: refuse bool — True→€1 equity / $1 print / full strength.
         if (
-            not math.isfinite(portfolio_value)
+            isinstance(portfolio_value, bool)
+            or isinstance(current_price, bool)
+            or isinstance(signal_strength, bool)
+            or not math.isfinite(portfolio_value)
             or not math.isfinite(current_price)
             or not math.isfinite(signal_strength)
             or portfolio_value <= 0
@@ -76,24 +92,26 @@ class RiskManager:
         ):
             return 0
         if volatility is not None and (
-            not math.isfinite(volatility) or volatility < 0
+            isinstance(volatility, bool)
+            or not math.isfinite(volatility)
+            or volatility < 0
         ):
             return 0
 
         # Base position size
-        base_size = portfolio_value * self.max_position_size
+        base_size = float(portfolio_value) * self.max_position_size
 
         # Adjust for volatility if available
         if volatility is not None and volatility > 0:
             # Higher volatility = smaller position
-            vol_adjustment = 1.0 / (1.0 + volatility)
+            vol_adjustment = 1.0 / (1.0 + float(volatility))
             base_size *= vol_adjustment
 
         # Scale by signal strength
-        base_size *= signal_strength
+        base_size *= float(signal_strength)
 
         # Convert to shares
-        shares = int(base_size / current_price)
+        shares = int(base_size / float(current_price))
 
         return max(shares, 0)
 
@@ -152,7 +170,10 @@ class RiskManager:
         if symbol not in self.stop_losses:
             return False
 
-        return current_price <= self.stop_losses[symbol]
+        # tradermonty #700/#655: refuse bool — True→$1 cannot invent a stop hit.
+        if not _positive_finite(current_price):
+            return False
+        return float(current_price) <= self.stop_losses[symbol]
 
     def update_trailing_stop(
         self,
@@ -174,8 +195,14 @@ class RiskManager:
         if symbol not in self.stop_losses:
             return None
 
+        # tradermonty #700/#655: refuse bool — True→$1 mark / True→100% trail → stop $0.
+        if not _positive_finite(current_price) or not _positive_finite(trail_pct):
+            return self.stop_losses[symbol]
+        if float(trail_pct) >= 1.0:
+            return self.stop_losses[symbol]
+
         current_stop = self.stop_losses[symbol]
-        new_stop = current_price * (1 - trail_pct)
+        new_stop = float(current_price) * (1.0 - float(trail_pct))
 
         # Only raise the stop, never lower it
         if new_stop > current_stop:
@@ -191,8 +218,11 @@ class RiskManager:
         Returns:
             (within_limits, current_risk_pct)
         """
+        # tradermonty #700/#655: refuse bool — True→€1 equity invents risk%.
+        if not _positive_finite(portfolio_value):
+            return True, 0.0
         total_risk = sum(self.position_risks.values())
-        risk_pct = total_risk / portfolio_value if portfolio_value > 0 else 0
+        risk_pct = total_risk / float(portfolio_value)
 
         return risk_pct <= self.max_total_risk, risk_pct
 
@@ -203,13 +233,17 @@ class RiskManager:
         Returns:
             (within_limits, current_drawdown_pct)
         """
+        # tradermonty #700/#655: refuse bool — True→€1 equity invents peak/DD.
+        if not _positive_finite(portfolio_value):
+            return True, self.current_drawdown
+        pv = float(portfolio_value)
         # Update peak
-        if portfolio_value > self.peak_value:
-            self.peak_value = portfolio_value
+        if pv > self.peak_value:
+            self.peak_value = pv
             self.current_drawdown = 0.0
         else:
             # Calculate drawdown
-            self.current_drawdown = (self.peak_value - portfolio_value) / self.peak_value
+            self.current_drawdown = (self.peak_value - pv) / self.peak_value
 
         return self.current_drawdown <= self.max_drawdown, self.current_drawdown
 
@@ -270,21 +304,28 @@ class RiskManager:
             non-finite or win_rate is not strictly between 0 and 1
             (perfect WR made full Kelly 100% of equity — tradermonty a1d65fd).
         """
+        # tradermonty #700/#655: refuse bool — True→1 invents WR/€ wins/losses.
         if (
-            not math.isfinite(win_rate)
+            isinstance(win_rate, bool)
+            or isinstance(avg_win, bool)
+            or isinstance(avg_loss, bool)
+            or not math.isfinite(win_rate)
             or not math.isfinite(avg_win)
             or not math.isfinite(avg_loss)
-            or not (0.0 < win_rate < 1.0)
-            or avg_win <= 0
-            or avg_loss <= 0
+            or not (0.0 < float(win_rate) < 1.0)
+            or float(avg_win) <= 0
+            or float(avg_loss) <= 0
         ):
             return 0.0
 
-        win_loss_ratio = avg_win / avg_loss
+        wr = float(win_rate)
+        aw = float(avg_win)
+        al = float(avg_loss)
+        win_loss_ratio = aw / al
         if not math.isfinite(win_loss_ratio) or win_loss_ratio <= 0:
             return 0.0
 
-        kelly = (win_rate * win_loss_ratio - (1 - win_rate)) / win_loss_ratio
+        kelly = (wr * win_loss_ratio - (1.0 - wr)) / win_loss_ratio
         if not math.isfinite(kelly):
             return 0.0
 
@@ -311,13 +352,27 @@ class RiskManager:
         Returns:
             Risk-adjusted score
         """
+        from stock_checker.technical_indicators import (
+            _finite_signed,
+            coerce_nonneg_int,
+        )
+
+        # tradermonty #700/#655: refuse bool — True→1 invents score/vol/slots.
+        if not _finite_signed(signal_score) or not _finite_signed(volatility):
+            return 0.0
+        n_pos = coerce_nonneg_int(current_positions)
+        if n_pos is None:
+            return 0.0
+        score = float(signal_score)  # type: ignore[arg-type]
+        vol = float(volatility)  # type: ignore[arg-type]
+        if vol < 0.0:
+            return 0.0
+
         # Reduce score if we have too many positions
-        position_penalty = current_positions / 15.0  # Penalty increases with positions
+        position_penalty = n_pos / 15.0  # Penalty increases with positions
 
         # Reduce score for high volatility
-        vol_penalty = min(volatility * 2, 0.5)  # Cap at 50% reduction
+        vol_penalty = min(vol * 2.0, 0.5)  # Cap at 50% reduction
 
         # Apply penalties
-        adjusted_score = signal_score * (1 - position_penalty) * (1 - vol_penalty)
-
-        return adjusted_score
+        return score * (1.0 - position_penalty) * (1.0 - vol_penalty)
