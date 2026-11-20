@@ -33,6 +33,51 @@ OPS_OUTCOME_AGING_HOURS = 168
 T = TypeVar("T")
 
 
+def _coerce_ops_refuse_seconds(
+    value: object, default: int = OPS_PENDING_REFUSE_SECONDS
+) -> int:
+    """Positive in-flight refuse window, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a 1s double-click refuse band (soft-allow TTL peer).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_ops_actions_cap(value: object, default: int = OPS_ACTIONS_CAP) -> int:
+    """Ops audit ring length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``False→0→max(1,0)`` must not invent a one-row audit ring (soft-allow
+    retention peer).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
+def _coerce_ops_outcome_hours(value: object, default: float) -> float:
+    """Non-negative outcome age hours, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)→1h`` must
+    not invent a thin fresh/aging band (soft-allow hours peer).
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return float(default)
+    hours = float(value)  # type: ignore[arg-type]
+    return hours if hours >= 0.0 else float(default)
+
+
 def ops_actions_path(data_dir: Path | str) -> Path:
     return Path(data_dir) / OPS_ACTIONS_FILE
 
@@ -114,7 +159,8 @@ def ops_pending_freshness_band(
     age = (clock.astimezone(timezone.utc) - stamp).total_seconds()
     if age < 0:
         return None
-    if age < max(1, int(refuse_seconds)):
+    window = _coerce_ops_refuse_seconds(refuse_seconds)
+    if age < window:
         return "fresh"
     return "stale"
 
@@ -200,7 +246,8 @@ def append_ops_action(
     try:
         events = load_ops_actions(data_dir)
         events.append(dict(row))
-        keep = max(1, int(cap))
+        # Soft-allow retention already refused bool; Ops audit ring was still open.
+        keep = max(1, _coerce_ops_actions_cap(cap))
         events = events[-keep:]
         path.parent.mkdir(parents=True, exist_ok=True)
         stamp = str(events[-1].get("at") or _now_iso())
@@ -328,9 +375,11 @@ def ops_outcome_age_band(
     if age_sec < 0:
         return ""
     hours = age_sec / 3600.0
-    if hours < max(0.0, float(fresh_hours)):
+    fresh = _coerce_ops_outcome_hours(fresh_hours, OPS_OUTCOME_FRESH_HOURS)
+    aging = _coerce_ops_outcome_hours(aging_hours, OPS_OUTCOME_AGING_HOURS)
+    if hours < fresh:
         return "fresh"
-    if hours < max(0.0, float(aging_hours)):
+    if hours < aging:
         return "aging"
     return "stale"
 
@@ -361,9 +410,11 @@ def ops_file_freshness_band(
     if age_sec < 0:
         return ""
     hours = age_sec / 3600.0
-    if hours < max(0.0, float(fresh_hours)):
+    fresh = _coerce_ops_outcome_hours(fresh_hours, OPS_OUTCOME_FRESH_HOURS)
+    aging = _coerce_ops_outcome_hours(aging_hours, OPS_OUTCOME_AGING_HOURS)
+    if hours < fresh:
         return "fresh"
-    if hours < max(0.0, float(aging_hours)):
+    if hours < aging:
         return "aging"
     return "stale"
 
