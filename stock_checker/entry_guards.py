@@ -23,6 +23,18 @@ STOP_BUFFER_PCT = 1.0
 _MIN_SIZE_MULT = 0.35
 
 
+def _coerce_stop_loss_pct(value: object) -> float:
+    """Book stop % for risk ceiling / size mult.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    ``True→1%`` must not invent a soft risk ceiling or fat size mult.
+    """
+    if value is None or not _finite_signed(value):
+        return DEFAULT_STOP_LOSS_PCT
+    band = abs(float(value))  # type: ignore[arg-type]
+    return band if band > 0 else DEFAULT_STOP_LOSS_PCT
+
+
 def parse_risk_pct_from_note(note: str) -> float | None:
     """Parse '−5.1%' style risk distance from a scan risk summary."""
     if not note:
@@ -111,11 +123,12 @@ def scan_risk_allows(
     implied = implied_risk_pct(opportunity)
     if implied is None:
         return True, "risk n/a"
-    ceiling = float(stop_loss_pct) + STOP_BUFFER_PCT
+    book = _coerce_stop_loss_pct(stop_loss_pct)
+    ceiling = book + STOP_BUFFER_PCT
     if implied <= ceiling:
         return (
             False,
-            f"implied stop −{implied:.1f}% too tight vs −{stop_loss_pct:g}% book stop",
+            f"implied stop −{implied:.1f}% too tight vs −{book:g}% book stop",
         )
     return True, "risk ok"
 
@@ -128,7 +141,7 @@ def position_size_multiplier(
     implied = implied_risk_pct(opportunity)
     if implied is None or implied <= 0:
         return 1.0
-    headroom = float(stop_loss_pct) + STOP_BUFFER_PCT
+    headroom = _coerce_stop_loss_pct(stop_loss_pct) + STOP_BUFFER_PCT
     if implied >= headroom * 1.5:
         return 1.0
     ratio = implied / headroom

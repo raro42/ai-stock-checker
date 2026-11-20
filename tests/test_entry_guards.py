@@ -5,6 +5,7 @@ from stock_checker.entry_guards import (
     breakout_pullback_allows,
     implied_risk_pct,
     parse_risk_pct_from_note,
+    position_size_multiplier,
     scan_entry_guards,
     scan_risk_allows,
 )
@@ -89,6 +90,31 @@ def test_scan_risk_blocks_tight_stop() -> None:
     )
     assert not ok
     assert "tight" in why
+
+
+def test_scan_risk_and_size_refuse_bool_stop() -> None:
+    """tradermonty #700/#655: True→1% must not invent a soft risk ceiling."""
+    tight = {"risk_rr_ok": True, "risk_note": "stop swing (−5.1%)"}
+    # Bool knob falls back to default 5% → ceiling 6% → 5.1% still too tight.
+    ok, why = scan_risk_allows(tight, stop_loss_pct=True)  # type: ignore[arg-type]
+    assert not ok
+    assert "tight" in why
+    assert "−5%" in why
+
+    # Pre-fix: float(True)→1 → ceiling 2 → 5.1% would falsely pass.
+    ok_false, _ = scan_risk_allows(tight, stop_loss_pct=1.0)
+    assert ok_false
+
+    wide = {"risk_pct": 9.0}
+    # Default headroom 6% → 9/6 = 1.5 → full size; bool must not shrink headroom.
+    assert position_size_multiplier(wide, stop_loss_pct=True) == 1.0  # type: ignore[arg-type]
+    assert position_size_multiplier(wide, stop_loss_pct=math.nan) == 1.0
+    # True→1% headroom 2 → ratio 9/2 capped at 1.0 still, but mid band changes:
+    mid = {"risk_pct": 3.0}
+    assert position_size_multiplier(mid, stop_loss_pct=5.0) == 0.5  # 3/6
+    # Bool falls back to 5% (same 0.5), not True→1 → 3/2=1.0 fat size.
+    assert position_size_multiplier(mid, stop_loss_pct=True) == 0.5  # type: ignore[arg-type]
+    assert position_size_multiplier(mid, stop_loss_pct=1.0) == 1.0  # pre-fix invent
 
 
 def test_parse_risk_pct_from_note() -> None:
