@@ -31,6 +31,60 @@ _US_VENUE_EXCHANGES = frozenset(
 )
 _XETR_VENUE_EXCHANGES = frozenset({"XETRA", "XETR", "FRA", "GER", "DE"})
 YAHOO_MOVER_SNAPSHOT_VENUE = "US"
+# Weekday breakout batch defaults (weekend uses 100 / 48 inside MarketScanner).
+DEFAULT_SCAN_BATCH_LIMIT = 30
+DEFAULT_SCAN_MAX_AGE_HOURS = 24
+# Cap Yahoo mover adds per discovery call (universe bloat guard).
+DEFAULT_YAHOO_MAX_NEW = 40
+
+
+def _coerce_scan_batch_limit(
+    value: object, default: int = DEFAULT_SCAN_BATCH_LIMIT
+) -> int:
+    """Scan batch size, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a one-name breakout cycle after Yahoo screen knobs already refused
+    thin mover spends.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_scan_max_age_hours(
+    value: object, default: int = DEFAULT_SCAN_MAX_AGE_HOURS
+) -> int:
+    """Re-scan age hours, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a 1h "already scanned" band that empties the weekday batch.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_yahoo_max_new(
+    value: object, default: int = DEFAULT_YAHOO_MAX_NEW
+) -> int:
+    """Yahoo mover add cap, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a one-name universe grow (mover-count peer).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
 
 
 def listing_venue(symbol: str, exchange: str = "") -> str:
@@ -342,13 +396,15 @@ class StockUniverseManager:
         """
         from stock_checker.yahoo_universe_discovery import (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+            _coerce_yahoo_max_age_hours,
             yahoo_discovery_due_from_meta,
         )
 
+        # Pass through coerce — pre-int(True)→1 bypassed due_from_meta refuse.
         age_limit = (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
             if max_age_hours is None
-            else int(max_age_hours)
+            else _coerce_yahoo_max_age_hours(max_age_hours)
         )
         return yahoo_discovery_due_from_meta(
             self.universe.get("meta"),
@@ -389,7 +445,13 @@ class StockUniverseManager:
             yahoo_fail_plan_held,
             yahoo_fail_retry_remaining_sec,
             yahoo_stamp_utc_iso,
+            _coerce_yahoo_mover_count,
         )
+
+        # Yahoo screen knobs already refuse bool; manager per_screen/max_new
+        # were still open to int(True)→1 quote / one-name grow.
+        per_screen = _coerce_yahoo_mover_count(per_screen)
+        max_new = _coerce_yahoo_max_new(max_new)
 
         meta = self.universe.setdefault("meta", {})
         if not isinstance(meta, dict):
@@ -632,7 +694,11 @@ class StockUniverseManager:
 
         return added
 
-    def get_stocks_to_scan(self, limit: int = 30, max_age_hours: int = 24) -> tuple:
+    def get_stocks_to_scan(
+        self,
+        limit: int = DEFAULT_SCAN_BATCH_LIMIT,
+        max_age_hours: int = DEFAULT_SCAN_MAX_AGE_HOURS,
+    ) -> tuple:
         """
         Get next batch of stocks to scan based on scan history.
         
@@ -640,6 +706,10 @@ class StockUniverseManager:
             Tuple of (list of symbols to scan, was_cycle_reset)
             was_cycle_reset: True if a full cycle was just completed and reset
         """
+        # Yahoo screen knobs already refused bool; scan batch/age were still
+        # open to int(True)→1 name / 1h re-scan invent.
+        limit = _coerce_scan_batch_limit(limit)
+        max_age_hours = _coerce_scan_max_age_hours(max_age_hours)
         cutoff_time = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
 
         # Get all stocks
@@ -708,12 +778,14 @@ class StockUniverseManager:
         """Merge curated seed + Yahoo movers into the universe (discovery only)."""
         from stock_checker.yahoo_universe_discovery import (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
+            _coerce_yahoo_max_age_hours,
         )
 
+        # Pre-int(True)→1 bypassed due refuse — coerce at the boundary.
         age_h = (
             DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
             if yahoo_max_age_hours is None
-            else int(yahoo_max_age_hours)
+            else _coerce_yahoo_max_age_hours(yahoo_max_age_hours)
         )
         added = self.ensure_curated_seed()
         try:
