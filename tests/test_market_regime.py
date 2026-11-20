@@ -193,3 +193,30 @@ def test_zero_or_negative_close_fail_open_as_unknown():
     assert classify_close_vs_sma([100.0] * 49 + [-1.0], 50) == REGIME_UNKNOWN
     assert simple_sma([100.0] * 49 + [0.0], 50) is None
 
+
+def test_regime_bool_meters_refuse_true_to_one():
+    """tradermonty #700/#655 + xang1234/portfolio AI: True→1 invent refused."""
+    # Bool period must not invent SMA(1) / risk_on from a single True bar.
+    assert simple_sma([100.0, 110.0], True) is None  # type: ignore[arg-type]
+    assert classify_close_vs_sma([100.0, 110.0], True) == REGIME_UNKNOWN  # type: ignore[arg-type]
+    assert simple_sma([100.0] * 50, False) is None  # type: ignore[arg-type]
+    # Damaged snap closes/SMA must not invent $1 analogue claims.
+    assert regime_analogue_label(REGIME_ON, True, 100.0) == "no analogue"
+    assert regime_analogue_label(REGIME_ON, 110.0, True) == "no analogue"
+    assert regime_analogue_label(REGIME_ON, True, True) == "no analogue"
+    # Bool weak_frac must not force every sleeve to "near SMA".
+    assert (
+        regime_analogue_label(REGIME_ON, 110.0, 100.0, weak_frac=True)
+        == "risk_on · heuristic"
+    )
+    snap = snapshot_dict(
+        stock_regime=REGIME_ON,
+        crypto_regime=REGIME_OFF,
+        stock_close=True,  # type: ignore[arg-type]
+        stock_sma=True,  # type: ignore[arg-type]
+        crypto_close=False,  # type: ignore[arg-type]
+        crypto_sma=False,  # type: ignore[arg-type]
+    )
+    assert snap["stock_close"] is None and snap["stock_sma"] is None
+    assert snap["crypto_close"] is None and snap["crypto_sma"] is None
+

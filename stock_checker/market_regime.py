@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Sequence, Tuple
 
+from stock_checker.technical_indicators import coerce_nonneg_int
+
 # Daily SMA lookbacks — stocks slower, crypto faster (24/7).
 # SPY is an S&P 500 *ETF proxy*, not the official ^GSPC index
 # (tradermonty #765 instrument identity — prices/volume are SPY's own).
@@ -65,13 +67,15 @@ def _valid_sma_close(price: object) -> bool:
 
 
 def simple_sma(closes: Sequence[float], period: int) -> Optional[float]:
-    if period <= 0 or len(closes) < period:
+    # tradermonty #700/#655: refuse bool period — True→SMA(1) invent.
+    n = coerce_nonneg_int(period)
+    if n is None or n <= 0 or len(closes) < n:
         return None
-    window = list(closes[-period:])
+    window = list(closes[-n:])
     # Do not drop bad bars — a hole is unavailable, not a compressed SMA
     if any(not _valid_sma_close(c) for c in window):
         return None
-    return sum(float(c) for c in window) / float(period)
+    return sum(float(c) for c in window) / float(n)
 
 
 def classify_close_vs_sma(closes: Sequence[float], period: int) -> str:
@@ -79,9 +83,10 @@ def classify_close_vs_sma(closes: Sequence[float], period: int) -> str:
     risk_on if last close >= SMA(period); risk_off if below; unknown if short
     history or any gap/zero/NaN in the SMA window (never strip bad bars).
     """
-    if period <= 0 or len(closes) < period:
+    n = coerce_nonneg_int(period)
+    if n is None or n <= 0 or len(closes) < n:
         return REGIME_UNKNOWN
-    sma = simple_sma(closes, period)
+    sma = simple_sma(closes, n)
     if sma is None:
         return REGIME_UNKNOWN
     last = float(closes[-1])
@@ -141,7 +146,11 @@ def regime_analogue_label(
     average = _json_float(sma)
     if last is None or average is None or average == 0:
         return "no analogue"
-    if abs(last - average) / abs(average) < weak_frac:
+    # Refuse bool weak_frac — True→1.0 would mark every sleeve "near SMA".
+    frac = _json_float(weak_frac)
+    if frac is None or frac < 0.0:
+        frac = REGIME_WEAK_ANALOGUE_FRAC
+    if abs(last - average) / abs(average) < frac:
         return "near SMA"
     return f"{name} · heuristic"
 
@@ -170,7 +179,12 @@ def new_entry_allowed(
 
 
 def _json_float(value: Optional[float]) -> Optional[float]:
-    if value is None:
+    """Finite float, or None when bool/gap/NaN (never ``True→1.0``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: damaged ``market_regime.json``
+    or analogue args must not invent $1 closes / SMA prints for desk labels.
+    """
+    if value is None or isinstance(value, bool):
         return None
     try:
         v = float(value)
