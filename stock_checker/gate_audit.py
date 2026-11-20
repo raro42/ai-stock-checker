@@ -35,7 +35,11 @@ def _coerce_soft_allow_hours(value: object, default: float) -> float:
 
 
 def _coerce_soft_allow_limit(value: object, default: int = _DEFAULT_RECENT_SOFT_ALLOW_LIMIT) -> int:
-    """Non-negative Ops strip length, or ``default`` when bool/gap (never ``True→1``)."""
+    """Non-negative Ops strip / retention length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a one-row Ops strip or a one-row soft-allow ring.
+    """
     from stock_checker.entry_slots import coerce_nonneg_int
 
     n = coerce_nonneg_int(value)
@@ -5290,7 +5294,8 @@ def record_soft_allow(
             "reason": reason_s,
         }
     )
-    keep = max(1, int(cap))
+    # Freshness TTL already refused bool; retention cap was still open.
+    keep = max(1, _coerce_soft_allow_limit(cap, SOFT_ALLOW_CAP))
     events = events[-keep:]
     try:
         path.parent.mkdir(parents=True, exist_ok=True)

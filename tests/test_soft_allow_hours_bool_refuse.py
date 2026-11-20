@@ -1,15 +1,19 @@
-"""Soft-allow freshness TTL knobs must refuse bool invents."""
+"""Soft-allow freshness TTL + retention knobs must refuse bool invents."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from stock_checker.gate_audit import (
     SOFT_ALLOW_AGING_HOURS,
+    SOFT_ALLOW_CAP,
     SOFT_ALLOW_FRESH_HOURS,
     _DEFAULT_RECENT_SOFT_ALLOW_LIMIT,
     _coerce_soft_allow_hours,
     _coerce_soft_allow_limit,
+    load_soft_allows,
+    record_soft_allow,
     soft_allow_freshness,
     soft_allow_is_expired,
 )
@@ -30,6 +34,7 @@ def test_coerce_soft_allow_limit_refuses_bool() -> None:
     assert _coerce_soft_allow_limit(False) == _DEFAULT_RECENT_SOFT_ALLOW_LIMIT
     assert _coerce_soft_allow_limit(5) == 5
     assert _coerce_soft_allow_limit(0) == 0
+    assert _coerce_soft_allow_limit(True, SOFT_ALLOW_CAP) == SOFT_ALLOW_CAP
 
 
 def test_soft_allow_freshness_refuses_bool_ttl() -> None:
@@ -40,3 +45,21 @@ def test_soft_allow_freshness_refuses_bool_ttl() -> None:
     assert soft_allow_freshness(aging, now=now, aging_hours=True, fresh_hours=True) == "aging"
     assert soft_allow_is_expired(aging, now=now, fresh_hours=True) is False
     assert soft_allow_is_expired(aging, now=now, fresh_hours=False) is False
+
+
+def test_record_soft_allow_refuses_bool_cap(tmp_path: Path) -> None:
+    """True→1 must not shrink the soft-allow ring to a single row."""
+    for i in range(5):
+        record_soft_allow(tmp_path, "rs", f"insufficient #{i}", cap=True)
+    # Without refuse, int(True)→1 would keep only the newest event.
+    assert len(load_soft_allows(tmp_path)) == 5
+
+    for i in range(3):
+        record_soft_allow(tmp_path, "breadth", f"unknown #{i}", cap=False)
+    # False→0 via int() then max(1,0)→1 would also invent a 1-row ring.
+    assert len(load_soft_allows(tmp_path)) == 8
+
+    record_soft_allow(tmp_path, "regime", "unknown — a", cap=2)
+    record_soft_allow(tmp_path, "regime", "unknown — b", cap=2)
+    record_soft_allow(tmp_path, "regime", "unknown — c", cap=2)
+    assert len(load_soft_allows(tmp_path)) == 2
