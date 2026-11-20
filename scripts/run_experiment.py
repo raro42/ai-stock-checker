@@ -39,7 +39,11 @@ from stock_checker.fees import (
     rates_for_preset,
 )
 from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
-from stock_checker.technical_indicators import _finite_signed, coerce_nonneg_int
+from stock_checker.technical_indicators import (
+    _finite_signed,
+    coerce_nonneg_int,
+    coerce_ohlcv_bar,
+)
 from stock_checker.walk_forward import coerce_fold_score, walk_forward_val_score
 
 # Live-shaped harness (match Ops / paper desk defaults — do not soften overnight)
@@ -163,11 +167,28 @@ def load_bars(symbols: List[str]) -> Dict[str, List[Dict]]:
             raw = json.loads(cache.read_text())
             bars = []
             for row in raw:
-                row = dict(row)
-                if isinstance(row.get("date"), str):
-                    row["date"] = datetime.fromisoformat(row["date"])
-                bars.append(row)
-            out[symbol] = bars
+                if not isinstance(row, dict):
+                    continue
+                dt = row.get("date")
+                if isinstance(dt, str):
+                    try:
+                        dt = datetime.fromisoformat(dt)
+                    except ValueError:
+                        continue
+                bar = coerce_ohlcv_bar(
+                    open_=row.get("open"),
+                    high=row.get("high"),
+                    low=row.get("low"),
+                    close=row.get("close"),
+                    volume=row.get("volume"),
+                    date=dt,
+                )
+                if bar is not None:
+                    bars.append(bar)
+            if bars:
+                out[symbol] = bars
+            else:
+                missing.append(symbol)
         else:
             missing.append(symbol)
 
@@ -184,16 +205,23 @@ def load_bars(symbols: List[str]) -> Dict[str, List[Dict]]:
                 serializable = []
                 for idx, row in hist.iterrows():
                     dt = idx.to_pydatetime().replace(tzinfo=None)
-                    bar = {
-                        "date": dt,
-                        "open": float(row["Open"]),
-                        "high": float(row["High"]),
-                        "low": float(row["Low"]),
-                        "close": float(row["Close"]),
-                        "volume": float(row.get("Volume", 0) or 0),
-                    }
+                    # Prefer raw Volume (None→0); never ``or 0`` (True→1).
+                    vol = row["Volume"] if "Volume" in row.index else None
+                    bar = coerce_ohlcv_bar(
+                        open_=row["Open"],
+                        high=row["High"],
+                        low=row["Low"],
+                        close=row["Close"],
+                        volume=vol,
+                        date=dt,
+                    )
+                    if bar is None:
+                        continue
                     bars.append(bar)
                     serializable.append({**bar, "date": dt.isoformat()})
+                if not bars:
+                    out[symbol] = _synthetic_bars(symbol)
+                    continue
                 (DATA_DIR / f"{symbol}.json").write_text(json.dumps(serializable))
                 out[symbol] = bars
                 print(f"cached_bars: {symbol} n={len(bars)}")

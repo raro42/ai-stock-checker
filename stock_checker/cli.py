@@ -8,6 +8,7 @@ from stock_checker.fetcher import StockFetcher
 from stock_checker.ai_analyzer import OllamaAnalyzer
 from stock_checker.market_analyzer import MarketAnalyzer
 from stock_checker.secret_redact import safe_exc_text
+from stock_checker.technical_indicators import coerce_ohlcv_bar
 
 
 def format_stock_info(data: dict) -> str:
@@ -211,16 +212,20 @@ def cmd_backtest(args):
             return 1
         bars = []
         for idx, row in hist.iterrows():
-            bars.append(
-                {
-                    "date": idx.to_pydatetime().replace(tzinfo=None),
-                    "open": float(row["Open"]),
-                    "high": float(row["High"]),
-                    "low": float(row["Low"]),
-                    "close": float(row["Close"]),
-                    "volume": float(row.get("Volume", 0) or 0),
-                }
+            vol = row["Volume"] if "Volume" in row.index else None
+            bar = coerce_ohlcv_bar(
+                open_=row["Open"],
+                high=row["High"],
+                low=row["Low"],
+                close=row["Close"],
+                volume=vol,
+                date=idx.to_pydatetime().replace(tzinfo=None),
             )
+            if bar is not None:
+                bars.append(bar)
+        if not bars:
+            print(f"Error: no usable bars for {symbol}", file=sys.stderr)
+            return 1
         historical[symbol] = bars
 
     bt = Backtester(

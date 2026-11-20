@@ -95,6 +95,44 @@ def _valid_ohlc_bar(high: object, low: object, close: object) -> bool:
     return h >= lo and lo <= c <= h
 
 
+def coerce_ohlcv_bar(
+    *,
+    open_: object,
+    high: object,
+    low: object,
+    close: object,
+    volume: object = None,
+    date: object = None,
+) -> Optional[Dict]:
+    """Build one OHLCV bar, or None when any print is bool/gap/inverted.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: never ``float(True)`` /
+    ``float(Volume or 0)`` invent ``True→$1`` OHLC or ``True→1`` volume into
+    overnight / CLI Yahoo loaders after promote ``bars_from_closes`` refuse.
+    Missing volume → 0 (real no-print); bool/NaN volume refuses the bar.
+    """
+    if not _valid_close(open_):
+        return None
+    if not _valid_ohlc_bar(high, low, close):
+        return None
+    if volume is None:
+        vol = 0.0
+    elif not _valid_volume(volume):
+        return None
+    else:
+        vol = float(volume)
+    bar: Dict = {
+        "open": float(open_),  # type: ignore[arg-type]
+        "high": float(high),  # type: ignore[arg-type]
+        "low": float(low),  # type: ignore[arg-type]
+        "close": float(close),  # type: ignore[arg-type]
+        "volume": vol,
+    }
+    if date is not None:
+        bar["date"] = date
+    return bar
+
+
 class TechnicalIndicators:
     """Calculate technical indicators for trading signals."""
 
