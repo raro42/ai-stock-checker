@@ -15,7 +15,59 @@ from .fetcher import StockFetcher
 from .secret_redact import redact_secrets, safe_exc_text
 from .stock_universe_manager import StockUniverseManager
 from .symbol_filters import filter_ranked_opportunities, is_tradeable_symbol
-from .technical_indicators import _finite_signed, _valid_close, _valid_volume
+from .technical_indicators import (
+    _finite_signed,
+    _valid_close,
+    _valid_volume,
+    coerce_nonneg_int,
+)
+
+DEFAULT_TOP_CRYPTO_COUNT = 3
+DEFAULT_CRYPTO_MOMENTUM_TOP_N = 10
+DEFAULT_ARCHIVE_KEEP_DAYS = 7
+
+
+def _coerce_top_crypto_count(
+    value: object, default: int = DEFAULT_TOP_CRYPTO_COUNT
+) -> int:
+    """Live-major strip length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a one-name crypto recommendation strip after universe scan knobs
+    already refused thin breakout cycles.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_scan_top_n(
+    value: object, default: int = DEFAULT_CRYPTO_MOMENTUM_TOP_N
+) -> int:
+    """Deep-analysis candidate count, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``min(True, n)→True`` must not invent a one-name alt deep-analysis pass.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_archive_keep_days(
+    value: object, default: int = DEFAULT_ARCHIVE_KEEP_DAYS
+) -> int:
+    """Opportunity archive retention days, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1d`` must not invent
+    a thin keep window that wipes the week of publish history.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
 
 
 def coerce_scan_price(value: object) -> Optional[float]:
@@ -89,10 +141,11 @@ class MarketScanner:
     - Sector rotation (which sectors are hot)
     """
 
-    def __init__(self, top_crypto_count: int = 3):
+    def __init__(self, top_crypto_count: int = DEFAULT_TOP_CRYPTO_COUNT):
         self.binance = BinanceFetcher()
         self.stock_fetcher = StockFetcher()
-        self.top_crypto_count = top_crypto_count
+        # Universe batch knobs already refuse bool; scanner strip was still open.
+        self.top_crypto_count = _coerce_top_crypto_count(top_crypto_count)
 
         # Import CoinMarketCap fetcher
         try:
@@ -157,7 +210,9 @@ class MarketScanner:
             print(f"⚠️  Symbol session detection failed for {symbol}: {safe_exc_text(e)}")
             return self.is_market_closed()
 
-    def scan_crypto_momentum(self, top_n: int = 10) -> List[Dict]:
+    def scan_crypto_momentum(
+        self, top_n: int = DEFAULT_CRYPTO_MOMENTUM_TOP_N
+    ) -> List[Dict]:
         """
         Scan crypto market for top momentum plays.
 
@@ -167,6 +222,7 @@ class MarketScanner:
             - Volume surge
             - Volatility (opportunity)
         """
+        top_n = _coerce_scan_top_n(top_n)
         import sys
 
         print(f"\n{'='*70}")
@@ -773,7 +829,9 @@ class MarketScanner:
             print(f"Latest: {archive_dir / 'opportunities_latest.json'}")
             print(f"{'='*80}\n")
 
-            self.cleanup_old_archives(archive_dir, keep_days=7)
+            self.cleanup_old_archives(
+                archive_dir, keep_days=DEFAULT_ARCHIVE_KEEP_DAYS
+            )
             
             return json_path, report_path
             
@@ -801,8 +859,13 @@ class MarketScanner:
 
         return _heal(archive_dir)
 
-    def cleanup_old_archives(self, archive_dir: Path, keep_days: int = 7) -> int:
+    def cleanup_old_archives(
+        self, archive_dir: Path, keep_days: int = DEFAULT_ARCHIVE_KEEP_DAYS
+    ) -> int:
         """Delete timestamped opportunity archives older than keep_days.
+
+        Bool/gap ``keep_days`` falls back to ``DEFAULT_ARCHIVE_KEEP_DAYS`` so
+        ``True→1d`` cannot invent a thin wipe of the week of publish history.
 
         Always keep ``*_latest`` names, the resolved targets of latest
         symlinks (and their .json/.txt twins), and the single newest
@@ -815,6 +878,7 @@ class MarketScanner:
 
         if not archive_dir.exists():
             return 0
+        keep_days = _coerce_archive_keep_days(keep_days)
         cutoff = time_mod.time() - (keep_days * 86400)
         try:
             archive_root = archive_dir.resolve()
@@ -918,8 +982,10 @@ class MarketScanner:
         # Generate recommendations
         recommendations = []
 
-        # At most top_crypto_count majors (policy also caps open crypto slots to 1)
-        top_cryptos = list(crypto_leaders[: max(1, int(self.top_crypto_count))])
+        # At most top_crypto_count majors (policy also caps open crypto slots to 1).
+        # Coerce again — damaged in-memory True must not invent a 1-name strip.
+        n_crypto = _coerce_top_crypto_count(self.top_crypto_count)
+        top_cryptos = list(crypto_leaders[:n_crypto])
 
         for i, crypto in enumerate(top_cryptos, 1):
             recommendations.append({
