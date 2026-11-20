@@ -13,7 +13,11 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 from stock_checker.fees import FeeAllowanceLedger, _coerce_fee_count, _coerce_fee_money
-from stock_checker.technical_indicators import _valid_close, coerce_nonneg_int
+from stock_checker.technical_indicators import (
+    _coerce_indicator_period,
+    _valid_close,
+    coerce_nonneg_int,
+)
 
 
 @dataclass
@@ -189,14 +193,19 @@ def momentum_cross_strategy(
 
     strategy_func signature for Backtester.backtest.
     Gap/zero/NaN closes in the SMA window or signal bar are unavailable.
+    Bool lookback refuses (``True→SMA(1)`` invent).
     """
+    # tradermonty #700/#655: refuse bool lookback — True→1 invents a 1-bar SMA.
+    n = _coerce_indicator_period(lookback)
+    if n is None:
+        return {}
     signals: Dict[str, str] = {}
     for symbol, bars in bars_by_symbol.items():
-        if index < lookback or index >= len(bars):
+        if index < n or index >= len(bars):
             continue
         window: list[float] = []
         ok = True
-        for bar in bars[index - lookback : index]:
+        for bar in bars[index - n : index]:
             c = bar.get("close") if isinstance(bar, dict) else None
             if not _valid_close(c):
                 ok = False
@@ -205,7 +214,7 @@ def momentum_cross_strategy(
         signal_close = bars[index].get("close") if isinstance(bars[index], dict) else None
         if not ok or not _valid_close(signal_close):
             continue
-        sma = sum(window) / lookback
+        sma = sum(window) / n
         close = float(signal_close)
         in_pos = symbol in portfolio.get("positions", {})
         if close > sma and not in_pos:

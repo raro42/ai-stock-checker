@@ -91,3 +91,37 @@ def test_valid_close_tail_refuses_gap():
     assert _valid_close_tail(bars, index=9, n=5) is None
     bars[8]["close"] = 110.0
     assert _valid_close_tail(bars, index=9, n=5) is not None
+
+
+@pytest.mark.parametrize("bad", [True, False, None, 0, -1, "5", float("nan")])
+def test_mtf_bool_sma_window_is_unavailable(bad):
+    """tradermonty #700/#655: True→SMA(1) must not invent an MTF BUY."""
+    bars = _uptrend_bars(80)
+    signals = multi_timeframe_momentum_strategy(
+        {"AAA": bars},
+        index=79,
+        portfolio={"positions": {}},
+        short=bad,
+        medium=20,
+        long=50,
+    )
+    assert "AAA" not in signals
+    signals = multi_timeframe_momentum_strategy(
+        {"AAA": bars},
+        index=79,
+        portfolio={"positions": {}},
+        short=5,
+        medium=bad,
+        long=50,
+    )
+    assert "AAA" not in signals
+
+
+@pytest.mark.parametrize("bad", [True, False, None, 0, -1, "20", float("nan")])
+def test_momentum_cross_bool_lookback_is_unavailable(bad):
+    """tradermonty #700/#655: True→SMA(1) must not invent a momentum-cross BUY."""
+    bars = _uptrend_bars(40)
+    signals = momentum_cross_strategy(
+        {"AAA": bars}, index=35, portfolio={"positions": {}}, lookback=bad
+    )
+    assert "AAA" not in signals
