@@ -12,7 +12,7 @@ from .fees import (
     free_legs_for_preset,
     rates_for_preset,
 )
-from .technical_indicators import _finite_signed, _valid_close
+from .technical_indicators import _finite_signed, _valid_close, coerce_nonneg_int
 
 # Paper desk is long-only (tradermonty #681 reject unsupported equity shorts).
 UNSUPPORTED_SHORT_REASON = "Unsupported short — long-only book"
@@ -172,7 +172,9 @@ class Portfolio:
         self.commission_min_eur = max(0.0, float(min_eur))  # type: ignore[arg-type]
         self.fee_preset = str(preset or "custom")
         if free_legs_per_month is not None:
-            self._fee_allowance.free_legs_per_month = max(0, int(free_legs_per_month))
+            # tradermonty #700/#655: refuse bool — int(True)→1 invents a free leg.
+            n = coerce_nonneg_int(free_legs_per_month)
+            self._fee_allowance.free_legs_per_month = 0 if n is None else n
         elif preset != "custom":
             self._fee_allowance.free_legs_per_month = free_legs_for_preset(preset)
         if persist and self.persistence:

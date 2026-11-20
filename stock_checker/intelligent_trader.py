@@ -535,8 +535,11 @@ class IntelligentTrader:
             max_positions=int(self.max_positions),
             flip_flop_blocked_today=int(self._rebuy_blocks_today),
         )
-        streak = int(snap.get("streak_days") or 0)
-        need = int(snap.get("required_days") or 30)
+        # tradermonty #700/#655: refuse bool — int(True or 0) invents 1/1 calm.
+        from stock_checker.technical_indicators import coerce_nonneg_int
+
+        streak = coerce_nonneg_int(snap.get("streak_days")) or 0
+        need = coerce_nonneg_int(snap.get("required_days")) or 30
         ready = bool(snap.get("ready_for_compose_default"))
         print(
             f"   🕊️  Paper calm: {streak}/{need} days"

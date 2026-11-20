@@ -51,18 +51,38 @@ FEE_PRESETS: dict[str, dict[str, Any]] = {
 DEFAULT_FEE_PRESET = "revolut_standard"
 
 
+def _coerce_fee_money(value: object) -> float | None:
+    """Finite €/rate, or None when bool/gap/NaN (never ``True→€1`` / ``True→100%``)."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def _coerce_fee_count(value: object, *, default: int = 0) -> int:
+    """Non-negative free-leg count; bool/gap → default (never ``True→1``)."""
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    return default if n is None else n
+
+
 def calc_commission(
     notional: float,
     *,
     rate: float,
     min_eur: float = 0.0,
 ) -> float:
-    """Commission for one side: max(notional × rate, min_eur)."""
-    try:
-        notion = float(notional)
-        r = float(rate)
-        floor = float(min_eur)
-    except (TypeError, ValueError):
+    """Commission for one side: max(notional × rate, min_eur).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: bool/gap must not invent
+    ``True→€1`` notional or ``True→100%`` rate into paper fees.
+    """
+    notion = _coerce_fee_money(notional)
+    r = _coerce_fee_money(rate)
+    floor = _coerce_fee_money(min_eur)
+    if notion is None or r is None or floor is None:
         return 0.0
     if notion <= 0 or r < 0:
         return 0.0
@@ -83,7 +103,7 @@ def rates_for_preset(preset: str) -> tuple[float, float]:
 
 
 def free_legs_for_preset(preset: str) -> int:
-    return int(_preset_spec(preset).get("free_legs_per_month") or 0)
+    return _coerce_fee_count(_preset_spec(preset).get("free_legs_per_month"))
 
 
 def month_key_from_timestamp(timestamp: str) -> str:
@@ -104,9 +124,10 @@ class FeeAllowanceLedger:
         month: str = "",
         used: int = 0,
     ) -> None:
-        self.free_legs_per_month = max(0, int(free_legs_per_month))
+        # tradermonty #700/#655: refuse bool — int(True)→1 invents a free leg.
+        self.free_legs_per_month = _coerce_fee_count(free_legs_per_month)
         self.month = month or ""
-        self.used = max(0, int(used))
+        self.used = _coerce_fee_count(used)
 
     def remaining(self) -> int:
         return max(0, self.free_legs_per_month - self.used)
@@ -163,8 +184,10 @@ class FeeAllowanceLedger:
     ) -> FeeAllowanceLedger:
         if not isinstance(state, dict):
             return cls(free_legs_per_month)
+        # tradermonty #700/#655 + xang1234/portfolio AI: True or 0 → True→1
+        # must not invent a spent free leg from damaged portfolio JSON.
         return cls(
             free_legs_per_month,
             month=str(state.get("fee_allowance_month") or ""),
-            used=int(state.get("fee_allowance_used") or 0),
+            used=_coerce_fee_count(state.get("fee_allowance_used")),
         )
