@@ -34,10 +34,13 @@ from stock_checker.experiment_strategy import generate_signals
 from stock_checker.fees import (
     DEFAULT_FEE_PRESET,
     FeeAllowanceLedger,
+    _coerce_fee_money,
     free_legs_for_preset,
     rates_for_preset,
 )
-from stock_checker.walk_forward import walk_forward_val_score
+from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
+from stock_checker.technical_indicators import _finite_signed, coerce_nonneg_int
+from stock_checker.walk_forward import coerce_fold_score, walk_forward_val_score
 
 # Live-shaped harness (match Ops / paper desk defaults — do not soften overnight)
 TIME_BUDGET_SEC = 120  # wall-clock compute budget inside the experiment
@@ -69,28 +72,33 @@ def make_backtester() -> Backtester:
 
 
 def estimate_fees_pct(trades, *, capital: float = INITIAL_CAPITAL) -> float:
-    """Round-trip fee estimate with monthly free-leg allowance."""
-    if not trades or capital <= 0:
+    """Round-trip fee estimate with monthly free-leg allowance.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool qty·price·capital
+    so ``True→1`` share / ``True→€1`` fill / ``True→€1`` capital cannot invent
+    fee burn into ``val_score`` (parity with paper fill + backtester refuse).
+    """
+    cap = _coerce_fee_money(capital)
+    if not trades or cap is None or cap <= 0:
         return 0.0
     ledger = FeeAllowanceLedger(FREE_LEGS_PER_MONTH)
     fees = 0.0
     for t in trades:
-        try:
-            shares = float(t.shares)
-            entry_px = float(t.entry_price)
-            exit_px = float(t.exit_price)
-        except (TypeError, ValueError):
+        if not long_only_quantity_ok(getattr(t, "shares", None)):
             continue
-        if not (shares == shares and entry_px == entry_px and exit_px == exit_px):
-            continue  # NaN
+        if not fill_price_ok(getattr(t, "entry_price", None)):
+            continue
+        shares = float(t.shares)
+        entry_px = float(t.entry_price)
         entry = abs(shares * entry_px)
-        exit_ = abs(shares * exit_px)
         entry_ts = t.entry_time.strftime("%Y-%m-%d") if hasattr(t, "entry_time") else ""
         exit_ts = t.exit_time.strftime("%Y-%m-%d") if hasattr(t, "exit_time") else entry_ts
         fees += ledger.commission_for_leg(
             entry, entry_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
         )
-        if exit_px == exit_px and exit_ > 0:
+        exit_px = getattr(t, "exit_price", None)
+        if fill_price_ok(exit_px):
+            exit_ = abs(shares * float(exit_px))
             fees += ledger.commission_for_leg(
                 exit_, exit_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
             )
@@ -98,7 +106,7 @@ def estimate_fees_pct(trades, *, capital: float = INITIAL_CAPITAL) -> float:
             fees += ledger.commission_for_leg(
                 entry, exit_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
             )
-    pct = fees / capital * 100.0
+    pct = fees / cap * 100.0
     return pct if pct == pct else 0.0
 
 def _synthetic_bars(symbol: str, n: int = 504, seed: int = 0) -> List[Dict]:
@@ -207,29 +215,31 @@ def compute_val_score(metrics: dict) -> float:
     Single scalar for keep/revert (higher is better).
 
     Sharpe primary, penalize drawdown and fee burn, require some activity.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool metrics so
+    ``True→1.0`` Sharpe / ``True→1`` trade / ``True→1%`` fees cannot invent
+    a keepable ``val_score`` after backtester knob refuse.
     """
     def _f(key: str, default: float = 0.0) -> float:
-        try:
-            v = float(metrics.get(key, default) or default)
-        except (TypeError, ValueError):
+        raw = metrics.get(key, default) if isinstance(metrics, dict) else default
+        if not _finite_signed(raw):
             return default
-        if v != v:  # NaN
-            return default
-        return v
+        return float(raw)  # type: ignore[arg-type]
 
     sharpe = _f("sharpe_ratio")
     dd = _f("max_drawdown")  # already in %
     ret = _f("total_return_pct")
-    trades = int(metrics.get("total_trades", 0) or 0)
+    trades_n = coerce_nonneg_int(
+        metrics.get("total_trades", 0) if isinstance(metrics, dict) else 0
+    )
+    trades = 0 if trades_n is None else trades_n
     fees_pct = _f("fees_pct")
 
     if trades < 2:
         return -100.0  # inactive strategy is a failure
 
     score = sharpe * 10.0 + ret * 0.05 - dd * 0.15 - fees_pct * 0.5
-    if score != score:  # NaN guard
-        return -100.0
-    return float(score)
+    return coerce_fold_score(score)
 
 
 def _metrics_for_bars(bt: Backtester, data: Dict[str, List[Dict]]) -> dict:
@@ -266,13 +276,20 @@ def _spy_walkforward_blend(data: Dict[str, List[Dict]]) -> float:
         result = bt.backtest(fold_data, _buy_and_hold_spy)
         metrics = result.calculate_metrics()
         metrics["fees_pct"] = estimate_fees_pct(result.trades)
-        # Allow single round-trip (buy-and-hold)
-        sharpe = float(metrics.get("sharpe_ratio") or 0)
-        dd = float(metrics.get("max_drawdown") or 0)
-        ret = float(metrics.get("total_return_pct") or 0)
-        fees_pct = float(metrics.get("fees_pct") or 0)
-        score = sharpe * 10.0 + ret * 0.05 - dd * 0.15 - fees_pct * 0.5
-        return score if score == score else -100.0
+        # Allow single round-trip (buy-and-hold); still refuse bool meters.
+        def _f(key: str, default: float = 0.0) -> float:
+            raw = metrics.get(key, default)
+            if not _finite_signed(raw):
+                return default
+            return float(raw)  # type: ignore[arg-type]
+
+        score = (
+            _f("sharpe_ratio") * 10.0
+            + _f("total_return_pct") * 0.05
+            - _f("max_drawdown") * 0.15
+            - _f("fees_pct") * 0.5
+        )
+        return coerce_fold_score(score)
 
     wf_score, fold_scores = walk_forward_val_score(data, fold_score, n_folds=3, min_bars=80)
     worst = min(fold_scores) if fold_scores else -100.0
