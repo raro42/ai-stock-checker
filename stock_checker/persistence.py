@@ -5,6 +5,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from stock_checker.technical_indicators import coerce_nonneg_int
+
+
+def _coerce_load_limit(value: object) -> Optional[int]:
+    """Positive recent-row strip, or None (no strip) when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` / ``int(True)``
+    must not invent a one-row recent-fill / findings strip after MarketScanner
+    strip knobs already refused thin packaging.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return None
+    return n
+
 
 class DataPersistence:
     """Handle persistent storage of portfolio, trades, and findings."""
@@ -56,8 +71,9 @@ class DataPersistence:
             for line in f:
                 trades.append(json.loads(line.strip()))
 
-        if limit:
-            return trades[-limit:]
+        lim = _coerce_load_limit(limit)
+        if lim is not None:
+            return trades[-lim:]
         return trades
 
     def append_finding(self, finding: Dict):
@@ -104,8 +120,9 @@ class DataPersistence:
 
                 findings.append(finding)
 
-        if limit:
-            return findings[-limit:]
+        lim = _coerce_load_limit(limit)
+        if lim is not None:
+            return findings[-lim:]
         return findings
 
     def save_state(self, state: Dict):

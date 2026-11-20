@@ -222,9 +222,29 @@ def _load_json(path: Path, default: Any) -> Any:
     return doc
 
 
-def _load_trades(limit: int = 50) -> List[Dict]:
+DEFAULT_OPENBB_TRADES_LIMIT = 50
+
+
+def _coerce_trades_limit(
+    value: object, default: int = DEFAULT_OPENBB_TRADES_LIMIT
+) -> int:
+    """Positive OpenBB trade strip, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-row Workspace recent-fill strip (parity with persistence load limit).
+    """
+    from stock_checker.persistence import _coerce_load_limit
+
+    n = _coerce_load_limit(value)
+    if n is None:
+        return int(default)
+    return n
+
+
+def _load_trades(limit: object = DEFAULT_OPENBB_TRADES_LIMIT) -> List[Dict]:
+    lim = _coerce_trades_limit(limit)
     rows, _meta = load_jsonl_checked(DATA_DIR / "trades.jsonl")
-    return rows[-limit:]
+    return rows[-lim:]
 
 
 @app.get("/")
