@@ -65,6 +65,19 @@ def coerce_nonneg_int(value: object) -> Optional[int]:
     return n
 
 
+def _coerce_indicator_period(period: object) -> Optional[int]:
+    """Positive indicator window, or None when bool/gap/NaN (never ``True→1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI after regime SMA / RS lookback
+    refuse: ``int(True)`` must not invent RSI/MACD/BB/ATR/volume over a 1-bar
+    window.
+    """
+    n = coerce_nonneg_int(period)
+    if n is None or n <= 0:
+        return None
+    return n
+
+
 def coerce_unix_ts(value: object) -> Optional[float]:
     """Unix epoch seconds, or None when bool/gap/NaN/non-positive.
 
@@ -148,7 +161,11 @@ class TechnicalIndicators:
         Returns:
             RSI value between 0-100, or None if insufficient / invalid data
         """
-        if len(prices) < period + 1:
+        # tradermonty #700/#655: refuse bool period — True→RSI(1) invent.
+        n = _coerce_indicator_period(period)
+        if n is None:
+            return None
+        if len(prices) < n + 1:
             return None
         # Gap/zero/NaN closes must not become a fake oversold/overbought score
         if any(not _valid_close(p) for p in prices):
@@ -159,13 +176,13 @@ class TechnicalIndicators:
         losses = np.where(deltas < 0, -deltas, 0.0)
 
         # Seed with simple average of first `period` changes
-        avg_gain = float(np.mean(gains[:period]))
-        avg_loss = float(np.mean(losses[:period]))
+        avg_gain = float(np.mean(gains[:n]))
+        avg_loss = float(np.mean(losses[:n]))
 
         # Wilder exponential smoothing for remaining bars
-        for i in range(period, len(gains)):
-            avg_gain = ((avg_gain * (period - 1)) + gains[i]) / period
-            avg_loss = ((avg_loss * (period - 1)) + losses[i]) / period
+        for i in range(n, len(gains)):
+            avg_gain = ((avg_gain * (n - 1)) + gains[i]) / n
+            avg_loss = ((avg_loss * (n - 1)) + losses[i]) / n
 
         if avg_loss == 0:
             return 100.0
@@ -195,7 +212,13 @@ class TechnicalIndicators:
         Returns:
             Dict with macd, signal, histogram, or None if insufficient / invalid data
         """
-        if len(prices) < slow_period + signal_period:
+        # tradermonty #700/#655: refuse bool periods — True→EMA(1) invent.
+        fast_n = _coerce_indicator_period(fast_period)
+        slow_n = _coerce_indicator_period(slow_period)
+        signal_n = _coerce_indicator_period(signal_period)
+        if fast_n is None or slow_n is None or signal_n is None:
+            return None
+        if len(prices) < slow_n + signal_n:
             return None
         # Gap/zero/NaN closes must not become a fake MACD histogram
         if any(not _valid_close(p) for p in prices):
@@ -204,14 +227,14 @@ class TechnicalIndicators:
         prices_array = np.asarray(prices, dtype=float)
 
         # Calculate EMAs
-        fast_ema = TechnicalIndicators._calculate_ema(prices_array, fast_period)
-        slow_ema = TechnicalIndicators._calculate_ema(prices_array, slow_period)
+        fast_ema = TechnicalIndicators._calculate_ema(prices_array, fast_n)
+        slow_ema = TechnicalIndicators._calculate_ema(prices_array, slow_n)
 
         # MACD line
         macd_line = fast_ema - slow_ema
 
         # Signal line (EMA of MACD)
-        signal_line = TechnicalIndicators._calculate_ema(macd_line, signal_period)
+        signal_line = TechnicalIndicators._calculate_ema(macd_line, signal_n)
 
         # Histogram
         macd_v = float(macd_line[-1])
@@ -243,13 +266,20 @@ class TechnicalIndicators:
         Returns:
             Dict with upper, middle, lower bands and current position, or None if invalid
         """
-        if len(prices) < period:
+        # tradermonty #700/#655: refuse bool period/std — True→BB(1)/±1σ invent.
+        n = _coerce_indicator_period(period)
+        if n is None or not _finite_signed(std_dev):
+            return None
+        k = float(std_dev)  # type: ignore[arg-type]
+        if k <= 0.0:
+            return None
+        if len(prices) < n:
             return None
         # Gap/zero/NaN closes must not become fake band positions
         if any(not _valid_close(p) for p in prices):
             return None
 
-        prices_array = np.asarray(prices[-period:], dtype=float)
+        prices_array = np.asarray(prices[-n:], dtype=float)
 
         # Middle band (SMA)
         middle = float(np.mean(prices_array))
@@ -258,8 +288,8 @@ class TechnicalIndicators:
         std = float(np.std(prices_array))
 
         # Upper and lower bands
-        upper = middle + (std_dev * std)
-        lower = middle - (std_dev * std)
+        upper = middle + (k * std)
+        lower = middle - (k * std)
 
         # Current price position
         current_price = float(prices[-1])
@@ -293,7 +323,11 @@ class TechnicalIndicators:
         Returns:
             Dict with volume analysis metrics, or None if insufficient / invalid bars
         """
-        if len(volumes) < period or len(prices) < period:
+        # tradermonty #700/#655: refuse bool period — True→vol(1) invent.
+        n = _coerce_indicator_period(period)
+        if n is None:
+            return None
+        if len(volumes) < n or len(prices) < n:
             return None
         if len(volumes) != len(prices):
             return None
@@ -303,7 +337,7 @@ class TechnicalIndicators:
         if any(not _valid_volume(v) for v in volumes):
             return None
 
-        recent_volumes = np.asarray(volumes[-period:], dtype=float)
+        recent_volumes = np.asarray(volumes[-n:], dtype=float)
         avg_volume = float(np.mean(recent_volumes))
         current_volume = float(volumes[-1])
 
@@ -311,7 +345,7 @@ class TechnicalIndicators:
         volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
 
         # Price-volume correlation
-        recent_prices = np.asarray(prices[-period:], dtype=float)
+        recent_prices = np.asarray(prices[-n:], dtype=float)
         if len(recent_prices) > 1:
             correlation = float(np.corrcoef(recent_prices, recent_volumes)[0, 1])
         else:
@@ -351,9 +385,11 @@ class TechnicalIndicators:
         Returns:
             ATR value, or None if insufficient / invalid OHLC bars
         """
-        if period <= 0:
+        # tradermonty #700/#655: refuse bool period — True→ATR(1) invent.
+        n = _coerce_indicator_period(period)
+        if n is None:
             return None
-        if len(highs) < period + 1 or len(lows) < period + 1 or len(closes) < period + 1:
+        if len(highs) < n + 1 or len(lows) < n + 1 or len(closes) < n + 1:
             return None
         if not (len(highs) == len(lows) == len(closes)):
             return None
@@ -368,12 +404,12 @@ class TechnicalIndicators:
             low_close = abs(float(lows[i]) - float(closes[i - 1]))
             true_ranges.append(max(high_low, high_close, low_close))
 
-        if len(true_ranges) < period:
+        if len(true_ranges) < n:
             return None
 
-        atr = float(sum(true_ranges[:period]) / float(period))
-        for tr in true_ranges[period:]:
-            atr = ((atr * (period - 1)) + tr) / float(period)
+        atr = float(sum(true_ranges[:n]) / float(n))
+        for tr in true_ranges[n:]:
+            atr = ((atr * (n - 1)) + tr) / float(n)
 
         if not math.isfinite(atr) or atr < 0:
             return None
@@ -381,16 +417,20 @@ class TechnicalIndicators:
 
     @staticmethod
     def _calculate_ema(data: np.ndarray, period: int) -> np.ndarray:
-        """Calculate Exponential Moving Average."""
+        """Calculate Exponential Moving Average.
+
+        Caller must pass a positive coerced period (never bool).
+        """
+        n = int(period)
         ema = np.zeros_like(data)
-        multiplier = 2 / (period + 1)
+        multiplier = 2 / (n + 1)
 
         # Start with SMA
-        ema[period-1] = np.mean(data[:period])
+        ema[n - 1] = np.mean(data[:n])
 
         # Calculate EMA
-        for i in range(period, len(data)):
-            ema[i] = (data[i] - ema[i-1]) * multiplier + ema[i-1]
+        for i in range(n, len(data)):
+            ema[i] = (data[i] - ema[i - 1]) * multiplier + ema[i - 1]
 
         return ema
 

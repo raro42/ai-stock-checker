@@ -86,6 +86,30 @@ def test_rsi_clean_history_still_scores():
     assert 0.0 <= rsi <= 100.0
 
 
+def test_indicator_period_bool_refuse_true_to_one_bar():
+    """tradermonty #700/#655 + xang1234/portfolio AI: True→1-bar invent refused."""
+    prices = [float(i) for i in range(1, 40)]
+    volumes = [1000.0 + i for i in range(len(prices))]
+    highs = [p + 0.5 for p in prices]
+    lows = [p - 0.5 for p in prices]
+    # Bool period must not invent RSI(1) / MACD EMA(1) / BB(1) / ATR(1) / vol(1).
+    assert TechnicalIndicators.calculate_rsi(prices, period=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_rsi(prices, period=False) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_macd(prices, fast_period=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_macd(prices, slow_period=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_macd(prices, signal_period=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_bollinger_bands(prices, period=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_bollinger_bands(prices, std_dev=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.calculate_atr(highs, lows, prices, period=True) is None  # type: ignore[arg-type]
+    assert TechnicalIndicators.analyze_volume(volumes, prices, period=True) is None  # type: ignore[arg-type]
+    # Real windows still score.
+    assert TechnicalIndicators.calculate_rsi(prices, period=14) is not None
+    assert TechnicalIndicators.calculate_macd(prices) is not None
+    assert TechnicalIndicators.calculate_bollinger_bands(prices, period=20) is not None
+    assert TechnicalIndicators.calculate_atr(highs, lows, prices, period=14) is not None
+    assert TechnicalIndicators.analyze_volume(volumes, prices, period=20) is not None
+
+
 def _enough_closes_for_macd(n: int = 50) -> list[float]:
     return [10.0 + (i % 7) * 0.25 for i in range(n)]
 
