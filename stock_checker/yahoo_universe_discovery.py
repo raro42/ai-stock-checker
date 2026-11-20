@@ -55,6 +55,82 @@ def _meta_count_or_zero(value: object) -> int:
     return 0 if n is None else n
 
 
+def _coerce_yahoo_mover_count(
+    value: object, default: int = DEFAULT_MOVER_COUNT
+) -> int:
+    """Mover screen ``count``, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a one-quote Yahoo spend (AI-validate / Ops audit retention peer).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return min(100, n)
+
+
+def _coerce_yahoo_screen_timeout_sec(
+    value: object, default: int = DEFAULT_YAHOO_SCREEN_TIMEOUT_SEC
+) -> int:
+    """Per-screen join ceiling seconds, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a 1s hung-screen timeout (soft-allow TTL peer).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_yahoo_claim_max_sec(
+    value: object, default: float = DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC
+) -> float:
+    """Inflight claim TTL seconds, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)→1`` must not
+    invent a 1s claim release / stuck-asset band (Ops outcome hours peer).
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return float(default)
+    sec = float(value)  # type: ignore[arg-type]
+    return sec if sec >= 1.0 else float(default)
+
+
+def _coerce_yahoo_max_age_hours(
+    value: object, default: int = DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
+) -> int:
+    """Success-age throttle hours, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a 1h rediscovery band (``yahoo_cache_freshness`` peer; due-from-meta
+    was still open after freshness refused).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
+def _coerce_yahoo_fail_backoff_hours(
+    value: object, default: int = DEFAULT_YAHOO_FAIL_BACKOFF_HOURS
+) -> int:
+    """Fail-retry backoff hours, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``False→0`` / ``True→1``
+    must not invent a cleared or thin fail throttle (numeric ``0`` stays a
+    deliberate immediate-retry when a caller passes an int).
+    """
+    if isinstance(value, bool) or value is None:
+        return int(default)
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
 def _claim_screen_denom(screen_count: object | None) -> int:
     """Mover-screen roster size for claim share bits; bool/≤0 → DEFAULT_SCREENS.
 
@@ -141,9 +217,7 @@ def yahoo_cache_freshness(
     # True→1s invents a fake age.
     from stock_checker.technical_indicators import _finite_signed
 
-    hours = coerce_nonneg_int(max_age_hours)
-    if hours is None or hours <= 0:
-        hours = DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
+    hours = _coerce_yahoo_max_age_hours(max_age_hours)
     limit = max(1, hours) * 3600.0
     if not _finite_signed(age_sec):
         return "unknown"
@@ -2123,7 +2197,8 @@ def yahoo_fail_retry_remaining_sec(
         then = _naive_utc(then)
         clock = yahoo_clock_utc_naive(now)
         age_sec = max(0.0, (clock - then).total_seconds())
-        limit = max(0, int(fail_backoff_hours)) * 3600.0
+        # Cache freshness already refused bool age; fail backoff was still open.
+        limit = max(0, _coerce_yahoo_fail_backoff_hours(fail_backoff_hours)) * 3600.0
         return max(0, int(limit - age_sec))
     except (TypeError, ValueError):
         return None
@@ -2166,7 +2241,8 @@ def yahoo_discovery_due_from_meta(
         then = _naive_utc(then)
         clock = yahoo_clock_utc_naive(now)
         age_h = (clock - then).total_seconds() / 3600.0
-        return age_h >= float(max(1, int(max_age_hours)))
+        # Freshness band already refused bool; due-from-meta was still open.
+        return age_h >= float(_coerce_yahoo_max_age_hours(max_age_hours))
     except (TypeError, ValueError):
         return True
 
@@ -2182,10 +2258,8 @@ def release_dead_yahoo_screen_claims(
     ``stale`` = live zombie past claim TTL. Alive workers younger than the
     claim TTL stay held so a second spend is refused.
     """
-    ceiling = (
-        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
-        if max_age_sec is None
-        else max(1.0, float(max_age_sec))
+    ceiling = _coerce_yahoo_claim_max_sec(
+        DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC if max_age_sec is None else max_age_sec
     )
     clock = time.monotonic() if now is None else float(now)
     released = 0
@@ -2218,10 +2292,8 @@ def list_live_yahoo_screen_claims(
     those. Used so Ops can name which preset blocks catch-up (xang1234:
     say what a stuck asset blocks).
     """
-    ceiling = (
-        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
-        if max_age_sec is None
-        else max(1.0, float(max_age_sec))
+    ceiling = _coerce_yahoo_claim_max_sec(
+        DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC if max_age_sec is None else max_age_sec
     )
     clock = time.monotonic() if now is None else float(now)
     held: list[tuple[float, str]] = []
@@ -2269,16 +2341,14 @@ def fetch_yahoo_screen_symbols(
     """
     import yfinance as yf
 
-    want = max(1, min(100, int(count)))
-    limit = (
-        DEFAULT_YAHOO_SCREEN_TIMEOUT_SEC
-        if timeout_sec is None
-        else max(1, int(timeout_sec))
+    # Meta count / cache freshness already refused bool; fetch knobs were still
+    # open to int(True)→1 quote · 1s timeout · float(True)→1s claim.
+    want = _coerce_yahoo_mover_count(count)
+    limit = _coerce_yahoo_screen_timeout_sec(
+        DEFAULT_YAHOO_SCREEN_TIMEOUT_SEC if timeout_sec is None else timeout_sec
     )
-    claim_ceiling = (
-        float(DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC)
-        if claim_max_sec is None
-        else max(1.0, float(claim_max_sec))
+    claim_ceiling = _coerce_yahoo_claim_max_sec(
+        DEFAULT_YAHOO_SCREEN_CLAIM_MAX_SEC if claim_max_sec is None else claim_max_sec
     )
     screen_key = str(screen or "").strip() or "screen"
     box: dict[str, Any] = {}
