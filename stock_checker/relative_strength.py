@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Optional, Sequence, Tuple
 
-from stock_checker.technical_indicators import _valid_close
+from stock_checker.technical_indicators import _valid_close, coerce_nonneg_int
 
 # ~3 months of sessions (RyanJHamby / Minervini-style RS window).
 DEFAULT_RS_LOOKBACK = 63
@@ -24,6 +24,18 @@ RS_ANCHOR_MAX_MISS = 0.25
 
 def _finite(x: float) -> bool:
     return x == x and x not in (float("inf"), float("-inf"))
+
+
+def _coerce_rs_lookback(lookback: object) -> Optional[int]:
+    """Positive RS window days, or None when bool/gap/NaN (never ``True→1d``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI after regime SMA period refuse:
+    ``int(True)`` must not invent a 1-day RS read.
+    """
+    n = coerce_nonneg_int(lookback)
+    if n is None or n <= 0:
+        return None
+    return n
 
 
 def rs_gate_enabled() -> bool:
@@ -44,6 +56,8 @@ def rs_lookback() -> int:
     try:
         n = int(raw)
     except ValueError:
+        return DEFAULT_RS_LOOKBACK
+    if n <= 0:
         return DEFAULT_RS_LOOKBACK
     return max(5, min(252, n))
 
@@ -73,10 +87,12 @@ def anchor_miss_ratio(closes: Sequence[float], lookback: int) -> Optional[float]
 
     Bool / gap / zero / NaN / non-numeric count as misses (tradermonty #796 /
     #655 — never ``float(True)→1.0``). None when shorter than the window.
+    Bool lookback → None (never ``True→1d`` miss invent).
     """
-    if lookback <= 0:
+    lb = _coerce_rs_lookback(lookback)
+    if lb is None:
         return None
-    need = lookback + 1
+    need = lb + 1
     if len(closes) < need:
         return None
     window = closes[-need:]
@@ -92,10 +108,12 @@ def period_return(closes: Sequence[float], lookback: int) -> Optional[float]:
     ≤ ``rs_anchor_max_miss()``. Does not drop holes to steal older bars
     (anchor-gap honesty). Returns None if insufficient, gappy, or invalid
     (tradermonty #796: bool/gap/zero/NaN endpoints are unavailable RS).
+    Bool lookback → None (never ``True→1d`` return invent).
     """
-    if lookback <= 0:
+    lb = _coerce_rs_lookback(lookback)
+    if lb is None:
         return None
-    need = lookback + 1
+    need = lb + 1
     if len(closes) < need:
         return None
     window = closes[-need:]
@@ -121,11 +139,14 @@ def beats_benchmark(
 
     Returns (allowed, reason). Anchor-gap miss above ``rs_anchor_max_miss()``
     fail-opens distinctly so soft-allow audit does not treat a compressed
-    lookback as a real RS read.
+    lookback as a real RS read. Bool lookback fail-opens (never ``True→1d``).
     """
+    lb = _coerce_rs_lookback(lookback)
+    if lb is None:
+        return True, f"{asset_label} RS unknown — lookback unreadable — allow"
     gap_ceil = rs_anchor_max_miss()
-    asset_miss = anchor_miss_ratio(asset_closes, lookback)
-    bench_miss = anchor_miss_ratio(bench_closes, lookback)
+    asset_miss = anchor_miss_ratio(asset_closes, lb)
+    bench_miss = anchor_miss_ratio(bench_closes, lb)
     # xang1234 #668: young / short listings are not gappy-anchor holes —
     # series shorter than lookback+1 is short history, not inventable RS.
     if asset_miss is None:
@@ -137,8 +158,8 @@ def beats_benchmark(
     if bench_miss > gap_ceil:
         return True, f"{bench_label} RS unknown — anchor gap — allow"
 
-    asset_ret = period_return(asset_closes, lookback)
-    bench_ret = period_return(bench_closes, lookback)
+    asset_ret = period_return(asset_closes, lb)
+    bench_ret = period_return(bench_closes, lb)
     if asset_ret is None or bench_ret is None:
         # Start/end hole inside an otherwise tolerable miss budget.
         if asset_ret is None and asset_miss > 0:
@@ -154,7 +175,7 @@ def beats_benchmark(
     return (
         False,
         f"{asset_label} lagging {bench_label} "
-        f"({asset_ret:+.1%} vs {bench_ret:+.1%} over {lookback}d)",
+        f"({asset_ret:+.1%} vs {bench_ret:+.1%} over {lb}d)",
     )
 
 
@@ -172,10 +193,15 @@ def new_entry_rs_allowed(
     Soft RS gate for *new* entries only.
 
     Benchmark symbols (SPY / BTCUSDT) always pass. Gate off / missing series → allow.
+    Bool lookback falls back to ``DEFAULT_RS_LOOKBACK`` (never ``True→1d``).
     """
     if not enabled:
         return True, "RS gate off"
-    lb = DEFAULT_RS_LOOKBACK if lookback is None else int(lookback)
+    if lookback is None:
+        lb = DEFAULT_RS_LOOKBACK
+    else:
+        coerced = _coerce_rs_lookback(lookback)
+        lb = DEFAULT_RS_LOOKBACK if coerced is None else coerced
     sym = str(symbol).upper().replace("-USD", "USDT")
     if not is_crypto and str(symbol).upper() in {"SPY", "SPX"}:
         return True, "SPY is the stock benchmark"

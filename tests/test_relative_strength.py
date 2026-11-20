@@ -246,3 +246,41 @@ def test_rs_anchor_max_miss_env_clamp(monkeypatch):
     for raw in ("50%", "nan", "inf", "-0.1", "1.5", "nope"):
         monkeypatch.setenv("RS_ANCHOR_MAX_MISS", raw)
         assert rs_anchor_max_miss() == RS_ANCHOR_MAX_MISS
+
+
+def test_rs_lookback_bool_refuse_true_to_one_day():
+    """tradermonty #700/#655 + xang1234/portfolio AI: True→1d invent refused."""
+    from stock_checker.relative_strength import DEFAULT_RS_LOOKBACK
+
+    # Bool lookback must not invent a 1-day RS return / miss ratio.
+    closes = _series(100.0, 0.01, 5)
+    assert period_return(closes, True) is None  # type: ignore[arg-type]
+    assert period_return(closes, False) is None  # type: ignore[arg-type]
+    assert anchor_miss_ratio(closes, True) is None  # type: ignore[arg-type]
+    ok, why = beats_benchmark(closes, closes, True)  # type: ignore[arg-type]
+    assert ok and "lookback unreadable" in why
+    # Gate entry falls back to default window (not True→1d).
+    lb = 10
+    asset = _series(100.0, -0.02, lb + 1)
+    bench = _series(100.0, 0.0, lb + 1)
+    blocked, _ = new_entry_rs_allowed(
+        symbol="ZZZ",
+        is_crypto=False,
+        asset_closes=asset,
+        spy_closes=bench,
+        btc_closes=None,
+        lookback=lb,
+    )
+    assert not blocked
+    # Same series with bool lookback → default 63d → short history fail-open
+    # (11 bars << 64), never a True→1d lagging/ok invent.
+    ok_b, why_b = new_entry_rs_allowed(
+        symbol="ZZZ",
+        is_crypto=False,
+        asset_closes=asset,
+        spy_closes=bench,
+        btc_closes=None,
+        lookback=True,  # type: ignore[arg-type]
+    )
+    assert ok_b and "short history" in why_b
+    assert DEFAULT_RS_LOOKBACK >= 5
