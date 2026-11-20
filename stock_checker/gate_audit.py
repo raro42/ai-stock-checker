@@ -17,6 +17,33 @@ SOFT_ALLOW_CAP = 40
 SOFT_ALLOW_FRESH_HOURS = 24.0
 # xang1234 / RyanJHamby scan-age triad: aging before expired (display only).
 SOFT_ALLOW_AGING_HOURS = 12.0
+_DEFAULT_RECENT_SOFT_ALLOW_LIMIT = 12
+
+
+def _coerce_soft_allow_hours(value: object, default: float) -> float:
+    """Positive TTL hours, or ``default`` when bool/gap (never ``True→1h``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: desk soft-allow glance
+    already refuses bool cool-off; freshness helpers were still open.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return float(default)
+    hours = float(value)  # type: ignore[arg-type]
+    return hours if hours > 0.0 else float(default)
+
+
+def _coerce_soft_allow_limit(value: object, default: int = _DEFAULT_RECENT_SOFT_ALLOW_LIMIT) -> int:
+    """Non-negative Ops strip length, or ``default`` when bool/gap (never ``True→1``)."""
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
 _SOFT_MARKERS = (
     "unknown",
     "no bars",
@@ -4331,10 +4358,10 @@ def load_soft_allows(data_dir: Path | str) -> list[dict[str, Any]]:
 
 
 def recent_soft_allows(
-    data_dir: Path | str, *, limit: int = 12
+    data_dir: Path | str, *, limit: int = _DEFAULT_RECENT_SOFT_ALLOW_LIMIT
 ) -> list[dict[str, Any]]:
     """Newest-first soft-allows for Ops (display only)."""
-    lim = max(0, int(limit))
+    lim = _coerce_soft_allow_limit(limit)
     events = load_soft_allows(data_dir)
     return list(reversed(events[-lim:])) if lim else []
 
@@ -4391,7 +4418,8 @@ def soft_allow_is_expired(
     age = soft_allow_age_hours(at, now=now)
     if age is None:
         return False
-    return age > float(fresh_hours)
+    expire = _coerce_soft_allow_hours(fresh_hours, SOFT_ALLOW_FRESH_HOURS)
+    return age > expire
 
 
 def soft_allow_freshness(
@@ -4408,8 +4436,8 @@ def soft_allow_freshness(
     age = soft_allow_age_hours(at, now=now)
     if age is None:
         return "unknown"
-    aging = float(aging_hours)
-    expire = float(fresh_hours)
+    aging = _coerce_soft_allow_hours(aging_hours, SOFT_ALLOW_AGING_HOURS)
+    expire = _coerce_soft_allow_hours(fresh_hours, SOFT_ALLOW_FRESH_HOURS)
     if expire < aging:
         expire = aging
     if age > expire:
