@@ -124,11 +124,16 @@ def post_sl_buy_block_until(
 
     Derived from the last stop-loss sell on disk (trader also keeps in-memory
     ``_buy_block_until``). Fail-open → 0 when no SL or unreadable logs.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    ``True→1s`` must not invent a near-zero post-SL cooldown.
     """
-    try:
-        cd = float(cooldown_seconds)
-    except (TypeError, ValueError):
+    from stock_checker.technical_indicators import _finite_signed
+
+    if not _finite_signed(cooldown_seconds):
         cd = float(DEFAULT_POST_SL_COOLDOWN_SEC)
+    else:
+        cd = float(cooldown_seconds)  # type: ignore[arg-type]
     if cd <= 0:
         return 0.0
     hit = latest_stop_loss_sell(data_dir)

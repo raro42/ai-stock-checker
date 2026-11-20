@@ -80,6 +80,29 @@ def test_daily_loss_halt_refuses_bool_capital(tmp_path: Path) -> None:
     assert pnl == 0.0
 
 
+def test_post_sl_buy_block_refuses_bool_cooldown(tmp_path: Path) -> None:
+    """tradermonty #700/#655: True→1s must not invent a near-zero post-SL block."""
+    from stock_checker.risk_halts import (
+        DEFAULT_POST_SL_COOLDOWN_SEC,
+        post_sl_buy_block_until,
+    )
+
+    (tmp_path / "trades.jsonl").write_text(
+        '{"type":"SELL","timestamp":"2026-08-28T12:00:00+00:00",'
+        '"symbol":"AAPL","exit_reason":"sl"}\n'
+    )
+    until_default = post_sl_buy_block_until(tmp_path)
+    until_bool = post_sl_buy_block_until(
+        tmp_path, cooldown_seconds=True  # type: ignore[arg-type]
+    )
+    assert until_default > 0
+    assert until_bool == until_default
+    # Explicit 1s stays 1s; only bool/gap falls back to the 4h floor.
+    until_one = post_sl_buy_block_until(tmp_path, cooldown_seconds=1.0)
+    assert until_one < until_default
+    assert until_bool - until_one >= DEFAULT_POST_SL_COOLDOWN_SEC - 2.0
+
+
 def test_concentration_cap() -> None:
     ok, _ = concentration_allows(notional=20_000, portfolio_value=100_000, max_name_pct=30)
     assert ok is True

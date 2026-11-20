@@ -56,11 +56,23 @@ def exit_thresholds_for_asset(*, is_crypto: bool) -> Tuple[float, float]:
 
 
 def should_take_profit(profit_pct: float, *, threshold: float = DEFAULT_TAKE_PROFIT_PCT) -> bool:
-    return profit_pct >= threshold
+    """tradermonty #700/#655: refuse bool — True→+1% must not invent a TP hit."""
+    pnl = _coerce_profit_pct(profit_pct)
+    if pnl is None:
+        return False
+    thr = _coerce_profit_pct(threshold)
+    band = thr if thr is not None else DEFAULT_TAKE_PROFIT_PCT
+    return pnl >= band
 
 
 def should_stop_loss(profit_pct: float, *, threshold: float = DEFAULT_STOP_LOSS_PCT) -> bool:
-    return profit_pct <= -abs(threshold)
+    """tradermonty #700/#655: refuse bool — True→−1% must not invent a stop hit."""
+    pnl = _coerce_profit_pct(profit_pct)
+    if pnl is None:
+        return False
+    thr = _coerce_profit_pct(threshold)
+    band = abs(thr) if thr is not None else DEFAULT_STOP_LOSS_PCT
+    return pnl <= -band
 
 
 def should_rebalance_exit(
@@ -74,15 +86,26 @@ def should_rebalance_exit(
     Whether to sell a name that fell out of the top opportunity list.
 
     Returns (sell?, reason).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    ``True→1s`` past min-hold / ``True→+1%`` winner must not invent rotation.
     """
-    if hold_seconds < min_hold_seconds:
+    hold = _coerce_hold_seconds(hold_seconds)
+    need = _coerce_hold_seconds(min_hold_seconds)
+    if hold is None or need is None or hold < need:
         return False, "min hold"
 
+    pnl = _coerce_profit_pct(profit_pct)
+    if pnl is None:
+        return False, "unreadable mark"
+
     # Never crystallize a loss just to rotate into the latest scan darling.
-    if profit_pct < 0:
+    if pnl < 0:
         return False, "no loss rotation"
 
-    if profit_pct < rotate_min_profit_pct:
+    hurdle_raw = _coerce_profit_pct(rotate_min_profit_pct)
+    hurdle = hurdle_raw if hurdle_raw is not None else DEFAULT_ROTATE_MIN_PROFIT_PCT
+    if pnl < hurdle:
         return False, "below rotate hurdle"
 
     return True, "rotate winner"
@@ -97,12 +120,22 @@ def should_allow_rebuy(
     Block rebuying a symbol recently exited (anti flip-flop / fee burn).
 
     If never exited (seconds_since_exit is None), allow.
+
+    tradermonty #700/#655: refuse bool — ``True→1s`` must not invent a clear
+    cooldown (fee-burn flip-flop). Unreadable age/cooldown stays blocked.
     """
     if seconds_since_exit is None:
         return True, "no recent exit"
-    if cooldown_seconds <= 0:
+    # Cooldown may be 0 (off); only refuse bool/NaN/non-numeric.
+    if isinstance(cooldown_seconds, bool) or not _finite_signed(cooldown_seconds):
+        return False, "rebuy cooldown"
+    cd = float(cooldown_seconds)
+    if cd <= 0:
         return True, "cooldown off"
-    if seconds_since_exit < cooldown_seconds:
+    secs = _coerce_hold_seconds(seconds_since_exit)
+    if secs is None:
+        return False, "rebuy cooldown"
+    if secs < cd:
         return False, "rebuy cooldown"
     return True, "cooldown clear"
 
@@ -159,10 +192,11 @@ def pick_overweight_trim_candidate(
     - Returns one candidate; caller may loop until at_cap while eligible.
     """
     eligible: list[tuple[float, str]] = []
-    try:
-        need = max(0.0, float(min_hold_seconds))
-    except (TypeError, ValueError):
-        need = 0.0
+    # tradermonty #700/#655: refuse bool — True→1s must not invent past-min-hold.
+    need_raw = _coerce_hold_seconds(min_hold_seconds)
+    if need_raw is None:
+        return None, "unreadable min hold"
+    need = need_raw
     for row in rows or []:
         if not isinstance(row, dict):
             continue
@@ -216,7 +250,15 @@ def unrealized_profit_pct(price: object, avg_buy: object) -> Optional[float]:
 def crypto_entry_price_ok(
     price: object, *, min_usd: float = DEFAULT_CRYPTO_ENTRY_MIN_USD
 ) -> bool:
-    """Block sub-$1 meme pumps and invalid marks from new crypto entries."""
+    """Block sub-$1 meme pumps and invalid marks from new crypto entries.
+
+    tradermonty #700/#655: refuse bool floor — True→$1 must not invent the
+    default via ``float(True)`` when the knob is garbage.
+    """
     if not mark_price_ok(price):
         return False
-    return float(price) >= float(min_usd)
+    floor = _coerce_profit_pct(min_usd)
+    band = floor if floor is not None else DEFAULT_CRYPTO_ENTRY_MIN_USD
+    if band < 0:
+        band = DEFAULT_CRYPTO_ENTRY_MIN_USD
+    return float(price) >= band

@@ -22,6 +22,19 @@ def test_take_profit_and_stop():
     assert not should_stop_loss(-4.9)
 
 
+def test_take_profit_and_stop_refuse_bool():
+    """tradermonty #700/#655: True→±1% must not invent TP/SL hits."""
+    assert should_take_profit(True) is False  # type: ignore[arg-type]
+    assert should_take_profit(1.5, threshold=True) is False  # type: ignore[arg-type]
+    # Bool threshold falls back to default +8% — 1.5 stays below.
+    assert should_take_profit(8.0, threshold=True) is True  # type: ignore[arg-type]
+    assert should_stop_loss(True) is False  # type: ignore[arg-type]
+    assert should_stop_loss(-0.5, threshold=True) is False  # type: ignore[arg-type]
+    assert should_stop_loss(-5.0, threshold=True) is True  # type: ignore[arg-type]
+    assert should_take_profit(math.nan) is False
+    assert should_stop_loss(None) is False  # type: ignore[arg-type]
+
+
 def test_never_rotate_losers():
     sell, why = should_rebalance_exit(
         profit_pct=-1.2,
@@ -77,6 +90,55 @@ def test_rebuy_cooldown_blocks_flip_flop():
     clear, why_c = should_allow_rebuy(seconds_since_exit=90000, cooldown_seconds=86400)
     assert clear is True
     assert why_c == "cooldown clear"
+
+
+def test_rebuy_and_rotate_refuse_bool_knobs():
+    """tradermonty #700/#655: True→1s / +1% must not invent clear/rotate."""
+    blocked, why = should_allow_rebuy(
+        seconds_since_exit=90000, cooldown_seconds=True  # type: ignore[arg-type]
+    )
+    assert blocked is False
+    assert why == "rebuy cooldown"
+
+    blocked2, why2 = should_allow_rebuy(
+        seconds_since_exit=True, cooldown_seconds=86400  # type: ignore[arg-type]
+    )
+    assert blocked2 is False
+    assert why2 == "rebuy cooldown"
+
+    sell, why3 = should_rebalance_exit(
+        profit_pct=True,  # type: ignore[arg-type]
+        hold_seconds=86400,
+        min_hold_seconds=14400,
+    )
+    assert sell is False
+    assert why3 == "unreadable mark"
+
+    sell2, why4 = should_rebalance_exit(
+        profit_pct=8.0,
+        hold_seconds=True,  # type: ignore[arg-type]
+        min_hold_seconds=14400,
+    )
+    assert sell2 is False
+    assert why4 == "min hold"
+
+    sell3, why5 = should_rebalance_exit(
+        profit_pct=8.0,
+        hold_seconds=86400,
+        min_hold_seconds=True,  # type: ignore[arg-type]
+    )
+    assert sell3 is False
+    assert why5 == "min hold"
+
+    # Bool rotate hurdle falls back to default 5% — +8% still rotates.
+    sell4, why6 = should_rebalance_exit(
+        profit_pct=8.0,
+        hold_seconds=86400,
+        min_hold_seconds=14400,
+        rotate_min_profit_pct=True,  # type: ignore[arg-type]
+    )
+    assert sell4 is True
+    assert why6 == "rotate winner"
 
 
 def test_opportunity_symbol_set_includes_beyond_top_n():
@@ -173,6 +235,13 @@ def test_pick_overweight_trim_refuses_bool_hold_and_pct():
     assert none is None
     assert "min hold" in why2
 
+    none3, why3 = pick_overweight_trim_candidate(
+        [{"symbol": "WEAK", "profit_pct": 0.5, "hold_seconds": 90000}],
+        min_hold_seconds=True,  # type: ignore[arg-type]
+    )
+    assert none3 is None
+    assert "unreadable min hold" in why3
+
 
 def test_crypto_price_floor():
     assert crypto_entry_price_ok(1.0)
@@ -183,6 +252,9 @@ def test_crypto_price_floor():
     assert not crypto_entry_price_ok(True)
     assert not crypto_entry_price_ok(math.nan)
     assert not crypto_entry_price_ok(None)
+    # Bool floor falls back to default $1 — 0.5 still blocked; 1.0 ok.
+    assert not crypto_entry_price_ok(0.5, min_usd=True)  # type: ignore[arg-type]
+    assert crypto_entry_price_ok(1.0, min_usd=True)  # type: ignore[arg-type]
 
 
 def test_mark_price_ok_refuses_invalid():
