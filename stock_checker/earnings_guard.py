@@ -10,10 +10,25 @@ import pytz
 
 from .listed_funds import is_listed_fund
 from .market_hours import US_TZ
+from .technical_indicators import _finite_signed
 
 # Live entry blackout window (stocks only; crypto exempt).
 DEFAULT_DAYS_BEFORE = 2.0
 DEFAULT_DAYS_AFTER = 1.0
+
+
+def _coerce_blackout_days(value: object, default: float) -> float:
+    """US-session blackout window days (may be 0).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    ``True→1d`` / ``False→0d`` must not invent a thin or cleared blackout.
+    """
+    if value is None or not _finite_signed(value):
+        return default
+    days = float(value)  # type: ignore[arg-type]
+    if days < 0.0:
+        return default
+    return days
 
 # tradermonty #426: blackout uses the US session date, not UTC.
 # US/Eastern is the same zone as America/New_York (see market_hours.US_TZ).
@@ -232,12 +247,15 @@ def is_in_earnings_blackout(
             return False, "malformed Yahoo earnings · fail-open"
         return False, ""
 
+    before = _coerce_blackout_days(days_before, DEFAULT_DAYS_BEFORE)
+    after = _coerce_blackout_days(days_after, DEFAULT_DAYS_AFTER)
+
     # Upcoming earnings within days_before
-    if 0 <= days <= days_before:
-        return True, f"earnings in {days:.1f}d (blackout {days_before:.0f}d before)"
+    if 0 <= days <= before:
+        return True, f"earnings in {days:.1f}d (blackout {before:.0f}d before)"
 
     # Just reported within days_after
-    if -days_after <= days < 0:
-        return True, f"earnings {-days:.1f}d ago (blackout {days_after:.0f}d after)"
+    if -after <= days < 0:
+        return True, f"earnings {-days:.1f}d ago (blackout {after:.0f}d after)"
 
     return False, ""

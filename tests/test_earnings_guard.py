@@ -41,11 +41,45 @@ def test_blackout_before_earnings(_mock):
 
 @patch(
     "stock_checker.earnings_guard.probe_earnings_calendar",
+    return_value=(1.5, STATUS_DATED),
+)
+def test_blackout_refuses_bool_days_before(_mock):
+    """tradermonty #700/#655: True→1d / False→0d must not invent a thin blackout."""
+    blocked, why = is_in_earnings_blackout("AAPL", days_before=True, days_after=1.0)  # type: ignore[arg-type]
+    assert blocked is True
+    assert "2d before" in why
+    blocked2, why2 = is_in_earnings_blackout(
+        "AAPL", days_before=False, days_after=1.0  # type: ignore[arg-type]
+    )
+    assert blocked2 is True
+    assert "2d before" in why2
+
+
+@patch(
+    "stock_checker.earnings_guard.probe_earnings_calendar",
     return_value=(-0.5, STATUS_DATED),
 )
 def test_blackout_after_earnings(_mock):
     blocked, why = is_in_earnings_blackout("MSFT", days_before=2.0, days_after=1.0)
     assert blocked is True
+
+
+@patch(
+    "stock_checker.earnings_guard.probe_earnings_calendar",
+    return_value=(-0.5, STATUS_DATED),
+)
+def test_blackout_refuses_bool_days_after(_mock):
+    """tradermonty #700/#655: False→0d must not clear a post-earnings blackout."""
+    blocked, why = is_in_earnings_blackout(
+        "MSFT", days_before=2.0, days_after=False  # type: ignore[arg-type]
+    )
+    assert blocked is True
+    assert "1d after" in why
+    blocked2, why2 = is_in_earnings_blackout(
+        "MSFT", days_before=2.0, days_after=True  # type: ignore[arg-type]
+    )
+    assert blocked2 is True
+    assert "1d after" in why2
 
 
 @patch(
