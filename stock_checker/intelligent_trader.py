@@ -64,7 +64,12 @@ from .exit_policy import (
     should_take_profit,
     unrealized_profit_pct,
 )
-from .technical_indicators import coerce_score, coerce_unix_ts
+from .technical_indicators import (
+    _finite_signed,
+    coerce_nonneg_int,
+    coerce_score,
+    coerce_unix_ts,
+)
 from .market_hours import is_equity_session_closed
 from .crypto_policy import (
     DEFAULT_MAX_CRYPTO_POSITIONS,
@@ -83,6 +88,51 @@ AI_FULL_TOP_N = 10
 
 _DEFAULT_MAX_POSITIONS = int(TRADER_DEFAULTS["max_positions"])
 _DEFAULT_MIN_HOLD_SECONDS = int(float(TRADER_DEFAULTS["min_hold_hours"]) * 3600)
+_DEFAULT_SCAN_INTERVAL_SEC = 900
+_DEFAULT_TRADE_INTERVAL_SEC = 300
+_DEFAULT_POSITION_SIZE = 0.10
+_DEFAULT_INITIAL_CASH = 10000.0
+
+
+def _coerce_trader_seconds(value: object, default: int) -> int:
+    """Positive loop/hold seconds, or ``default`` when bool/gap (never ``True→1s``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)`` must not invent
+    a 1s scan/trade/min-hold (anti-churn floor breach).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_trader_slots(value: object, default: int) -> int:
+    """Positive book/crypto slot count, or ``default`` when bool/gap (never ``True→1``)."""
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_trader_frac(value: object, default: float) -> float:
+    """Cash/size fraction in (0, 1], or ``default`` when bool/gap (never ``True→100%``)."""
+    if not _finite_signed(value):
+        return float(default)
+    frac = float(value)  # type: ignore[arg-type]
+    if frac <= 0.0 or frac > 1.0:
+        return float(default)
+    return frac
+
+
+def _coerce_trader_cash(value: object, default: float = _DEFAULT_INITIAL_CASH) -> float:
+    """Starting cash >0, or ``default`` when bool/gap (never ``True→€1``)."""
+    if not _finite_signed(value):
+        return float(default)
+    cash = float(value)  # type: ignore[arg-type]
+    if cash <= 0.0:
+        return float(default)
+    return cash
+
 
 class IntelligentTrader:
     """
@@ -102,25 +152,40 @@ class IntelligentTrader:
         ai_model: str = "gemma4:latest",
         top_crypto_count: int = 1
     ):
-        self.top_crypto_count = int(top_crypto_count)
+        # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool knobs —
+        # True→1s scan/hold · True→100% size · True→€1 capital · True→1 slot.
+        cash = _coerce_trader_cash(initial_cash)
+        scan_s = _coerce_trader_seconds(scan_interval, _DEFAULT_SCAN_INTERVAL_SEC)
+        trade_s = _coerce_trader_seconds(trade_interval, _DEFAULT_TRADE_INTERVAL_SEC)
+        max_pos = _coerce_trader_slots(max_positions, _DEFAULT_MAX_POSITIONS)
+        size = _coerce_trader_frac(position_size, _DEFAULT_POSITION_SIZE)
+        hold_s = _coerce_trader_seconds(min_hold_time, _DEFAULT_MIN_HOLD_SECONDS)
+        top_c = _coerce_trader_slots(top_crypto_count, 1)
+        rebal = (
+            float(rebalance_threshold)  # type: ignore[arg-type]
+            if _finite_signed(rebalance_threshold)
+            else 0.15
+        )
+
+        self.top_crypto_count = top_c
         self.max_crypto_positions = int(DEFAULT_MAX_CRYPTO_POSITIONS)
         self.scanner = MarketScanner(top_crypto_count=self.top_crypto_count)
         self.persistence = DataPersistence()
         rate, min_eur = rates_for_preset(DEFAULT_FEE_PRESET)
         self.portfolio = Portfolio(
-            initial_cash,
+            cash,
             commission_rate=rate,
             commission_min_eur=min_eur,
             fee_preset=DEFAULT_FEE_PRESET,
             persistence=self.persistence,
         )
 
-        self.scan_interval = scan_interval
-        self.trade_interval = trade_interval
-        self.max_positions = max_positions
-        self.position_size = position_size
-        self.rebalance_threshold = rebalance_threshold  # UNUSED — not consulted by buy/sell
-        self.min_hold_time = min_hold_time
+        self.scan_interval = scan_s
+        self.trade_interval = trade_s
+        self.max_positions = max_pos
+        self.position_size = size
+        self.rebalance_threshold = rebal  # UNUSED — not consulted by buy/sell
+        self.min_hold_time = hold_s
         self._rebuy_blocks_utc_day = ""
         self._rebuy_blocks_today = 0
         self._cycle_had_stop_loss = False
@@ -159,13 +224,13 @@ class IntelligentTrader:
             print(f"   Loaded {len(self.position_exit_times)} exit cooldowns from disk")
 
         print(f"🤖 Intelligent Trader initialized")
-        print(f"   Capital: €{initial_cash:,.2f}")
-        print(f"   Max positions: {max_positions}")
-        print(f"   Position size: {position_size*100}%")
-        print(f"   Scan interval: {scan_interval}s")
-        print(f"   Trade interval: {trade_interval}s")
-        print(f"   Rebalance threshold: UNUSED (legacy={rebalance_threshold*100:.0f}% print-only)")
-        print(f"   Min hold time: {min_hold_time}s")
+        print(f"   Capital: €{cash:,.2f}")
+        print(f"   Max positions: {max_pos}")
+        print(f"   Position size: {size*100}%")
+        print(f"   Scan interval: {scan_s}s")
+        print(f"   Trade interval: {trade_s}s")
+        print(f"   Rebalance threshold: UNUSED (legacy={rebal*100:.0f}% print-only)")
+        print(f"   Min hold time: {hold_s}s")
         print(f"   Regime gate: {'on' if self._regime_enabled else 'off'} "
               f"(SPY SMA{STOCK_SMA_PERIOD} / BTC SMA{CRYPTO_SMA_PERIOD})")
         print(f"   RS gate: {'on' if self._rs_enabled else 'off'} "
@@ -214,8 +279,14 @@ class IntelligentTrader:
             pass
 
     def _post_stop_cooldown_seconds(self) -> float:
-        """Block new buys after SL: ≥4h (floor) / ≥1 trade interval (anti refill)."""
-        return float(max(int(self.trade_interval), 4 * 3600))
+        """Block new buys after SL: ≥4h (floor) / ≥1 trade interval (anti refill).
+
+        tradermonty #700/#655: refuse bool trade_interval — True→1s must not
+        invent a thin post-SL cooldown (floor still ≥4h via max).
+        """
+        n = coerce_nonneg_int(getattr(self, "trade_interval", None))
+        interval = n if n is not None and n > 0 else _DEFAULT_TRADE_INTERVAL_SEC
+        return float(max(interval, 4 * 3600))
 
     def _entries_blocked_this_cycle(self) -> bool:
         if self._cycle_had_stop_loss:
