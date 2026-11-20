@@ -12,8 +12,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from stock_checker.fees import FeeAllowanceLedger
-from stock_checker.technical_indicators import _valid_close
+from stock_checker.fees import FeeAllowanceLedger, _coerce_fee_count, _coerce_fee_money
+from stock_checker.technical_indicators import _valid_close, coerce_nonneg_int
 
 
 @dataclass
@@ -229,16 +229,26 @@ class Backtester:
         min_hold_bars: int = 0,
         free_legs_per_month: int = 0,
     ):
-        self.initial_capital = initial_capital
-        self.commission_rate = commission_rate
-        self.commission_min_eur = float(commission_min_eur or 0.0)
-        self.free_legs_per_month = max(0, int(free_legs_per_month or 0))
-        self.slippage_pct = slippage_pct
-        self.position_fraction = position_fraction
+        # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+        # True→€1 capital / True→100% rate·slip·frac / True→1 free leg /
+        # True→1 slot / True→1 bar must not invent paper-harness risk.
+        cap = _coerce_fee_money(initial_capital)
+        self.initial_capital = 10000.0 if cap is None else cap
+        rate = _coerce_fee_money(commission_rate)
+        self.commission_rate = 0.001 if rate is None else rate
+        floor = _coerce_fee_money(commission_min_eur)
+        self.commission_min_eur = 0.0 if floor is None else floor
+        self.free_legs_per_month = _coerce_fee_count(free_legs_per_month)
+        slip = _coerce_fee_money(slippage_pct)
+        self.slippage_pct = 0.001 if slip is None else slip
+        frac = _coerce_fee_money(position_fraction)
+        self.position_fraction = 0.2 if frac is None else frac
         # 0 = unlimited
-        self.max_positions = int(max_positions or 0)
+        n_pos = coerce_nonneg_int(max_positions)
+        self.max_positions = 0 if n_pos is None else n_pos
         # Skip signal exits until held at least this many bars (daily ≈ hours/24)
-        self.min_hold_bars = max(0, int(min_hold_bars or 0))
+        hold = coerce_nonneg_int(min_hold_bars)
+        self.min_hold_bars = 0 if hold is None else hold
 
     def _fee(
         self,

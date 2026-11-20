@@ -122,3 +122,40 @@ def test_invalid_close_does_not_invent_fill():
         )
         result = bt.backtest({"AAA": bars}, buy_at_10)
         assert result.trades == [], f"invented fill from close={bad!r}"
+
+
+def test_backtester_init_refuses_bool_knobs():
+    """tradermonty #700/#655: True→€1 / True→100% / True→1 must not invent harness risk."""
+    bt = Backtester(
+        initial_capital=True,
+        commission_rate=True,
+        commission_min_eur=True,
+        slippage_pct=True,
+        position_fraction=True,
+        max_positions=True,
+        min_hold_bars=True,
+        free_legs_per_month=True,
+    )
+    assert bt.initial_capital == 10000.0
+    assert bt.commission_rate == 0.001
+    assert bt.commission_min_eur == 0.0
+    assert bt.slippage_pct == 0.001
+    assert bt.position_fraction == 0.2
+    assert bt.max_positions == 0
+    assert bt.min_hold_bars == 0
+    assert bt.free_legs_per_month == 0
+    # Real zeros stay free / unlimited (not refused into defaults).
+    z = Backtester(
+        commission_rate=0.0,
+        commission_min_eur=0.0,
+        slippage_pct=0.0,
+        free_legs_per_month=0,
+        max_positions=0,
+        min_hold_bars=0,
+    )
+    assert z.commission_rate == 0.0
+    assert z.commission_min_eur == 0.0
+    assert z.slippage_pct == 0.0
+    assert z.free_legs_per_month == 0
+    assert z.max_positions == 0
+    assert z.min_hold_bars == 0
