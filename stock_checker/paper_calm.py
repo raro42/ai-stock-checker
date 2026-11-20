@@ -27,6 +27,28 @@ def calm_path(data_dir: Path | str) -> Path:
     return Path(data_dir) / "paper_calm.json"
 
 
+def _normalize_paper_calm(snap: dict[str, Any]) -> dict[str, Any]:
+    """Coerce streak meters; never trust a ready flag over readable counts.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``ready_for_compose_default: true`` with bool streak must not invent a
+    Phase A compose-promote unlock.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    out = dict(snap)
+    streak = coerce_nonneg_int(out.get("streak_days"))
+    need = coerce_nonneg_int(out.get("required_days"))
+    out["streak_days"] = 0 if streak is None else streak
+    out["required_days"] = CALM_DAYS_REQUIRED if need is None else need
+    promote_on = bool(out.get("promote_on"))
+    out["promote_on"] = promote_on
+    out["ready_for_compose_default"] = bool(
+        promote_on and out["streak_days"] >= out["required_days"]
+    )
+    return out
+
+
 def load_paper_calm(data_dir: Path | str) -> dict[str, Any]:
     path = calm_path(data_dir)
     if not path.is_file():
@@ -42,9 +64,10 @@ def load_paper_calm(data_dir: Path | str) -> dict[str, Any]:
         }
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        return raw if isinstance(raw, dict) else {}
+        snap = raw if isinstance(raw, dict) else {}
     except (OSError, json.JSONDecodeError):
-        return {}
+        snap = {}
+    return _normalize_paper_calm(snap)
 
 
 def save_paper_calm(data_dir: Path | str, snap: dict[str, Any]) -> None:
@@ -110,7 +133,8 @@ def upsert_calm_day(
 
     streak = 0
     for d in reversed(days):
-        if d.get("calm"):
+        # Only explicit True counts — truthy 1/"yes" must not invent calm days.
+        if d.get("calm") is True:
             streak += 1
         else:
             break

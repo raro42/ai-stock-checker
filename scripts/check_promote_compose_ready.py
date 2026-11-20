@@ -22,6 +22,7 @@ def main() -> int:
         help="Paper data directory (default: ./data)",
     )
     args = p.parse_args()
+    # load_paper_calm already refuses bool meters and recomputes ready.
     snap = load_paper_calm(args.data_dir)
     streak = int(snap.get("streak_days") or 0)
     need = int(snap.get("required_days") or CALM_DAYS_REQUIRED)

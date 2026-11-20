@@ -1,5 +1,6 @@
 """Offline tests for paper calm streak tracker."""
 
+import json
 from pathlib import Path
 
 from stock_checker.paper_calm import (
@@ -60,3 +61,50 @@ def test_upsert_builds_streak(tmp_path: Path):
     loaded = load_paper_calm(tmp_path)
     assert len(loaded["days"]) == 4
     assert CALM_DAYS_REQUIRED == 30
+
+
+def test_load_paper_calm_refuses_bool_streak_ready(tmp_path: Path):
+    """Damaged calm JSON must not invent True→1/1 READY for compose promote."""
+    (tmp_path / "paper_calm.json").write_text(
+        json.dumps(
+            {
+                "promote_on": True,
+                "streak_days": True,
+                "required_days": True,
+                "ready_for_compose_default": True,
+                "detail": "hand-edited",
+                "days": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    snap = load_paper_calm(tmp_path)
+    assert snap["streak_days"] == 0
+    assert snap["required_days"] == CALM_DAYS_REQUIRED
+    assert snap["ready_for_compose_default"] is False
+
+
+def test_upsert_ignores_truthy_non_bool_calm(tmp_path: Path):
+    (tmp_path / "portfolio.json").write_text(
+        '{"initial_cash": 100000, "total_fees_paid": 10, "cash": 50000, "holdings": {}}'
+    )
+    (tmp_path / "paper_calm.json").write_text(
+        json.dumps(
+            {
+                "days": [
+                    {"day": "2026-07-01", "calm": 1, "detail": "fake"},
+                    {"day": "2026-07-02", "calm": "yes", "detail": "fake"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    snap = upsert_calm_day(
+        tmp_path,
+        promote_on=True,
+        holdings_count=2,
+        max_positions=5,
+        day="2026-07-03",
+    )
+    # Prior truthy junk must not seed the streak; only today's explicit True.
+    assert snap["streak_days"] == 1
