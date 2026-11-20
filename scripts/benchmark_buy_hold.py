@@ -36,7 +36,12 @@ from scripts.run_experiment import (  # noqa: E402
 from stock_checker.backtester import BacktestResult, Backtester, Trade  # noqa: E402
 from stock_checker.experiment_strategy import generate_signals as strategy_signals  # noqa: E402
 from stock_checker.fees import FeeAllowanceLedger  # noqa: E402
-from stock_checker.walk_forward import walk_forward_val_score  # noqa: E402
+from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok  # noqa: E402
+from stock_checker.technical_indicators import (  # noqa: E402
+    _finite_signed,
+    coerce_nonneg_int,
+)
+from stock_checker.walk_forward import coerce_fold_score, walk_forward_val_score  # noqa: E402
 
 
 def buy_and_hold_spy(
@@ -71,18 +76,23 @@ def buy_and_hold_equal_weight(
 
 
 def benchmark_score(metrics: dict) -> float:
-    """Like experiment val_score but allows a single round-trip (buy-and-hold)."""
+    """Like experiment val_score but allows a single round-trip (buy-and-hold).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool metrics so
+    ``True→1.0`` Sharpe / ``True→1`` trade / ``True→1%`` fees cannot invent
+    a baseline beat after overnight ``val_score`` refuse.
+    """
 
     def _f(key: str, default: float = 0.0) -> float:
-        try:
-            v = float(metrics.get(key, default) or default)
-        except (TypeError, ValueError):
+        raw = metrics.get(key, default) if isinstance(metrics, dict) else default
+        if not _finite_signed(raw):
             return default
-        if v != v:
-            return default
-        return v
+        return float(raw)  # type: ignore[arg-type]
 
-    trades = int(metrics.get("total_trades", 0) or 0)
+    trades_n = coerce_nonneg_int(
+        metrics.get("total_trades", 0) if isinstance(metrics, dict) else 0
+    )
+    trades = 0 if trades_n is None else trades_n
     if trades < 1:
         return -100.0
     sharpe = _f("sharpe_ratio")
@@ -90,9 +100,7 @@ def benchmark_score(metrics: dict) -> float:
     ret = _f("total_return_pct")
     fees_pct = _f("fees_pct")
     score = sharpe * 10.0 + ret * 0.05 - dd * 0.15 - fees_pct * 0.5
-    if score != score:
-        return -100.0
-    return float(score)
+    return coerce_fold_score(score)
 
 
 def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
@@ -123,15 +131,28 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
                 pass
         return datetime(2000, 1, 1) + timedelta(days=i)
 
+    def _bar_close(symbol: str, i: int) -> float | None:
+        """Readable close, or None when bool/gap (never ``True→$1``)."""
+        row = data[symbol][i] if i < len(data[symbol]) else None
+        raw = row.get("close") if isinstance(row, dict) else None
+        if not fill_price_ok(raw):
+            return None
+        return float(raw)  # type: ignore[arg-type]
+
     entry_t = ts(entry_i)
     fees = 0.0
     ledger = FeeAllowanceLedger(FREE_LEGS_PER_MONTH)
     entry_ts = entry_t.strftime("%Y-%m-%d")
     for symbol in symbols:
-        px = float(data[symbol][entry_i]["close"]) * (1 + SLIPPAGE)
-        if px <= 0:
+        close = _bar_close(symbol, entry_i)
+        if close is None:
+            continue
+        px = close * (1 + SLIPPAGE)
+        if not fill_price_ok(px):
             continue
         shares = alloc / px
+        if not long_only_quantity_ok(shares):
+            continue
         cost = shares * px
         commission = ledger.commission_for_leg(
             cost, entry_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
@@ -142,9 +163,12 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
 
     result.equity_curve = [INITIAL_CAPITAL]
     for i in range(entry_i, min_len):
-        mtm = cash + sum(
-            positions[s]["shares"] * float(data[s][i]["close"]) for s in positions
-        )
+        mtm = cash
+        for s, pos in positions.items():
+            mark = _bar_close(s, i)
+            if mark is None or not long_only_quantity_ok(pos["shares"]):
+                continue
+            mtm += pos["shares"] * mark
         result.equity_curve.append(mtm)
         result.timestamps.append(ts(i))
 
@@ -152,7 +176,12 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
     last_t = ts(last_i)
     exit_ts = last_t.strftime("%Y-%m-%d")
     for symbol, pos in list(positions.items()):
-        exit_px = float(data[symbol][last_i]["close"]) * (1 - SLIPPAGE)
+        close = _bar_close(symbol, last_i)
+        if close is None:
+            continue
+        exit_px = close * (1 - SLIPPAGE)
+        if not fill_price_ok(exit_px) or not long_only_quantity_ok(pos["shares"]):
+            continue
         proceeds = pos["shares"] * exit_px
         commission = ledger.commission_for_leg(
             proceeds, exit_ts, rate=COMMISSION, min_eur=COMMISSION_MIN_EUR
@@ -180,8 +209,10 @@ def run_equal_weight_buy_hold(data: Dict[str, List[Dict]]) -> dict:
     metrics["fees_pct"] = fee_pct if math.isfinite(fee_pct) else 0.0
     if math.isfinite(cash) and INITIAL_CAPITAL > 0:
         metrics["total_return_pct"] = (cash / INITIAL_CAPITAL - 1.0) * 100.0
-    elif not math.isfinite(float(metrics.get("total_return_pct") or 0)):
-        metrics["total_return_pct"] = 0.0
+    else:
+        ret = metrics.get("total_return_pct")
+        if not _finite_signed(ret):
+            metrics["total_return_pct"] = 0.0
     metrics["val_score"] = benchmark_score(metrics)
     metrics["name"] = "buy_hold_equal_weight"
     return metrics
@@ -211,20 +242,17 @@ def _run(
     result = bt.backtest(data, fn)
     metrics = result.calculate_metrics()
     metrics["fees_pct"] = estimate_fees_pct(result.trades)
-    # Prefer last finite equity-curve point for return
+    # Prefer last finite equity-curve point for return (refuse bool ``True→€1``).
     final = None
     for eq in reversed(result.equity_curve or []):
-        try:
-            v = float(eq)
-        except (TypeError, ValueError):
+        if not _finite_signed(eq):
             continue
-        if math.isfinite(v):
-            final = v
-            break
+        final = float(eq)  # type: ignore[arg-type]
+        break
     if final is not None and INITIAL_CAPITAL > 0:
         metrics["total_return_pct"] = (final / INITIAL_CAPITAL - 1.0) * 100.0
     ret = metrics.get("total_return_pct")
-    if ret is None or not math.isfinite(float(ret)):
+    if not _finite_signed(ret):
         metrics["total_return_pct"] = 0.0
     metrics["val_score"] = benchmark_score(metrics)
     metrics["name"] = name
@@ -235,22 +263,20 @@ def _wf_blend(data, fn, *, position_fraction: float, max_positions: int = 0) -> 
     """Walk-forward blend matching scripts/run_experiment.py."""
 
     def fold_score(fold: Dict[str, List[Dict]]) -> float:
-        return float(
-            _run(
-                "fold",
-                fold,
-                fn,
-                position_fraction=position_fraction,
-                max_positions=max_positions,
-            )["val_score"]
-        )
+        raw = _run(
+            "fold",
+            fold,
+            fn,
+            position_fraction=position_fraction,
+            max_positions=max_positions,
+        ).get("val_score")
+        return coerce_fold_score(raw)
 
     mean, scores = walk_forward_val_score(data, fold_score, n_folds=3, min_bars=80)
-    worst = min(scores) if scores else -100.0
+    clean = [coerce_fold_score(s) for s in scores if _finite_signed(s)]
+    worst = min(clean) if clean else -100.0
     blend = 0.75 * mean + 0.25 * worst
-    if blend != blend:
-        blend = -100.0
-    return blend, mean, worst
+    return coerce_fold_score(blend), mean, worst
 
 
 def main() -> int:
