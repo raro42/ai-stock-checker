@@ -56,3 +56,27 @@ def test_bitcoin_recommendation_ignores_bool_pct_and_rsi():
     good = eng.analyze_bitcoin_recommendation({"daily_change": 3.0})
     assert good["score"] == 12
     assert good["action"] == "BUY"
+
+
+def test_volume_sentiment_score_ignores_bool_soft_factors():
+    """False→0 volume / True→1d earnings / True sentiment must not invent soft points."""
+    eng = RecommendationEngine()
+    # False→0.0 would hit volume_ratio < 0.7 (−3); True→1.0 would hit 0≤d≤2 (−4)
+    # and clamp sentiment to +1 (+3 news / +2 OpenBB).
+    assert (
+        eng._calculate_volume_sentiment_score(
+            {
+                "volume_ratio": False,
+                "news_sentiment": True,
+                "openbb_sentiment": True,
+                "days_to_earnings": True,
+            }
+        )
+        == 0.0
+    )
+    assert eng._calculate_volume_sentiment_score({"volume_ratio": 2.0}) == 5.0
+    assert eng._calculate_volume_sentiment_score({"volume_ratio": 0.5}) == -3.0
+    assert eng._calculate_volume_sentiment_score({"news_sentiment": 1.0}) == 3.0
+    assert eng._calculate_volume_sentiment_score({"openbb_sentiment": -1.0}) == -2.0
+    assert eng._calculate_volume_sentiment_score({"days_to_earnings": 1.0}) == -4.0
+    assert eng._calculate_volume_sentiment_score({"days_to_earnings": -0.5}) == -2.0

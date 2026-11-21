@@ -231,43 +231,34 @@ class RecommendationEngine:
         """Volume confirmation, news/OpenBB sentiment, earnings proximity soft penalty."""
         score = 0.0
 
+        # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+        # False→0 invents thin volume (−3); True→1 invents mild sentiment /
+        # near-earnings (−4) after momentum/technical marks already refused.
         volume_ratio = stock_data.get("volume_ratio")
-        if volume_ratio is not None:
-            try:
-                volume_ratio = float(volume_ratio)
-                if volume_ratio > 1.5:
-                    score += 5
-                elif volume_ratio < 0.7:
-                    score -= 3
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(volume_ratio):
+            vr = float(volume_ratio)  # type: ignore[arg-type]
+            if vr > 1.5:
+                score += 5
+            elif vr < 0.7:
+                score -= 3
 
         news_sentiment = stock_data.get("news_sentiment")
-        if news_sentiment is not None:
-            try:
-                news_sentiment = max(-1.0, min(1.0, float(news_sentiment)))
-                score += news_sentiment * 3.0
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(news_sentiment):
+            ns = max(-1.0, min(1.0, float(news_sentiment)))  # type: ignore[arg-type]
+            score += ns * 3.0
 
         openbb_sentiment = stock_data.get("openbb_sentiment")
-        if openbb_sentiment is not None:
-            try:
-                openbb_sentiment = max(-1.0, min(1.0, float(openbb_sentiment)))
-                score += openbb_sentiment * 2.0
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(openbb_sentiment):
+            os_ = max(-1.0, min(1.0, float(openbb_sentiment)))  # type: ignore[arg-type]
+            score += os_ * 2.0
 
         days_to_earn = stock_data.get("days_to_earnings")
-        if days_to_earn is not None:
-            try:
-                d = float(days_to_earn)
-                if 0 <= d <= 2:
-                    score -= 4
-                elif -1 <= d < 0:
-                    score -= 2
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(days_to_earn):
+            d = float(days_to_earn)  # type: ignore[arg-type]
+            if 0 <= d <= 2:
+                score -= 4
+            elif -1 <= d < 0:
+                score -= 2
 
         return float(max(-10.0, min(10.0, score)))
 
