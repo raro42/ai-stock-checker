@@ -22,6 +22,8 @@ from typing import Any, Callable
 
 from stock_checker.technical_indicators import (
     _finite_signed,
+    _valid_close,
+    _valid_volume,
     coerce_score,
     daily_pct_change,
 )
@@ -119,20 +121,27 @@ def build_paper_entry_state(stock_data: dict[str, Any]) -> str:
     pe = stock_data.get("pe_ratio")
     volume = stock_data.get("volume")
     strategy = stock_data.get("strategy") or stock_data.get("signal") or ""
-    # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→1.0)
+
+    # Missing/bool/gap → n/a (never invent flat +0.00 / True→$1 / True P/E).
+    # Daily% already refused; raw Price/Prev/52w/PE/Volume lines were still open.
+    def _money_bit(raw: object) -> str:
+        if not _valid_close(raw):
+            return "n/a"
+        return f"{float(raw):,.2f}"
+
     daily = daily_pct_change(price, prev)
     daily_bit = f"{daily:+.2f}" if daily is not None else "n/a"
     lines = [
         f"Paper desk candidate: {name} ({symbol})",
-        f"Price: {price}  PrevClose: {prev}  Daily%: {daily_bit}",
-        f"52w High/Low: {hi} / {lo}",
+        f"Price: {_money_bit(price)}  PrevClose: {_money_bit(prev)}  Daily%: {daily_bit}",
+        f"52w High/Low: {_money_bit(hi)} / {_money_bit(lo)}",
         "Fees: Revolut-like ~0.25%/side · €1 min; min hold ≥24h; no loss-rotation.",
         "Live crypto buys: BTC/ETH only. Prefer HOLD over weak BUY.",
     ]
-    if pe is not None:
-        lines.append(f"P/E: {pe}")
-    if volume is not None:
-        lines.append(f"Volume: {volume}")
+    if _finite_signed(pe):
+        lines.append(f"P/E: {float(pe):.2f}")
+    if _valid_volume(volume):
+        lines.append(f"Volume: {float(volume):,.0f}")
     if strategy:
         lines.append(f"Scanner strategy: {strategy}")
     return "\n".join(lines)

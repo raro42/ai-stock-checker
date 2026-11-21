@@ -148,7 +148,13 @@ class AIRecommender:
         pe_ratio = stock_data.get("pe_ratio")
         volume = stock_data.get("volume")
 
-        # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→1.0)
+        # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→$1).
+        # Stock lines used to print raw `$True`; BTC prompt already used money bits.
+        def _money_bit(raw: object) -> str:
+            if not _valid_close(raw):
+                return "n/a"
+            return f"${float(raw):,.2f}"
+
         daily = daily_pct_change(current_price, prev_close)
         daily_bit = f"{daily:+.2f}%" if daily is not None else "n/a"
 
@@ -170,11 +176,11 @@ class AIRecommender:
             "You are a trading advisor. Analyze this stock and provide a recommendation.",
             "",
             f"Stock: {name} ({symbol})",
-            f"Current Price: ${current_price}",
-            f"Previous Close: ${prev_close}",
+            f"Current Price: {_money_bit(current_price)}",
+            f"Previous Close: {_money_bit(prev_close)}",
             f"Daily Change: {daily_bit}",
-            f"52-Week High: ${week_52_high}",
-            f"52-Week Low: ${week_52_low}",
+            f"52-Week High: {_money_bit(week_52_high)}",
+            f"52-Week Low: {_money_bit(week_52_low)}",
             f"52-Week Position: {range_bit}",
         ]
 
@@ -251,6 +257,7 @@ class AIRecommender:
                 score = int(sc) if sc is not None else 0
                 score = max(-100, min(100, score))
                 reasoning = str(payload.get("reasoning") or payload.get("reason") or "No reasoning")
+                mark = stock_data.get("current_price")
                 return {
                     "symbol": symbol,
                     "action": action,
@@ -258,7 +265,8 @@ class AIRecommender:
                     "score": score,
                     "reasons": [reasoning],
                     "ai_reasoning": response,
-                    "current_price": stock_data.get("current_price"),
+                    # Refuse bool/gap — True→$1 must not leave parse as a usable mark.
+                    "current_price": float(mark) if _valid_close(mark) else None,
                     "parse_mode": "json",
                 }
             except json.JSONDecodeError:
@@ -277,6 +285,9 @@ class AIRecommender:
         score = int(score_match.group(1)) if score_match else 0
         score = max(-100, min(100, score))
 
+        mark = stock_data.get("current_price")
+        mark_out = float(mark) if _valid_close(mark) else None
+
         # If required fields missing, force HOLD LOW (reject free-form garbage)
         if not action_match or not conf_match:
             return {
@@ -286,7 +297,7 @@ class AIRecommender:
                 "score": 0,
                 "reasons": ["AI response missing structured ACTION/CONFIDENCE; defaulting to HOLD"],
                 "ai_reasoning": response,
-                "current_price": stock_data.get("current_price"),
+                "current_price": mark_out,
                 "parse_mode": "rejected",
             }
 
@@ -301,7 +312,7 @@ class AIRecommender:
             "score": score,
             "reasons": [reasoning],
             "ai_reasoning": response,
-            "current_price": stock_data.get("current_price"),
+            "current_price": mark_out,
             "parse_mode": "text",
         }
 

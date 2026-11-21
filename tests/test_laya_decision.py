@@ -43,6 +43,8 @@ def test_build_state_includes_symbol() -> None:
     )
     assert "AAPL" in text
     assert "breakout" in text
+    assert "Price: 200.00" in text
+    assert "PrevClose: 198.00" in text
     assert "Daily%: +1.01" in text
     assert "anti-churn" in text or "min hold" in text.lower() or "24h" in text
 
@@ -58,6 +60,44 @@ def test_build_state_daily_pct_unavailable_on_bool_or_missing() -> None:
         text = build_paper_entry_state(data)
         assert "Daily%: n/a" in text
         assert "Daily%: +0.00" not in text
+
+
+def test_build_state_money_pe_volume_refuse_bool() -> None:
+    """tradermonty #700/#655 + xang1234: raw Price/PE/Volume must not print True→$1."""
+    text = build_paper_entry_state(
+        {
+            "symbol": "X",
+            "current_price": True,
+            "previous_close": False,
+            "52_week_high": True,
+            "52_week_low": False,
+            "pe_ratio": True,
+            "volume": False,
+        }
+    )
+    assert "Price: n/a" in text
+    assert "PrevClose: n/a" in text
+    assert "52w High/Low: n/a / n/a" in text
+    assert "P/E:" not in text
+    assert "Volume:" not in text
+    assert "True" not in text
+
+    ok = build_paper_entry_state(
+        {
+            "symbol": "AAPL",
+            "current_price": 150.0,
+            "previous_close": 148.0,
+            "52_week_high": 200.0,
+            "52_week_low": 100.0,
+            "pe_ratio": 22.5,
+            "volume": 2_500_000,
+        }
+    )
+    assert "Price: 150.00" in ok
+    assert "PrevClose: 148.00" in ok
+    assert "52w High/Low: 200.00 / 100.00" in ok
+    assert "P/E: 22.50" in ok
+    assert "Volume: 2,500,000" in ok
 
 
 def test_parse_system_one_answers() -> None:

@@ -34,6 +34,8 @@ def test_trading_prompt_daily_change_refuses_missing_or_bool():
     )
     assert "Daily Change: n/a" in missing
     assert "52-Week Position: n/a" in missing
+    assert "Current Price: $100.00" in missing
+    assert "Previous Close: n/a" in missing
 
     bool_marks = rec._build_trading_prompt(
         {
@@ -46,7 +48,13 @@ def test_trading_prompt_daily_change_refuses_missing_or_bool():
     )
     assert "Daily Change: n/a" in bool_marks
     assert "52-Week Position: n/a" in bool_marks
+    assert "Current Price: n/a" in bool_marks
+    assert "Previous Close: n/a" in bool_marks
+    assert "52-Week High: n/a" in bool_marks
+    assert "52-Week Low: n/a" in bool_marks
     assert "+0.00" not in bool_marks
+    assert "$True" not in bool_marks
+    assert "True" not in bool_marks
 
     nan_marks = rec._build_trading_prompt(
         {
@@ -56,6 +64,7 @@ def test_trading_prompt_daily_change_refuses_missing_or_bool():
         }
     )
     assert "Daily Change: n/a" in nan_marks
+    assert "Current Price: n/a" in nan_marks
 
     ok = rec._build_trading_prompt(
         {
@@ -66,6 +75,10 @@ def test_trading_prompt_daily_change_refuses_missing_or_bool():
             "52_week_low": 80.0,
         }
     )
+    assert "Current Price: $110.00" in ok
+    assert "Previous Close: $100.00" in ok
+    assert "52-Week High: $120.00" in ok
+    assert "52-Week Low: $80.00" in ok
     assert "Daily Change: +10.00%" in ok
     assert "52-Week Position: 75.0% of range" in ok
 
@@ -174,6 +187,22 @@ def test_parse_json_score_refuses_bool():
     assert out["parse_mode"] == "json"
     assert out["score"] == 0
     assert out["action"] == "BUY"
+
+
+def test_parse_current_price_refuses_bool():
+    """tradermonty #700/#655: True mark must not leave parse as usable $1."""
+    rec = _parser()
+    bad = rec._parse_ai_response(
+        '{"action":"HOLD","confidence":"LOW","score":0,"reasoning":"wait"}',
+        {"symbol": "AAPL", "current_price": True},
+    )
+    assert bad["current_price"] is None
+
+    ok = rec._parse_ai_response(
+        '{"action":"HOLD","confidence":"LOW","score":0,"reasoning":"wait"}',
+        {"symbol": "AAPL", "current_price": 150.5},
+    )
+    assert ok["current_price"] == 150.5
 
 
 def test_parse_text_response():
