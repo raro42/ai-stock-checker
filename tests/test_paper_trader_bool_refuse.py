@@ -89,3 +89,21 @@ def test_paper_auto_exit_bands_refuse_bool_vol() -> None:
     tp3, sl3 = _paper_auto_exit_bands(None)
     assert tp3 == DEFAULT_AUTO_PROFIT_TARGET_PCT
     assert sl3 == DEFAULT_AUTO_STOP_LOSS_PCT
+
+
+def test_execute_trade_refuses_bool_mark(tmp_path) -> None:
+    """True→€1 must not invent sizing / score before Portfolio fill refuse."""
+    t = PaperTrader(data_dir=str(tmp_path), ai_mode="off")
+    before = dict(t.portfolio.holdings)
+    rec = {
+        "symbol": "AAPL",
+        "action": "BUY",
+        "confidence": "HIGH",
+        "score": True,
+        "reasons": ["test"],
+    }
+    t.execute_trade(rec, True, {})
+    assert t.portfolio.holdings == before
+    # Usable mark still sizes (may or may not fill depending on cash/score path)
+    t.execute_trade({**rec, "score": 12}, 150.0, {})
+    # No crash; score coerce path exercised

@@ -228,3 +228,31 @@ def test_portfolio_load_refuses_bool_cash_and_fees_paid(tmp_path):
     assert reloaded.initial_cash == _DEFAULT_INITIAL_CASH
     assert reloaded.cash == _DEFAULT_INITIAL_CASH
     assert reloaded.total_fees_paid == 0.0
+
+
+def test_portfolio_mtm_refuses_bool_marks():
+    """tradermonty #700/#655: True→€1 must not invent holdings MTM equity."""
+    from stock_checker.portfolio import marked_lot_value
+
+    assert marked_lot_value(True, 100.0) is None
+    assert marked_lot_value(2, True) is None
+    assert marked_lot_value(2, 50.0) == 100.0
+
+    p = Portfolio(
+        initial_cash=10_000.0,
+        commission_rate=0.0,
+        commission_min_eur=0.0,
+        fee_preset="binance_like",
+        enable_risk_management=False,
+    )
+    p.buy("AAPL", price=100.0, quantity=10, timestamp="t1")
+    cash_after = p.cash
+    # Bool mark falls back to cost (10×100), never invents 10×€1
+    assert abs(p.get_portfolio_value({"AAPL": True}) - (cash_after + 1000.0)) < 1e-6
+    assert abs(p.get_holdings_value({"AAPL": True}) - 1000.0) < 1e-6
+    assert p.get_position("AAPL", True) is None
+    # Real mark still marks to market
+    assert abs(p.get_portfolio_value({"AAPL": 110.0}) - (cash_after + 1100.0)) < 1e-6
+    pos = p.get_position("AAPL", 110.0)
+    assert pos is not None
+    assert abs(pos["profit_loss"] - 100.0) < 1e-6

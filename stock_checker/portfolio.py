@@ -80,6 +80,17 @@ def fill_price_ok(price: Any) -> bool:
     return _valid_close(price)
 
 
+def marked_lot_value(quantity: Any, price: Any) -> Optional[float]:
+    """Long-lot market value, or None when qty/mark would invent (bool/gap/NaN).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→€1`` marks must not
+    invent MTM equity after fill refuse already covered buy/sell.
+    """
+    if not long_only_quantity_ok(quantity) or not fill_price_ok(price):
+        return None
+    return float(quantity) * float(price)
+
+
 def unsupported_short_symbols(holdings: Any) -> List[str]:
     """Symbols with non-positive qty in a holdings map (corrupt / short ledger)."""
     if not isinstance(holdings, dict):
@@ -240,12 +251,20 @@ class Portfolio:
             free_legs_per_month=free_legs_for_preset(preset),
             persist=persist,
         )
+    def _lot_money(self, symbol: str, quantity: Any, mark: Any) -> float:
+        """Usable mark×qty, else cost basis, else 0 (never invent True→€1 MTM)."""
+        mv = marked_lot_value(quantity, mark)
+        if mv is not None:
+            return mv
+        cost = marked_lot_value(quantity, self.avg_buy_price.get(symbol))
+        return 0.0 if cost is None else cost
+
     def get_portfolio_value(self, current_prices: Dict[str, float]) -> float:
         """Calculate total portfolio value including cash and holdings."""
         holdings_value = 0.0
+        prices = current_prices or {}
         for symbol, quantity in self.holdings.items():
-            if symbol in current_prices:
-                holdings_value += quantity * current_prices[symbol]
+            holdings_value += self._lot_money(symbol, quantity, prices.get(symbol))
         return self.cash + holdings_value
 
     def get_total_value(self, current_prices: Dict[str, float] = None) -> float:
@@ -256,19 +275,18 @@ class Portfolio:
         if current_prices:
             return self.get_portfolio_value(current_prices)
 
-        # Use avg buy prices as fallback
+        # Use avg buy prices as fallback (refuse bool/gap cost invent)
         holdings_value = 0.0
         for symbol, quantity in self.holdings.items():
-            if symbol in self.avg_buy_price:
-                holdings_value += quantity * self.avg_buy_price[symbol]
+            holdings_value += self._lot_money(symbol, quantity, None)
         return self.cash + holdings_value
 
     def get_holdings_value(self, current_prices: Dict[str, float]) -> float:
         """Calculate value of holdings only."""
         holdings_value = 0.0
+        prices = current_prices or {}
         for symbol, quantity in self.holdings.items():
-            if symbol in current_prices:
-                holdings_value += quantity * current_prices[symbol]
+            holdings_value += self._lot_money(symbol, quantity, prices.get(symbol))
         return holdings_value
 
     def can_buy(
@@ -484,17 +502,27 @@ class Portfolio:
             return None
 
         quantity = self.holdings[symbol]
-        avg_buy = self.avg_buy_price[symbol]
-        current_value = quantity * current_price
-        cost_basis = quantity * avg_buy
+        avg_buy = self.avg_buy_price.get(symbol)
+        # Refuse bool/gap marks — float(True)→€1 invents fake MTM / ±1% P&L.
+        if (
+            not long_only_quantity_ok(quantity)
+            or not fill_price_ok(avg_buy)
+            or not fill_price_ok(current_price)
+        ):
+            return None
+        qty = float(quantity)
+        mark = float(current_price)
+        cost = float(avg_buy)
+        current_value = qty * mark
+        cost_basis = qty * cost
         profit_loss = current_value - cost_basis
         profit_loss_pct = (profit_loss / cost_basis) * 100
 
         return {
             "symbol": symbol,
-            "quantity": quantity,
-            "avg_buy_price": avg_buy,
-            "current_price": current_price,
+            "quantity": qty,
+            "avg_buy_price": cost,
+            "current_price": mark,
             "cost_basis": cost_basis,
             "current_value": current_value,
             "profit_loss": profit_loss,

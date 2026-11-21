@@ -13,7 +13,7 @@ from stock_checker.market_analyzer import MarketAnalyzer
 from stock_checker.recommender import RecommendationEngine
 from stock_checker.ai_recommender import AIRecommender
 from stock_checker.trade_context import buy_note_from_opportunity
-from stock_checker.portfolio import Portfolio
+from stock_checker.portfolio import Portfolio, fill_price_ok
 from stock_checker.persistence import DataPersistence
 from stock_checker import __version__
 from stock_checker.secret_redact import safe_exc_text
@@ -21,6 +21,7 @@ from stock_checker.technical_indicators import (
     _finite_signed,
     _valid_close,
     coerce_nonneg_int,
+    coerce_score,
 )
 
 DEFAULT_CHECK_INTERVAL_SEC = 300
@@ -283,10 +284,15 @@ class PaperTrader:
         symbol = recommendation["symbol"]
         action = recommendation["action"]
         confidence = recommendation["confidence"]
-        score = recommendation["score"]
+        # Refuse bool/gap mark+score — True→€1 size / True→1 score invent.
+        if not fill_price_ok(price):
+            return
+        price = float(price)
+        score = coerce_score(recommendation.get("score"))
+        score_bit = f"{score:+.1f}" if score is not None else "n/a"
 
         # Debug: Always log the recommendation score
-        print(f"[DEBUG] {symbol}: {action} (confidence: {confidence}, score: {score:+.1f})")
+        print(f"[DEBUG] {symbol}: {action} (confidence: {confidence}, score: {score_bit})")
         sys.stdout.flush()
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -340,12 +346,13 @@ class PaperTrader:
 
                 if result["success"]:
                     tx = result["transaction"]
+                    score_print = f"{int(score):+d}" if score is not None else "n/a"
                     print(f"\n{'='*80}")
                     print(f"🟢 BUY ORDER EXECUTED")
                     print(f"{'='*80}")
                     print(f"Symbol:       {symbol}")
                     print(f"Confidence:   {confidence}")
-                    print(f"Score:        {int(score):+d}")
+                    print(f"Score:        {score_print}")
                     print(f"Position Size: {position_size*100:.1f}%")
                     print(f"Quantity:     {quantity:.4f}")
                     print(f"Price:        €{price:.2f}")
@@ -376,12 +383,13 @@ class PaperTrader:
                 if result["success"]:
                     tx = result["transaction"]
                     profit_emoji = "🟢" if tx["profit_loss"] >= 0 else "🔴"
+                    score_print = f"{int(score):+d}" if score is not None else "n/a"
                     print(f"\n{'='*80}")
                     print(f"🔴 SELL ORDER EXECUTED")
                     print(f"{'='*80}")
                     print(f"Symbol:       {symbol}")
                     print(f"Confidence:   {confidence}")
-                    print(f"Score:        {int(score):+d}")
+                    print(f"Score:        {score_print}")
                     print(f"Quantity:     {quantity:.4f}")
                     print(f"Sell Price:   €{price:.2f}")
                     print(f"Buy Price:    €{tx['buy_price']:.2f}")
@@ -425,19 +433,21 @@ class PaperTrader:
                 # Use enhanced fetcher for stocks
                 data = self.fetcher.get_stock_info(symbol)
                 price = data.get("current_price")
-                if not price:
-                    return
 
+            # Refuse bool/gap — truthy True used to store €1 MTM / size invent.
+            if not fill_price_ok(price):
+                return
+            price = float(price)
             self.current_prices[symbol] = price
 
             # Check for profit-taking or stop-loss on existing positions
             if symbol in self.portfolio.holdings:
                 avg_buy = self.portfolio.avg_buy_price.get(symbol)
                 # Refuse bool/gap marks — float(True)→€1 invents a fake exit P&L.
-                if not _valid_close(avg_buy) or not _valid_close(price):
+                if not _valid_close(avg_buy):
                     return
                 profit_pct = (
-                    (float(price) - float(avg_buy)) / float(avg_buy)
+                    (price - float(avg_buy)) / float(avg_buy)
                 ) * 100
 
                 # Dynamic TP/SL from vol — refuse bool (True→+150pp invent).
@@ -504,19 +514,20 @@ class PaperTrader:
             data = self.market_analyzer.analyze_bitcoin_for_investment()
             price = data.get("current_price")
 
-            if not price:
+            # Refuse bool/gap — truthy True used to store €1 MTM / size invent.
+            if not fill_price_ok(price):
                 return
-
+            price = float(price)
             self.current_prices["BTC-USD"] = price
 
             # Enhanced profit-taking for crypto
             if "BTC-USD" in self.portfolio.holdings:
                 avg_buy = self.portfolio.avg_buy_price.get("BTC-USD")
                 # Refuse bool/gap marks — float(True)→€1 invents a fake exit P&L.
-                if not _valid_close(avg_buy) or not _valid_close(price):
+                if not _valid_close(avg_buy):
                     return
                 profit_pct = (
-                    (float(price) - float(avg_buy)) / float(avg_buy)
+                    (price - float(avg_buy)) / float(avg_buy)
                 ) * 100
 
                 # Crypto-specific targets (fixed; stock path owns vol bump)
