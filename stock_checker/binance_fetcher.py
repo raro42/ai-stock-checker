@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import numbers
 from typing import Dict, Optional, List
 import requests
 
@@ -52,6 +54,69 @@ def _coerce_binance_min_volume(
     return n
 
 
+def _binance_json_float(raw: object) -> Optional[float]:
+    """Parse Binance JSON number (Real or numeric str); never ``float(True)→1``.
+
+    tradermonty #700/#655 + xang1234/portfolio AI after StockFetcher/Finnhub
+    quote refuse: 24hr ticker fields were still open to raw ``float()``.
+    """
+    if isinstance(raw, bool) or raw is None:
+        return None
+    if isinstance(raw, numbers.Real):
+        n = float(raw)
+    elif isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        try:
+            n = float(text)
+        except ValueError:
+            return None
+    else:
+        return None
+    if not math.isfinite(n):
+        return None
+    return n
+
+
+def _coerce_binance_mark(raw: object) -> Optional[float]:
+    """Finite positive last/high/low mark, else None."""
+    n = _binance_json_float(raw)
+    if n is None or n <= 0.0:
+        return None
+    return n
+
+
+def _coerce_binance_signed_pct(raw: object) -> Optional[float]:
+    """Finite signed % change (0 / negative ok), else None."""
+    return _binance_json_float(raw)
+
+
+def _coerce_binance_volume(raw: object) -> Optional[float]:
+    """Non-negative volume (zero prints ok), else None."""
+    n = _binance_json_float(raw)
+    if n is None or n < 0.0:
+        return None
+    return n
+
+
+def _ticker_24hr_fields(ticker: dict) -> Optional[Dict]:
+    """Coerce one 24hr ticker row; None when lastPrice is unreadable."""
+    current_price = _coerce_binance_mark(ticker.get("lastPrice"))
+    if current_price is None:
+        return None
+    return {
+        "current_price": current_price,
+        "change_24h": _coerce_binance_signed_pct(ticker.get("priceChangePercent")),
+        "high_24h": _coerce_binance_mark(ticker.get("highPrice")),
+        "low_24h": _coerce_binance_mark(ticker.get("lowPrice")),
+        "volume_24h": _coerce_binance_volume(ticker.get("volume")),
+        "volume_usdt": _coerce_binance_volume(ticker.get("quoteVolume")),
+        "trade_count_24h": coerce_nonneg_int(ticker.get("count")),
+        "timestamp": ticker.get("closeTime"),
+    }
+
+
 class BinanceFetcher:
     """Fetch real-time crypto data from Binance API (no auth required for market data)."""
 
@@ -82,16 +147,19 @@ class BinanceFetcher:
             response = self.session.get(ticker_url, params=params, timeout=5)
             response.raise_for_status()
             data = response.json()
+            fields = _ticker_24hr_fields(data)
+            if fields is None:
+                return None
 
             return {
                 "symbol": symbol,
-                "current_price": float(data["lastPrice"]),
-                "change_24h": float(data["priceChangePercent"]),
-                "high_24h": float(data["highPrice"]),
-                "low_24h": float(data["lowPrice"]),
-                "volume_24h": float(data["volume"]),
-                "timestamp": data["closeTime"],
-                "source": "binance"
+                "current_price": fields["current_price"],
+                "change_24h": fields["change_24h"],
+                "high_24h": fields["high_24h"],
+                "low_24h": fields["low_24h"],
+                "volume_24h": fields["volume_24h"],
+                "timestamp": fields["timestamp"],
+                "source": "binance",
             }
 
         except requests.exceptions.RequestException as e:
@@ -171,16 +239,20 @@ class BinanceFetcher:
             symbol_set = set(symbols)
 
             for ticker in all_tickers:
-                if ticker["symbol"] in symbol_set:
-                    result[ticker["symbol"]] = {
-                        "current_price": float(ticker["lastPrice"]),
-                        "change_24h": float(ticker["priceChangePercent"]),
-                        "high_24h": float(ticker["highPrice"]),
-                        "low_24h": float(ticker["lowPrice"]),
-                        "volume_24h": float(ticker["volume"]),
-                        "timestamp": ticker["closeTime"],
-                        "source": "binance"
-                    }
+                if ticker["symbol"] not in symbol_set:
+                    continue
+                fields = _ticker_24hr_fields(ticker)
+                if fields is None:
+                    continue
+                result[ticker["symbol"]] = {
+                    "current_price": fields["current_price"],
+                    "change_24h": fields["change_24h"],
+                    "high_24h": fields["high_24h"],
+                    "low_24h": fields["low_24h"],
+                    "volume_24h": fields["volume_24h"],
+                    "timestamp": fields["timestamp"],
+                    "source": "binance",
+                }
 
             return result
 
@@ -221,22 +293,24 @@ class BinanceFetcher:
                 if not symbol.endswith("USDT"):
                     continue
 
-                volume_usdt = float(ticker["quoteVolume"])
-
-                # Filter low-liquidity coins
-                if volume_usdt < min_volume_usdt:
+                fields = _ticker_24hr_fields(ticker)
+                if fields is None:
+                    continue
+                volume_usdt = fields["volume_usdt"]
+                if volume_usdt is None or volume_usdt < min_volume_usdt:
                     continue
 
                 result[symbol] = {
-                    "current_price": float(ticker["lastPrice"]),
-                    "change_24h": float(ticker["priceChangePercent"]),
-                    "high_24h": float(ticker["highPrice"]),
-                    "low_24h": float(ticker["lowPrice"]),
-                    "volume_24h": float(ticker["volume"]),
+                    "current_price": fields["current_price"],
+                    "change_24h": fields["change_24h"],
+                    "high_24h": fields["high_24h"],
+                    "low_24h": fields["low_24h"],
+                    "volume_24h": fields["volume_24h"],
                     "volume_usdt": volume_usdt,
-                    "trade_count_24h": int(ticker.get("count", 0)),  # Number of trades (proxy for activity/visits)
-                    "timestamp": ticker["closeTime"],
-                    "source": "binance"
+                    # Number of trades (proxy for activity/visits)
+                    "trade_count_24h": fields["trade_count_24h"] or 0,
+                    "timestamp": fields["timestamp"],
+                    "source": "binance",
                 }
 
             return result
@@ -725,54 +799,60 @@ class BinanceFetcher:
             all_tickers = response.json()
             
             trending = []
-            
+
             for ticker in all_tickers:
                 symbol = ticker["symbol"]
-                
+
                 # Only USDT pairs
                 if not symbol.endswith("USDT"):
                     continue
-                
-                volume_usdt = float(ticker["quoteVolume"])
-                trade_count = int(ticker.get("count", 0))
-                change_24h = float(ticker["priceChangePercent"])
-                
-                # Filter low-liquidity coins
-                if volume_usdt < min_volume_usdt:
+
+                fields = _ticker_24hr_fields(ticker)
+                if fields is None:
                     continue
-                
+                volume_usdt = fields["volume_usdt"]
+                change_24h = fields["change_24h"]
+                trade_count = fields["trade_count_24h"]
+                if (
+                    volume_usdt is None
+                    or volume_usdt < min_volume_usdt
+                    or change_24h is None
+                    or trade_count is None
+                ):
+                    continue
+
                 # Calculate trending score (0-100)
                 # Factors:
                 # - Trade count (activity/visits): 40% weight
-                # - Volume: 30% weight  
+                # - Volume: 30% weight
                 # - Price change: 30% weight
-                
+
                 # Normalize trade count (assume max ~5M trades for top coins)
                 trade_score = min((trade_count / 5000000) * 40, 40)
-                
+
                 # Normalize volume (assume max ~$1B for top coins)
                 volume_score = min((volume_usdt / 1000000000) * 30, 30)
-                
+
                 # Price change score (absolute value, capped at 30)
                 change_score = min(abs(change_24h) * 0.6, 30)
-                
+
                 trending_score = trade_score + volume_score + change_score
-                
+
                 trending.append({
                     "symbol": symbol,
-                    "yf_symbol": symbol.replace('USDT', '-USD'),
+                    "yf_symbol": symbol.replace("USDT", "-USD"),
                     "trending_score": trending_score,
                     "trade_count_24h": trade_count,
                     "volume_usdt": volume_usdt,
                     "change_24h": change_24h,
-                    "current_price": float(ticker["lastPrice"]),
-                    "high_24h": float(ticker["highPrice"]),
-                    "low_24h": float(ticker["lowPrice"]),
+                    "current_price": fields["current_price"],
+                    "high_24h": fields["high_24h"],
+                    "low_24h": fields["low_24h"],
                 })
-            
+
             # Sort by trending score (highest first)
-            trending.sort(key=lambda x: x['trending_score'], reverse=True)
-            
+            trending.sort(key=lambda x: x["trending_score"], reverse=True)
+
             return trending[:top_n]
             
         except requests.exceptions.RequestException as e:
