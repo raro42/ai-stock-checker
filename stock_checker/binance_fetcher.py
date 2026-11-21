@@ -1,9 +1,34 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 from typing import Dict, Optional, List
 import requests
 
 from .secret_redact import safe_exc_text
+from .technical_indicators import coerce_nonneg_int
+
+
+BINANCE_LIMIT_MAX = 1000
+DEFAULT_KLINES_LIMIT = 24
+DEFAULT_KLINES_EXTENDED_LIMIT = 100
+DEFAULT_RECENT_TRADES_LIMIT = 100
+DEFAULT_AGG_TRADES_LIMIT = 500
+
+
+def _coerce_binance_limit(
+    value: object, default: int, *, ceiling: int = BINANCE_LIMIT_MAX
+) -> int:
+    """Positive Binance strip length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``min(True, 1000)→True`` must not invent a one-candle / one-trade strip
+    after MarketScanner strip knobs already refused thin publish packaging.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        n = int(default)
+    return min(n, int(ceiling))
 
 
 class BinanceFetcher:
@@ -188,7 +213,12 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to fetch all tickers: {safe_exc_text(e)}")
             return {}
 
-    def get_klines(self, symbol: str, interval: str = "1h", limit: int = 24) -> Optional[list]:
+    def get_klines(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        limit: object = DEFAULT_KLINES_LIMIT,
+    ) -> Optional[list]:
         """
         Get candlestick/kline data for trend analysis.
 
@@ -201,6 +231,7 @@ class BinanceFetcher:
             List of candles, each containing:
             [open_time, open, high, low, close, volume, close_time, ...]
         """
+        limit = _coerce_binance_limit(limit, DEFAULT_KLINES_LIMIT)
         try:
             klines_url = f"{self.base_url}/klines"
             params = {
@@ -394,7 +425,12 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to calculate technical indicators for {symbol}: {safe_exc_text(e)}")
             return None
 
-    def get_klines_extended(self, symbol: str, interval: str = "1h", limit: int = 100) -> Optional[list]:
+    def get_klines_extended(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        limit: object = DEFAULT_KLINES_EXTENDED_LIMIT,
+    ) -> Optional[list]:
         """
         Get extended klines data with additional information.
         
@@ -412,6 +448,7 @@ class BinanceFetcher:
         Returns:
             List of extended candles with additional data
         """
+        limit = _coerce_binance_limit(limit, DEFAULT_KLINES_EXTENDED_LIMIT)
         try:
             klines_url = f"{self.base_url}/klines"
             params = {
@@ -449,7 +486,9 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to fetch extended klines for {symbol}: {safe_exc_text(e)}")
             return None
 
-    def get_recent_trades(self, symbol: str, limit: int = 100) -> Optional[list]:
+    def get_recent_trades(
+        self, symbol: str, limit: object = DEFAULT_RECENT_TRADES_LIMIT
+    ) -> Optional[list]:
         """
         Get recent trades for a symbol.
         
@@ -471,11 +510,12 @@ class BinanceFetcher:
             - time: Trade timestamp
             - is_buyer_maker: True if buyer is maker (sell), False if buyer is taker (buy)
         """
+        limit = _coerce_binance_limit(limit, DEFAULT_RECENT_TRADES_LIMIT)
         try:
             trades_url = f"{self.base_url}/trades"
             params = {
                 "symbol": symbol,
-                "limit": min(limit, 1000)  # Binance max is 1000
+                "limit": limit,
             }
 
             print(f"   🌐  GET {trades_url}?symbol={symbol}&limit={params['limit']}")
@@ -503,7 +543,9 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to fetch recent trades for {symbol}: {safe_exc_text(e)}")
             return None
 
-    def get_agg_trades(self, symbol: str, limit: int = 500) -> Optional[list]:
+    def get_agg_trades(
+        self, symbol: str, limit: object = DEFAULT_AGG_TRADES_LIMIT
+    ) -> Optional[list]:
         """
         Get aggregated trades (compressed trade data).
         
@@ -523,11 +565,12 @@ class BinanceFetcher:
             - time: Timestamp
             - is_buyer_maker: True if buyer is maker
         """
+        limit = _coerce_binance_limit(limit, DEFAULT_AGG_TRADES_LIMIT)
         try:
             agg_trades_url = f"{self.base_url}/aggTrades"
             params = {
                 "symbol": symbol,
-                "limit": min(limit, 1000)  # Binance max is 1000
+                "limit": limit,
             }
 
             print(f"   🌐  GET {agg_trades_url}?symbol={symbol}&limit={params['limit']}")
@@ -555,7 +598,9 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to fetch aggregated trades for {symbol}: {safe_exc_text(e)}")
             return None
 
-    def analyze_buy_sell_pressure(self, symbol: str, limit: int = 100) -> Optional[Dict]:
+    def analyze_buy_sell_pressure(
+        self, symbol: str, limit: object = DEFAULT_RECENT_TRADES_LIMIT
+    ) -> Optional[Dict]:
         """
         Analyze buy vs sell pressure from recent trades.
         
