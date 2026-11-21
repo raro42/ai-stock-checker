@@ -33989,10 +33989,9 @@ def build_fee_burn_glance(
     else:
         realized_v = None
     ratio = fee_v / init_v
-    if _finite_signed(threshold) and float(threshold) > 0:  # type: ignore[arg-type]
-        thr = float(threshold)  # type: ignore[arg-type]
-    else:
-        thr = 0.02
+    from stock_checker.fee_burn import _coerce_fee_burn_pct
+
+    thr = _coerce_fee_burn_pct(threshold)
     fees_gt = bool(realized_v is not None and fee_v > realized_v)
     high = ratio >= thr or fees_gt
     tone = "warn" if high else "quiet"

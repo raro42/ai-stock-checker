@@ -28,6 +28,11 @@ def test_fee_burn_glance_refuses_bool_fees_capital_realized() -> None:
     assert g2["ready"] is True
     assert g2["tone"] == "quiet"
     assert g2["high"] is False
+    # True→100% must not clear a real 3% burn (shared _coerce_fee_burn_pct).
+    g3 = build_fee_burn_glance(300.0, 10_000.0, threshold=True)  # type: ignore[arg-type]
+    assert g3["ready"] is True
+    assert g3["high"] is True
+    assert g3["tone"] == "warn"
 
 
 def test_fee_burn_glance_quiet() -> None:

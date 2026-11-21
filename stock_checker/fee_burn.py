@@ -9,6 +9,8 @@ from typing import Any, Optional, Tuple
 
 from stock_checker.technical_indicators import _finite_signed
 
+DEFAULT_FEE_BURN_PCT = 0.02
+
 
 def _coerce_fee_burn_money(value: object) -> Optional[float]:
     """Cash/fees ≥0, or None when bool/gap/NaN (never ``True→€1`` / ``or 0``)."""
@@ -20,10 +22,27 @@ def _coerce_fee_burn_money(value: object) -> Optional[float]:
     return amount
 
 
+def _coerce_fee_burn_pct(
+    value: object, default: float = DEFAULT_FEE_BURN_PCT
+) -> float:
+    """Positive fee-burn fraction of capital, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``False→0%`` must not invent
+    an always-high startup WARN, and ``True→100%`` must not clear a real burn
+    (parity with desk ``build_fee_burn_glance`` threshold refuse).
+    """
+    if value is None or not _finite_signed(value):
+        return float(default)
+    pct = float(value)  # type: ignore[arg-type]
+    if pct <= 0.0:
+        return float(default)
+    return pct
+
+
 def fee_burn_facts(
     data_dir: str = "/data",
     *,
-    fee_pct_of_capital: float = 0.02,
+    fee_pct_of_capital: object = DEFAULT_FEE_BURN_PCT,
 ) -> Optional[dict[str, Any]]:
     """
     Return fee drag vs start capital when both are positive.
@@ -44,20 +63,21 @@ def fee_burn_facts(
     if initial is None or fees is None or initial <= 0 or fees <= 0:
         return None
 
+    thr = _coerce_fee_burn_pct(fee_pct_of_capital)
     ratio = fees / initial
     return {
         "fees": fees,
         "initial": initial,
         "ratio": ratio,
-        "threshold": float(fee_pct_of_capital),
-        "high": ratio >= float(fee_pct_of_capital),
+        "threshold": thr,
+        "high": ratio >= thr,
     }
 
 
 def fee_burn_warning(
     data_dir: str = "/data",
     *,
-    fee_pct_of_capital: float = 0.02,
+    fee_pct_of_capital: object = DEFAULT_FEE_BURN_PCT,
 ) -> Optional[str]:
     """
     Return a warning string if fees paid exceed fee_pct_of_capital of initial cash.
