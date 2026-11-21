@@ -158,3 +158,73 @@ def test_portfolio_load_refuses_bool_fee_schedule(tmp_path):
     reloaded.set_fee_schedule(rate=True, min_eur=True, persist=False)
     assert abs(reloaded.commission_rate - 0.0025) < 1e-9
     assert abs(reloaded.commission_min_eur - 1.0) < 1e-9
+
+
+def test_portfolio_ctor_refuses_bool_cash_and_fees():
+    """True→€1 cash / True→100% rate / True→€1 min must not seed a new book."""
+    from stock_checker.portfolio import (
+        _DEFAULT_INITIAL_CASH,
+        _coerce_portfolio_cash,
+        _coerce_portfolio_fees_paid,
+        _coerce_portfolio_min_eur,
+        _coerce_portfolio_rate,
+    )
+    from stock_checker.fees import REVOLUT_STANDARD_MIN_EUR, REVOLUT_STANDARD_RATE
+
+    assert _coerce_portfolio_cash(True) == _DEFAULT_INITIAL_CASH
+    assert _coerce_portfolio_cash(False) == _DEFAULT_INITIAL_CASH
+    assert _coerce_portfolio_cash(50_000) == 50_000.0
+    assert _coerce_portfolio_cash(0) == 0.0
+    assert _coerce_portfolio_rate(True, REVOLUT_STANDARD_RATE) == REVOLUT_STANDARD_RATE
+    assert _coerce_portfolio_rate(0.001, REVOLUT_STANDARD_RATE) == 0.001
+    assert _coerce_portfolio_min_eur(True, REVOLUT_STANDARD_MIN_EUR) == (
+        REVOLUT_STANDARD_MIN_EUR
+    )
+    assert _coerce_portfolio_fees_paid(True) == 0.0
+    assert _coerce_portfolio_fees_paid(12.5) == 12.5
+
+    p = Portfolio(
+        initial_cash=True,  # type: ignore[arg-type]
+        commission_rate=True,  # type: ignore[arg-type]
+        commission_min_eur=True,  # type: ignore[arg-type]
+        enable_risk_management=False,
+    )
+    assert p.initial_cash == _DEFAULT_INITIAL_CASH
+    assert p.cash == _DEFAULT_INITIAL_CASH
+    assert abs(p.commission_rate - REVOLUT_STANDARD_RATE) < 1e-9
+    assert abs(p.commission_min_eur - REVOLUT_STANDARD_MIN_EUR) < 1e-9
+
+
+def test_portfolio_load_refuses_bool_cash_and_fees_paid(tmp_path):
+    """Damaged ledger True→€1 cash / True→€1 fees must not invent book capital."""
+    from stock_checker.persistence import DataPersistence
+    from stock_checker.portfolio import _DEFAULT_INITIAL_CASH
+
+    persistence = DataPersistence(str(tmp_path))
+    p = Portfolio(
+        initial_cash=10_000.0,
+        commission_rate=0.0025,
+        commission_min_eur=1.0,
+        fee_preset="revolut_standard",
+        persistence=persistence,
+        enable_risk_management=False,
+    )
+    p.buy("AAPL", price=100.0, quantity=1, timestamp="t1")
+    state = persistence.load_portfolio()
+    assert state is not None
+    state["initial_cash"] = True
+    state["cash"] = True
+    state["total_fees_paid"] = True
+    persistence.save_portfolio(state)
+
+    reloaded = Portfolio(
+        initial_cash=10_000.0,
+        commission_rate=0.0025,
+        commission_min_eur=1.0,
+        fee_preset="revolut_standard",
+        persistence=persistence,
+        enable_risk_management=False,
+    )
+    assert reloaded.initial_cash == _DEFAULT_INITIAL_CASH
+    assert reloaded.cash == _DEFAULT_INITIAL_CASH
+    assert reloaded.total_fees_paid == 0.0

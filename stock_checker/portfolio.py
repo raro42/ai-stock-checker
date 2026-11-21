@@ -17,6 +17,53 @@ from .technical_indicators import _finite_signed, _valid_close, coerce_nonneg_in
 # Paper desk is long-only (tradermonty #681 reject unsupported equity shorts).
 UNSUPPORTED_SHORT_REASON = "Unsupported short — long-only book"
 INVALID_FILL_PRICE_REASON = "Invalid fill price — refuse bool/gap/NaN marks"
+_DEFAULT_INITIAL_CASH = 10000.0
+
+
+def _coerce_portfolio_cash(
+    value: object, default: float = _DEFAULT_INITIAL_CASH
+) -> float:
+    """Cash ≥0, or ``default`` when bool/gap (never ``True→€1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)`` must not
+    invent a €1 book or clear capital to a fake €1 seed.
+    """
+    if not _finite_signed(value):
+        return float(default)
+    cash = float(value)  # type: ignore[arg-type]
+    if cash < 0.0:
+        return float(default)
+    return cash
+
+
+def _coerce_portfolio_rate(value: object, default: float) -> float:
+    """Commission rate in [0, 1], or ``default`` when bool/gap (never ``True→100%``)."""
+    if not _finite_signed(value):
+        return float(default)
+    rate = float(value)  # type: ignore[arg-type]
+    if rate < 0.0 or rate > 1.0:
+        return float(default)
+    return rate
+
+
+def _coerce_portfolio_min_eur(value: object, default: float) -> float:
+    """Commission floor ≥0, or ``default`` when bool/gap (never ``True→€1`` invent)."""
+    if not _finite_signed(value):
+        return float(default)
+    floor = float(value)  # type: ignore[arg-type]
+    if floor < 0.0:
+        return float(default)
+    return floor
+
+
+def _coerce_portfolio_fees_paid(value: object, default: float = 0.0) -> float:
+    """Ledger fees paid ≥0, or ``default`` when bool/gap (never ``True→€1`` burn)."""
+    if not _finite_signed(value):
+        return float(default)
+    paid = float(value)  # type: ignore[arg-type]
+    if paid < 0.0:
+        return float(default)
+    return paid
 
 
 def long_only_quantity_ok(quantity: Any) -> bool:
@@ -72,33 +119,37 @@ class Portfolio:
         """
         self.persistence = persistence
         self.fee_preset = fee_preset or DEFAULT_FEE_PRESET
+        # tradermonty #700/#655 + xang1234/portfolio AI: coerce ctor knobs first so
+        # True→€1 cash / True→100% rate / True→€1 min cannot seed a new book —
+        # and so load fallbacks are never bool either.
+        cash0 = _coerce_portfolio_cash(initial_cash)
+        rate0 = _coerce_portfolio_rate(commission_rate, REVOLUT_STANDARD_RATE)
+        min0 = _coerce_portfolio_min_eur(commission_min_eur, REVOLUT_STANDARD_MIN_EUR)
 
         # Try to load existing portfolio state
         if self.persistence:
             loaded = self.persistence.load_portfolio()
             if loaded:
-                self.initial_cash = loaded["initial_cash"]
-                self.cash = loaded["cash"]
-                # tradermonty #700/#655: bool/NaN must not invent True→100% fees
-                # or True→€1 min (float(True)==1.0).
-                raw_rate = loaded.get("commission_rate", commission_rate)
-                self.commission_rate = (
-                    float(raw_rate)  # type: ignore[arg-type]
-                    if _finite_signed(raw_rate)
-                    else float(commission_rate)
+                init = _coerce_portfolio_cash(
+                    loaded.get("initial_cash"), cash0
                 )
-                raw_min = loaded.get("commission_min_eur", commission_min_eur)
-                self.commission_min_eur = (
-                    float(raw_min)  # type: ignore[arg-type]
-                    if _finite_signed(raw_min)
-                    else float(commission_min_eur)
+                live = _coerce_portfolio_cash(loaded.get("cash"), init)
+                self.initial_cash = init
+                self.cash = live
+                self.commission_rate = _coerce_portfolio_rate(
+                    loaded.get("commission_rate", rate0), rate0
+                )
+                self.commission_min_eur = _coerce_portfolio_min_eur(
+                    loaded.get("commission_min_eur", min0), min0
                 )
                 self.fee_preset = str(
                     loaded.get("fee_preset") or self.fee_preset
                 )
                 self.holdings = loaded["holdings"]
                 self.avg_buy_price = loaded["avg_buy_price"]
-                self.total_fees_paid = loaded["total_fees_paid"]
+                self.total_fees_paid = _coerce_portfolio_fees_paid(
+                    loaded.get("total_fees_paid"), 0.0
+                )
                 self.transactions = self.persistence.load_trades()
                 self._init_fee_allowance(loaded)
                 self.enable_risk_management = enable_risk_management
@@ -109,10 +160,10 @@ class Portfolio:
                 return
 
         # Initialize new portfolio
-        self.initial_cash = initial_cash
-        self.cash = initial_cash
-        self.commission_rate = commission_rate
-        self.commission_min_eur = commission_min_eur
+        self.initial_cash = cash0
+        self.cash = cash0
+        self.commission_rate = rate0
+        self.commission_min_eur = min0
         self.holdings: Dict[str, float] = {}  # symbol -> quantity
         self.avg_buy_price: Dict[str, float] = {}  # symbol -> avg price
         self.transactions: List[Dict] = []
