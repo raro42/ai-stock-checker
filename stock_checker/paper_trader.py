@@ -17,6 +17,49 @@ from stock_checker.portfolio import Portfolio
 from stock_checker.persistence import DataPersistence
 from stock_checker import __version__
 from stock_checker.secret_redact import safe_exc_text
+from stock_checker.technical_indicators import _finite_signed, coerce_nonneg_int
+
+DEFAULT_CHECK_INTERVAL_SEC = 300
+DEFAULT_POSITION_SIZE_PCT = 0.15
+DEFAULT_MIN_POSITION_SIZE = 0.03
+DEFAULT_MAX_POSITION_SIZE = 0.25
+DEFAULT_MAX_DRAWDOWN = 0.15
+DEFAULT_MAX_SECTOR_EXPOSURE = 0.40
+
+
+def _coerce_paper_interval(
+    value: object, default: int = DEFAULT_CHECK_INTERVAL_SEC
+) -> int:
+    """Positive legacy-paper sleep seconds, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a 1s spin after ContinuousMonitor / IntelligentTrader cadence refuse.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_paper_frac(value: object, default: float) -> float:
+    """Size/drawdown fraction in (0, 1], or ``default`` when bool/gap.
+
+    ``float(True)→1.0`` must not invent 100% size / wipe-drawdown packaging.
+    """
+    if not _finite_signed(value):
+        return float(default)
+    frac = float(value)  # type: ignore[arg-type]
+    if frac <= 0.0 or frac > 1.0:
+        return float(default)
+    return frac
+
+
+def _coerce_paper_iteration(value: object, default: int = 0) -> int:
+    """Non-negative iteration count, or ``default`` when bool/gap (never ``True→1``)."""
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
 
 
 class PaperTrader:
@@ -27,8 +70,8 @@ class PaperTrader:
         initial_cash: float = 10000.0,
         commission_rate: float = 0.001,
         watch_list: List[str] = None,
-        check_interval: int = 300,
-        position_size_pct: float = 0.15,
+        check_interval: int = DEFAULT_CHECK_INTERVAL_SEC,
+        position_size_pct: float = DEFAULT_POSITION_SIZE_PCT,
         enable_bitcoin: bool = True,
         ai_mode: str = "off",
         ai_model: str = "gemma4:latest",
@@ -43,23 +86,24 @@ class PaperTrader:
         # Initialize portfolio with persistence
         self.portfolio = Portfolio(initial_cash, commission_rate, self.persistence)
 
+        size = _coerce_paper_frac(position_size_pct, DEFAULT_POSITION_SIZE_PCT)
         self.watch_list = watch_list or ["AAPL", "TSLA", "MSFT", "GOOGL", "AMZN"]
-        self.check_interval = check_interval
-        self.position_size_pct = position_size_pct
+        self.check_interval = _coerce_paper_interval(check_interval)
+        self.position_size_pct = size
         self.enable_bitcoin = enable_bitcoin
         self.ai_mode = ai_mode
         self.ai_model = ai_model
 
         # Enhanced risk management parameters
-        self.max_portfolio_drawdown = 0.15  # 15% max drawdown
+        self.max_portfolio_drawdown = DEFAULT_MAX_DRAWDOWN
         self.volatility_adjustment = True
         self.correlation_limits = True
-        self.max_sector_exposure = 0.40  # 40% max per sector
+        self.max_sector_exposure = DEFAULT_MAX_SECTOR_EXPOSURE
 
         # Dynamic position sizing
-        self.base_position_size = position_size_pct
-        self.min_position_size = 0.03  # 3% minimum
-        self.max_position_size = 0.25  # 25% maximum
+        self.base_position_size = size
+        self.min_position_size = DEFAULT_MIN_POSITION_SIZE
+        self.max_position_size = DEFAULT_MAX_POSITION_SIZE
 
         # Market regime tracking
         self.market_regime = "neutral"
@@ -77,7 +121,8 @@ class PaperTrader:
 
         # Load state if exists
         state = self.persistence.load_state()
-        self.iteration = state.get("iteration", 0) if state else 0
+        raw_iter = state.get("iteration", 0) if state else 0
+        self.iteration = _coerce_paper_iteration(raw_iter)
         self.current_prices: Dict[str, float] = {}
 
         self.log(f"📁 Data directory: {data_dir}")
@@ -142,16 +187,14 @@ class PaperTrader:
         confidence = recommendation.get("confidence", "MEDIUM")
         base_size *= confidence_multipliers.get(confidence, 0.8)
 
-        # Adjust for volatility
+        # Adjust for volatility (refuse bool — float(True)→1.0 invents 100% vol)
         volatility = stock_data.get("volatility_30d")
-        if volatility is not None:
-            try:
-                volatility = float(volatility)
-                if volatility > 0.05:  # 5% daily volatility
-                    vol_adjustment = max(0.4, 1.0 - (volatility - 0.05) * 15)
-                    base_size *= vol_adjustment
-            except (TypeError, ValueError):
-                pass
+        if _finite_signed(volatility):
+            vol = float(volatility)  # type: ignore[arg-type]
+            if vol > 0.05:  # 5% daily volatility
+                vol_adjustment = max(0.4, 1.0 - (vol - 0.05) * 15)
+                base_size *= vol_adjustment
+
 
         # Adjust for market regime
         regime_multipliers = {
@@ -186,27 +229,15 @@ class PaperTrader:
     def _detect_market_regime(self) -> str:
         """Detect current market regime using major indices."""
         try:
-            # Check S&P 500 trend
+            # Check S&P 500 trend (refuse bool — float(True)→+1% invents bull)
             spx_data = self.fetcher.get_stock_info("^GSPC")
-            spx_change = spx_data.get("daily_change")
-            if spx_change is None:
-                spx_change = 0
-            else:
-                try:
-                    spx_change = float(spx_change)
-                except (TypeError, ValueError):
-                    spx_change = 0
+            spx_raw = spx_data.get("daily_change")
+            spx_change = float(spx_raw) if _finite_signed(spx_raw) else 0.0  # type: ignore[arg-type]
 
-            # Check VIX for volatility
+            # Check VIX for volatility (refuse bool — float(True)→$1 invents calm)
             vix_data = self.fetcher.get_stock_info("^VIX")
-            vix_level = vix_data.get("current_price")
-            if vix_level is None:
-                vix_level = 20
-            else:
-                try:
-                    vix_level = float(vix_level)
-                except (TypeError, ValueError):
-                    vix_level = 20
+            vix_raw = vix_data.get("current_price")
+            vix_level = float(vix_raw) if _finite_signed(vix_raw) else 20.0  # type: ignore[arg-type]
 
             if spx_change > 1.0 and vix_level < 20:
                 return "bull"
