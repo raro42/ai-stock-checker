@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from typing import Literal
+from __future__ import annotations
+
+from typing import Literal, Optional
 import os
 import json
 from pathlib import Path
@@ -25,7 +27,35 @@ except ImportError:
     print("⚠️  Finnhub fetcher not available")
 
 from .secret_redact import safe_exc_text
-from .technical_indicators import daily_pct_change
+from .technical_indicators import (
+    _finite_signed,
+    _valid_close,
+    _valid_volume,
+    daily_pct_change,
+)
+
+
+def _first_valid_close(*candidates: object) -> Optional[float]:
+    """First finite positive mark, else None (never keep ``True`` via ``or``)."""
+    for raw in candidates:
+        if _valid_close(raw):
+            return float(raw)  # type: ignore[arg-type]
+    return None
+
+
+def _first_valid_volume(*candidates: object) -> Optional[float]:
+    """First non-negative volume, else None (never ``True→1`` via ``or``)."""
+    for raw in candidates:
+        if _valid_volume(raw):
+            return float(raw)  # type: ignore[arg-type]
+    return None
+
+
+def _coerce_signed_metric(raw: object) -> Optional[float]:
+    """Finite metric (PE / yield / cap), else None — never ``float(True)``."""
+    if raw is None or not _finite_signed(raw):
+        return None
+    return float(raw)  # type: ignore[arg-type]
 
 ProviderType = Literal["finnhub", "yfinance"]
 
@@ -146,11 +176,14 @@ class StockFetcher:
                 ticker = yf.Ticker(symbol)
                 info = ticker.info
 
-                # Enhanced yfinance data with basic calculations
-                current_price = info.get("currentPrice") or info.get("regularMarketPrice")
-                prev_close = info.get("previousClose")
-
-                # Missing/bool/gap → None (never invent flat 0.0 / True→1.0)
+                # tradermonty #700/#655 + xang1234/portfolio AI: never keep
+                # ``True`` via ``a or b`` (truthy bool short-circuits) or pass
+                # bool/gap marks through for callers to ``float(True)→$1``.
+                current_price = _first_valid_close(
+                    info.get("currentPrice"),
+                    info.get("regularMarketPrice"),
+                )
+                prev_close = _first_valid_close(info.get("previousClose"))
                 daily_change = daily_pct_change(current_price, prev_close)
 
                 result = {
@@ -159,15 +192,29 @@ class StockFetcher:
                     "current_price": current_price,
                     "previous_close": prev_close,
                     "daily_change_pct": daily_change,
-                    "open": info.get("open") or info.get("regularMarketOpen"),
-                    "day_high": info.get("dayHigh") or info.get("regularMarketDayHigh"),
-                    "day_low": info.get("dayLow") or info.get("regularMarketDayLow"),
-                    "volume": info.get("volume") or info.get("regularMarketVolume"),
-                    "market_cap": info.get("marketCap"),
-                    "pe_ratio": info.get("trailingPE"),
-                    "dividend_yield": info.get("dividendYield"),
-                    "52_week_high": info.get("fiftyTwoWeekHigh"),
-                    "52_week_low": info.get("fiftyTwoWeekLow"),
+                    "open": _first_valid_close(
+                        info.get("open"), info.get("regularMarketOpen")
+                    ),
+                    "day_high": _first_valid_close(
+                        info.get("dayHigh"), info.get("regularMarketDayHigh")
+                    ),
+                    "day_low": _first_valid_close(
+                        info.get("dayLow"), info.get("regularMarketDayLow")
+                    ),
+                    "volume": _first_valid_volume(
+                        info.get("volume"), info.get("regularMarketVolume")
+                    ),
+                    "market_cap": _coerce_signed_metric(info.get("marketCap")),
+                    "pe_ratio": _coerce_signed_metric(info.get("trailingPE")),
+                    "dividend_yield": _coerce_signed_metric(
+                        info.get("dividendYield")
+                    ),
+                    "52_week_high": _first_valid_close(
+                        info.get("fiftyTwoWeekHigh")
+                    ),
+                    "52_week_low": _first_valid_close(
+                        info.get("fiftyTwoWeekLow")
+                    ),
                     "source": "yfinance"
                 }
 

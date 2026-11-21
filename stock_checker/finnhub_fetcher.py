@@ -11,6 +11,15 @@ from typing import Dict, Optional
 
 import requests
 
+from .technical_indicators import _valid_close, daily_pct_change
+
+
+def _coerce_finnhub_mark(raw: object) -> Optional[float]:
+    """Finite positive quote mark, else None (never ``float(True)→$1``)."""
+    if not _valid_close(raw):
+        return None
+    return float(raw)  # type: ignore[arg-type]
+
 
 def finnhub_market_cap_dollars(raw: object) -> Optional[float]:
     """Finnhub profile ``marketCapitalization`` is millions USD → full dollars.
@@ -103,8 +112,11 @@ class FinnhubFetcher:
             profile_response.raise_for_status()
             profile = profile_response.json()
 
-            current_price = quote.get("c")
-            prev_close = quote.get("pc")
+            # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap
+            # quote marks so ``float(True)→$1`` cannot invent Finnhub context
+            # after MarketAnalyzer / yfinance Daily% already refused invents.
+            current_price = _coerce_finnhub_mark(quote.get("c"))
+            prev_close = _coerce_finnhub_mark(quote.get("pc"))
 
             # Map to StockFetcher format
             return {
@@ -112,9 +124,10 @@ class FinnhubFetcher:
                 "name": profile.get("name", "N/A"),
                 "current_price": current_price,
                 "previous_close": prev_close,
+                "daily_change_pct": daily_pct_change(current_price, prev_close),
                 "open": None,
-                "day_high": quote.get("h"),
-                "day_low": quote.get("l"),
+                "day_high": _coerce_finnhub_mark(quote.get("h")),
+                "day_low": _coerce_finnhub_mark(quote.get("l")),
                 "volume": None,
                 # profile2 marketCapitalization is millions — normalize to dollars
                 "market_cap": finnhub_market_cap_dollars(
@@ -122,8 +135,8 @@ class FinnhubFetcher:
                 ),
                 "pe_ratio": None,
                 "dividend_yield": None,
-                "52_week_high": profile.get("52WeekHigh"),
-                "52_week_low": profile.get("52WeekLow"),
+                "52_week_high": _coerce_finnhub_mark(profile.get("52WeekHigh")),
+                "52_week_low": _coerce_finnhub_mark(profile.get("52WeekLow")),
                 "source": "finnhub"
             }
 

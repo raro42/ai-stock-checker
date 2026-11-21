@@ -55,9 +55,35 @@ def test_yfinance_daily_change_refuses_missing_or_bool(monkeypatch):
             "longName": "Apple",
             "currentPrice": True,
             "previousClose": False,
+            "volume": True,
+            "marketCap": True,
+            "trailingPE": False,
+            "fiftyTwoWeekHigh": True,
         }
     )
     assert bool_marks["daily_change_pct"] is None
+    # Daily% alone used to leave True marks in the quote dict.
+    assert bool_marks["current_price"] is None
+    assert bool_marks["previous_close"] is None
+    assert bool_marks["volume"] is None
+    assert bool_marks["market_cap"] is None
+    assert bool_marks["pe_ratio"] is None
+    assert bool_marks["52_week_high"] is None
+
+    # Truthy ``currentPrice: True`` must not short-circuit ``or`` past a real alt.
+    or_fallback = _run(
+        {
+            "longName": "Apple",
+            "currentPrice": True,
+            "regularMarketPrice": 110.0,
+            "previousClose": 100.0,
+            "volume": False,
+            "regularMarketVolume": 1_000_000,
+        }
+    )
+    assert or_fallback["current_price"] == pytest.approx(110.0)
+    assert or_fallback["volume"] == pytest.approx(1_000_000.0)
+    assert or_fallback["daily_change_pct"] == pytest.approx(10.0)
 
     nan_marks = _run(
         {
@@ -67,6 +93,7 @@ def test_yfinance_daily_change_refuses_missing_or_bool(monkeypatch):
         }
     )
     assert nan_marks["daily_change_pct"] is None
+    assert nan_marks["current_price"] is None
 
     ok = _run(
         {
@@ -76,6 +103,7 @@ def test_yfinance_daily_change_refuses_missing_or_bool(monkeypatch):
         }
     )
     assert ok["daily_change_pct"] == pytest.approx(10.0)
+    assert ok["current_price"] == pytest.approx(110.0)
 
 
 def test_is_transient_network_error_detects_dns_and_curl():
