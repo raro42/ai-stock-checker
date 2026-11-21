@@ -6,7 +6,7 @@ import time
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 import pytz
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from .binance_fetcher import BinanceFetcher
@@ -127,6 +127,58 @@ def day_range_pct(high: object, low: object) -> Optional[float]:
     if hi is None or lo is None or lo > hi:
         return None
     return ((hi - lo) / lo) * 100.0
+
+
+def _quote_volume_usdt(data: Mapping[str, object], price: float) -> Optional[float]:
+    """USDT quote volume, or base×price; None when unreadable (never ``True→$1``)."""
+    raw_usdt = data.get("volume_usdt")
+    if _valid_volume(raw_usdt):
+        return float(raw_usdt)  # type: ignore[arg-type]
+    raw_base = data.get("volume_24h")
+    if _valid_volume(raw_base):
+        return float(raw_base) * price  # type: ignore[arg-type]
+    return None
+
+
+def rank_crypto_from_ticker(
+    *,
+    yf_symbol: str,
+    binance_symbol: str,
+    data: Mapping[str, object],
+) -> Optional[Dict]:
+    """Score one Binance 24hr row, or None when marks/%/range/volume invent.
+
+    tradermonty #700/#655 + xang1234/portfolio AI after ticker coerce: missing
+    ``change_24h`` / high·low / volume must not invent momentum or vol scores
+    via ``None`` arithmetic or ``float(True)`` leftovers. Live majors already
+    skip unreadable fields — full-universe momentum rank was still open.
+    """
+    price = coerce_scan_price(data.get("current_price"))
+    change_24h = coerce_signed_pct(data.get("change_24h"))
+    vol_range = day_range_pct(data.get("high_24h"), data.get("low_24h"))
+    if price is None or change_24h is None or vol_range is None:
+        return None
+    volume_usdt = _quote_volume_usdt(data, price)
+    if volume_usdt is None:
+        return None
+    volume_24h = (
+        float(data["volume_24h"])  # type: ignore[arg-type]
+        if _valid_volume(data.get("volume_24h"))
+        else 0.0
+    )
+    volatility_score = min(vol_range * 0.5, 20)  # Cap at +20 points
+    volume_score = min(volume_usdt / 10_000_000, 10)  # $10M = 1 point
+    total_score = change_24h + volatility_score + volume_score
+    return {
+        "symbol": yf_symbol,
+        "binance_symbol": binance_symbol,
+        "price": price,
+        "change_24h": change_24h,
+        "volume_24h": volume_24h,
+        "volume_usdt": volume_usdt,
+        "volatility": vol_range,
+        "score": total_score,
+    }
 
 
 class MarketScanner:
@@ -266,43 +318,34 @@ class MarketScanner:
         crypto_symbols = [symbol.replace('USDT', '-USD') for symbol in prices.keys()]
         self.persistence.track_scanned_symbols_batch(crypto_symbols, "crypto")
 
-        # Calculate scores (skip stables, leveraged tokens, noise)
+        # Calculate scores (skip stables, leveraged tokens, noise, unreadable marks)
         ranked = []
         skipped = 0
+        skipped_unreadable = 0
         for symbol, data in prices.items():
             yf_symbol = symbol.replace('USDT', '-USD')
             if not is_tradeable_symbol(yf_symbol):
                 skipped += 1
                 continue
-
-            # Momentum score
-            momentum_score = data['change_24h']
-
-            # Volatility bonus (high vol = more profit potential)
-            vol_range = ((data['high_24h'] - data['low_24h']) / data['low_24h']) * 100
-            volatility_score = min(vol_range * 0.5, 20)  # Cap at +20 points
-
-            # Volume score
-            volume_usdt = data.get('volume_usdt', data['volume_24h'] * data['current_price'])
-            volume_score = min(volume_usdt / 10000000, 10)  # $10M = 1 point
-
-            total_score = momentum_score + volatility_score + volume_score
-
-            ranked.append({
-                'symbol': yf_symbol,
-                'binance_symbol': symbol,
-                'price': data['current_price'],
-                'change_24h': data['change_24h'],
-                'volume_24h': data['volume_24h'],
-                'volume_usdt': volume_usdt,
-                'volatility': vol_range,
-                'score': total_score
-            })
+            row = rank_crypto_from_ticker(
+                yf_symbol=yf_symbol,
+                binance_symbol=symbol,
+                data=data if isinstance(data, Mapping) else {},
+            )
+            if row is None:
+                skipped_unreadable += 1
+                continue
+            ranked.append(row)
 
         # Sort by score
         ranked.sort(key=lambda x: x['score'], reverse=True)
         if skipped:
             print(f"   Filtered out {skipped} non-tradeable symbols (stables/leveraged/noise)")
+        if skipped_unreadable:
+            print(
+                f"   Skipped {skipped_unreadable} pairs with unreadable "
+                f"24h%/range/volume (no invent)"
+            )
 
         # Enhance top candidates with breakout & liquidity analysis
         print(f"\n🔬 Deep analysis on top {min(top_n, len(ranked))} candidates...")
