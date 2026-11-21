@@ -11,6 +11,7 @@ from stock_checker.market_scanner import (
     coerce_scan_price,
     coerce_signed_pct,
     day_range_pct,
+    finalize_crypto_momentum_score,
     rank_crypto_from_ticker,
     stock_pulse_side,
 )
@@ -155,3 +156,39 @@ def test_rank_crypto_from_ticker_refuses_incomplete_marks():
         )
         is None
     )
+
+
+def test_finalize_crypto_momentum_score_refuses_bool_bonuses():
+    """Deep-analysis True must not invent breakout/RSI/MACD/pressure bonuses."""
+    base_only = finalize_crypto_momentum_score({"score": 10.0})
+    assert base_only == pytest.approx(10.0)
+
+    ok = finalize_crypto_momentum_score(
+        {
+            "score": 10.0,
+            "breakout_score": 100.0,
+            "liquidity_score": 50.0,
+            "rsi": 35.0,
+            "macd": {"histogram": 0.5},
+            "pressure_score": 40.0,
+        }
+    )
+    # 10 + 100*0.3 + 50*0.2 + RSI+5 + MACD+3 + pressure+3
+    assert ok == pytest.approx(10.0 + 30.0 + 10.0 + 5 + 3 + 3)
+
+    # Bool leftovers: True*0.3 / True<40 / True>0.1 must not invent bonuses.
+    refuse = finalize_crypto_momentum_score(
+        {
+            "score": 10.0,
+            "breakout_score": True,
+            "liquidity_score": True,
+            "rsi": True,
+            "macd": {"histogram": True},
+            "pressure_score": True,
+        }
+    )
+    assert refuse == pytest.approx(10.0)
+
+    # Bool base score also refused (fail-open 0).
+    assert finalize_crypto_momentum_score({"score": True}) == pytest.approx(0.0)
+    assert finalize_crypto_momentum_score({}) == pytest.approx(0.0)

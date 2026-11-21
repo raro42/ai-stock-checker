@@ -140,6 +140,59 @@ def _quote_volume_usdt(data: Mapping[str, object], price: float) -> Optional[flo
     return None
 
 
+def finalize_crypto_momentum_score(crypto: Mapping[str, object]) -> float:
+    """Ticker score + deep-analysis bonuses; refuse bool/NaN invent.
+
+    tradermonty #700/#655 + xang1234/portfolio AI after ``rank_crypto_from_ticker``:
+    ``True * 0.3`` breakout · ``True * 0.2`` liquidity · ``True < 40`` RSI
+    oversold · ``True > 0.1`` MACD bullish must not invent ``final_score``.
+    Unreadable sleeves contribute 0 (fail-open; do not invent a bonus).
+    """
+    base = 0.0
+    raw_score = crypto.get("score")
+    if _finite_signed(raw_score):
+        base = float(raw_score)  # type: ignore[arg-type]
+
+    brk = crypto.get("breakout_score")
+    if _finite_signed(brk):
+        base += float(brk) * 0.3  # type: ignore[arg-type]
+
+    liq = crypto.get("liquidity_score")
+    if _finite_signed(liq):
+        base += float(liq) * 0.2  # type: ignore[arg-type]
+
+    rsi_bonus = 0
+    rsi = crypto.get("rsi")
+    if _finite_signed(rsi):
+        rsi_v = float(rsi)  # type: ignore[arg-type]
+        if rsi_v < 40:
+            rsi_bonus = 5
+        elif rsi_v > 70:
+            rsi_bonus = -5
+
+    macd_bonus = 0
+    macd = crypto.get("macd")
+    if isinstance(macd, Mapping):
+        hist = macd.get("histogram")
+        if _finite_signed(hist):
+            h = float(hist)  # type: ignore[arg-type]
+            if h > 0.1:
+                macd_bonus = 3
+            elif h < -0.1:
+                macd_bonus = -3
+
+    pressure_bonus = 0
+    ps = crypto.get("pressure_score")
+    if _finite_signed(ps):
+        p = float(ps)  # type: ignore[arg-type]
+        if p > 30:
+            pressure_bonus = 3
+        elif p < -30:
+            pressure_bonus = -3
+
+    return base + rsi_bonus + macd_bonus + pressure_bonus
+
+
 def rank_crypto_from_ticker(
     *,
     yf_symbol: str,
@@ -406,41 +459,8 @@ class MarketScanner:
                 crypto['rsi'] = None
                 crypto['macd'] = None
 
-            # Adjust final score with breakout, liquidity, RSI, and MACD
-            base_final_score = (
-                crypto['score'] +
-                (crypto['breakout_score'] * 0.3) +
-                (crypto['liquidity_score'] * 0.2)
-            )
-            
-            # Add RSI weight (small adjustment)
-            rsi_bonus = 0
-            if crypto.get('rsi') is not None:
-                rsi = crypto['rsi']
-                if rsi < 40:
-                    rsi_bonus = 5  # Oversold opportunity
-                elif rsi > 70:
-                    rsi_bonus = -5  # Overbought warning
-            
-            # Add MACD weight (small adjustment)
-            macd_bonus = 0
-            if crypto.get('macd') is not None and 'histogram' in crypto['macd']:
-                macd_histogram = crypto['macd']['histogram']
-                if macd_histogram > 0.1:
-                    macd_bonus = 3  # Bullish MACD
-                elif macd_histogram < -0.1:
-                    macd_bonus = -3  # Bearish MACD
-            
-            # Add buy/sell pressure weight (small adjustment)
-            pressure_bonus = 0
-            if crypto.get('pressure_score') is not None:
-                pressure_score = crypto['pressure_score']
-                if pressure_score > 30:  # Strong buy pressure
-                    pressure_bonus = 3
-                elif pressure_score < -30:  # Strong sell pressure
-                    pressure_bonus = -3
-            
-            crypto['final_score'] = base_final_score + rsi_bonus + macd_bonus + pressure_bonus
+            # Deep bonuses — refuse bool/NaN so True cannot invent final_score.
+            crypto["final_score"] = finalize_crypto_momentum_score(crypto)
 
         # Re-sort by final score
         ranked.sort(key=lambda x: x.get('final_score', x['score']), reverse=True)
