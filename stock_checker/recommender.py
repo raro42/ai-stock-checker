@@ -271,18 +271,25 @@ class RecommendationEngine:
 
         current_price = btc_data.get("current_price")
         # Bool/NaN/% gaps unavailable — never invent flat 0 / True→1.0 momentum.
+        # MarketAnalyzer speaks change_1d/7d/30d; older callers use daily/weekly/monthly.
         change_1d = 0.0
         change_7d = 0.0
         change_30d = 0.0
         volatility = 0.0
         volume_ratio = 0.0
         dc = btc_data.get("daily_change")
+        if not _finite_signed(dc):
+            dc = btc_data.get("change_1d")
         if _finite_signed(dc):
             change_1d = float(dc)
         wc = btc_data.get("weekly_change")
+        if not _finite_signed(wc):
+            wc = btc_data.get("change_7d")
         if _finite_signed(wc):
             change_7d = float(wc)
         mc = btc_data.get("monthly_change")
+        if not _finite_signed(mc):
+            mc = btc_data.get("change_30d")
         if _finite_signed(mc):
             change_30d = float(mc)
         vol = btc_data.get("volatility_30d")
