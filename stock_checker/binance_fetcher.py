@@ -10,10 +10,12 @@ from .technical_indicators import coerce_nonneg_int
 
 
 BINANCE_LIMIT_MAX = 1000
+BINANCE_ORDERBOOK_LIMIT_MAX = 5000
 DEFAULT_KLINES_LIMIT = 24
 DEFAULT_KLINES_EXTENDED_LIMIT = 100
 DEFAULT_RECENT_TRADES_LIMIT = 100
 DEFAULT_AGG_TRADES_LIMIT = 500
+DEFAULT_ORDERBOOK_LIMIT = 10
 
 
 def _coerce_binance_limit(
@@ -77,7 +79,9 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to fetch Binance data for {symbol}: {safe_exc_text(e)}")
             return None
 
-    def get_orderbook_depth(self, symbol: str, limit: int = 10) -> Optional[Dict]:
+    def get_orderbook_depth(
+        self, symbol: str, limit: object = DEFAULT_ORDERBOOK_LIMIT
+    ) -> Optional[Dict]:
         """
         Get order book depth (bid/ask levels).
 
@@ -85,6 +89,10 @@ class BinanceFetcher:
             symbol: Trading pair
             limit: Number of levels (5, 10, 20, 50, 100, 500, 1000, 5000)
         """
+        # Klines/trades already refuse bool; orderbook depth was still open.
+        limit = _coerce_binance_limit(
+            limit, DEFAULT_ORDERBOOK_LIMIT, ceiling=BINANCE_ORDERBOOK_LIMIT_MAX
+        )
         try:
             depth_url = f"{self.base_url}/depth"
             params = {"symbol": symbol, "limit": limit}

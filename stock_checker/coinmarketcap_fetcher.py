@@ -1,9 +1,31 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import requests
 from typing import List, Dict
 
 from .secret_redact import safe_exc_text
+from .technical_indicators import coerce_nonneg_int
+
+
+DEFAULT_TRENDING_LIMIT = 20
+DEFAULT_GAINERS_LOSERS_SLICE = 10
+DEFAULT_TOP_MOVERS_LISTING_LIMIT = 100
+DEFAULT_TOP_MOVERS_SLICE = 15
+
+
+def _coerce_cmc_limit(value: object, default: int) -> int:
+    """Positive CMC strip length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``[:True]→1-row`` must not invent a one-coin trending strip after
+    BinanceFetcher strip knobs already refused thin candle/trade packaging.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
 
 
 class CoinMarketCapFetcher:
@@ -19,7 +41,9 @@ class CoinMarketCapFetcher:
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
         })
 
-    def get_trending_gainers_losers(self, limit: int = 20) -> Dict[str, List[Dict]]:
+    def get_trending_gainers_losers(
+        self, limit: object = DEFAULT_TRENDING_LIMIT
+    ) -> Dict[str, List[Dict]]:
         """
         Get top gainers and losers from CoinMarketCap.
 
@@ -32,6 +56,7 @@ class CoinMarketCapFetcher:
             - volume_24h: 24h volume
             - market_cap: Market cap
         """
+        limit = _coerce_cmc_limit(limit, DEFAULT_TRENDING_LIMIT)
         try:
             # CoinMarketCap API endpoint for trending coins
             url = "https://api.coinmarketcap.com/data-api/v3/cryptocurrency/spotlight"
@@ -70,9 +95,10 @@ class CoinMarketCapFetcher:
             gainers.sort(key=lambda x: x['change_24h'], reverse=True)
             losers.sort(key=lambda x: x['change_24h'])
 
+            slice_n = DEFAULT_GAINERS_LOSERS_SLICE
             return {
-                'gainers': gainers[:10],
-                'losers': losers[:10],
+                'gainers': gainers[:slice_n],
+                'losers': losers[:slice_n],
                 'timestamp': data.get('status', {}).get('timestamp', '')
             }
 
@@ -80,15 +106,20 @@ class CoinMarketCapFetcher:
             print(f"[ERROR] Failed to fetch CoinMarketCap data: {safe_exc_text(e)}")
             return {'gainers': [], 'losers': [], 'timestamp': ''}
 
-    def get_top_movers(self) -> Dict[str, List[Dict]]:
+    def get_top_movers(
+        self, *, listing_limit: object = DEFAULT_TOP_MOVERS_LISTING_LIMIT
+    ) -> Dict[str, List[Dict]]:
         """
         Alternative method using CoinMarketCap's listings API.
         """
+        listing_limit = _coerce_cmc_limit(
+            listing_limit, DEFAULT_TOP_MOVERS_LISTING_LIMIT
+        )
         try:
             url = "https://api.coinmarketcap.com/data-api/v3/cryptocurrency/listing"
             params = {
                 'start': 1,
-                'limit': 100,
+                'limit': listing_limit,
                 'sortBy': 'percent_change_24h',
                 'sortType': 'desc',
                 'convert': 'USD'
@@ -123,9 +154,10 @@ class CoinMarketCapFetcher:
                     elif coin_data['change_24h'] < -5.0:  # Significant losers
                         losers.append(coin_data)
 
+            slice_n = DEFAULT_TOP_MOVERS_SLICE
             return {
-                'gainers': gainers[:15],
-                'losers': losers[:15]
+                'gainers': gainers[:slice_n],
+                'losers': losers[:slice_n]
             }
 
         except Exception as e:
