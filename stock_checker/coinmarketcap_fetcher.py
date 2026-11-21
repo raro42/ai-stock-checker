@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import math
+import numbers
+from typing import Dict, List, Optional
+
 import requests
-from typing import List, Dict
 
 from .secret_redact import safe_exc_text
-from .technical_indicators import coerce_nonneg_int
+from .technical_indicators import _finite_signed, _valid_close, coerce_nonneg_int
 
 
 DEFAULT_TRENDING_LIMIT = 20
@@ -26,6 +29,95 @@ def _coerce_cmc_limit(value: object, default: int) -> int:
     if n is None or n < 1:
         return int(default)
     return n
+
+
+def _cmc_json_float(raw: object) -> Optional[float]:
+    """Parse CMC JSON number (Real or numeric str); never ``float(True)→1``."""
+    if isinstance(raw, bool) or raw is None:
+        return None
+    if isinstance(raw, numbers.Real):
+        n = float(raw)
+    elif isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        try:
+            n = float(text)
+        except ValueError:
+            return None
+    else:
+        return None
+    if not math.isfinite(n):
+        return None
+    return n
+
+
+def _coerce_cmc_mark(raw: object) -> Optional[float]:
+    """Finite positive last mark, else None (never ``True→$1``)."""
+    if isinstance(raw, bool) or raw is None:
+        return None
+    if isinstance(raw, str):
+        n = _cmc_json_float(raw)
+        return n if n is not None and n > 0.0 else None
+    if not _valid_close(raw):
+        return None
+    return float(raw)  # type: ignore[arg-type]
+
+
+def _coerce_cmc_signed_pct(raw: object) -> Optional[float]:
+    """Finite signed % change (0 / negative ok), else None."""
+    if isinstance(raw, str):
+        return _cmc_json_float(raw)
+    if raw is None or not _finite_signed(raw):
+        return None
+    return float(raw)  # type: ignore[arg-type]
+
+
+def _coerce_cmc_volume(raw: object) -> Optional[float]:
+    """Non-negative volume/cap (zero prints ok), else None."""
+    n = _cmc_json_float(raw)
+    if n is None or n < 0.0:
+        return None
+    return n
+
+
+def _parse_cmc_coin(item: object, quote: object) -> Optional[Dict]:
+    """One CMC coin row; None when price or 24h% is unreadable.
+
+    tradermonty #700/#655 + xang1234/portfolio AI after Binance trade refuse:
+    ``quote.get('price', 0)`` / ``percentChange24h`` still accepted ``True``
+    (``True > 0`` → fake gainer, ``True→$1``). Isolate bad prints — one junk
+    coin must not invent a mover strip.
+    """
+    if not isinstance(item, dict) or not isinstance(quote, dict):
+        return None
+    price = _coerce_cmc_mark(quote.get("price"))
+    if price is None:
+        return None
+    change = _coerce_cmc_signed_pct(quote.get("percentChange24h"))
+    if change is None:
+        return None
+    symbol = item.get("symbol", "")
+    name = item.get("name", "")
+    return {
+        "symbol": symbol if isinstance(symbol, str) else "",
+        "name": name if isinstance(name, str) else "",
+        "price": price,
+        "change_24h": change,
+        "volume_24h": _coerce_cmc_volume(quote.get("volume24h")),
+        "market_cap": _coerce_cmc_volume(quote.get("marketCap")),
+        "source": "coinmarketcap",
+    }
+
+
+def _quote_from_item(item: object) -> Optional[dict]:
+    if not isinstance(item, dict):
+        return None
+    quotes = item.get("quotes")
+    if not isinstance(quotes, list) or not quotes:
+        return None
+    first = quotes[0]
+    return first if isinstance(first, dict) else None
 
 
 class CoinMarketCapFetcher:
@@ -73,23 +165,19 @@ class CoinMarketCapFetcher:
             # Extract gainers
             if 'data' in data and 'trendingList' in data['data']:
                 for item in data['data']['trendingList'][:limit]:
-                    if 'priceChange' in item and 'quotes' in item:
-                        quote = item['quotes'][0] if item['quotes'] else {}
+                    if not isinstance(item, dict) or 'priceChange' not in item:
+                        continue
+                    quote = _quote_from_item(item)
+                    if quote is None:
+                        continue
+                    coin_data = _parse_cmc_coin(item, quote)
+                    if coin_data is None:
+                        continue
 
-                        coin_data = {
-                            'symbol': item.get('symbol', ''),
-                            'name': item.get('name', ''),
-                            'price': quote.get('price', 0),
-                            'change_24h': quote.get('percentChange24h', 0),
-                            'volume_24h': quote.get('volume24h', 0),
-                            'market_cap': quote.get('marketCap', 0),
-                            'source': 'coinmarketcap'
-                        }
-
-                        if coin_data['change_24h'] > 0:
-                            gainers.append(coin_data)
-                        else:
-                            losers.append(coin_data)
+                    if coin_data['change_24h'] > 0:
+                        gainers.append(coin_data)
+                    else:
+                        losers.append(coin_data)
 
             # Sort by absolute change
             gainers.sort(key=lambda x: x['change_24h'], reverse=True)
@@ -137,17 +225,12 @@ class CoinMarketCapFetcher:
 
             if 'data' in data and 'cryptoCurrencyList' in data['data']:
                 for item in data['data']['cryptoCurrencyList']:
-                    quote = item.get('quotes', [{}])[0]
-
-                    coin_data = {
-                        'symbol': item.get('symbol', ''),
-                        'name': item.get('name', ''),
-                        'price': quote.get('price', 0),
-                        'change_24h': quote.get('percentChange24h', 0),
-                        'volume_24h': quote.get('volume24h', 0),
-                        'market_cap': quote.get('marketCap', 0),
-                        'source': 'coinmarketcap'
-                    }
+                    quote = _quote_from_item(item)
+                    if quote is None:
+                        continue
+                    coin_data = _parse_cmc_coin(item, quote)
+                    if coin_data is None:
+                        continue
 
                     if coin_data['change_24h'] > 5.0:  # Significant gainers
                         gainers.append(coin_data)
