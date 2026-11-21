@@ -294,6 +294,21 @@ def test_yahoo_fail_error_also_vs_delta_lead_names_louder_side():
     assert yahoo_fail_error_also_vs_delta_lead("timeout", 0, "thin") == ""
     assert yahoo_fail_error_also_vs_delta_lead("timeout", 15, "") == ""
     assert yahoo_fail_error_also_vs_delta_lead("empty", -50, "wide") == ""
+    # True→1pp must not invent Δ lead · held
+    assert yahoo_fail_error_also_vs_delta_lead("inflight", True, "wide") == ""
+    assert yahoo_fail_error_also_vs_delta_lead("inflight", False, "thin") == ""
+
+
+def test_yahoo_fail_error_also_vs_delta_refuses_bool_share_pct():
+    """tradermonty #700/#655: True→1pp / False→0pp must not invent Δ thin · +1pp."""
+    assert yahoo_fail_error_also_vs_delta(True, False) == ("", None, "")
+    assert yahoo_fail_error_also_vs_delta(False, True) == ("", None, "")
+    assert yahoo_fail_error_also_vs_delta(True, 50) == ("", None, "")
+    assert yahoo_fail_error_also_vs_delta(25, 75) == (
+        "Δ wide · -50pp",
+        -50,
+        "wide",
+    )
 
 
 def test_yahoo_fail_error_also_vs_delta_lead_size_ratio():
@@ -318,6 +333,13 @@ def test_yahoo_fail_error_also_vs_delta_lead_size_ratio():
     assert yahoo_fail_error_also_vs_delta_lead_size(
         "Δ lead · held", 13, 88, timeout_fails=0, inflight_fails=0
     ) == ("Δ lead size · 6.77×", 6.77)
+    # True→1pp / True→1× must not invent a ownership size speak
+    assert yahoo_fail_error_also_vs_delta_lead_size(
+        "Δ lead · held", True, True
+    ) == ("", None)
+    assert yahoo_fail_error_also_vs_delta_lead_size(
+        "Δ lead · held", True, 75
+    ) == ("", None)
 
 
 def test_yahoo_fail_error_also_vs_delta_lead_size_sides_both_shares():
@@ -381,6 +403,13 @@ def test_yahoo_fail_error_also_vs_delta_lead_size_sides_both_shares():
         None,
         None,
     )
+    # True→1.0 size / True→1pp must not invent named sides
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides(
+        True, "inflight", 25, 75  # type: ignore[arg-type]
+    ) == ("", None, None)
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides(
+        3.0, "inflight", True, True  # type: ignore[arg-type]
+    ) == ("", None, None)
 
 
 def test_yahoo_fail_error_also_vs_delta_lead_size_sides_delta_count_gap():

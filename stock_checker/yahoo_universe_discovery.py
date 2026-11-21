@@ -15,7 +15,11 @@ from datetime import datetime, timezone
 from typing import Any, List, Sequence
 
 from stock_checker.symbol_filters import is_tradeable_symbol
-from stock_checker.technical_indicators import coerce_nonneg_int
+from stock_checker.technical_indicators import (
+    _finite_signed,
+    coerce_nonneg_int,
+    coerce_score,
+)
 
 # Keep discovery calm — we are not RyanJHamby's 3800-name firehose.
 DEFAULT_MOVER_COUNT = 25
@@ -53,6 +57,16 @@ def _meta_count_or_zero(value: object) -> int:
     """
     n = coerce_nonneg_int(value)
     return 0 if n is None else n
+
+
+def _yahoo_share_pct(value: object) -> int | None:
+    """Fail-mix share % (0 ok); bool/gap → None (never ``True→1pp`` / ``False→0pp``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI after meta-count refuse —
+    mix Δ / lead size still did bare ``int(pct)`` so ``True, False`` invented
+    ``Δ thin · +1pp`` and ``True, True`` invented ``Δ lead size · 1×``.
+    """
+    return coerce_nonneg_int(value)
 
 
 def _coerce_yahoo_mover_count(
@@ -1351,12 +1365,11 @@ def yahoo_fail_error_also_vs_delta(
     shares sit on top of each other or a wide gap. ``wide`` ≥20pp · ``thin``
     <10pp. Mid stays silent (no lean-vs-Δ nest). Returns ``(bit, pp, severity)``.
     """
-    if hidden_pct is None or winner_pct is None:
+    hidden = _yahoo_share_pct(hidden_pct)
+    winner = _yahoo_share_pct(winner_pct)
+    if hidden is None or winner is None:
         return "", None, ""
-    try:
-        delta = int(hidden_pct) - int(winner_pct)
-    except (TypeError, ValueError):
-        return "", None, ""
+    delta = hidden - winner
     abs_delta = abs(delta)
     if abs_delta >= YAHOO_FAIL_ALSO_DELTA_WIDE_PP:
         severity = "wide"
@@ -1381,12 +1394,10 @@ def yahoo_fail_error_also_vs_delta_lead(
     """
     if str(severity or "").strip().lower() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
+    # tradermonty #700/#655: refuse bool — True→1pp must not invent Δ lead.
+    if not _finite_signed(delta_pp):
         return ""
-    try:
-        delta = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
+    delta = int(delta_pp)  # type: ignore[arg-type]
     if delta == 0:
         return ""
     k = str(klass or "").strip().lower()
@@ -1429,13 +1440,13 @@ def yahoo_fail_error_also_vs_delta_lead_size(
             louder = max(timed, held)
             quieter = min(timed, held)
     if louder is None:
-        if hidden_pct is None or winner_pct is None:
+        # tradermonty #700/#655: refuse bool — True→1pp invents Δ lead size · 1×.
+        hidden = _yahoo_share_pct(hidden_pct)
+        winner = _yahoo_share_pct(winner_pct)
+        if hidden is None or winner is None:
             return "", None
-        try:
-            louder = max(int(hidden_pct), int(winner_pct))
-            quieter = min(int(hidden_pct), int(winner_pct))
-        except (TypeError, ValueError):
-            return "", None
+        louder = max(hidden, winner)
+        quieter = min(hidden, winner)
     if quieter is None or quieter <= 0:
         return "", None
     size = round(louder / quieter, 2)
@@ -1461,9 +1472,9 @@ def yahoo_fail_error_also_vs_delta_lead_size_sides(
     ``(Δ lead size sides · held 7 · timeout 1, louder, quieter)``
     / ``(\"\", None, None)``.
     """
-    try:
-        ratio = float(size) if size is not None else 0.0
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→1.0 invents a 1× sides speak.
+    ratio = coerce_score(size)
+    if ratio is None:
         return "", None, None
     k = str(klass or "").strip().lower()
     if k == "inflight":
@@ -1490,12 +1501,9 @@ def yahoo_fail_error_also_vs_delta_lead_size_sides(
                 f" · {quiet_name} {quieter}"
             )
             return bit, louder, quieter
-    if hidden_pct is None or winner_pct is None:
-        return "", None, None
-    try:
-        hidden = int(hidden_pct)
-        winner = int(winner_pct)
-    except (TypeError, ValueError):
+    hidden = _yahoo_share_pct(hidden_pct)
+    winner = _yahoo_share_pct(winner_pct)
+    if hidden is None or winner is None:
         return "", None, None
     if k == "inflight":
         winner_name, hidden_name = "held", "timeout"
