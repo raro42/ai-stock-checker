@@ -194,6 +194,52 @@ def _parse_extended_kline_candle(row: object) -> Optional[Dict]:
     return base
 
 
+def _parse_recent_trade(row: object) -> Optional[Dict]:
+    """One /trades row; None when price/qty invent or maker side is missing.
+
+    tradermonty #830 isolate + #700/#655: ``float(True)→$1`` must not invent
+    a print after orderbook/klines already refused — one junk trade must not
+    invent buy/sell pressure either.
+    """
+    if not isinstance(row, dict):
+        return None
+    price = _coerce_binance_mark(row.get("price"))
+    qty = _coerce_binance_volume(row.get("qty"))
+    quote_qty = _coerce_binance_volume(row.get("quoteQty"))
+    maker = row.get("isBuyerMaker")
+    if None in (price, qty, quote_qty) or not isinstance(maker, bool):
+        return None
+    return {
+        "id": row.get("id"),
+        "price": price,
+        "qty": qty,
+        "quote_qty": quote_qty,
+        "time": row.get("time"),
+        "is_buyer_maker": maker,  # True = sell, False = buy
+        "is_buy": not maker,
+    }
+
+
+def _parse_agg_trade(row: object) -> Optional[Dict]:
+    """One /aggTrades row; None when price/qty invent or maker side is missing."""
+    if not isinstance(row, dict):
+        return None
+    price = _coerce_binance_mark(row.get("p"))
+    qty = _coerce_binance_volume(row.get("q"))
+    maker = row.get("m")
+    if None in (price, qty) or not isinstance(maker, bool):
+        return None
+    return {
+        "price": price,
+        "qty": qty,
+        "first_trade_id": row.get("f"),
+        "last_trade_id": row.get("l"),
+        "time": row.get("T"),
+        "is_buyer_maker": maker,
+        "is_buy": not maker,
+    }
+
+
 class BinanceFetcher:
     """Fetch real-time crypto data from Binance API (no auth required for market data)."""
 
@@ -695,19 +741,15 @@ class BinanceFetcher:
             response = self.session.get(trades_url, params=params, timeout=10)
             response.raise_for_status()
             trades = response.json()
+            if not isinstance(trades, list):
+                return None
 
-            # Parse to useful format
+            # Isolate bad prints; never invent float(True)→$1 pressure.
             parsed_trades = []
             for trade in trades:
-                parsed_trades.append({
-                    "id": trade["id"],
-                    "price": float(trade["price"]),
-                    "qty": float(trade["qty"]),
-                    "quote_qty": float(trade["quoteQty"]),
-                    "time": trade["time"],
-                    "is_buyer_maker": trade["isBuyerMaker"],  # True = sell, False = buy
-                    "is_buy": not trade["isBuyerMaker"]  # Convenience field
-                })
+                parsed = _parse_recent_trade(trade)
+                if parsed is not None:
+                    parsed_trades.append(parsed)
 
             return parsed_trades
 
@@ -750,19 +792,15 @@ class BinanceFetcher:
             response = self.session.get(agg_trades_url, params=params, timeout=10)
             response.raise_for_status()
             agg_trades = response.json()
+            if not isinstance(agg_trades, list):
+                return None
 
-            # Parse to useful format
+            # Isolate bad prints; never invent float(True)→$1 aggregates.
             parsed_trades = []
             for trade in agg_trades:
-                parsed_trades.append({
-                    "price": float(trade["p"]),
-                    "qty": float(trade["q"]),
-                    "first_trade_id": trade["f"],
-                    "last_trade_id": trade["l"],
-                    "time": trade["T"],
-                    "is_buyer_maker": trade["m"],  # True = sell, False = buy
-                    "is_buy": not trade["m"]  # Convenience field
-                })
+                parsed = _parse_agg_trade(trade)
+                if parsed is not None:
+                    parsed_trades.append(parsed)
 
             return parsed_trades
 
