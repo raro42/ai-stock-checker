@@ -7,8 +7,25 @@ import sys
 from pathlib import Path
 from typing import Optional, TextIO
 
+from stock_checker.technical_indicators import coerce_nonneg_int
+
 
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024  # 5 MiB
+
+
+def _coerce_max_bytes(
+    value: object, default: int = DEFAULT_MAX_BYTES
+) -> int:
+    """Positive rotate ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-byte rotate (every write rolls the log); ``False→0`` must not disable
+    rotation via a always-false size check.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
 
 
 class _TeeStream:
@@ -48,9 +65,10 @@ def logs_dir(data_dir: Path | str | None = None) -> Path:
     return root / "logs"
 
 
-def _rotate_if_needed(path: Path, max_bytes: int) -> None:
+def _rotate_if_needed(path: Path, max_bytes: object = DEFAULT_MAX_BYTES) -> None:
+    ceiling = _coerce_max_bytes(max_bytes)
     try:
-        if not path.is_file() or path.stat().st_size < max_bytes:
+        if not path.is_file() or path.stat().st_size < ceiling:
             return
         bak = path.with_suffix(path.suffix + ".1")
         if bak.exists():
@@ -64,7 +82,7 @@ def install_runtime_log(
     name: str = "trader",
     *,
     data_dir: Path | str | None = None,
-    max_bytes: int = DEFAULT_MAX_BYTES,
+    max_bytes: object = DEFAULT_MAX_BYTES,
 ) -> Optional[Path]:
     """Mirror stdout/stderr to ``{data_dir}/logs/{name}.log``. Returns log path."""
     safe = "".join(c for c in name if c.isalnum() or c in ("-", "_")).strip("._")
@@ -76,7 +94,7 @@ def install_runtime_log(
     except OSError:
         return None
     path = directory / f"{safe}.log"
-    _rotate_if_needed(path, max_bytes)
+    _rotate_if_needed(path, _coerce_max_bytes(max_bytes))
     try:
         handle = path.open("a", encoding="utf-8", buffering=1)
     except OSError:

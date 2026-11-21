@@ -11,6 +11,24 @@ from stock_checker.recommender import RecommendationEngine
 from stock_checker.ai_recommender import AIRecommender
 from stock_checker.ai_analyzer import OllamaAnalyzer
 from stock_checker.secret_redact import safe_exc_text
+from stock_checker.technical_indicators import coerce_nonneg_int
+
+DEFAULT_CHECK_INTERVAL_SEC = 300
+
+
+def _coerce_check_interval(
+    value: object, default: int = DEFAULT_CHECK_INTERVAL_SEC
+) -> int:
+    """Positive monitor sleep seconds, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a 1s spin loop after IntelligentTrader scan/trade already refused
+    thin cadence packaging.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
 
 
 class ContinuousMonitor:
@@ -19,7 +37,7 @@ class ContinuousMonitor:
     def __init__(
         self,
         watch_list: List[str],
-        check_interval: int = 300,
+        check_interval: object = DEFAULT_CHECK_INTERVAL_SEC,
         enable_ai: bool = False,
         ai_model: str = "llama2",
         enable_bitcoin: bool = True,
@@ -38,7 +56,7 @@ class ContinuousMonitor:
             enable_sp500_movers: Check S&P 500 top movers
         """
         self.watch_list = watch_list
-        self.check_interval = check_interval
+        self.check_interval = _coerce_check_interval(check_interval)
         self.enable_ai = enable_ai
         self.ai_model = ai_model
         self.enable_bitcoin = enable_bitcoin

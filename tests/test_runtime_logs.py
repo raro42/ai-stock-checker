@@ -12,7 +12,13 @@ from openbb_backend.desk_logs import (
     read_log_tail,
     resolve_log_path,
 )
-from stock_checker.runtime_log import install_runtime_log, logs_dir
+from stock_checker.runtime_log import (
+    DEFAULT_MAX_BYTES,
+    _coerce_max_bytes,
+    _rotate_if_needed,
+    install_runtime_log,
+    logs_dir,
+)
 
 
 def test_resolve_rejects_unknown(tmp_path: Path) -> None:
@@ -57,3 +63,23 @@ def test_install_runtime_log_tees(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     # restore stdio for other tests
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
+
+
+def test_coerce_max_bytes_refuses_bool() -> None:
+    assert _coerce_max_bytes(True) == DEFAULT_MAX_BYTES
+    assert _coerce_max_bytes(False) == DEFAULT_MAX_BYTES
+    assert _coerce_max_bytes(0) == DEFAULT_MAX_BYTES
+    assert _coerce_max_bytes(None) == DEFAULT_MAX_BYTES
+    assert _coerce_max_bytes(4096) == 4096
+
+
+def test_rotate_refuses_bool_ceiling(tmp_path: Path) -> None:
+    log = tmp_path / "trader.log"
+    log.write_bytes(b"x" * 100)
+    # True→1 must not invent a one-byte rotate of a 100-byte file.
+    _rotate_if_needed(log, True)
+    assert log.is_file()
+    assert log.stat().st_size == 100
+    _rotate_if_needed(log, 50)
+    assert not log.is_file()
+    assert (tmp_path / "trader.log.1").is_file()
