@@ -117,6 +117,83 @@ def _ticker_24hr_fields(ticker: dict) -> Optional[Dict]:
     }
 
 
+def _parse_orderbook_level(row: object) -> Optional[List[float]]:
+    """One bid/ask [price, qty]; skip bad rows (isolate, do not invent $1).
+
+    tradermonty #830/#332 isolate CSV int conversion + #700/#655 bool refuse:
+    raw ``float(True)`` / one bad level must not invent depth or wipe the book.
+    """
+    if not isinstance(row, (list, tuple)) or len(row) < 2:
+        return None
+    price = _coerce_binance_mark(row[0])
+    qty = _coerce_binance_volume(row[1])
+    if price is None or qty is None:
+        return None
+    return [price, qty]
+
+
+def _parse_orderbook_side(rows: object, *, take: int) -> List[List[float]]:
+    """Keep readable levels only; bad rows isolated (tradermonty #830)."""
+    if not isinstance(rows, list):
+        return []
+    out: List[List[float]] = []
+    for row in rows:
+        if len(out) >= take:
+            break
+        level = _parse_orderbook_level(row)
+        if level is not None:
+            out.append(level)
+    return out
+
+
+def _parse_kline_candle(row: object) -> Optional[Dict]:
+    """Basic OHLCV candle; None when any OHLC/volume is unreadable.
+
+    tradermonty #830 isolate conversion + #700/#655: ``float(True)→$1`` /
+    ``int(True)→1`` must not invent a candle after ticker marks already refused.
+    """
+    if not isinstance(row, (list, tuple)) or len(row) < 7:
+        return None
+    o = _coerce_binance_mark(row[1])
+    h = _coerce_binance_mark(row[2])
+    lo = _coerce_binance_mark(row[3])
+    c = _coerce_binance_mark(row[4])
+    vol = _coerce_binance_volume(row[5])
+    if None in (o, h, lo, c, vol):
+        return None
+    return {
+        "open_time": row[0],
+        "open": o,
+        "high": h,
+        "low": lo,
+        "close": c,
+        "volume": vol,
+        "close_time": row[6],
+    }
+
+
+def _parse_extended_kline_candle(row: object) -> Optional[Dict]:
+    """Extended kline row; skip when core OHLC/volume or extras invent."""
+    base = _parse_kline_candle(row)
+    if base is None or not isinstance(row, (list, tuple)) or len(row) < 11:
+        return None
+    quote_vol = _coerce_binance_volume(row[7])
+    num_trades = coerce_nonneg_int(row[8])
+    taker_base = _coerce_binance_volume(row[9])
+    taker_quote = _coerce_binance_volume(row[10])
+    if None in (quote_vol, num_trades, taker_base, taker_quote):
+        return None
+    base.update(
+        {
+            "quote_volume": quote_vol,
+            "num_trades": num_trades,
+            "taker_buy_base_volume": taker_base,
+            "taker_buy_quote_volume": taker_quote,
+        }
+    )
+    return base
+
+
 class BinanceFetcher:
     """Fetch real-time crypto data from Binance API (no auth required for market data)."""
 
@@ -188,18 +265,23 @@ class BinanceFetcher:
             response.raise_for_status()
             data = response.json()
 
-            bids = [[float(price), float(qty)] for price, qty in data["bids"][:5]]
-            asks = [[float(price), float(qty)] for price, qty in data["asks"][:5]]
+            bids = _parse_orderbook_side(data.get("bids"), take=5)
+            asks = _parse_orderbook_side(data.get("asks"), take=5)
+            if not bids or not asks:
+                return None
 
+            best_bid = bids[0][0]
+            best_ask = asks[0][0]
+            spread = best_ask - best_bid
             return {
                 "symbol": symbol,
-                "best_bid": bids[0][0] if bids else 0,
-                "best_ask": asks[0][0] if asks else 0,
-                "spread": (asks[0][0] - bids[0][0]) if bids and asks else 0,
-                "spread_pct": ((asks[0][0] - bids[0][0]) / bids[0][0] * 100) if bids and asks else 0,
+                "best_bid": best_bid,
+                "best_ask": best_ask,
+                "spread": spread,
+                "spread_pct": (spread / best_bid * 100) if best_bid > 0 else None,
                 "bids": bids,
                 "asks": asks,
-                "source": "binance"
+                "source": "binance",
             }
 
         except requests.exceptions.RequestException as e:
@@ -352,18 +434,12 @@ class BinanceFetcher:
             response.raise_for_status()
             klines = response.json()
 
-            # Parse to useful format
+            # Isolate bad bars (tradermonty #830); never invent float(True)→$1.
             candles = []
             for k in klines:
-                candles.append({
-                    "open_time": k[0],
-                    "open": float(k[1]),
-                    "high": float(k[2]),
-                    "low": float(k[3]),
-                    "close": float(k[4]),
-                    "volume": float(k[5]),
-                    "close_time": k[6]
-                })
+                candle = _parse_kline_candle(k)
+                if candle is not None:
+                    candles.append(candle)
 
             return candles
 
@@ -443,8 +519,8 @@ class BinanceFetcher:
             response.raise_for_status()
             data = response.json()
 
-            bids = [[float(price), float(qty)] for price, qty in data["bids"][:10]]
-            asks = [[float(price), float(qty)] for price, qty in data["asks"][:10]]
+            bids = _parse_orderbook_side(data.get("bids"), take=10)
+            asks = _parse_orderbook_side(data.get("asks"), take=10)
 
             if not bids or not asks:
                 return None
@@ -569,22 +645,12 @@ class BinanceFetcher:
             response.raise_for_status()
             klines = response.json()
 
-            # Parse to extended format with all available data
+            # Isolate bad bars; refuse bool OHLC / int(True) trade counts.
             candles = []
             for k in klines:
-                candles.append({
-                    "open_time": k[0],
-                    "open": float(k[1]),
-                    "high": float(k[2]),
-                    "low": float(k[3]),
-                    "close": float(k[4]),
-                    "volume": float(k[5]),  # Base asset volume
-                    "close_time": k[6],
-                    "quote_volume": float(k[7]),  # Quote asset volume (USDT)
-                    "num_trades": int(k[8]),  # Number of trades
-                    "taker_buy_base_volume": float(k[9]),  # Taker buy base volume
-                    "taker_buy_quote_volume": float(k[10]),  # Taker buy quote volume
-                })
+                candle = _parse_extended_kline_candle(k)
+                if candle is not None:
+                    candles.append(candle)
 
             return candles
 
