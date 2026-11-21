@@ -6,7 +6,7 @@ from typing import Dict, Optional, List
 import requests
 
 from .secret_redact import safe_exc_text
-from .technical_indicators import coerce_nonneg_int
+from .technical_indicators import _finite_signed, coerce_nonneg_int
 
 
 BINANCE_LIMIT_MAX = 1000
@@ -16,6 +16,8 @@ DEFAULT_KLINES_EXTENDED_LIMIT = 100
 DEFAULT_RECENT_TRADES_LIMIT = 100
 DEFAULT_AGG_TRADES_LIMIT = 500
 DEFAULT_ORDERBOOK_LIMIT = 10
+DEFAULT_MIN_VOLUME_USDT = 10_000_000.0
+DEFAULT_TRENDING_TOP_N = 20
 
 
 def _coerce_binance_limit(
@@ -31,6 +33,23 @@ def _coerce_binance_limit(
     if n is None or n < 1:
         n = int(default)
     return min(n, int(ceiling))
+
+
+def _coerce_binance_min_volume(
+    value: object, default: float = DEFAULT_MIN_VOLUME_USDT
+) -> float:
+    """Positive USDT volume floor, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)→1`` /
+    ``False→0`` must not invent a $1 (or cleared) liquidity floor that lets
+    junk pairs look liquid after strip limits already refused thin packaging.
+    """
+    if value is None or not _finite_signed(value):
+        return float(default)
+    n = float(value)  # type: ignore[arg-type]
+    if n <= 0:
+        return float(default)
+    return n
 
 
 class BinanceFetcher:
@@ -169,7 +188,9 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to fetch multiple prices: {safe_exc_text(e)}")
             return {}
 
-    def get_all_tickers(self, min_volume_usdt: float = 10000000) -> Dict[str, Dict]:
+    def get_all_tickers(
+        self, min_volume_usdt: float = DEFAULT_MIN_VOLUME_USDT
+    ) -> Dict[str, Dict]:
         """
         Get ALL trading pairs on Binance (discover new movers beyond our watchlist).
 
@@ -179,6 +200,9 @@ class BinanceFetcher:
         Returns:
             Dict of symbol -> price data, sorted by 24h % change descending
         """
+        min_volume_usdt = _coerce_binance_min_volume(
+            min_volume_usdt, DEFAULT_MIN_VOLUME_USDT
+        )
         try:
             ticker_url = f"{self.base_url}/ticker/24hr"
 
@@ -661,7 +685,11 @@ class BinanceFetcher:
             print(f"[ERROR] Failed to analyze buy/sell pressure for {symbol}: {safe_exc_text(e)}")
             return None
 
-    def get_trending_coins(self, min_volume_usdt: float = 10000000, top_n: int = 20) -> List[Dict]:
+    def get_trending_coins(
+        self,
+        min_volume_usdt: float = DEFAULT_MIN_VOLUME_USDT,
+        top_n: int = DEFAULT_TRENDING_TOP_N,
+    ) -> List[Dict]:
         """
         Get trending/most active coins based on multiple factors.
         
@@ -683,6 +711,10 @@ class BinanceFetcher:
             - change_24h: Price change %
             - current_price: Current price
         """
+        min_volume_usdt = _coerce_binance_min_volume(
+            min_volume_usdt, DEFAULT_MIN_VOLUME_USDT
+        )
+        top_n = _coerce_binance_limit(top_n, DEFAULT_TRENDING_TOP_N)
         try:
             ticker_url = f"{self.base_url}/ticker/24hr"
             
