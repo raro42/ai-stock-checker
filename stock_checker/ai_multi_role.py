@@ -10,7 +10,13 @@ import os
 import re
 from typing import Any
 
-from stock_checker.technical_indicators import coerce_score, daily_pct_change
+from stock_checker.technical_indicators import (
+    _finite_signed,
+    _valid_close,
+    _valid_volume,
+    coerce_score,
+    daily_pct_change,
+)
 
 
 def multi_role_enabled() -> bool:
@@ -27,7 +33,14 @@ def build_multi_role_prompt(stock_data: dict) -> str:
     pe = stock_data.get("pe_ratio")
     volume = stock_data.get("volume")
 
-    # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→1.0)
+    # Missing/bool/gap marks → n/a (never invent flat +0.00 / True→$1 / True P/E).
+    # Daily% already refused; raw Price/Prev/52w/PE/Volume lines were still open
+    # (stock AI + LAYA money bits shipped; FinRobot multi-role debate prompt lagged).
+    def _money_bit(raw: object) -> str:
+        if not _valid_close(raw):
+            return "n/a"
+        return f"{float(raw):,.2f}"
+
     daily = daily_pct_change(price, prev)
     daily_bit = f"{daily:+.2f}" if daily is not None else "n/a"
 
@@ -39,13 +52,13 @@ def build_multi_role_prompt(stock_data: dict) -> str:
         "3) RISK — set ok=false if earnings risk, illiquidity, or chase risk",
         "",
         f"Name: {name} ({symbol})",
-        f"Price: {price}  PrevClose: {prev}  Daily%: {daily_bit}",
-        f"52w High/Low: {hi} / {lo}",
+        f"Price: {_money_bit(price)}  PrevClose: {_money_bit(prev)}  Daily%: {daily_bit}",
+        f"52w High/Low: {_money_bit(hi)} / {_money_bit(lo)}",
     ]
-    if pe is not None:
-        lines.append(f"P/E: {pe}")
-    if volume is not None:
-        lines.append(f"Volume: {volume}")
+    if _finite_signed(pe):
+        lines.append(f"P/E: {float(pe):.2f}")
+    if _valid_volume(volume):
+        lines.append(f"Volume: {float(volume):,.0f}")
     lines.extend(
         [
             "",

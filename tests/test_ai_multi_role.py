@@ -77,9 +77,23 @@ def test_parse_multi_role_json():
 
 def test_multi_role_prompt_daily_pct_healthy():
     text = build_multi_role_prompt(
-        {"symbol": "AAPL", "name": "Apple", "current_price": 110, "previous_close": 100}
+        {
+            "symbol": "AAPL",
+            "name": "Apple",
+            "current_price": 110,
+            "previous_close": 100,
+            "52_week_high": 120,
+            "52_week_low": 90,
+            "pe_ratio": 25.5,
+            "volume": 1_500_000,
+        }
     )
     assert "Daily%: +10.00" in text
+    assert "Price: 110.00" in text
+    assert "PrevClose: 100.00" in text
+    assert "52w High/Low: 120.00 / 90.00" in text
+    assert "P/E: 25.50" in text
+    assert "Volume: 1,500,000" in text
 
 
 def test_multi_role_prompt_daily_pct_unavailable_on_bool_or_missing():
@@ -93,3 +107,25 @@ def test_multi_role_prompt_daily_pct_unavailable_on_bool_or_missing():
         text = build_multi_role_prompt(data)
         assert "Daily%: n/a" in text
         assert "Daily%: +0.00" not in text
+
+
+def test_multi_role_prompt_money_pe_volume_refuse_bool():
+    """tradermonty #700/#655 + FinRobot: raw Price/PE/Volume must not print True→$1."""
+    text = build_multi_role_prompt(
+        {
+            "symbol": "X",
+            "current_price": True,
+            "previous_close": False,
+            "52_week_high": True,
+            "52_week_low": False,
+            "pe_ratio": True,
+            "volume": False,
+        }
+    )
+    assert "Price: n/a" in text
+    assert "PrevClose: n/a" in text
+    assert "52w High/Low: n/a / n/a" in text
+    assert "P/E:" not in text
+    assert "Volume:" not in text
+    assert "Price: True" not in text
+    assert "P/E: True" not in text
