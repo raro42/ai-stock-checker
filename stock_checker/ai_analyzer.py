@@ -10,6 +10,7 @@ import urllib.request
 from typing import Optional
 
 from stock_checker.secret_redact import redact_secrets, safe_exc_text
+from stock_checker.technical_indicators import _finite_signed, _valid_close
 
 
 def _env_truthy(name: str, default: str = "0") -> bool:
@@ -17,19 +18,35 @@ def _env_truthy(name: str, default: str = "0") -> bool:
 
 
 def _generic_stock_prompt(stock_data: dict) -> str:
+    """Friend CLI / cloud analyzer prompt — refuse bool money bits.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: raw ``$True`` / ``True`` P/E
+    must not invent $1 marks after stock AI / LAYA / multi-role money bits already
+    refuse; this generic dump was still open.
+    """
     symbol = stock_data.get("symbol", "Unknown")
     name = stock_data.get("name", "Unknown")
-    price = stock_data.get("current_price", "N/A")
-    prev_close = stock_data.get("previous_close", "N/A")
-    market_cap = stock_data.get("market_cap", "N/A")
-    pe_ratio = stock_data.get("pe_ratio", "N/A")
+    price = stock_data.get("current_price")
+    prev_close = stock_data.get("previous_close")
+    market_cap = stock_data.get("market_cap")
+    pe_ratio = stock_data.get("pe_ratio")
+
+    def _money_bit(raw: object) -> str:
+        if not _valid_close(raw):
+            return "n/a"
+        return f"${float(raw):,.2f}"
+
+    pe_bit = f"{float(pe_ratio):.2f}" if _finite_signed(pe_ratio) else "n/a"
+    # Market cap is dollars (positive); bool/gap → n/a (never $True / $1).
+    cap_bit = _money_bit(market_cap)
+
     return f"""Analyze the following stock information and provide insights:
 
 Stock: {name} ({symbol})
-Current Price: ${price}
-Previous Close: ${prev_close}
-Market Cap: ${market_cap}
-P/E Ratio: {pe_ratio}
+Current Price: {_money_bit(price)}
+Previous Close: {_money_bit(prev_close)}
+Market Cap: {cap_bit}
+P/E Ratio: {pe_bit}
 
 Please provide:
 1. Brief assessment of current valuation

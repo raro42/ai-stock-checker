@@ -8,6 +8,45 @@ import json
 from stock_checker import ai_analyzer as aa
 
 
+def test_generic_stock_prompt_money_healthy():
+    text = aa._generic_stock_prompt(
+        {
+            "symbol": "AAPL",
+            "name": "Apple",
+            "current_price": 110.5,
+            "previous_close": 100.0,
+            "market_cap": 2_500_000_000_000,
+            "pe_ratio": 25.5,
+        }
+    )
+    assert "Current Price: $110.50" in text
+    assert "Previous Close: $100.00" in text
+    assert "Market Cap: $2,500,000,000,000.00" in text
+    assert "P/E Ratio: 25.50" in text
+
+
+def test_generic_stock_prompt_money_refuse_bool():
+    """tradermonty #700/#655: True must not invent $1 / P/E 1.00 in CLI analyzer."""
+    text = aa._generic_stock_prompt(
+        {
+            "symbol": "X",
+            "name": "X",
+            "current_price": True,
+            "previous_close": False,
+            "market_cap": True,
+            "pe_ratio": True,
+        }
+    )
+    assert "Current Price: n/a" in text
+    assert "Previous Close: n/a" in text
+    assert "Market Cap: n/a" in text
+    assert "P/E Ratio: n/a" in text
+    assert "$True" not in text
+    assert "P/E Ratio: True" not in text
+    assert "P/E Ratio: 1.00" not in text
+    assert "Current Price: $1" not in text
+
+
 def test_resolve_backend_explicit(monkeypatch):
     monkeypatch.setenv("LLM_BACKEND", "openai")
     assert aa.resolve_llm_backend() == "openai"
