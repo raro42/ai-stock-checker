@@ -17,7 +17,11 @@ from stock_checker.portfolio import Portfolio
 from stock_checker.persistence import DataPersistence
 from stock_checker import __version__
 from stock_checker.secret_redact import safe_exc_text
-from stock_checker.technical_indicators import _finite_signed, coerce_nonneg_int
+from stock_checker.technical_indicators import (
+    _finite_signed,
+    _valid_close,
+    coerce_nonneg_int,
+)
 
 DEFAULT_CHECK_INTERVAL_SEC = 300
 DEFAULT_POSITION_SIZE_PCT = 0.15
@@ -25,6 +29,10 @@ DEFAULT_MIN_POSITION_SIZE = 0.03
 DEFAULT_MAX_POSITION_SIZE = 0.25
 DEFAULT_MAX_DRAWDOWN = 0.15
 DEFAULT_MAX_SECTOR_EXPOSURE = 0.40
+DEFAULT_AUTO_PROFIT_TARGET_PCT = 4.0
+DEFAULT_AUTO_STOP_LOSS_PCT = 6.0
+DEFAULT_CRYPTO_PROFIT_TARGET_PCT = 5.0
+DEFAULT_CRYPTO_STOP_LOSS_PCT = 8.0
 
 
 def _coerce_paper_interval(
@@ -39,6 +47,26 @@ def _coerce_paper_interval(
     if n is None or n <= 0:
         return int(default)
     return n
+
+
+def _paper_vol_adjustment_pct(volatility: object) -> float:
+    """Legacy auto TP/SL vol bump in percentage points, or 0 when bool/gap.
+
+    ``float(True)→1.0`` must not invent +150pp targets (``vol×100×1.5``) after
+    dynamic-size vol refuse already covered the sizer path.
+    """
+    if not _finite_signed(volatility):
+        return 0.0
+    return float(volatility) * 100.0 * 1.5  # type: ignore[arg-type]
+
+
+def _paper_auto_exit_bands(volatility: object = None) -> tuple[float, float]:
+    """Stock auto TP/SL % bands; refuse bool vol invent."""
+    adj = _paper_vol_adjustment_pct(volatility)
+    return (
+        DEFAULT_AUTO_PROFIT_TARGET_PCT + adj,
+        DEFAULT_AUTO_STOP_LOSS_PCT + adj,
+    )
 
 
 def _coerce_paper_frac(value: object, default: float) -> float:
@@ -405,28 +433,17 @@ class PaperTrader:
             # Check for profit-taking or stop-loss on existing positions
             if symbol in self.portfolio.holdings:
                 avg_buy = self.portfolio.avg_buy_price.get(symbol)
-                if avg_buy is None or price is None:
+                # Refuse bool/gap marks — float(True)→€1 invents a fake exit P&L.
+                if not _valid_close(avg_buy) or not _valid_close(price):
                     return
-                try:
-                    profit_pct = ((float(price) - float(avg_buy)) / float(avg_buy)) * 100
-                except (TypeError, ValueError, ZeroDivisionError):
-                    return
+                profit_pct = (
+                    (float(price) - float(avg_buy)) / float(avg_buy)
+                ) * 100
 
-                # Dynamic profit targets based on volatility
-                volatility = data.get("volatility_30d")
-                base_target = 4.0  # Increased from 3%
-                vol_adjustment = 0.0
-                if volatility is not None:
-                    try:
-                        volatility = float(volatility)
-                        vol_adjustment = volatility * 100 * 1.5
-                    except (TypeError, ValueError):
-                        vol_adjustment = 0.0
-                profit_target = base_target + vol_adjustment
-
-                # Dynamic stop loss based on volatility
-                base_stop = 6.0  # Increased from 5%
-                stop_loss = base_stop + vol_adjustment
+                # Dynamic TP/SL from vol — refuse bool (True→+150pp invent).
+                profit_target, stop_loss = _paper_auto_exit_bands(
+                    data.get("volatility_30d")
+                )
 
                 if profit_pct >= profit_target:
                     quantity = self.portfolio.holdings[symbol]
@@ -495,16 +512,16 @@ class PaperTrader:
             # Enhanced profit-taking for crypto
             if "BTC-USD" in self.portfolio.holdings:
                 avg_buy = self.portfolio.avg_buy_price.get("BTC-USD")
-                if avg_buy is None or price is None:
+                # Refuse bool/gap marks — float(True)→€1 invents a fake exit P&L.
+                if not _valid_close(avg_buy) or not _valid_close(price):
                     return
-                try:
-                    profit_pct = ((float(price) - float(avg_buy)) / float(avg_buy)) * 100
-                except (TypeError, ValueError, ZeroDivisionError):
-                    return
+                profit_pct = (
+                    (float(price) - float(avg_buy)) / float(avg_buy)
+                ) * 100
 
-                # Crypto-specific targets (higher due to volatility)
-                profit_target = 5.0  # 5% for crypto
-                stop_loss = 8.0      # 8% stop for crypto
+                # Crypto-specific targets (fixed; stock path owns vol bump)
+                profit_target = DEFAULT_CRYPTO_PROFIT_TARGET_PCT
+                stop_loss = DEFAULT_CRYPTO_STOP_LOSS_PCT
 
                 if profit_pct >= profit_target:
                     quantity = self.portfolio.holdings["BTC-USD"]

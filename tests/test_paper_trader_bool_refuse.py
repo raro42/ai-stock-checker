@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from stock_checker.paper_trader import (
+    DEFAULT_AUTO_PROFIT_TARGET_PCT,
+    DEFAULT_AUTO_STOP_LOSS_PCT,
     DEFAULT_CHECK_INTERVAL_SEC,
     DEFAULT_POSITION_SIZE_PCT,
     PaperTrader,
     _coerce_paper_frac,
     _coerce_paper_interval,
     _coerce_paper_iteration,
+    _paper_auto_exit_bands,
+    _paper_vol_adjustment_pct,
 )
 
 
@@ -64,3 +68,24 @@ def test_dynamic_size_refuses_bool_volatility(tmp_path) -> None:
     # Real high vol still shrinks
     hot = t.calculate_dynamic_position_size("AAPL", rec, {"volatility_30d": 0.10})
     assert hot < t.base_position_size
+
+
+def test_paper_vol_adjustment_refuses_bool() -> None:
+    # True→1.0 would invent +150pp (1.0×100×1.5) on auto TP/SL
+    assert _paper_vol_adjustment_pct(True) == 0.0
+    assert _paper_vol_adjustment_pct(False) == 0.0
+    assert _paper_vol_adjustment_pct(None) == 0.0
+    assert _paper_vol_adjustment_pct("0.05") == 0.0
+    assert _paper_vol_adjustment_pct(0.05) == 7.5
+
+
+def test_paper_auto_exit_bands_refuse_bool_vol() -> None:
+    tp, sl = _paper_auto_exit_bands(True)
+    assert tp == DEFAULT_AUTO_PROFIT_TARGET_PCT
+    assert sl == DEFAULT_AUTO_STOP_LOSS_PCT
+    tp2, sl2 = _paper_auto_exit_bands(0.05)
+    assert tp2 == DEFAULT_AUTO_PROFIT_TARGET_PCT + 7.5
+    assert sl2 == DEFAULT_AUTO_STOP_LOSS_PCT + 7.5
+    tp3, sl3 = _paper_auto_exit_bands(None)
+    assert tp3 == DEFAULT_AUTO_PROFIT_TARGET_PCT
+    assert sl3 == DEFAULT_AUTO_STOP_LOSS_PCT
