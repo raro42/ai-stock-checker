@@ -1,10 +1,29 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import yfinance as yf
 from typing import List, Dict
 from datetime import datetime
 
 from stock_checker.secret_redact import safe_exc_text
+from stock_checker.technical_indicators import coerce_nonneg_int
+
+
+DEFAULT_TOP_MOVERS_LIMIT = 10
+
+
+def _coerce_movers_limit(value: object, default: int = DEFAULT_TOP_MOVERS_LIMIT) -> int:
+    """Positive movers strip length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``[:True]→1-row`` must not invent a one-name CLI/monitor movers strip after
+    CMC/Binance strip knobs already refused thin packaging.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
 
 
 class MarketAnalyzer:
@@ -35,7 +54,9 @@ class MarketAnalyzer:
         ]
         return major_sp500
 
-    def get_top_movers(self, period: str = "1d", limit: int = 10) -> List[Dict]:
+    def get_top_movers(
+        self, period: str = "1d", limit: object = DEFAULT_TOP_MOVERS_LIMIT
+    ) -> List[Dict]:
         """
         Get top gaining and losing stocks from S&P 500.
 
@@ -46,6 +67,7 @@ class MarketAnalyzer:
         Returns:
             List of dicts with stock info and price changes
         """
+        limit = _coerce_movers_limit(limit, DEFAULT_TOP_MOVERS_LIMIT)
         symbols = self.get_sp500_components()
         movers = []
 
