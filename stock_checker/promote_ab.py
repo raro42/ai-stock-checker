@@ -7374,8 +7374,9 @@ def window_a_close_sleeve_mix(
     Δ lead size moods + portfolio AI count≠share + xang1234). Side-by-side
     magnitudes + Δ lead polarity alone hid 3× vs 2× while leads still
     match. Dual fat (≥2×) + clash warn; equal thin calm. Missing either
-    size silent. Prefixed ``closes Δ size moods`` so ``closes Δ size`` +
-    ``closes Δ moods`` stay distinct.
+    size silent. Refuse bool via ``soft_allow_size_moods`` —
+    ``float(True)→1×`` cannot invent lean. Prefixed ``closes Δ size moods``
+    so ``closes Δ size`` + ``closes Δ moods`` stay distinct.
 
     When both fill and close lean/Δ already spoke with align severities,
     also speak ``closes Δ moods align · both wide|thin`` /
@@ -7628,29 +7629,22 @@ def window_a_close_sleeve_mix(
             lead_vs_fills_warn = True
     # Fill vs close Δ lead size moods (after lead vs fills) — matching
     # lead polarity alone hid 3× vs 2× (soft-allow short Δ lead size moods).
-    delta_lead_size_moods = ""
-    delta_lead_size_moods_warn = False
-    if delta_size is not None and fill_delta_lead_size is not None:
-        try:
-            close_sz = float(delta_size)
-            fill_sz = float(fill_delta_lead_size)
-        except (TypeError, ValueError):
-            close_sz = fill_sz = float("nan")
-        if close_sz == close_sz and fill_sz == fill_sz:  # not NaN
-            close_s = f"{close_sz:g}"
-            fill_s = f"{fill_sz:g}"
-            if abs(close_sz - fill_sz) < 1e-9:
-                delta_lead_size_moods = (
-                    f"closes Δ size moods align · both {close_s}×"
-                )
-                # Dual fat agreement ≠ calm confirm (short Δ size moods).
-                delta_lead_size_moods_warn = close_sz >= 2.0
-            else:
-                delta_lead_size_moods = (
-                    f"closes Δ size moods clash · fills {fill_s}×"
-                    f" · closes {close_s}×"
-                )
-                delta_lead_size_moods_warn = True
+    # Refuse bool via soft_allow_size_moods — float(True)→1× cannot invent
+    # lean (Screener / soft-allow / Charts / Mode A parity).
+    from stock_checker.gate_audit import soft_allow_size_moods
+
+    mood, mood_warn = soft_allow_size_moods(
+        fill_delta_lead_size,
+        delta_size,
+        left_label="fills",
+        right_label="closes",
+    )
+    if mood:
+        delta_lead_size_moods = f"closes Δ size moods {mood}"
+        delta_lead_size_moods_warn = mood_warn
+    else:
+        delta_lead_size_moods = ""
+        delta_lead_size_moods_warn = False
     # Ownership-spread mood vs fills (after Δ lead size moods) — lean/Δ
     # labels + lead agree alone hid wide|thin mismatch (soft-allow short
     # Δ moods parity).

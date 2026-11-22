@@ -693,6 +693,27 @@ def test_window_a_close_sleeve_vs_fills() -> None:
     )
     assert no_fill_size["delta_lead_size_moods_bit"] == ""
     assert no_fill_size["delta_lead_size_moods_warn"] is False
+    # float(True)→1× / float(False)→0× must stay silent (soft-allow size moods).
+    bool_fill_size = window_a_close_sleeve_mix(
+        {"crypto_closes": 4, "stock_closes": 1},
+        fill_severity="crypto_heavy",
+        fill_delta_lead="crypto",
+        fill_delta_lead_size=True,
+        fill_lean_vs_delta="align · wide",
+        fill_crypto_vs_stock="align · hot|thin",
+    )
+    assert bool_fill_size["delta_lead_size_moods_bit"] == ""
+    assert bool_fill_size["delta_lead_size_moods_warn"] is False
+    bool_false_size = window_a_close_sleeve_mix(
+        {"crypto_closes": 4, "stock_closes": 1},
+        fill_severity="crypto_heavy",
+        fill_delta_lead="crypto",
+        fill_delta_lead_size=False,
+        fill_lean_vs_delta="align · wide",
+        fill_crypto_vs_stock="align · hot|thin",
+    )
+    assert bool_false_size["delta_lead_size_moods_bit"] == ""
+    assert bool_false_size["delta_lead_size_moods_warn"] is False
     stock_heavy = window_a_close_sleeve_mix(
         {"crypto_closes": 1, "stock_closes": 4},
         fill_severity="stock_heavy",
