@@ -34531,12 +34531,9 @@ def postmortem_unmatched_vs_matched_delta(
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if unmatched_share_pct is None or matched_share_pct is None:
-        return None, "", "", False
-    try:
-        um = float(unmatched_share_pct)
-        mt = float(matched_share_pct)
-    except (TypeError, ValueError):
+    um = _sample_share(unmatched_share_pct)
+    mt = _sample_share(matched_share_pct)
+    if um is None or mt is None:
         return None, "", "", False
     raw = int(round(um - mt))
     abs_delta = abs(raw)
@@ -34573,13 +34570,8 @@ def postmortem_unmatched_vs_matched_delta_lead(
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _sample_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "unmatched" if pp > 0 else "matched"
 
@@ -34604,12 +34596,9 @@ def postmortem_unmatched_vs_matched_delta_lead_size(
         "matched",
     }:
         return None, None, None
-    if unmatched_share_pct is None or matched_share_pct is None:
-        return None, None, None
-    try:
-        um = float(unmatched_share_pct)
-        mt = float(matched_share_pct)
-    except (TypeError, ValueError):
+    um = _sample_share(unmatched_share_pct)
+    mt = _sample_share(matched_share_pct)
+    if um is None or mt is None:
         return None, None, None
     louder = max(um, mt)
     quieter = min(um, mt)

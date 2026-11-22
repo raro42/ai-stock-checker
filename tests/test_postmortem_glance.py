@@ -880,6 +880,31 @@ def test_postmortem_unmatched_vs_matched_delta_helpers() -> None:
         )
         == ""
     )
+    # tradermonty #700/#655: True→1pp / 1× must not invent unmatched/matched Δ.
+    assert postmortem_unmatched_vs_matched_delta(True, 75, lean_bit=lean) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert postmortem_unmatched_vs_matched_delta(25, False, lean_bit=lean) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert (
+        postmortem_unmatched_vs_matched_delta_lead(
+            True, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
+    )
+    assert postmortem_unmatched_vs_matched_delta_lead_size(
+        True, 75, delta_lead="matched"
+    ) == (None, None, None)
+    assert postmortem_unmatched_vs_matched_delta_lead_size(
+        25, False, delta_lead="matched"
+    ) == (None, None, None)
 
 
 def test_postmortem_unmatched_lean_meta() -> None:
