@@ -102,5 +102,14 @@ def test_fill_signed_refuses_bool_exit_euro_ratios() -> None:
     assert _fill_signed(float("nan")) is None
 
 
+def test_fill_signed_refuses_bool_window_a_edge_and_laya() -> None:
+    """Window A edge/LAYA/postmortem: float(True) must not invent 1.0× / +1% / edge."""
+    # try/except float(True) succeeds — claim honesty needs _fill_signed.
+    assert float(True) == 1.0
+    assert _fill_signed(True) is None
+    assert _fill_signed(1.75) == 1.75
+    assert _fill_signed(-3.2) == -3.2
+
+
 def test_recent_fills_limit_is_twenty() -> None:
     assert RECENT_FILLS_LIMIT == 20

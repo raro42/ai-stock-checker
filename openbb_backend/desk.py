@@ -9297,13 +9297,7 @@ def build_calm_streak_glance(
                     window_a_closes_payoff_thin = bool(
                         sample.get("closes_payoff_thin")
                     )
-                    try:
-                        pr = sample.get("closes_payoff_ratio")
-                        window_a_closes_payoff_ratio = (
-                            float(pr) if pr is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_payoff_ratio = None
+                    window_a_closes_payoff_ratio = _fill_signed(sample.get("closes_payoff_ratio"))
                     if window_a_sample_status == "sample ready":
                         status = status.replace(
                             " · sample ready", "", 1
@@ -9333,20 +9327,8 @@ def build_calm_streak_glance(
                     window_a_closes_expectancy_thin = bool(
                         sample.get("closes_expectancy_thin")
                     )
-                    try:
-                        ev = sample.get("closes_expectancy")
-                        window_a_closes_expectancy = (
-                            float(ev) if ev is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_expectancy = None
-                    try:
-                        er = sample.get("closes_expectancy_ratio")
-                        window_a_closes_expectancy_ratio = (
-                            float(er) if er is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_expectancy_ratio = None
+                    window_a_closes_expectancy = _fill_signed(sample.get("closes_expectancy"))
+                    window_a_closes_expectancy_ratio = _fill_signed(sample.get("closes_expectancy_ratio"))
                     if window_a_closes_payoff_bit:
                         status = status.replace(
                             f" · {window_a_closes_payoff_bit}", "", 1
@@ -9384,13 +9366,7 @@ def build_calm_streak_glance(
                     window_a_closes_profit_factor_thin = bool(
                         sample.get("closes_profit_factor_thin")
                     )
-                    try:
-                        pf = sample.get("closes_profit_factor")
-                        window_a_closes_profit_factor = (
-                            float(pf) if pf is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_profit_factor = None
+                    window_a_closes_profit_factor = _fill_signed(sample.get("closes_profit_factor"))
                     if window_a_closes_expectancy_bit:
                         status = status.replace(
                             f" · {window_a_closes_expectancy_bit}", "", 1
@@ -9430,13 +9406,7 @@ def build_calm_streak_glance(
                     window_a_closes_win_rate_thin = bool(
                         sample.get("closes_win_rate_thin")
                     )
-                    try:
-                        wr = sample.get("closes_win_rate_pct")
-                        window_a_closes_win_rate_pct = (
-                            float(wr) if wr is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_rate_pct = None
+                    window_a_closes_win_rate_pct = _fill_signed(sample.get("closes_win_rate_pct"))
                     if window_a_closes_profit_factor_bit:
                         status = status.replace(
                             f" · {window_a_closes_profit_factor_bit}", "", 1
@@ -9486,20 +9456,8 @@ def build_calm_streak_glance(
                     window_a_closes_wr_below_be = bool(
                         sample.get("closes_wr_below_be")
                     ) or window_a_closes_wr_vs_be == "below"
-                    try:
-                        be = sample.get("closes_breakeven_wr_pct")
-                        window_a_closes_breakeven_wr_pct = (
-                            float(be) if be is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_breakeven_wr_pct = None
-                    try:
-                        edge = sample.get("closes_wr_edge_pp")
-                        window_a_closes_wr_edge_pp = (
-                            float(edge) if edge is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_wr_edge_pp = None
+                    window_a_closes_breakeven_wr_pct = _fill_signed(sample.get("closes_breakeven_wr_pct"))
+                    window_a_closes_wr_edge_pp = _fill_signed(sample.get("closes_wr_edge_pp"))
                     if window_a_closes_win_rate_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_rate_bit}", "", 1
@@ -9559,20 +9517,8 @@ def build_calm_streak_glance(
                     window_a_closes_net_expectancy_eats_edge = bool(
                         sample.get("closes_net_expectancy_eats_edge")
                     )
-                    try:
-                        nev = sample.get("closes_net_expectancy")
-                        window_a_closes_net_expectancy = (
-                            float(nev) if nev is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_net_expectancy = None
-                    try:
-                        ner = sample.get("closes_net_expectancy_ratio")
-                        window_a_closes_net_expectancy_ratio = (
-                            float(ner) if ner is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_net_expectancy_ratio = None
+                    window_a_closes_net_expectancy = _fill_signed(sample.get("closes_net_expectancy"))
+                    window_a_closes_net_expectancy_ratio = _fill_signed(sample.get("closes_net_expectancy_ratio"))
                     if window_a_closes_wr_vs_be_bit:
                         status = status.replace(
                             f" · {window_a_closes_wr_vs_be_bit}", "", 1
@@ -9639,20 +9585,8 @@ def build_calm_streak_glance(
                     window_a_closes_fee_take_thin = bool(
                         sample.get("closes_fee_take_thin")
                     )
-                    try:
-                        ft = sample.get("closes_fee_take")
-                        window_a_closes_fee_take = (
-                            float(ft) if ft is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_fee_take = None
-                    try:
-                        ftr = sample.get("closes_fee_take_ratio")
-                        window_a_closes_fee_take_ratio = (
-                            float(ftr) if ftr is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_fee_take_ratio = None
+                    window_a_closes_fee_take = _fill_signed(sample.get("closes_fee_take"))
+                    window_a_closes_fee_take_ratio = _fill_signed(sample.get("closes_fee_take_ratio"))
                     if window_a_closes_net_expectancy_bit:
                         status = status.replace(
                             f" · {window_a_closes_net_expectancy_bit}",
@@ -9726,13 +9660,7 @@ def build_calm_streak_glance(
                     window_a_closes_net_profit_factor_eats_edge = bool(
                         sample.get("closes_net_profit_factor_eats_edge")
                     )
-                    try:
-                        npf = sample.get("closes_net_profit_factor")
-                        window_a_closes_net_profit_factor = (
-                            float(npf) if npf is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_net_profit_factor = None
+                    window_a_closes_net_profit_factor = _fill_signed(sample.get("closes_net_profit_factor"))
                     if window_a_closes_fee_take_bit:
                         status = status.replace(
                             f" · {window_a_closes_fee_take_bit}", "", 1
@@ -9806,13 +9734,7 @@ def build_calm_streak_glance(
                     window_a_closes_net_vs_fee_thin = bool(
                         sample.get("closes_net_vs_fee_thin")
                     )
-                    try:
-                        nvf = sample.get("closes_net_vs_fee")
-                        window_a_closes_net_vs_fee = (
-                            float(nvf) if nvf is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_net_vs_fee = None
+                    window_a_closes_net_vs_fee = _fill_signed(sample.get("closes_net_vs_fee"))
                     if window_a_closes_net_profit_factor_bit:
                         status = status.replace(
                             f" · {window_a_closes_net_profit_factor_bit}",
@@ -9895,13 +9817,7 @@ def build_calm_streak_glance(
                     window_a_closes_kelly_neg = bool(
                         sample.get("closes_kelly_neg")
                     )
-                    try:
-                        kpct = sample.get("closes_kelly_pct")
-                        window_a_closes_kelly_pct = (
-                            float(kpct) if kpct is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_kelly_pct = None
+                    window_a_closes_kelly_pct = _fill_signed(sample.get("closes_kelly_pct"))
                     if window_a_closes_net_vs_fee_bit:
                         status = status.replace(
                             f" · {window_a_closes_net_vs_fee_bit}",
@@ -9989,20 +9905,8 @@ def build_calm_streak_glance(
                     window_a_closes_half_kelly_under = bool(
                         sample.get("closes_half_kelly_under")
                     )
-                    try:
-                        hp = sample.get("closes_half_kelly_pct")
-                        window_a_closes_half_kelly_pct = (
-                            float(hp) if hp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_half_kelly_pct = None
-                    try:
-                        sp = sample.get("closes_half_kelly_sizer_pct")
-                        window_a_closes_half_kelly_sizer_pct = (
-                            float(sp) if sp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_half_kelly_sizer_pct = None
+                    window_a_closes_half_kelly_pct = _fill_signed(sample.get("closes_half_kelly_pct"))
+                    window_a_closes_half_kelly_sizer_pct = _fill_signed(sample.get("closes_half_kelly_sizer_pct"))
                     if window_a_closes_kelly_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_bit}", "", 1
@@ -10090,13 +9994,7 @@ def build_calm_streak_glance(
                     window_a_closes_half_kelly_slot_under = bool(
                         sample.get("closes_half_kelly_slot_under")
                     )
-                    try:
-                        slp = sample.get("closes_half_kelly_slot_pct")
-                        window_a_closes_half_kelly_slot_pct = (
-                            float(slp) if slp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_half_kelly_slot_pct = None
+                    window_a_closes_half_kelly_slot_pct = _fill_signed(sample.get("closes_half_kelly_slot_pct"))
                     if window_a_closes_half_kelly_bit:
                         status = status.replace(
                             f" · {window_a_closes_half_kelly_bit}", "", 1
@@ -10188,13 +10086,7 @@ def build_calm_streak_glance(
                     window_a_closes_half_kelly_cap_under = bool(
                         sample.get("closes_half_kelly_cap_under")
                     )
-                    try:
-                        cp = sample.get("closes_half_kelly_cap_pct")
-                        window_a_closes_half_kelly_cap_pct = (
-                            float(cp) if cp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_half_kelly_cap_pct = None
+                    window_a_closes_half_kelly_cap_pct = _fill_signed(sample.get("closes_half_kelly_cap_pct"))
                     if window_a_closes_half_kelly_slot_bit:
                         status = status.replace(
                             f" · {window_a_closes_half_kelly_slot_bit}",
@@ -10294,20 +10186,8 @@ def build_calm_streak_glance(
                     window_a_closes_quarter_kelly_under = bool(
                         sample.get("closes_quarter_kelly_under")
                     )
-                    try:
-                        qp = sample.get("closes_quarter_kelly_pct")
-                        window_a_closes_quarter_kelly_pct = (
-                            float(qp) if qp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_quarter_kelly_pct = None
-                    try:
-                        qsp = sample.get("closes_quarter_kelly_sizer_pct")
-                        window_a_closes_quarter_kelly_sizer_pct = (
-                            float(qsp) if qsp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_quarter_kelly_sizer_pct = None
+                    window_a_closes_quarter_kelly_pct = _fill_signed(sample.get("closes_quarter_kelly_pct"))
+                    window_a_closes_quarter_kelly_sizer_pct = _fill_signed(sample.get("closes_quarter_kelly_sizer_pct"))
                     if window_a_closes_half_kelly_cap_bit:
                         status = status.replace(
                             f" · {window_a_closes_half_kelly_cap_bit}",
@@ -10413,13 +10293,7 @@ def build_calm_streak_glance(
                     window_a_closes_quarter_kelly_slot_under = bool(
                         sample.get("closes_quarter_kelly_slot_under")
                     )
-                    try:
-                        qslp = sample.get("closes_quarter_kelly_slot_pct")
-                        window_a_closes_quarter_kelly_slot_pct = (
-                            float(qslp) if qslp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_quarter_kelly_slot_pct = None
+                    window_a_closes_quarter_kelly_slot_pct = _fill_signed(sample.get("closes_quarter_kelly_slot_pct"))
                     if window_a_closes_quarter_kelly_bit:
                         status = status.replace(
                             f" · {window_a_closes_quarter_kelly_bit}",
@@ -10532,13 +10406,7 @@ def build_calm_streak_glance(
                     window_a_closes_quarter_kelly_cap_under = bool(
                         sample.get("closes_quarter_kelly_cap_under")
                     )
-                    try:
-                        qcp = sample.get("closes_quarter_kelly_cap_pct")
-                        window_a_closes_quarter_kelly_cap_pct = (
-                            float(qcp) if qcp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_quarter_kelly_cap_pct = None
+                    window_a_closes_quarter_kelly_cap_pct = _fill_signed(sample.get("closes_quarter_kelly_cap_pct"))
                     if window_a_closes_quarter_kelly_slot_bit:
                         status = status.replace(
                             f" · {window_a_closes_quarter_kelly_slot_bit}",
@@ -10657,13 +10525,7 @@ def build_calm_streak_glance(
                     window_a_closes_practical_kelly_cut = bool(
                         sample.get("closes_practical_kelly_cut")
                     )
-                    try:
-                        pkp = sample.get("closes_practical_kelly_pct")
-                        window_a_closes_practical_kelly_pct = (
-                            float(pkp) if pkp is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_practical_kelly_pct = None
+                    window_a_closes_practical_kelly_pct = _fill_signed(sample.get("closes_practical_kelly_pct"))
                     if window_a_closes_quarter_kelly_cap_bit:
                         status = status.replace(
                             f" · {window_a_closes_quarter_kelly_cap_bit}",
@@ -10901,13 +10763,7 @@ def build_calm_streak_glance(
                     window_a_closes_per_day_fat = bool(
                         sample.get("closes_per_day_fat")
                     )
-                    try:
-                        cpdn = sample.get("closes_per_day_n")
-                        window_a_closes_per_day_n = (
-                            float(cpdn) if cpdn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_per_day_n = None
+                    window_a_closes_per_day_n = _fill_signed(sample.get("closes_per_day_n"))
                     if window_a_closes_kelly_vs_sessions_bit:
                         status = status.replace(
                             f" · {window_a_closes_kelly_vs_sessions_bit}",
@@ -11911,13 +11767,7 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_mean_hot = bool(
                         sample.get("closes_loss_streak_mean_hot")
                     )
-                    try:
-                        lsm = sample.get("closes_loss_streak_mean")
-                        window_a_closes_loss_streak_mean = (
-                            float(lsm) if lsm is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_mean = None
+                    window_a_closes_loss_streak_mean = _fill_signed(sample.get("closes_loss_streak_mean"))
                     # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
                     window_a_closes_loss_streak_runs = _coerce_window_count(
                         sample.get("closes_loss_streak_runs")
@@ -11980,13 +11830,7 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_mean_hot = bool(
                         sample.get("closes_win_streak_mean_hot")
                     )
-                    try:
-                        wsmn = sample.get("closes_win_streak_mean")
-                        window_a_closes_win_streak_mean = (
-                            float(wsmn) if wsmn is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_mean = None
+                    window_a_closes_win_streak_mean = _fill_signed(sample.get("closes_win_streak_mean"))
                     # tradermonty #700/#655: refuse bool — int(True)→1 invents streak/session.
                     window_a_closes_win_streak_runs = _coerce_window_count(
                         sample.get("closes_win_streak_runs")
@@ -12055,13 +11899,7 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_median_hot = bool(
                         sample.get("closes_loss_streak_median_hot")
                     )
-                    try:
-                        lsmed = sample.get("closes_loss_streak_median")
-                        window_a_closes_loss_streak_median = (
-                            float(lsmed) if lsmed is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_median = None
+                    window_a_closes_loss_streak_median = _fill_signed(sample.get("closes_loss_streak_median"))
                     if window_a_closes_win_streak_mean_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_mean_bit}",
@@ -12132,13 +11970,7 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_median_hot = bool(
                         sample.get("closes_win_streak_median_hot")
                     )
-                    try:
-                        wsmed = sample.get("closes_win_streak_median")
-                        window_a_closes_win_streak_median = (
-                            float(wsmed) if wsmed is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_median = None
+                    window_a_closes_win_streak_median = _fill_signed(sample.get("closes_win_streak_median"))
                     if window_a_closes_loss_streak_median_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_median_bit}",
@@ -12395,13 +12227,7 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_stdev_hot = bool(
                         sample.get("closes_loss_streak_stdev_hot")
                     )
-                    try:
-                        lssd = sample.get("closes_loss_streak_stdev")
-                        window_a_closes_loss_streak_stdev = (
-                            float(lssd) if lssd is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_stdev = None
+                    window_a_closes_loss_streak_stdev = _fill_signed(sample.get("closes_loss_streak_stdev"))
                     if window_a_closes_win_streak_min_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_min_bit}",
@@ -12496,13 +12322,7 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_stdev_hot = bool(
                         sample.get("closes_win_streak_stdev_hot")
                     )
-                    try:
-                        wssd = sample.get("closes_win_streak_stdev")
-                        window_a_closes_win_streak_stdev = (
-                            float(wssd) if wssd is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_stdev = None
+                    window_a_closes_win_streak_stdev = _fill_signed(sample.get("closes_win_streak_stdev"))
                     if window_a_closes_loss_streak_stdev_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_stdev_bit}",
@@ -12604,13 +12424,7 @@ def build_calm_streak_glance(
                     window_a_closes_loss_streak_cv_hot = bool(
                         sample.get("closes_loss_streak_cv_hot")
                     )
-                    try:
-                        lscv = sample.get("closes_loss_streak_cv")
-                        window_a_closes_loss_streak_cv = (
-                            float(lscv) if lscv is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_loss_streak_cv = None
+                    window_a_closes_loss_streak_cv = _fill_signed(sample.get("closes_loss_streak_cv"))
                     if window_a_closes_win_streak_stdev_bit:
                         status = status.replace(
                             f" · {window_a_closes_win_streak_stdev_bit}",
@@ -12718,13 +12532,7 @@ def build_calm_streak_glance(
                     window_a_closes_win_streak_cv_hot = bool(
                         sample.get("closes_win_streak_cv_hot")
                     )
-                    try:
-                        wscv = sample.get("closes_win_streak_cv")
-                        window_a_closes_win_streak_cv = (
-                            float(wscv) if wscv is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_win_streak_cv = None
+                    window_a_closes_win_streak_cv = _fill_signed(sample.get("closes_win_streak_cv"))
                     if window_a_closes_loss_streak_cv_bit:
                         status = status.replace(
                             f" · {window_a_closes_loss_streak_cv_bit}",
@@ -13100,13 +12908,7 @@ def build_calm_streak_glance(
                     window_a_closes_exit_tp_share_thin = bool(
                         sample.get("closes_exit_tp_share_thin")
                     )
-                    try:
-                        tp_pct = sample.get("closes_exit_tp_share_pct")
-                        window_a_closes_exit_tp_share_pct = (
-                            float(tp_pct) if tp_pct is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_tp_share_pct = None
+                    window_a_closes_exit_tp_share_pct = _fill_signed(sample.get("closes_exit_tp_share_pct"))
                     if window_a_closes_exit_unknown_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_unknown_bit}",
@@ -13240,13 +13042,7 @@ def build_calm_streak_glance(
                     window_a_closes_exit_sl_share_hot = bool(
                         sample.get("closes_exit_sl_share_hot")
                     )
-                    try:
-                        sl_pct = sample.get("closes_exit_sl_share_pct")
-                        window_a_closes_exit_sl_share_pct = (
-                            float(sl_pct) if sl_pct is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_sl_share_pct = None
+                    window_a_closes_exit_sl_share_pct = _fill_signed(sample.get("closes_exit_sl_share_pct"))
                     if window_a_closes_exit_tp_share_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_tp_share_bit}",
@@ -13387,13 +13183,7 @@ def build_calm_streak_glance(
                     window_a_closes_exit_rot_share_hot = bool(
                         sample.get("closes_exit_rot_share_hot")
                     )
-                    try:
-                        rot_pct = sample.get("closes_exit_rot_share_pct")
-                        window_a_closes_exit_rot_share_pct = (
-                            float(rot_pct) if rot_pct is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_rot_share_pct = None
+                    window_a_closes_exit_rot_share_pct = _fill_signed(sample.get("closes_exit_rot_share_pct"))
                     if window_a_closes_exit_sl_share_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_sl_share_bit}",
@@ -13542,13 +13332,7 @@ def build_calm_streak_glance(
                     window_a_closes_exit_trim_share_hot = bool(
                         sample.get("closes_exit_trim_share_hot")
                     )
-                    try:
-                        trim_pct = sample.get("closes_exit_trim_share_pct")
-                        window_a_closes_exit_trim_share_pct = (
-                            float(trim_pct) if trim_pct is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_trim_share_pct = None
+                    window_a_closes_exit_trim_share_pct = _fill_signed(sample.get("closes_exit_trim_share_pct"))
                     if window_a_closes_exit_rot_share_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_rot_share_bit}",
@@ -13705,13 +13489,7 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_lead_hot = bool(
                         sample.get("closes_exit_euro_lead_hot")
                     )
-                    try:
-                        euro_pnl = sample.get("closes_exit_euro_pnl")
-                        window_a_closes_exit_euro_pnl = (
-                            float(euro_pnl) if euro_pnl is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_pnl = None
+                    window_a_closes_exit_euro_pnl = _fill_signed(sample.get("closes_exit_euro_pnl"))
                     if window_a_closes_exit_trim_share_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_trim_share_bit}",
@@ -13876,13 +13654,7 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_offset_hot = bool(
                         sample.get("closes_exit_euro_offset_hot")
                     )
-                    try:
-                        off_pnl = sample.get("closes_exit_euro_offset_pnl")
-                        window_a_closes_exit_euro_offset_pnl = (
-                            float(off_pnl) if off_pnl is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_offset_pnl = None
+                    window_a_closes_exit_euro_offset_pnl = _fill_signed(sample.get("closes_exit_euro_offset_pnl"))
                     try:
                         off_ratio = sample.get(
                             "closes_exit_euro_offset_ratio"
@@ -30056,11 +29828,8 @@ def _laya_edge_fee_bits(
     edge_bit = ""
     fee_bit = ""
     warn = False
-    raw_edge = newest.get("edge_score")
-    try:
-        edge_f = float(raw_edge) if raw_edge is not None else None
-    except (TypeError, ValueError):
-        edge_f = None
+    # tradermonty #700/#655 + xang1234: refuse bool — True→1.0 invents edge/fee.
+    edge_f = _fill_signed(newest.get("edge_score"))
     if edge_f is not None:
         if edge_f < 0.5:
             band = "none"
@@ -30073,11 +29842,7 @@ def _laya_edge_fee_bits(
         else:
             band = "strong"
         edge_bit = f"edge {band}"
-    raw_fee = newest.get("fee_churn")
-    try:
-        fee_f = float(raw_fee) if raw_fee is not None else None
-    except (TypeError, ValueError):
-        fee_f = None
+    fee_f = _fill_signed(newest.get("fee_churn"))
     if fee_f is not None:
         if fee_f >= _LAYA_FEE_HOT:
             fee_bit = "fee hot"
@@ -30096,11 +29861,7 @@ def _laya_edge_band(newest: dict[str, Any] | None) -> str:
         return ""
     if newest.get("fail_open") or not newest.get("ok"):
         return ""
-    raw_edge = newest.get("edge_score")
-    try:
-        edge_f = float(raw_edge) if raw_edge is not None else None
-    except (TypeError, ValueError):
-        edge_f = None
+    edge_f = _fill_signed(newest.get("edge_score"))
     if edge_f is None:
         return ""
     if edge_f < 0.5:
@@ -30118,11 +29879,7 @@ def _laya_fee_band(newest: dict[str, Any] | None) -> str:
         return ""
     if newest.get("fail_open") or not newest.get("ok"):
         return ""
-    raw_fee = newest.get("fee_churn")
-    try:
-        fee_f = float(raw_fee) if raw_fee is not None else None
-    except (TypeError, ValueError):
-        fee_f = None
+    fee_f = _fill_signed(newest.get("fee_churn"))
     if fee_f is None:
         return ""
     if fee_f >= _LAYA_FEE_HOT:
@@ -35069,11 +34826,8 @@ def build_postmortem_glance(
     held = str(latest.get("held") or "").strip()
     latest_unmatched = is_unmatched_postmortem(latest)
     latest_unobserved = is_unobserved_postmortem(latest)
-    try:
-        pnl_pct = latest.get("profit_loss_pct")
-        pnl_pct_f = float(pnl_pct) if pnl_pct is not None else None
-    except (TypeError, ValueError):
-        pnl_pct_f = None
+    # tradermonty #700/#655 + xang1234: refuse bool — True→+1% invents last-exit.
+    pnl_pct_f = _fill_signed(latest.get("profit_loss_pct"))
     if latest_unmatched:
         pnl_pct_f = None
         # tradermonty #714 unobserved prices ≠ orphan unmatched sells.
