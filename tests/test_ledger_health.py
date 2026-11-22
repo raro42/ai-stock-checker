@@ -566,6 +566,35 @@ def test_ledger_short_vs_long_delta_helpers() -> None:
     ) == (None, None, None)
 
 
+def test_ledger_short_vs_long_delta_bool_refuse() -> None:
+    """tradermonty #700/#655: True→1pp / 1× must not invent short/long Δ."""
+    lean = "short vs long align · quiet|strong"
+    assert ledger_short_vs_long_delta(True, 75, lean_bit=lean) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert ledger_short_vs_long_delta(25, False, lean_bit=lean) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert (
+        ledger_short_vs_long_delta_lead(
+            True, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
+    )
+    assert ledger_short_vs_long_delta_lead_size(
+        True, 75, delta_lead="long"
+    ) == (None, None, None)
+    assert ledger_short_vs_long_delta_lead_size(
+        25, False, delta_lead="long"
+    ) == (None, None, None)
+
+
 def test_ledger_short_lean_meta() -> None:
     assert ledger_short_lean_meta("") == "quiet"
     quiet = ledger_short_lean_meta(

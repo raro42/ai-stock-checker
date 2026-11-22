@@ -3134,6 +3134,28 @@ def _sample_count(value: object) -> int:
     return _window_count_or_zero(value)
 
 
+def _sample_share(value: object) -> float | None:
+    """Finite share % (may be 0), else None — never ``float(True)→1``.
+
+    Mode A ``_coerce_race_share`` parity after short/long counts already
+    reuse ``_sample_count``; Δ / Δ-lead-size still accepted bare float.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def _sample_delta_pp(value: object) -> int | None:
+    """Signed Δ pp, else None — never ``int(True)→1`` inventing a slot lead."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return int(value)  # type: ignore[arg-type]
+
+
 def ledger_short_vs_long_lead(
     n_short: int,
     n_long: int,
@@ -3265,12 +3287,9 @@ def ledger_short_vs_long_delta(
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if short_share_pct is None or long_share_pct is None:
-        return None, "", "", False
-    try:
-        sh = float(short_share_pct)
-        lg = float(long_share_pct)
-    except (TypeError, ValueError):
+    sh = _sample_share(short_share_pct)
+    lg = _sample_share(long_share_pct)
+    if sh is None or lg is None:
         return None, "", "", False
     raw = int(round(sh - lg))
     abs_delta = abs(raw)
@@ -3308,13 +3327,8 @@ def ledger_short_vs_long_delta_lead(
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _sample_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "short" if pp > 0 else "long"
 
@@ -3337,12 +3351,9 @@ def ledger_short_vs_long_delta_lead_size(
     """
     if str(delta_lead or "").strip().casefold() not in {"short", "long"}:
         return None, None, None
-    if short_share_pct is None or long_share_pct is None:
-        return None, None, None
-    try:
-        sh = float(short_share_pct)
-        lo = float(long_share_pct)
-    except (TypeError, ValueError):
+    sh = _sample_share(short_share_pct)
+    lo = _sample_share(long_share_pct)
+    if sh is None or lo is None:
         return None, None, None
     louder = max(sh, lo)
     quieter = min(sh, lo)
