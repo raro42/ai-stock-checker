@@ -919,6 +919,46 @@ def test_github_watch_notes_include_last_commit_date(tmp_path: Path):
     assert "acme/old:" in snap["github_watch_notes"][1]
 
 
+def test_github_watch_digest_refuses_bool_counts(tmp_path: Path):
+    """int(True)→1 must not invent Ideas «1 with new activity» / 1★."""
+    _seed_portfolio(tmp_path)
+    gw = tmp_path / "github_watch"
+    gw.mkdir(parents=True, exist_ok=True)
+    (gw / "latest.json").write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-11-22T20:56:09Z",
+                "repo_count": True,
+                "checked_count": False,
+                "update_count": True,
+                "idea_bullets": [],
+                "repos": [
+                    {
+                        "repo": "acme/quiet",
+                        "url": "https://github.com/acme/quiet",
+                        "why": "test",
+                        "stars": True,
+                        "pushed_at": "2026-11-20T12:00:00Z",
+                        "has_updates": False,
+                        "tip_sha": "",
+                        "tip_message": "",
+                        "commits": [],
+                    }
+                ],
+            }
+        )
+    )
+    snap = load_desk_snapshot(
+        tmp_path,
+        live_marks=False,
+        price_fetcher=lambda _syms: {},
+    )
+    assert snap["github_watch_updates"] == 0
+    assert snap["github_watch_repos"] == 0
+    assert snap["github_watch_checked"] == 0
+    assert snap["github_repos"][0]["stars"] == 0
+
+
 def test_desk_config_api_put(tmp_path: Path, monkeypatch):
     _seed_portfolio(tmp_path)
     monkeypatch.setattr(backend, "DATA_DIR", tmp_path)

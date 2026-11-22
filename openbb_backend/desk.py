@@ -38485,10 +38485,11 @@ def load_desk_snapshot(
 
     gh_watch = _load_json(data_dir / "github_watch" / "latest.json", {})
     gh_ideas = list(gh_watch.get("idea_bullets") or [])[:8]
-    gh_updates = int(gh_watch.get("update_count") or 0)
+    # Refuse bool — int(True)→1 must not invent Ideas «1 with new activity».
+    gh_updates = _sample_count(gh_watch.get("update_count"))
     gh_at = gh_watch.get("generated_at") or ""
-    gh_repo_count = int(gh_watch.get("repo_count") or 0)
-    gh_checked = int(gh_watch.get("checked_count") or 0)
+    gh_repo_count = _sample_count(gh_watch.get("repo_count"))
+    gh_checked = _sample_count(gh_watch.get("checked_count"))
     gh_repos: list[dict[str, Any]] = []
     for row in (gh_watch.get("repos") or [])[:12]:
         tip = str(row.get("tip_message") or "").strip()
@@ -38518,7 +38519,7 @@ def load_desk_snapshot(
                 "repo": row.get("repo") or "",
                 "url": row.get("url") or "",
                 "why": row.get("why") or "",
-                "stars": int(row.get("stars") or 0),
+                "stars": _sample_count(row.get("stars")),
                 "status": (
                     "update"
                     if row.get("has_updates")
