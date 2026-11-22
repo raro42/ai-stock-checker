@@ -56,6 +56,28 @@ def _chart_hold_hours(value: object, default: float = 24.0) -> float:
     return float(value)  # type: ignore[arg-type]
 
 
+def _chart_share(value: object) -> float | None:
+    """Finite share % (may be 0), else None — never ``float(True)→1``.
+
+    Book short/long ``_sample_share`` parity: spoken/fresh + aging/stale
+    Δ helpers previously accepted bare ``float(True)``.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def _chart_delta_pp(value: object) -> int | None:
+    """Signed Δ pp, else None — never ``int(True)→1`` inventing a sleeve lead."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return int(value)  # type: ignore[arg-type]
+
+
 def _load_json(path: Path, default: Any) -> Any:
     """Parse JSON via desk lean-checked loader (xang1234 #498 / #540)."""
     from openbb_backend.desk import load_json_checked
@@ -565,12 +587,9 @@ def chart_price_bars_spoken_vs_fresh_delta(
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if spoken_share_pct is None or fresh_share_pct is None:
-        return None, "", "", False
-    try:
-        spoken = float(spoken_share_pct)
-        fresh = float(fresh_share_pct)
-    except (TypeError, ValueError):
+    spoken = _chart_share(spoken_share_pct)
+    fresh = _chart_share(fresh_share_pct)
+    if spoken is None or fresh is None:
         return None, "", "", False
     raw = int(round(spoken - fresh))
     abs_delta = abs(raw)
@@ -608,13 +627,8 @@ def chart_price_bars_spoken_vs_fresh_delta_lead(
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _chart_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "spoken" if pp > 0 else "fresh"
 
@@ -637,12 +651,9 @@ def chart_price_bars_spoken_vs_fresh_delta_lead_size(
     """
     if str(delta_lead or "").strip().casefold() not in {"spoken", "fresh"}:
         return None, None, None
-    if spoken_share_pct is None or fresh_share_pct is None:
-        return None, None, None
-    try:
-        spoken = float(spoken_share_pct)
-        fresh = float(fresh_share_pct)
-    except (TypeError, ValueError):
+    spoken = _chart_share(spoken_share_pct)
+    fresh = _chart_share(fresh_share_pct)
+    if spoken is None or fresh is None:
         return None, None, None
     louder = max(spoken, fresh)
     quieter = min(spoken, fresh)
@@ -883,12 +894,9 @@ def chart_price_bars_aging_stale_delta(
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if aging_share_pct is None or stale_share_pct is None:
-        return None, "", "", False
-    try:
-        aging = float(aging_share_pct)
-        stale = float(stale_share_pct)
-    except (TypeError, ValueError):
+    aging = _chart_share(aging_share_pct)
+    stale = _chart_share(stale_share_pct)
+    if aging is None or stale is None:
         return None, "", "", False
     raw = int(round(aging - stale))
     abs_delta = abs(raw)
@@ -924,13 +932,8 @@ def chart_price_bars_aging_stale_delta_lead(
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _chart_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "aging" if pp > 0 else "stale"
 
@@ -954,12 +957,9 @@ def chart_price_bars_aging_stale_delta_lead_size(
     """
     if str(delta_lead or "").strip().casefold() not in {"aging", "stale"}:
         return None, None, None
-    if aging_share_pct is None or stale_share_pct is None:
-        return None, None, None
-    try:
-        aging = float(aging_share_pct)
-        stale = float(stale_share_pct)
-    except (TypeError, ValueError):
+    aging = _chart_share(aging_share_pct)
+    stale = _chart_share(stale_share_pct)
+    if aging is None or stale is None:
         return None, None, None
     louder = max(aging, stale)
     quieter = min(aging, stale)
@@ -984,12 +984,9 @@ def chart_price_bars_delta_lead_size_moods(
     + xang1234). Prefixed ``Δ size moods`` in the lean fold so ``Δ size``
     + ``as Δ size`` stay distinct. Not a new entry gate.
     """
-    if spoken_fresh_size is None or aging_stale_size is None:
-        return "", False
-    try:
-        sf_f = float(spoken_fresh_size)
-        as_f = float(aging_stale_size)
-    except (TypeError, ValueError):
+    sf_f = _chart_share(spoken_fresh_size)
+    as_f = _chart_share(aging_stale_size)
+    if sf_f is None or as_f is None:
         return "", False
     sf_s = f"{sf_f:g}"
     as_s = f"{as_f:g}"

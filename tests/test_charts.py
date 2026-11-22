@@ -1326,6 +1326,59 @@ def test_chart_price_bars_glance_share_after_spoken():
     assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
         100.0, 0.0, delta_lead="spoken"
     ) == (None, None, None)
+    # tradermonty #700/#655: True→1pp / 1× must not invent Charts Δ leads
+    lean_sf = "spoken vs fresh align · quiet|strong"
+    assert chart_price_bars_spoken_vs_fresh_delta(True, 75, lean_bit=lean_sf) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert chart_price_bars_spoken_vs_fresh_delta(25, False, lean_bit=lean_sf) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert (
+        chart_price_bars_spoken_vs_fresh_delta_lead(
+            True, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
+    )
+    assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
+        True, 75, delta_lead="fresh"
+    ) == (None, None, None)
+    assert chart_price_bars_spoken_vs_fresh_delta_lead_size(
+        25, False, delta_lead="fresh"
+    ) == (None, None, None)
+    lean_as = "aging vs stale align · hot|quiet"
+    assert chart_price_bars_aging_stale_delta(True, 75, lean_bit=lean_as) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert chart_price_bars_aging_stale_delta(25, False, lean_bit=lean_as) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert (
+        chart_price_bars_aging_stale_delta_lead(
+            True, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
+    )
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        True, 75, delta_lead="stale"
+    ) == (None, None, None)
+    assert chart_price_bars_aging_stale_delta_lead_size(
+        25, False, delta_lead="stale"
+    ) == (None, None, None)
+    assert chart_price_bars_delta_lead_size_moods(True, 3.0) == ("", False)
+    assert chart_price_bars_delta_lead_size_moods(2.0, False) == ("", False)
     assert chart_price_bars_vs_fresh(2, 1, 3) == (
         "vs 1 fresh · thin · 33.3%",
         1,
