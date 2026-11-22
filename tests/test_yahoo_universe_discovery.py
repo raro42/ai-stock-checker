@@ -916,6 +916,9 @@ def test_yahoo_fail_streak_vs_seed_extremes():
     assert yahoo_fail_streak_vs_seed(3, "aging") == ""
     assert yahoo_fail_streak_vs_seed(3, "never") == ""
     assert yahoo_fail_streak_vs_seed("nope", "fresh") == ""
+    # True→1 must not look like a usable streak count.
+    assert yahoo_fail_streak_vs_seed(True, "fresh") == ""
+    assert yahoo_fail_streak_vs_seed(False, "stale") == ""
 
 
 def test_yahoo_fail_streak_vs_fail_extremes():
@@ -926,6 +929,9 @@ def test_yahoo_fail_streak_vs_fail_extremes():
     assert yahoo_fail_streak_vs_fail(3, "aging") == ""
     assert yahoo_fail_streak_vs_fail(3, "never") == ""
     assert yahoo_fail_streak_vs_fail("nope", "fresh") == ""
+    # True→1 must not look like a usable streak count.
+    assert yahoo_fail_streak_vs_fail(True, "fresh") == ""
+    assert yahoo_fail_streak_vs_fail(False, "stale") == ""
 
 
 def test_yahoo_fail_error_seed_fail_vs_budget_extremes():
@@ -970,6 +976,15 @@ def test_yahoo_fail_error_vs_budget_extremes():
         yahoo_fail_error_vs_budget("plan", retry_due=True, retry_remain_sec=0)
         == "clash · held · not spent"
     )
+    # True→1s must not invent held · not spent on first-fail budget.
+    assert (
+        yahoo_fail_error_vs_budget("timeout", retry_due=False, retry_remain_sec=True)
+        == ""
+    )
+    assert (
+        yahoo_fail_error_vs_budget("empty", retry_due=False, retry_remain_sec=False)
+        == ""
+    )
 
 
 def test_yahoo_fail_streak_vs_budget_extremes():
@@ -998,6 +1013,17 @@ def test_yahoo_fail_streak_vs_budget_extremes():
     assert (
         yahoo_fail_streak_vs_budget("nope", retry_due=False, retry_remain_sec=1800)
         == ""
+    )
+    # True→1 streak / remain must not invent budget hold or N× speak.
+    assert (
+        yahoo_fail_streak_vs_budget(True, retry_due=False, retry_remain_sec=1800)
+        == ""
+    )
+    assert (
+        yahoo_fail_streak_vs_budget(3, retry_due=False, retry_remain_sec=True) == ""
+    )
+    assert (
+        yahoo_fail_streak_vs_budget(False, retry_due=True, retry_remain_sec=0) == ""
     )
 
 

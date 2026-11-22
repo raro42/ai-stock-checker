@@ -1940,18 +1940,17 @@ def yahoo_fail_error_vs_fail(error: str, fail_freshness: str) -> str:
     return ""
 
 
-def yahoo_fail_streak_vs_seed(streak: int, seed_freshness: str) -> str:
+def yahoo_fail_streak_vs_seed(streak: object, seed_freshness: str) -> str:
     """Streak vs reused-seed extremes when N× already spoke (xang1234 #639).
 
     Chronic ``N×`` beside a still-fresh seed looks healthy; a stale seed with
     a hot streak agrees. Mid ``aging`` / streak <2 / never|unknown stay
     silent. Returns ``clash · fresh`` / ``align · stale`` / ``""``.
     """
-    try:
-        n = int(streak)
-    except (TypeError, ValueError):
-        return ""
-    if n < 2:
+    # tradermonty #700/#655: refuse bool — True→1 does not unlock N× speak
+    # via int(True); still refuse so damaged meta cannot look like a count.
+    n = coerce_nonneg_int(streak)
+    if n is None or n < 2:
         return ""
     band = str(seed_freshness or "").strip().lower()
     if band == "fresh":
@@ -1961,7 +1960,7 @@ def yahoo_fail_streak_vs_seed(streak: int, seed_freshness: str) -> str:
     return ""
 
 
-def yahoo_fail_streak_vs_fail(streak: int, fail_freshness: str) -> str:
+def yahoo_fail_streak_vs_fail(streak: object, fail_freshness: str) -> str:
     """Streak vs fail-stamp extremes when N× already spoke (xang1234 #639).
 
     Chronic ``N×`` with a fresh fail stamp agrees (live dead Yahoo). A stale
@@ -1970,11 +1969,9 @@ def yahoo_fail_streak_vs_fail(streak: int, fail_freshness: str) -> str:
     Polarity is inverted vs ``yahoo_fail_streak_vs_seed`` (seed fresh = clash).
     Returns ``align · fresh`` / ``clash · stale`` / ``""``.
     """
-    try:
-        n = int(streak)
-    except (TypeError, ValueError):
-        return ""
-    if n < 2:
+    # tradermonty #700/#655: refuse bool — True→1 must not look like a streak.
+    n = coerce_nonneg_int(streak)
+    if n is None or n < 2:
         return ""
     band = str(fail_freshness or "").strip().lower()
     if band == "fresh":
@@ -1987,7 +1984,7 @@ def yahoo_fail_streak_vs_fail(streak: int, fail_freshness: str) -> str:
 def _yahoo_fail_budget_spend_bit(
     *,
     retry_due: bool,
-    retry_remain_sec: int | None,
+    retry_remain_sec: object = None,
     plan_held: bool = False,
 ) -> str:
     """Fetch-budget hold vs about-to-spend (xang1234 #640/#642).
@@ -2002,10 +1999,12 @@ def _yahoo_fail_budget_spend_bit(
         return "clash · held · not spent"
     if retry_due:
         return "align · due"
-    try:
-        remain = int(retry_remain_sec) if retry_remain_sec is not None else None
-    except (TypeError, ValueError):
-        return ""
+    # tradermonty #700/#655: refuse bool — True→1s invents held · not spent.
+    remain = (
+        coerce_nonneg_int(retry_remain_sec)
+        if retry_remain_sec is not None
+        else None
+    )
     if remain is not None and remain > 0:
         # xang1234 #642: cooling = reservation not dispatched — speak not spent
         # so held backoff ≠ a live fetch that already burned budget.
@@ -2014,10 +2013,10 @@ def _yahoo_fail_budget_spend_bit(
 
 
 def yahoo_fail_streak_vs_budget(
-    streak: int,
+    streak: object,
     *,
     retry_due: bool,
-    retry_remain_sec: int | None,
+    retry_remain_sec: object = None,
     plan_held: bool = False,
 ) -> str:
     """Streak vs fetch-budget spend when N× already spoke (xang1234 #640).
@@ -2029,11 +2028,9 @@ def yahoo_fail_streak_vs_budget(
     Streak <2 / missing remain while not due stay silent. Returns
     ``clash · held · not spent`` / ``align · due`` / ``""``.
     """
-    try:
-        n = int(streak)
-    except (TypeError, ValueError):
-        return ""
-    if n < 2:
+    # tradermonty #700/#655: refuse bool — True→1 streak / remain invent.
+    n = coerce_nonneg_int(streak)
+    if n is None or n < 2:
         return ""
     return _yahoo_fail_budget_spend_bit(
         retry_due=retry_due,
@@ -2046,7 +2043,7 @@ def yahoo_fail_error_vs_budget(
     error: str,
     *,
     retry_due: bool,
-    retry_remain_sec: int | None,
+    retry_remain_sec: object = None,
     plan_held: bool = False,
 ) -> str:
     """Typed last-error vs fetch-budget on the first fail (xang1234 #640).
