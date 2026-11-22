@@ -48,6 +48,48 @@ def _coerce_soft_allow_limit(value: object, default: int = _DEFAULT_RECENT_SOFT_
     return n
 
 
+def _soft_allow_size(value: object) -> float | None:
+    """Finite Δ lead size × (may be 0), else None — never ``float(True)→1``.
+
+    Mode A ``_coerce_race_share`` / Screener ``_sample_share`` parity after
+    soft-allow short Δ size moods still accepted bare ``float(size)``.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def soft_allow_size_moods(
+    left: object,
+    right: object,
+    *,
+    left_label: str,
+    right_label: str,
+) -> tuple[str, bool]:
+    """Compare two Δ lead size × bits (display only).
+
+    Same → ``align · both N×``; crossed →
+    ``clash · {left} N× · {right} M×``. Missing either silent. Dual fat
+    (≥2×) + clash warn; equal thin calm. Refuse bool —
+    ``float(True)→1×`` cannot invent size moods (Screener junk/unique /
+    Charts / Mode A parity). Not a gate.
+    """
+    left_f = _soft_allow_size(left)
+    right_f = _soft_allow_size(right)
+    if left_f is None or right_f is None:
+        return "", False
+    left_s = f"{left_f:g}"
+    right_s = f"{right_f:g}"
+    if abs(left_f - right_f) < 1e-9:
+        return f"align · both {left_s}×", left_f >= 2.0
+    return (
+        f"clash · {left_label} {left_s}× · {right_label} {right_s}×",
+        True,
+    )
+
+
 _SOFT_MARKERS = (
     "unknown",
     "no bars",
@@ -436,26 +478,19 @@ def soft_allow_short_other_delta_lead_size_moods(
     RS-fail-open pair (Mode A race≠mix / soft-allow pair≠bench size
     moods + portfolio AI count≠share + xang1234 after both Δ lead
     sizes). Prefixed ``short other Δ size moods`` so pair
-    ``short Δ size moods`` stays distinct. Not a gate.
+    ``short Δ size moods`` stays distinct. Refuse bool via
+    ``soft_allow_size_moods`` — ``float(True)→1×`` cannot invent lean.
+    Not a gate.
     """
     other_size, _ol, _oq = soft_allow_short_history_vs_other_delta_lead_size(
         events
     )
     pair_size, _pl, _pq = soft_allow_short_vs_gap_delta_lead_size(events)
-    if other_size is None or pair_size is None:
-        return "", False
-    try:
-        other_f = float(other_size)
-        pair_f = float(pair_size)
-    except (TypeError, ValueError):
-        return "", False
-    other_s = f"{other_f:g}"
-    pair_s = f"{pair_f:g}"
-    if abs(other_f - pair_f) < 1e-9:
-        return f"align · both {other_s}×", other_f >= 2.0
-    return (
-        f"clash · short/other {other_s}× · short/gap {pair_s}×",
-        True,
+    return soft_allow_size_moods(
+        other_size,
+        pair_size,
+        left_label="short/other",
+        right_label="short/gap",
     )
 
 
@@ -474,7 +509,8 @@ def soft_allow_short_other_vs_bench_delta_lead_size_moods(
     (soft-allow other≠pair / pair≠bench / Mode A race≠mix + portfolio
     AI count≠share + xang1234). Prefixed ``short other/bench Δ size
     moods`` so ``short other Δ size moods`` + ``short Δ size moods``
-    stay distinct. Not a gate.
+    stay distinct. Refuse bool via ``soft_allow_size_moods`` —
+    ``float(True)→1×`` cannot invent lean. Not a gate.
     """
     other_size, _ol, _oq = soft_allow_short_history_vs_other_delta_lead_size(
         events
@@ -482,20 +518,11 @@ def soft_allow_short_other_vs_bench_delta_lead_size_moods(
     bench_size, _bl, _bq = (
         soft_allow_short_history_bench_vs_young_delta_lead_size(events)
     )
-    if other_size is None or bench_size is None:
-        return "", False
-    try:
-        other_f = float(other_size)
-        bench_f = float(bench_size)
-    except (TypeError, ValueError):
-        return "", False
-    other_s = f"{other_f:g}"
-    bench_s = f"{bench_f:g}"
-    if abs(other_f - bench_f) < 1e-9:
-        return f"align · both {other_s}×", other_f >= 2.0
-    return (
-        f"clash · short/other {other_s}× · bench/young {bench_s}×",
-        True,
+    return soft_allow_size_moods(
+        other_size,
+        bench_size,
+        left_label="short/other",
+        right_label="bench/young",
     )
 
 
@@ -1692,27 +1719,19 @@ def soft_allow_short_delta_lead_size_moods(
     bits alone hid whether magnitude agrees (Δ lead polarity can match
     while 3× vs 2× — portfolio AI count≠share + xang1234 after both Δ
     lead sizes). Prefixed ``short Δ size moods`` so ``short Δ size`` +
-    ``short Δ moods`` stay distinct. Not a gate.
+    ``short Δ moods`` stay distinct. Refuse bool via
+    ``soft_allow_size_moods`` — ``float(True)→1×`` cannot invent lean.
+    Not a gate.
     """
     pair_size, _pl, _pq = soft_allow_short_vs_gap_delta_lead_size(events)
     bench_size, _bl, _bq = (
         soft_allow_short_history_bench_vs_young_delta_lead_size(events)
     )
-    if pair_size is None or bench_size is None:
-        return "", False
-    try:
-        pair_f = float(pair_size)
-        bench_f = float(bench_size)
-    except (TypeError, ValueError):
-        return "", False
-    pair_s = f"{pair_f:g}"
-    bench_s = f"{bench_f:g}"
-    if abs(pair_f - bench_f) < 1e-9:
-        # Dual fat agreement ≠ calm confirm (Δ moods dual wide).
-        return f"align · both {pair_s}×", pair_f >= 2.0
-    return (
-        f"clash · short/gap {pair_s}× · bench/young {bench_s}×",
-        True,
+    return soft_allow_size_moods(
+        pair_size,
+        bench_size,
+        left_label="short/gap",
+        right_label="bench/young",
     )
 
 

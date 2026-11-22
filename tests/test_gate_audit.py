@@ -3190,3 +3190,37 @@ def test_soft_allow_row_is_lead_matches_band() -> None:
         "",
         "",
     ]
+
+
+def test_soft_allow_size_moods_bool_refuse() -> None:
+    """True/False size × must not invent short Δ size mood lean."""
+    from stock_checker.gate_audit import soft_allow_size_moods
+
+    assert soft_allow_size_moods(
+        3.0, 3.0, left_label="short/gap", right_label="bench/young"
+    ) == ("align · both 3×", True)
+    assert soft_allow_size_moods(
+        1.5, 1.5, left_label="short/gap", right_label="bench/young"
+    ) == ("align · both 1.5×", False)
+    assert soft_allow_size_moods(
+        1.5, 3.0, left_label="short/gap", right_label="bench/young"
+    ) == ("clash · short/gap 1.5× · bench/young 3×", True)
+    assert soft_allow_size_moods(
+        None, 2.0, left_label="short/other", right_label="short/gap"
+    ) == ("", False)
+    assert soft_allow_size_moods(
+        2.0, None, left_label="short/other", right_label="short/gap"
+    ) == ("", False)
+    # float(True)→1× / float(False)→0× must stay silent.
+    assert soft_allow_size_moods(
+        True, 3.0, left_label="short/gap", right_label="bench/young"
+    ) == ("", False)
+    assert soft_allow_size_moods(
+        3.0, False, left_label="short/gap", right_label="bench/young"
+    ) == ("", False)
+    assert soft_allow_size_moods(
+        True, True, left_label="short/other", right_label="short/gap"
+    ) == ("", False)
+    assert soft_allow_size_moods(
+        False, False, left_label="short/other", right_label="bench/young"
+    ) == ("", False)
