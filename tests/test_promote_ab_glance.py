@@ -977,6 +977,16 @@ def test_window_a_sleeve_mix_crypto_vs_stock() -> None:
     assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
         80, 20, delta_lead=""
     ) == (None, None, None)
+    # True→1% must not invent Δ lead size · 1× (Book short/long parity).
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        True, True, delta_lead="crypto"
+    ) == (None, None, None)
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        False, 20, delta_lead="crypto"
+    ) == (None, None, None)
+    assert window_a_sleeve_crypto_vs_stock_delta_lead_size(
+        80, False, delta_lead="stock"
+    ) == (None, None, None)
     assert window_a_sleeve_mix(None)["bit"] == ""
     assert window_a_sleeve_mix({"trades": 4})["bit"] == ""
     crypto_only = window_a_sleeve_mix({"crypto_legs": 12, "stock_legs": 0})

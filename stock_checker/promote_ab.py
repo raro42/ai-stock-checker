@@ -7010,8 +7010,8 @@ _SLEEVE_SEV_LABEL = {
 
 
 def window_a_sleeve_crypto_vs_stock_delta_lead_size(
-    crypto_share_pct: float | int | None,
-    stock_share_pct: float | int | None,
+    crypto_share_pct: object = None,
+    stock_share_pct: object = None,
     *,
     delta_lead: str = "",
 ) -> tuple[float | None, float | None, float | None]:
@@ -7022,18 +7022,19 @@ def window_a_sleeve_crypto_vs_stock_delta_lead_size(
     (sole-side 100%) stays silent. Desk names sides
     ``crypto|stock N% · stock|crypto M%`` (louder first). Lead name ≠
     magnitude (soft-allow short vs gap / Charts / Mode A / Screener Δ
-    lead size + portfolio AI count≠share + xang1234). Returns
+    lead size + portfolio AI count≠share + xang1234). Refuse bool —
+    ``float(True)→1%`` cannot invent ``Δ lead size · 1×`` after Window A
+    fill/close size moods already refuse bare ``float(size)``. Returns
     ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
     Display only; not a gate.
     """
+    from stock_checker.gate_audit import _soft_allow_size
+
     if str(delta_lead or "").strip().casefold() not in {"crypto", "stock"}:
         return None, None, None
-    if crypto_share_pct is None or stock_share_pct is None:
-        return None, None, None
-    try:
-        crypto_pct = float(crypto_share_pct)
-        stock_pct = float(stock_share_pct)
-    except (TypeError, ValueError):
+    crypto_pct = _soft_allow_size(crypto_share_pct)
+    stock_pct = _soft_allow_size(stock_share_pct)
+    if crypto_pct is None or stock_pct is None:
         return None, None, None
     louder = max(crypto_pct, stock_pct)
     quieter = min(crypto_pct, stock_pct)
