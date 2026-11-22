@@ -5615,6 +5615,33 @@ def test_window_b_readiness_protocol_drift() -> None:
     assert not any(b.startswith("scan ") for b in bool_junk["blockers"])
     assert not any(b.startswith("trade ") for b in bool_junk["blockers"])
 
+    # Protocol floors refuse bool too — True→1 must not invent max pos 5≠1.
+    from stock_checker.promote_ab import (
+        PROTOCOL_MAX_POSITIONS,
+        PROTOCOL_MIN_HOLD_HOURS,
+        PROTOCOL_SCAN_INTERVAL_MIN,
+        PROTOCOL_TRADE_INTERVAL_MIN,
+    )
+
+    bool_proto = window_b_readiness(
+        max_positions=PROTOCOL_MAX_POSITIONS,
+        min_hold_hours=PROTOCOL_MIN_HOLD_HOURS,
+        scan_interval_min=PROTOCOL_SCAN_INTERVAL_MIN,
+        trade_interval_min=PROTOCOL_TRADE_INTERVAL_MIN,
+        protocol_max=True,  # type: ignore[arg-type]
+        protocol_min_hold_hours=True,  # type: ignore[arg-type]
+        protocol_scan_interval_min=True,  # type: ignore[arg-type]
+        protocol_trade_interval_min=False,  # type: ignore[arg-type]
+    )
+    assert bool_proto["ready"] is True
+    assert bool_proto["blockers"] == []
+    assert bool_proto["protocol_max_positions"] == PROTOCOL_MAX_POSITIONS
+    assert bool_proto["protocol_min_hold_hours"] == PROTOCOL_MIN_HOLD_HOURS
+    assert bool_proto["protocol_scan_interval_min"] == PROTOCOL_SCAN_INTERVAL_MIN
+    assert bool_proto["protocol_trade_interval_min"] == PROTOCOL_TRADE_INTERVAL_MIN
+    assert not any("max pos" in b for b in bool_proto["blockers"])
+    assert not any("hold " in b for b in bool_proto["blockers"])
+
 
 def test_promote_ab_glance_refuses_bool_window_b_knobs() -> None:
     """Damaged runtime bools must not invent Window B protocol blockers."""
@@ -5650,6 +5677,52 @@ def test_promote_ab_glance_refuses_bool_window_b_knobs() -> None:
     assert "hold 1h≠24h" not in g["line"]
     assert "scan 1m<15m" not in g["line"]
     assert "B blocked" not in (g.get("b_block_bit") or "")
+
+
+def test_window_a_sample_refuses_bool_target_knobs() -> None:
+    """tradermonty #700/#655: True→1 must not invent a 1-fill / 1-sell floor."""
+    from stock_checker.promote_ab import (
+        WINDOW_A_AGING_SELL_DAYS,
+        WINDOW_A_MAX_SELL_STALE_DAYS,
+        WINDOW_A_TARGET_FILLS,
+        WINDOW_A_TARGET_SELLS,
+    )
+
+    # One real fill would look "ready" under True→1 target — keep the real floor.
+    junk = window_a_sample_readiness(
+        {"trades": 1, "buys": 1, "sells": 0, "fees": 1.0, "realized_pnl": 0.0},
+        target_fills=True,  # type: ignore[arg-type]
+        target_sells=True,  # type: ignore[arg-type]
+        max_sell_stale_days=True,  # type: ignore[arg-type]
+        aging_sell_days=False,  # type: ignore[arg-type]
+    )
+    assert junk["target_fills"] == WINDOW_A_TARGET_FILLS
+    assert junk["target_sells"] == WINDOW_A_TARGET_SELLS
+    assert junk["thin"] is True
+    assert junk["ready"] is False
+    # Real 1 fill vs default 10 — not True→1 inventing a 1-fill ready floor.
+    assert junk["thin_bit"] == f"A thin · 1 fills <{WINDOW_A_TARGET_FILLS}"
+    assert junk["thin_bit"].endswith(f"<{WINDOW_A_TARGET_FILLS}")
+
+    ok_knobs = window_a_sample_readiness(
+        {"trades": 4, "buys": 2, "sells": 2},
+        target_fills=4,
+        target_sells=2,
+        max_sell_stale_days=7,
+        aging_sell_days=2,
+    )
+    assert ok_knobs["target_fills"] == 4
+    assert ok_knobs["target_sells"] == 2
+    assert ok_knobs["thin"] is False
+
+    # False aging falls back to default (not cleared to 0 via int(False)).
+    aging = window_a_sample_readiness(
+        {"trades": 12, "buys": 6, "sells": 6},
+        aging_sell_days=False,  # type: ignore[arg-type]
+        max_sell_stale_days=False,  # type: ignore[arg-type]
+    )
+    assert aging["aging_sell_days"] == WINDOW_A_AGING_SELL_DAYS
+    assert aging["max_sell_stale_days"] == WINDOW_A_MAX_SELL_STALE_DAYS
 
 
 def test_window_a_sample_refuses_bool_counts() -> None:

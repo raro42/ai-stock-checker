@@ -528,17 +528,30 @@ def window_b_readiness(
     tradermonty #700/#655 + xang1234/portfolio AI: refuse bool knobs —
     ``int(True)→1`` / ``float(True)→1.0`` must not invent ``max pos 1≠5``,
     ``hold 1h≠24h``, or ``scan 1m<15m`` blockers (treat as unknown / skip).
+    Protocol baselines refuse bool too — ``protocol_max=True`` must not invent
+    ``max pos 5≠1`` (live side already covered; protocol floor was still open).
     """
     from stock_checker.technical_indicators import _finite_signed
 
-    cap = max(1, int(protocol_max))
-    hold_need = float(protocol_min_hold_hours)
+    # Refuse bool protocol floors — True→1 invents a fake baseline.
+    cap_n = _coerce_window_count(protocol_max)
+    cap = PROTOCOL_MAX_POSITIONS if cap_n is None or cap_n < 1 else cap_n
+    if _finite_signed(protocol_min_hold_hours) and float(protocol_min_hold_hours) > 0:  # type: ignore[arg-type]
+        hold_need = float(protocol_min_hold_hours)  # type: ignore[arg-type]
+    else:
+        hold_need = float(PROTOCOL_MIN_HOLD_HOURS)
     fee_need = str(protocol_fee_preset or PROTOCOL_FEE_PRESET).strip().lower()
     ai_need = (
         str(protocol_ai_mode or PROTOCOL_AI_MODE).strip().lower() or PROTOCOL_AI_MODE
     )
-    scan_need = max(1, int(protocol_scan_interval_min))
-    trade_need = max(1, int(protocol_trade_interval_min))
+    scan_n = _coerce_window_count(protocol_scan_interval_min)
+    scan_need = (
+        PROTOCOL_SCAN_INTERVAL_MIN if scan_n is None or scan_n < 1 else scan_n
+    )
+    trade_n = _coerce_window_count(protocol_trade_interval_min)
+    trade_need = (
+        PROTOCOL_TRADE_INTERVAL_MIN if trade_n is None or trade_n < 1 else trade_n
+    )
     blockers: list[str] = []
     if max_positions is not None and _finite_signed(max_positions):
         slots = int(max_positions)  # type: ignore[arg-type]
@@ -2508,11 +2521,29 @@ def window_a_sample_readiness(
     density-bridge / ownership-bridge agreement; both clash and mixed
     warn only (still ready for B); sole side silent.
     Not a gate; does not flip compose promote.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool *target*
+    knobs — ``int(True)→1`` / ``max(1, True)`` must not invent a 1-fill /
+    1-sell / 1d-stale floor (stats counts already refused; kwargs were open).
     """
-    need = max(1, int(target_fills))
-    sell_need = max(1, int(target_sells))
-    stale_need = max(1, int(max_sell_stale_days))
-    aging_need = max(0, min(int(aging_sell_days), stale_need))
+    # Refuse bool floors — True→1 invents a thin ready-for-B sample.
+    fills_n = _coerce_window_count(target_fills)
+    need = WINDOW_A_TARGET_FILLS if fills_n is None or fills_n < 1 else fills_n
+    sells_n = _coerce_window_count(target_sells)
+    sell_need = (
+        WINDOW_A_TARGET_SELLS if sells_n is None or sells_n < 1 else sells_n
+    )
+    stale_n = _coerce_window_count(max_sell_stale_days)
+    stale_need = (
+        WINDOW_A_MAX_SELL_STALE_DAYS
+        if stale_n is None or stale_n < 1
+        else stale_n
+    )
+    aging_n = _coerce_window_count(aging_sell_days)
+    aging_raw = (
+        WINDOW_A_AGING_SELL_DAYS if aging_n is None else aging_n
+    )
+    aging_need = max(0, min(aging_raw, stale_need))
     empty = {
         "ready": False,
         "known": False,
