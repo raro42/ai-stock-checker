@@ -49,6 +49,29 @@ def test_universe_discovery_glance_refuses_bool_meta_counts(tmp_path) -> None:
     assert "1 claim" not in (g.get("line") or "")
 
 
+def test_universe_discovery_glance_refuses_bool_max_age_hours(tmp_path) -> None:
+    """int(True)→1 must not invent a 1h Universe rediscovery band."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    # 6h age is fresh under the real 24h throttle; under True→1h it would be stale.
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps({"stocks": {}, "meta": {"last_yahoo_discovery": last}}),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now, max_age_hours=True)
+    assert g["max_age_hours"] == int(DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS)
+    assert g["tone"] == "fresh"
+    assert "stale" not in (g.get("line") or "")
+    g_false = build_universe_discovery_glance(
+        tmp_path, now=now, max_age_hours=False
+    )
+    assert g_false["max_age_hours"] == int(DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS)
+    assert g_false["tone"] == "fresh"
+    g_ok = build_universe_discovery_glance(tmp_path, now=now, max_age_hours=12)
+    assert g_ok["max_age_hours"] == 12
+    assert g_ok["tone"] == "fresh"
+
+
 def test_universe_discovery_glance_never_run(tmp_path) -> None:
     g = build_universe_discovery_glance(tmp_path)
     assert g["ready"] is True

@@ -27731,6 +27731,7 @@ def build_universe_discovery_glance(
         DEFAULT_MOVER_COUNT,
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
         DEFAULT_YAHOO_FAIL_BACKOFF_HOURS,
+        _coerce_yahoo_max_age_hours,
         yahoo_cache_freshness,
         yahoo_discovery_claim_drop_reason_lead,
         yahoo_discovery_claim_drop_reason_sample_gap,
@@ -27789,10 +27790,14 @@ def build_universe_discovery_glance(
     )
 
     per = int(DEFAULT_MOVER_COUNT)
+    # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    # int(True)→1 / max(1, True) must not invent a 1h rediscovery band on
+    # Universe (live yahoo_cache_freshness / due-from-meta already coerce;
+    # desk glance knob was still open after GitHub watch digest refuse).
     age_limit_h = (
         DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS
         if max_age_hours is None
-        else max(1, int(max_age_hours))
+        else _coerce_yahoo_max_age_hours(max_age_hours)
     )
 
     last_raw = ""
