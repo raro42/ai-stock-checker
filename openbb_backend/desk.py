@@ -35259,6 +35259,21 @@ def _breadth_pct(value: object) -> float | None:
     return float(value)
 
 
+def _breadth_threshold_pct(value: object, *, default: float) -> float:
+    """Tape/thrust floor %; bool/gap/NaN → default (never ``True→1%`` floor).
+
+    tradermonty #700/#655 + xang1234/portfolio AI — after sleeve ``_breadth_pct``
+    refuse, a damaged ``min_pct`` / ``strong`` / ``weak`` / ``max`` knob must
+    not invent dual-advance / split / risk-off / thrust via ``float(True)→1``.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    floor_default = float(default)
+    if value is None or not _finite_signed(value):
+        return floor_default
+    return float(value)
+
+
 def scan_list_ratio_pct(part: object, whole: object) -> float | None:
     """Share of a scan-list count vs its denominator (StockBee-lite; display only)."""
     n = _breadth_count(whole)
@@ -35308,13 +35323,13 @@ def is_dual_advance_day(
     """True when stock and crypto advance % both clear min_pct (scan-list; display only).
 
     tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
-    must not invent a dual-advance / risk-on tape from a damaged print.
+    must not invent a dual-advance / risk-on tape from a damaged print or floor.
     """
     a = _breadth_pct(stock_adv_pct)
     b = _breadth_pct(crypto_adv_pct)
     if a is None or b is None:
         return False
-    floor = float(min_pct)
+    floor = _breadth_threshold_pct(min_pct, default=DEFAULT_DUAL_ADVANCE_MIN_PCT)
     return a >= floor and b >= floor
 
 
@@ -35330,7 +35345,7 @@ def is_tape_split_day(
     Mutually exclusive with dual-advance at the default floors (50/50 vs 60/40).
 
     tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
-    must not invent a split tape from a damaged print.
+    must not invent a split tape from a damaged print or strong/weak floor.
     """
     a = _breadth_pct(stock_adv_pct)
     b = _breadth_pct(crypto_adv_pct)
@@ -35338,7 +35353,11 @@ def is_tape_split_day(
         return False
     hi = max(a, b)
     lo = min(a, b)
-    return hi >= float(strong_pct) and lo <= float(weak_pct)
+    strong = _breadth_threshold_pct(
+        strong_pct, default=DEFAULT_TAPE_SPLIT_STRONG_PCT
+    )
+    weak = _breadth_threshold_pct(weak_pct, default=DEFAULT_TAPE_SPLIT_WEAK_PCT)
+    return hi >= strong and lo <= weak
 
 
 def is_risk_off_day(
@@ -35353,13 +35372,13 @@ def is_risk_off_day(
     split at defaults (both ≤40% cannot be ≥50% or 60/40).
 
     tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
-    must not invent risk-off (1% ≤ 40%) from a damaged print.
+    must not invent risk-off (1% ≤ 40%) from a damaged print or max floor.
     """
     a = _breadth_pct(stock_adv_pct)
     b = _breadth_pct(crypto_adv_pct)
     if a is None or b is None:
         return False
-    ceiling = float(max_pct)
+    ceiling = _breadth_threshold_pct(max_pct, default=DEFAULT_RISK_OFF_MAX_PCT)
     return a <= ceiling and b <= ceiling
 
 
@@ -35449,13 +35468,15 @@ def is_breadth_thrust_day(
     """True when ±4% and near-high ratios both clear min_pct (scan-list; display only).
 
     tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
-    must not invent thrust heat from a damaged print.
+    must not invent thrust heat from a damaged print or floor knob.
     """
     mover = _breadth_pct(mover_pct)
     near = _breadth_pct(near_high_pct)
     if mover is None or near is None:
         return False
-    floor = float(min_pct)
+    floor = _breadth_threshold_pct(
+        min_pct, default=DEFAULT_BREADTH_THRUST_MIN_PCT
+    )
     return mover >= floor and near >= floor
 
 
@@ -36480,6 +36501,13 @@ def build_breadth_thrust_summary(
     Separates raw thrust from StockBee **confirmed** thrust (thrust + risk-on)
     and **alone** thrust (thrust without risk-on — false-thrust warning).
     """
+    # Refuse bool floor knobs before counting / speaking ≥N% (True→1%).
+    min_pct = _breadth_threshold_pct(
+        min_pct, default=DEFAULT_BREADTH_THRUST_MIN_PCT
+    )
+    dual_min_pct = _breadth_threshold_pct(
+        dual_min_pct, default=DEFAULT_DUAL_ADVANCE_MIN_PCT
+    )
     days = 0
     thrust_n = 0
     confirmed_n = 0

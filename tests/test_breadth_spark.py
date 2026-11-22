@@ -140,6 +140,26 @@ def test_is_breadth_thrust_day():
     # float(True)→1% must not invent thrust heat.
     assert is_breadth_thrust_day(True, True) is False
     assert is_breadth_thrust_day(True, 40.0) is False
+    # Bool floor knob: True→1% would invent thrust at tiny ratios.
+    assert is_breadth_thrust_day(2.0, 2.0, min_pct=True) is False
+    assert is_breadth_thrust_day(25.0, 25.0, min_pct=True) is True  # default 25
+
+
+def test_breadth_thrust_summary_refuses_bool_min_pct():
+    """True→1% must not speak ≥1% floor on the thrust glance line."""
+    rows = [
+        {
+            "day": "2026-11-20",
+            "mover_pct": 30.0,
+            "near_high_pct": 30.0,
+            "stock_adv_pct": 60.0,
+            "crypto_adv_pct": 55.0,
+        }
+    ]
+    out = build_breadth_thrust_summary(rows, min_pct=True)
+    assert out["min_pct"] == 25.0
+    assert "≥25%" in out["line"]
+    assert "≥1%" not in out["line"]
 
 
 def test_is_confirmed_thrust_day():
@@ -214,6 +234,9 @@ def test_is_dual_advance_day():
     assert float(True) == 1.0
     assert is_dual_advance_day(True, True) is False
     assert is_dual_advance_day(True, 80.0) is False
+    # Bool floor knob: True→1% would invent risk-on at tiny sleeves.
+    assert is_dual_advance_day(2.0, 2.0, min_pct=True) is False
+    assert is_dual_advance_day(50.0, 50.0, min_pct=True) is True  # default 50
 
 
 def test_is_tape_split_day():
@@ -227,6 +250,9 @@ def test_is_tape_split_day():
     # float(True)→1% must not invent a split tape with a real sleeve.
     assert is_tape_split_day(True, 60.0) is False
     assert is_tape_split_day(70.0, False) is False
+    # Bool strong/weak floors fall back to 60/40 (not True→1%).
+    assert is_tape_split_day(70.0, 30.0, strong_pct=True, weak_pct=True) is True
+    assert is_tape_split_day(50.0, 30.0, strong_pct=True) is False
 
 
 def test_is_risk_off_day():
@@ -242,6 +268,9 @@ def test_is_risk_off_day():
     assert is_risk_off_day(True, True) is False
     assert is_risk_off_day(True, 20.0) is False
     assert is_risk_off_day(False, False) is False
+    # Bool max floor: True→1% would hide risk-off at 40/40; refuse → default 40.
+    assert is_risk_off_day(40.0, 40.0, max_pct=True) is True
+    assert is_risk_off_day(2.0, 2.0, max_pct=True) is True
 
 
 def test_breadth_tape_label():
