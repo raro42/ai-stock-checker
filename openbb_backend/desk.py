@@ -35300,21 +35300,27 @@ DEFAULT_RISK_OFF_MAX_PCT = DEFAULT_TAPE_SPLIT_WEAK_PCT
 
 
 def is_dual_advance_day(
-    stock_adv_pct: float | None,
-    crypto_adv_pct: float | None,
+    stock_adv_pct: object,
+    crypto_adv_pct: object,
     *,
     min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
 ) -> bool:
-    """True when stock and crypto advance % both clear min_pct (scan-list; display only)."""
-    if stock_adv_pct is None or crypto_adv_pct is None:
+    """True when stock and crypto advance % both clear min_pct (scan-list; display only).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
+    must not invent a dual-advance / risk-on tape from a damaged print.
+    """
+    a = _breadth_pct(stock_adv_pct)
+    b = _breadth_pct(crypto_adv_pct)
+    if a is None or b is None:
         return False
     floor = float(min_pct)
-    return float(stock_adv_pct) >= floor and float(crypto_adv_pct) >= floor
+    return a >= floor and b >= floor
 
 
 def is_tape_split_day(
-    stock_adv_pct: float | None,
-    crypto_adv_pct: float | None,
+    stock_adv_pct: object,
+    crypto_adv_pct: object,
     *,
     strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
     weak_pct: float = DEFAULT_TAPE_SPLIT_WEAK_PCT,
@@ -35322,19 +35328,22 @@ def is_tape_split_day(
     """True when one advance % is strong and the other weak (scan-list; display only).
 
     Mutually exclusive with dual-advance at the default floors (50/50 vs 60/40).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
+    must not invent a split tape from a damaged print.
     """
-    if stock_adv_pct is None or crypto_adv_pct is None:
+    a = _breadth_pct(stock_adv_pct)
+    b = _breadth_pct(crypto_adv_pct)
+    if a is None or b is None:
         return False
-    a = float(stock_adv_pct)
-    b = float(crypto_adv_pct)
     hi = max(a, b)
     lo = min(a, b)
     return hi >= float(strong_pct) and lo <= float(weak_pct)
 
 
 def is_risk_off_day(
-    stock_adv_pct: float | None,
-    crypto_adv_pct: float | None,
+    stock_adv_pct: object,
+    crypto_adv_pct: object,
     *,
     max_pct: float = DEFAULT_RISK_OFF_MAX_PCT,
 ) -> bool:
@@ -35342,16 +35351,21 @@ def is_risk_off_day(
 
     Completes StockBee-lite tape: risk-on · split · risk-off. Exclusive of dual /
     split at defaults (both ≤40% cannot be ≥50% or 60/40).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
+    must not invent risk-off (1% ≤ 40%) from a damaged print.
     """
-    if stock_adv_pct is None or crypto_adv_pct is None:
+    a = _breadth_pct(stock_adv_pct)
+    b = _breadth_pct(crypto_adv_pct)
+    if a is None or b is None:
         return False
     ceiling = float(max_pct)
-    return float(stock_adv_pct) <= ceiling and float(crypto_adv_pct) <= ceiling
+    return a <= ceiling and b <= ceiling
 
 
 def breadth_tape_label(
-    stock_adv_pct: float | None,
-    crypto_adv_pct: float | None,
+    stock_adv_pct: object,
+    crypto_adv_pct: object,
     *,
     dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
     strong_pct: float = DEFAULT_TAPE_SPLIT_STRONG_PCT,
@@ -35360,10 +35374,12 @@ def breadth_tape_label(
 ) -> str:
     """Short tape tag: risk-on · split · risk-off · mixed · empty. Display only.
 
-    Empty means a sleeve is missing (not priced). Mid-range both-sleeved days
-    are ``mixed`` — do not conflate with missing data (StockBee honesty).
+    Empty means a sleeve is missing (not priced) or unreadable (bool/NaN).
+    Mid-range both-sleeved days are ``mixed`` — do not conflate with missing
+    data (StockBee honesty). Bool prints refuse via ``_breadth_pct`` so
+    ``True→1%`` cannot invent risk-off.
     """
-    if stock_adv_pct is None or crypto_adv_pct is None:
+    if _breadth_pct(stock_adv_pct) is None or _breadth_pct(crypto_adv_pct) is None:
         return ""
     if is_dual_advance_day(stock_adv_pct, crypto_adv_pct, min_pct=dual_min_pct):
         return "risk-on"
@@ -35425,23 +35441,29 @@ def breadth_prev_tape_label(
     )
 
 def is_breadth_thrust_day(
-    mover_pct: float | None,
-    near_high_pct: float | None,
+    mover_pct: object,
+    near_high_pct: object,
     *,
     min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
 ) -> bool:
-    """True when ±4% and near-high ratios both clear min_pct (scan-list; display only)."""
-    if mover_pct is None or near_high_pct is None:
+    """True when ±4% and near-high ratios both clear min_pct (scan-list; display only).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool — ``float(True)→1%``
+    must not invent thrust heat from a damaged print.
+    """
+    mover = _breadth_pct(mover_pct)
+    near = _breadth_pct(near_high_pct)
+    if mover is None or near is None:
         return False
     floor = float(min_pct)
-    return float(mover_pct) >= floor and float(near_high_pct) >= floor
+    return mover >= floor and near >= floor
 
 
 def is_confirmed_thrust_day(
-    mover_pct: float | None,
-    near_high_pct: float | None,
-    stock_adv_pct: float | None,
-    crypto_adv_pct: float | None,
+    mover_pct: object,
+    near_high_pct: object,
+    stock_adv_pct: object,
+    crypto_adv_pct: object,
     *,
     thrust_min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
     dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
@@ -35459,10 +35481,10 @@ def is_confirmed_thrust_day(
 
 
 def is_unconfirmed_thrust_day(
-    mover_pct: float | None,
-    near_high_pct: float | None,
-    stock_adv_pct: float | None,
-    crypto_adv_pct: float | None,
+    mover_pct: object,
+    near_high_pct: object,
+    stock_adv_pct: object,
+    crypto_adv_pct: object,
     *,
     thrust_min_pct: float = DEFAULT_BREADTH_THRUST_MIN_PCT,
     dual_min_pct: float = DEFAULT_DUAL_ADVANCE_MIN_PCT,
@@ -36081,10 +36103,10 @@ def format_flip_run_chop_bits(
     flip_streak: int = 0,
     flip_max_streak: int = 0,
     flip_min_streak: int = 0,
-    flip_mean_streak: float | None = None,
-    flip_median_streak: float | None = None,
-    flip_stdev_streak: float | None = None,
-    flip_cv_streak: float | None = None,
+    flip_mean_streak: object = None,
+    flip_median_streak: object = None,
+    flip_stdev_streak: object = None,
+    flip_cv_streak: object = None,
     flip_run_n: int = 0,
 ) -> list[str]:
     """Flip-run distribution bits for Breadth chop details (display only).
@@ -36092,39 +36114,35 @@ def format_flip_run_chop_bits(
     MonsterDeveloper + xang1234: keep live flip / days-since / dens on the
     primary glance; park max/avg/med/min/σ/CV under a details fold so the
     desk stays short. Not a gate.
+
+    tradermonty #700/#655: refuse bool — ``True→1.0`` must not invent avg/med/σ/CV
+    flip bits (``f\"{True:.1f}\"`` → ``1.0``).
     """
     bits: list[str] = []
     if flip_max_streak >= 2 and flip_max_streak > flip_streak:
         bits.append(f"max flip {flip_max_streak}")
-    if flip_mean_streak is not None and flip_run_n >= 2:
-        bits.append(f"avg flip {flip_mean_streak:.1f} ({flip_run_n} runs)")
+    mean_v = _breadth_pct(flip_mean_streak)
+    if mean_v is not None and flip_run_n >= 2:
+        bits.append(f"avg flip {mean_v:.1f} ({flip_run_n} runs)")
+    med_v = _breadth_pct(flip_median_streak)
     if (
-        flip_median_streak is not None
+        med_v is not None
         and flip_run_n >= 3
-        and (
-            flip_mean_streak is None
-            or abs(flip_median_streak - flip_mean_streak) >= 0.05
-        )
+        and (mean_v is None or abs(med_v - mean_v) >= 0.05)
     ):
-        bits.append(f"med flip {flip_median_streak:.1f}")
+        bits.append(f"med flip {med_v:.1f}")
     if (
         flip_run_n >= 2
         and flip_min_streak > 0
         and flip_min_streak < flip_max_streak
     ):
         bits.append(f"min flip {flip_min_streak}")
-    if (
-        flip_stdev_streak is not None
-        and flip_run_n >= 3
-        and flip_stdev_streak >= 0.05
-    ):
-        bits.append(f"σ flip {flip_stdev_streak:.1f}")
-    if (
-        flip_cv_streak is not None
-        and flip_run_n >= 3
-        and flip_cv_streak >= 0.05
-    ):
-        bits.append(f"CV flip {flip_cv_streak:.1f}")
+    sigma_v = _breadth_pct(flip_stdev_streak)
+    if sigma_v is not None and flip_run_n >= 3 and sigma_v >= 0.05:
+        bits.append(f"σ flip {sigma_v:.1f}")
+    cv_v = _breadth_pct(flip_cv_streak)
+    if cv_v is not None and flip_run_n >= 3 and cv_v >= 0.05:
+        bits.append(f"CV flip {cv_v:.1f}")
     return bits
 
 
@@ -36147,12 +36165,11 @@ def breadth_chop_fold_meta(
     bits = [str(b).strip() for b in (chop_bits or []) if str(b).strip()]
     if not bits:
         return "quiet", False
-    sigma_wide = (
-        flip_stdev_streak is not None and float(flip_stdev_streak) >= CHOP_WIDE_SIGMA
-    )
-    cv_wide = (
-        flip_cv_streak is not None and float(flip_cv_streak) >= CHOP_WIDE_CV
-    )
+    # Refuse bool — float(True)→1.0 must not invent wide σ/CV on chop chip.
+    sigma_v = _breadth_pct(flip_stdev_streak)
+    cv_v = _breadth_pct(flip_cv_streak)
+    sigma_wide = sigma_v is not None and sigma_v >= CHOP_WIDE_SIGMA
+    cv_wide = cv_v is not None and cv_v >= CHOP_WIDE_CV
     calm: list[str] = []
     hot: list[str] = []
     for bit in bits:

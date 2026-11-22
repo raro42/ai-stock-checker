@@ -137,6 +137,9 @@ def test_is_breadth_thrust_day():
     assert is_breadth_thrust_day(50.0, 24.9) is False
     assert is_breadth_thrust_day(None, 50.0) is False
     assert is_breadth_thrust_day(50.0, None) is False
+    # float(True)→1% must not invent thrust heat.
+    assert is_breadth_thrust_day(True, True) is False
+    assert is_breadth_thrust_day(True, 40.0) is False
 
 
 def test_is_confirmed_thrust_day():
@@ -148,6 +151,7 @@ def test_is_confirmed_thrust_day():
     assert is_confirmed_thrust_day(10.0, 10.0, 60.0, 55.0) is False
     assert is_confirmed_thrust_day(None, 25.0, 50.0, 50.0) is False
     assert is_confirmed_thrust_day(25.0, 25.0, None, 50.0) is False
+    assert is_confirmed_thrust_day(True, True, True, True) is False
 
 
 def test_is_unconfirmed_thrust_day():
@@ -159,6 +163,7 @@ def test_is_unconfirmed_thrust_day():
     # No thrust → not alone.
     assert is_unconfirmed_thrust_day(10.0, 10.0, 30.0, 30.0) is False
     assert is_unconfirmed_thrust_day(None, 25.0, 40.0, 40.0) is False
+    assert is_unconfirmed_thrust_day(True, True, 40.0, 40.0) is False
 
 
 def test_thrust_confirm_rate_pct():
@@ -205,6 +210,10 @@ def test_is_dual_advance_day():
     assert is_dual_advance_day(50.0, 49.9) is False
     assert is_dual_advance_day(None, 80.0) is False
     assert is_dual_advance_day(80.0, None) is False
+    # tradermonty #700/#655: float(True)→1% must not invent dual-advance.
+    assert float(True) == 1.0
+    assert is_dual_advance_day(True, True) is False
+    assert is_dual_advance_day(True, 80.0) is False
 
 
 def test_is_tape_split_day():
@@ -215,6 +224,9 @@ def test_is_tape_split_day():
     assert is_tape_split_day(60.0, 40.1) is False
     assert is_tape_split_day(80.0, 70.0) is False  # dual, not split
     assert is_tape_split_day(None, 30.0) is False
+    # float(True)→1% must not invent a split tape with a real sleeve.
+    assert is_tape_split_day(True, 60.0) is False
+    assert is_tape_split_day(70.0, False) is False
 
 
 def test_is_risk_off_day():
@@ -226,6 +238,10 @@ def test_is_risk_off_day():
     assert is_risk_off_day(50.0, 50.0) is False  # dual
     assert is_risk_off_day(None, 20.0) is False
     assert is_risk_off_day(20.0, None) is False
+    # Critical invent path: float(True)→1.0 ≤ 40 → fake risk-off before refuse.
+    assert is_risk_off_day(True, True) is False
+    assert is_risk_off_day(True, 20.0) is False
+    assert is_risk_off_day(False, False) is False
 
 
 def test_breadth_tape_label():
@@ -235,6 +251,9 @@ def test_breadth_tape_label():
     assert breadth_tape_label(45.0, 55.0) == "mixed"
     assert breadth_tape_label(None, 80.0) == ""
     assert breadth_tape_label(50.0, None) == ""
+    # Bool sleeves are empty (not risk-off) — claim honesty.
+    assert breadth_tape_label(True, True) == ""
+    assert breadth_tape_label(True, 30.0) == ""
 
 
 def test_is_tape_flip():
@@ -1496,6 +1515,15 @@ def test_breadth_chop_fold_meta_names_spoken_bits() -> None:
     )
     assert meta == "warn · 2 hot of 2 · σ wide · CV wide · quiet · 0 folds"
     assert warn is True
+    # float(True)→1.0 must not invent wide σ/CV warn on chop chip.
+    meta, warn = breadth_chop_fold_meta(
+        ["σ flip 1.0", "CV flip 1.0"],
+        flip_stdev_streak=True,
+        flip_cv_streak=True,
+    )
+    assert warn is False
+    assert "σ wide" not in meta
+    assert "CV wide" not in meta
 
 
 def test_breadth_tape_summary_chop_fold_meta_wide_sigma_warn() -> None:
