@@ -372,11 +372,9 @@ def soft_allow_short_history_vs_other_delta_lead(
     delta_pp, delta_sev = soft_allow_short_history_vs_other_delta(events)
     if not delta_sev or delta_pp is None:
         return ""
-    try:
-        pp = float(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if abs(pp) < 1e-9:
+    # Refuse bool — float(True)→+1pp cannot invent Δ lead · short|other.
+    pp = _soft_allow_size(delta_pp)
+    if pp is None or abs(pp) < 1e-9:
         return ""
     return "short" if pp > 0 else "other"
 
@@ -1086,11 +1084,9 @@ def soft_allow_short_history_bench_vs_young_delta_lead(
     )
     if not delta_sev or delta_pp is None:
         return ""
-    try:
-        pp = float(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if abs(pp) < 1e-9:
+    # Refuse bool — float(True)→+1pp cannot invent Δ lead · bench|young.
+    pp = _soft_allow_size(delta_pp)
+    if pp is None or abs(pp) < 1e-9:
         return ""
     return "bench" if pp > 0 else "young"
 
@@ -1679,11 +1675,9 @@ def soft_allow_short_vs_gap_delta_lead(
     delta_pp, delta_sev = soft_allow_short_vs_gap_delta(events)
     if not delta_sev or delta_pp is None:
         return ""
-    try:
-        pp = float(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if abs(pp) < 1e-9:
+    # Refuse bool — float(True)→+1pp cannot invent Δ lead · short|gap.
+    pp = _soft_allow_size(delta_pp)
+    if pp is None or abs(pp) < 1e-9:
         return ""
     return "short" if pp > 0 else "gap"
 
@@ -4737,9 +4731,20 @@ SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP = 20.0
 SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP = 10.0
 
 
-def _soft_allow_share_delta_lean(lead_pct: float, runner_pct: float) -> str | None:
-    """Ownership Δ lean: ``wide`` / ``thin`` / ``mid``, or None when near-zero."""
-    delta = float(lead_pct) - float(runner_pct)
+def _soft_allow_share_delta_lean(
+    lead_pct: object, runner_pct: object
+) -> str | None:
+    """Ownership Δ lean: ``wide`` / ``thin`` / ``mid``, or None when near-zero.
+
+    Refuse bool — ``float(True)→1pp`` / ``float(False)→0pp`` cannot invent
+    share Δ lean after soft-allow short Δ lead size already refuse bare
+    ``float(share)`` (portfolio AI + xang1234).
+    """
+    left = _soft_allow_size(lead_pct)
+    right = _soft_allow_size(runner_pct)
+    if left is None or right is None:
+        return None
+    delta = left - right
     mag = abs(delta)
     if mag < 1e-9:
         return None
@@ -4761,16 +4766,22 @@ def soft_allow_lead_sides_share_delta(
     Same speak rules as ``soft_allow_lead_sides_share``. Speaks only when
     |lead% − runner%| is wide (≥``SOFT_ALLOW_LEAD_SHARE_DELTA_WIDE_PP``) or
     thin (<``SOFT_ALLOW_LEAD_SHARE_DELTA_THIN_PP``); mid stays silent —
-    portfolio AI + xang1234 after exit-€ share Δ. Display only.
+    portfolio AI + xang1234 after exit-€ share Δ. Refuse bool via
+    ``_soft_allow_share_delta_lean`` — ``True→1pp`` cannot invent
+    ``share Δ thin · +1pp``. Display only.
     """
     sides = soft_allow_lead_sides_share(events, band=band, min_count=min_count)
     if sides is None:
         return None
     gate, n, pct, gap, severity, runner, runner_n, runner_pct = sides
-    lean = _soft_allow_share_delta_lean(pct, runner_pct)
+    lead_pct = _soft_allow_size(pct)
+    run_pct = _soft_allow_size(runner_pct)
+    if lead_pct is None or run_pct is None:
+        return None
+    lean = _soft_allow_share_delta_lean(lead_pct, run_pct)
     if lean not in ("wide", "thin"):
         return None
-    delta = round(float(pct) - float(runner_pct), 1)
+    delta = round(lead_pct - run_pct, 1)
     return (
         gate,
         n,

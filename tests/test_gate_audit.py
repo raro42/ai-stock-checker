@@ -3280,3 +3280,26 @@ def test_soft_allow_ring_size_and_lead_min_bool_refuse() -> None:
         band="fresh",
         min_count=True,
     ) == ("rs", 2)
+
+
+def test_soft_allow_share_delta_lean_and_delta_pp_bool_refuse() -> None:
+    """True/False must not invent soft-allow share Δ lean or Δ lead · side."""
+    from stock_checker.gate_audit import (
+        _soft_allow_share_delta_lean,
+        _soft_allow_size,
+    )
+
+    assert _soft_allow_share_delta_lean(66.7, 33.3) == "wide"
+    assert _soft_allow_share_delta_lean(55.0, 45.0) == "mid"
+    assert _soft_allow_share_delta_lean(52.0, 48.0) == "thin"
+    assert _soft_allow_share_delta_lean(50.0, 50.0) is None
+    # float(True)→1pp / float(False)→0pp must stay silent.
+    assert _soft_allow_share_delta_lean(True, 33.0) is None
+    assert _soft_allow_share_delta_lean(66.0, False) is None
+    assert _soft_allow_share_delta_lean(True, True) is None
+    assert _soft_allow_share_delta_lean(False, False) is None
+    # Δ lead pp parity — True cannot invent +1pp ownership.
+    assert _soft_allow_size(True) is None
+    assert _soft_allow_size(False) is None
+    assert _soft_allow_size(33.4) == 33.4
+    assert _soft_allow_size(-12.5) == -12.5
