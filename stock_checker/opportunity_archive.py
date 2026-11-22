@@ -14,6 +14,28 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from stock_checker.technical_indicators import _finite_signed, coerce_nonneg_int
+
+
+def _archive_count(value: object) -> int:
+    """Non-neg publish count; bool/gap → 0 (never ``True→1``)."""
+    n = coerce_nonneg_int(value)
+    return 0 if n is None else n
+
+
+def _archive_share(value: object) -> float | None:
+    """Finite share % (may be 0), else None — never ``float(True)→1``."""
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def _archive_delta_pp(value: object) -> int | None:
+    """Signed Δ pp, else None — never ``int(True)→1`` inventing a slot lead."""
+    if value is None or not _finite_signed(value):
+        return None
+    return int(value)  # type: ignore[arg-type]
+
 
 def opportunity_publish_usable(path: Path) -> bool:
     """True when ``path`` is a parseable JSON object (dict).
@@ -72,15 +94,11 @@ def opportunity_damaged_vs_ok_lead(
     portfolio AI count≠share). Both sides must be >0 and total ≥2; strict
     lead → ``lead damaged · N%`` / ``lead ok · N%``; ties / sole-side →
     silent (use ``opportunity_damaged_vs_ok_sample_gap`` for tied).
+    tradermonty #700/#655 + portfolio AI + xang1234: refuse bool —
+    ``int(True)→1`` cannot invent archive leads.
     """
-    try:
-        n_dmg = max(0, int(damaged))
-    except (TypeError, ValueError):
-        n_dmg = 0
-    try:
-        n_ok = max(0, int(ok))
-    except (TypeError, ValueError):
-        n_ok = 0
+    n_dmg = _archive_count(damaged)
+    n_ok = _archive_count(ok)
     total = n_dmg + n_ok
     if total < 2 or n_dmg <= 0 or n_ok <= 0:
         return "", "", None
@@ -100,19 +118,13 @@ def opportunity_damaged_vs_ok_sample_gap(damaged: int, ok: int) -> str:
     Prefixed so the bit stays distinct from Yahoo claim ``tied`` /
     ``drop/live tied``. Lead cases / sole-side / zero stay silent.
     Absolute damaged+ok alone hid that a 50/50 archive has no owner.
-    Display only.
+    Display only. Refuse bool — ``True/True`` is not a real 1/1 tie.
     """
     lead_bit, _name, _share = opportunity_damaged_vs_ok_lead(damaged, ok)
     if lead_bit:
         return ""
-    try:
-        n_dmg = max(0, int(damaged))
-    except (TypeError, ValueError):
-        n_dmg = 0
-    try:
-        n_ok = max(0, int(ok))
-    except (TypeError, ValueError):
-        n_ok = 0
+    n_dmg = _archive_count(damaged)
+    n_ok = _archive_count(ok)
     if n_dmg <= 0 or n_ok <= 0:
         return ""
     if n_dmg != n_ok:
@@ -172,15 +184,13 @@ def opportunity_damaged_vs_ok_delta(
     ``align · hot|thin`` + Δ wide warns; ``quiet|strong`` stays calm.
 
     Returns ``(delta_pp, delta_severity, lean_vs_delta, lean_vs_delta_warn)``.
+    Refuse bool — ``float(True)→1%`` cannot invent ``Δ thin · +1pp``.
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if damaged_share_pct is None or ok_share_pct is None:
-        return None, "", "", False
-    try:
-        dmg = float(damaged_share_pct)
-        ok = float(ok_share_pct)
-    except (TypeError, ValueError):
+    dmg = _archive_share(damaged_share_pct)
+    ok = _archive_share(ok_share_pct)
+    if dmg is None or ok is None:
         return None, "", "", False
     raw = int(round(dmg - ok))
     abs_delta = abs(raw)
@@ -211,18 +221,14 @@ def opportunity_damaged_vs_ok_delta_lead(
     clash / 0pp stay silent. Signed pp alone hid which archive slot type
     owns the spread (Screener unique vs dup / Yahoo mix / Window A sleeve
     Δ lead + portfolio AI speak-both-sides). Returns ``damaged|ok`` / ``\"\"``.
+    Refuse bool — ``int(True)→1`` cannot invent ``Δ lead · damaged``.
     """
     if not str(lean_vs_delta or "").startswith("align ·"):
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _archive_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "damaged" if pp > 0 else "ok"
 
@@ -241,15 +247,13 @@ def opportunity_damaged_vs_ok_delta_lead_size(
     (louder first). Lead name ≠ magnitude (Screener junk vs ok /
     unique vs dup Δ lead size + portfolio AI count≠share). Returns
     ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
+    Refuse bool — ``float(True)→1%`` cannot invent ``Δ lead size · 1×``.
     """
     if str(delta_lead or "").strip().casefold() not in {"damaged", "ok"}:
         return None, None, None
-    if damaged_share_pct is None or ok_share_pct is None:
-        return None, None, None
-    try:
-        dmg = float(damaged_share_pct)
-        ok = float(ok_share_pct)
-    except (TypeError, ValueError):
+    dmg = _archive_share(damaged_share_pct)
+    ok = _archive_share(ok_share_pct)
+    if dmg is None or ok is None:
         return None, None, None
     louder = max(dmg, ok)
     quieter = min(dmg, ok)

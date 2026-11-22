@@ -739,6 +739,42 @@ def test_opportunity_damaged_vs_ok_lead_helpers() -> None:
     assert opportunity_damaged_vs_ok_lead(0, 0) == ("", "", None)
 
 
+def test_opportunity_damaged_vs_ok_bool_refuse() -> None:
+    """Bool/gap cannot invent archive leads, ties, Δ pp, or size (True→1)."""
+    lean = "damaged vs ok align · quiet|strong"
+    # int(True)→1 / int(False)→0 would invent lead damaged · 100% or a 1/1 tie.
+    assert opportunity_damaged_vs_ok_lead(True, 2) == ("", "", None)
+    assert opportunity_damaged_vs_ok_lead(3, False) == ("", "", None)
+    assert opportunity_damaged_vs_ok_lead(True, True) == ("", "", None)
+    assert opportunity_damaged_vs_ok_sample_gap(True, True) == ""
+    assert opportunity_damaged_vs_ok_sample_gap(True, 1) == ""
+    # float(True)→1% / float(False)→0% would invent thin Δ / 1× size.
+    assert opportunity_damaged_vs_ok_delta(True, 0, lean_bit=lean) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert opportunity_damaged_vs_ok_delta(75, False, lean_bit=lean) == (
+        None,
+        "",
+        "",
+        False,
+    )
+    assert (
+        opportunity_damaged_vs_ok_delta_lead(
+            True, "thin", lean_vs_delta="align · thin"
+        )
+        == ""
+    )
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        True, 25, delta_lead="damaged"
+    ) == (None, None, None)
+    assert opportunity_damaged_vs_ok_delta_lead_size(
+        75, False, delta_lead="damaged"
+    ) == (None, None, None)
+
+
 def test_opportunity_damaged_vs_ok_lean_helpers() -> None:
     """Align / clash / mid-silent for damaged vs ok severity lean."""
     bit, warn = opportunity_damaged_vs_ok_lean("hot", "thin")
