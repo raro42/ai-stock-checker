@@ -13655,17 +13655,9 @@ def build_calm_streak_glance(
                         sample.get("closes_exit_euro_offset_hot")
                     )
                     window_a_closes_exit_euro_offset_pnl = _fill_signed(sample.get("closes_exit_euro_offset_pnl"))
-                    try:
-                        off_ratio = sample.get(
-                            "closes_exit_euro_offset_ratio"
-                        )
-                        window_a_closes_exit_euro_offset_ratio = (
-                            float(off_ratio)
-                            if off_ratio is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_offset_ratio = None
+                    window_a_closes_exit_euro_offset_ratio = _fill_signed(
+                        sample.get("closes_exit_euro_offset_ratio")
+                    )
                     if window_a_closes_exit_euro_lead_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_lead_bit}",
@@ -13838,15 +13830,9 @@ def build_calm_streak_glance(
                         ).strip()
                         or None
                     )
-                    try:
-                        gap_ratio = sample.get("closes_exit_euro_gap_ratio")
-                        window_a_closes_exit_euro_gap_ratio = (
-                            float(gap_ratio)
-                            if gap_ratio is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_gap_ratio = None
+                    window_a_closes_exit_euro_gap_ratio = _fill_signed(
+                        sample.get("closes_exit_euro_gap_ratio")
+                    )
                     if window_a_closes_exit_euro_offset_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_offset_bit}",
@@ -14022,15 +14008,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_conc_hot = bool(
                         sample.get("closes_exit_euro_conc_hot")
                     )
-                    try:
-                        conc_pct = sample.get("closes_exit_euro_conc_pct")
-                        window_a_closes_exit_euro_conc_pct = (
-                            float(conc_pct)
-                            if conc_pct is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_conc_pct = None
+                    window_a_closes_exit_euro_conc_pct = _fill_signed(
+                        sample.get("closes_exit_euro_conc_pct")
+                    )
                     if window_a_closes_exit_euro_gap_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_gap_bit}",
@@ -14205,17 +14185,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_count_skew_hot = bool(
                         sample.get("closes_exit_euro_count_skew_hot")
                     )
-                    try:
-                        skew_pp = sample.get(
-                            "closes_exit_euro_count_skew_pp"
-                        )
-                        window_a_closes_exit_euro_count_skew_pp = (
-                            float(skew_pp)
-                            if skew_pp is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_count_skew_pp = None
+                    window_a_closes_exit_euro_count_skew_pp = _fill_signed(
+                        sample.get("closes_exit_euro_count_skew_pp")
+                    )
                     if window_a_closes_exit_euro_conc_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_conc_bit}",
@@ -14395,17 +14367,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_hot = bool(
                         sample.get("closes_exit_euro_size_hot")
                     )
-                    try:
-                        size_ratio = sample.get(
-                            "closes_exit_euro_size_ratio"
-                        )
-                        window_a_closes_exit_euro_size_ratio = (
-                            float(size_ratio)
-                            if size_ratio is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_ratio = None
+                    window_a_closes_exit_euro_size_ratio = _fill_signed(
+                        sample.get("closes_exit_euro_size_ratio")
+                    )
                     if window_a_closes_exit_euro_count_skew_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_count_skew_bit}",
@@ -14597,15 +14561,11 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_n = (
                         n_label or None
                     )
-                    try:
-                        n_count = sample.get(
-                            "closes_exit_euro_size_n_count"
-                        )
-                        window_a_closes_exit_euro_size_n_count = (
-                            int(n_count) if n_count is not None else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_n_count = None
+                    from stock_checker.technical_indicators import coerce_nonneg_int
+
+                    window_a_closes_exit_euro_size_n_count = coerce_nonneg_int(
+                        sample.get("closes_exit_euro_size_n_count")
+                    )
                     if window_a_closes_exit_euro_size_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_size_bit}",
@@ -14804,17 +14764,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_sign = (
                         sign_label or None
                     )
-                    try:
-                        sign_pnl = sample.get(
-                            "closes_exit_euro_size_sign_pnl"
-                        )
-                        window_a_closes_exit_euro_size_sign_pnl = (
-                            float(sign_pnl)
-                            if sign_pnl is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_sign_pnl = None
+                    window_a_closes_exit_euro_size_sign_pnl = _fill_signed(
+                        sample.get("closes_exit_euro_size_sign_pnl")
+                    )
                     if window_a_closes_exit_euro_size_n_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_size_n_bit}",
@@ -15020,17 +14972,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_rest_sign = (
                         rest_sign_label or None
                     )
-                    try:
-                        rest_sign_pnl = sample.get(
-                            "closes_exit_euro_size_rest_sign_pnl"
-                        )
-                        window_a_closes_exit_euro_size_rest_sign_pnl = (
-                            float(rest_sign_pnl)
-                            if rest_sign_pnl is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_rest_sign_pnl = None
+                    window_a_closes_exit_euro_size_rest_sign_pnl = _fill_signed(
+                        sample.get("closes_exit_euro_size_rest_sign_pnl")
+                    )
                     if window_a_closes_exit_euro_size_sign_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_size_sign_bit}",
@@ -15459,17 +15403,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_sign_clash_net = (
                         net_label or None
                     )
-                    raw_net_pnl = sample.get(
-                        "closes_exit_euro_size_sign_clash_net_pnl"
+                    window_a_closes_exit_euro_size_sign_clash_net_pnl = _fill_signed(
+                        sample.get("closes_exit_euro_size_sign_clash_net_pnl")
                     )
-                    try:
-                        window_a_closes_exit_euro_size_sign_clash_net_pnl = (
-                            float(raw_net_pnl)
-                            if raw_net_pnl is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_sign_clash_net_pnl = None
                     if window_a_closes_exit_euro_size_sign_clash_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_size_sign_clash_bit}",
@@ -15698,19 +15634,9 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_sign_clash_keep = (
                         keep_label or None
                     )
-                    raw_keep_ratio = sample.get(
-                        "closes_exit_euro_size_sign_clash_keep_ratio"
+                    window_a_closes_exit_euro_size_sign_clash_keep_ratio = _fill_signed(
+                        sample.get("closes_exit_euro_size_sign_clash_keep_ratio")
                     )
-                    try:
-                        window_a_closes_exit_euro_size_sign_clash_keep_ratio = (
-                            float(raw_keep_ratio)
-                            if raw_keep_ratio is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_sign_clash_keep_ratio = (
-                            None
-                        )
                     if window_a_closes_exit_euro_size_sign_clash_net_bit:
                         status = status.replace(
                             f" · {window_a_closes_exit_euro_size_sign_clash_net_bit}",
@@ -15956,19 +15882,11 @@ def build_calm_streak_glance(
                     window_a_closes_exit_euro_size_sign_clash_keep_fees = (
                         fees_label or None
                     )
-                    raw_fees_ratio = sample.get(
-                        "closes_exit_euro_size_sign_clash_keep_fees_ratio"
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_ratio = _fill_signed(
+                        sample.get(
+                            "closes_exit_euro_size_sign_clash_keep_fees_ratio"
+                        )
                     )
-                    try:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_ratio = (
-                            float(raw_fees_ratio)
-                            if raw_fees_ratio is not None
-                            else None
-                        )
-                    except (TypeError, ValueError):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_ratio = (
-                            None
-                        )
                     # Drop keep (or earlier exit bits) so keep-fees owns the
                     # clip. Also drop fee-mood · compact € when present —
                     # leftover fee× is more specific than window drag totals

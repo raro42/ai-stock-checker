@@ -111,5 +111,18 @@ def test_fill_signed_refuses_bool_window_a_edge_and_laya() -> None:
     assert _fill_signed(-3.2) == -3.2
 
 
+def test_fill_signed_refuses_bool_window_a_exit_euro_mid_cascade() -> None:
+    """Window A exit-€ mid cascade: float(True)/int(True) must not invent ratios·€·n."""
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    assert float(True) == 1.0
+    assert int(True) == 1
+    assert _fill_signed(True) is None
+    assert _fill_signed(1.25) == 1.25
+    assert coerce_nonneg_int(True) is None
+    assert coerce_nonneg_int(3) == 3
+    assert coerce_nonneg_int(False) is None
+
+
 def test_recent_fills_limit_is_twenty() -> None:
     assert RECENT_FILLS_LIMIT == 20
