@@ -3224,3 +3224,44 @@ def test_soft_allow_size_moods_bool_refuse() -> None:
     assert soft_allow_size_moods(
         False, False, left_label="short/other", right_label="bench/young"
     ) == ("", False)
+
+
+def test_soft_allow_ring_size_and_lead_min_bool_refuse() -> None:
+    """True/False must not invent soft-allow lead ×N · P% or min_count=1."""
+    from stock_checker.gate_audit import (
+        _soft_allow_ring_size,
+        soft_allow_lead_gate,
+        soft_allow_lead_vs_config,
+        soft_allow_last_lead_vs_config,
+    )
+
+    assert _soft_allow_ring_size(3, 75.0) == " · ×3 · 75%"
+    assert _soft_allow_ring_size(2, None) == " · ×2"
+    assert _soft_allow_ring_size(0, 50.0) == ""
+    # int(True)→×1 / float(True)→1% / False→0 must stay silent.
+    assert _soft_allow_ring_size(True, 75.0) == ""
+    assert _soft_allow_ring_size(3, True) == " · ×3"
+    assert _soft_allow_ring_size(False, False) == ""
+    assert soft_allow_lead_vs_config(
+        "rs", {"rs_gate": True}, lead_count=True, lead_share_pct=80.0
+    ) == "agree · lead rs · RS on"
+    assert soft_allow_lead_vs_config(
+        "rs", {"rs_gate": False}, lead_count=3, lead_share_pct=True
+    ) == "clash · lead rs · ×3 · RS off"
+    assert soft_allow_last_lead_vs_config(
+        "agree",
+        "agree · lead rs · RS on",
+        lead_count=True,
+        lead_share_pct=50.0,
+    ) == ("last/config align · both agree", False)
+    # One soft-allow with min_count=True must not invent a lead.
+    one = [{"gate": "rs", "freshness": "fresh"}]
+    assert soft_allow_lead_gate(one, band="fresh", min_count=True) is None
+    assert soft_allow_lead_gate(
+        [
+            {"gate": "rs", "freshness": "fresh"},
+            {"gate": "rs", "freshness": "fresh"},
+        ],
+        band="fresh",
+        min_count=True,
+    ) == ("rs", 2)

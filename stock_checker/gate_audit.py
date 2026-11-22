@@ -4580,6 +4580,20 @@ def format_fresh_soft_allow_tally(
     return format_soft_allow_band_tally(events, band="fresh")
 
 
+def _coerce_soft_allow_lead_min_count(value: object, default: int = 2) -> int:
+    """Positive lead floor, or ``default`` when bool/gap (never ``True→1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` must not
+    invent a one-row soft-allow concentration lead.
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
 def soft_allow_lead_gate(
     events: list[dict[str, Any]] | None,
     *,
@@ -4589,13 +4603,14 @@ def soft_allow_lead_gate(
     """Dominant gate in one freshness band (portfolio AI concentration).
 
     Speaks when the top gate reaches ``min_count`` and strictly leads #2
-    (ties stay silent). One soft-allow ≠ concentration. Display only.
+    (ties stay silent). One soft-allow ≠ concentration. Refuse bool
+    ``min_count`` — ``True→1`` cannot invent a lead. Display only.
     """
     tally = soft_allow_band_tally(events, band=band)
     if not tally:
         return None
     gate, n = tally[0]
-    if n < int(min_count):
+    if n < _coerce_soft_allow_lead_min_count(min_count):
         return None
     if len(tally) > 1 and tally[1][1] >= n:
         return None
@@ -4925,6 +4940,27 @@ _SOFT_ALLOW_LEAD_CONFIG: dict[str, tuple[str, str]] = {
 }
 
 
+def _soft_allow_ring_size(
+    lead_count: object = 0, lead_share_pct: object = None
+) -> str:
+    """`` · ×N · P%`` when the lead ring has a size (display only).
+
+    Refuse bool — ``int(True)→×1`` / ``float(True)→1%`` cannot invent
+    ring ownership after soft-allow Δ size moods already refuse bare
+    ``float(size)`` (portfolio AI count≠share + xang1234).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(lead_count)
+    if n is None or n <= 0:
+        return ""
+    size = f" · ×{n}"
+    share = _soft_allow_size(lead_share_pct)
+    if share is not None:
+        size += f" · {int(round(share))}%"
+    return size
+
+
 def soft_allow_lead_vs_config(
     lead_gate: str,
     runtime: Mapping[str, Any] | None,
@@ -4940,8 +4976,10 @@ def soft_allow_lead_vs_config(
     - explicitly on → ``agree · lead rs · ×N · P% · RS on`` (no warn)
     Count and share ride on the bit so the lean chip is not a nameless
     knob (portfolio AI count≠share). Missing count omits the size.
-    Missing key / unknown gate / no lead stay silent (tradermonty #576
-    same-run provenance — ring handoff vs live config). Not a gate.
+    Refuse bool via ``_soft_allow_ring_size`` — ``True→×1`` / ``True→1%``
+    cannot invent ownership. Missing key / unknown gate / no lead stay
+    silent (tradermonty #576 same-run provenance — ring handoff vs live
+    config). Not a gate.
     """
     if not isinstance(runtime, Mapping):
         return ""
@@ -4952,11 +4990,7 @@ def soft_allow_lead_vs_config(
     key, label = mapped
     if key not in runtime:
         return ""
-    size = ""
-    if lead_count > 0:
-        size = f" · ×{lead_count}"
-        if lead_share_pct is not None:
-            size += f" · {int(round(float(lead_share_pct)))}%"
+    size = _soft_allow_ring_size(lead_count, lead_share_pct)
     if bool(runtime.get(key)):
         return f"agree · lead {lead}{size} · {label} on"
     return f"clash · lead {lead}{size} · {label} off"
@@ -4978,10 +5012,11 @@ def soft_allow_last_lead_vs_config(
     confirm). Crossed speaks ``last/config clash · last agree|clash ·
     config agree|clash · ×N · P%`` (warn). Count and share ride on the
     bit so polarity is not a nameless ring (portfolio AI count≠share).
-    Missing count omits the size. Missing either relationship stays
-    silent — FinRobot last≠tilt + tradermonty #576 provenance +
-    portfolio AI speak-both-sides + RyanJHamby dual-clash after
-    last/lead + lead/config alone hid whether the two relationships
+    Missing count omits the size. Refuse bool via ``_soft_allow_ring_size``
+    — ``True→×1`` / ``True→1%`` cannot invent ownership. Missing either
+    relationship stays silent — FinRobot last≠tilt + tradermonty #576
+    provenance + portfolio AI speak-both-sides + RyanJHamby dual-clash
+    after last/lead + lead/config alone hid whether the two relationships
     agree *and* whether dual-clash agreement is adverse. Not a gate.
     """
     last_bit = str(last_vs_lead or "").strip()
@@ -5007,11 +5042,7 @@ def soft_allow_last_lead_vs_config(
     config_verb = _config_verb(config_bit)
     if last_verb is None or config_verb is None:
         return "", False
-    size = ""
-    if lead_count > 0:
-        size = f" · ×{lead_count}"
-        if lead_share_pct is not None:
-            size += f" · {int(round(float(lead_share_pct)))}%"
+    size = _soft_allow_ring_size(lead_count, lead_share_pct)
     if last_verb == config_verb:
         return (
             f"last/config align · both {last_verb}{size}",
@@ -5021,18 +5052,6 @@ def soft_allow_last_lead_vs_config(
         f"last/config clash · last {last_verb} · config {config_verb}{size}",
         True,
     )
-
-
-def _soft_allow_ring_size(
-    lead_count: int = 0, lead_share_pct: float | None = None
-) -> str:
-    """`` · ×N · P%`` when the lead ring has a size (display only)."""
-    if lead_count <= 0:
-        return ""
-    size = f" · ×{int(lead_count)}"
-    if lead_share_pct is not None:
-        size += f" · {int(round(float(lead_share_pct)))}%"
-    return size
 
 
 def soft_allow_last_vs_lead_freshness(

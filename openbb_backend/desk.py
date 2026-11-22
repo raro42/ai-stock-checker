@@ -5226,6 +5226,7 @@ def build_soft_allow_glance(
         soft_allow_last_lead_vs_config_freshness,
         soft_allow_lead_vs_config,
         soft_allow_lead_vs_config_freshness,
+        _soft_allow_ring_size,
         soft_allow_lead_margin,
         soft_allow_lead_share,
         soft_allow_lead_sides_share,
@@ -6645,12 +6646,11 @@ def build_soft_allow_glance(
         last_vs_lead = last_vs_lead_raw
     # Age / polarity parsers need the short name. Ring size rides on the
     # displayed bit so last/lead is not a nameless match (lead/config +
-    # last/config count≠share). Missing count stays short.
+    # last/config count≠share). Missing count stays short. Refuse bool
+    # via ``_soft_allow_ring_size`` — True→×1 / True→1% cannot invent.
     last_vs_lead_named = last_vs_lead
-    if last_vs_lead and lead_count > 0:
-        last_vs_lead = f"{last_vs_lead} · ×{lead_count}"
-        if lead_share_pct is not None:
-            last_vs_lead += f" · {int(round(float(lead_share_pct)))}%"
+    if last_vs_lead:
+        last_vs_lead = f"{last_vs_lead}{_soft_allow_ring_size(lead_count, lead_share_pct)}"
     lead_vs_config = (
         soft_allow_lead_vs_config(
             lead_gate,
