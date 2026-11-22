@@ -1,6 +1,7 @@
 from openbb_backend.desk import (
     RECENT_FILLS_LIMIT,
     _fill_commission,
+    _fill_signed,
     _serialize_trade_row,
 )
 
@@ -86,6 +87,19 @@ def test_fill_commission_allows_zero_refuses_bool() -> None:
     assert _fill_commission(1.25) == 1.25
     assert _fill_commission(True) is None
     assert _fill_commission(-1) is None
+
+
+def test_fill_signed_refuses_bool_exit_euro_ratios() -> None:
+    """Window A exit-€ desk: isinstance(True, int) must not invent 1.0× ratios."""
+    # Python traps: True is an int subclass — bare isinstance accepts it.
+    assert isinstance(True, (int, float)) is True
+    assert _fill_signed(True) is None
+    assert _fill_signed(False) is None
+    assert _fill_signed(2.5) == 2.5
+    assert _fill_signed(-0.5) == -0.5
+    assert _fill_signed(0) == 0.0
+    assert _fill_signed(None) is None
+    assert _fill_signed(float("nan")) is None
 
 
 def test_recent_fills_limit_is_twenty() -> None:

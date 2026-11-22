@@ -16743,14 +16743,8 @@ def build_calm_streak_glance(
                     gap_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio"
                     )
-                    if isinstance(gap_ratio, (int, float)) and gap_ratio == gap_ratio:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio = (
-                            float(gap_ratio)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio = (
-                            None
-                        )
+                    # Refuse bool — isinstance(True, int) must not invent 1.0×.
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_ratio = _fill_signed(gap_ratio)
                     # Drop vs (or earlier exit bits) so gap owns the clip.
                     # Also drop fee-mood · compact € when present —
                     # hotter÷cooler is more specific than mood alone
@@ -17031,14 +17025,7 @@ def build_calm_streak_glance(
                     dir_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_ratio"
                     )
-                    if isinstance(dir_ratio, (int, float)) and dir_ratio == dir_ratio:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_ratio = (
-                            float(dir_ratio)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_ratio = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_ratio = _fill_signed(dir_ratio)
                     # Drop gap (or earlier exit bits) so dir owns the clip.
                     # Also drop fee-mood · compact € when present —
                     # leftover÷window is more specific than unsigned gap
@@ -17314,31 +17301,11 @@ def build_calm_streak_glance(
                     sides_leftover = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover"
                     )
-                    if (
-                        isinstance(sides_leftover, (int, float))
-                        and sides_leftover == sides_leftover
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover = (
-                            float(sides_leftover)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_leftover = _fill_signed(sides_leftover)
                     sides_window = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window"
                     )
-                    if (
-                        isinstance(sides_window, (int, float))
-                        and sides_window == sides_window
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window = (
-                            float(sides_window)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_window = _fill_signed(sides_window)
                     # Drop dir (or earlier exit bits) so sides owns the clip.
                     # Also drop fee-mood · compact € when present —
                     # both multiples are more specific than directed ratio
@@ -17809,17 +17776,7 @@ def build_calm_streak_glance(
                     sides_delta_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_ratio"
                     )
-                    if (
-                        isinstance(sides_delta_ratio, (int, float))
-                        and sides_delta_ratio == sides_delta_ratio
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_ratio = (
-                            float(sides_delta_ratio)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_ratio = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_delta_ratio = _fill_signed(sides_delta_ratio)
                     # Drop sides (or earlier exit bits) so Δ owns the clip.
                     # Also drop fee-mood · compact € when present —
                     # additive spread is more specific than both × alone
@@ -18107,28 +18064,8 @@ def build_calm_streak_glance(
                     share_win = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window"
                     )
-                    if (
-                        isinstance(share_left, (int, float))
-                        and share_left == share_left
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover = (
-                            float(share_left)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover = (
-                            None
-                        )
-                    if (
-                        isinstance(share_win, (int, float))
-                        and share_win == share_win
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window = (
-                            float(share_win)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_leftover = _fill_signed(share_left)
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_window = _fill_signed(share_win)
                     # Drop Δ (or sides / earlier exit bits) so share owns
                     # the clip. Also drop fee-mood · compact € when
                     # present — ownership % is more specific than both ×
@@ -18426,17 +18363,7 @@ def build_calm_streak_glance(
                     share_delta_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_ratio"
                     )
-                    if (
-                        isinstance(share_delta_ratio, (int, float))
-                        and share_delta_ratio == share_delta_ratio
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_ratio = (
-                            float(share_delta_ratio)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_ratio = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_delta_ratio = _fill_signed(share_delta_ratio)
                     # Drop share (or earlier exit bits) so share Δ owns
                     # the clip. Also drop fee-mood · compact € when
                     # present — pp spread is more specific than both %
@@ -19142,23 +19069,11 @@ def build_calm_streak_glance(
                     sides_louder = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_louder"
                     )
-                    if (
-                        isinstance(sides_louder, (int, float))
-                        and sides_louder == sides_louder
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_louder = (
-                            float(sides_louder)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_louder = _fill_signed(sides_louder)
                     sides_quieter = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_quieter"
                     )
-                    if (
-                        isinstance(sides_quieter, (int, float))
-                        and sides_quieter == sides_quieter
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_quieter = (
-                            float(sides_quieter)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_quieter = _fill_signed(sides_quieter)
                     # Drop lead size (or lead / earlier) so sides own the
                     # clip. Lead size stays in fields. Also drop fee-mood ·
                     # compact € when present.
@@ -19299,13 +19214,7 @@ def build_calm_streak_glance(
                     sides_delta_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta_ratio"
                     )
-                    if (
-                        isinstance(sides_delta_ratio, (int, float))
-                        and sides_delta_ratio == sides_delta_ratio
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta_ratio = (
-                            float(sides_delta_ratio)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_delta_ratio = _fill_signed(sides_delta_ratio)
                     # Drop sides (or lead size / earlier) so Δ owns the
                     # clip. Sides stays in fields. Also drop fee-mood ·
                     # compact € when present.
@@ -19444,23 +19353,11 @@ def build_calm_streak_glance(
                     share_loud = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_louder_pct"
                     )
-                    if (
-                        isinstance(share_loud, (int, float))
-                        and share_loud == share_loud
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_louder_pct = (
-                            float(share_loud)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_louder_pct = _fill_signed(share_loud)
                     share_quiet = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct"
                     )
-                    if (
-                        isinstance(share_quiet, (int, float))
-                        and share_quiet == share_quiet
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct = (
-                            float(share_quiet)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct = _fill_signed(share_quiet)
                     # Drop Δ (or sides / lead size / earlier) so share owns
                     # the clip. Δ/sides stay in fields. Also drop fee-mood ·
                     # compact € when present.
@@ -19615,17 +19512,7 @@ def build_calm_streak_glance(
                     share_delta_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio"
                     )
-                    if (
-                        isinstance(share_delta_ratio, (int, float))
-                        and share_delta_ratio == share_delta_ratio
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio = (
-                            float(share_delta_ratio)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio = _fill_signed(share_delta_ratio)
                     # Drop share (or Δ/sides / earlier) so share Δ owns
                     # the clip. Share stays in fields. Also drop fee-mood ·
                     # compact € when present.
@@ -20629,23 +20516,11 @@ def build_calm_streak_glance(
                     nested_sides_louder = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_louder"
                     )
-                    if (
-                        isinstance(nested_sides_louder, (int, float))
-                        and nested_sides_louder == nested_sides_louder
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_louder = (
-                            float(nested_sides_louder)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_louder = _fill_signed(nested_sides_louder)
                     nested_sides_quieter = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_quieter"
                     )
-                    if (
-                        isinstance(nested_sides_quieter, (int, float))
-                        and nested_sides_quieter == nested_sides_quieter
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_quieter = (
-                            float(nested_sides_quieter)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_quieter = _fill_signed(nested_sides_quieter)
                     # Drop nested lead size (or nested lead / earlier) so
                     # sides own the clip. Lead size stays in fields. Also
                     # drop fee-mood · compact € when present.
@@ -20835,13 +20710,7 @@ def build_calm_streak_glance(
                     nested_sides_delta_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_ratio"
                     )
-                    if (
-                        isinstance(nested_sides_delta_ratio, (int, float))
-                        and nested_sides_delta_ratio == nested_sides_delta_ratio
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_ratio = (
-                            float(nested_sides_delta_ratio)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_delta_ratio = _fill_signed(nested_sides_delta_ratio)
                     # Drop nested sides (or nested lead size / earlier) so Δ
                     # owns the clip. Sides stay in fields. Also drop fee-mood
                     # · compact € when present.
@@ -21031,23 +20900,11 @@ def build_calm_streak_glance(
                     nested_share_loud = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct"
                     )
-                    if (
-                        isinstance(nested_share_loud, (int, float))
-                        and nested_share_loud == nested_share_loud
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct = (
-                            float(nested_share_loud)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_louder_pct = _fill_signed(nested_share_loud)
                     nested_share_quiet = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct"
                     )
-                    if (
-                        isinstance(nested_share_quiet, (int, float))
-                        and nested_share_quiet == nested_share_quiet
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct = (
-                            float(nested_share_quiet)
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_quieter_pct = _fill_signed(nested_share_quiet)
                     # Drop nested Δ (or nested sides / lead size / earlier) so
                     # share owns the clip. Δ/sides stay in fields. Also drop
                     # fee-mood · compact € when present.
@@ -21254,17 +21111,7 @@ def build_calm_streak_glance(
                     nested_share_delta_ratio = sample.get(
                         "closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio"
                     )
-                    if (
-                        isinstance(nested_share_delta_ratio, (int, float))
-                        and nested_share_delta_ratio == nested_share_delta_ratio
-                    ):
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio = (
-                            float(nested_share_delta_ratio)
-                        )
-                    else:
-                        window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio = (
-                            None
-                        )
+                    window_a_closes_exit_euro_size_sign_clash_keep_fees_vs_gap_dir_sides_share_vs_delta_align_lead_size_sides_share_vs_delta_align_lead_size_sides_share_delta_ratio = _fill_signed(nested_share_delta_ratio)
                     # Drop nested share (or nested Δ/sides / earlier) so
                     # share Δ owns the clip. Share stays in fields. Also
                     # drop fee-mood · compact € when present.
