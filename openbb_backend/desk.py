@@ -34385,14 +34385,8 @@ def postmortem_unmatched_vs_matched_lead(
     sole-side → silent (use ``postmortem_unmatched_vs_matched_sample_gap`` for
     ``unmatched/matched tied``). Not a new entry gate.
     """
-    try:
-        unmatched_n = max(0, int(n_unmatched))
-    except (TypeError, ValueError):
-        unmatched_n = 0
-    try:
-        matched_n = max(0, int(n_matched))
-    except (TypeError, ValueError):
-        matched_n = 0
+    unmatched_n = _sample_count(n_unmatched)
+    matched_n = _sample_count(n_matched)
     total = unmatched_n + matched_n
     if (
         total < 2
@@ -34418,14 +34412,8 @@ def postmortem_unmatched_vs_matched_sample_gap(
     Prefixed so the bit stays distinct from short-refuse ``short/long tied``.
     Lead / sole-side / zero stay silent. Display only.
     """
-    try:
-        unmatched_n = max(0, int(n_unmatched))
-    except (TypeError, ValueError):
-        unmatched_n = 0
-    try:
-        matched_n = max(0, int(n_matched))
-    except (TypeError, ValueError):
-        matched_n = 0
+    unmatched_n = _sample_count(n_unmatched)
+    matched_n = _sample_count(n_matched)
     if unmatched_n <= 0 or matched_n <= 0:
         return ""
     lead_bit, _name, _share = postmortem_unmatched_vs_matched_lead(
@@ -34453,14 +34441,8 @@ def postmortem_unmatched_vs_matched_lead_size(
     """
     if str(lead_name or "").strip().casefold() not in {"unmatched", "matched"}:
         return None, None, None
-    try:
-        unmatched_n = max(0, int(n_unmatched))
-    except (TypeError, ValueError):
-        unmatched_n = 0
-    try:
-        matched_n = max(0, int(n_matched))
-    except (TypeError, ValueError):
-        matched_n = 0
+    unmatched_n = _sample_count(n_unmatched)
+    matched_n = _sample_count(n_matched)
     quieter = min(unmatched_n, matched_n)
     louder = max(unmatched_n, matched_n)
     if quieter <= 0:
@@ -34620,14 +34602,8 @@ def postmortem_skip_reason_sides(
     All-orphan → ``N unmatched``; all-unobserved → ``N unobserved``; mix →
     ``N unmatched · M unobserved``. Display only; not a gate.
     """
-    try:
-        orphan = max(0, int(n_orphan))
-    except (TypeError, ValueError):
-        orphan = 0
-    try:
-        unobserved = max(0, int(n_unobserved))
-    except (TypeError, ValueError):
-        unobserved = 0
+    orphan = _sample_count(n_orphan)
+    unobserved = _sample_count(n_unobserved)
     total = orphan + unobserved
     if total <= 0:
         return "", 0, 0
@@ -34650,14 +34626,8 @@ def postmortem_skip_reason_lead(
     ties / sole-side → silent (use ``postmortem_skip_reason_sample_gap``).
     Display only; not a gate.
     """
-    try:
-        orphan = max(0, int(n_orphan))
-    except (TypeError, ValueError):
-        orphan = 0
-    try:
-        unobserved = max(0, int(n_unobserved))
-    except (TypeError, ValueError):
-        unobserved = 0
+    orphan = _sample_count(n_orphan)
+    unobserved = _sample_count(n_unobserved)
     total = orphan + unobserved
     if total < 2 or orphan <= 0 or unobserved <= 0 or orphan == unobserved:
         return "", "", None
@@ -34678,14 +34648,8 @@ def postmortem_skip_reason_sample_gap(
     Prefixed so the bit stays distinct from ``unmatched/matched tied``.
     Lead / sole-side / zero stay silent. Display only.
     """
-    try:
-        orphan = max(0, int(n_orphan))
-    except (TypeError, ValueError):
-        orphan = 0
-    try:
-        unobserved = max(0, int(n_unobserved))
-    except (TypeError, ValueError):
-        unobserved = 0
+    orphan = _sample_count(n_orphan)
+    unobserved = _sample_count(n_unobserved)
     if orphan <= 0 or unobserved <= 0:
         return ""
     lead_bit, _name, _share = postmortem_skip_reason_lead(orphan, unobserved)
@@ -34715,14 +34679,8 @@ def postmortem_skip_reason_lead_size(
         "unobserved",
     }:
         return None, None, None
-    try:
-        orphan = max(0, int(n_orphan))
-    except (TypeError, ValueError):
-        orphan = 0
-    try:
-        unobserved = max(0, int(n_unobserved))
-    except (TypeError, ValueError):
-        unobserved = 0
+    orphan = _sample_count(n_orphan)
+    unobserved = _sample_count(n_unobserved)
     quieter = min(orphan, unobserved)
     louder = max(orphan, unobserved)
     if quieter <= 0:
@@ -34745,14 +34703,8 @@ def postmortem_skip_reason_share_bands(
     ``(orphan_pct, orphan_sev, unobserved_pct, unobserved_sev)`` with
     ``hot|quiet|\"\"`` severities. Not a new entry gate.
     """
-    try:
-        orphan = max(0, int(n_orphan))
-    except (TypeError, ValueError):
-        orphan = 0
-    try:
-        unobserved = max(0, int(n_unobserved))
-    except (TypeError, ValueError):
-        unobserved = 0
+    orphan = _sample_count(n_orphan)
+    unobserved = _sample_count(n_unobserved)
     total = orphan + unobserved
     if total <= 0 or orphan <= 0 or unobserved <= 0:
         return None, "", None, ""

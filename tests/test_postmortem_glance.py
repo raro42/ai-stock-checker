@@ -243,6 +243,30 @@ def test_postmortem_skip_reason_sides_and_lead() -> None:
     assert "clash" in bit and "hot" in bit
     assert warn is True
     assert postmortem_skip_reason_lean("", "") == ("", False)
+    # tradermonty #700/#655: True→1 must not invent skip-reason leads.
+    assert postmortem_skip_reason_sides(True, 2) == ("2 unobserved", 0, 2)
+    assert postmortem_skip_reason_sides(2, False) == ("2 unmatched", 2, 0)
+    assert postmortem_skip_reason_lead(True, 2) == ("", "", None)
+    assert postmortem_skip_reason_lead(2, True) == ("", "", None)
+    assert postmortem_skip_reason_sample_gap(True, True) == ""
+    assert postmortem_skip_reason_lead_size(
+        True, 1, lead_name="unmatched"
+    ) == (None, None, None)
+    assert postmortem_skip_reason_lead_size(
+        2, False, lead_name="unmatched"
+    ) == (None, None, None)
+    assert postmortem_skip_reason_share_bands(True, 1) == (
+        None,
+        "",
+        None,
+        "",
+    )
+    assert postmortem_skip_reason_share_bands(3, False) == (
+        None,
+        "",
+        None,
+        "",
+    )
 
 
 def test_postmortem_skip_vs_unmatched_lean_bridge() -> None:
@@ -747,6 +771,16 @@ def test_postmortem_glance_unmatched_owns_roster() -> None:
 
 
 def test_postmortem_unmatched_vs_matched_lead_helpers() -> None:
+    # tradermonty #700/#655: True→1 must not invent unmatched/matched leads.
+    assert postmortem_unmatched_vs_matched_lead(True, 2) == ("", "", None)
+    assert postmortem_unmatched_vs_matched_lead(2, True) == ("", "", None)
+    assert postmortem_unmatched_vs_matched_sample_gap(True, True) == ""
+    assert postmortem_unmatched_vs_matched_lead_size(
+        True, 1, lead_name="unmatched"
+    ) == (None, None, None)
+    assert postmortem_unmatched_vs_matched_lead_size(
+        2, False, lead_name="unmatched"
+    ) == (None, None, None)
     bit, name, pct = postmortem_unmatched_vs_matched_lead(2, 3)
     assert bit == "lead matched · 60%"
     assert name == "matched"
