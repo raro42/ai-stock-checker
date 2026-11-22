@@ -2883,37 +2883,24 @@ def build_screener_opportunity_counts(
     # lead size moods + Window A fill vs close Δ lead size moods parity).
     # Matching Δ lead polarity alone hid 3× vs 2× ownership spreads.
     # Dual fat (≥2×) + clash warn; equal thin calm; missing either silent.
-    if (
-        junk_vs_ok_delta_lead_size is not None
-        and unique_vs_dup_delta_lead_size is not None
-    ):
-        try:
-            junk_sz = float(junk_vs_ok_delta_lead_size)
-            uniq_sz = float(unique_vs_dup_delta_lead_size)
-        except (TypeError, ValueError):
-            junk_sz = uniq_sz = None  # type: ignore[assignment]
-        if junk_sz is not None and uniq_sz is not None:
-            junk_s = f"{junk_sz:g}"
-            uniq_s = f"{uniq_sz:g}"
-            if abs(junk_sz - uniq_sz) < 1e-9:
-                delta_lead_size_moods = f"align · both {junk_s}×"
-                # Dual fat agreement ≠ calm confirm (Δ moods dual wide).
-                delta_lead_size_moods_warn = junk_sz >= 2.0
-            else:
-                delta_lead_size_moods = (
-                    f"clash · junk/ok {junk_s}× · unique/dup {uniq_s}×"
-                )
-                delta_lead_size_moods_warn = True
-            if delta_lead_size_moods_warn:
-                tone = "warn"
-            weight_lean = (
-                f"{weight_lean} · Δ lead size moods {delta_lead_size_moods}"
-                if weight_lean
-                else f"Δ lead size moods {delta_lead_size_moods}"
-            )
-            weight = (
-                f"{weight_core} · {weight_lean}" if weight_lean else weight_core
-            )
+    # Refuse bool — float(True)→1× cannot invent size moods.
+    delta_lead_size_moods, delta_lead_size_moods_warn = (
+        screener_delta_lead_size_moods(
+            junk_vs_ok_delta_lead_size,
+            unique_vs_dup_delta_lead_size,
+        )
+    )
+    if delta_lead_size_moods:
+        if delta_lead_size_moods_warn:
+            tone = "warn"
+        weight_lean = (
+            f"{weight_lean} · Δ lead size moods {delta_lead_size_moods}"
+            if weight_lean
+            else f"Δ lead size moods {delta_lead_size_moods}"
+        )
+        weight = (
+            f"{weight_core} · {weight_lean}" if weight_lean else weight_core
+        )
     weight_lean_meta = screener_weight_lean_meta(
         junk_list_lead_vs_lean=junk_list_lead_vs_lean,
         junk_list_lead_vs_lean_warn=junk_list_lead_vs_lean_warn,
@@ -3135,10 +3122,11 @@ def _sample_count(value: object) -> int:
 
 
 def _sample_share(value: object) -> float | None:
-    """Finite share % (may be 0), else None — never ``float(True)→1``.
+    """Finite share % / size × (may be 0), else None — never ``float(True)→1``.
 
     Mode A ``_coerce_race_share`` parity after short/long counts already
-    reuse ``_sample_count``; Δ / Δ-lead-size still accepted bare float.
+    reuse ``_sample_count``; Screener junk/unique Δ lead size moods reuse
+    this so ``True→1×`` cannot invent weight lean.
     """
     from stock_checker.technical_indicators import _finite_signed
 
@@ -3154,6 +3142,33 @@ def _sample_delta_pp(value: object) -> int | None:
     if value is None or not _finite_signed(value):
         return None
     return int(value)  # type: ignore[arg-type]
+
+
+def screener_delta_lead_size_moods(
+    junk_ok_size: float | int | None,
+    unique_dup_size: float | int | None,
+) -> tuple[str, bool]:
+    """Junk/ok vs unique/dup Δ lead size mood (display only).
+
+    When both ``Δ lead size · N×`` (junk|ok) and unique/dup ``Δ lead size ·
+    M×`` already spoke: same → ``align · both N×``; crossed →
+    ``clash · junk/ok N× · unique/dup M×``. Missing either silent. Dual
+    fat (≥2×) + clash warn; equal thin calm. Refuse bool —
+    ``float(True)→1×`` cannot invent size moods (Charts / Mode A /
+    opportunity archive parity). Not a new entry gate.
+    """
+    junk_sz = _sample_share(junk_ok_size)
+    uniq_sz = _sample_share(unique_dup_size)
+    if junk_sz is None or uniq_sz is None:
+        return "", False
+    junk_s = f"{junk_sz:g}"
+    uniq_s = f"{uniq_sz:g}"
+    if abs(junk_sz - uniq_sz) < 1e-9:
+        return f"align · both {junk_s}×", junk_sz >= 2.0
+    return (
+        f"clash · junk/ok {junk_s}× · unique/dup {uniq_s}×",
+        True,
+    )
 
 
 def ledger_short_vs_long_lead(

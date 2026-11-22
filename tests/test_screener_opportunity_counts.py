@@ -4,6 +4,7 @@ from openbb_backend.desk import (
     build_screener_opportunity_counts,
     scan_list_junk_count,
     scan_list_rows,
+    screener_delta_lead_size_moods,
     screener_weight_lean_meta,
 )
 
@@ -1190,6 +1191,28 @@ def test_overlap_and_junk_delta_moods_both_wide():
     # lean vs Δ lead moods warn preferred over Δ vs Δ lead / size / Δ moods.
     assert c["weight_lean_meta"].startswith("clash")
     assert c["tone"] == "warn"
+
+
+def test_screener_delta_lead_size_moods_bool_refuse() -> None:
+    """Bool/gap cannot invent junk/unique Δ size moods (True→1×)."""
+    assert screener_delta_lead_size_moods(3.0, 3.0) == (
+        "align · both 3×",
+        True,
+    )
+    assert screener_delta_lead_size_moods(1.5, 1.5) == (
+        "align · both 1.5×",
+        False,
+    )
+    assert screener_delta_lead_size_moods(1.5, 3.0) == (
+        "clash · junk/ok 1.5× · unique/dup 3×",
+        True,
+    )
+    assert screener_delta_lead_size_moods(None, 2.0) == ("", False)
+    assert screener_delta_lead_size_moods(2.0, None) == ("", False)
+    # float(True)→1.0 / float(False)→0.0 would invent thin size moods.
+    assert screener_delta_lead_size_moods(True, 3.0) == ("", False)
+    assert screener_delta_lead_size_moods(3.0, False) == ("", False)
+    assert screener_delta_lead_size_moods(True, True) == ("", False)
 
 
 def test_overlap_and_junk_delta_moods_clash():
