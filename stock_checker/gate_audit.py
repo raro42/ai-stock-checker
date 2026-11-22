@@ -61,6 +61,28 @@ def _soft_allow_size(value: object) -> float | None:
     return float(value)  # type: ignore[arg-type]
 
 
+def _share_pair_delta_lead_size(
+    left_share: object, right_share: object
+) -> tuple[float | None, float | None, float | None]:
+    """Louder%÷quieter% for a spoken two-side Δ lead (display only).
+
+    Refuse bool — ``float(True)→1%`` cannot invent ``Δ lead size · 1×``
+    after soft-allow / Window A size moods already refuse bare
+    ``float(size)`` (portfolio AI count≠share + xang1234). Zero quieter
+    stays silent. Returns ``(size, louder_pct, quieter_pct)`` or
+    ``(None, None, None)``.
+    """
+    left = _soft_allow_size(left_share)
+    right = _soft_allow_size(right_share)
+    if left is None or right is None:
+        return None, None, None
+    louder = max(left, right)
+    quieter = min(left, right)
+    if quieter <= 0:
+        return None, None, None
+    return round(louder / quieter, 2), louder, quieter
+
+
 def soft_allow_size_moods(
     left: object,
     right: object,
@@ -289,7 +311,11 @@ def soft_allow_short_history_vs_other_delta(
     )
     if not lean or short_n <= 0 or short_share is None or other_share is None:
         return None, ""
-    delta_pp = round(float(short_share) - float(other_share), 1)
+    short_pct = _soft_allow_size(short_share)
+    other_pct = _soft_allow_size(other_share)
+    if short_pct is None or other_pct is None:
+        return None, ""
+    delta_pp = round(short_pct - other_pct, 1)
     mag = abs(delta_pp)
     if mag < 1e-9:
         return None, ""
@@ -381,16 +407,8 @@ def soft_allow_short_history_vs_other_delta_lead_size(
     )
     if short_n <= 0 or short_share is None or other_share is None:
         return None, None, None
-    try:
-        short_pct = float(short_share)
-        other_pct = float(other_share)
-    except (TypeError, ValueError):
-        return None, None, None
-    louder = max(short_pct, other_pct)
-    quieter = min(short_pct, other_pct)
-    if quieter <= 0:
-        return None, None, None
-    return round(louder / quieter, 2), louder, quieter
+    # Refuse bool — float(True)→1% cannot invent Δ lead size · 1×.
+    return _share_pair_delta_lead_size(short_share, other_share)
 
 
 def soft_allow_short_other_lean_moods(
@@ -1005,7 +1023,11 @@ def soft_allow_short_history_bench_vs_young_delta(
         or young_share is None
     ):
         return None, ""
-    delta_pp = round(float(bench_share) - float(young_share), 1)
+    bench_pct = _soft_allow_size(bench_share)
+    young_pct = _soft_allow_size(young_share)
+    if bench_pct is None or young_pct is None:
+        return None, ""
+    delta_pp = round(bench_pct - young_pct, 1)
     mag = abs(delta_pp)
     if mag < 1e-9:
         return None, ""
@@ -1098,16 +1120,8 @@ def soft_allow_short_history_bench_vs_young_delta_lead_size(
     )
     if bench_share is None or young_share is None:
         return None, None, None
-    try:
-        bench_pct = float(bench_share)
-        young_pct = float(young_share)
-    except (TypeError, ValueError):
-        return None, None, None
-    louder = max(bench_pct, young_pct)
-    quieter = min(bench_pct, young_pct)
-    if quieter <= 0:
-        return None, None, None
-    return round(louder / quieter, 2), louder, quieter
+    # Refuse bool — float(True)→1% cannot invent Δ lead size · 1×.
+    return _share_pair_delta_lead_size(bench_share, young_share)
 
 
 def soft_allow_short_history_last_vs_bench_young(
@@ -1610,7 +1624,11 @@ def soft_allow_short_vs_gap_delta(
         return None, ""
     _short_n, short_share, _short_sev = pair
     _bit, _gap_n, gap_share, _gap_sev = vs
-    delta_pp = round(float(short_share) - float(gap_share), 1)
+    short_pct = _soft_allow_size(short_share)
+    gap_pct = _soft_allow_size(gap_share)
+    if short_pct is None or gap_pct is None:
+        return None, ""
+    delta_pp = round(short_pct - gap_pct, 1)
     mag = abs(delta_pp)
     if mag < 1e-9:
         return None, ""
@@ -1694,16 +1712,8 @@ def soft_allow_short_vs_gap_delta_lead_size(
     _bit, _gap_n, gap_share, _gap_sev = vs
     if short_share is None or gap_share is None:
         return None, None, None
-    try:
-        short_pct = float(short_share)
-        gap_pct = float(gap_share)
-    except (TypeError, ValueError):
-        return None, None, None
-    louder = max(short_pct, gap_pct)
-    quieter = min(short_pct, gap_pct)
-    if quieter <= 0:
-        return None, None, None
-    return round(louder / quieter, 2), louder, quieter
+    # Refuse bool — float(True)→1% cannot invent Δ lead size · 1×.
+    return _share_pair_delta_lead_size(short_share, gap_share)
 
 
 def soft_allow_short_delta_lead_size_moods(
@@ -3879,11 +3889,11 @@ def _anchor_gap_ring_size(events: list[dict[str, Any]] | None) -> str:
 
     Relationship verbs hid how many gap rows and what share of the ring
     they describe (portfolio AI count≠share). Missing gaps stay silent.
+    Refuse bool via ``_soft_allow_ring_size`` — ``True→×1`` / ``True→1%``
+    cannot invent gap ownership (lead-ring parity).
     """
     gap_n, share, _severity = soft_allow_anchor_gap_share(events)
-    if gap_n <= 0 or share is None:
-        return ""
-    return f" · ×{int(gap_n)} · {int(round(float(share)))}%"
+    return _soft_allow_ring_size(gap_n, share)
 
 
 def soft_allow_anchor_gap_last_vs_lead_freshness(

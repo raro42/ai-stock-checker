@@ -7028,19 +7028,12 @@ def window_a_sleeve_crypto_vs_stock_delta_lead_size(
     ``(size, louder_pct, quieter_pct)`` or ``(None, None, None)``.
     Display only; not a gate.
     """
-    from stock_checker.gate_audit import _soft_allow_size
+    from stock_checker.gate_audit import _share_pair_delta_lead_size
 
     if str(delta_lead or "").strip().casefold() not in {"crypto", "stock"}:
         return None, None, None
-    crypto_pct = _soft_allow_size(crypto_share_pct)
-    stock_pct = _soft_allow_size(stock_share_pct)
-    if crypto_pct is None or stock_pct is None:
-        return None, None, None
-    louder = max(crypto_pct, stock_pct)
-    quieter = min(crypto_pct, stock_pct)
-    if quieter <= 0:
-        return None, None, None
-    return round(louder / quieter, 2), louder, quieter
+    # Refuse bool via shared helper — float(True)→1% cannot invent size.
+    return _share_pair_delta_lead_size(crypto_share_pct, stock_share_pct)
 
 
 def window_a_sleeve_mix(stats: dict[str, Any] | None) -> dict[str, Any]:

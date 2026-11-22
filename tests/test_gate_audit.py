@@ -3192,6 +3192,21 @@ def test_soft_allow_row_is_lead_matches_band() -> None:
     ]
 
 
+def test_share_pair_delta_lead_size_bool_refuse() -> None:
+    """True/False shares must not invent soft-allow Δ lead size · 1×."""
+    from stock_checker.gate_audit import _share_pair_delta_lead_size
+
+    assert _share_pair_delta_lead_size(67.0, 33.0) == (2.03, 67.0, 33.0)
+    assert _share_pair_delta_lead_size(50.0, 50.0) == (1.0, 50.0, 50.0)
+    assert _share_pair_delta_lead_size(100.0, 0.0) == (None, None, None)
+    assert _share_pair_delta_lead_size(None, 50.0) == (None, None, None)
+    # float(True)→1% / float(False)→0% must stay silent.
+    assert _share_pair_delta_lead_size(True, 50.0) == (None, None, None)
+    assert _share_pair_delta_lead_size(50.0, False) == (None, None, None)
+    assert _share_pair_delta_lead_size(True, True) == (None, None, None)
+    assert _share_pair_delta_lead_size(False, False) == (None, None, None)
+
+
 def test_soft_allow_size_moods_bool_refuse() -> None:
     """True/False size × must not invent short Δ size mood lean."""
     from stock_checker.gate_audit import soft_allow_size_moods
