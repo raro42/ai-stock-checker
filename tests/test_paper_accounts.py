@@ -598,6 +598,56 @@ def test_leaderboard_delta_lead_size_moods() -> None:
     assert leaderboard_delta_lead_size_moods(None, 2.0) == ("", False)
     assert leaderboard_delta_lead_size_moods(2.0, None) == ("", False)
     assert leaderboard_delta_lead_size_moods(None, None) == ("", False)
+    # True→1× must not invent race≠mix size moods.
+    assert leaderboard_delta_lead_size_moods(True, 3.0) == ("", False)
+    assert leaderboard_delta_lead_size_moods(3.0, False) == ("", False)
+
+
+def test_leaderboard_race_count_bool_refuse() -> None:
+    """tradermonty #700/#655: True→1 must not invent Mode A race leads."""
+    assert leaderboard_missing_vs_ready_lead(True, 3) == ("", "", None)
+    assert leaderboard_missing_vs_ready_lead(3, False) == ("", "", None)
+    assert leaderboard_missing_vs_ready_sample_gap(True, True) == ""
+    assert leaderboard_missing_vs_ready_lead_size(
+        True, 1, lead_name="missing"
+    ) == (None, None, None)
+    assert leaderboard_absent_vs_damaged_lead(True, 2) == ("", "", None)
+    assert leaderboard_absent_vs_damaged_lead(2, False) == ("", "", None)
+    assert leaderboard_absent_vs_damaged_sample_gap(True, True) == ""
+    assert leaderboard_absent_vs_damaged_lead_size(
+        True, 1, lead_name="absent"
+    ) == (None, None, None)
+    assert leaderboard_absent_vs_damaged_share_bands(True, 1) == (
+        None,
+        "",
+        None,
+        "",
+    )
+    # float(True)→1pp / int(True)→1 must not invent Δ / Δ lead.
+    assert leaderboard_missing_vs_ready_delta(
+        True, 25, lean_bit="missing vs ready align · hot|thin"
+    ) == (None, "", "", False)
+    assert (
+        leaderboard_missing_vs_ready_delta_lead(
+            True, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
+    )
+    assert leaderboard_missing_vs_ready_delta_lead_size(
+        True, 25, delta_lead="missing"
+    ) == (None, None, None)
+    assert leaderboard_absent_vs_damaged_delta(
+        True, 25, lean_bit="absent vs damaged align · hot|quiet"
+    ) == (None, "", "", False)
+    assert (
+        leaderboard_absent_vs_damaged_delta_lead(
+            True, "wide", lean_vs_delta="align · wide"
+        )
+        == ""
+    )
+    assert leaderboard_absent_vs_damaged_delta_lead_size(
+        True, 25, delta_lead="absent"
+    ) == (None, None, None)
 
 
 def test_leaderboard_absent_vs_damaged_delta() -> None:

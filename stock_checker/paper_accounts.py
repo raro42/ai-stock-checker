@@ -52,6 +52,37 @@ def _coerce_ledger_money(
     return amount
 
 
+def _coerce_race_count(value: object) -> int:
+    """Non-negative race-board count, else 0 (never ``True→1`` / ``False→0``).
+
+    tradermonty #700/#655 + portfolio AI + xang1234: Mode A missing/ready /
+    absent/damaged helpers must not invent a one-book lead from a bool via
+    ``int(True)`` (try/except still accepts bool).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    return 0 if n is None else n
+
+
+def _coerce_race_share(value: object) -> float | None:
+    """Finite share % (may be 0), else None — never ``float(True)→1``."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return float(value)  # type: ignore[arg-type]
+
+
+def _coerce_race_delta_pp(value: object) -> int | None:
+    """Signed Δ pp, else None — never ``int(True)→1`` inventing a slot lead."""
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    return int(value)  # type: ignore[arg-type]
+
+
 def normalize_account_id(raw: str | None) -> str:
     """Return validated account id, or ``\"\"`` for the legacy root book."""
     text = str(raw or "").strip().lower()
@@ -536,14 +567,8 @@ def leaderboard_missing_vs_ready_lead(
     (use ``leaderboard_missing_vs_ready_sample_gap`` for ``missing/ready
     tied``). Not a new entry gate.
     """
-    try:
-        missing_n = max(0, int(n_missing))
-    except (TypeError, ValueError):
-        missing_n = 0
-    try:
-        ready_n = max(0, int(n_ready))
-    except (TypeError, ValueError):
-        ready_n = 0
+    missing_n = _coerce_race_count(n_missing)
+    ready_n = _coerce_race_count(n_ready)
     total = missing_n + ready_n
     if total < 2 or missing_n <= 0 or ready_n <= 0 or missing_n == ready_n:
         return "", "", None
@@ -563,14 +588,8 @@ def leaderboard_missing_vs_ready_sample_gap(
 
     Lead / sole-side / zero stay silent. Display only.
     """
-    try:
-        missing_n = max(0, int(n_missing))
-    except (TypeError, ValueError):
-        missing_n = 0
-    try:
-        ready_n = max(0, int(n_ready))
-    except (TypeError, ValueError):
-        ready_n = 0
+    missing_n = _coerce_race_count(n_missing)
+    ready_n = _coerce_race_count(n_ready)
     if missing_n <= 0 or ready_n <= 0:
         return ""
     lead_bit, _name, _share = leaderboard_missing_vs_ready_lead(
@@ -597,14 +616,8 @@ def leaderboard_missing_vs_ready_lead_size(
     """
     if str(lead_name or "").strip().casefold() not in {"missing", "ready"}:
         return None, None, None
-    try:
-        missing_n = max(0, int(n_missing))
-    except (TypeError, ValueError):
-        missing_n = 0
-    try:
-        ready_n = max(0, int(n_ready))
-    except (TypeError, ValueError):
-        ready_n = 0
+    missing_n = _coerce_race_count(n_missing)
+    ready_n = _coerce_race_count(n_ready)
     quieter = min(missing_n, ready_n)
     louder = max(missing_n, ready_n)
     if quieter <= 0:
@@ -673,12 +686,9 @@ def leaderboard_missing_vs_ready_delta(
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if missing_share_pct is None or ready_share_pct is None:
-        return None, "", "", False
-    try:
-        miss = float(missing_share_pct)
-        ready = float(ready_share_pct)
-    except (TypeError, ValueError):
+    miss = _coerce_race_share(missing_share_pct)
+    ready = _coerce_race_share(ready_share_pct)
+    if miss is None or ready is None:
         return None, "", "", False
     raw = int(round(miss - ready))
     abs_delta = abs(raw)
@@ -715,13 +725,8 @@ def leaderboard_missing_vs_ready_delta_lead(
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _coerce_race_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "missing" if pp > 0 else "ready"
 
@@ -744,12 +749,9 @@ def leaderboard_missing_vs_ready_delta_lead_size(
     """
     if str(delta_lead or "").strip().casefold() not in {"missing", "ready"}:
         return None, None, None
-    if missing_share_pct is None or ready_share_pct is None:
-        return None, None, None
-    try:
-        miss = float(missing_share_pct)
-        ready = float(ready_share_pct)
-    except (TypeError, ValueError):
+    miss = _coerce_race_share(missing_share_pct)
+    ready = _coerce_race_share(ready_share_pct)
+    if miss is None or ready is None:
         return None, None, None
     louder = max(miss, ready)
     quieter = min(miss, ready)
@@ -758,14 +760,14 @@ def leaderboard_missing_vs_ready_delta_lead_size(
     return round(louder / quieter, 2), louder, quieter
 
 
-def _leaderboard_unusable_noun(n_absent: int, n_damaged: int) -> str:
+def _leaderboard_unusable_noun(n_absent: object, n_damaged: object) -> str:
     """Speak absent vs damaged mix on the race strip (display only).
 
     Portfolio AI empty-vs-missing + xang1234 tolerate-missing: a corrupt
     ``portfolio.json`` must not read as a bare empty shell on the share bit.
     """
-    absent = max(0, int(n_absent))
-    damaged = max(0, int(n_damaged))
+    absent = _coerce_race_count(n_absent)
+    damaged = _coerce_race_count(n_damaged)
     if damaged <= 0:
         return f"{absent} missing"
     if absent <= 0:
@@ -787,14 +789,8 @@ def leaderboard_absent_vs_damaged_lead(
     ``missing``) so the bit stays distinct from ``lead missing|ready``.
     Not a new entry gate.
     """
-    try:
-        absent = max(0, int(n_absent))
-    except (TypeError, ValueError):
-        absent = 0
-    try:
-        damaged = max(0, int(n_damaged))
-    except (TypeError, ValueError):
-        damaged = 0
+    absent = _coerce_race_count(n_absent)
+    damaged = _coerce_race_count(n_damaged)
     total = absent + damaged
     if total < 2 or absent <= 0 or damaged <= 0 or absent == damaged:
         return "", "", None
@@ -814,14 +810,8 @@ def leaderboard_absent_vs_damaged_sample_gap(
 
     Lead / sole-side / zero stay silent. Display only.
     """
-    try:
-        absent = max(0, int(n_absent))
-    except (TypeError, ValueError):
-        absent = 0
-    try:
-        damaged = max(0, int(n_damaged))
-    except (TypeError, ValueError):
-        damaged = 0
+    absent = _coerce_race_count(n_absent)
+    damaged = _coerce_race_count(n_damaged)
     if absent <= 0 or damaged <= 0:
         return ""
     lead_bit, _name, _share = leaderboard_absent_vs_damaged_lead(
@@ -848,14 +838,8 @@ def leaderboard_absent_vs_damaged_lead_size(
     """
     if str(lead_name or "").strip().casefold() not in {"absent", "damaged"}:
         return None, None, None
-    try:
-        absent_n = max(0, int(n_absent))
-    except (TypeError, ValueError):
-        absent_n = 0
-    try:
-        damaged_n = max(0, int(n_damaged))
-    except (TypeError, ValueError):
-        damaged_n = 0
+    absent_n = _coerce_race_count(n_absent)
+    damaged_n = _coerce_race_count(n_damaged)
     quieter = min(absent_n, damaged_n)
     louder = max(absent_n, damaged_n)
     if quieter <= 0:
@@ -878,14 +862,8 @@ def leaderboard_absent_vs_damaged_share_bands(
     Returns ``(absent_pct, absent_sev, damaged_pct, damaged_sev)`` with
     ``hot|quiet|\"\"`` severities. Not a new entry gate.
     """
-    try:
-        absent = max(0, int(n_absent))
-    except (TypeError, ValueError):
-        absent = 0
-    try:
-        damaged = max(0, int(n_damaged))
-    except (TypeError, ValueError):
-        damaged = 0
+    absent = _coerce_race_count(n_absent)
+    damaged = _coerce_race_count(n_damaged)
     total = absent + damaged
     if total <= 0 or absent <= 0 or damaged <= 0:
         return None, "", None, ""
@@ -963,12 +941,9 @@ def leaderboard_absent_vs_damaged_delta(
     """
     if not str(lean_bit or "").strip():
         return None, "", "", False
-    if absent_share_pct is None or damaged_share_pct is None:
-        return None, "", "", False
-    try:
-        absent = float(absent_share_pct)
-        damaged = float(damaged_share_pct)
-    except (TypeError, ValueError):
+    absent = _coerce_race_share(absent_share_pct)
+    damaged = _coerce_race_share(damaged_share_pct)
+    if absent is None or damaged is None:
         return None, "", "", False
     raw = int(round(absent - damaged))
     abs_delta = abs(raw)
@@ -1006,13 +981,8 @@ def leaderboard_absent_vs_damaged_delta_lead(
         return ""
     if str(delta_severity or "").strip().casefold() not in {"wide", "thin"}:
         return ""
-    if delta_pp is None:
-        return ""
-    try:
-        pp = int(delta_pp)
-    except (TypeError, ValueError):
-        return ""
-    if pp == 0:
+    pp = _coerce_race_delta_pp(delta_pp)
+    if pp is None or pp == 0:
         return ""
     return "absent" if pp > 0 else "damaged"
 
@@ -1035,12 +1005,9 @@ def leaderboard_absent_vs_damaged_delta_lead_size(
     """
     if str(delta_lead or "").strip().casefold() not in {"absent", "damaged"}:
         return None, None, None
-    if absent_share_pct is None or damaged_share_pct is None:
-        return None, None, None
-    try:
-        absent = float(absent_share_pct)
-        damaged = float(damaged_share_pct)
-    except (TypeError, ValueError):
+    absent = _coerce_race_share(absent_share_pct)
+    damaged = _coerce_race_share(damaged_share_pct)
+    if absent is None or damaged is None:
         return None, None, None
     louder = max(absent, damaged)
     quieter = min(absent, damaged)
@@ -1064,12 +1031,9 @@ def leaderboard_delta_lead_size_moods(
     AI count≠share + xang1234). Prefixed ``Δ size moods`` in the lean fold
     so ``Δ size`` + ``mix Δ size`` stay distinct. Not a new entry gate.
     """
-    if race_size is None or mix_size is None:
-        return "", False
-    try:
-        race_f = float(race_size)
-        mix_f = float(mix_size)
-    except (TypeError, ValueError):
+    race_f = _coerce_race_share(race_size)
+    mix_f = _coerce_race_share(mix_size)
+    if race_f is None or mix_f is None:
         return "", False
     race_s = f"{race_f:g}"
     mix_s = f"{mix_f:g}"
