@@ -436,6 +436,13 @@ def test_yahoo_fail_error_also_vs_delta_lead_size_sides_delta_count_gap():
         None,
         "",
     )
+    # True→1 / False→0 must not invent thin · 1 screen.
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides_delta(
+        "Δ lead size sides · held 1 · timeout 0", True, False
+    ) == ("", None, "")
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides_delta(
+        "Δ lead size sides · held 2 · timeout 1", True, 1
+    ) == ("", None, "")
 
 
 def test_yahoo_fail_error_also_vs_delta_lead_size_sides_share_count_pair():
@@ -464,6 +471,13 @@ def test_yahoo_fail_error_also_vs_delta_lead_size_sides_share_count_pair():
     assert yahoo_fail_error_also_vs_delta_lead_size_sides_share(
         "", "Δ lead size sides · held 7 · timeout 1", 7, 1
     ) == ("", None, None)
+    # True→1 invents a fake 50/50 ownership pair.
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides_share(
+        wide, "Δ lead size sides · held 1 · timeout 1", True, True
+    ) == ("", None, None)
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides_share(
+        wide, "Δ lead size sides · held 7 · timeout 1", True, 1
+    ) == ("", None, None)
 
 
 def test_yahoo_fail_error_also_vs_delta_lead_size_sides_share_delta_spread():
@@ -489,6 +503,13 @@ def test_yahoo_fail_error_also_vs_delta_lead_size_sides_share_delta_spread():
     )
     assert yahoo_fail_error_also_vs_delta_lead_size_sides_share_delta(
         "", 88, 12
+    ) == ("", None, "")
+    # True→1pp / False→0pp must not invent thin · +1pp.
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides_share_delta(
+        wide_share, True, False
+    ) == ("", None, "")
+    assert yahoo_fail_error_also_vs_delta_lead_size_sides_share_delta(
+        mild_share, True, 41
     ) == ("", None, "")
 
 

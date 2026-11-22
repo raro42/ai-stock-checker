@@ -1541,12 +1541,12 @@ def yahoo_fail_error_also_vs_delta_lead_size_sides_delta(
     text = str(sides or "")
     if not text.strip() or "%" in text:
         return "", None, ""
-    if louder is None or quieter is None:
+    # tradermonty #700/#655: refuse bool — True→1 / False→0 invents thin · 1 screen.
+    loud_n = coerce_nonneg_int(louder)
+    quiet_n = coerce_nonneg_int(quieter)
+    if loud_n is None or quiet_n is None:
         return "", None, ""
-    try:
-        gap = int(louder) - int(quieter)
-    except (TypeError, ValueError):
-        return "", None, ""
+    gap = loud_n - quiet_n
     if gap <= 0:
         return "", None, ""
     severity = "thin" if gap == 1 else "wide"
@@ -1578,12 +1578,10 @@ def yahoo_fail_error_also_vs_delta_lead_size_sides_share(
     text = str(sides or "")
     if not text.strip() or "%" in text:
         return "", None, None
-    if louder is None or quieter is None:
-        return "", None, None
-    try:
-        loud_n = int(louder)
-        quiet_n = int(quieter)
-    except (TypeError, ValueError):
+    # tradermonty #700/#655: refuse bool — True→1 invents sides share · 50%/50%.
+    loud_n = coerce_nonneg_int(louder)
+    quiet_n = coerce_nonneg_int(quieter)
+    if loud_n is None or quiet_n is None:
         return "", None, None
     total = loud_n + quiet_n
     if loud_n <= 0 or quiet_n <= 0 or total <= 0:
@@ -1623,12 +1621,12 @@ def yahoo_fail_error_also_vs_delta_lead_size_sides_share_delta(
     """
     if not str(share or "").strip():
         return "", None, ""
-    if louder_pct is None or quieter_pct is None:
+    # tradermonty #700/#655: refuse bool — True→1pp / False→0pp invents thin · +1pp.
+    loud_pct = _yahoo_share_pct(louder_pct)
+    quiet_pct = _yahoo_share_pct(quieter_pct)
+    if loud_pct is None or quiet_pct is None:
         return "", None, ""
-    try:
-        delta = int(louder_pct) - int(quieter_pct)
-    except (TypeError, ValueError):
-        return "", None, ""
+    delta = loud_pct - quiet_pct
     if delta < 0:
         return "", None, ""
     abs_delta = abs(delta)
