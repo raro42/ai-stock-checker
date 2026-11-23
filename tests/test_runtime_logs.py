@@ -7,7 +7,14 @@ from pathlib import Path
 import pytest
 
 from openbb_backend.desk_logs import (
+    DEFAULT_FOLLOW_CHUNK,
+    DEFAULT_POLL_SEC,
+    DEFAULT_TAIL_MAX_BYTES,
     LOG_SOURCES,
+    _coerce_follow_chunk,
+    _coerce_poll_sec,
+    _coerce_size_offset,
+    _coerce_tail_max_bytes,
     list_log_sources,
     read_log_tail,
     resolve_log_path,
@@ -83,3 +90,36 @@ def test_rotate_refuses_bool_ceiling(tmp_path: Path) -> None:
     _rotate_if_needed(log, 50)
     assert not log.is_file()
     assert (tmp_path / "trader.log.1").is_file()
+
+
+def test_desk_tail_knobs_refuse_bool() -> None:
+    # tradermonty #700/#655: True→1 must not invent a one-byte Ops strip;
+    # False→0 must not invent a quiet empty tail or busy SSE spin.
+    assert _coerce_tail_max_bytes(True) == DEFAULT_TAIL_MAX_BYTES
+    assert _coerce_tail_max_bytes(False) == DEFAULT_TAIL_MAX_BYTES
+    assert _coerce_tail_max_bytes(0) == DEFAULT_TAIL_MAX_BYTES
+    assert _coerce_tail_max_bytes(2000) == 2000
+    assert _coerce_follow_chunk(True) == DEFAULT_FOLLOW_CHUNK
+    assert _coerce_follow_chunk(False) == DEFAULT_FOLLOW_CHUNK
+    assert _coerce_follow_chunk(512) == 512
+    assert _coerce_poll_sec(True) == DEFAULT_POLL_SEC
+    assert _coerce_poll_sec(False) == DEFAULT_POLL_SEC
+    assert _coerce_poll_sec(0) == DEFAULT_POLL_SEC
+    assert _coerce_poll_sec(2.5) == 2.5
+    assert _coerce_size_offset(True) == 0
+    assert _coerce_size_offset(False) == 0
+    assert _coerce_size_offset(None) == 0
+    assert _coerce_size_offset(48_000) == 48_000
+
+
+def test_read_tail_bool_max_bytes_keeps_full_strip(tmp_path: Path) -> None:
+    log = tmp_path / LOG_SOURCES["trader"]
+    log.parent.mkdir(parents=True)
+    body = "alpha\nbeta\ngamma\n" * 200
+    log.write_text(body, encoding="utf-8")
+    # True→1 must not invent a one-byte truncated Ops glance.
+    snap = read_log_tail(tmp_path, "trader", max_bytes=True)
+    assert snap["exists"] is True
+    assert snap["truncated"] is False
+    assert "gamma" in snap["text"]
+    assert len(snap["text"]) > 10

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from pathlib import Path
 from typing import AsyncIterator, Dict, List
 
 from stock_checker.secret_redact import redact_secrets
+from stock_checker.technical_indicators import coerce_nonneg_int
 
 
 # Relative to DATA_DIR. Only these names are exposed to the browser.
@@ -18,6 +20,64 @@ LOG_SOURCES: Dict[str, str] = {
     "improve": "run_improve_loop.log",
     "github_watch": "run_github_watch_loop.log",
 }
+
+DEFAULT_TAIL_MAX_BYTES = 64_000
+DEFAULT_FOLLOW_TAIL_BYTES = 48_000
+DEFAULT_FOLLOW_CHUNK = 16_000
+DEFAULT_POLL_SEC = 1.0
+
+
+def _coerce_tail_max_bytes(
+    value: object, default: int = DEFAULT_TAIL_MAX_BYTES
+) -> int:
+    """Positive Ops tail ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-byte Ops strip; ``False→0`` must not look like a quiet empty log.
+    Parity with ``runtime_log._coerce_max_bytes`` (tee rotate already refused).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_follow_chunk(
+    value: object, default: int = DEFAULT_FOLLOW_CHUNK
+) -> int:
+    """Positive SSE read chunk, or ``default`` when bool/gap/≤0.
+
+    ``True→1`` must not invent one-byte SSE spam; ``False→0`` must not stall
+    ``read(0)`` forever while the file grows.
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_poll_sec(
+    value: object, default: float = DEFAULT_POLL_SEC
+) -> float:
+    """Positive SSE poll interval, or ``default`` when bool/gap/≤0.
+
+    ``False→0`` / ``True→1`` must not invent a busy ``sleep(0)`` spin or a
+    thin 1s-only band from a damaged knob (``asyncio.sleep(False)`` spins).
+    """
+    if isinstance(value, bool) or value is None:
+        return float(default)
+    if not isinstance(value, (int, float)):
+        return float(default)
+    sec = float(value)
+    if not math.isfinite(sec) or sec <= 0:
+        return float(default)
+    return sec
+
+
+def _coerce_size_offset(value: object) -> int:
+    """Non-neg follow offset from a snap size; bool/gap → 0 (never ``True→1``)."""
+    n = coerce_nonneg_int(value)
+    return 0 if n is None else n
 
 
 def resolve_log_path(data_dir: Path, source: str) -> Path:
@@ -54,8 +114,9 @@ def read_log_tail(
     data_dir: Path,
     source: str,
     *,
-    max_bytes: int = 64_000,
+    max_bytes: object = DEFAULT_TAIL_MAX_BYTES,
 ) -> dict:
+    ceiling = _coerce_tail_max_bytes(max_bytes)
     path = resolve_log_path(data_dir, source)
     if not path.is_file():
         return {
@@ -67,10 +128,10 @@ def read_log_tail(
             "truncated": False,
         }
     size = path.stat().st_size
-    truncated = size > max_bytes
+    truncated = size > ceiling
     with path.open("rb") as fh:
         if truncated:
-            fh.seek(-max_bytes, 2)
+            fh.seek(-ceiling, 2)
             raw = fh.read()
             nl = raw.find(b"\n")
             if nl >= 0 and nl + 1 < len(raw):
@@ -93,18 +154,22 @@ async def follow_log(
     data_dir: Path,
     source: str,
     *,
-    poll_sec: float = 1.0,
-    max_chunk: int = 16_000,
+    poll_sec: object = DEFAULT_POLL_SEC,
+    max_chunk: object = DEFAULT_FOLLOW_CHUNK,
 ) -> AsyncIterator[str]:
     """Yield new text appended to the log (for SSE)."""
     path = resolve_log_path(data_dir, source)
-    snap = read_log_tail(data_dir, source, max_bytes=48_000)
+    poll = _coerce_poll_sec(poll_sec)
+    chunk_cap = _coerce_follow_chunk(max_chunk)
+    snap = read_log_tail(
+        data_dir, source, max_bytes=DEFAULT_FOLLOW_TAIL_BYTES
+    )
     if snap["text"]:
         yield str(snap["text"])
-    offset = int(snap["size_bytes"] or 0)
+    offset = _coerce_size_offset(snap.get("size_bytes"))
 
     while True:
-        await asyncio.sleep(poll_sec)
+        await asyncio.sleep(poll)
         if not path.is_file():
             continue
         try:
@@ -118,7 +183,7 @@ async def follow_log(
         try:
             with path.open("rb") as fh:
                 fh.seek(offset)
-                chunk = fh.read(max_chunk)
+                chunk = fh.read(chunk_cap)
                 offset = fh.tell()
         except OSError:
             continue
