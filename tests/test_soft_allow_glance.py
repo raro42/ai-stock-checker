@@ -2957,6 +2957,30 @@ def test_soft_allow_glance_truncates_reason() -> None:
     assert len(g["last_reason"]) <= 72
 
 
+def test_soft_allow_glance_refuses_bool_reason_ceiling() -> None:
+    """True→1 must not invent a one-char fail-open glance via reason[:True]."""
+    from openbb_backend.desk import SOFT_ALLOW_GLANCE_REASON_MAX
+
+    long = "soft_allow_" + ("z" * 80)
+    clipped = long[: SOFT_ALLOW_GLANCE_REASON_MAX - 1] + "…"
+    g_true = build_soft_allow_glance(
+        [{"at": "t", "gate": "rs", "reason": long}], reason_n=True
+    )
+    assert g_true["ready"] is True
+    assert g_true["last_reason"] == clipped
+    # True→1 would keep only "s…" — default ceiling must survive.
+    assert clipped != "s…"
+    g_false = build_soft_allow_glance(
+        [{"at": "t", "gate": "rs", "reason": long}], reason_n=False
+    )
+    assert g_false["last_reason"] == clipped
+    g_short = build_soft_allow_glance(
+        [{"at": "t", "gate": "rs", "reason": long}], reason_n=8
+    )
+    assert g_short["last_reason"] == long[:7] + "…"
+    assert len(g_short["last_reason"]) == 8
+
+
 def test_soft_allow_glance_speaks_aging() -> None:
     """xang1234 / RyanJHamby: aging (>12h) speaks before expired."""
     now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)

@@ -5021,6 +5021,41 @@ def soft_allow_lean_meta(soft_lean: str, *, warn: bool = False) -> str:
     )
 
 
+# Soft-allow glance reason display ceiling (Ops strip; ring persist is 240).
+SOFT_ALLOW_GLANCE_REASON_MAX = 72
+
+
+def _coerce_soft_allow_glance_reason_chars(
+    value: object, default: int = SOFT_ALLOW_GLANCE_REASON_MAX
+) -> int:
+    """Positive soft-allow glance reason ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char fail-open glance via ``reason[:True]``; ``False→0``
+    must not wipe (gate_audit soft-allow reason clip peer — retention/TTL +
+    persist reason already refused; glance display was still bare ``[:71]``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_soft_allow_glance_reason(
+    reason: object, limit: object = SOFT_ALLOW_GLANCE_REASON_MAX
+) -> str:
+    """Ellipsis-cut soft-allow reason for Overview/Ops glance (not ring key)."""
+    ceiling = _coerce_soft_allow_glance_reason_chars(limit)
+    text = str(reason or "").strip()
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
 def build_soft_allow_glance(
     events: list[dict[str, Any]] | None,
     *,
@@ -5032,6 +5067,7 @@ def build_soft_allow_glance(
     laya_freshness: str = "",
     debate_freshness: str = "",
     runtime: Mapping[str, Any] | None = None,
+    reason_n: object = SOFT_ALLOW_GLANCE_REASON_MAX,
 ) -> dict[str, Any]:
     """Compact fail-open soft-allow memory (tradermonty; display only).
 
@@ -5527,7 +5563,10 @@ def build_soft_allow_glance(
     last = rows[0]
     gate = str(last.get("gate") or "?").strip() or "?"
     reason = str(last.get("reason") or "").strip()
-    reason_short = reason if len(reason) <= 72 else (reason[:71] + "…")
+    # FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: True→1 must
+    # not invent a one-char fail-open glance via reason[:True] (persist
+    # reason clip already refused — glance strip was still bare [:71]).
+    reason_short = _clip_soft_allow_glance_reason(reason, reason_n)
     n = len(rows)
     last_clock = _soft_allow_clock_tone(str(last.get("freshness") or ""))
     scan_freshness = ""
