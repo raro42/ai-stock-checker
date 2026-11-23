@@ -59,11 +59,51 @@ def _coerce_recent_debates_limit(
     return n
 
 
-def _clip(text: Any, n: int = 200) -> str:
+_DEFAULT_CLIP_CHARS = 200
+_DEFAULT_REASON_LINES = 8
+
+
+def _coerce_clip_chars(
+    value: object, default: int = _DEFAULT_CLIP_CHARS
+) -> int:
+    """Positive note/reason char ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1``
+    must not invent a one-char Ideas note (``T…``); ``False→0`` must not
+    wipe every bull/bear/risk note via ``s[: -1]``.
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_clip_reason_lines(
+    value: object, default: int = _DEFAULT_REASON_LINES
+) -> int:
+    """Non-negative reason-list length, or ``default`` when bool/gap.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1``
+    must not invent a one-line reason strip; ``False→0`` must not wipe the
+    debate reasons (Ideas limit / soft-allow strip peer — retention caps
+    already refused; reason clip ceilings were still open).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
+def _clip(text: Any, n: object = _DEFAULT_CLIP_CHARS) -> str:
+    limit = _coerce_clip_chars(n)
     s = str(text or "").strip()
-    if len(s) <= n:
+    if len(s) <= limit:
         return s
-    return s[: n - 1] + "…"
+    return s[: limit - 1] + "…"
 
 
 def _score(raw: Any) -> int | None:
@@ -83,11 +123,19 @@ def _score(raw: Any) -> int | None:
     return max(-100, min(100, int(v)))
 
 
-def _clip_reasons(raw: Any, *, max_lines: int = 8, line_n: int = 200) -> list[str]:
+def _clip_reasons(
+    raw: Any,
+    *,
+    max_lines: object = _DEFAULT_REASON_LINES,
+    line_n: object = _DEFAULT_CLIP_CHARS,
+) -> list[str]:
     if not isinstance(raw, list):
         return []
+    # tradermonty #700/#655 + FinRobot/xang1234: refuse bool —
+    # True→1 line / True→1 char must not invent a tiny reason strip.
+    lim = _coerce_clip_reason_lines(max_lines)
     out: list[str] = []
-    for line in raw[: max(0, int(max_lines))]:
+    for line in raw[:lim]:
         clipped = _clip(line, line_n)
         if clipped:
             out.append(clipped)
