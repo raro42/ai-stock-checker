@@ -2266,3 +2266,32 @@ def test_discover_yahoo_mover_report_returns_claim_live(monkeypatch):
         worker.join(1)
         with yud._yahoo_screen_inflight_lock:
             yud._yahoo_screen_inflight.clear()
+
+
+def test_quiet_inventory_chip_refuses_bool_name_cap() -> None:
+    """tradermonty #700/#655: True→1 must not invent a one-name lean chip."""
+    from stock_checker.yahoo_universe_discovery import (
+        _MIX_QUIET_NAME_CAP,
+        _MIX_STAGE_RES,
+        _coerce_inventory_name_cap,
+        _quiet_inventory_chip,
+    )
+
+    assert _coerce_inventory_name_cap(True) == _MIX_QUIET_NAME_CAP
+    assert _coerce_inventory_name_cap(False) == _MIX_QUIET_NAME_CAP
+    assert _coerce_inventory_name_cap(0) == _MIX_QUIET_NAME_CAP
+    assert _coerce_inventory_name_cap(None) == _MIX_QUIET_NAME_CAP
+    assert _coerce_inventory_name_cap(2) == 2
+    # Six spoken stages: bool cap falls back to 4 (+2), not names[:True] → +5.
+    lean = (
+        "+timeout · +held · 2 timeout · 1 held · hot · 60% · "
+        "vs timeout · 40% · clash · timeout hot · held ok"
+    )
+    out = _quiet_inventory_chip(lean, _MIX_STAGE_RES, cap=True)
+    assert out.startswith("quiet · 6 folds · ")
+    assert out.endswith("+2")
+    assert "+timeout" in out and "share" in out
+    # Bool must not collapse to a one-name chip.
+    assert out != "quiet · 6 folds · +timeout · +5"
+    thin = _quiet_inventory_chip(lean, _MIX_STAGE_RES, cap=2)
+    assert thin.endswith("+4")

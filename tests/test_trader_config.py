@@ -273,6 +273,47 @@ def test_saved_row_beats_env(tmp_path: Path, monkeypatch):
     assert "Ops wins" in st["line"]
 
 
+def test_format_key_list_refuses_bool_limit() -> None:
+    """tradermonty #700/#655: True→1 must not invent a one-key Ops strip."""
+    from stock_checker.trader_config import (
+        _PRECEDENCE_KEY_LIST_LIMIT,
+        _coerce_key_list_limit,
+        _format_key_list,
+    )
+
+    assert _coerce_key_list_limit(True) == _PRECEDENCE_KEY_LIST_LIMIT
+    assert _coerce_key_list_limit(False) == _PRECEDENCE_KEY_LIST_LIMIT
+    assert _coerce_key_list_limit(0) == _PRECEDENCE_KEY_LIST_LIMIT
+    assert _coerce_key_list_limit(None) == _PRECEDENCE_KEY_LIST_LIMIT
+    assert _coerce_key_list_limit(2) == 2
+    keys = [
+        "max_positions",
+        "min_hold_hours",
+        "fee_preset",
+        "commission_rate",
+        "promote_experiment_strategy",
+    ]
+    # Bool limit falls back to 4 — not keys[:True] → one short name +4.
+    out = _format_key_list(keys, limit=True)
+    assert "+1" in out
+    assert out.count(" · ") >= 3
+    assert _format_key_list(keys, limit=2).endswith("+3")
+    # Save Δ bit reuses the same ceiling refuse (fee_preset collapses fee%).
+    from stock_checker.trader_config import format_config_changed_bit
+
+    delta = format_config_changed_bit(
+        [
+            *keys,
+            "ai_mode",
+            "regime_gate",
+        ],
+        limit=True,
+    )
+    assert delta.startswith("Δ ")
+    assert "+2" in delta  # 6 labeled after fee collapse; bool → cap 4
+    assert "max pos" in delta
+
+
 def test_config_precedence_counts_refuse_bool() -> None:
     """tradermonty #700/#655: True must not invent win/ok/env · n=1."""
     from stock_checker.trader_config import (

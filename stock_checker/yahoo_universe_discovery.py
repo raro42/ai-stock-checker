@@ -1701,11 +1701,27 @@ _MIX_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+def _coerce_inventory_name_cap(
+    value: object, default: int = _MIX_QUIET_NAME_CAP
+) -> int:
+    """Positive lean/inventory name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name quiet/hot stage chip via ``names[:True]``; ``False→0`` must not
+    wipe the inventory (console/Book/LAYA char-clip peer — fold-name strip
+    ceilings were still open).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
 def _quiet_inventory_chip(
     text: str,
     stages: tuple[tuple[re.Pattern[str], str], ...],
     *,
-    cap: int,
+    cap: object = _MIX_QUIET_NAME_CAP,
     quiet: bool = True,
     front_if: str = "",
 ) -> str:
@@ -1717,6 +1733,7 @@ def _quiet_inventory_chip(
     names ahead of the clip so an adverse tail (``both clash``) is not
     hidden behind ``+K``.
     """
+    ceiling = _coerce_inventory_name_cap(cap)
 
     def stage_at(blob: str) -> tuple[str, int] | None:
         for rx, label in stages:
@@ -1764,8 +1781,8 @@ def _quiet_inventory_chip(
         front = [name for name in names if front_if in name]
         back = [name for name in names if front_if not in name]
         names = front + back
-    extra = len(names) - cap
-    shown = names[:cap]
+    extra = len(names) - ceiling
+    shown = names[:ceiling]
     if extra > 0:
         shown.append(f"+{extra}")
     joined = " · ".join(shown)

@@ -6,6 +6,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from openbb_backend.desk import (
+    _HONESTY_WARN_NAME_CAP,
+    _coerce_honesty_name_cap,
     build_promote_ab_glance,
     cap_honesty_fold_names,
     promote_honesty_fold_meta,
@@ -74,6 +76,44 @@ def test_cap_honesty_fold_names_clips_storm() -> None:
         "edge",
         "Kelly",
         "+1",
+    ]
+
+
+def test_cap_honesty_fold_names_refuses_bool() -> None:
+    """tradermonty #700/#655: True→1 must not invent a one-name storm chip."""
+    assert _coerce_honesty_name_cap(True) == _HONESTY_WARN_NAME_CAP
+    assert _coerce_honesty_name_cap(False) == _HONESTY_WARN_NAME_CAP
+    assert _coerce_honesty_name_cap(0) == _HONESTY_WARN_NAME_CAP
+    assert _coerce_honesty_name_cap(None) == _HONESTY_WARN_NAME_CAP
+    assert _coerce_honesty_name_cap(4) == 4
+    eight = [
+        "fees",
+        "polarity",
+        "edge",
+        "Kelly",
+        "streaks",
+        "exit mix",
+        "exit euros",
+        "fee pressure",
+    ]
+    # Bool cap falls back to warn 6 — not names[:True] → one fold + +7.
+    assert cap_honesty_fold_names(eight, cap=True) == [
+        "fees",
+        "polarity",
+        "edge",
+        "Kelly",
+        "streaks",
+        "exit mix",
+        "+2",
+    ]
+    assert cap_honesty_fold_names(eight, cap=False) == [
+        "fees",
+        "polarity",
+        "edge",
+        "Kelly",
+        "streaks",
+        "exit mix",
+        "+2",
     ]
 
 

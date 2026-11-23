@@ -271,8 +271,32 @@ def _values_differ(a: Any, b: Any) -> bool:
     return str(a).strip() != str(b).strip()
 
 
-def _format_key_list(keys: list[str], *, limit: int = 4) -> str:
-    short = [_PRECEDENCE_SHORT.get(k, k) for k in keys[:limit]]
+_PRECEDENCE_KEY_LIST_LIMIT = 4
+
+
+def _coerce_key_list_limit(
+    value: object, default: int = _PRECEDENCE_KEY_LIST_LIMIT
+) -> int:
+    """Positive Ops precedence key-strip ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-key override/confirm/env clip via ``keys[:True]``; ``False→0`` must
+    not wipe (Close honesty / quiet inventory name-cap peer — precedence
+    counts already refused; key-strip ceilings were still open).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _format_key_list(
+    keys: list[str], *, limit: object = _PRECEDENCE_KEY_LIST_LIMIT
+) -> str:
+    ceiling = _coerce_key_list_limit(limit)
+    short = [_PRECEDENCE_SHORT.get(k, k) for k in keys[:ceiling]]
     bits = " · ".join(short)
     extra = len(keys) - len(short)
     if extra > 0:
@@ -1113,7 +1137,9 @@ def format_config_save_confirm(
     return f"Save moves live paper risk ({bit}). Continue?"
 
 
-def format_config_changed_bit(keys: list[str] | None, *, limit: int = 4) -> str:
+def format_config_changed_bit(
+    keys: list[str] | None, *, limit: object = _PRECEDENCE_KEY_LIST_LIMIT
+) -> str:
     """Compact ``Δ hot · AI · hold`` / ``Δ quiet · AI`` for Ops glance / toast.
 
     xang1234 #636: advanced jobs got a red Run — bare knob names hid whether
@@ -1141,8 +1167,9 @@ def format_config_changed_bit(keys: list[str] | None, *, limit: int = 4) -> str:
             seen_fees = True
             continue
         labeled.append(_CHANGE_SHORT.get(key, _PRECEDENCE_SHORT.get(key, key)))
-    bits = " · ".join(labeled[:limit])
-    extra = len(labeled) - min(len(labeled), limit)
+    ceiling = _coerce_key_list_limit(limit)
+    bits = " · ".join(labeled[:ceiling])
+    extra = len(labeled) - min(len(labeled), ceiling)
     if extra > 0:
         bits = f"{bits} +{extra}" if bits else f"+{extra}"
     if not bits:

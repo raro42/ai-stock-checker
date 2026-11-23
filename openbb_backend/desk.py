@@ -22997,16 +22997,36 @@ _HONESTY_WARN_NAME_CAP = 6
 _HONESTY_QUIET_NAME_CAP = 4
 
 
-def cap_honesty_fold_names(labels: list[str], *, cap: int) -> list[str]:
+def _coerce_honesty_name_cap(
+    value: object, default: int = _HONESTY_WARN_NAME_CAP
+) -> int:
+    """Positive Close honesty fold-name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name storm chip via ``names[:True]``; ``False→0`` must not wipe
+    (quiet inventory / console char-clip peer).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def cap_honesty_fold_names(
+    labels: list[str], *, cap: object = _HONESTY_WARN_NAME_CAP
+) -> list[str]:
     """Keep a fold-name chip short; ``+N`` is the unnamed remainder.
 
     The count on the summary stays full. A 10-fold Close honesty storm
     was joining every label (Policy honesty already clips at 6 / 4).
     """
+    ceiling = _coerce_honesty_name_cap(cap)
     names = [str(label).strip() for label in labels if str(label).strip()]
-    extra = len(names) - cap
+    extra = len(names) - ceiling
     if extra > 0:
-        return [*names[:cap], f"+{extra}"]
+        return [*names[:ceiling], f"+{extra}"]
     return names
 
 
