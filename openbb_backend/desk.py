@@ -31915,7 +31915,11 @@ def build_ai_validate_scope_glance(
     without LLM. Validate drops SELL and HOLD·LOW. Not a new gate — mirrors
     ``intelligent_trader._ai_validate_opportunities`` honesty.
     """
-    from stock_checker.intelligent_trader import AI_FULL_TOP_N, AI_VALIDATE_TOP_N
+    from stock_checker.intelligent_trader import (
+        AI_FULL_TOP_N,
+        AI_VALIDATE_TOP_N,
+        _coerce_ai_validate_top_n,
+    )
 
     empty: dict[str, Any] = {
         "ready": False,
@@ -31935,15 +31939,20 @@ def build_ai_validate_scope_glance(
         line = "off · no LLM check · scanner score only"
     elif mode == "validate":
         tone = "validate"
-        top_n = int(AI_VALIDATE_TOP_N)
+        # Refuse bool — int(True)→1 invents ``AI top 1`` on Ops/Overview.
+        top_n = _coerce_ai_validate_top_n(
+            AI_VALIDATE_TOP_N, default=AI_VALIDATE_TOP_N
+        )
         line = f"validate · AI top {top_n} · SELL/LOW-HOLD drop · rest pass"
     elif mode == "full":
         tone = "full"
-        top_n = int(AI_FULL_TOP_N)
+        top_n = _coerce_ai_validate_top_n(AI_FULL_TOP_N, default=AI_FULL_TOP_N)
         line = f"full · AI top {top_n} · score<-20 drop · rest pass"
     else:
         tone = "flat"
-        top_n = int(AI_VALIDATE_TOP_N)
+        top_n = _coerce_ai_validate_top_n(
+            AI_VALIDATE_TOP_N, default=AI_VALIDATE_TOP_N
+        )
         line = f"{mode} · AI top {top_n} · rest may pass unscored"
 
     if len(line) > 96:

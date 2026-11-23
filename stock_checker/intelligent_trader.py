@@ -86,6 +86,23 @@ from . import __version__
 AI_VALIDATE_TOP_N = 5
 AI_FULL_TOP_N = 10
 
+
+def _coerce_ai_validate_top_n(
+    value: object, default: int = AI_VALIDATE_TOP_N
+) -> int:
+    """AI top-N strip size, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1``
+    / ``opportunities[:True]`` must not invent a one-name LLM check strip
+    (MarketScanner ``_coerce_scan_top_n`` peer — validate/full ceilings were
+    still bare module constants).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n < 1:
+        return int(default)
+    return n
+
+
 _DEFAULT_MAX_POSITIONS = int(TRADER_DEFAULTS["max_positions"])
 _DEFAULT_MIN_HOLD_SECONDS = int(float(TRADER_DEFAULTS["min_hold_hours"]) * 3600)
 _DEFAULT_SCAN_INTERVAL_SEC = 900
@@ -656,10 +673,16 @@ class IntelligentTrader:
         binance = BinanceFetcher()
         validated_opportunities = []
 
-        # Limit validation to top N opportunities to save AI calls
-        max_to_validate = (
-            AI_VALIDATE_TOP_N if self.ai_mode == "validate" else AI_FULL_TOP_N
-        )
+        # Limit validation to top N opportunities to save AI calls.
+        # Refuse bool — int(True)→1 / [:True] invents a one-name LLM strip.
+        if self.ai_mode == "validate":
+            max_to_validate = _coerce_ai_validate_top_n(
+                AI_VALIDATE_TOP_N, default=AI_VALIDATE_TOP_N
+            )
+        else:
+            max_to_validate = _coerce_ai_validate_top_n(
+                AI_FULL_TOP_N, default=AI_FULL_TOP_N
+            )
         opportunities_to_check = opportunities[:max_to_validate]
 
         print(f"   Validating top {len(opportunities_to_check)} opportunities with AI...")

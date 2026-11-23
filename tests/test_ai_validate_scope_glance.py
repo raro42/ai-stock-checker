@@ -6,7 +6,23 @@ from pathlib import Path
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import build_ai_validate_scope_glance, load_desk_snapshot
-from stock_checker.intelligent_trader import AI_FULL_TOP_N, AI_VALIDATE_TOP_N
+from stock_checker.intelligent_trader import (
+    AI_FULL_TOP_N,
+    AI_VALIDATE_TOP_N,
+    _coerce_ai_validate_top_n,
+)
+
+
+def test_coerce_ai_validate_top_n_refuses_bool() -> None:
+    """FinRobot strip: True→1 must not invent a one-name LLM check."""
+    assert _coerce_ai_validate_top_n(True) == AI_VALIDATE_TOP_N
+    assert _coerce_ai_validate_top_n(False) == AI_VALIDATE_TOP_N
+    assert _coerce_ai_validate_top_n(0) == AI_VALIDATE_TOP_N
+    assert _coerce_ai_validate_top_n(None) == AI_VALIDATE_TOP_N
+    assert _coerce_ai_validate_top_n(3) == 3
+    assert (
+        _coerce_ai_validate_top_n(True, default=AI_FULL_TOP_N) == AI_FULL_TOP_N
+    )
 
 
 def test_ai_validate_scope_glance_empty() -> None:
