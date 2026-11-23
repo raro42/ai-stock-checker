@@ -11,8 +11,14 @@ from stock_checker.ops_audit import (
     OPS_OUTCOME_FRESH_HOURS,
     OPS_PENDING_REFUSE_SECONDS,
     _coerce_ops_actions_cap,
+    _coerce_ops_age_sec,
     _coerce_ops_outcome_hours,
     _coerce_ops_refuse_seconds,
+    _ops_age_short,
+    _ops_vs_file_age_delta_lean,
+    _ops_vs_file_clash_sides_delta,
+    _ops_vs_file_clash_sides_share,
+    _ops_vs_file_clash_sides_share_pcts,
     append_ops_action,
     load_ops_actions,
     ops_outcome_age_band,
@@ -77,6 +83,32 @@ def test_ops_outcome_age_refuses_bool_hours() -> None:
         ops_outcome_age_band(row, now=now, fresh_hours=True, aging_hours=True)
         == "aging"
     )
+
+
+def test_ops_age_short_refuses_bool() -> None:
+    """True→1s must not invent ``now`` / ``1s`` on Ops audit age clips."""
+    assert _coerce_ops_age_sec(True) is None
+    assert _coerce_ops_age_sec(False) is None
+    assert _coerce_ops_age_sec(-1) is None
+    assert _coerce_ops_age_sec(45) == 45.0
+    assert _ops_age_short(True) == "n/a"
+    assert _ops_age_short(False) == "n/a"
+    assert _ops_age_short(3) == "now"
+    assert _ops_age_short(45) == "45s"
+    assert _ops_age_short(120) == "2m"
+
+
+def test_ops_vs_file_age_helpers_refuse_bool() -> None:
+    """True→1s must not invent sides Δ thin / 50-50 share from bool ages."""
+    assert _ops_vs_file_clash_sides_delta(True, False) == ""
+    assert _ops_vs_file_clash_sides_delta(True, 3600) == ""
+    assert _ops_vs_file_clash_sides_share_pcts(True, False) is None
+    assert _ops_vs_file_clash_sides_share(True, False) == ""
+    assert _ops_vs_file_age_delta_lean(True, False) == "mid"
+    # Real near-equal ages still speak thin Δ (|200−100|=100s → 1m).
+    assert _ops_vs_file_clash_sides_delta(100.0, 200.0) == "sides Δ thin · 1m"
+    pcts = _ops_vs_file_clash_sides_share_pcts(100.0, 100.0)
+    assert pcts == (50, 50)
 
 
 def test_append_ops_action_refuses_bool_cap(tmp_path: Path) -> None:

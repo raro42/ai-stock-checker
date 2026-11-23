@@ -339,9 +339,32 @@ def ops_error_reason_label(row: dict[str, Any] | None) -> str:
     return ""
 
 
-def _ops_age_short(age_sec: float) -> str:
-    """Compact wall age (``now`` / ``45s`` / ``6m`` / ``3h`` / ``2d``)."""
-    sec = max(0, int(age_sec))
+def _coerce_ops_age_sec(value: object) -> float | None:
+    """Non-negative age/lag seconds, or None when bool/gap/NaN.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)→1`` /
+    ``int(True)→1`` must not invent ``now`` / ``1s`` / thin sides Δ on
+    Ops audit vs file clocks (desk cash-print / pin-lag age peer).
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    age = float(value)  # type: ignore[arg-type]
+    if age < 0.0:
+        return None
+    return age
+
+
+def _ops_age_short(age_sec: object) -> str:
+    """Compact wall age (``now`` / ``45s`` / ``6m`` / ``3h`` / ``2d``).
+
+    Bool/gap speak ``n/a`` — never invent ``now`` from ``True``.
+    """
+    age = _coerce_ops_age_sec(age_sec)
+    if age is None:
+        return "n/a"
+    sec = int(age)
     if sec < 60:
         return "now" if sec < 5 else f"{sec}s"
     if sec < 3600:
@@ -423,15 +446,21 @@ def ops_file_freshness_band(
 _OPS_BAND_AGE_RANK = {"fresh": 0, "aging": 1, "stale": 2}
 
 
-def _ops_vs_file_clash_sides_delta(audit_age: float, file_age: float) -> str:
+def _ops_vs_file_clash_sides_delta(audit_age: object, file_age: object) -> str:
     """``sides Δ wide|thin · Nd`` when |age spread| is extreme; mid silent.
 
     Sides name both wall ages; Δ is the additive spread so a thin band span
     on nearly equal clocks (or a wide band span on close ages) does not look
     like a huge clock gap — FinRobot/xang1234 gap-dir sides Δ + portfolio AI
     after sides alone. Wide ≥ aging floor (7d); thin < fresh floor (24h).
+    Bool/gap ages stay silent — never invent ``sides Δ thin · 1s`` from
+    ``True``.
     """
-    delta = abs(float(audit_age) - float(file_age))
+    a = _coerce_ops_age_sec(audit_age)
+    f = _coerce_ops_age_sec(file_age)
+    if a is None or f is None:
+        return ""
+    delta = abs(a - f)
     hours = delta / 3600.0
     if hours >= float(OPS_OUTCOME_AGING_HOURS):
         lean = "wide"
@@ -443,11 +472,16 @@ def _ops_vs_file_clash_sides_delta(audit_age: float, file_age: float) -> str:
 
 
 def _ops_vs_file_clash_sides_share_pcts(
-    audit_age: float, file_age: float
+    audit_age: object, file_age: object
 ) -> tuple[int, int] | None:
-    """``(audit_pct, file_pct)`` of auditAge+fileAge; ``None`` when empty."""
-    a = max(0.0, float(audit_age))
-    f = max(0.0, float(file_age))
+    """``(audit_pct, file_pct)`` of auditAge+fileAge; ``None`` when empty.
+
+    Bool/gap ages → ``None`` — never invent ``50%/50%`` from ``True``/``False``.
+    """
+    a = _coerce_ops_age_sec(audit_age)
+    f = _coerce_ops_age_sec(file_age)
+    if a is None or f is None:
+        return None
     total = a + f
     if total <= 0.0:
         return None
@@ -465,7 +499,7 @@ _OPS_VS_FILE_SHARE_DELTA_WIDE_PP = 20
 _OPS_VS_FILE_SHARE_DELTA_THIN_PP = 10
 
 
-def _ops_vs_file_clash_sides_share(audit_age: float, file_age: float) -> str:
+def _ops_vs_file_clash_sides_share(audit_age: object, file_age: object) -> str:
     """``audit N% · file M%`` ownership of auditAge+fileAge; else ``\"\"``.
 
     Absolute wall ages and additive Δ ≠ who owns the age pair — a thin Δ on
@@ -481,7 +515,7 @@ def _ops_vs_file_clash_sides_share(audit_age: float, file_age: float) -> str:
 
 
 def _ops_vs_file_clash_sides_share_delta(
-    audit_age: float, file_age: float
+    audit_age: object, file_age: object
 ) -> str:
     """``sides share Δ wide|thin · ±Npp`` when |audit%−file%| is extreme.
 
@@ -505,9 +539,16 @@ def _ops_vs_file_clash_sides_share_delta(
     return f"sides share Δ {lean} · {sign}{delta_pp}pp"
 
 
-def _ops_vs_file_age_delta_lean(audit_age: float, file_age: float) -> str:
-    """``wide`` / ``thin`` / ``mid`` for |auditAge−fileAge| (sides Δ floors)."""
-    hours = abs(float(audit_age) - float(file_age)) / 3600.0
+def _ops_vs_file_age_delta_lean(audit_age: object, file_age: object) -> str:
+    """``wide`` / ``thin`` / ``mid`` for |auditAge−fileAge| (sides Δ floors).
+
+    Bool/gap ages → ``mid`` (silent) — never invent ``thin`` from ``True``.
+    """
+    a = _coerce_ops_age_sec(audit_age)
+    f = _coerce_ops_age_sec(file_age)
+    if a is None or f is None:
+        return "mid"
+    hours = abs(a - f) / 3600.0
     if hours >= float(OPS_OUTCOME_AGING_HOURS):
         return "wide"
     if hours < float(OPS_OUTCOME_FRESH_HOURS):
@@ -515,7 +556,7 @@ def _ops_vs_file_age_delta_lean(audit_age: float, file_age: float) -> str:
     return "mid"
 
 
-def _ops_vs_file_share_delta_lean(audit_age: float, file_age: float) -> str:
+def _ops_vs_file_share_delta_lean(audit_age: object, file_age: object) -> str:
     """``wide`` / ``thin`` / ``mid`` for |audit%−file%| (share Δ floors)."""
     pcts = _ops_vs_file_clash_sides_share_pcts(audit_age, file_age)
     if pcts is None:
@@ -529,7 +570,7 @@ def _ops_vs_file_share_delta_lean(audit_age: float, file_age: float) -> str:
 
 
 def _ops_vs_file_clash_sides_share_vs_delta(
-    audit_age: float, file_age: float
+    audit_age: object, file_age: object
 ) -> str:
     """Age-Δ lean vs ownership-Δ lean after sides share / share Δ.
 
