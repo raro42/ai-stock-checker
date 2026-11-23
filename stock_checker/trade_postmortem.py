@@ -16,6 +16,7 @@ from typing import Any, Deque, Mapping, Optional
 
 from .portfolio import fill_price_ok, long_only_quantity_ok
 from .technical_indicators import coerce_nonneg_int
+from .trade_context import EXIT_REASON_MAX, _clip_field
 
 QTY_EPS = 1e-9
 DEFAULT_LIMIT = 12
@@ -26,6 +27,29 @@ UNMATCHED_SELL_NOTE = "No open lot — skipped accounting (long-only)"
 UNOBSERVED_PRICE_REASON = "unobserved"
 UNOBSERVED_PRICE_NOTE = "Missing price — skipped accounting (unobserved)"
 ACCOUNTING_SKIPPED = "skipped"
+
+
+def _coerce_exit_reason_chars(
+    value: object, default: int = EXIT_REASON_MAX
+) -> int:
+    """Positive Book postmortem exit-reason char ceiling, or ``default``.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char exit tag via ``reason[:True]``; ``False→0`` must not
+    wipe (Book fill field-clip peer — strip limit already refused; exit
+    ceilings were still bare ``[:24]``).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_exit_reason(
+    text: object, limit: object = EXIT_REASON_MAX
+) -> str:
+    """Hard-cut postmortem exit_reason (same ceiling as ledger sell tags)."""
+    return _clip_field(text, limit, default=EXIT_REASON_MAX)
 
 
 def _observed_price(raw: Any) -> Optional[float]:
@@ -104,6 +128,7 @@ def closed_rounds(
     trades: list[Mapping[str, Any]] | None,
     *,
     limit: object = DEFAULT_LIMIT,
+    reason_n: object = EXIT_REASON_MAX,
 ) -> list[dict[str, Any]]:
     """
     FIFO-match BUY lots to SELL fills. Newest closed rounds first.
@@ -113,6 +138,7 @@ def closed_rounds(
     if not trades:
         return []
     strip = _coerce_postmortem_limit(limit)
+    reason_ceil = _coerce_exit_reason_chars(reason_n)
 
     opens: dict[str, Deque[dict[str, Any]]] = defaultdict(deque)
     rounds: list[dict[str, Any]] = []
@@ -148,7 +174,9 @@ def closed_rounds(
 
         sell_price = _observed_price(raw.get("price"))
         sell_ts = raw.get("timestamp") or ""
-        exit_reason = str(raw.get("exit_reason") or "")[:24]
+        exit_reason = _clip_exit_reason(
+            raw.get("exit_reason") or "", reason_ceil
+        )
         sell_note = str(raw.get("note") or "")
         remaining = qty
 

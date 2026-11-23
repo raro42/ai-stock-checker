@@ -1,3 +1,4 @@
+from stock_checker.trade_context import EXIT_REASON_MAX
 from stock_checker.trade_postmortem import (
     ACCOUNTING_SKIPPED,
     DEFAULT_LIMIT,
@@ -5,6 +6,8 @@ from stock_checker.trade_postmortem import (
     UNMATCHED_SELL_REASON,
     UNOBSERVED_PRICE_NOTE,
     UNOBSERVED_PRICE_REASON,
+    _clip_exit_reason,
+    _coerce_exit_reason_chars,
     _coerce_postmortem_limit,
     closed_rounds,
     is_orphan_unmatched_postmortem,
@@ -289,6 +292,52 @@ def test_coerce_postmortem_limit_refuses_bool() -> None:
     assert _coerce_postmortem_limit(None) == DEFAULT_LIMIT
     assert _coerce_postmortem_limit(0) == 0
     assert _coerce_postmortem_limit(3) == 3
+
+
+def test_coerce_exit_reason_chars_refuses_bool() -> None:
+    """True→1 / [:True] must not invent a one-char postmortem exit tag."""
+    assert _coerce_exit_reason_chars(True) == EXIT_REASON_MAX
+    assert _coerce_exit_reason_chars(False) == EXIT_REASON_MAX
+    assert _coerce_exit_reason_chars(0) == EXIT_REASON_MAX
+    assert _coerce_exit_reason_chars(None) == EXIT_REASON_MAX
+    assert _coerce_exit_reason_chars(12) == 12
+
+
+def test_clip_exit_reason_refuses_bool_ceiling() -> None:
+    """Bool ceilings fall back to EXIT_REASON_MAX; False must not wipe."""
+    long_reason = "take_profit_" + ("x" * 40)
+    assert len(_clip_exit_reason(long_reason, True)) == EXIT_REASON_MAX
+    assert len(_clip_exit_reason(long_reason, False)) == EXIT_REASON_MAX
+    assert _clip_exit_reason(long_reason, 8) == long_reason[:8]
+
+
+def test_closed_rounds_refuses_bool_exit_reason_ceiling() -> None:
+    """True→1 must not invent a one-char exit_reason on matched closes."""
+    long_reason = "rotate_weak_" + ("y" * 40)
+    trades = [
+        {
+            "type": "BUY",
+            "symbol": "AAPL",
+            "quantity": 1,
+            "price": 100,
+            "timestamp": "2026-09-01T10:00:00+00:00",
+        },
+        {
+            "type": "SELL",
+            "symbol": "AAPL",
+            "quantity": 1,
+            "price": 108,
+            "timestamp": "2026-09-01T15:00:00+00:00",
+            "exit_reason": long_reason,
+        },
+    ]
+    out = closed_rounds(trades, reason_n=True)
+    assert len(out) == 1
+    assert out[0]["exit_reason"] == long_reason[:EXIT_REASON_MAX]
+    assert len(closed_rounds(trades, reason_n=False)[0]["exit_reason"]) == (
+        EXIT_REASON_MAX
+    )
+    assert closed_rounds(trades, reason_n=10)[0]["exit_reason"] == long_reason[:10]
 
 
 def test_closed_rounds_refuses_bool_strip_ceiling() -> None:
