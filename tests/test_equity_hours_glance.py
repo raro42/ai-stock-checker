@@ -8,6 +8,9 @@ import pytz
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
+    _HOURS_INACTIVE_QUIET_NAME_CAP,
+    _coerce_hours_inactive_name_cap,
+    _hours_inactive_venue_chip,
     build_equity_hours_glance,
     equity_hours_inactive_meta,
     load_desk_snapshot,
@@ -88,6 +91,29 @@ def test_equity_hours_inactive_meta_names_the_open() -> None:
             inactive_markets=["US", "Xetra", "A", "B", "C"]
         )
         == "quiet · 5 folds · US · Xetra · A · B · +1"
+    )
+
+
+def test_hours_inactive_venue_chip_refuses_bool_name_cap() -> None:
+    """True must not invent a one-venue dark chip (inventory name-cap peer)."""
+    assert _coerce_hours_inactive_name_cap(True) == _HOURS_INACTIVE_QUIET_NAME_CAP
+    assert _coerce_hours_inactive_name_cap(False) == _HOURS_INACTIVE_QUIET_NAME_CAP
+    assert _coerce_hours_inactive_name_cap(0) == _HOURS_INACTIVE_QUIET_NAME_CAP
+    assert _coerce_hours_inactive_name_cap(None) == _HOURS_INACTIVE_QUIET_NAME_CAP
+    assert _coerce_hours_inactive_name_cap(2) == 2
+    venues = ["US", "Xetra", "A", "B", "C"]
+    # Bool cap falls back to 4 (+1), not names[:True] → one venue +4.
+    assert (
+        _hours_inactive_venue_chip(venues, quiet=True, cap=True)
+        == "quiet · 5 folds · US · Xetra · A · B · +1"
+    )
+    assert (
+        _hours_inactive_venue_chip(venues, quiet=False, cap=False)
+        == "US · Xetra · A · B · +1"
+    )
+    assert (
+        _hours_inactive_venue_chip(venues, quiet=False, cap=2)
+        == "US · Xetra · +3"
     )
 
 

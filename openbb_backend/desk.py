@@ -27088,13 +27088,29 @@ def build_session_glance(
 _HOURS_INACTIVE_QUIET_NAME_CAP = 4
 
 
-def _hours_inactive_venue_chip(names: list[str], *, quiet: bool) -> str:
+def _coerce_hours_inactive_name_cap(
+    value: object, default: int = _HOURS_INACTIVE_QUIET_NAME_CAP
+) -> int:
+    """Positive Hours inactive venue-name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-venue dark chip via ``names[:True]``; ``False→0`` must not wipe
+    (Close honesty / quiet inventory name-cap peer — Hours inactive still
+    sliced a bare module constant).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
+
+
+def _hours_inactive_venue_chip(
+    names: list[str], *, quiet: bool, cap: object = _HOURS_INACTIVE_QUIET_NAME_CAP
+) -> str:
     """Clip dark-venue names for Hours inactive summary (cap 4 +``+N``)."""
     if not names:
         return ""
+    ceiling = _coerce_hours_inactive_name_cap(cap)
     unit = "fold" if len(names) == 1 else "folds"
-    extra = len(names) - _HOURS_INACTIVE_QUIET_NAME_CAP
-    shown = names[:_HOURS_INACTIVE_QUIET_NAME_CAP]
+    extra = len(names) - ceiling
+    shown = list(names[:ceiling])
     if extra > 0:
         shown.append(f"+{extra}")
     joined = " · ".join(shown)
@@ -33053,6 +33069,19 @@ _IMPROVE_TICK_LEAN_NAME_CAP = 4
 _IMPROVE_TICK_LEAN_EXPLAIN_ONLY = frozenset({"stuck band", "gap sides"})
 
 
+def _coerce_improve_tick_lean_name_cap(
+    value: object, default: int = _IMPROVE_TICK_LEAN_NAME_CAP
+) -> int:
+    """Positive improve-tick lean stage-name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-stage Ops improve lean chip via ``stages[:True]``; ``False→0`` must
+    not wipe (Hours inactive / Close honesty name-cap peer — improve lean
+    still sliced a bare module constant).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
+
+
 def _improve_tick_lean_thin_suffix(stages: list[str]) -> str:
     """Thin/not-thin tail for improve lean meta (display only).
 
@@ -33073,7 +33102,11 @@ def _improve_tick_lean_thin_suffix(stages: list[str]) -> str:
 
 
 def improve_tick_lean_meta(
-    lean: str, *, warn: bool = False, stuck: bool = False
+    lean: str,
+    *,
+    warn: bool = False,
+    stuck: bool = False,
+    cap: object = _IMPROVE_TICK_LEAN_NAME_CAP,
 ) -> str:
     """Summary chip for improve lean fold (display only).
 
@@ -33184,7 +33217,8 @@ def improve_tick_lean_meta(
         sev = "quiet"
     if not stages:
         return sev
-    named = stages[:_IMPROVE_TICK_LEAN_NAME_CAP]
+    ceiling = _coerce_improve_tick_lean_name_cap(cap)
+    named = stages[:ceiling]
     extra = len(stages) - len(named)
     tail = " · ".join(named)
     if extra > 0:

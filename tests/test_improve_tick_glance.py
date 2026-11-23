@@ -11,7 +11,9 @@ from openbb_backend.desk import (
     DEFAULT_IMPROVE_TICK_TAIL_LINES,
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
+    _IMPROVE_TICK_LEAN_NAME_CAP,
     _coerce_improve_tick_band_sec,
+    _coerce_improve_tick_lean_name_cap,
     _coerce_improve_tick_tail_lines,
     _resolve_improve_tick_bands,
     _tail_improve_log_lines,
@@ -678,6 +680,38 @@ def test_improve_tick_lean_meta() -> None:
             "warn · not thin · fresher polarity vs scan-meter"
             " · fresher vs source · source vs scan · fresher · +1"
         )
+    )
+
+
+def test_improve_tick_lean_meta_refuses_bool_name_cap() -> None:
+    """True must not invent a one-stage Ops improve lean chip."""
+    assert (
+        _coerce_improve_tick_lean_name_cap(True) == _IMPROVE_TICK_LEAN_NAME_CAP
+    )
+    assert (
+        _coerce_improve_tick_lean_name_cap(False) == _IMPROVE_TICK_LEAN_NAME_CAP
+    )
+    assert _coerce_improve_tick_lean_name_cap(0) == _IMPROVE_TICK_LEAN_NAME_CAP
+    assert _coerce_improve_tick_lean_name_cap(None) == _IMPROVE_TICK_LEAN_NAME_CAP
+    assert _coerce_improve_tick_lean_name_cap(2) == 2
+    storm = (
+        "status/age vs scan align · clash · fresher scan · gap wide"
+        " · gap sides · improve stale · scan fresh"
+        " · fresher vs status/age align"
+        " · fresher polarity vs scan-meter align"
+    )
+    # Bool cap falls back to 4 (+1), not stages[:True] → one stage +4.
+    assert improve_tick_lean_meta(storm, warn=True, cap=True) == (
+        "warn · not thin · fresher polarity vs scan-meter"
+        " · fresher vs status/age · status/age vs scan · fresher · +1"
+    )
+    assert improve_tick_lean_meta(storm, warn=True, cap=False) == (
+        "warn · not thin · fresher polarity vs scan-meter"
+        " · fresher vs status/age · status/age vs scan · fresher · +1"
+    )
+    assert improve_tick_lean_meta(storm, warn=True, cap=2) == (
+        "warn · not thin · fresher polarity vs scan-meter"
+        " · fresher vs status/age · +3"
     )
 
 
