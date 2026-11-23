@@ -11,6 +11,10 @@ from stock_checker.technical_indicators import (
 )
 
 NOTE_MAX = 160
+SOURCE_MAX = 24
+STRATEGY_MAX = 32
+CONFIDENCE_MAX = 16
+EXIT_REASON_MAX = 24
 
 
 def _coerce_note_clip_chars(
@@ -29,12 +33,39 @@ def _coerce_note_clip_chars(
     return n
 
 
+def _coerce_field_clip_chars(
+    value: object, default: int
+) -> int:
+    """Positive Book fill-tag char ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char source/strategy/confidence/exit tag via ``s[:True]``;
+    ``False→0`` must not wipe (note clip peer — score/% refuse already covered;
+    field ceilings were still bare ``[:24]``/``[:32]``/``[:16]``).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
 def _clip(text: object, limit: object = NOTE_MAX) -> str:
     ceiling = _coerce_note_clip_chars(limit)
     clean = " ".join(str(text or "").split())
     if len(clean) <= ceiling:
         return clean
     return clean[: ceiling - 1].rstrip() + "…"
+
+
+def _clip_field(
+    text: object,
+    limit: object,
+    *,
+    default: int,
+) -> str:
+    """Hard-cut ledger tag (source/strategy/confidence/exit_reason)."""
+    ceiling = _coerce_field_clip_chars(limit, default)
+    return str(text or "")[:ceiling]
 
 
 def buy_note_from_opportunity(
@@ -67,15 +98,21 @@ def buy_note_from_opportunity(
     score_raw = coerce_score(rec.get("score", row.get("score")))
     score = round(score_raw, 1) if score_raw is not None else None
 
-    ctx: dict[str, Any] = {"source": str(source)[:24]}
+    ctx: dict[str, Any] = {
+        "source": _clip_field(source, SOURCE_MAX, default=SOURCE_MAX),
+    }
     if strategy:
-        ctx["strategy"] = strategy[:32]
+        ctx["strategy"] = _clip_field(
+            strategy, STRATEGY_MAX, default=STRATEGY_MAX
+        )
     if note.strip():
         ctx["note"] = _clip(note)
     if score is not None:
         ctx["score"] = score
     if confidence:
-        ctx["confidence"] = str(confidence)[:16]
+        ctx["confidence"] = _clip_field(
+            confidence, CONFIDENCE_MAX, default=CONFIDENCE_MAX
+        )
     return ctx
 
 
@@ -87,7 +124,9 @@ def sell_note_from_exit(
     detail: str = "",
 ) -> dict[str, Any]:
     """Short ledger note for SELL rows (Book / audit)."""
-    reason = str(exit_reason or "exit")[:24]
+    reason = _clip_field(
+        exit_reason or "exit", EXIT_REASON_MAX, default=EXIT_REASON_MAX
+    )
     # Refuse bool/gap so True→+1.0% cannot invent TP/SL note copy.
     pct = float(profit_pct) if _finite_signed(profit_pct) else None  # type: ignore[arg-type]
     thr = float(threshold) if _finite_signed(threshold) else None  # type: ignore[arg-type]
