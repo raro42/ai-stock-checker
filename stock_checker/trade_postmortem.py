@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any, Deque, Mapping, Optional
 
 from .portfolio import fill_price_ok, long_only_quantity_ok
+from .technical_indicators import coerce_nonneg_int
 
 QTY_EPS = 1e-9
 DEFAULT_LIMIT = 12
@@ -83,10 +84,26 @@ def _hold_label(buy_ts: Any, sell_ts: Any) -> str:
     return f"{days:.0f}d" if days >= 10 else f"{days:.1f}d".rstrip("0").rstrip(".")
 
 
+def _coerce_postmortem_limit(
+    value: object, default: int = DEFAULT_LIMIT
+) -> int:
+    """Non-negative Book postmortem strip length, or ``default`` when bool/gap.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-row closed-round strip; ``False→0`` must not wipe the Book
+    postmortem panel (LAYA/AI-validate retention peer — qty/price refuse
+    already covered; strip ceiling was still open).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
 def closed_rounds(
     trades: list[Mapping[str, Any]] | None,
     *,
-    limit: int = DEFAULT_LIMIT,
+    limit: object = DEFAULT_LIMIT,
 ) -> list[dict[str, Any]]:
     """
     FIFO-match BUY lots to SELL fills. Newest closed rounds first.
@@ -95,6 +112,7 @@ def closed_rounds(
     """
     if not trades:
         return []
+    strip = _coerce_postmortem_limit(limit)
 
     opens: dict[str, Deque[dict[str, Any]]] = defaultdict(deque)
     rounds: list[dict[str, Any]] = []
@@ -222,8 +240,8 @@ def closed_rounds(
             )
 
     rounds.reverse()
-    if limit > 0:
-        return rounds[:limit]
+    if strip > 0:
+        return rounds[:strip]
     return rounds
 
 

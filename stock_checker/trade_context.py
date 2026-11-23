@@ -4,16 +4,37 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from stock_checker.technical_indicators import _finite_signed, coerce_score
+from stock_checker.technical_indicators import (
+    _finite_signed,
+    coerce_nonneg_int,
+    coerce_score,
+)
 
 NOTE_MAX = 160
 
 
-def _clip(text: str, limit: int = NOTE_MAX) -> str:
-    clean = " ".join(str(text).split())
-    if len(clean) <= limit:
+def _coerce_note_clip_chars(
+    value: object, default: int = NOTE_MAX
+) -> int:
+    """Positive Book fill-note char ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-char ledger note (``T…``); ``False→0`` must not wipe via
+    ``s[:-1]`` (LAYA/AI-validate reason clip peer — score/% refuse already
+    covered; note ceilings were still open).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip(text: object, limit: object = NOTE_MAX) -> str:
+    ceiling = _coerce_note_clip_chars(limit)
+    clean = " ".join(str(text or "").split())
+    if len(clean) <= ceiling:
         return clean
-    return clean[: limit - 1].rstrip() + "…"
+    return clean[: ceiling - 1].rstrip() + "…"
 
 
 def buy_note_from_opportunity(

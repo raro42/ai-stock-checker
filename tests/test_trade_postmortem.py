@@ -1,9 +1,11 @@
 from stock_checker.trade_postmortem import (
     ACCOUNTING_SKIPPED,
+    DEFAULT_LIMIT,
     UNMATCHED_SELL_NOTE,
     UNMATCHED_SELL_REASON,
     UNOBSERVED_PRICE_NOTE,
     UNOBSERVED_PRICE_REASON,
+    _coerce_postmortem_limit,
     closed_rounds,
     is_orphan_unmatched_postmortem,
     is_unmatched_postmortem,
@@ -278,3 +280,41 @@ def test_closed_rounds_refuses_bool_qty_and_price() -> None:
     assert rounds[0]["buy_price"] is None
     assert rounds[0]["profit_loss"] is None
     assert rounds[0]["accounting"] == ACCOUNTING_SKIPPED
+
+
+def test_coerce_postmortem_limit_refuses_bool() -> None:
+    """True→1 must not invent a one-row Book strip; False must not wipe."""
+    assert _coerce_postmortem_limit(True) == DEFAULT_LIMIT
+    assert _coerce_postmortem_limit(False) == DEFAULT_LIMIT
+    assert _coerce_postmortem_limit(None) == DEFAULT_LIMIT
+    assert _coerce_postmortem_limit(0) == 0
+    assert _coerce_postmortem_limit(3) == 3
+
+
+def test_closed_rounds_refuses_bool_strip_ceiling() -> None:
+    """True→1 must not invent a one-row postmortem strip."""
+    trades: list[dict] = []
+    for i in range(4):
+        trades.append(
+            {
+                "type": "BUY",
+                "symbol": f"S{i}",
+                "quantity": 1,
+                "price": 100,
+                "timestamp": f"2026-09-0{i + 1}T10:00:00+00:00",
+            }
+        )
+        trades.append(
+            {
+                "type": "SELL",
+                "symbol": f"S{i}",
+                "quantity": 1,
+                "price": 108,
+                "timestamp": f"2026-09-0{i + 1}T15:00:00+00:00",
+                "exit_reason": "tp",
+            }
+        )
+    assert len(closed_rounds(trades, limit=True)) == 4
+    assert len(closed_rounds(trades, limit=False)) == 4
+    assert len(closed_rounds(trades, limit=2)) == 2
+    assert len(closed_rounds(trades, limit=0)) == 4

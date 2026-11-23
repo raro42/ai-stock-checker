@@ -7,7 +7,12 @@ from urllib.parse import quote, quote_plus
 
 from openbb_backend.desk_logs import read_log_tail
 from stock_checker.ops_audit import audited_ops_action, load_ops_actions
-from stock_checker.secret_redact import redact_secrets, safe_exc_text
+from stock_checker.secret_redact import (
+    _DEFAULT_EXC_CHARS,
+    _coerce_exc_clip_chars,
+    redact_secrets,
+    safe_exc_text,
+)
 
 
 def test_redact_query_param_token_and_apikey():
@@ -64,6 +69,36 @@ def test_safe_exc_text_class_only_when_message_empty():
             return ""
 
     assert safe_exc_text(EmptyMsg()) == "EmptyMsg"
+
+
+def test_coerce_exc_clip_chars_refuses_bool():
+    """True→1 must not invent a one-char console strip; False must not wipe."""
+    assert _coerce_exc_clip_chars(True) == _DEFAULT_EXC_CHARS
+    assert _coerce_exc_clip_chars(False) == _DEFAULT_EXC_CHARS
+    assert _coerce_exc_clip_chars(0) == _DEFAULT_EXC_CHARS
+    assert _coerce_exc_clip_chars(None) == _DEFAULT_EXC_CHARS
+    assert _coerce_exc_clip_chars(40) == 40
+
+
+def test_safe_exc_text_refuses_bool_clip_ceiling():
+    """True→1 must not invent ``V…`` via msg[:True]; False must not wipe."""
+    exc = ValueError(
+        "HTTPSConnectionPool url=/api/v1/quote?symbol=AAPL&token=sekritVALUE99"
+    )
+    full = safe_exc_text(exc, limit=True)
+    assert "ValueError:" in full
+    assert "HTTPSConnectionPool" in full
+    assert "token=REDACTED" in full
+    assert "sekritVALUE99" not in full
+    # Without refuse, msg[:True] → one char after the class prefix.
+    assert full != "ValueError: H"
+
+    wiped = safe_exc_text(exc, limit=False)
+    assert "HTTPSConnectionPool" in wiped
+    assert wiped == full
+
+    short = safe_exc_text(exc, limit=8)
+    assert short == "ValueError: HTTPSCon"
 
 
 def test_safe_detail_redacts_encoded_key_in_note(tmp_path: Path, monkeypatch):

@@ -95,7 +95,28 @@ def redact_secrets(text: str, *, extra: list[str] | None = None) -> str:
     return out
 
 
-def safe_exc_text(exc: BaseException, *, limit: int = 120) -> str:
+_DEFAULT_EXC_CHARS = 120
+
+
+def _coerce_exc_clip_chars(
+    value: object, default: int = _DEFAULT_EXC_CHARS
+) -> int:
+    """Positive console exception message ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #778/#700/#655 + xang1234/portfolio AI: ``True→1`` must not
+    invent a one-char console strip via ``msg[:True]``; ``False→0`` must not
+    wipe the redacted message (LAYA/AI-validate reason clip peer — token
+    redact already covered; char ceilings were still open).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def safe_exc_text(exc: BaseException, *, limit: object = _DEFAULT_EXC_CHARS) -> str:
     """Class name + redacted message for console/log diagnostics.
 
     tradermonty #778: ``requests`` exceptions often embed the full URL (including
@@ -106,6 +127,7 @@ def safe_exc_text(exc: BaseException, *, limit: int = 120) -> str:
     msg = redact_secrets(str(exc) or "").strip()
     if not msg or msg == name:
         return name
-    if limit > 0:
-        msg = msg[:limit]
+    ceiling = _coerce_exc_clip_chars(limit)
+    if ceiling > 0:
+        msg = msg[:ceiling]
     return f"{name}: {msg}"
