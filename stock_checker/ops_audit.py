@@ -29,8 +29,34 @@ OPS_PENDING_REFUSE_SECONDS = 120
 # saved-row ``file_freshness`` so audit age and config mtime speak one scale.
 OPS_OUTCOME_FRESH_HOURS = 24
 OPS_OUTCOME_AGING_HOURS = 168
+# ``_safe_detail`` strip ceilings (Save Δ / open_cash / note tags).
+OPS_DETAIL_KEYS_MAX = 24
+OPS_DETAIL_CHANGED_ITEMS_MAX = 16
+OPS_DETAIL_CHANGED_ITEM_CHARS = 40
+OPS_DETAIL_OPEN_CASH_ITEMS_MAX = 4
+OPS_DETAIL_OPEN_CASH_ITEM_CHARS = 16
+OPS_DETAIL_STRING_CHARS = 80
 
 T = TypeVar("T")
+
+
+def _coerce_ops_detail_ceiling(
+    value: object, default: int
+) -> int:
+    """Positive Ops detail strip ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-key / one-char Save Δ via ``items[:True]`` /
+    ``s[:True]``; ``False→0`` must not wipe (soft-allow reason clip peer —
+    ring/TTL already refused; detail ceilings were still bare ``[:24]`` /
+    ``[:40]`` / ``[:80]``).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
 
 
 def _coerce_ops_refuse_seconds(
@@ -1046,14 +1072,39 @@ def ops_changed_impact_warn(row: dict[str, Any] | None) -> bool:
     return config_changed_impact_warn(_ops_changed_keys(row))
 
 
-def _safe_detail(detail: dict[str, Any] | None) -> dict[str, Any]:
+def _safe_detail(
+    detail: dict[str, Any] | None,
+    *,
+    keys_n: object = OPS_DETAIL_KEYS_MAX,
+    changed_n: object = OPS_DETAIL_CHANGED_ITEMS_MAX,
+    changed_chars: object = OPS_DETAIL_CHANGED_ITEM_CHARS,
+    open_cash_n: object = OPS_DETAIL_OPEN_CASH_ITEMS_MAX,
+    open_cash_chars: object = OPS_DETAIL_OPEN_CASH_ITEM_CHARS,
+    string_chars: object = OPS_DETAIL_STRING_CHARS,
+) -> dict[str, Any]:
     """Keep a small non-secret summary of what Ops asked to change."""
     from .secret_redact import redact_secrets
 
     if not isinstance(detail, dict):
         return {}
+    key_ceil = _coerce_ops_detail_ceiling(keys_n, OPS_DETAIL_KEYS_MAX)
+    changed_ceil = _coerce_ops_detail_ceiling(
+        changed_n, OPS_DETAIL_CHANGED_ITEMS_MAX
+    )
+    changed_char_ceil = _coerce_ops_detail_ceiling(
+        changed_chars, OPS_DETAIL_CHANGED_ITEM_CHARS
+    )
+    open_cash_ceil = _coerce_ops_detail_ceiling(
+        open_cash_n, OPS_DETAIL_OPEN_CASH_ITEMS_MAX
+    )
+    open_cash_char_ceil = _coerce_ops_detail_ceiling(
+        open_cash_chars, OPS_DETAIL_OPEN_CASH_ITEM_CHARS
+    )
+    string_ceil = _coerce_ops_detail_ceiling(
+        string_chars, OPS_DETAIL_STRING_CHARS
+    )
     out: dict[str, Any] = {}
-    for key, val in list(detail.items())[:24]:
+    for key, val in list(detail.items())[:key_ceil]:
         k = str(key)
         kl = k.lower()
         if any(s in kl for s in ("key", "token", "secret", "password")):
@@ -1061,8 +1112,8 @@ def _safe_detail(detail: dict[str, Any] | None) -> dict[str, Any]:
         if k == "changed" and isinstance(val, list):
             # xang1234 #636: persist knob-impact keys for glance Δ speak.
             cleaned = [
-                str(item).strip()[:40]
-                for item in val[:16]
+                str(item).strip()[:changed_char_ceil]
+                for item in val[:changed_ceil]
                 if str(item).strip()
             ]
             if cleaned:
@@ -1071,8 +1122,8 @@ def _safe_detail(detail: dict[str, Any] | None) -> dict[str, Any]:
         if k == "open_cash" and isinstance(val, list):
             # xang1234 #636 when-to-run: persist live cash sleeves for mid-session.
             cleaned = [
-                str(item).strip()[:16]
-                for item in val[:4]
+                str(item).strip()[:open_cash_char_ceil]
+                for item in val[:open_cash_ceil]
                 if str(item).strip()
             ]
             if cleaned:
@@ -1082,7 +1133,7 @@ def _safe_detail(detail: dict[str, Any] | None) -> dict[str, Any]:
             out[k] = val
         elif isinstance(val, str):
             # tradermonty #556: redact encoded key echoes inside benign string fields.
-            out[k] = redact_secrets(val)[:80]
+            out[k] = redact_secrets(val)[:string_ceil]
         elif val is None:
             out[k] = None
         else:

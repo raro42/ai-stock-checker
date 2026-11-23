@@ -7,11 +7,18 @@ from pathlib import Path
 
 from stock_checker.ops_audit import (
     OPS_ACTIONS_CAP,
+    OPS_DETAIL_CHANGED_ITEMS_MAX,
+    OPS_DETAIL_CHANGED_ITEM_CHARS,
+    OPS_DETAIL_KEYS_MAX,
+    OPS_DETAIL_OPEN_CASH_ITEMS_MAX,
+    OPS_DETAIL_OPEN_CASH_ITEM_CHARS,
+    OPS_DETAIL_STRING_CHARS,
     OPS_OUTCOME_AGING_HOURS,
     OPS_OUTCOME_FRESH_HOURS,
     OPS_PENDING_REFUSE_SECONDS,
     _coerce_ops_actions_cap,
     _coerce_ops_age_sec,
+    _coerce_ops_detail_ceiling,
     _coerce_ops_outcome_hours,
     _coerce_ops_refuse_seconds,
     _ops_age_short,
@@ -19,6 +26,7 @@ from stock_checker.ops_audit import (
     _ops_vs_file_clash_sides_delta,
     _ops_vs_file_clash_sides_share,
     _ops_vs_file_clash_sides_share_pcts,
+    _safe_detail,
     append_ops_action,
     load_ops_actions,
     ops_outcome_age_band,
@@ -109,6 +117,85 @@ def test_ops_vs_file_age_helpers_refuse_bool() -> None:
     assert _ops_vs_file_clash_sides_delta(100.0, 200.0) == "sides Δ thin · 1m"
     pcts = _ops_vs_file_clash_sides_share_pcts(100.0, 100.0)
     assert pcts == (50, 50)
+
+
+def test_coerce_ops_detail_ceiling_refuses_bool() -> None:
+    """True→1 / [:True] must not invent a one-key / one-char Save Δ strip."""
+    assert _coerce_ops_detail_ceiling(True, OPS_DETAIL_KEYS_MAX) == OPS_DETAIL_KEYS_MAX
+    assert (
+        _coerce_ops_detail_ceiling(False, OPS_DETAIL_STRING_CHARS)
+        == OPS_DETAIL_STRING_CHARS
+    )
+    assert _coerce_ops_detail_ceiling(0, OPS_DETAIL_CHANGED_ITEM_CHARS) == (
+        OPS_DETAIL_CHANGED_ITEM_CHARS
+    )
+    assert _coerce_ops_detail_ceiling(None, OPS_DETAIL_OPEN_CASH_ITEM_CHARS) == (
+        OPS_DETAIL_OPEN_CASH_ITEM_CHARS
+    )
+    assert _coerce_ops_detail_ceiling(12, OPS_DETAIL_KEYS_MAX) == 12
+
+
+def test_safe_detail_refuses_bool_clip_ceilings() -> None:
+    """Bool ceilings fall back to defaults; False must not wipe via [:False]."""
+    note = "n" * 120
+    changed = [f"knob_{i}_" + ("x" * 50) for i in range(20)]
+    cash = [("sleeve_" + str(i) + "_" + ("y" * 40)) for i in range(6)]
+    detail = {
+        "note": note,
+        "changed": changed,
+        "open_cash": cash,
+        "ai_mode": "validate",
+    }
+    out = _safe_detail(
+        detail,
+        keys_n=True,
+        changed_n=True,
+        changed_chars=True,
+        open_cash_n=True,
+        open_cash_chars=True,
+        string_chars=True,
+    )
+    # Without refuse, keys_n=True → items[:True] would keep only note.
+    assert "changed" in out
+    assert "open_cash" in out
+    assert "ai_mode" in out
+    assert len(out["note"]) == OPS_DETAIL_STRING_CHARS
+    assert len(out["changed"]) == OPS_DETAIL_CHANGED_ITEMS_MAX
+    assert all(
+        len(item) == OPS_DETAIL_CHANGED_ITEM_CHARS for item in out["changed"]
+    )
+    assert len(out["open_cash"]) == OPS_DETAIL_OPEN_CASH_ITEMS_MAX
+    assert all(
+        len(item) == OPS_DETAIL_OPEN_CASH_ITEM_CHARS for item in out["open_cash"]
+    )
+
+    wiped = _safe_detail(
+        detail,
+        keys_n=False,
+        changed_n=False,
+        changed_chars=False,
+        open_cash_n=False,
+        open_cash_chars=False,
+        string_chars=False,
+    )
+    assert len(wiped["note"]) == OPS_DETAIL_STRING_CHARS
+    assert len(wiped["changed"]) == OPS_DETAIL_CHANGED_ITEMS_MAX
+    assert len(wiped["open_cash"]) == OPS_DETAIL_OPEN_CASH_ITEMS_MAX
+
+    tight = _safe_detail(
+        detail,
+        keys_n=2,
+        changed_n=3,
+        changed_chars=8,
+        open_cash_n=2,
+        open_cash_chars=5,
+        string_chars=10,
+    )
+    assert set(tight) <= {"note", "changed"}
+    assert len(tight) == 2
+    assert len(tight["note"]) == 10
+    assert len(tight["changed"]) == 3
+    assert all(len(item) == 8 for item in tight["changed"])
 
 
 def test_append_ops_action_refuses_bool_cap(tmp_path: Path) -> None:
