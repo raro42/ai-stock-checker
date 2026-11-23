@@ -11,7 +11,9 @@ from openbb_backend.desk import (
     DEFAULT_IMPROVE_TICK_TAIL_LINES,
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
+    _coerce_improve_tick_band_sec,
     _coerce_improve_tick_tail_lines,
+    _resolve_improve_tick_bands,
     _tail_improve_log_lines,
     build_improve_tick_glance,
     improve_tick_fresher_polarity_vs_scan_meter_bits,
@@ -64,6 +66,57 @@ def test_improve_tick_tail_lines_refuses_bool(tmp_path: Path) -> None:
     # Real small ceiling still truncates.
     assert len(_tail_improve_log_lines(log, max_lines=3)) == 3
     assert _tail_improve_log_lines(log, max_lines=3)[-1].endswith("rc=0")
+
+
+def test_improve_tick_band_sec_refuses_bool(tmp_path: Path) -> None:
+    # tradermonty #700/#655 + RyanJHamby/xang1234: True→1s must not invent a
+    # near-immediate aging/stale Ops improve band (parity with scan interval).
+    assert _coerce_improve_tick_band_sec(True, IMPROVE_TICK_FRESH_SEC) == (
+        IMPROVE_TICK_FRESH_SEC
+    )
+    assert _coerce_improve_tick_band_sec(False, IMPROVE_TICK_AGING_SEC) == (
+        IMPROVE_TICK_AGING_SEC
+    )
+    assert _coerce_improve_tick_band_sec(0, IMPROVE_TICK_FRESH_SEC) == (
+        IMPROVE_TICK_FRESH_SEC
+    )
+    assert _coerce_improve_tick_band_sec(None, IMPROVE_TICK_FRESH_SEC) == (
+        IMPROVE_TICK_FRESH_SEC
+    )
+    assert _coerce_improve_tick_band_sec(120, IMPROVE_TICK_FRESH_SEC) == 120
+    # Inverted / equal pair falls back to module defaults.
+    assert _resolve_improve_tick_bands(3600, 60) == (
+        IMPROVE_TICK_FRESH_SEC,
+        IMPROVE_TICK_AGING_SEC,
+    )
+    assert _resolve_improve_tick_bands(True, True) == (
+        IMPROVE_TICK_FRESH_SEC,
+        IMPROVE_TICK_AGING_SEC,
+    )
+
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T20:40Z cursor improve start\n"
+        "2026-11-09T20:46Z cursor improve end rc=0\n",
+        encoding="utf-8",
+    )
+    # 14m age: bool floors must keep default 75m fresh band (not True→1s aging).
+    g_bool = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T21:00Z"),
+        fresh_sec=True,
+        aging_sec=True,
+    )
+    assert g_bool["freshness"] == "fresh"
+    assert g_bool["tone"] == "ok"
+    # Real tiny floors still classify honestly.
+    g_tight = build_improve_tick_glance(
+        tmp_path,
+        now=_clock("2026-11-09T21:00Z"),
+        fresh_sec=60,
+        aging_sec=120,
+    )
+    assert g_tight["freshness"] == "stale"
+    assert g_tight["tone"] == "warn"
 
 
 def test_improve_tick_glance_fresh_ok(tmp_path: Path) -> None:

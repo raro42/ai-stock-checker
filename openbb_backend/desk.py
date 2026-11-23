@@ -32517,6 +32517,36 @@ def _coerce_improve_tick_tail_lines(
     return n
 
 
+def _coerce_improve_tick_band_sec(
+    value: object, default: int
+) -> int:
+    """Positive improve-tick freshness/aging floor seconds, or ``default``.
+
+    tradermonty #700/#655 + RyanJHamby/xang1234: ``True→1s`` / ``False→0``
+    must not invent a near-immediate ``aging``/``stale`` Ops improve band
+    (parity with scan-interval coerce + cash-print age refuse — log-tail
+    line ceiling already refused; band floors were still open).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _resolve_improve_tick_bands(
+    fresh_sec: object = IMPROVE_TICK_FRESH_SEC,
+    aging_sec: object = IMPROVE_TICK_AGING_SEC,
+) -> tuple[int, int]:
+    """Coerce improve fresh/aging floors; invert/gap pairs fall back to defaults."""
+    fresh = _coerce_improve_tick_band_sec(fresh_sec, IMPROVE_TICK_FRESH_SEC)
+    aging = _coerce_improve_tick_band_sec(aging_sec, IMPROVE_TICK_AGING_SEC)
+    if aging <= fresh:
+        return int(IMPROVE_TICK_FRESH_SEC), int(IMPROVE_TICK_AGING_SEC)
+    return fresh, aging
+
+
 def _tail_improve_log_lines(
     path: Path, *, max_lines: object = DEFAULT_IMPROVE_TICK_TAIL_LINES
 ) -> list[str]:
@@ -33169,6 +33199,8 @@ def build_improve_tick_glance(
     now: datetime | None = None,
     scan_time: Any = None,
     scan_interval_sec: int = 900,
+    fresh_sec: object = IMPROVE_TICK_FRESH_SEC,
+    aging_sec: object = IMPROVE_TICK_AGING_SEC,
 ) -> dict[str, Any]:
     """Last Cursor improve tick age (tradermonty #678; display only).
 
@@ -33299,10 +33331,13 @@ def build_improve_tick_glance(
         return empty
 
     age = max(0.0, (clock - ts).total_seconds())
-    if age < IMPROVE_TICK_FRESH_SEC:
+    # tradermonty #700/#655 + RyanJHamby/xang1234: refuse bool band floors —
+    # True→1s must not invent near-immediate aging/stale on Ops improve.
+    fresh_band, aging_band = _resolve_improve_tick_bands(fresh_sec, aging_sec)
+    if age < fresh_band:
         freshness = "fresh"
         tone = "ok"
-    elif age < IMPROVE_TICK_AGING_SEC:
+    elif age < aging_band:
         freshness = "aging"
         tone = "aging"
     else:
