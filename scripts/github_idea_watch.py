@@ -152,6 +152,48 @@ def _coerce_commits_per_day_rate(value: object) -> float:
     return rate
 
 
+def _coerce_star_count(value: object) -> int:
+    """Non-negative star count — refuse bool ``True→1★`` invent.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: desk already refuses bool
+    stars on read; writer ``int(stargazers_count or 0)`` / damaged state must
+    not persist a fake 1★ into the Ideas digest.
+    """
+    if value is None or isinstance(value, bool):
+        return 0
+    if not isinstance(value, (int, float)):
+        return 0
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return 0
+    if n < 0:
+        return 0
+    return n
+
+
+def _coerce_page_limit(
+    value: object, *, default: int, ceiling: int = 100
+) -> int:
+    """GitHub ``per_page`` / commit strip — refuse bool ``True→1`` invent.
+
+    tradermonty #700/#655 + xang1234/portfolio AI after cadence refuse: a
+    damaged ``commits=True`` / ``releases=True`` must not invent a one-row
+    tip strip (``per_page=1``) that looks like a quiet repo.
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return int(min(ceiling, n))
+
+
 def is_repo_due(prev: dict[str, Any], now: Optional[datetime] = None) -> bool:
     now = now or _now()
     nxt = _parse_iso(str(prev.get("next_check_at") or ""))
@@ -256,7 +298,7 @@ def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
         "repo": repo,
         "url": meta.get("html_url") or f"https://github.com/{repo}",
         "description": (meta.get("description") or "")[:240],
-        "stars": int(meta.get("stargazers_count") or 0),
+        "stars": _coerce_star_count(meta.get("stargazers_count")),
         "pushed_at": meta.get("pushed_at") or "",
         "default_branch": meta.get("default_branch") or "main",
         "archived": bool(meta.get("archived")),
@@ -265,15 +307,17 @@ def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
 
 
 def fetch_repo_activity(
-    client: GitHubClient, repo: str, *, commits: int = 8, releases: int = 3
+    client: GitHubClient, repo: str, *, commits: object = 8, releases: object = 3
 ) -> dict[str, Any]:
+    commits_n = _coerce_page_limit(commits, default=8)
+    releases_n = _coerce_page_limit(releases, default=3)
     meta = fetch_repo_meta(client, repo)
     if meta.get("error"):
         return {**meta, "commits": [], "releases": []}
 
     commit_rows: list[dict[str, Any]] = []
     try:
-        raw = client.get_json(f"/repos/{repo}/commits?per_page={commits}") or []
+        raw = client.get_json(f"/repos/{repo}/commits?per_page={commits_n}") or []
         if isinstance(raw, list):
             for c in raw:
                 commit = c.get("commit") or {}
@@ -294,7 +338,7 @@ def fetch_repo_activity(
 
     release_rows: list[dict[str, Any]] = []
     try:
-        raw = client.get_json(f"/repos/{repo}/releases?per_page={releases}") or []
+        raw = client.get_json(f"/repos/{repo}/releases?per_page={releases_n}") or []
         if isinstance(raw, list):
             for r in raw:
                 release_rows.append(
@@ -390,6 +434,8 @@ def build_digest(
                 )
             },
         }
+        # tradermonty #700/#655: never persist True→1★ into Ideas digest.
+        row["stars"] = _coerce_star_count(row.get("stars"))
         if row.get("has_updates"):
             updates += 1
         rows.append(row)
@@ -462,7 +508,7 @@ def render_markdown(digest: dict[str, Any]) -> str:
         if desc:
             lines.append(f"- {desc}")
         lines.append(
-            f"- Stars: {row.get('stars', 0)} · pushed: {row.get('pushed_at') or '—'} · "
+            f"- Stars: {_coerce_star_count(row.get('stars'))} · pushed: {row.get('pushed_at') or '—'} · "
             f"branch: `{row.get('default_branch')}`"
             + (" · **archived**" if row.get("archived") else "")
         )
@@ -546,7 +592,7 @@ def update_repo_state(
         "last_release_tag": tip_tag or prev.get("last_release_tag") or "",
         "last_checked": _now_iso(),
         "url": url,
-        "stars": stars,
+        "stars": _coerce_star_count(stars),
         "pushed_at": pushed_at,
         **schedule,
     }
@@ -558,13 +604,14 @@ def run_watch(
     state_dir: Path,
     client: Optional[GitHubClient] = None,
     archive: bool = True,
-    commit_count: int = 8,
+    commit_count: object = 8,
     force: bool = False,
 ) -> dict[str, Any]:
     watchlist = load_watchlist(watchlist_path)
     if not watchlist:
         raise SystemExit(f"No repos in {watchlist_path}")
 
+    commit_count = _coerce_page_limit(commit_count, default=8)
     state_path = state_dir / "state.json"
     state = load_state(state_path)
     client = client or GitHubClient()

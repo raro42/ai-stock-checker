@@ -86,6 +86,64 @@ def test_cadence_refuses_bool_gap() -> None:
     assert sched["commits_per_day"] == 0.0
 
 
+def test_stars_and_page_limit_refuse_bool() -> None:
+    """tradermonty #700/#655: True must not invent 1★ or per_page=1 strip."""
+    assert gw._coerce_star_count(True) == 0
+    assert gw._coerce_star_count(False) == 0
+    assert gw._coerce_star_count(-1) == 0
+    assert gw._coerce_star_count(12) == 12
+    assert gw._coerce_page_limit(True, default=8) == 8
+    assert gw._coerce_page_limit(False, default=8) == 8
+    assert gw._coerce_page_limit(0, default=8) == 8
+    assert gw._coerce_page_limit(5, default=8) == 5
+    assert gw._coerce_page_limit(500, default=8, ceiling=100) == 100
+
+    class CapturingClient:
+        def __init__(self) -> None:
+            self.paths: list[str] = []
+
+        def get_json(self, path: str):
+            self.paths.append(path)
+            if "commits" in path:
+                return []
+            if "releases" in path:
+                return []
+            return {
+                "html_url": "https://github.com/acme/x",
+                "description": "",
+                "stargazers_count": True,
+                "pushed_at": "2026-11-23T00:00:00Z",
+                "default_branch": "main",
+                "archived": False,
+            }
+
+    client = CapturingClient()
+    meta = gw.fetch_repo_meta(client, "acme/x")
+    assert meta["stars"] == 0
+    act = gw.fetch_repo_activity(client, "acme/x", commits=True, releases=True)
+    assert act["stars"] == 0
+    assert any("per_page=8" in p for p in client.paths)
+    assert any("per_page=3" in p for p in client.paths)
+    assert not any("per_page=1" in p for p in client.paths)
+
+    state = gw.update_repo_state(
+        {},
+        tip_sha="",
+        tip_tag="",
+        url="u",
+        stars=True,
+        pushed_at="",
+        schedule={
+            "avg_commit_gap_sec": None,
+            "avg_commit_gap_hours": None,
+            "commits_per_day": 0.0,
+            "check_interval_sec": gw.DEFAULT_CHECK_INTERVAL_SEC,
+            "next_check_at": "2026-11-23T00:00:00Z",
+        },
+    )
+    assert state["stars"] == 0
+
+
 def test_avg_commit_gap_and_due():
     commits = [
         {"date": "2026-07-26T00:00:00Z"},
