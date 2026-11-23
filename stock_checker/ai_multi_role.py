@@ -14,9 +14,41 @@ from stock_checker.technical_indicators import (
     _finite_signed,
     _valid_close,
     _valid_volume,
+    coerce_nonneg_int,
     coerce_score,
     daily_pct_change,
 )
+
+_DEFAULT_NOTE_CHARS = 160
+_DEFAULT_REASONING_CHARS = 2000
+
+
+def _coerce_clip_chars(value: object, default: int) -> int:
+    """Positive note/reasoning char ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char bull/bear/risk note (``u…``) or one-char debate dump
+    via ``s[:True]``; ``False→0`` must not wipe (LAYA / AI-validate reason clip
+    peers — score refuse already covered; note/reasoning ceilings were still
+    bare literals).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip(
+    text: object,
+    n: object = _DEFAULT_NOTE_CHARS,
+    *,
+    default: int = _DEFAULT_NOTE_CHARS,
+) -> str:
+    limit = _coerce_clip_chars(n, default)
+    s = str(text or "")
+    if len(s) <= limit:
+        return s
+    return s[:limit]
 
 
 def multi_role_enabled() -> bool:
@@ -134,9 +166,11 @@ def consensus_from_multi_role(payload: dict, symbol: str) -> dict[str, Any]:
         action, confidence, score, gated = "HOLD", "MEDIUM", 0, True
         reasoning = "Bull/bear disagreement → HOLD"
 
-    bull_note = str(bull.get("note") or bull_bias)[:160]
-    bear_note = str(bear.get("note") or bear_bias)[:160]
-    risk_note = str(risk.get("note") or ("ok" if risk_ok else "blocked"))[:160]
+    # FinRobot + tradermonty #700/#655: refuse bool — True→1 / [:True] invents
+    # a one-char officer note; False→0 would wipe the debate strip.
+    bull_note = _clip(bull.get("note") or bull_bias)
+    bear_note = _clip(bear.get("note") or bear_bias)
+    risk_note = _clip(risk.get("note") or ("ok" if risk_ok else "blocked"))
     notes = [
         f"Bull: {bull_note}",
         f"Bear: {bear_note}",
@@ -149,7 +183,11 @@ def consensus_from_multi_role(payload: dict, symbol: str) -> dict[str, Any]:
         "confidence": confidence,
         "score": score,
         "reasons": notes,
-        "ai_reasoning": json.dumps(payload, ensure_ascii=False)[:2000],
+        "ai_reasoning": _clip(
+            json.dumps(payload, ensure_ascii=False),
+            _DEFAULT_REASONING_CHARS,
+            default=_DEFAULT_REASONING_CHARS,
+        ),
         "parse_mode": "multi_role",
         "multi_role_gated": gated,
         "bull_bias": bull_bias,

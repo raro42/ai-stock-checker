@@ -1,10 +1,55 @@
 """Offline tests for TradingAgents-style multi-role gating."""
 
 from stock_checker.ai_multi_role import (
+    _DEFAULT_NOTE_CHARS,
+    _DEFAULT_REASONING_CHARS,
+    _clip,
+    _coerce_clip_chars,
     build_multi_role_prompt,
     consensus_from_multi_role,
     parse_multi_role_response,
 )
+
+
+def test_coerce_clip_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char FinRobot note; False must not wipe."""
+    assert _coerce_clip_chars(True, _DEFAULT_NOTE_CHARS) == _DEFAULT_NOTE_CHARS
+    assert _coerce_clip_chars(False, _DEFAULT_REASONING_CHARS) == _DEFAULT_REASONING_CHARS
+    assert _coerce_clip_chars(0, _DEFAULT_NOTE_CHARS) == _DEFAULT_NOTE_CHARS
+    assert _coerce_clip_chars(None, _DEFAULT_NOTE_CHARS) == _DEFAULT_NOTE_CHARS
+    assert _coerce_clip_chars(40, _DEFAULT_NOTE_CHARS) == 40
+
+
+def test_clip_refuses_bool_char_ceiling() -> None:
+    """True→1 must not invent ``u``; False must not wipe via s[:0]."""
+    note = "uptrend with fee-friendly pullback"
+    assert _clip(note, True) == note
+    assert _clip(note, False) == note
+    assert _clip(note, 0) == note
+    assert _clip(note, 8) == "uptrend "
+
+
+def test_consensus_note_clip_uses_default_ceiling() -> None:
+    """Long officer notes truncate at 160; bool ceiling must not invent 1-char."""
+    long_note = "x" * 200
+    out = consensus_from_multi_role(
+        {
+            "bull": {"bias": "BUY", "note": long_note},
+            "bear": {"bias": "HOLD", "note": long_note},
+            "risk": {"ok": True, "note": long_note},
+            "action": "BUY",
+            "confidence": "HIGH",
+            "score": 40,
+            "reasoning": "ok",
+        },
+        "AAPL",
+    )
+    assert len(out["bull_note"]) == _DEFAULT_NOTE_CHARS
+    assert len(out["bear_note"]) == _DEFAULT_NOTE_CHARS
+    assert len(out["risk_note"]) == _DEFAULT_NOTE_CHARS
+    assert len(out["ai_reasoning"]) <= _DEFAULT_REASONING_CHARS
+    # Without refuse, note[:True] would leave a single "x".
+    assert out["bull_note"] != "x"
 
 
 def test_risk_veto_forces_hold():
