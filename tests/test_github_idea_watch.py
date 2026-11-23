@@ -53,6 +53,39 @@ def test_interval_from_cadence():
     assert gw.commits_per_day(86400) == 1.0
 
 
+def test_cadence_refuses_bool_gap() -> None:
+    """tradermonty #700/#655: True must not invent 1s gap / 86400 cpd."""
+    assert gw._coerce_gap_sec(True) is None
+    assert gw._coerce_gap_sec(False) is None
+    assert gw._coerce_gap_sec(0) is None
+    assert gw._coerce_gap_sec(-1) is None
+    assert gw._coerce_gap_sec(86400) == 86400.0
+    # bool subclass of int — bare isinstance would pass True→1s → MIN recheck.
+    assert gw.interval_from_cadence(True) == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert gw.interval_from_cadence(False) == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert (
+        gw.interval_from_cadence(None, single_commit_age_sec=True)
+        == gw.DEFAULT_CHECK_INTERVAL_SEC
+    )
+    assert gw.commits_per_day(True) == 0.0
+    assert gw.commits_per_day(False) == 0.0
+    assert gw._coerce_check_interval_sec(True) == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert gw._coerce_check_interval_sec(False) == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert gw._coerce_commits_per_day_rate(True) == 0.0
+    assert gw._coerce_commits_per_day_rate(False) == 0.0
+    assert gw._coerce_commits_per_day_rate(12.5) == 12.5
+    now = gw._parse_iso("2026-11-23T00:00:00Z")
+    assert now is not None
+    sched = gw._schedule_fields(
+        avg_gap=True,
+        interval=gw.DEFAULT_CHECK_INTERVAL_SEC,
+        now=now,
+    )
+    assert sched["avg_commit_gap_sec"] is None
+    assert sched["avg_commit_gap_hours"] is None
+    assert sched["commits_per_day"] == 0.0
+
+
 def test_avg_commit_gap_and_due():
     commits = [
         {"date": "2026-07-26T00:00:00Z"},

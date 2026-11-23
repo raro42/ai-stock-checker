@@ -78,30 +78,78 @@ def avg_commit_gap_seconds(commits: list[dict[str, Any]]) -> Optional[float]:
     return sum(gaps) / len(gaps)
 
 
+def _coerce_gap_sec(value: object) -> Optional[float]:
+    """Finite positive gap seconds, else None.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
+    ``isinstance(True, (int, float))`` / ``float(True)→1`` must not invent a
+    1s avg gap (½ → MIN recheck) or ``86400 commits/day``.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, float)):
+        return None
+    try:
+        gap = float(value)
+    except (TypeError, ValueError):
+        return None
+    if gap != gap or gap <= 0:  # NaN / non-positive
+        return None
+    return gap
+
+
 def interval_from_cadence(
-    avg_gap_sec: Optional[float],
+    avg_gap_sec: object = None,
     *,
     archived: bool = False,
-    single_commit_age_sec: Optional[float] = None,
+    single_commit_age_sec: object = None,
 ) -> int:
     """Map commit cadence → next re-check interval (seconds)."""
     if archived:
         return MAX_CHECK_INTERVAL_SEC
-    if avg_gap_sec is not None and avg_gap_sec > 0:
+    gap = _coerce_gap_sec(avg_gap_sec)
+    age = _coerce_gap_sec(single_commit_age_sec)
+    if gap is not None:
         # Recheck about halfway to the next expected commit.
-        raw = avg_gap_sec * 0.5
-    elif single_commit_age_sec is not None and single_commit_age_sec > 0:
+        raw = gap * 0.5
+    elif age is not None:
         # One sample: wait longer if the tip is already old.
-        raw = max(single_commit_age_sec * 0.5, DEFAULT_CHECK_INTERVAL_SEC)
+        raw = max(age * 0.5, DEFAULT_CHECK_INTERVAL_SEC)
     else:
         raw = float(DEFAULT_CHECK_INTERVAL_SEC)
     return int(max(MIN_CHECK_INTERVAL_SEC, min(MAX_CHECK_INTERVAL_SEC, raw)))
 
 
-def commits_per_day(avg_gap_sec: Optional[float]) -> float:
-    if not avg_gap_sec or avg_gap_sec <= 0:
+def commits_per_day(avg_gap_sec: object = None) -> float:
+    gap = _coerce_gap_sec(avg_gap_sec)
+    if gap is None:
         return 0.0
-    return 86400.0 / avg_gap_sec
+    return 86400.0 / gap
+
+
+def _coerce_check_interval_sec(
+    value: object, *, default: int = DEFAULT_CHECK_INTERVAL_SEC
+) -> int:
+    """Stored recheck interval — refuse bool ``True→1s`` invent."""
+    gap = _coerce_gap_sec(value)
+    if gap is None:
+        return int(default)
+    return int(max(MIN_CHECK_INTERVAL_SEC, min(MAX_CHECK_INTERVAL_SEC, gap)))
+
+
+def _coerce_commits_per_day_rate(value: object) -> float:
+    """Persisted cpd display — refuse bool ``True→1`` invent."""
+    if value is None or isinstance(value, bool):
+        return 0.0
+    if not isinstance(value, (int, float)):
+        return 0.0
+    try:
+        rate = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if rate != rate or rate < 0:
+        return 0.0
+    return rate
 
 
 def is_repo_due(prev: dict[str, Any], now: Optional[datetime] = None) -> bool:
@@ -419,10 +467,12 @@ def render_markdown(digest: dict[str, Any]) -> str:
             + (" · **archived**" if row.get("archived") else "")
         )
         if row.get("avg_commit_gap_hours") is not None:
+            iv = _coerce_gap_sec(row.get("check_interval_sec"))
+            recheck_h = int(iv / 3600) if iv is not None else 0
             lines.append(
-                f"- Cadence: ~{row.get('commits_per_day', 0):.2f} commits/day "
+                f"- Cadence: ~{_coerce_commits_per_day_rate(row.get('commits_per_day')):.2f} commits/day "
                 f"(avg gap {row['avg_commit_gap_hours']:.1f}h) · "
-                f"recheck every {int((row.get('check_interval_sec') or 0) / 3600)}h · "
+                f"recheck every {recheck_h}h · "
                 f"next {row.get('next_check_at') or '—'}"
             )
         if row.get("skipped"):
@@ -463,18 +513,19 @@ def render_markdown(digest: dict[str, Any]) -> str:
 
 def _schedule_fields(
     *,
-    avg_gap: Optional[float],
+    avg_gap: object,
     interval: int,
     now: datetime,
 ) -> dict[str, Any]:
+    gap = _coerce_gap_sec(avg_gap)
     next_at = now.timestamp() + interval
     next_iso = datetime.fromtimestamp(next_at, tz=timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     return {
-        "avg_commit_gap_sec": avg_gap,
-        "avg_commit_gap_hours": round(avg_gap / 3600.0, 2) if avg_gap else None,
-        "commits_per_day": round(commits_per_day(avg_gap), 3),
+        "avg_commit_gap_sec": gap,
+        "avg_commit_gap_hours": round(gap / 3600.0, 2) if gap is not None else None,
+        "commits_per_day": round(commits_per_day(gap), 3),
         "check_interval_sec": interval,
         "next_check_at": next_iso,
     }
@@ -545,10 +596,12 @@ def run_watch(
             act = {
                 **cached,
                 "skipped": True,
-                "check_interval_sec": prev.get("check_interval_sec"),
+                "check_interval_sec": _coerce_gap_sec(prev.get("check_interval_sec")),
                 "next_check_at": prev.get("next_check_at"),
                 "avg_commit_gap_hours": prev.get("avg_commit_gap_hours"),
-                "commits_per_day": prev.get("commits_per_day") or 0,
+                "commits_per_day": _coerce_commits_per_day_rate(
+                    prev.get("commits_per_day")
+                ),
             }
             diff = {
                 "first_seen": False,
@@ -568,8 +621,10 @@ def run_watch(
         meta = fetch_repo_meta(client, repo)
         if meta.get("error"):
             act = {**meta, "commits": [], "releases": [], "skipped": False}
-            interval = int(prev.get("check_interval_sec") or DEFAULT_CHECK_INTERVAL_SEC)
-            schedule = _schedule_fields(avg_gap=prev.get("avg_commit_gap_sec"), interval=interval, now=now)
+            interval = _coerce_check_interval_sec(prev.get("check_interval_sec"))
+            schedule = _schedule_fields(
+                avg_gap=prev.get("avg_commit_gap_sec"), interval=interval, now=now
+            )
             repos_state[repo] = update_repo_state(
                 prev,
                 tip_sha=prev.get("last_commit_sha") or "",
@@ -603,12 +658,12 @@ def run_watch(
 
         if unchanged and not force:
             # Repo due by clock, but GitHub says no new push — cheap skip of commits API.
-            avg_gap = prev.get("avg_commit_gap_sec")
+            avg_gap = _coerce_gap_sec(prev.get("avg_commit_gap_sec"))
             interval = interval_from_cadence(
-                avg_gap if isinstance(avg_gap, (int, float)) else None,
+                avg_gap,
                 archived=bool(meta.get("archived")),
             )
-            schedule = _schedule_fields(avg_gap=avg_gap if isinstance(avg_gap, (int, float)) else None, interval=interval, now=now)
+            schedule = _schedule_fields(avg_gap=avg_gap, interval=interval, now=now)
             repos_state[repo] = update_repo_state(
                 prev,
                 tip_sha=prev.get("last_commit_sha") or "",
