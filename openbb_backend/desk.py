@@ -289,9 +289,28 @@ def book_start_meta(
 
 
 
-def _format_age_short(age_sec: float) -> str:
+def _coerce_age_sec(value: object) -> float | None:
+    """Non-negative age/lag seconds, or None when bool/gap/NaN.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``float(True)→1`` /
+    ``int(True)→1`` must not invent ``just now`` / ``fresh`` / ``lag <1m``.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    age = float(value)  # type: ignore[arg-type]
+    if age < 0.0:
+        return None
+    return age
+
+
+def _format_age_short(age_sec: object) -> str:
     """Human age for scan freshness (display only)."""
-    sec = max(0, int(age_sec))
+    age = _coerce_age_sec(age_sec)
+    if age is None:
+        return "n/a"
+    sec = int(age)
     if sec < 60:
         return "just now"
     if sec < 3600:
@@ -307,9 +326,14 @@ CASH_PRINT_FRESH_HOURS = 12
 CASH_PRINT_AGING_HOURS = 36
 
 
-def cash_print_freshness(age_sec: float) -> str:
-    """RyanJHamby fresh/aging/stale for a pinned cash print (display only)."""
-    age = max(0.0, float(age_sec))
+def cash_print_freshness(age_sec: object) -> str:
+    """RyanJHamby fresh/aging/stale for a pinned cash print (display only).
+
+    Bool/gap refuse as ``stale`` — never invent same-evening ``fresh``.
+    """
+    age = _coerce_age_sec(age_sec)
+    if age is None:
+        return "stale"
     if age < CASH_PRINT_FRESH_HOURS * 3600:
         return "fresh"
     if age < CASH_PRINT_AGING_HOURS * 3600:
@@ -1053,30 +1077,41 @@ def _opportunity_archive_stamp(path: Path) -> datetime | None:
         return None
 
 
-def _pin_lag_severity(lag_sec: float) -> str:
-    """fresh|aging|stale for pin→newest stamp lag (display only)."""
-    if lag_sec < ARCHIVE_PIN_LAG_FRESH_HOURS * 3600:
+def _pin_lag_severity(lag_sec: object) -> str:
+    """fresh|aging|stale for pin→newest stamp lag (display only).
+
+    Bool/gap refuse as ``stale`` — never invent same-session ``fresh``.
+    """
+    lag = _coerce_age_sec(lag_sec)
+    if lag is None:
+        return "stale"
+    if lag < ARCHIVE_PIN_LAG_FRESH_HOURS * 3600:
         return "fresh"
-    if lag_sec < ARCHIVE_PIN_LAG_AGING_HOURS * 3600:
+    if lag < ARCHIVE_PIN_LAG_AGING_HOURS * 3600:
         return "aging"
     return "stale"
 
 
-def _format_pin_lag(lag_sec: float, *, severity: str = "") -> str:
+def _format_pin_lag(lag_sec: object, *, severity: str = "") -> str:
     """Compact pin→newest lag (display only; lag ≠ age-vs-now).
 
     When ``severity`` is set, speak ``lag Nd · stale`` so duration alone
     does not hide same-session race vs multi-day keep-newest miss.
+    Bool/gap speak ``lag n/a`` — never invent ``lag <1m`` from ``True``.
     """
-    sec = max(0, int(lag_sec))
-    if sec < 60:
-        dur = "lag <1m"
-    elif sec < 3600:
-        dur = f"lag {sec // 60}m"
-    elif sec < 36 * 3600:
-        dur = f"lag {sec // 3600}h"
+    lag = _coerce_age_sec(lag_sec)
+    if lag is None:
+        dur = "lag n/a"
     else:
-        dur = f"lag {sec // 86400}d"
+        sec = int(lag)
+        if sec < 60:
+            dur = "lag <1m"
+        elif sec < 3600:
+            dur = f"lag {sec // 60}m"
+        elif sec < 36 * 3600:
+            dur = f"lag {sec // 3600}h"
+        else:
+            dur = f"lag {sec // 86400}d"
     sev = str(severity or "").strip()
     return f"{dur} · {sev}" if sev else dur
 

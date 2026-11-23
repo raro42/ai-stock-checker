@@ -541,6 +541,27 @@ def test_cash_print_freshness_bands() -> None:
     assert cash_print_freshness(36 * 3600) == "stale"
 
 
+def test_cash_print_and_age_helpers_refuse_bool() -> None:
+    """tradermonty #700/#655: True→1s must not invent fresh / just now / lag <1m."""
+    from openbb_backend.desk import (
+        _format_age_short,
+        _format_pin_lag,
+        _pin_lag_severity,
+    )
+
+    assert cash_print_freshness(True) == "stale"
+    assert cash_print_freshness(False) == "stale"
+    assert cash_print_freshness(None) == "stale"
+    assert _format_age_short(True) == "n/a"
+    assert _format_age_short(False) == "n/a"
+    assert _format_age_short(0) == "just now"
+    assert _pin_lag_severity(True) == "stale"
+    assert _pin_lag_severity(False) == "stale"
+    assert _format_pin_lag(True) == "lag n/a"
+    assert _format_pin_lag(False, severity="stale") == "lag n/a · stale"
+    assert _format_pin_lag(30) == "lag <1m"
+
+
 def test_scan_freshness_weekend_sunday_cash_print_stale() -> None:
     """RyanJHamby: Friday close is a stale print by Sunday, not just 'Nd ago'."""
     now = pytz.timezone("US/Eastern").localize(datetime(2026, 9, 13, 12, 0))
