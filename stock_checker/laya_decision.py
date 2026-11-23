@@ -30,6 +30,52 @@ from stock_checker.technical_indicators import (
 
 DECISION_FILE = "laya_decisions.json"
 DECISION_CAP = 40
+_DEFAULT_REASON_CHARS = 120
+_DEFAULT_MODEL_CHARS = 80
+
+
+def _coerce_decision_cap(
+    value: object, default: int = DECISION_CAP
+) -> int:
+    """Ring retention length, or ``default`` when bool/gap.
+
+    FinRobot + QuantDinger/JEV + tradermonty #700/#655 + xang1234/portfolio AI:
+    ``int(True)→1`` / ``False→0→max(1,0)→1`` must not invent a one-row
+    advisory ring (AI-validate memory retention peer).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None:
+        return int(default)
+    return n
+
+
+def _coerce_clip_chars(
+    value: object, default: int
+) -> int:
+    """Positive reason/model char ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + QuantDinger/JEV + tradermonty #700/#655 + xang1234/portfolio AI:
+    ``True→1`` must not invent a one-char Ops reason (`o…`) or model strip;
+    ``False→0`` must not wipe via ``s[:-1]`` (AI-validate reason clip peer —
+    ring cap alone left reason/model ceilings open).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip(text: object, n: object, *, default: int) -> str:
+    limit = _coerce_clip_chars(n, default)
+    s = str(text or "").strip()
+    if len(s) <= limit:
+        return s
+    return s[: limit - 1] + "…"
+
 
 # Paper-entry System-1 questions (Jev / Laya compatible).
 PAPER_ENTRY_QUESTIONS: dict[str, Any] = {
@@ -285,6 +331,9 @@ def record_laya_decision(
     result: dict[str, Any],
     *,
     symbol: str | None = None,
+    cap: object = DECISION_CAP,
+    reason_n: object = _DEFAULT_REASON_CHARS,
+    model_n: object = _DEFAULT_MODEL_CHARS,
 ) -> None:
     """Append one advisory row (ring buffer). Never raises to the trader."""
     root = Path(data_dir)
@@ -296,15 +345,24 @@ def record_laya_decision(
             "symbol": symbol or result.get("symbol") or "",
             "ok": bool(result.get("ok")),
             "fail_open": bool(result.get("fail_open")),
-            "reason": str(result.get("reason") or "")[:120],
+            # FinRobot/JEV + tradermonty #700/#655: refuse bool clip ceilings —
+            # True→1 must not invent a one-char reason/model Ops strip.
+            "reason": _clip(
+                result.get("reason"), reason_n, default=_DEFAULT_REASON_CHARS
+            ),
             "entry": result.get("entry"),
             "edge_score": result.get("edge_score"),
             "fee_churn": result.get("fee_churn"),
             "latency_ms": result.get("latency_ms"),
-            "model": str(result.get("model") or "")[:80],
+            "model": _clip(
+                result.get("model"), model_n, default=_DEFAULT_MODEL_CHARS
+            ),
         }
         events.append(row)
-        events = events[-DECISION_CAP:]
+        # AI-validate retention already refused bool; LAYA advisory ring was
+        # still open to int(True)→1 / False→0→max(1,0)→1.
+        keep = max(1, _coerce_decision_cap(cap))
+        events = events[-keep:]
         decision_path(root).write_text(
             json.dumps({"events": events}, indent=2) + "\n", encoding="utf-8"
         )
