@@ -152,13 +152,8 @@ def _coerce_commits_per_day_rate(value: object) -> float:
     return rate
 
 
-def _coerce_star_count(value: object) -> int:
-    """Non-negative star count — refuse bool ``True→1★`` invent.
-
-    tradermonty #700/#655 + xang1234/portfolio AI: desk already refuses bool
-    stars on read; writer ``int(stargazers_count or 0)`` / damaged state must
-    not persist a fake 1★ into the Ideas digest.
-    """
+def _coerce_nonneg_count(value: object) -> int:
+    """Non-negative meter count — refuse bool ``True→1`` invent."""
     if value is None or isinstance(value, bool):
         return 0
     if not isinstance(value, (int, float)):
@@ -170,6 +165,52 @@ def _coerce_star_count(value: object) -> int:
     if n < 0:
         return 0
     return n
+
+
+def _coerce_star_count(value: object) -> int:
+    """Non-negative star count — refuse bool ``True→1★`` invent.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: desk already refuses bool
+    stars on read; writer ``int(stargazers_count or 0)`` / damaged state must
+    not persist a fake 1★ into the Ideas digest.
+    """
+    return _coerce_nonneg_count(value)
+
+
+def _coerce_loop_sleep_sec(
+    value: object, *, default: int = DEFAULT_CHECK_INTERVAL_SEC
+) -> int:
+    """Host-loop sleep seconds — refuse bool ``True→1s`` invent.
+
+    Desk already refuses bool digest sleep via ``_sample_count`` peers;
+    writer ``next_sleep_sec=True`` must not persist a 1s Ideas cadence.
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n != n or n < 0:  # NaN
+        return int(default)
+    return int(max(MIN_LOOP_SLEEP_SEC, min(MAX_LOOP_SLEEP_SEC, n)))
+
+
+def _coerce_gap_hours(value: object) -> Optional[float]:
+    """Avg gap hours for cadence display — refuse bool ``True→1.0h`` invent."""
+    if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, float)):
+        return None
+    try:
+        hours = float(value)
+    except (TypeError, ValueError):
+        return None
+    if hours != hours or hours < 0:
+        return None
+    return hours
 
 
 def _coerce_page_limit(
@@ -457,28 +498,35 @@ def build_digest(
         elif row.get("baseline") and row.get("tip_message"):
             ideas.append(f"{label} (baseline): {row['tip_message']}")
 
+    # tradermonty #700/#655 + xang1234/portfolio AI: desk already refuses bool
+    # digest counts on read — writer must not persist True→1 activity meters.
     return {
         "generated_at": _now_iso(),
-        "repo_count": len(rows),
-        "checked_count": checked_count,
-        "skipped_count": skipped_count,
-        "update_count": updates,
-        "next_sleep_sec": next_sleep_sec,
+        "repo_count": _coerce_nonneg_count(len(rows)),
+        "checked_count": _coerce_nonneg_count(checked_count),
+        "skipped_count": _coerce_nonneg_count(skipped_count),
+        "update_count": _coerce_nonneg_count(updates),
+        "next_sleep_sec": _coerce_loop_sleep_sec(next_sleep_sec),
         "idea_bullets": ideas[:40],
         "repos": rows,
     }
 
 
 def render_markdown(digest: dict[str, Any]) -> str:
+    repo_n = _coerce_nonneg_count(digest.get("repo_count"))
+    checked_n = _coerce_nonneg_count(digest.get("checked_count"))
+    skipped_n = _coerce_nonneg_count(digest.get("skipped_count"))
+    update_n = _coerce_nonneg_count(digest.get("update_count"))
+    sleep_n = _coerce_loop_sleep_sec(digest.get("next_sleep_sec"), default=0)
     lines = [
         f"# GitHub idea watch — {digest.get('generated_at', '')}",
         "",
         "Curated external repos. Adapt **one** transferable pattern at a time; re-benchmark before adopting.",
         "",
-        f"- Repos watched: **{digest.get('repo_count', 0)}**",
-        f"- Checked this run: **{digest.get('checked_count', 0)}** · skipped (not due): **{digest.get('skipped_count', 0)}**",
-        f"- Repos with new activity: **{digest.get('update_count', 0)}**",
-        f"- Next loop sleep: **{digest.get('next_sleep_sec', 0)}s** (cadence-aware)",
+        f"- Repos watched: **{repo_n}**",
+        f"- Checked this run: **{checked_n}** · skipped (not due): **{skipped_n}**",
+        f"- Repos with new activity: **{update_n}**",
+        f"- Next loop sleep: **{sleep_n}s** (cadence-aware)",
         "",
     ]
     bullets = digest.get("idea_bullets") or []
@@ -512,12 +560,13 @@ def render_markdown(digest: dict[str, Any]) -> str:
             f"branch: `{row.get('default_branch')}`"
             + (" · **archived**" if row.get("archived") else "")
         )
-        if row.get("avg_commit_gap_hours") is not None:
+        gap_h = _coerce_gap_hours(row.get("avg_commit_gap_hours"))
+        if gap_h is not None:
             iv = _coerce_gap_sec(row.get("check_interval_sec"))
             recheck_h = int(iv / 3600) if iv is not None else 0
             lines.append(
                 f"- Cadence: ~{_coerce_commits_per_day_rate(row.get('commits_per_day')):.2f} commits/day "
-                f"(avg gap {row['avg_commit_gap_hours']:.1f}h) · "
+                f"(avg gap {gap_h:.1f}h) · "
                 f"recheck every {recheck_h}h · "
                 f"next {row.get('next_check_at') or '—'}"
             )
@@ -645,7 +694,10 @@ def run_watch(
                 "skipped": True,
                 "check_interval_sec": _coerce_gap_sec(prev.get("check_interval_sec")),
                 "next_check_at": prev.get("next_check_at"),
-                "avg_commit_gap_hours": prev.get("avg_commit_gap_hours"),
+                # Refuse bool True→1.0h cadence invent from damaged state.
+                "avg_commit_gap_hours": _coerce_gap_hours(
+                    prev.get("avg_commit_gap_hours")
+                ),
                 "commits_per_day": _coerce_commits_per_day_rate(
                     prev.get("commits_per_day")
                 ),

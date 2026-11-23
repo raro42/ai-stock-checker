@@ -37,6 +37,25 @@ def test_ledger_ok(tmp_path: Path) -> None:
     assert g["bad_lines"] == 0
 
 
+def test_ledger_line_counts_refuse_bool(monkeypatch, tmp_path: Path) -> None:
+    """tradermonty #700/#655: True must not invent 1 bad / 1 good line."""
+    from openbb_backend import desk as desk_mod
+
+    (tmp_path / "portfolio.json").write_text("{}")
+    (tmp_path / "trades.jsonl").write_text('{"type":"BUY"}\n')
+
+    def _fake_checked(path: Path):
+        return [], {"state": "thin", "bad": True, "good": True}
+
+    monkeypatch.setattr(desk_mod, "load_jsonl_checked", _fake_checked)
+    g = build_ledger_health(tmp_path)
+    assert g["bad_lines"] == 0
+    assert g["good_lines"] == 0
+    # Thin with 0 bad lines still names the partial shard (0 bad lines).
+    assert g["severity"] == "thin"
+    assert "0 bad lines" in g["line"]
+
+
 def test_ledger_keeps_good_rows_and_names_bad_lines(tmp_path: Path) -> None:
     path = tmp_path / "trades.jsonl"
     path.write_text('{"type":"BUY"}\nnot-json\n{"type":"SELL"}\n')

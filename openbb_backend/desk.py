@@ -1158,6 +1158,7 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
     archive sleeve owns quieter. Display fields only — not an entry gate.
     """
     from stock_checker.opportunity_archive import (
+        _archive_count,
         damaged_opportunity_publish_count,
         opportunity_damaged_vs_ok_delta,
         opportunity_damaged_vs_ok_delta_lead,
@@ -1549,7 +1550,8 @@ def resolve_opportunities_archive(data_dir: Path | str) -> dict[str, Any]:
             pct = out.get("damaged_share_pct")
             sev_bit = f" · {sev}" if sev else ""
             pct_bit = f" · {pct}%" if pct is not None else ""
-            ok_n = int(out.get("ok") or 0)
+            # Refuse bool — int(True)→1 cannot invent ``vs 1 ok``.
+            ok_n = _archive_count(out.get("ok"))
             ok_sev = str(out.get("ok_share_severity") or "")
             ok_pct = out.get("ok_share_pct")
             ok_sev_bit = f" · {ok_sev}" if ok_sev else ""
@@ -3504,7 +3506,8 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         severity = "thin"
         problems.append("no portfolio")
 
-    bad_lines = int(trades.get("bad") or 0)
+    # Refuse bool — int(True)→1 cannot invent ``1 bad line``.
+    bad_lines = _sample_count(trades.get("bad"))
     if trades_state == "thin":
         if severity != "bad":
             severity = "thin"
@@ -3709,7 +3712,8 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         "portfolio_state": port_state,
         "trades_state": trades_state,
         "bad_lines": bad_lines,
-        "good_lines": int(trades.get("good") or 0),
+        # Refuse bool — int(True)→1 cannot invent a one-row good strip.
+        "good_lines": _sample_count(trades.get("good")),
         "short_count": len(short_syms),
         "short_symbols": short_syms,
         "n_book": n_book,
@@ -35070,9 +35074,10 @@ def _trader_runtime_view() -> dict[str, Any]:
         "config_file_freshness": str(cfg_prec.get("file_freshness") or ""),
         "config_file_age_label": str(cfg_prec.get("file_age_label") or ""),
         "config_file_age_bit": str(cfg_prec.get("file_age_bit") or ""),
-        "config_override_n": int(cfg_prec.get("override_n") or 0),
-        "config_confirm_n": int(cfg_prec.get("confirm_n") or 0),
-        "config_env_fallback_n": int(cfg_prec.get("env_fallback_n") or 0),
+        # Refuse bool — int(True)→1 cannot invent Ops precedence meters.
+        "config_override_n": _sample_count(cfg_prec.get("override_n")),
+        "config_confirm_n": _sample_count(cfg_prec.get("confirm_n")),
+        "config_env_fallback_n": _sample_count(cfg_prec.get("env_fallback_n")),
         # xang1234 #613/#628: last audited config save (requested before write).
         # #630: hanging requested + newer Ops file → speak ``no outcome``.
         # Audit vs file agree/clash: speak-both-sides; clash warns (not clay).

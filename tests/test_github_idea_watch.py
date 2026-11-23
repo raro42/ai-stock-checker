@@ -98,6 +98,102 @@ def test_stars_and_page_limit_refuse_bool() -> None:
     assert gw._coerce_page_limit(5, default=8) == 5
     assert gw._coerce_page_limit(500, default=8, ceiling=100) == 100
 
+
+def test_digest_meters_and_gap_hours_refuse_bool() -> None:
+    """tradermonty #700/#655: True must not invent digest 1-counts / 1s / 1.0h."""
+    assert gw._coerce_nonneg_count(True) == 0
+    assert gw._coerce_nonneg_count(False) == 0
+    assert gw._coerce_nonneg_count(-3) == 0
+    assert gw._coerce_nonneg_count(4) == 4
+    assert gw._coerce_loop_sleep_sec(True) == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert gw._coerce_loop_sleep_sec(False) == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert gw._coerce_loop_sleep_sec(True, default=0) == 0
+    assert gw._coerce_loop_sleep_sec(60) == gw.MIN_LOOP_SLEEP_SEC
+    assert gw._coerce_loop_sleep_sec(gw.MIN_LOOP_SLEEP_SEC + 10) == gw.MIN_LOOP_SLEEP_SEC + 10
+    assert gw._coerce_gap_hours(True) is None
+    assert gw._coerce_gap_hours(False) is None
+    assert gw._coerce_gap_hours(-1) is None
+    assert gw._coerce_gap_hours(1.5) == 1.5
+
+    digest = gw.build_digest(
+        [{"repo": "acme/x", "why": "w"}],
+        [
+            {
+                "repo": "acme/x",
+                "url": "https://github.com/acme/x",
+                "description": "",
+                "stars": True,
+                "pushed_at": "t",
+                "default_branch": "main",
+                "archived": False,
+                "error": None,
+                "commits": [],
+                "releases": [],
+                "avg_commit_gap_hours": True,
+            }
+        ],
+        [
+            {
+                "first_seen": False,
+                "new_commits": [],
+                "new_releases": [],
+                "has_updates": False,
+                "baseline": False,
+                "tip_sha": "",
+                "tip_tag": "",
+                "tip_message": "",
+            }
+        ],
+        checked_count=True,
+        skipped_count=False,
+        next_sleep_sec=True,
+    )
+    assert digest["checked_count"] == 0
+    assert digest["skipped_count"] == 0
+    assert digest["update_count"] == 0
+    assert digest["repo_count"] == 1
+    assert digest["next_sleep_sec"] == gw.DEFAULT_CHECK_INTERVAL_SEC
+    assert digest["repos"][0]["stars"] == 0
+
+    md = gw.render_markdown(
+        {
+            "generated_at": "t",
+            "repo_count": True,
+            "checked_count": True,
+            "skipped_count": False,
+            "update_count": True,
+            "next_sleep_sec": True,
+            "idea_bullets": [],
+            "repos": [
+                {
+                    "repo": "a/b",
+                    "url": "https://github.com/a/b",
+                    "description": "d",
+                    "stars": True,
+                    "pushed_at": "t",
+                    "default_branch": "main",
+                    "archived": False,
+                    "error": None,
+                    "why": "w",
+                    "baseline": False,
+                    "has_updates": False,
+                    "new_commits": [],
+                    "new_releases": [],
+                    "avg_commit_gap_hours": True,
+                    "commits_per_day": True,
+                    "check_interval_sec": True,
+                    "next_check_at": "soon",
+                }
+            ],
+        }
+    )
+    assert "Repos watched: **0**" in md
+    assert "Checked this run: **0**" in md
+    assert "Repos with new activity: **0**" in md
+    assert "Next loop sleep: **0s**" in md
+    assert "Stars: 0" in md
+    assert "Cadence:" not in md  # True→1.0h gap must not invent a cadence strip
+
     class CapturingClient:
         def __init__(self) -> None:
             self.paths: list[str] = []

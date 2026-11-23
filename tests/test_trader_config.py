@@ -273,6 +273,31 @@ def test_saved_row_beats_env(tmp_path: Path, monkeypatch):
     assert "Ops wins" in st["line"]
 
 
+def test_config_precedence_counts_refuse_bool() -> None:
+    """tradermonty #700/#655: True must not invent win/ok/env · n=1."""
+    from stock_checker.trader_config import (
+        _coerce_precedence_count,
+        _precedence_core,
+        _precedence_lead,
+        _precedence_meter,
+        _precedence_sample_gap,
+    )
+
+    assert _coerce_precedence_count(True) == 0
+    assert _coerce_precedence_count(False) == 0
+    assert _coerce_precedence_count(-1) == 0
+    assert _coerce_precedence_count(3) == 3
+    assert _precedence_meter(True, False, True) == "0 win · 0 ok · 0 env"
+    assert _precedence_lead(True, 0, 0) == ""
+    assert _precedence_sample_gap(True, False, False) == ""
+    # True+True would invent tied · 2 without coerce.
+    assert _precedence_sample_gap(True, True, 0) == ""
+    assert _precedence_sample_gap(2, 2, 0) == "tied"
+    meter, core = _precedence_core(True, True, True)
+    assert meter == "0 win · 0 ok · 0 env"
+    assert core == meter
+
+
 def test_config_precedence_env_when_no_file(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("AI_MODE", raising=False)
     st = config_precedence_status(tmp_path)

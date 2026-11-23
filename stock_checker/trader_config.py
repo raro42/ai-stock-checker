@@ -280,18 +280,42 @@ def _format_key_list(keys: list[str], *, limit: int = 4) -> str:
     return bits
 
 
-def _precedence_meter(override_n: int, confirm_n: int, env_n: int) -> str:
+def _coerce_precedence_count(value: object) -> int:
+    """Non-neg Ops precedence meter count; bool/gap → 0 (never ``True→1``).
+
+    tradermonty #700/#655 + xang1234/portfolio AI claim honesty — damaged
+    bool must not invent a one-key win/ok/env bucket or ``n=1`` sample gap.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    return 0 if n is None else n
+
+
+def _precedence_counts(
+    override_n: object, confirm_n: object, env_n: object
+) -> tuple[int, int, int]:
+    return (
+        _coerce_precedence_count(override_n),
+        _coerce_precedence_count(confirm_n),
+        _coerce_precedence_count(env_n),
+    )
+
+
+def _precedence_meter(override_n: object, confirm_n: object, env_n: object) -> str:
     """Compact win/ok/env counts (xang1234 multi-meter + portfolio AI)."""
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     return f"{override_n} win · {confirm_n} ok · {env_n} env"
 
 
-def _precedence_lead(override_n: int, confirm_n: int, env_n: int) -> str:
+def _precedence_lead(override_n: object, confirm_n: object, env_n: object) -> str:
     """Name the strictly largest meter bucket; ties stay silent.
 
     Counts alone hide which side owns the Ops/env story (xang1234 multi-meter
     lead + portfolio AI speak-both-sides after win/ok/env). Thin/tied samples
     use ``_precedence_sample_gap`` instead of a fake lead.
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     buckets = (("win", override_n), ("ok", confirm_n), ("env", env_n))
     name, top = max(buckets, key=lambda item: item[1])
     if top <= 0:
@@ -301,7 +325,9 @@ def _precedence_lead(override_n: int, confirm_n: int, env_n: int) -> str:
     return f"lead {name}"
 
 
-def _precedence_sample_gap(override_n: int, confirm_n: int, env_n: int) -> str:
+def _precedence_sample_gap(
+    override_n: object, confirm_n: object, env_n: object
+) -> str:
     """Speak thin/tied when a meter lead would overclaim (display only).
 
     Empty total stays silent. A single key is compact ``n=1`` (meter ≠ tilt;
@@ -310,9 +336,10 @@ def _precedence_sample_gap(override_n: int, confirm_n: int, env_n: int) -> str:
     ``sample_gap`` parity + xang1234 sample honesty + portfolio AI
     speak-both-sides after precedence share vs Δ. Not a gate.
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     if _precedence_lead(override_n, confirm_n, env_n):
         return ""
-    total = int(override_n) + int(confirm_n) + int(env_n)
+    total = override_n + confirm_n + env_n
     if total <= 0:
         return ""
     if total < 2:
@@ -320,7 +347,9 @@ def _precedence_sample_gap(override_n: int, confirm_n: int, env_n: int) -> str:
     return "tied"
 
 
-def _precedence_lead_share(override_n: int, confirm_n: int, env_n: int) -> str:
+def _precedence_lead_share(
+    override_n: object, confirm_n: object, env_n: object
+) -> str:
     """Lead row count + ownership % (lead÷total); silent when lead is silent.
 
     Absolute lead name ≠ how many keys it owns ≠ ownership % (soft-allow /
@@ -328,6 +357,7 @@ def _precedence_lead_share(override_n: int, confirm_n: int, env_n: int) -> str:
     Runner ``vs ok · N`` already names rows; share alone hid the owner's
     count. Speaks ``N · P%`` (sole-bucket still ``N · 100%``).
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
         return ""
@@ -337,7 +367,7 @@ def _precedence_lead_share(override_n: int, confirm_n: int, env_n: int) -> str:
     buckets = (("win", override_n), ("ok", confirm_n), ("env", env_n))
     top = max(n for _, n in buckets)
     pct = int(round(100.0 * top / total))
-    return f"{int(top)} · {pct}%"
+    return f"{top} · {pct}%"
 
 
 # Soft-allow lead margin bands adapted for win/ok/env counts (display only).
@@ -351,13 +381,16 @@ PRECEDENCE_FILE_FRESH_HOURS = 24
 PRECEDENCE_FILE_AGING_HOURS = 168
 
 
-def _precedence_lead_margin(override_n: int, confirm_n: int, env_n: int) -> str:
+def _precedence_lead_margin(
+    override_n: object, confirm_n: object, env_n: object
+) -> str:
     """Lead−#2 margin when a runner exists; sole-bucket stays silent.
 
     Ownership % ≠ how far ahead of the next bucket (soft-allow lead margin +
     xang1234 / portfolio AI after precedence lead share). Speaks
     ``ahead wide|thin · +K`` (wide ≥2 · thin =1).
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
         return ""
@@ -365,20 +398,23 @@ def _precedence_lead_margin(override_n: int, confirm_n: int, env_n: int) -> str:
     top, runner = counts[0], counts[1]
     if runner <= 0:
         return ""
-    gap = int(top) - int(runner)
+    gap = top - runner
     if gap < 1:
         return ""
     sev = "wide" if gap >= PRECEDENCE_LEAD_MARGIN_WIDE else "thin"
     return f"ahead {sev} · +{gap}"
 
 
-def _precedence_lead_sides(override_n: int, confirm_n: int, env_n: int) -> str:
+def _precedence_lead_sides(
+    override_n: object, confirm_n: object, env_n: object
+) -> str:
     """Name the clear runner after ahead; ahead ≠ who is #2.
 
     Soft-allow lead sides + xang1234 / portfolio AI speak-both-sides after
     precedence lead margin. Speaks ``vs ok|env|win · N``. Sole-bucket and
     tied runners stay silent.
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     ahead = _precedence_lead_margin(override_n, confirm_n, env_n)
     if not ahead:
         return ""
@@ -397,12 +433,15 @@ def _precedence_lead_sides(override_n: int, confirm_n: int, env_n: int) -> str:
     return f"vs {runner_name} · {runner_n}"
 
 
-def _precedence_lead_sides_share(override_n: int, confirm_n: int, env_n: int) -> str:
+def _precedence_lead_sides_share(
+    override_n: object, confirm_n: object, env_n: object
+) -> str:
     """Runner ownership % when vs already spoke (absolute N ≠ share).
 
     Soft-allow lead sides share + xang1234 / portfolio AI after precedence
     lead sides. Speaks ``N%`` (runner÷total). Silent when sides is silent.
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     sides = _precedence_lead_sides(override_n, confirm_n, env_n)
     if not sides:
         return ""
@@ -599,7 +638,9 @@ def _with_saved_age(line: str, age_bit: str) -> str:
     return line
 
 
-def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, str]:
+def _precedence_core(
+    override_n: object, confirm_n: object, env_n: object
+) -> tuple[str, str]:
     """Meter + optional lead (+ N · P% + ahead + vs + runner % or Δ[+align]).
 
     When no lead, thin/tied samples speak ``n=1`` / ``tied`` after the meter
@@ -607,6 +648,7 @@ def _precedence_core(override_n: int, confirm_n: int, env_n: int) -> tuple[str, 
     not a tilt). Lead share speaks ``N · P%`` so runner ``vs ok · N`` ≠
     owner's count alone.
     """
+    override_n, confirm_n, env_n = _precedence_counts(override_n, confirm_n, env_n)
     meter = _precedence_meter(override_n, confirm_n, env_n)
     lead = _precedence_lead(override_n, confirm_n, env_n)
     if not lead:
@@ -773,7 +815,9 @@ def config_precedence_status(
         else:
             confirms.append(key)
 
-    o_n, c_n, e_n = len(overrides), len(confirms), len(env_fallbacks)
+    o_n, c_n, e_n = _precedence_counts(
+        len(overrides), len(confirms), len(env_fallbacks)
+    )
     meter, core = _precedence_core(o_n, c_n, e_n)
     lead = _precedence_lead(o_n, c_n, e_n)
     lead_share = _precedence_lead_share(o_n, c_n, e_n)
@@ -820,9 +864,9 @@ def config_precedence_status(
         "overrides": overrides,
         "confirms": confirms,
         "env_fallbacks": env_fallbacks,
-        "override_n": len(overrides),
-        "confirm_n": len(confirms),
-        "env_fallback_n": len(env_fallbacks),
+        "override_n": o_n,
+        "confirm_n": c_n,
+        "env_fallback_n": e_n,
         "meter": meter,
         "lead": lead,
         "lead_share": lead_share,
