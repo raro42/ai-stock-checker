@@ -34537,6 +34537,8 @@ def postmortem_unmatched_lean_meta(lean: str, *, warn: bool = False) -> str:
 
 def build_postmortem_glance(
     postmortems: list[dict[str, Any]] | None,
+    *,
+    reason_n: object = None,
 ) -> dict[str, Any]:
     """Compact last closed-round line (tradermonty / portfolio AI; display only).
 
@@ -34591,10 +34593,15 @@ def build_postmortem_glance(
     so absolute skip severity beside unmatched/matched does not hide meter
     agreement (Yahoo hung↔ vs dk/lf + improve-tick peers↔ vs fpm parity).
     """
+    from stock_checker.trade_context import EXIT_REASON_MAX, _clip_field
     from stock_checker.trade_postmortem import (
         is_orphan_unmatched_postmortem,
         is_unmatched_postmortem,
         is_unobserved_postmortem,
+    )
+
+    reason_ceil: object = (
+        EXIT_REASON_MAX if reason_n is None else reason_n
     )
 
     empty = {
@@ -34904,7 +34911,14 @@ def build_postmortem_glance(
         lean = " · ".join(lean_parts)
     latest = rows[0]
     sym = str(latest.get("symbol") or "").strip()
-    exit_reason = str(latest.get("exit_reason") or "").strip()[:24]
+    # FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: True→1 must
+    # not invent a one-char Last-exit tag via reason[:True] (closed_rounds
+    # exit clip already refused — glance strip was still bare [:24]).
+    exit_reason = _clip_field(
+        str(latest.get("exit_reason") or "").strip(),
+        reason_ceil,
+        default=EXIT_REASON_MAX,
+    )
     held = str(latest.get("held") or "").strip()
     latest_unmatched = is_unmatched_postmortem(latest)
     latest_unobserved = is_unobserved_postmortem(latest)

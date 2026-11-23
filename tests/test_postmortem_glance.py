@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from stock_checker.trade_context import EXIT_REASON_MAX
+
 from openbb_backend.desk import (
     build_postmortem_glance,
     postmortem_skip_reason_lead,
@@ -87,6 +89,28 @@ def test_postmortem_glance_line_cap() -> None:
     assert g["ready"] is True
     assert len(g["line"]) <= 96
     assert g["line"].endswith("…") or len(g["line"]) < 96
+
+
+def test_postmortem_glance_refuses_bool_exit_reason_ceiling() -> None:
+    """True→1 must not invent a one-char Last-exit tag via reason[:True]."""
+    long_reason = "take_profit_" + ("z" * 40)
+    row = {
+        "symbol": "AAPL",
+        "exit_reason": long_reason,
+        "held": "1d",
+        "profit_loss_pct": 8.0,
+    }
+    clipped = long_reason[:EXIT_REASON_MAX]
+    g_true = build_postmortem_glance([row], reason_n=True)
+    assert g_true["ready"] is True
+    assert clipped in g_true["line"]
+    # True→1 would keep only "t" — default ceiling must survive.
+    assert clipped != "t"
+    g_false = build_postmortem_glance([row], reason_n=False)
+    assert clipped in g_false["line"]
+    g_short = build_postmortem_glance([row], reason_n=8)
+    assert long_reason[:8] in g_short["line"]
+    assert long_reason[:9] not in g_short["line"]
 
 
 def test_postmortem_glance_unmatched_skips_pnl() -> None:
