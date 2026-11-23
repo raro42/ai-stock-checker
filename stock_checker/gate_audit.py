@@ -18,6 +18,34 @@ SOFT_ALLOW_FRESH_HOURS = 24.0
 # xang1234 / RyanJHamby scan-age triad: aging before expired (display only).
 SOFT_ALLOW_AGING_HOURS = 12.0
 _DEFAULT_RECENT_SOFT_ALLOW_LIMIT = 12
+# Fail-open reason tag ceiling (soft-allow key identity + Ops strip).
+SOFT_ALLOW_REASON_MAX = 240
+
+
+def _coerce_soft_allow_reason_chars(
+    value: object, default: int = SOFT_ALLOW_REASON_MAX
+) -> int:
+    """Positive soft-allow reason char ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char fail-open key via ``reason[:True]``; ``False→0``
+    must not wipe (Book fill field-clip peer — retention/TTL already refused;
+    reason ceilings were still bare ``[:240]``).
+    """
+    from stock_checker.entry_slots import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_soft_allow_reason(
+    reason: object, limit: object = SOFT_ALLOW_REASON_MAX
+) -> str:
+    """Hard-cut soft-allow reason for ring identity + persistence."""
+    ceiling = _coerce_soft_allow_reason_chars(limit)
+    return str(reason or "").strip()[:ceiling]
 
 
 def _coerce_soft_allow_hours(value: object, default: float) -> float:
@@ -5309,14 +5337,19 @@ def format_soft_allow_lead_bit(
         f"{_soft_allow_lead_prefix(gate, band)} · ×{n} · {int(round(pct))}%"
     )
 
-def soft_allow_event_key(gate: str, reason: str) -> tuple[str, str]:
+def soft_allow_event_key(
+    gate: str,
+    reason: str,
+    *,
+    reason_n: object = SOFT_ALLOW_REASON_MAX,
+) -> tuple[str, str]:
     """Identity for one soft-allow row (gate + reason, case-folded).
 
     tradermonty #447 rejects duplicate hypothesis ids in multi-asset replay —
     same idea here: one live fail-open key, refresh stamp instead of flooding.
     """
     g = str(gate or "").strip() or "?"
-    r = str(reason or "").strip()[:240]
+    r = _clip_soft_allow_reason(reason, reason_n)
     return (g.casefold(), r.casefold())
 
 
@@ -5326,6 +5359,7 @@ def record_soft_allow(
     reason: str,
     *,
     cap: int = SOFT_ALLOW_CAP,
+    reason_n: object = SOFT_ALLOW_REASON_MAX,
 ) -> None:
     """Append one soft-allow; keep the newest ``cap`` rows.
 
@@ -5336,8 +5370,8 @@ def record_soft_allow(
         return
     path = soft_allow_path(data_dir)
     gate_s = str(gate or "").strip() or "?"
-    reason_s = str(reason or "").strip()[:240]
-    key = soft_allow_event_key(gate_s, reason_s)
+    reason_s = _clip_soft_allow_reason(reason, reason_n)
+    key = soft_allow_event_key(gate_s, reason_s, reason_n=reason_n)
     events = [
         e
         for e in load_soft_allows(data_dir)
