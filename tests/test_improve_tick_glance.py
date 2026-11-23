@@ -8,8 +8,11 @@ from pathlib import Path
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
+    DEFAULT_IMPROVE_TICK_TAIL_LINES,
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
+    _coerce_improve_tick_tail_lines,
+    _tail_improve_log_lines,
     build_improve_tick_glance,
     improve_tick_fresher_polarity_vs_scan_meter_bits,
     improve_tick_fresher_vs_source_bits,
@@ -39,6 +42,28 @@ def _clock(iso: str) -> datetime:
 def test_improve_tick_glance_empty(tmp_path: Path) -> None:
     assert build_improve_tick_glance(None)["ready"] is False
     assert build_improve_tick_glance(tmp_path)["ready"] is False
+
+
+def test_improve_tick_tail_lines_refuses_bool(tmp_path: Path) -> None:
+    # tradermonty #700/#655 + xang1234: True→1 / lines[-True] must not invent
+    # a one-line Ops improve clock (parity with desk_logs tail bytes).
+    assert _coerce_improve_tick_tail_lines(True) == DEFAULT_IMPROVE_TICK_TAIL_LINES
+    assert _coerce_improve_tick_tail_lines(False) == DEFAULT_IMPROVE_TICK_TAIL_LINES
+    assert _coerce_improve_tick_tail_lines(0) == DEFAULT_IMPROVE_TICK_TAIL_LINES
+    assert _coerce_improve_tick_tail_lines(None) == DEFAULT_IMPROVE_TICK_TAIL_LINES
+    assert _coerce_improve_tick_tail_lines(12) == 12
+
+    log = tmp_path / "run_cursor_improve.log"
+    body = "\n".join(
+        f"2026-11-09T20:{i:02d}Z cursor improve end rc=0" for i in range(10)
+    )
+    log.write_text(body + "\n", encoding="utf-8")
+    # Damaged bool ceiling falls back to default (≥10) — keeps the full strip.
+    assert len(_tail_improve_log_lines(log, max_lines=True)) == 10
+    assert len(_tail_improve_log_lines(log, max_lines=False)) == 10
+    # Real small ceiling still truncates.
+    assert len(_tail_improve_log_lines(log, max_lines=3)) == 3
+    assert _tail_improve_log_lines(log, max_lines=3)[-1].endswith("rc=0")
 
 
 def test_improve_tick_glance_fresh_ok(tmp_path: Path) -> None:

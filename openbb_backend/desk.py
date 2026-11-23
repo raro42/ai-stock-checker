@@ -32475,6 +32475,7 @@ IMPROVE_TICK_CURSOR_LOG = "run_cursor_improve.log"
 IMPROVE_TICK_LOOP_LOG = "run_improve_loop.log"
 IMPROVE_TICK_FRESH_SEC = 75 * 60
 IMPROVE_TICK_AGING_SEC = 3 * 3600
+DEFAULT_IMPROVE_TICK_TAIL_LINES = 80
 _IMPROVE_TICK_END_RE = re.compile(
     r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z)\s+cursor improve end(?:\s+rc=(?P<rc>-?\d+))?\b"
 )
@@ -32498,7 +32499,28 @@ def _parse_improve_tick_ts(raw: str) -> datetime | None:
         return None
 
 
-def _tail_improve_log_lines(path: Path, *, max_lines: int = 80) -> list[str]:
+def _coerce_improve_tick_tail_lines(
+    value: object, default: int = DEFAULT_IMPROVE_TICK_TAIL_LINES
+) -> int:
+    """Positive improve-log line ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` / ``lines[-True]``
+    must not invent a one-line Ops improve clock (parity with desk_logs
+    ``_coerce_tail_max_bytes`` — Ops byte strip already refused; line strip
+    was still open). ``False→0`` must not wipe the whole tail into ``[]``.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _tail_improve_log_lines(
+    path: Path, *, max_lines: object = DEFAULT_IMPROVE_TICK_TAIL_LINES
+) -> list[str]:
+    ceiling = _coerce_improve_tick_tail_lines(max_lines)
     try:
         if not path.is_file():
             return []
@@ -32508,9 +32530,9 @@ def _tail_improve_log_lines(path: Path, *, max_lines: int = 80) -> list[str]:
     if not raw:
         return []
     lines = raw.splitlines()
-    if len(lines) <= max_lines:
+    if len(lines) <= ceiling:
         return lines
-    return lines[-max_lines:]
+    return lines[-ceiling:]
 
 
 def improve_tick_source_speak(source: str) -> tuple[str, bool]:
