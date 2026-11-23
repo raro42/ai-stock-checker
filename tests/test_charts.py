@@ -1686,11 +1686,32 @@ def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
 
 
 def test_hold_chart_interval_short_vs_long():
-    from openbb_backend.charts import hold_chart_interval
+    from openbb_backend.charts import (
+        _coerce_chart_days,
+        _coerce_chart_fetched_at,
+        _coerce_chart_span_hours,
+        _yf_period_for,
+        hold_chart_interval,
+    )
 
     assert hold_chart_interval(7.0, is_crypto=True) == "15m"
     assert hold_chart_interval(48.0, is_crypto=True) == "1h"
     assert hold_chart_interval(200.0, is_crypto=False) == "1d"
+    # tradermonty #700/#655: True≤36 / True*24 must not invent 15m / 5d.
+    assert hold_chart_interval(True) == "1d"
+    assert hold_chart_interval(False) == "1d"
+    assert hold_chart_interval(None) == "1d"
+    assert _coerce_chart_span_hours(True) is None
+    assert _coerce_chart_span_hours(7.0) == 7.0
+    assert _coerce_chart_days(True, default=90) == 90
+    assert _coerce_chart_days(False, default=180) == 180
+    assert _coerce_chart_days(30) == 30
+    assert _yf_period_for(True, "15m") == "7d"  # default 90 → not 5d
+    assert _yf_period_for(3, "15m") == "5d"
+    assert _coerce_chart_fetched_at(True) is None
+    assert _coerce_chart_fetched_at(False) is None
+    assert _coerce_chart_fetched_at(0) is None
+    assert _coerce_chart_fetched_at(1_700_000_000.0) == 1_700_000_000.0
 
 
 def test_from_buy_short_crypto_uses_intraday_cache(tmp_path: Path, monkeypatch):

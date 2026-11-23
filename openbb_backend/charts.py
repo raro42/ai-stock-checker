@@ -392,28 +392,82 @@ def _cache_path(
     return path
 
 
-def _yf_period_for(days: int, interval: str) -> str:
-    """yfinance period hints by bar size (intraday windows are short)."""
+def _coerce_chart_days(value: object, default: int = 90) -> int:
+    """Positive history-day window, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``int(True)→1`` /
+    ``True*24→24h`` must not invent a 1-day Yahoo period or a 15m
+    from-buy span via ``float(days * 24)``.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_chart_span_hours(value: object) -> float | None:
+    """Non-negative hold span hours, or None when bool/gap/NaN.
+
+    ``float(True)→1`` / ``True≤36`` must not invent a 15m bar size.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    hours = float(value)  # type: ignore[arg-type]
+    if hours < 0.0:
+        return None
+    return hours
+
+
+def _coerce_chart_fetched_at(value: object) -> float | None:
+    """Finite epoch seconds for chart cache TTL, else None.
+
+    ``float(True or 0)→1`` / ``False→0`` must not invent a near-epoch
+    "fresh" hit or a cleared miss that looks intentional.
+    """
+    from stock_checker.technical_indicators import _finite_signed
+
+    if value is None or not _finite_signed(value):
+        return None
+    stamp = float(value)  # type: ignore[arg-type]
+    if stamp <= 0.0:
+        return None
+    return stamp
+
+
+def _yf_period_for(days: object, interval: str) -> str:
+    """yfinance period hints by bar size (intraday windows are short).
+
+    Bool/gap days fall back to 90 — never invent ``5d`` from ``True``.
+    """
+    n = _coerce_chart_days(days, default=90)
     if interval in {"15m", "5m", "2m", "1m"}:
-        return "5d" if days <= 5 else "7d"
+        return "5d" if n <= 5 else "7d"
     if interval in {"60m", "1h", "90m"}:
-        if days <= 7:
+        if n <= 7:
             return "7d"
-        if days <= 30:
+        if n <= 30:
             return "1mo"
         return "3mo"
-    return "3mo" if days <= 100 else "6mo"
+    return "3mo" if n <= 100 else "6mo"
 
 
-def hold_chart_interval(span_hours: float, *, is_crypto: bool = False) -> str:
+def hold_chart_interval(span_hours: object, *, is_crypto: bool = False) -> str:
     """
     Pick bar size so short holds (esp. weekend crypto) are not a 2-point line.
 
     Daily bars often have zero points between a morning fill and “now”.
+    Bool/gap span → ``1d`` — never invent ``15m`` from ``True≤36``.
     """
-    if span_hours <= 36:
+    hours = _coerce_chart_span_hours(span_hours)
+    if hours is None:
+        return "1d"
+    if hours <= 36:
         return "15m"
-    if span_hours <= 72 or (is_crypto and span_hours <= 14 * 24):
+    if hours <= 72 or (is_crypto and hours <= 14 * 24):
         return "1h"
     return "1d"
 
@@ -1489,7 +1543,7 @@ def fetch_price_history(
     symbol: str,
     data_dir: Path,
     *,
-    days: int = 90,
+    days: object = 90,
     live: bool = True,
     interval: str = "1d",
 ) -> list[dict[str, Any]]:
@@ -1498,16 +1552,19 @@ def fetch_price_history(
     if path is None:
         # Unsafe token — do not touch disk outside chart_bars (xang1234 #498).
         return []
+    days_n = _coerce_chart_days(days, default=90)
     cached = _load_json(path, {})
     # Intraday moves faster — shorter cache TTL.
     max_age = 45 * 60 if interval != "1d" else 6 * 3600
     cleaned = _parse_chart_points(cached.get("points"))
+    fetched_at = _coerce_chart_fetched_at(cached.get("fetched_at"))
 
     if (
         cached.get("symbol") == symbol
         and cached.get("interval", "1d") == interval
         and cleaned
-        and (time.time() - float(cached.get("fetched_at") or 0)) < max_age
+        and fetched_at is not None
+        and (time.time() - fetched_at) < max_age
     ):
         return cleaned
 
@@ -1517,7 +1574,7 @@ def fetch_price_history(
     try:
         import yfinance as yf
 
-        period = _yf_period_for(days, interval)
+        period = _yf_period_for(days_n, interval)
         hist = yf.Ticker(symbol).history(period=period, interval=interval)
         points: list[dict[str, Any]] = []
         if hist is not None and not hist.empty:
@@ -1554,7 +1611,7 @@ def fetch_price_history(
 
 
 def build_price_panels(
-    data_dir: Path, *, days: int = 90, live: Optional[bool] = None
+    data_dir: Path, *, days: object = 90, live: Optional[bool] = None
 ) -> list[dict[str, Any]]:
     if live is None:
         live = os.getenv("DESK_CHART_LIVE", "1").strip() not in {
@@ -1563,6 +1620,7 @@ def build_price_panels(
             "False",
             "no",
         }
+    days_n = _coerce_chart_days(days, default=90)
     portfolio = _load_json(data_dir / "portfolio.json", {})
     holds_raw = portfolio.get("holdings")
     holdings = list(holds_raw.keys()) if isinstance(holds_raw, dict) else []
@@ -1582,7 +1640,9 @@ def build_price_panels(
     names = resolve_symbol_names(symbols, data_dir, live=False)
     panels = []
     for sym in symbols:
-        pts = fetch_price_history(sym, data_dir, days=days, live=live, interval="1d")
+        pts = fetch_price_history(
+            sym, data_dir, days=days_n, live=live, interval="1d"
+        )
         if len(pts) < 2:
             continue
         base = _finite(pts[0]["close"])
@@ -1618,7 +1678,7 @@ def build_price_panels(
 
 
 def build_from_buy_panels(
-    data_dir: Path, *, days: int = 180, live: Optional[bool] = None
+    data_dir: Path, *, days: object = 180, live: Optional[bool] = None
 ) -> list[dict[str, Any]]:
     """Open lots rebased to avg buy (=100). Honest path since entry — no forecast."""
     if live is None:
@@ -1628,6 +1688,7 @@ def build_from_buy_panels(
             "False",
             "no",
         }
+    days_n = _coerce_chart_days(days, default=180)
     portfolio = _load_json(data_dir / "portfolio.json", {})
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
@@ -1652,11 +1713,13 @@ def build_from_buy_panels(
 
         now = datetime.now(timezone.utc)
         span_hours_est = (
-            max(0.0, (now - buy_dt).total_seconds() / 3600.0) if buy_dt else float(days * 24)
+            max(0.0, (now - buy_dt).total_seconds() / 3600.0)
+            if buy_dt
+            else float(days_n * 24)
         )
         is_crypto = "-USD" in sym.upper() or sym.upper().endswith("USDT")
         interval = hold_chart_interval(span_hours_est, is_crypto=is_crypto)
-        hist_days = max(2, min(days, int(span_hours_est / 24) + 2))
+        hist_days = max(2, min(days_n, int(span_hours_est / 24) + 2))
         if interval != "1d":
             hist_days = min(hist_days, 7 if interval == "15m" else 30)
 
@@ -1666,7 +1729,7 @@ def build_from_buy_panels(
         # Fall back to daily if intraday empty (offline / provider gap).
         if len(hist) < 2 and interval != "1d":
             hist = fetch_price_history(
-                sym, data_dir, days=days, live=live, interval="1d"
+                sym, data_dir, days=days_n, live=live, interval="1d"
             )
             interval = "1d"
 
@@ -1800,7 +1863,7 @@ def _close_on_or_before(
 
 
 def build_unrealized_curve(
-    data_dir: Path, *, days: int = 180, live: Optional[bool] = None
+    data_dir: Path, *, days: object = 180, live: Optional[bool] = None
 ) -> list[dict[str, Any]]:
     """Open-book unrealized € / % vs cost (matches Overview). No forecast."""
     if live is None:
@@ -1810,6 +1873,7 @@ def build_unrealized_curve(
             "False",
             "no",
         }
+    days_n = _coerce_chart_days(days, default=180)
     from openbb_backend.desk import _coerce_entry_ts
 
     portfolio = _load_json(data_dir / "portfolio.json", {})
@@ -1851,7 +1915,9 @@ def build_unrealized_curve(
     price_by_sym: dict[str, list[tuple[datetime, float]]] = {}
     day_set: set = set()
     for sym in lots:
-        hist = fetch_price_history(sym, data_dir, days=max(days, 120), live=live)
+        hist = fetch_price_history(
+            sym, data_dir, days=max(days_n, 120), live=live
+        )
         series: list[tuple[datetime, float]] = []
         for p in hist:
             ts = _parse_trade_ts(str(p.get("t") or ""))
