@@ -33925,8 +33925,29 @@ def build_fee_burn_glance(
     }
 
 
+# Stuck-capital glance name ceilings — bare ``rows[:3]`` / ``[:5]`` lied when bool.
+STUCK_CAPITAL_GLANCE_BIT_CAP = 3
+STUCK_CAPITAL_GLANCE_SYMBOLS_CAP = 5
+
+
+def _coerce_stuck_capital_name_cap(
+    value: object, default: int = STUCK_CAPITAL_GLANCE_BIT_CAP
+) -> int:
+    """Positive stuck-capital name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name A15 strip via ``rows[:True]`` / ``symbols[:True]``; ``False→0``
+    must not wipe (Hours inactive / inventory name-cap peers — stuck still
+    sliced bare ``[:3]`` / ``[:5]``).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
+
+
 def build_stuck_capital_glance(
     stuck: list[dict[str, Any]] | None,
+    *,
+    bit_n: object = None,
+    symbols_n: object = None,
 ) -> dict[str, Any]:
     """Compact A15 min-hold capital-trap line (portfolio AI risk UX; display only).
 
@@ -33946,9 +33967,19 @@ def build_stuck_capital_glance(
     if not rows:
         return empty
     count = len(rows)
-    symbols = [str(r.get("symbol") or "").strip() for r in rows][:5]
+    # True→1 must not invent a one-name strip via rows[:True] / symbols[:True]
+    # (Hours / inventory name-cap peers — stuck was bare [:3] / [:5]).
+    bit_cap = _coerce_stuck_capital_name_cap(
+        STUCK_CAPITAL_GLANCE_BIT_CAP if bit_n is None else bit_n,
+        STUCK_CAPITAL_GLANCE_BIT_CAP,
+    )
+    sym_cap = _coerce_stuck_capital_name_cap(
+        STUCK_CAPITAL_GLANCE_SYMBOLS_CAP if symbols_n is None else symbols_n,
+        STUCK_CAPITAL_GLANCE_SYMBOLS_CAP,
+    )
+    symbols = [str(r.get("symbol") or "").strip() for r in rows][:sym_cap]
     bits: list[str] = []
-    for r in rows[:3]:
+    for r in rows[:bit_cap]:
         sym = str(r.get("symbol") or "").strip()
         # Refuse bool/gap/NaN — never invent flat ±0.0% (tradermonty #700/#655).
         pct = _coerce_desk_signed_pct(r.get("unrealized_pct"))
@@ -33959,8 +33990,8 @@ def build_stuck_capital_glance(
     line = f"{count} past min-hold underwater"
     if bits:
         line = f"{line} · {' · '.join(bits)}"
-    if count > 3:
-        line = f"{line} · +{count - 3} more"
+    if count > bit_cap:
+        line = f"{line} · +{count - bit_cap} more"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
