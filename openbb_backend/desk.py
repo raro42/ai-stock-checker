@@ -32392,10 +32392,27 @@ def build_book_limits_glance(
     }
 
 
+# Crypto-policy glance name ceiling — bare ``held[:3]`` lied when bool.
+CRYPTO_POLICY_GLANCE_SYMBOLS_CAP = 3
+
+
+def _coerce_crypto_policy_name_cap(
+    value: object, default: int = CRYPTO_POLICY_GLANCE_SYMBOLS_CAP
+) -> int:
+    """Positive crypto-policy name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name crypto strip via ``held[:True]``; ``False→0`` must not wipe
+    (rebuy / stuck-capital name-cap peers — crypto still sliced bare ``[:3]``).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
+
+
 def build_crypto_policy_glance(
     holdings: list[Any] | None,
     *,
     max_crypto: int | None = None,
+    symbols_n: object = None,
 ) -> dict[str, Any]:
     """Compact live crypto policy line (portfolio AI / crypto_policy; display only).
 
@@ -32438,7 +32455,13 @@ def build_crypto_policy_glance(
     else:
         cap = max(0, int(max_crypto))  # type: ignore[arg-type]
     n = count_crypto_holdings(symbols)
-    held = [s for s in symbols if is_crypto_symbol(s)][:3]
+    # True→1 must not invent a one-name strip via held[:True]
+    # (rebuy / stuck name-cap peers — crypto was bare [:3]).
+    sym_cap = _coerce_crypto_policy_name_cap(
+        CRYPTO_POLICY_GLANCE_SYMBOLS_CAP if symbols_n is None else symbols_n,
+        CRYPTO_POLICY_GLANCE_SYMBOLS_CAP,
+    )
+    held = [s for s in symbols if is_crypto_symbol(s)][:sym_cap]
     slot_open = n < cap
     tp = float(CRYPTO_TAKE_PROFIT_PCT)
     sl = float(CRYPTO_STOP_LOSS_PCT)
