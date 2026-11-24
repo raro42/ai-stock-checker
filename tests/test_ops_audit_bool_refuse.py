@@ -28,6 +28,7 @@ from stock_checker.ops_audit import (
     _ops_vs_file_clash_sides_share_pcts,
     _safe_detail,
     append_ops_action,
+    ops_save_body_detail,
     load_ops_actions,
     ops_outcome_age_band,
     ops_pending_freshness_band,
@@ -133,6 +134,22 @@ def test_coerce_ops_detail_ceiling_refuses_bool() -> None:
         OPS_DETAIL_OPEN_CASH_ITEM_CHARS
     )
     assert _coerce_ops_detail_ceiling(12, OPS_DETAIL_KEYS_MAX) == 12
+
+
+def test_ops_save_body_detail_refuses_bool_key_strip() -> None:
+    """True→1 must not invent a one-key Ops Save audit strip via body[:True]."""
+    body = {f"knob_{i:02d}": i for i in range(20)}
+    default = ops_save_body_detail(body)
+    assert len(default) == OPS_DETAIL_CHANGED_ITEMS_MAX
+    assert list(default) == sorted(body)[:OPS_DETAIL_CHANGED_ITEMS_MAX]
+    # Bool ceilings fall back to the changed-items default (not True→1).
+    assert ops_save_body_detail(body, True) == default
+    assert ops_save_body_detail(body, False) == default
+    assert ops_save_body_detail(body, 0) == default
+    thin = ops_save_body_detail(body, 3)
+    assert list(thin) == sorted(body)[:3]
+    assert ops_save_body_detail(None) == {}
+    assert ops_save_body_detail("nope") == {}  # type: ignore[arg-type]
 
 
 def test_safe_detail_refuses_bool_clip_ceilings() -> None:

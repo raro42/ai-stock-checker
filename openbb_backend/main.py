@@ -362,7 +362,11 @@ async def desk_config_put(
     ``dry_run=1`` (xang1234 #636 confirm-first): return changed / severity /
     confirm copy without writing — Ops asks once before a hot Save.
     """
-    from stock_checker.ops_audit import audited_ops_action, record_ops_skipped
+    from stock_checker.ops_audit import (
+        audited_ops_action,
+        ops_save_body_detail,
+        record_ops_skipped,
+    )
     from stock_checker.trader_config import (
         ALLOWED_AI_MODES,
         config_changed_impact_severity,
@@ -435,12 +439,14 @@ async def desk_config_put(
 
     # xang1234 #623: refuse before audit/write when Save would only skip;
     # record why so glance speaks ``skipped · no-op`` (#599 skip-says-why).
+    # True→1 must not invent a one-key strip via sorted(body)[:True]
+    # (_safe_detail changed-items peer — HTTP Save was still bare [:16]).
     if not changed:
         record_ops_skipped(
             DATA_DIR,
             kind="config",
             reason="no-op",
-            detail={k: body.get(k) for k in sorted(body)[:16]},
+            detail=ops_save_body_detail(body),
         )
         raise HTTPException(
             status_code=409,
@@ -449,7 +455,7 @@ async def desk_config_put(
 
     # xang1234 #636: persist which knobs this Save affects (glance Δ + toast).
     # Mid-session open_cash only on hot Saves (when-to-run honesty).
-    detail = {k: body.get(k) for k in sorted(body)[:16]}
+    detail = ops_save_body_detail(body)
     detail["changed"] = changed
     if open_cash:
         detail["open_cash"] = open_cash

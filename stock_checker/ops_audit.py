@@ -1072,6 +1072,26 @@ def ops_changed_impact_warn(row: dict[str, Any] | None) -> bool:
     return config_changed_impact_warn(_ops_changed_keys(row))
 
 
+def ops_save_body_detail(
+    body: dict[str, Any] | None,
+    keys_n: object = None,
+) -> dict[str, Any]:
+    """Ops Save request-body key strip for audit detail (not ``_safe_detail``).
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-key Save audit strip via ``sorted(body)[:True]``;
+    ``False→0`` must not wipe (``_safe_detail`` changed-items ceiling peer —
+    HTTP Save path was still bare ``[:16]`` after Save Δ detail refuse).
+    """
+    if not isinstance(body, dict):
+        return {}
+    ceil = _coerce_ops_detail_ceiling(
+        OPS_DETAIL_CHANGED_ITEMS_MAX if keys_n is None else keys_n,
+        OPS_DETAIL_CHANGED_ITEMS_MAX,
+    )
+    return {k: body.get(k) for k in sorted(body)[:ceil]}
+
+
 def _safe_detail(
     detail: dict[str, Any] | None,
     *,
