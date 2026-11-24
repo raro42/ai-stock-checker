@@ -142,6 +142,10 @@ GH_WATCH_DATE_CHARS = 10
 # ceiling later sliced ``why[:True]`` (tip/date already refused; reason text
 # was still open).
 GH_WATCH_WHY_MAX = 95
+# Ideas activity / quiet-note ceiling — bare passthrough ``idea_bullets`` /
+# composed quiet notes lied when a bool ceiling later sliced ``idea[:True]``
+# (tip/date/why already refused; bullet + quiet-note text was still open).
+GH_WATCH_IDEA_MAX = 160
 
 
 def _coerce_recent_fills_limit(
@@ -284,6 +288,32 @@ def _clip_gh_watch_why(
     """Ellipsis-cut Ideas watch reason for desk (not digest writer)."""
     ceiling = _coerce_gh_watch_why_chars(limit)
     text = str(why or "").strip()
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
+def _coerce_gh_watch_idea_chars(
+    value: object, default: int = GH_WATCH_IDEA_MAX
+) -> int:
+    """Positive Ideas bullet/quiet-note ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char Ideas activity / quiet note via
+    ``idea[:True]``; ``False→0`` must not wipe (tip + date + why clip peers —
+    ``idea_bullets`` + composed quiet notes were still unclipped passthroughs).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _clip_gh_watch_idea(
+    idea: object, limit: object = GH_WATCH_IDEA_MAX
+) -> str:
+    """Ellipsis-cut Ideas activity bullet or quiet note for desk."""
+    ceiling = _coerce_gh_watch_idea_chars(limit)
+    text = str(idea or "").strip()
     if len(text) <= ceiling:
         return text
     if ceiling <= 1:
@@ -38723,6 +38753,7 @@ def load_desk_snapshot(
     gh_tip_sha_n: object = None,
     gh_date_n: object = None,
     gh_why_n: object = None,
+    gh_idea_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38797,6 +38828,12 @@ def load_desk_snapshot(
     gh_why_cap = _coerce_gh_watch_why_chars(
         GH_WATCH_WHY_MAX if gh_why_n is None else gh_why_n,
         GH_WATCH_WHY_MAX,
+    )
+    # True→1 must not invent a one-char Ideas bullet / quiet note via idea[:True]
+    # (tip + date + why clip peers — activity text was an unclipped passthrough).
+    gh_idea_cap = _coerce_gh_watch_idea_chars(
+        GH_WATCH_IDEA_MAX if gh_idea_n is None else gh_idea_n,
+        GH_WATCH_IDEA_MAX,
     )
 
     if live_marks is None:
@@ -39226,7 +39263,12 @@ def load_desk_snapshot(
 
     gh_watch = _load_json(data_dir / "github_watch" / "latest.json", {})
     # True→1 must not invent a one-bullet Ideas strip via idea_bullets[:True].
-    gh_ideas = list(gh_watch.get("idea_bullets") or [])[:gh_ideas_cap]
+    # True→1 must not invent a one-char activity line via idea[:True].
+    gh_ideas = [
+        clipped
+        for raw in list(gh_watch.get("idea_bullets") or [])[:gh_ideas_cap]
+        if (clipped := _clip_gh_watch_idea(raw, gh_idea_cap))
+    ]
     # Refuse bool — int(True)→1 must not invent Ideas «1 with new activity».
     gh_updates = _sample_count(gh_watch.get("update_count"))
     gh_at = gh_watch.get("generated_at") or ""
@@ -39290,15 +39332,19 @@ def load_desk_snapshot(
     )
     # When the watch is quiet, still surface latest tip per repo so Ideas isn't blank.
     # True→1 must not invent a one-note quiet strip via repos[:True].
+    # True→1 must not invent a one-char quiet note via idea[:True].
     gh_watch_notes: list[str] = []
     if not gh_ideas and gh_repos:
         for r in gh_repos[:gh_notes_cap]:
             if r["tip_message"]:
                 when = r.get("last_commit_at") or r.get("pushed_at") or ""
                 when_bit = f" · {when}" if when else ""
-                gh_watch_notes.append(
-                    f"{r['repo']}: latest {r['tip_short'] or '—'}{when_bit} — {r['tip_message']}"
+                note = _clip_gh_watch_idea(
+                    f"{r['repo']}: latest {r['tip_short'] or '—'}{when_bit} — {r['tip_message']}",
+                    gh_idea_cap,
                 )
+                if note:
+                    gh_watch_notes.append(note)
 
     adopted_ideas = [
         {
@@ -40006,6 +40052,7 @@ def load_desk_snapshot(
         "github_watch_tip_sha_limit": gh_tip_sha_cap,
         "github_watch_date_limit": gh_date_cap,
         "github_watch_why_limit": gh_why_cap,
+        "github_watch_idea_limit": gh_idea_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
