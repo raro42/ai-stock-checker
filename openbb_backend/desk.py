@@ -135,6 +135,9 @@ GH_WATCH_NOTES_STRIP = 6
 # (strip counts stay full; tip text was still open after strip refuse).
 GH_WATCH_TIP_MAX = 110
 GH_WATCH_TIP_SHA_CHARS = 7
+# Ideas tip / push date ceiling — bare ``date[:10]`` / ``pushed_at[:10]`` lied
+# when bool (tip text + sha already refused; ISO date display was still open).
+GH_WATCH_DATE_CHARS = 10
 
 
 def _coerce_recent_fills_limit(
@@ -229,6 +232,30 @@ def _clip_gh_watch_tip_sha(
     """Short tip_sha for Ideas strip (no ellipsis; empty when missing)."""
     ceiling = _coerce_gh_watch_tip_sha_chars(limit)
     text = str(sha or "").strip()
+    if not text:
+        return ""
+    return text[:ceiling]
+
+
+def _coerce_gh_watch_date_chars(
+    value: object, default: int = GH_WATCH_DATE_CHARS
+) -> int:
+    """Positive Ideas tip/push date ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char date via ``date[:True]`` /
+    ``pushed_at[:True]``; ``False→0`` must not wipe (tip + sha clip peers —
+    ISO date display was still bare ``[:10]``).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _clip_gh_watch_date(
+    stamp: object, limit: object = GH_WATCH_DATE_CHARS
+) -> str:
+    """ISO date prefix for Ideas repos (no ellipsis; empty when missing)."""
+    ceiling = _coerce_gh_watch_date_chars(limit)
+    text = str(stamp or "").strip()
     if not text:
         return ""
     return text[:ceiling]
@@ -38664,6 +38691,7 @@ def load_desk_snapshot(
     gh_notes_n: object = None,
     gh_tip_n: object = None,
     gh_tip_sha_n: object = None,
+    gh_date_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38726,6 +38754,12 @@ def load_desk_snapshot(
     gh_tip_sha_cap = _coerce_gh_watch_tip_sha_chars(
         GH_WATCH_TIP_SHA_CHARS if gh_tip_sha_n is None else gh_tip_sha_n,
         GH_WATCH_TIP_SHA_CHARS,
+    )
+    # True→1 must not invent a one-char date via date[:True] / pushed_at[:True]
+    # (tip + sha clip peers — ISO date display was bare [:10]).
+    gh_date_cap = _coerce_gh_watch_date_chars(
+        GH_WATCH_DATE_CHARS if gh_date_n is None else gh_date_n,
+        GH_WATCH_DATE_CHARS,
     )
 
     if live_marks is None:
@@ -39178,14 +39212,19 @@ def load_desk_snapshot(
                 # Match prefix uses default tip-sha ceiling (not display gh_tip_sha_n).
                 match_pfx = _clip_gh_watch_tip_sha(sha, GH_WATCH_TIP_SHA_CHARS)
                 if csha == sha or (match_pfx and csha.startswith(match_pfx)):
-                    last_commit_at = str(c.get("date") or "")[:10]
+                    # True→1 must not invent a one-char date via date[:True].
+                    last_commit_at = _clip_gh_watch_date(
+                        c.get("date"), gh_date_cap
+                    )
                     break
         if not last_commit_at and commits:
             c0 = commits[0]
             if isinstance(c0, dict):
-                last_commit_at = str(c0.get("date") or "")[:10]
+                last_commit_at = _clip_gh_watch_date(c0.get("date"), gh_date_cap)
         if not last_commit_at:
-            last_commit_at = str(row.get("pushed_at") or "")[:10]
+            last_commit_at = _clip_gh_watch_date(
+                row.get("pushed_at"), gh_date_cap
+            )
         gh_repos.append(
             {
                 "repo": row.get("repo") or "",
@@ -39199,7 +39238,9 @@ def load_desk_snapshot(
                 ),
                 "tip_short": tip_short,
                 "tip_message": tip,
-                "pushed_at": (row.get("pushed_at") or "")[:10],
+                "pushed_at": _clip_gh_watch_date(
+                    row.get("pushed_at"), gh_date_cap
+                ),
                 "last_commit_at": last_commit_at,
             }
         )
@@ -39924,6 +39965,7 @@ def load_desk_snapshot(
         "github_watch_notes_limit": gh_notes_cap,
         "github_watch_tip_limit": gh_tip_cap,
         "github_watch_tip_sha_limit": gh_tip_sha_cap,
+        "github_watch_date_limit": gh_date_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
