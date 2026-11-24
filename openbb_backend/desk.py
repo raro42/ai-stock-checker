@@ -126,6 +126,11 @@ RECENT_FILLS_LIMIT = 20
 OPPORTUNITY_RECS_STRIP = 8
 OPPORTUNITY_CRYPTO_STRIP = 6
 OPPORTUNITY_STOCK_STRIP = 6
+# Ideas GitHub-watch strips — bare ``repos[:12]`` / ``idea_bullets[:8]`` /
+# quiet-notes ``repos[:6]`` lied when bool (digest meters stay full counts).
+GH_WATCH_REPOS_STRIP = 12
+GH_WATCH_IDEAS_STRIP = 8
+GH_WATCH_NOTES_STRIP = 6
 
 
 def _coerce_recent_fills_limit(
@@ -156,6 +161,21 @@ def _coerce_opportunity_strip_limit(
     ``False→0`` must not wipe (Book Recent-fills / Charts name-cap peers —
     Opportunities still sliced bare ``[:8]`` / ``[:6]``; pulse counts stay
     full scan lists).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _coerce_gh_watch_strip_limit(
+    value: object, default: int = GH_WATCH_NOTES_STRIP
+) -> int:
+    """Positive Ideas GitHub-watch strip, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-repo / one-bullet Ideas strip via
+    ``repos[:True]`` / ``idea_bullets[:True]``; ``False→0`` must not wipe
+    (OpenBB opportunities_markdown / desk Opportunities strip peers —
+    Ideas still sliced bare ``[:12]`` / ``[:8]`` / ``[:6]``; digest
+    ``repo_count`` / ``update_count`` stay full meters).
     """
     return _coerce_recent_fills_limit(value, default=default)
 
@@ -38585,6 +38605,9 @@ def load_desk_snapshot(
     recs_n: object = None,
     crypto_n: object = None,
     stock_n: object = None,
+    gh_repos_n: object = None,
+    gh_ideas_n: object = None,
+    gh_notes_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38623,6 +38646,20 @@ def load_desk_snapshot(
     stock_cap = _coerce_opportunity_strip_limit(
         OPPORTUNITY_STOCK_STRIP if stock_n is None else stock_n,
         OPPORTUNITY_STOCK_STRIP,
+    )
+    # True→1 must not invent a one-repo Ideas strip via repos[:True]
+    # (Opportunities / OpenBB markdown peers — Ideas was bare [:12]/[:8]/[:6]).
+    gh_repos_cap = _coerce_gh_watch_strip_limit(
+        GH_WATCH_REPOS_STRIP if gh_repos_n is None else gh_repos_n,
+        GH_WATCH_REPOS_STRIP,
+    )
+    gh_ideas_cap = _coerce_gh_watch_strip_limit(
+        GH_WATCH_IDEAS_STRIP if gh_ideas_n is None else gh_ideas_n,
+        GH_WATCH_IDEAS_STRIP,
+    )
+    gh_notes_cap = _coerce_gh_watch_strip_limit(
+        GH_WATCH_NOTES_STRIP if gh_notes_n is None else gh_notes_n,
+        GH_WATCH_NOTES_STRIP,
     )
 
     if live_marks is None:
@@ -39051,14 +39088,15 @@ def load_desk_snapshot(
     weekend = datetime.now(timezone.utc).weekday() >= 5
 
     gh_watch = _load_json(data_dir / "github_watch" / "latest.json", {})
-    gh_ideas = list(gh_watch.get("idea_bullets") or [])[:8]
+    # True→1 must not invent a one-bullet Ideas strip via idea_bullets[:True].
+    gh_ideas = list(gh_watch.get("idea_bullets") or [])[:gh_ideas_cap]
     # Refuse bool — int(True)→1 must not invent Ideas «1 with new activity».
     gh_updates = _sample_count(gh_watch.get("update_count"))
     gh_at = gh_watch.get("generated_at") or ""
     gh_repo_count = _sample_count(gh_watch.get("repo_count"))
     gh_checked = _sample_count(gh_watch.get("checked_count"))
     gh_repos: list[dict[str, Any]] = []
-    for row in (gh_watch.get("repos") or [])[:12]:
+    for row in (gh_watch.get("repos") or [])[:gh_repos_cap]:
         tip = str(row.get("tip_message") or "").strip()
         if len(tip) > 110:
             tip = tip[:109] + "…"
@@ -39104,9 +39142,10 @@ def load_desk_snapshot(
         reverse=True,
     )
     # When the watch is quiet, still surface latest tip per repo so Ideas isn't blank.
+    # True→1 must not invent a one-note quiet strip via repos[:True].
     gh_watch_notes: list[str] = []
     if not gh_ideas and gh_repos:
-        for r in gh_repos[:6]:
+        for r in gh_repos[:gh_notes_cap]:
             if r["tip_message"]:
                 when = r.get("last_commit_at") or r.get("pushed_at") or ""
                 when_bit = f" · {when}" if when else ""
@@ -39813,6 +39852,9 @@ def load_desk_snapshot(
         "github_ideas": gh_ideas,
         "github_watch_notes": gh_watch_notes,
         "github_repos": gh_repos,
+        "github_watch_repos_limit": gh_repos_cap,
+        "github_watch_ideas_limit": gh_ideas_cap,
+        "github_watch_notes_limit": gh_notes_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
