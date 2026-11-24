@@ -1714,6 +1714,103 @@ def test_hold_chart_interval_short_vs_long():
     assert _coerce_chart_fetched_at(1_700_000_000.0) == 1_700_000_000.0
 
 
+def test_chart_panel_symbol_caps_refuse_bool(tmp_path: Path, monkeypatch):
+    """True→1 must not invent a one-panel strip via symbols[:True]."""
+    from openbb_backend.charts import (
+        FROM_BUY_PANEL_SYMBOLS_CAP,
+        PRICE_PANEL_BREAKOUT_CAP,
+        PRICE_PANEL_SYMBOLS_CAP,
+        _coerce_chart_symbol_cap,
+        build_from_buy_panels,
+        build_price_panels,
+    )
+
+    assert (
+        _coerce_chart_symbol_cap(True, PRICE_PANEL_SYMBOLS_CAP)
+        == PRICE_PANEL_SYMBOLS_CAP
+    )
+    assert (
+        _coerce_chart_symbol_cap(False, PRICE_PANEL_BREAKOUT_CAP)
+        == PRICE_PANEL_BREAKOUT_CAP
+    )
+    assert (
+        _coerce_chart_symbol_cap(0, FROM_BUY_PANEL_SYMBOLS_CAP)
+        == FROM_BUY_PANEL_SYMBOLS_CAP
+    )
+    assert (
+        _coerce_chart_symbol_cap(None, PRICE_PANEL_SYMBOLS_CAP)
+        == PRICE_PANEL_SYMBOLS_CAP
+    )
+    assert _coerce_chart_symbol_cap(2) == 2
+
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    holds = {sym: 1.0 for sym in ("AAPL", "MSFT", "NVDA")}
+    avg = {sym: 100.0 for sym in holds}
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": 90000,
+                "holdings": holds,
+                "avg_buy_price": avg,
+            }
+        )
+    )
+    (tmp_path / "entry_times.json").write_text("{}")
+    (tmp_path / "archive").mkdir(parents=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "stock_breakouts": [
+                    {"symbol": "AMD"},
+                    {"symbol": "GOOG"},
+                    {"symbol": "META"},
+                    {"symbol": "TSLA"},
+                    {"symbol": "ORCL"},
+                ]
+            }
+        )
+    )
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    for sym in (*holds, "AMD", "GOOG", "META", "TSLA", "ORCL"):
+        (cache / f"{sym}.json").write_text(
+            json.dumps(
+                {
+                    "symbol": sym,
+                    "interval": "1d",
+                    "fetched_at": 9e12,
+                    "points": [
+                        {"t": "2026-10-01T00:00:00Z", "close": 100},
+                        {"t": "2026-10-02T00:00:00Z", "close": 105},
+                    ],
+                }
+            )
+        )
+
+    # Bool ceilings fall back to defaults — not one-panel invent / wipe.
+    price_true = build_price_panels(tmp_path, live=False, symbols_n=True)
+    assert len(price_true) >= 3
+    price_false = build_price_panels(tmp_path, live=False, symbols_n=False)
+    assert len(price_false) >= 3
+    price_short = build_price_panels(tmp_path, live=False, symbols_n=2)
+    assert len(price_short) == 2
+    # Breakout bool must not collapse extras to a single scan name.
+    brk_true = build_price_panels(
+        tmp_path, live=False, breakouts_n=True, symbols_n=8
+    )
+    brk_syms = {p["symbol"] for p in brk_true}
+    assert "AAPL" in brk_syms
+    assert len(brk_syms & {"AMD", "GOOG", "META", "TSLA"}) >= 2
+
+    buy_true = build_from_buy_panels(tmp_path, live=False, symbols_n=True)
+    assert len(buy_true) == 3
+    buy_false = build_from_buy_panels(tmp_path, live=False, symbols_n=False)
+    assert len(buy_false) == 3
+    buy_short = build_from_buy_panels(tmp_path, live=False, symbols_n=1)
+    assert len(buy_short) == 1
+
+
 def test_from_buy_short_crypto_uses_intraday_cache(tmp_path: Path, monkeypatch):
     """Short holds must not collapse to buy→now when only daily bars exist."""
     import time

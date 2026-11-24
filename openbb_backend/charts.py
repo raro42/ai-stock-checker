@@ -407,6 +407,26 @@ def _coerce_chart_days(value: object, default: int = 90) -> int:
     return n
 
 
+# Price / from-buy panel symbol ceilings — bare ``breakouts[:4]`` /
+# ``symbols[:8]`` / ``holdings[:10]`` lied when bool.
+PRICE_PANEL_BREAKOUT_CAP = 4
+PRICE_PANEL_SYMBOLS_CAP = 8
+FROM_BUY_PANEL_SYMBOLS_CAP = 10
+
+
+def _coerce_chart_symbol_cap(
+    value: object, default: int = PRICE_PANEL_SYMBOLS_CAP
+) -> int:
+    """Positive Charts panel symbol ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-panel strip via ``breakouts[:True]`` / ``symbols[:True]``;
+    ``False→0`` must not wipe (listed-fund / short-refuse name-cap peers —
+    Charts still sliced bare ``[:4]`` / ``[:8]`` / ``[:10]``).
+    """
+    return _coerce_chart_days(value, default=default)
+
+
 def _coerce_chart_span_hours(value: object) -> float | None:
     """Non-negative hold span hours, or None when bool/gap/NaN.
 
@@ -1611,7 +1631,12 @@ def fetch_price_history(
 
 
 def build_price_panels(
-    data_dir: Path, *, days: object = 90, live: Optional[bool] = None
+    data_dir: Path,
+    *,
+    days: object = 90,
+    live: Optional[bool] = None,
+    breakouts_n: object = None,
+    symbols_n: object = None,
 ) -> list[dict[str, Any]]:
     if live is None:
         live = os.getenv("DESK_CHART_LIVE", "1").strip() not in {
@@ -1621,6 +1646,16 @@ def build_price_panels(
             "no",
         }
     days_n = _coerce_chart_days(days, default=90)
+    # True→1 must not invent a one-panel strip via breakouts[:True] / symbols[:True]
+    # (listed-fund / short-refuse name-cap peers — Charts was bare [:4] / [:8]).
+    brk_cap = _coerce_chart_symbol_cap(
+        PRICE_PANEL_BREAKOUT_CAP if breakouts_n is None else breakouts_n,
+        PRICE_PANEL_BREAKOUT_CAP,
+    )
+    sym_cap = _coerce_chart_symbol_cap(
+        PRICE_PANEL_SYMBOLS_CAP if symbols_n is None else symbols_n,
+        PRICE_PANEL_SYMBOLS_CAP,
+    )
     portfolio = _load_json(data_dir / "portfolio.json", {})
     holds_raw = portfolio.get("holdings")
     holdings = list(holds_raw.keys()) if isinstance(holds_raw, dict) else []
@@ -1629,14 +1664,14 @@ def build_price_panels(
     breakouts = opp.get("stock_breakouts")
     extras: list[str] = []
     if isinstance(breakouts, list):
-        for r in breakouts[:4]:
+        for r in breakouts[:brk_cap]:
             if isinstance(r, dict) and r.get("symbol"):
                 extras.append(str(r["symbol"]))
     symbols: list[str] = []
     for s in holdings + extras:
         if s and s not in symbols:
             symbols.append(str(s))
-    symbols = symbols[:8]
+    symbols = symbols[:sym_cap]
     names = resolve_symbol_names(symbols, data_dir, live=False)
     panels = []
     for sym in symbols:
@@ -1678,7 +1713,11 @@ def build_price_panels(
 
 
 def build_from_buy_panels(
-    data_dir: Path, *, days: object = 180, live: Optional[bool] = None
+    data_dir: Path,
+    *,
+    days: object = 180,
+    live: Optional[bool] = None,
+    symbols_n: object = None,
 ) -> list[dict[str, Any]]:
     """Open lots rebased to avg buy (=100). Honest path since entry — no forecast."""
     if live is None:
@@ -1689,6 +1728,12 @@ def build_from_buy_panels(
             "no",
         }
     days_n = _coerce_chart_days(days, default=180)
+    # True→1 must not invent a one-panel strip via holdings[:True]
+    # (price-panel / listed-fund name-cap peers — from-buy was bare [:10]).
+    sym_cap = _coerce_chart_symbol_cap(
+        FROM_BUY_PANEL_SYMBOLS_CAP if symbols_n is None else symbols_n,
+        FROM_BUY_PANEL_SYMBOLS_CAP,
+    )
     portfolio = _load_json(data_dir / "portfolio.json", {})
     holdings = portfolio.get("holdings") or {}
     avg = portfolio.get("avg_buy_price") or {}
@@ -1697,7 +1742,7 @@ def build_from_buy_panels(
     from openbb_backend.desk import _coerce_entry_ts, _prices_from_scan
 
     marks = _prices_from_scan(opportunities)
-    symbols = [str(s) for s in holdings.keys() if s][:10]
+    symbols = [str(s) for s in holdings.keys() if s][:sym_cap]
     names = resolve_symbol_names(symbols, data_dir, live=False)
     panels: list[dict[str, Any]] = []
 
