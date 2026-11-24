@@ -28,6 +28,7 @@ from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
     _coerce_desk_cash,
     _coerce_desk_score,
+    _coerce_opportunity_strip_limit,
     _fill_commission,
     _fill_signed,
     build_breadth_day_meta,
@@ -40,6 +41,11 @@ from openbb_backend.desk import (
     resolve_opportunities_archive,
     scan_breadth_pulse_for_day,
 )
+
+# OpenBB /opportunities_markdown ceilings — bare ``recs[:15]`` /
+# ``txt[:12000]`` lied when bool (desk Opportunities strip peer).
+OPPORTUNITY_MARKDOWN_RECS_STRIP = 15
+OPPORTUNITY_MARKDOWN_BODY_CHARS = 12000
 from openbb_backend.charts import _curve_signed
 from stock_checker.portfolio import fill_price_ok, long_only_quantity_ok
 from openbb_backend.desk_logs import LOG_SOURCES, follow_log, list_log_sources, read_log_tail
@@ -760,7 +766,12 @@ def trades_table(
     return rows
 
 
-def _opportunities_markdown_body(data_dir: Path) -> str:
+def _opportunities_markdown_body(
+    data_dir: Path,
+    *,
+    recs_n: object = None,
+    body_n: object = None,
+) -> str:
     """Prefer opportunities_latest; fall back like desk (xang1234 #682/#685).
 
     Hard-reading ``opportunities_latest.txt``/``.json`` alone hid a missing,
@@ -768,7 +779,23 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
 
     tradermonty #700/#655 + staskh dash-for-null: JSON fallback must not dump
     bool/gap scores as printable marks (``True→1`` / bare ``True``).
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    strip/body ceilings refuse bool so ``True→1`` cannot invent a one-name
+    Workspace strip via ``recs[:True]`` / one-char txt via ``body[:True]``;
+    ``False→0`` must not wipe (desk Opportunities strip peer — OpenBB widget
+    was still bare ``[:15]`` / ``[:12000]``).
     """
+    # True→1 must not invent a one-name / one-char OpenBB strip.
+    recs_cap = _coerce_opportunity_strip_limit(
+        OPPORTUNITY_MARKDOWN_RECS_STRIP if recs_n is None else recs_n,
+        OPPORTUNITY_MARKDOWN_RECS_STRIP,
+    )
+    body_cap = _coerce_opportunity_strip_limit(
+        OPPORTUNITY_MARKDOWN_BODY_CHARS if body_n is None else body_n,
+        OPPORTUNITY_MARKDOWN_BODY_CHARS,
+    )
+
     archive_res = resolve_opportunities_archive(data_dir)
     path = Path(archive_res["path"])
     pin_bit = str(archive_res.get("bit") or "").strip()
@@ -776,7 +803,7 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
 
     txt = path.with_suffix(".txt") if path.suffix.lower() == ".json" else path
     if txt.is_file():
-        body = txt.read_text()[:12000]
+        body = txt.read_text()[:body_cap]
         return f"{prefix}{body}" if prefix else body
 
     if path.is_file():
@@ -784,8 +811,11 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
         if not isinstance(data, dict):
             data = {}
         recs = data.get("recommendations") or []
+        if not isinstance(recs, list):
+            recs = []
         lines = ["# Latest opportunities", ""]
-        for r in recs[:15]:
+        shown = 0
+        for r in recs[:recs_cap]:
             if not isinstance(r, dict):
                 continue
             score = _coerce_desk_score(r.get("score"))
@@ -794,7 +824,8 @@ def _opportunities_markdown_body(data_dir: Path) -> str:
                 f"- **{r.get('symbol')}** ({r.get('asset_class')}) "
                 f"score={score_s} — {r.get('reasoning')}"
             )
-        body = "\n".join(lines) if recs else "# No recommendations"
+            shown += 1
+        body = "\n".join(lines) if shown else "# No recommendations"
         return f"{prefix}{body}" if prefix else body
 
     return "# No opportunity archive yet\nRun intelligent-trader scans first."
@@ -807,7 +838,8 @@ def opportunities_markdown(
     """Latest archived opportunities (keep-newest parity with desk).
 
     tradermonty #700/#655 + desk Opportunities: bool/gap scores speak ``n/a``
-    on the JSON fallback path (``True→1.0`` refuse).
+    on the JSON fallback path (``True→1.0`` refuse). Strip/body ceilings also
+    refuse bool invent (``[:15]`` / ``[:12000]`` peers).
     """
     _check_key(x_api_key)
     return PlainTextResponse(_opportunities_markdown_body(DATA_DIR))
