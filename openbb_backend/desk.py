@@ -32196,12 +32196,34 @@ def _cooldown_expiring_soon(
     return warn > 0 and 0 < left <= warn
 
 
+# Rebuy-cooldown glance name ceilings — bare ``cooling[:3]`` / ``[:5]`` lied when bool.
+REBUY_COOLDOWN_GLANCE_BIT_CAP = 3
+REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP = 5
+# Absolute cooling count for flip-flop pressure (not the display bit cap).
+REBUY_COOLDOWN_GLANCE_PRESSURE_MIN = 3
+
+
+def _coerce_rebuy_cooldown_name_cap(
+    value: object, default: int = REBUY_COOLDOWN_GLANCE_BIT_CAP
+) -> int:
+    """Positive rebuy-cooldown name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name flip-flop strip via ``cooling[:True]`` / ``symbols[:True]``;
+    ``False→0`` must not wipe (stuck-capital / Hours / inventory name-cap peers
+    — rebuy still sliced bare ``[:3]`` / ``[:5]``).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
+
+
 def build_rebuy_cooldown_glance(
     exit_times: dict[str, Any] | None,
     *,
     cooldown_seconds: float,
     now: float | None = None,
     expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
+    bit_n: object = None,
+    symbols_n: object = None,
 ) -> dict[str, Any]:
     """Compact anti flip-flop rebuy cooldown (tradermonty / SCHW; display only).
 
@@ -32259,15 +32281,28 @@ def build_rebuy_cooldown_glance(
     n = len(cooling)
     hold_h = cd / 3600.0
     hold_txt = f"{hold_h:g}h" if hold_h != int(hold_h) else f"{int(hold_h)}h"
-    shown = [f"{sym} {_fmt_cooldown_left(left)}" for sym, left in cooling[:3]]
+    # True→1 must not invent a one-name strip via cooling[:True] / symbols[:True]
+    # (stuck-capital name-cap peer — rebuy was bare [:3] / [:5]).
+    bit_cap = _coerce_rebuy_cooldown_name_cap(
+        REBUY_COOLDOWN_GLANCE_BIT_CAP if bit_n is None else bit_n,
+        REBUY_COOLDOWN_GLANCE_BIT_CAP,
+    )
+    sym_cap = _coerce_rebuy_cooldown_name_cap(
+        REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP if symbols_n is None else symbols_n,
+        REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP,
+    )
+    shown = [
+        f"{sym} {_fmt_cooldown_left(left)}" for sym, left in cooling[:bit_cap]
+    ]
     soonest = cooling[0][1] if cooling else 0.0
     expiring = bool(cooling) and _cooldown_expiring_soon(
         soonest, warn_seconds=warn_sec
     )
+    pressure = n >= REBUY_COOLDOWN_GLANCE_PRESSURE_MIN
     if n == 0:
         tone = "clear"
         status = "clear"
-    elif n >= 3:
+    elif pressure:
         tone = "warn"
         status = f"{n} cooling"
     elif expiring:
@@ -32279,7 +32314,7 @@ def build_rebuy_cooldown_glance(
     line = f"{status} · ≥{hold_txt} rebuy lock"
     if shown:
         line = f"{status} · {', '.join(shown)} · ≥{hold_txt} lock"
-    if n >= 3:
+    if pressure:
         line = f"{line} · flip-flop pressure"
     if expiring:
         line = f"{line} · unlocks soon"
@@ -32291,7 +32326,7 @@ def build_rebuy_cooldown_glance(
         "line": line,
         "cooling": n,
         "cooldown_hours": hold_h,
-        "symbols": [sym for sym, _ in cooling[:5]],
+        "symbols": [sym for sym, _ in cooling[:sym_cap]],
         "expiring_soon": expiring,
     }
 

@@ -5,7 +5,12 @@ from __future__ import annotations
 import json
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_rebuy_cooldown_glance
+from openbb_backend.desk import (
+    REBUY_COOLDOWN_GLANCE_BIT_CAP,
+    REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP,
+    _coerce_rebuy_cooldown_name_cap,
+    build_rebuy_cooldown_glance,
+)
 
 
 def test_rebuy_cooldown_glance_off() -> None:
@@ -75,6 +80,62 @@ def test_rebuy_cooldown_glance_flip_flop_pressure() -> None:
     assert g["tone"] == "warn"
     assert g["cooling"] == 3
     assert "flip-flop pressure" in g["line"]
+
+
+def test_rebuy_cooldown_glance_refuses_bool_name_cap() -> None:
+    """True→1 must not invent a one-name flip-flop strip via cooling[:True]."""
+    assert (
+        _coerce_rebuy_cooldown_name_cap(True) == REBUY_COOLDOWN_GLANCE_BIT_CAP
+    )
+    assert (
+        _coerce_rebuy_cooldown_name_cap(False) == REBUY_COOLDOWN_GLANCE_BIT_CAP
+    )
+    assert _coerce_rebuy_cooldown_name_cap(0) == REBUY_COOLDOWN_GLANCE_BIT_CAP
+    assert _coerce_rebuy_cooldown_name_cap(None) == REBUY_COOLDOWN_GLANCE_BIT_CAP
+    assert _coerce_rebuy_cooldown_name_cap(2) == 2
+    assert (
+        _coerce_rebuy_cooldown_name_cap(
+            True, default=REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP
+        )
+        == REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP
+    )
+
+    now = 1_000_000.0
+    exits = {f"S{i}": now - float(1000 * (i + 1)) for i in range(5)}
+    g_true = build_rebuy_cooldown_glance(
+        exits, cooldown_seconds=86400.0, now=now, bit_n=True, symbols_n=True
+    )
+    assert g_true["ready"] is True
+    assert g_true["cooling"] == 5
+    assert len(g_true["symbols"]) == REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP
+    # Soonest clear first → highest age first → S4, S3, S2 on the bit strip.
+    assert "S4" in g_true["line"]
+    assert "S3" in g_true["line"]
+    assert "S2" in g_true["line"]
+    assert "S1" not in g_true["line"]
+    assert "S0" not in g_true["line"]
+    assert "flip-flop pressure" in g_true["line"]
+    # Without refuse, bit_n=True → cooling[:1] only (one name on the strip).
+    assert g_true["line"].count("S") == REBUY_COOLDOWN_GLANCE_BIT_CAP
+
+    g_false = build_rebuy_cooldown_glance(
+        exits, cooldown_seconds=86400.0, now=now, bit_n=False, symbols_n=False
+    )
+    assert len(g_false["symbols"]) == REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP
+    assert "S4" in g_false["line"]
+    assert "S2" in g_false["line"]
+    assert g_false["line"].count("S") == REBUY_COOLDOWN_GLANCE_BIT_CAP
+
+    g_short = build_rebuy_cooldown_glance(
+        exits, cooldown_seconds=86400.0, now=now, bit_n=2, symbols_n=2
+    )
+    assert g_short["symbols"] == ["S4", "S3"]
+    assert "S4" in g_short["line"]
+    assert "S3" in g_short["line"]
+    assert "S2" not in g_short["line"]
+    assert g_short["line"].count("S") == 2
+    # Absolute pressure floor still fires at 5 cooling even when bit_n=2.
+    assert "flip-flop pressure" in g_short["line"]
 
 
 def test_rebuy_cooldown_glance_ignores_expired() -> None:
