@@ -26,6 +26,9 @@ ALLOWED_FEE_PRESETS = frozenset(FEE_PRESETS.keys()) | frozenset({"custom"})
 
 # Instruct/general defaults — never suggest coder models for trade gates.
 DEFAULT_AI_MODEL = "gemma4:latest"
+# Ops Persist / env model tag ceiling — bare ``model[:80]`` lied when bool
+# (LAYA / AI-mode glance model clip peers).
+AI_MODEL_CHARS = 80
 
 DEFAULTS: dict[str, Any] = {
     "ai_mode": "off",
@@ -55,6 +58,32 @@ def _as_bool(value: Any, default: bool) -> bool:
     return str(value).strip().lower() not in {"0", "false", "no", "off", ""}
 
 
+def _coerce_ai_model_chars(
+    value: object, default: int = AI_MODEL_CHARS
+) -> int:
+    """Positive Ops ai_model char ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char persisted model tag via ``model[:True]``;
+    ``False→0`` must not wipe (LAYA / AI-mode glance model clip peers —
+    Ops normalize/env still sliced bare ``[:80]``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_ai_model(text: object, n: object = None) -> str:
+    """Hard-truncate model tag (no ellipsis — Ollama tags must stay runnable)."""
+    ceiling = _coerce_ai_model_chars(
+        AI_MODEL_CHARS if n is None else n
+    )
+    return str(text or "").strip()[:ceiling]
+
+
 def _env_defaults() -> dict[str, Any]:
     mode = (os.getenv("AI_MODE") or DEFAULTS["ai_mode"]).strip().lower() or "off"
     if mode not in ALLOWED_AI_MODES:
@@ -76,7 +105,7 @@ def _env_defaults() -> dict[str, Any]:
         min_hold_h = float(DEFAULTS["min_hold_hours"])
     return {
         "ai_mode": mode,
-        "ai_model": model,
+        "ai_model": _clip_ai_model(model),
         "ai_multi_role": _as_bool(os.getenv("AI_MULTI_ROLE"), True),
         "regime_gate": _as_bool(os.getenv("REGIME_GATE"), True),
         "rs_gate": _as_bool(os.getenv("RS_GATE"), True),
@@ -93,7 +122,12 @@ def _env_defaults() -> dict[str, Any]:
     }
 
 
-def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def normalize_config(
+    raw: dict[str, Any] | None,
+    *,
+    base: Optional[dict[str, Any]] = None,
+    ai_model_n: object = None,
+) -> dict[str, Any]:
     """Merge raw over base (or env defaults) and clamp to allowed values."""
     out = dict(base if base is not None else _env_defaults())
     if not isinstance(raw, dict):
@@ -112,9 +146,11 @@ def normalize_config(raw: dict[str, Any] | None, *, base: Optional[dict[str, Any
     if "ai_model" in raw:
         model = str(raw.get("ai_model") or "").strip()
         # Block obvious coder defaults for trade decisions.
+        # True→1 must not invent a one-char tag via model[:True]
+        # (LAYA / AI-mode glance peers — Ops persist was still bare [:80]).
         lowered = model.lower()
         if model and "coder" not in lowered:
-            out["ai_model"] = model[:80]
+            out["ai_model"] = _clip_ai_model(model, ai_model_n)
 
     if "ai_multi_role" in raw:
         out["ai_multi_role"] = _as_bool(raw.get("ai_multi_role"), out["ai_multi_role"])

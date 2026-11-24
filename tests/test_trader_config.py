@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from stock_checker.trader_config import (
+    AI_MODEL_CHARS,
+    _clip_ai_model,
+    _coerce_ai_model_chars,
     config_precedence_status,
     load_trader_config,
     normalize_config,
@@ -38,6 +41,57 @@ def test_normalize_rejects_coder_model_and_bad_mode():
     assert out["ai_model"] == "gemma4:latest"
     assert out["regime_gate"] is False
     assert out["rs_gate"] is False
+
+
+def test_coerce_ai_model_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Ops model tag; False must not wipe."""
+    assert _coerce_ai_model_chars(True) == AI_MODEL_CHARS
+    assert _coerce_ai_model_chars(False) == AI_MODEL_CHARS
+    assert _coerce_ai_model_chars(0) == AI_MODEL_CHARS
+    assert _coerce_ai_model_chars(None) == AI_MODEL_CHARS
+    assert _coerce_ai_model_chars(40) == 40
+
+
+def test_clip_ai_model_refuses_bool_ceiling() -> None:
+    """True→1 must not invent model[:True]; False must not wipe via [:False]."""
+    long_model = "gemma4:latest-via-long-tunnel-name-that-exceeds-eighty-chars-" + ("x" * 40)
+    assert len(long_model) > AI_MODEL_CHARS
+    default = _clip_ai_model(long_model)
+    assert len(default) == AI_MODEL_CHARS
+    assert default == long_model[:AI_MODEL_CHARS]
+    assert _clip_ai_model(long_model, True) == default
+    assert _clip_ai_model(long_model, False) == default
+    assert _clip_ai_model(long_model, 0) == default
+    assert _clip_ai_model(long_model, 12) == long_model[:12]
+    assert _clip_ai_model("gemma4:latest") == "gemma4:latest"
+    assert _clip_ai_model("") == ""
+    assert _clip_ai_model(None) == ""
+
+
+def test_normalize_ai_model_refuses_bool_clip_ceiling() -> None:
+    """True→1 must not invent a one-char persisted Ops model via model[:True]."""
+    base = {
+        "ai_mode": "off",
+        "ai_model": "gemma4:latest",
+        "fee_preset": "revolut_standard",
+        "commission_rate": 0.0025,
+        "commission_min_eur": 1.0,
+    }
+    long_model = "qwen3.5:9b-instruct-via-long-tunnel-name-that-exceeds-eighty-" + ("x" * 40)
+    assert len(long_model) > AI_MODEL_CHARS
+    out = normalize_config({"ai_model": long_model}, base=base)
+    assert out["ai_model"] == long_model[:AI_MODEL_CHARS]
+    # Bool ceilings fall back to AI_MODEL_CHARS (not True→1 / False→0 wipe).
+    assert normalize_config(
+        {"ai_model": long_model}, base=base, ai_model_n=True
+    )["ai_model"] == out["ai_model"]
+    assert normalize_config(
+        {"ai_model": long_model}, base=base, ai_model_n=False
+    )["ai_model"] == out["ai_model"]
+    thin = normalize_config(
+        {"ai_model": long_model}, base=base, ai_model_n=10
+    )
+    assert thin["ai_model"] == long_model[:10]
 
 
 def test_normalize_refuses_bool_fee_hold_max():
