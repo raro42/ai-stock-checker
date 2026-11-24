@@ -123,6 +123,24 @@ def _load_jsonl(path: Path) -> list[dict]:
 RECENT_FILLS_LIMIT = 20
 
 
+def _coerce_recent_fills_limit(
+    value: object, default: int = RECENT_FILLS_LIMIT
+) -> int:
+    """Positive Book Recent-fills strip, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-fill Recent strip via ``rows[:True]``; ``False→0`` must not wipe
+    (Charts price/from-buy / listed-fund name-cap peers — Book still sliced
+    bare ``[:20]``; absolute trade_count stays full ledger).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
 def _fill_commission(value: object) -> Optional[float]:
     """Commission may be 0; refuse bool/NaN/negative (``True→€1`` invent)."""
     from stock_checker.technical_indicators import _finite_signed
@@ -38544,6 +38562,7 @@ def load_desk_snapshot(
     account: str | None = None,
     live_marks: Optional[bool] = None,
     price_fetcher: Optional[Callable[[list[str]], dict[str, float]]] = None,
+    fills_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38561,6 +38580,13 @@ def load_desk_snapshot(
         ledger_dir,
         normalize_account_id,
         shared_desk_pin,
+    )
+
+    # True→1 must not invent a one-fill Recent strip via rows[:True]
+    # (Charts / listed-fund name-cap peers — Book was bare [:20]).
+    fills_cap = _coerce_recent_fills_limit(
+        RECENT_FILLS_LIMIT if fills_n is None else fills_n,
+        RECENT_FILLS_LIMIT,
     )
 
     if live_marks is None:
@@ -38915,8 +38941,8 @@ def load_desk_snapshot(
         r["name"] = display_name(r["symbol"], names)
 
     all_trade_rows = [_serialize_trade_row(t, names) for t in reversed(trades)]
-    recent = all_trade_rows[:RECENT_FILLS_LIMIT]
-    older_trades = all_trade_rows[RECENT_FILLS_LIMIT:]
+    recent = all_trade_rows[:fills_cap]
+    older_trades = all_trade_rows[fills_cap:]
     postmortems = [
         {
             **r,
@@ -39668,7 +39694,7 @@ def load_desk_snapshot(
         "sell_count": len(sells),
         "recent_trades": recent,
         "older_trades": older_trades,
-        "recent_fills_limit": RECENT_FILLS_LIMIT,
+        "recent_fills_limit": fills_cap,
         "postmortems": postmortems,
         "postmortem_limit": POSTMORTEM_LIMIT,
         "reset_note": portfolio.get("reset_note") or "",

@@ -1,8 +1,13 @@
+import json
+from pathlib import Path
+
 from openbb_backend.desk import (
     RECENT_FILLS_LIMIT,
+    _coerce_recent_fills_limit,
     _fill_commission,
     _fill_signed,
     _serialize_trade_row,
+    load_desk_snapshot,
 )
 
 
@@ -126,3 +131,60 @@ def test_fill_signed_refuses_bool_window_a_exit_euro_mid_cascade() -> None:
 
 def test_recent_fills_limit_is_twenty() -> None:
     assert RECENT_FILLS_LIMIT == 20
+
+
+def test_recent_fills_refuses_bool_limit(tmp_path: Path, monkeypatch) -> None:
+    """True→1 must not invent a one-fill Recent strip via rows[:True]."""
+    assert _coerce_recent_fills_limit(True) == RECENT_FILLS_LIMIT
+    assert _coerce_recent_fills_limit(False) == RECENT_FILLS_LIMIT
+    assert _coerce_recent_fills_limit(0) == RECENT_FILLS_LIMIT
+    assert _coerce_recent_fills_limit(None) == RECENT_FILLS_LIMIT
+    assert _coerce_recent_fills_limit(5) == 5
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": 90000,
+                "holdings": {"AAPL": 10},
+                "avg_buy_price": {"AAPL": 100},
+                "total_fees_paid": 0,
+            }
+        )
+    )
+    lines = []
+    for i in range(5):
+        lines.append(
+            json.dumps(
+                {
+                    "timestamp": f"2026-11-2{i} 10:00:00",
+                    "type": "BUY",
+                    "symbol": "AAPL",
+                    "quantity": 1,
+                    "price": 100 + i,
+                    "commission": 1,
+                    "cash_remaining": 90000,
+                }
+            )
+        )
+    (tmp_path / "trades.jsonl").write_text("\n".join(lines) + "\n")
+    (tmp_path / "archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text("{}")
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+
+    # Bool ceilings must keep the full default strip (5 fills << 20).
+    snap_true = load_desk_snapshot(tmp_path, live_marks=False, fills_n=True)
+    assert snap_true["recent_fills_limit"] == RECENT_FILLS_LIMIT
+    assert len(snap_true["recent_trades"]) == 5
+    assert snap_true["older_trades"] == []
+    assert snap_true["trade_count"] == 5
+
+    snap_false = load_desk_snapshot(tmp_path, live_marks=False, fills_n=False)
+    assert snap_false["recent_fills_limit"] == RECENT_FILLS_LIMIT
+    assert len(snap_false["recent_trades"]) == 5
+
+    snap_two = load_desk_snapshot(tmp_path, live_marks=False, fills_n=2)
+    assert snap_two["recent_fills_limit"] == 2
+    assert len(snap_two["recent_trades"]) == 2
+    assert len(snap_two["older_trades"]) == 3
+    assert snap_two["trade_count"] == 5
