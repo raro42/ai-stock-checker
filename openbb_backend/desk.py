@@ -138,6 +138,10 @@ GH_WATCH_TIP_SHA_CHARS = 7
 # Ideas tip / push date ceiling — bare ``date[:10]`` / ``pushed_at[:10]`` lied
 # when bool (tip text + sha already refused; ISO date display was still open).
 GH_WATCH_DATE_CHARS = 10
+# Ideas watch-reason ceiling — bare passthrough ``why`` lied when a bool
+# ceiling later sliced ``why[:True]`` (tip/date already refused; reason text
+# was still open).
+GH_WATCH_WHY_MAX = 95
 
 
 def _coerce_recent_fills_limit(
@@ -259,6 +263,32 @@ def _clip_gh_watch_date(
     if not text:
         return ""
     return text[:ceiling]
+
+
+def _coerce_gh_watch_why_chars(
+    value: object, default: int = GH_WATCH_WHY_MAX
+) -> int:
+    """Positive Ideas watch-reason ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char why via ``why[:True]``;
+    ``False→0`` must not wipe (tip + date clip peers — watch-reason display
+    was still an unclipped passthrough).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _clip_gh_watch_why(
+    why: object, limit: object = GH_WATCH_WHY_MAX
+) -> str:
+    """Ellipsis-cut Ideas watch reason for desk (not digest writer)."""
+    ceiling = _coerce_gh_watch_why_chars(limit)
+    text = str(why or "").strip()
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
 
 
 def _fill_commission(value: object) -> Optional[float]:
@@ -38692,6 +38722,7 @@ def load_desk_snapshot(
     gh_tip_n: object = None,
     gh_tip_sha_n: object = None,
     gh_date_n: object = None,
+    gh_why_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38760,6 +38791,12 @@ def load_desk_snapshot(
     gh_date_cap = _coerce_gh_watch_date_chars(
         GH_WATCH_DATE_CHARS if gh_date_n is None else gh_date_n,
         GH_WATCH_DATE_CHARS,
+    )
+    # True→1 must not invent a one-char why via why[:True]
+    # (tip + date clip peers — watch-reason was an unclipped passthrough).
+    gh_why_cap = _coerce_gh_watch_why_chars(
+        GH_WATCH_WHY_MAX if gh_why_n is None else gh_why_n,
+        GH_WATCH_WHY_MAX,
     )
 
     if live_marks is None:
@@ -39225,11 +39262,13 @@ def load_desk_snapshot(
             last_commit_at = _clip_gh_watch_date(
                 row.get("pushed_at"), gh_date_cap
             )
+        # True→1 must not invent a one-char why via why[:True].
+        why = _clip_gh_watch_why(row.get("why"), gh_why_cap)
         gh_repos.append(
             {
                 "repo": row.get("repo") or "",
                 "url": row.get("url") or "",
-                "why": row.get("why") or "",
+                "why": why,
                 "stars": _sample_count(row.get("stars")),
                 "status": (
                     "update"
@@ -39966,6 +40005,7 @@ def load_desk_snapshot(
         "github_watch_tip_limit": gh_tip_cap,
         "github_watch_tip_sha_limit": gh_tip_sha_cap,
         "github_watch_date_limit": gh_date_cap,
+        "github_watch_why_limit": gh_why_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
