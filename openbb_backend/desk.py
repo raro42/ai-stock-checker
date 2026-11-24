@@ -121,6 +121,11 @@ def _load_jsonl(path: Path) -> list[dict]:
 
 
 RECENT_FILLS_LIMIT = 20
+# Opportunities Overview strips — bare ``recs[:8]`` / ``crypto[:6]`` /
+# ``stock[:6]`` lied when bool (pulse still uses full scan lists).
+OPPORTUNITY_RECS_STRIP = 8
+OPPORTUNITY_CRYPTO_STRIP = 6
+OPPORTUNITY_STOCK_STRIP = 6
 
 
 def _coerce_recent_fills_limit(
@@ -139,6 +144,20 @@ def _coerce_recent_fills_limit(
     if n is None or n <= 0:
         return int(default)
     return n
+
+
+def _coerce_opportunity_strip_limit(
+    value: object, default: int = OPPORTUNITY_CRYPTO_STRIP
+) -> int:
+    """Positive Opportunities list strip, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-name recs/crypto/stock strip via ``rows[:True]``;
+    ``False→0`` must not wipe (Book Recent-fills / Charts name-cap peers —
+    Opportunities still sliced bare ``[:8]`` / ``[:6]``; pulse counts stay
+    full scan lists).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
 
 
 def _fill_commission(value: object) -> Optional[float]:
@@ -38563,6 +38582,9 @@ def load_desk_snapshot(
     live_marks: Optional[bool] = None,
     price_fetcher: Optional[Callable[[list[str]], dict[str, float]]] = None,
     fills_n: object = None,
+    recs_n: object = None,
+    crypto_n: object = None,
+    stock_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38587,6 +38609,20 @@ def load_desk_snapshot(
     fills_cap = _coerce_recent_fills_limit(
         RECENT_FILLS_LIMIT if fills_n is None else fills_n,
         RECENT_FILLS_LIMIT,
+    )
+    # True→1 must not invent a one-name Opportunities strip via rows[:True]
+    # (Book Recent-fills peer — Opportunities was bare [:8] / [:6]).
+    recs_cap = _coerce_opportunity_strip_limit(
+        OPPORTUNITY_RECS_STRIP if recs_n is None else recs_n,
+        OPPORTUNITY_RECS_STRIP,
+    )
+    crypto_cap = _coerce_opportunity_strip_limit(
+        OPPORTUNITY_CRYPTO_STRIP if crypto_n is None else crypto_n,
+        OPPORTUNITY_CRYPTO_STRIP,
+    )
+    stock_cap = _coerce_opportunity_strip_limit(
+        OPPORTUNITY_STOCK_STRIP if stock_n is None else stock_n,
+        OPPORTUNITY_STOCK_STRIP,
     )
 
     if live_marks is None:
@@ -38798,11 +38834,12 @@ def load_desk_snapshot(
             realized += pl
 
     # Object rows only — string/null slots ≠ usable scan chunks (xang1234 #498).
-    recs_raw = scan_list_rows(opportunities.get("recommendations"))[:8]
+    # Strip ceilings refuse bool (pulse still uses full *_raw_all).
+    recs_raw = scan_list_rows(opportunities.get("recommendations"))[:recs_cap]
     crypto_raw_all = scan_list_rows(opportunities.get("crypto_leaders"))
     stock_raw_all = scan_list_rows(opportunities.get("stock_breakouts"))
-    crypto_raw = crypto_raw_all[:6]
-    stock_raw = stock_raw_all[:6]
+    crypto_raw = crypto_raw_all[:crypto_cap]
+    stock_raw = stock_raw_all[:stock_cap]
 
     # StockBee-lite pulse from latest scan lists (not a full market A/D line).
     # Refuse bool/gap/NaN % — never invent flat 0.0 / True→1.0 into A/D or near-high.
@@ -39709,6 +39746,9 @@ def load_desk_snapshot(
         "recommendations": recs,
         "crypto_leaders": crypto_leaders,
         "stock_breakouts": stock_breakouts,
+        "opportunity_recs_limit": recs_cap,
+        "opportunity_crypto_limit": crypto_cap,
+        "opportunity_stock_limit": stock_cap,
         "screener_counts": build_screener_opportunity_counts(
             {
                 "recommendations": recs,
