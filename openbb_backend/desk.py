@@ -29493,7 +29493,52 @@ def build_gate_roles_glance(
     }
 
 
-def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
+# AI-mode glance model ceiling — bare ``model[:27]`` lied when bool.
+AI_MODE_GLANCE_MODEL_MAX = 28
+
+
+def _coerce_ai_mode_glance_model_chars(
+    value: object, default: int = AI_MODE_GLANCE_MODEL_MAX
+) -> int:
+    """Positive AI-mode glance model ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Ops model strip via ``model[:True]``; ``False→0``
+    must not wipe (LAYA glance model clip peer — AI-mode was still bare
+    ``[:27]``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_ai_mode_glance_model(
+    model: object,
+    limit: object = None,
+    *,
+    default: int = AI_MODE_GLANCE_MODEL_MAX,
+) -> str:
+    """Ellipsis-cut AI model basename for Overview/Ops AI-mode glance."""
+    ceiling = _coerce_ai_mode_glance_model_chars(
+        default if limit is None else limit, default
+    )
+    text = str(model or "").strip() or "gemma4:latest"
+    text = text.split("/")[-1] or text
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
+def build_ai_mode_glance(
+    runtime: dict[str, Any] | None,
+    *,
+    model_n: object = None,
+) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
     Shows Ops ai_mode / model / ai_multi_role so friends see whether rules-only,
@@ -29506,15 +29551,17 @@ def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
         "ai_mode": "",
         "ai_model": "",
         "ai_multi_role": False,
+        "model_short": "",
     }
     if not isinstance(runtime, dict):
         return empty
 
     mode = str(runtime.get("ai_mode") or "off").strip().lower() or "off"
     model = str(runtime.get("ai_model") or "gemma4:latest").strip() or "gemma4:latest"
-    model_short = model.split("/")[-1]
-    if len(model_short) > 28:
-        model_short = model_short[:27] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool model clip —
+    # True→1 must not invent a one-char strip via model[:True]
+    # (LAYA glance model clip peer — AI-mode was bare [:27]).
+    model_short = _clip_ai_mode_glance_model(model, model_n)
     multi = bool(runtime.get("ai_multi_role", True))
     multi_txt = "multi-role on" if multi else "multi-role off"
 
@@ -29540,6 +29587,7 @@ def build_ai_mode_glance(runtime: dict[str, Any] | None) -> dict[str, Any]:
         "ai_mode": mode,
         "ai_model": model,
         "ai_multi_role": multi,
+        "model_short": model_short,
     }
 
 

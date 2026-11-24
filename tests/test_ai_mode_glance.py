@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_ai_mode_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    AI_MODE_GLANCE_MODEL_MAX,
+    _clip_ai_mode_glance_model,
+    build_ai_mode_glance,
+    load_desk_snapshot,
+)
 
 
 def test_ai_mode_glance_empty_input() -> None:
@@ -46,6 +51,32 @@ def test_ai_mode_glance_full() -> None:
     assert "full" in g["line"]
     assert "gemma4:latest" in g["line"]
     assert g["ai_multi_role"] is True
+
+
+def test_ai_mode_glance_refuses_bool_model_ceiling() -> None:
+    """True→1 must not invent a one-char model strip via model[:True]."""
+    long = "org/ai_mode_model_" + ("m" * 40)
+    basename = long.split("/")[-1]
+    clipped = basename[: AI_MODE_GLANCE_MODEL_MAX - 1] + "…"
+    assert _clip_ai_mode_glance_model(long, True) == clipped
+    assert _clip_ai_mode_glance_model(long, False) == clipped
+    assert clipped != "a…"
+    assert _clip_ai_mode_glance_model(long, 8) == basename[:7] + "…"
+
+    runtime = {
+        "ai_mode": "validate",
+        "ai_model": long,
+        "ai_multi_role": True,
+    }
+    g_true = build_ai_mode_glance(runtime, model_n=True)
+    assert g_true["ready"] is True
+    assert g_true["model_short"] == clipped
+    assert clipped in g_true["line"]
+    g_false = build_ai_mode_glance(runtime, model_n=False)
+    assert g_false["model_short"] == clipped
+    g_short = build_ai_mode_glance(runtime, model_n=8)
+    assert g_short["model_short"] == basename[:7] + "…"
+    assert len(g_short["model_short"]) == 8
 
 
 def test_ai_mode_glance_in_snapshot(tmp_path) -> None:
