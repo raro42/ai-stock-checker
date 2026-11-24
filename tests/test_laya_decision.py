@@ -267,6 +267,51 @@ def test_laya_glance_refuses_bool_sample_counts(monkeypatch, tmp_path: Path) -> 
     assert "1 fail-open" not in g["line"]
 
 
+def test_laya_glance_refuses_bool_model_ceiling(monkeypatch, tmp_path: Path) -> None:
+    """True→1 must not invent a one-char model strip via model[:True]."""
+    from openbb_backend.desk import (
+        LAYA_GLANCE_MODEL_MAX_ON,
+        _clip_laya_glance_model,
+    )
+
+    long = "laya_model_" + ("m" * 40)
+    clipped = long[: LAYA_GLANCE_MODEL_MAX_ON - 1] + "…"
+    assert _clip_laya_glance_model(long, True) == clipped
+    assert _clip_laya_glance_model(long, False) == clipped
+    assert clipped != "l…"
+    assert _clip_laya_glance_model(long, 8) == long[:7] + "…"
+
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+
+    def _fake_status(_root):
+        return {
+            "configured": True,
+            "advisory": True,
+            "model": long,
+            "stats": {
+                "pass": 0,
+                "hold": 0,
+                "reject": 0,
+                "fail_open": 0,
+                "newest": None,
+            },
+        }
+
+    monkeypatch.setattr(
+        "stock_checker.laya_decision.laya_status", _fake_status
+    )
+    g_true = build_laya_glance(tmp_path, model_n=True)
+    assert g_true["ready"] is True
+    assert g_true["model_short"] == clipped
+    assert clipped in g_true["line"]
+    g_false = build_laya_glance(tmp_path, model_n=False)
+    assert g_false["model_short"] == clipped
+    g_short = build_laya_glance(tmp_path, model_n=8)
+    assert g_short["model_short"] == long[:7] + "…"
+    assert len(g_short["model_short"]) == 8
+
+
 def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")

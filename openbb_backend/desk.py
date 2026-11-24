@@ -30191,12 +30191,54 @@ def _decision_sample_gap(total: int, lead_name: str) -> str:
     return "tied"
 
 
+# LAYA glance model ceilings — advisory-off has more room; on is tighter.
+LAYA_GLANCE_MODEL_MAX_OFF = 20
+LAYA_GLANCE_MODEL_MAX_ON = 16
+
+
+def _coerce_laya_glance_model_chars(
+    value: object, default: int = LAYA_GLANCE_MODEL_MAX_ON
+) -> int:
+    """Positive LAYA glance model ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + QuantDinger/JEV + tradermonty #700/#655 + xang1234/portfolio AI:
+    ``True→1`` must not invent a one-char Ops model strip via ``model[:True]``;
+    ``False→0`` must not wipe (``laya_decision`` persist model clip peer —
+    glance display was still bare ``[:19]`` / ``[:15]``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_laya_glance_model(
+    model: object,
+    limit: object = None,
+    *,
+    default: int = LAYA_GLANCE_MODEL_MAX_ON,
+) -> str:
+    """Ellipsis-cut LAYA model for Overview/Ops glance (not ring persist)."""
+    ceiling = _coerce_laya_glance_model_chars(
+        default if limit is None else limit, default
+    )
+    text = str(model or "").strip() or "systemone"
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
 def build_laya_glance(
     data_dir: Path | str | None = None,
     *,
     now: Optional[datetime] = None,
     scan_interval_sec: int = 900,
     scan_time: Any = None,
+    model_n: object = None,
 ) -> dict[str, Any]:
     """LAYA / JEV System-1 advisory honesty (display only; not a gate).
 
@@ -30757,23 +30799,34 @@ def build_laya_glance(
                 own_verb or str(newest.get("entry") or ""), conf_s
             )
 
+    model_short = ""
     if not st.get("configured"):
         line = "off · no LAYA/JEV URL · advisory not a gate"
         tone = "off"
     elif not st.get("advisory"):
-        model = str(st.get("model") or "systemone")
-        if len(model) > 20:
-            model = model[:19] + "…"
-        bits = ["URL set", "advisory off", model]
+        # FinRobot/JEV + tradermonty #700/#655: refuse bool model clip —
+        # True→1 must not invent a one-char strip via model[:True]
+        # (persist model clip already refused — glance was bare [:19]).
+        model_short = _clip_laya_glance_model(
+            st.get("model"),
+            model_n,
+            default=LAYA_GLANCE_MODEL_MAX_OFF,
+        )
+        bits = ["URL set", "advisory off", model_short]
         if age_bit:
             bits.append(age_bit)
         bits.append("fail-open")
         line = " · ".join(bits)
         tone = "stale" if freshness == "stale" else "ready"
     else:
-        model = str(st.get("model") or "systemone")
-        if len(model) > 16:
-            model = model[:15] + "…"
+        # FinRobot/JEV + tradermonty #700/#655: refuse bool model clip —
+        # True→1 must not invent a one-char strip via model[:True]
+        # (persist model clip already refused — glance was bare [:15]).
+        model_short = _clip_laya_glance_model(
+            st.get("model"),
+            model_n,
+            default=LAYA_GLANCE_MODEL_MAX_ON,
+        )
         # tradermonty #700/#655 + FinRobot/portfolio AI: refuse bool —
         # True→1 invents pass/hold/reject/fail-open sample meters.
         from stock_checker.promote_ab import _window_count_or_zero
@@ -30782,7 +30835,7 @@ def build_laya_glance(
         n_hold = _window_count_or_zero(stats.get("hold"))
         n_rej = _window_count_or_zero(stats.get("reject"))
         n_fo = _window_count_or_zero(stats.get("fail_open"))
-        bits = ["advisory on", model]
+        bits = ["advisory on", model_short]
         # When fail-open sample lead will speak, skip age on the clip so
         # ``fail lead · N · P%`` fits (freshness stays in fields; Yahoo
         # last-error class + #674 owner > age-before-last this tick).
@@ -31034,6 +31087,7 @@ def build_laya_glance(
         "line": line,
         "configured": bool(st.get("configured")),
         "advisory": bool(st.get("advisory")),
+        "model_short": model_short,
         "age_sec": age_sec,
         "age_label": age_label,
         "freshness": freshness,
