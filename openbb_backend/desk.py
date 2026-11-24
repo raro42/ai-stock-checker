@@ -131,6 +131,10 @@ OPPORTUNITY_STOCK_STRIP = 6
 GH_WATCH_REPOS_STRIP = 12
 GH_WATCH_IDEAS_STRIP = 8
 GH_WATCH_NOTES_STRIP = 6
+# Ideas tip display ceiling — bare ``tip[:109]`` / ``sha[:7]`` lied when bool
+# (strip counts stay full; tip text was still open after strip refuse).
+GH_WATCH_TIP_MAX = 110
+GH_WATCH_TIP_SHA_CHARS = 7
 
 
 def _coerce_recent_fills_limit(
@@ -178,6 +182,56 @@ def _coerce_gh_watch_strip_limit(
     ``repo_count`` / ``update_count`` stay full meters).
     """
     return _coerce_recent_fills_limit(value, default=default)
+
+
+def _coerce_gh_watch_tip_chars(
+    value: object, default: int = GH_WATCH_TIP_MAX
+) -> int:
+    """Positive Ideas tip-message ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char tip via ``tip[:True]``;
+    ``False→0`` must not wipe (Ideas strip peers — tip display was still
+    bare ``[:109]`` after strip refuse; digest tip_message stays full).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _coerce_gh_watch_tip_sha_chars(
+    value: object, default: int = GH_WATCH_TIP_SHA_CHARS
+) -> int:
+    """Positive Ideas tip-sha short ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char tip_short via ``sha[:True]``;
+    ``False→0`` must not wipe (tip-message clip peer — sha short was still
+    bare ``[:7]``).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _clip_gh_watch_tip(
+    tip: object, limit: object = GH_WATCH_TIP_MAX
+) -> str:
+    """Ellipsis-cut Ideas tip_message for desk (not digest writer)."""
+    ceiling = _coerce_gh_watch_tip_chars(limit)
+    text = str(tip or "").strip()
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
+def _clip_gh_watch_tip_sha(
+    sha: object, limit: object = GH_WATCH_TIP_SHA_CHARS
+) -> str:
+    """Short tip_sha for Ideas strip (no ellipsis; empty when missing)."""
+    ceiling = _coerce_gh_watch_tip_sha_chars(limit)
+    text = str(sha or "").strip()
+    if not text:
+        return ""
+    return text[:ceiling]
 
 
 def _fill_commission(value: object) -> Optional[float]:
@@ -38608,6 +38662,8 @@ def load_desk_snapshot(
     gh_repos_n: object = None,
     gh_ideas_n: object = None,
     gh_notes_n: object = None,
+    gh_tip_n: object = None,
+    gh_tip_sha_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38660,6 +38716,16 @@ def load_desk_snapshot(
     gh_notes_cap = _coerce_gh_watch_strip_limit(
         GH_WATCH_NOTES_STRIP if gh_notes_n is None else gh_notes_n,
         GH_WATCH_NOTES_STRIP,
+    )
+    # True→1 must not invent a one-char tip via tip[:True]
+    # (Ideas strip peers — tip display was bare [:109] / sha[:7]).
+    gh_tip_cap = _coerce_gh_watch_tip_chars(
+        GH_WATCH_TIP_MAX if gh_tip_n is None else gh_tip_n,
+        GH_WATCH_TIP_MAX,
+    )
+    gh_tip_sha_cap = _coerce_gh_watch_tip_sha_chars(
+        GH_WATCH_TIP_SHA_CHARS if gh_tip_sha_n is None else gh_tip_sha_n,
+        GH_WATCH_TIP_SHA_CHARS,
     )
 
     if live_marks is None:
@@ -39097,11 +39163,10 @@ def load_desk_snapshot(
     gh_checked = _sample_count(gh_watch.get("checked_count"))
     gh_repos: list[dict[str, Any]] = []
     for row in (gh_watch.get("repos") or [])[:gh_repos_cap]:
-        tip = str(row.get("tip_message") or "").strip()
-        if len(tip) > 110:
-            tip = tip[:109] + "…"
-        sha = str(row.get("tip_sha") or "")
-        tip_short = sha[:7] if sha else ""
+        # True→1 must not invent a one-char tip / tip_short via tip[:True].
+        tip = _clip_gh_watch_tip(row.get("tip_message"), gh_tip_cap)
+        sha = str(row.get("tip_sha") or "").strip()
+        tip_short = _clip_gh_watch_tip_sha(sha, gh_tip_sha_cap)
         # Prefer tip commit date, else newest listed commit, else repo pushed_at.
         last_commit_at = ""
         commits = row.get("commits") if isinstance(row.get("commits"), list) else []
@@ -39110,7 +39175,9 @@ def load_desk_snapshot(
                 if not isinstance(c, dict):
                     continue
                 csha = str(c.get("sha") or "")
-                if csha == sha or csha.startswith(sha[:7]):
+                # Match prefix uses default tip-sha ceiling (not display gh_tip_sha_n).
+                match_pfx = _clip_gh_watch_tip_sha(sha, GH_WATCH_TIP_SHA_CHARS)
+                if csha == sha or (match_pfx and csha.startswith(match_pfx)):
                     last_commit_at = str(c.get("date") or "")[:10]
                     break
         if not last_commit_at and commits:
@@ -39855,6 +39922,8 @@ def load_desk_snapshot(
         "github_watch_repos_limit": gh_repos_cap,
         "github_watch_ideas_limit": gh_ideas_cap,
         "github_watch_notes_limit": gh_notes_cap,
+        "github_watch_tip_limit": gh_tip_cap,
+        "github_watch_tip_sha_limit": gh_tip_sha_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
