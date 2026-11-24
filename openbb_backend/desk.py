@@ -7935,6 +7935,8 @@ def attach_concentration_funds_lean(
 # Quiet Funds lean chip names spoken stages (Charts bars / pin lean inventory).
 # Longer prefixes first so ``lead overlap`` ≠ bare ``lead``.
 _LISTED_FUND_OVERLAP_LEAN_NAME_CAP = 4
+# Theme-overlap glance name ceiling — bare ``syms[:3]`` lied when bool.
+LISTED_FUND_OVERLAP_NAME_CAP = 3
 _LISTED_FUND_OVERLAP_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ other\b"), "vs other"),
     (re.compile(r"^overlap/other tied\b"), "tied"),
@@ -7943,6 +7945,19 @@ _LISTED_FUND_OVERLAP_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^clash · funds\b"), "Conc"),
     (re.compile(r"^align · funds\b"), "Conc"),
 )
+
+
+def _coerce_listed_fund_overlap_name_cap(
+    value: object, default: int = LISTED_FUND_OVERLAP_NAME_CAP
+) -> int:
+    """Positive theme-overlap name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name theme strip via ``syms[:True]``; ``False→0`` must not wipe
+    (short-refuse / crypto / rebuy name-cap peers — Funds still sliced bare
+    ``[:3]``; absolute theme count stays full holdings).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
 
 
 def listed_fund_overlap_lean_meta(lean: str, *, warn: bool = False) -> str:
@@ -7978,6 +7993,7 @@ def build_listed_fund_overlap_glance(
     holdings: list[Any] | None,
     *,
     concentration_warn: bool | None = None,
+    symbols_n: object = None,
 ) -> dict[str, Any]:
     """Same-theme ETF/ETC doubles on the open book (display only).
 
@@ -8059,6 +8075,12 @@ def build_listed_fund_overlap_glance(
     overlaps = listed_fund_theme_overlaps(symbols)
     if not overlaps:
         return empty
+    # True→1 must not invent a one-name strip via syms[:True]
+    # (short-refuse / crypto / rebuy name-cap peers — Funds was bare [:3]).
+    sym_cap = _coerce_listed_fund_overlap_name_cap(
+        LISTED_FUND_OVERLAP_NAME_CAP if symbols_n is None else symbols_n,
+        LISTED_FUND_OVERLAP_NAME_CAP,
+    )
     core_bits: list[str] = []
     theme_bits: list[str] = []
     all_syms: list[str] = []
@@ -8066,9 +8088,9 @@ def build_listed_fund_overlap_glance(
         label = listed_fund_theme_label(theme)
         theme_bits.append(theme)
         all_syms.extend(syms)
-        shown = " · ".join(syms[:3])
-        if len(syms) > 3:
-            shown = f"{shown} · +{len(syms) - 3}"
+        shown = " · ".join(syms[:sym_cap])
+        if len(syms) > sym_cap:
+            shown = f"{shown} · +{len(syms) - sym_cap}"
         core_bits.append(f"{len(syms)} {label} · {shown}")
     lead_theme, lead_syms = overlaps[0]
     n_book = len(symbols)

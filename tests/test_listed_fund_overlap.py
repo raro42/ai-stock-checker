@@ -8,6 +8,8 @@ from stock_checker.listed_funds import (
     listed_fund_theme_overlaps,
 )
 from openbb_backend.desk import (
+    LISTED_FUND_OVERLAP_NAME_CAP,
+    _coerce_listed_fund_overlap_name_cap,
     attach_concentration_funds_lean,
     build_listed_fund_overlap_glance,
     concentration_funds_lean_meta,
@@ -196,6 +198,58 @@ def test_listed_fund_overlap_glance_warn() -> None:
     assert "vs 3 other · 60% · lead other · 60%" in g["bit"]
     assert g["lean_warn"] is True
     assert g["lean_meta"].startswith("warn")
+
+
+def test_listed_fund_overlap_glance_refuses_bool_name_cap() -> None:
+    """True→1 must not invent a one-name theme strip via syms[:True]."""
+    assert (
+        _coerce_listed_fund_overlap_name_cap(True)
+        == LISTED_FUND_OVERLAP_NAME_CAP
+    )
+    assert (
+        _coerce_listed_fund_overlap_name_cap(False)
+        == LISTED_FUND_OVERLAP_NAME_CAP
+    )
+    assert (
+        _coerce_listed_fund_overlap_name_cap(0)
+        == LISTED_FUND_OVERLAP_NAME_CAP
+    )
+    assert (
+        _coerce_listed_fund_overlap_name_cap(None)
+        == LISTED_FUND_OVERLAP_NAME_CAP
+    )
+    assert _coerce_listed_fund_overlap_name_cap(2) == 2
+
+    # Curated gold theme has two names — bool ceilings must not collapse to 1.
+    holdings = [
+        {"symbol": "GLD"},
+        {"symbol": "4GLD.DE"},
+        {"symbol": "AAPL"},
+        {"symbol": "MSFT"},
+        {"symbol": "NVDA"},
+    ]
+    g_true = build_listed_fund_overlap_glance(holdings, symbols_n=True)
+    assert g_true["ready"] is True
+    assert g_true["count"] == 2
+    assert g_true["n_overlap"] == 2
+    assert "2 gold" in g_true["line"]
+    assert "GLD" in g_true["line"]
+    assert "4GLD.DE" in g_true["line"]
+    assert "+1" not in g_true["line"]
+
+    g_false = build_listed_fund_overlap_glance(holdings, symbols_n=False)
+    assert "2 gold" in g_false["line"]
+    assert "GLD" in g_false["line"]
+    assert "4GLD.DE" in g_false["line"]
+
+    g_short = build_listed_fund_overlap_glance(holdings, symbols_n=1)
+    assert "2 gold" in g_short["line"]
+    assert "GLD" in g_short["line"]
+    assert "4GLD.DE" not in g_short["line"]
+    assert "+1" in g_short["line"]
+    # Absolute theme count stays full holdings, not the bit cap.
+    assert g_short["count"] == 2
+    assert g_short["n_overlap"] == 2
 
 
 def test_listed_fund_overlap_glance_share_hot() -> None:
