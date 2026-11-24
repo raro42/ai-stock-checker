@@ -6,6 +6,8 @@ from pathlib import Path
 
 from openbb_backend.charts import _load_jsonl
 from openbb_backend.desk import (
+    LEDGER_SHORT_REFUSE_NAME_CAP,
+    _coerce_ledger_short_name_cap,
     build_ledger_health,
     ledger_short_lean_meta,
     ledger_short_vs_long_delta,
@@ -185,6 +187,61 @@ def test_ledger_missing_portfolio_with_fills_is_thin(tmp_path: Path) -> None:
     g = build_ledger_health(tmp_path)
     assert g["severity"] == "thin"
     assert g["line"] == "ledger thin · no portfolio"
+
+
+def test_ledger_short_refuse_refuses_bool_name_cap(tmp_path: Path) -> None:
+    """True→1 must not invent a one-name short strip via short_syms[:True]."""
+    import json
+
+    assert (
+        _coerce_ledger_short_name_cap(True) == LEDGER_SHORT_REFUSE_NAME_CAP
+    )
+    assert (
+        _coerce_ledger_short_name_cap(False) == LEDGER_SHORT_REFUSE_NAME_CAP
+    )
+    assert _coerce_ledger_short_name_cap(0) == LEDGER_SHORT_REFUSE_NAME_CAP
+    assert _coerce_ledger_short_name_cap(None) == LEDGER_SHORT_REFUSE_NAME_CAP
+    assert _coerce_ledger_short_name_cap(2) == 2
+
+    shorts = {
+        "S1": -1,
+        "S2": -2,
+        "S3": -3,
+        "S4": -4,
+        "S5": -5,
+        "LONG": 10,
+    }
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps({"cash": 1000, "holdings": shorts})
+    )
+    (tmp_path / "trades.jsonl").write_text('{"type":"BUY","symbol":"LONG"}\n')
+
+    g_true = build_ledger_health(tmp_path, symbols_n=True)
+    assert g_true["severity"] == "bad"
+    assert g_true["short_count"] == 5
+    assert g_true["short_symbols"] == ["S1", "S2", "S3", "S4", "S5"]
+    assert "5 short refuse" in g_true["line"]
+    assert "S1" in g_true["line"]
+    assert "S2" in g_true["line"]
+    assert "S3" in g_true["line"]
+    assert "S4" not in g_true["line"]
+    assert "S5" not in g_true["line"]
+    assert "+2" in g_true["line"]
+
+    g_false = build_ledger_health(tmp_path, symbols_n=False)
+    assert "5 short refuse" in g_false["line"]
+    assert "S3" in g_false["line"]
+    assert "S4" not in g_false["line"]
+    assert "+2" in g_false["line"]
+
+    g_short = build_ledger_health(tmp_path, symbols_n=2)
+    assert "S1" in g_short["line"]
+    assert "S2" in g_short["line"]
+    assert "S3" not in g_short["line"]
+    assert "+3" in g_short["line"]
+    # Absolute short_count stays full holdings, not the bit cap.
+    assert g_short["short_count"] == 5
+    assert "5 short refuse" in g_short["line"]
 
 
 def test_ledger_short_holdings_refuse(tmp_path: Path) -> None:

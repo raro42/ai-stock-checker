@@ -3125,6 +3125,22 @@ LEDGER_SHORT_LONG_SHARE_THIN = 50.0
 # short% − long% after severity lean (unmatched / Screener junk vs ok share Δ).
 LEDGER_SHORT_VS_LONG_DELTA_WIDE_PP = 20.0
 LEDGER_SHORT_VS_LONG_DELTA_THIN_PP = 10.0
+# Short-refuse glance name ceiling — bare ``short_syms[:3]`` lied when bool.
+LEDGER_SHORT_REFUSE_NAME_CAP = 3
+
+
+def _coerce_ledger_short_name_cap(
+    value: object, default: int = LEDGER_SHORT_REFUSE_NAME_CAP
+) -> int:
+    """Positive short-refuse name ceiling, or ``default`` when bool/gap/≤0.
+
+    tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must not invent
+    a one-name short strip via ``short_syms[:True]``; ``False→0`` must not wipe
+    (crypto / rebuy / stuck-capital name-cap peers — short refuse still sliced
+    bare ``[:3]``; absolute short_count stays full holdings).
+    """
+    return _coerce_honesty_name_cap(value, default=default)
+
 
 _LEDGER_SHORT_LEAN_NAME_CAP = 8
 _LEDGER_SHORT_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -3443,7 +3459,11 @@ def ledger_short_lean_meta(lean: str, *, warn: bool = False) -> str:
     )
 
 
-def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
+def build_ledger_health(
+    data_dir: Path | str,
+    *,
+    symbols_n: object = None,
+) -> dict[str, Any]:
     """Report portfolio.json / trades.jsonl parse health (display only).
 
     tradermonty #411: name a malformed shard. Do not show an empty book as truth.
@@ -3595,9 +3615,15 @@ def build_ledger_health(data_dir: Path | str) -> dict[str, Any]:
         if short_syms:
             severity = "bad"
             n = len(short_syms)
-            shown = " · ".join(short_syms[:3])
-            if n > 3:
-                shown = f"{shown} · +{n - 3}"
+            # True→1 must not invent a one-name strip via short_syms[:True]
+            # (crypto / rebuy / stuck name-cap peers — short was bare [:3]).
+            sym_cap = _coerce_ledger_short_name_cap(
+                LEDGER_SHORT_REFUSE_NAME_CAP if symbols_n is None else symbols_n,
+                LEDGER_SHORT_REFUSE_NAME_CAP,
+            )
+            shown = " · ".join(short_syms[:sym_cap])
+            if n > sym_cap:
+                shown = f"{shown} · +{n - sym_cap}"
             short_bit = f"{n} short refuse · {shown}"
             if n_book > 0:
                 short_share_pct = round(100.0 * n / n_book)
