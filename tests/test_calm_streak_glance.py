@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date
 
 from openbb_backend.desk import (
+    CALM_STREAK_GLANCE_DETAIL_MAX,
     _calm_detail_is_promote_off_pause,
+    _clip_calm_streak_glance_detail,
     build_calm_streak_glance,
 )
 from stock_checker.promote_ab import (
@@ -47,6 +49,32 @@ def test_calm_streak_glance_refuses_bool_days() -> None:
     )
     assert g2["streak"] == 0
     assert g2["required"] == 30
+
+
+def test_calm_streak_glance_refuses_bool_detail_ceiling() -> None:
+    """True→1 must not invent a one-char pause/block strip via detail[:True]."""
+    long = "book overweight because " + ("x" * 60)
+    clipped = long[: CALM_STREAK_GLANCE_DETAIL_MAX - 1] + "…"
+    assert _clip_calm_streak_glance_detail(long, True) == clipped
+    assert _clip_calm_streak_glance_detail(long, False) == clipped
+    assert clipped != "b…"
+    assert _clip_calm_streak_glance_detail(long, 8) == long[:7] + "…"
+
+    runtime = {
+        "calm_streak_days": 0,
+        "calm_required_days": 30,
+        "calm_ready": False,
+        "calm_detail": long,
+    }
+    g_true = build_calm_streak_glance(runtime, detail_n=True)
+    assert g_true["ready"] is True
+    assert g_true["detail_short"] == clipped
+    assert clipped in g_true["line"]
+    g_false = build_calm_streak_glance(runtime, detail_n=False)
+    assert g_false["detail_short"] == clipped
+    g_short = build_calm_streak_glance(runtime, detail_n=8)
+    assert g_short["detail_short"] == long[:7] + "…"
+    assert len(g_short["detail_short"]) == 8
 
 
 def test_calm_detail_is_promote_off_pause() -> None:

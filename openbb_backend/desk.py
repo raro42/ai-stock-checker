@@ -8193,6 +8193,46 @@ def build_entry_gates_glance(
     }
 
 
+# Calm-streak glance detail ceiling — bare ``detail[:47]`` lied when bool.
+CALM_STREAK_GLANCE_DETAIL_MAX = 48
+
+
+def _coerce_calm_streak_glance_detail_chars(
+    value: object, default: int = CALM_STREAK_GLANCE_DETAIL_MAX
+) -> int:
+    """Positive calm-streak glance detail ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Ops pause/block strip via ``detail[:True]``;
+    ``False→0`` must not wipe (AI-mode / soft-allow glance clip peers —
+    calm detail was still bare ``[:47]``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_calm_streak_glance_detail(
+    detail: object,
+    limit: object = None,
+    *,
+    default: int = CALM_STREAK_GLANCE_DETAIL_MAX,
+) -> str:
+    """Ellipsis-cut calm_detail for Overview/Ops calm-streak glance."""
+    ceiling = _coerce_calm_streak_glance_detail_chars(
+        default if limit is None else limit, default
+    )
+    text = str(detail or "").strip()
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
 def _calm_detail_is_promote_off_pause(detail: str) -> bool:
     """True when calm streak is intentionally paused (Window A / promote off).
 
@@ -8214,6 +8254,7 @@ def build_calm_streak_glance(
     as_of: date | None = None,
     data_dir: Path | str | None = None,
     window_stats: dict[str, Any] | None = None,
+    detail_n: object = None,
 ) -> dict[str, Any]:
     """Compact paper-calm promote-unlock line (Phase A / portfolio AI; display only).
 
@@ -8258,6 +8299,7 @@ def build_calm_streak_glance(
         "streak": 0,
         "required": 0,
         "calm_ready": False,
+        "detail_short": "",
         "promote_off_paused": False,
         "window_a_days": None,
         "window_a_target_days": None,
@@ -21667,9 +21709,13 @@ def build_calm_streak_glance(
         status = "building"
     line = f"{streak}/{need} calm days · {status}"
     # Promote-off pause already names the why; do not repeat the long detail.
+    # FinRobot + tradermonty #700/#655: refuse bool detail clip —
+    # True→1 must not invent a one-char strip via detail[:True]
+    # (AI-mode / soft-allow glance clip peers — calm was bare [:47]).
+    detail_short = ""
     if detail and not calm_ready and not promote_off_paused:
-        short = detail if len(detail) <= 48 else (detail[:47] + "…")
-        line = f"{line} · {short}"
+        detail_short = _clip_calm_streak_glance_detail(detail, detail_n)
+        line = f"{line} · {detail_short}"
     if len(line) > 96:
         line = line[:95] + "…"
     return {
@@ -21679,6 +21725,7 @@ def build_calm_streak_glance(
         "streak": streak,
         "required": need,
         "calm_ready": calm_ready,
+        "detail_short": detail_short,
         "promote_off_paused": promote_off_paused,
         "window_a_days": window_a_days,
         "window_a_target_days": window_a_target_days,
