@@ -7626,9 +7626,47 @@ def build_soft_allow_glance(
     }
 
 
+# Pretrade glance notes ceiling — bare ``joined[:95]+…`` lied when bool
+# (Ops precedence / calm-detail clip peers).
+PRETRADE_NOTES_CHARS = 96
+
+
+def _coerce_pretrade_notes_chars(
+    value: object, default: int = PRETRADE_NOTES_CHARS
+) -> int:
+    """Positive pretrade notes ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char pretrade strip via ``joined[:True]``; ``False→0``
+    must not wipe (Ops precedence / calm-detail clip peers — notes truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_pretrade_notes(text: object, n: object = None) -> str:
+    """Ellipsis-truncate pretrade glance notes join to a safe ceiling."""
+    ceiling = _coerce_pretrade_notes_chars(
+        PRETRADE_NOTES_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_pretrade_glance(
     level: str | None,
     notes: list[str] | None,
+    *,
+    notes_n: object = None,
 ) -> dict[str, Any]:
     """Compact PASS/WARN/FAIL checklist (tradermonty pre-trade gate; display only).
 
@@ -7646,8 +7684,9 @@ def build_pretrade_glance(
         return empty
     note_list = [str(n).strip() for n in (notes or []) if str(n).strip()]
     joined = "; ".join(note_list) if note_list else "ok"
-    if len(joined) > 96:
-        joined = joined[:95] + "…"
+    # True→1 must not invent a one-char strip via joined[:True]
+    # (Ops precedence / calm-detail peers — notes truncate was still bare [:95]+…).
+    joined = _clip_pretrade_notes(joined, notes_n)
     tone = raw.lower()
     return {
         "ready": True,
