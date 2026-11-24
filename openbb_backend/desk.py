@@ -146,6 +146,10 @@ GH_WATCH_WHY_MAX = 95
 # composed quiet notes lied when a bool ceiling later sliced ``idea[:True]``
 # (tip/date/why already refused; bullet + quiet-note text was still open).
 GH_WATCH_IDEA_MAX = 160
+# Ideas repo-name ceiling — bare passthrough ``repo`` lied when a bool
+# ceiling later sliced ``repo[:True]`` (tip/date/why/idea already refused;
+# watched owner/repo link text was still open).
+GH_WATCH_REPO_MAX = 48
 
 
 def _coerce_recent_fills_limit(
@@ -314,6 +318,32 @@ def _clip_gh_watch_idea(
     """Ellipsis-cut Ideas activity bullet or quiet note for desk."""
     ceiling = _coerce_gh_watch_idea_chars(limit)
     text = str(idea or "").strip()
+    if len(text) <= ceiling:
+        return text
+    if ceiling <= 1:
+        return "…"
+    return text[: ceiling - 1] + "…"
+
+
+def _coerce_gh_watch_repo_chars(
+    value: object, default: int = GH_WATCH_REPO_MAX
+) -> int:
+    """Positive Ideas repo-name ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char repo via ``repo[:True]``;
+    ``False→0`` must not wipe (tip + date + why + idea clip peers —
+    watched owner/repo link text was still an unclipped passthrough).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _clip_gh_watch_repo(
+    repo: object, limit: object = GH_WATCH_REPO_MAX
+) -> str:
+    """Ellipsis-cut Ideas watched repo name for desk (not digest writer)."""
+    ceiling = _coerce_gh_watch_repo_chars(limit)
+    text = str(repo or "").strip()
     if len(text) <= ceiling:
         return text
     if ceiling <= 1:
@@ -38754,6 +38784,7 @@ def load_desk_snapshot(
     gh_date_n: object = None,
     gh_why_n: object = None,
     gh_idea_n: object = None,
+    gh_repo_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38834,6 +38865,12 @@ def load_desk_snapshot(
     gh_idea_cap = _coerce_gh_watch_idea_chars(
         GH_WATCH_IDEA_MAX if gh_idea_n is None else gh_idea_n,
         GH_WATCH_IDEA_MAX,
+    )
+    # True→1 must not invent a one-char repo via repo[:True]
+    # (tip + date + why + idea clip peers — owner/repo link was unclipped).
+    gh_repo_cap = _coerce_gh_watch_repo_chars(
+        GH_WATCH_REPO_MAX if gh_repo_n is None else gh_repo_n,
+        GH_WATCH_REPO_MAX,
     )
 
     if live_marks is None:
@@ -39306,9 +39343,11 @@ def load_desk_snapshot(
             )
         # True→1 must not invent a one-char why via why[:True].
         why = _clip_gh_watch_why(row.get("why"), gh_why_cap)
+        # True→1 must not invent a one-char repo via repo[:True].
+        repo_name = _clip_gh_watch_repo(row.get("repo"), gh_repo_cap)
         gh_repos.append(
             {
-                "repo": row.get("repo") or "",
+                "repo": repo_name,
                 "url": row.get("url") or "",
                 "why": why,
                 "stars": _sample_count(row.get("stars")),
@@ -40053,6 +40092,7 @@ def load_desk_snapshot(
         "github_watch_date_limit": gh_date_cap,
         "github_watch_why_limit": gh_why_cap,
         "github_watch_idea_limit": gh_idea_cap,
+        "github_watch_repo_limit": gh_repo_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
