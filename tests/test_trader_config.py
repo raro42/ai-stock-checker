@@ -7,8 +7,11 @@ from pathlib import Path
 
 from stock_checker.trader_config import (
     AI_MODEL_CHARS,
+    PRECEDENCE_LINE_CHARS,
     _clip_ai_model,
+    _clip_precedence_line,
     _coerce_ai_model_chars,
+    _coerce_precedence_line_chars,
     config_precedence_status,
     load_trader_config,
     normalize_config,
@@ -92,6 +95,34 @@ def test_normalize_ai_model_refuses_bool_clip_ceiling() -> None:
         {"ai_model": long_model}, base=base, ai_model_n=10
     )
     assert thin["ai_model"] == long_model[:10]
+
+
+def test_coerce_precedence_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Ops precedence strip; False must not wipe."""
+    assert _coerce_precedence_line_chars(True) == PRECEDENCE_LINE_CHARS
+    assert _coerce_precedence_line_chars(False) == PRECEDENCE_LINE_CHARS
+    assert _coerce_precedence_line_chars(0) == PRECEDENCE_LINE_CHARS
+    assert _coerce_precedence_line_chars(None) == PRECEDENCE_LINE_CHARS
+    assert _coerce_precedence_line_chars(40) == 40
+
+
+def test_clip_precedence_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long_line = "file · Ops wins · " + ("x" * 200)
+    assert len(long_line) > PRECEDENCE_LINE_CHARS
+    default = _clip_precedence_line(long_line)
+    assert len(default) == PRECEDENCE_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long_line[: PRECEDENCE_LINE_CHARS - 1] + "…"
+    assert _clip_precedence_line(long_line, True) == default
+    assert _clip_precedence_line(long_line, False) == default
+    assert _clip_precedence_line(long_line, 0) == default
+    thin = _clip_precedence_line(long_line, 12)
+    assert thin == long_line[:11] + "…"
+    assert len(thin) == 12
+    assert _clip_precedence_line("short") == "short"
+    assert _clip_precedence_line("") == ""
+    assert _clip_precedence_line(None) == ""
 
 
 def test_normalize_refuses_bool_fee_hold_max():
@@ -607,6 +638,13 @@ def test_config_precedence_meter_survives_truncate(tmp_path: Path, monkeypatch):
     assert st["line"].index(st["meter"]) < st["line"].index("lead win")
     assert st["line"].index("lead win") < st["line"].index("10 · 100%")
     assert len(st["line"]) <= 120
+    # Bool ceilings fall back to PRECEDENCE_LINE_CHARS (not True→1 / False→0 wipe).
+    assert config_precedence_status(tmp_path, line_n=True)["line"] == st["line"]
+    assert config_precedence_status(tmp_path, line_n=False)["line"] == st["line"]
+    thin = config_precedence_status(tmp_path, line_n=24)
+    assert len(thin["line"]) == 24
+    assert thin["line"].endswith("…")
+    assert st["meter"] in thin["line"] or thin["line"].startswith("file")
 
 
 def test_config_precedence_sample_gap_helper():

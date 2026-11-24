@@ -308,6 +308,9 @@ def _values_differ(a: Any, b: Any) -> bool:
 
 
 _PRECEDENCE_KEY_LIST_LIMIT = 4
+# Ops precedence glance line ceiling — bare ``line[:119]+…`` lied when bool
+# (ai_model / key-list clip peers).
+PRECEDENCE_LINE_CHARS = 120
 
 
 def _coerce_key_list_limit(
@@ -326,6 +329,37 @@ def _coerce_key_list_limit(
     if n is None or n <= 0:
         return int(default)
     return n
+
+
+def _coerce_precedence_line_chars(
+    value: object, default: int = PRECEDENCE_LINE_CHARS
+) -> int:
+    """Positive Ops precedence line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Ops precedence strip via ``line[:True]``;
+    ``False→0`` must not wipe (ai_model / key-list clip peers — line truncate
+    was still bare ``[:119]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_precedence_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate Ops precedence glance line to a safe ceiling."""
+    ceiling = _coerce_precedence_line_chars(
+        PRECEDENCE_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
 
 
 def _format_key_list(
@@ -749,7 +783,10 @@ def _precedence_core(
 
 
 def config_precedence_status(
-    data_dir: Path | str, *, now: datetime | None = None
+    data_dir: Path | str,
+    *,
+    now: datetime | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Report Ops file vs env/compose precedence (display / API honesty).
 
@@ -913,8 +950,9 @@ def config_precedence_status(
 
     age = _ops_file_age(path, now=now)
     line = _with_saved_age(line, str(age.get("file_age_line") or ""))
-    if len(line) > 120:
-        line = line[:119] + "…"
+    # True→1 must not invent a one-char strip via line[:True]
+    # (ai_model / key-list peers — line truncate was still bare [:119]+…).
+    line = _clip_precedence_line(line, line_n)
     # Age spoke ≠ severity: stale saved row is a warn, not a quiet override.
     if age.get("file_freshness") == "stale" and tone != "warn":
         tone = "warn"
