@@ -150,6 +150,10 @@ GH_WATCH_IDEA_MAX = 160
 # ceiling later sliced ``repo[:True]`` (tip/date/why/idea already refused;
 # watched owner/repo link text was still open).
 GH_WATCH_REPO_MAX = 48
+# Ideas last-check stamp ceiling — bare passthrough ``generated_at`` /
+# ``github_watch_at`` lied when a bool ceiling later sliced ``at[:True]``
+# (tip/date/why/idea/repo already refused; digest stamp display was still open).
+GH_WATCH_AT_CHARS = 20
 
 
 def _coerce_recent_fills_limit(
@@ -349,6 +353,30 @@ def _clip_gh_watch_repo(
     if ceiling <= 1:
         return "…"
     return text[: ceiling - 1] + "…"
+
+
+def _coerce_gh_watch_at_chars(
+    value: object, default: int = GH_WATCH_AT_CHARS
+) -> int:
+    """Positive Ideas last-check stamp ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char ``Last check`` via ``at[:True]``;
+    ``False→0`` must not wipe (tip + date + why + idea + repo clip peers —
+    ``generated_at`` / ``github_watch_at`` was still an unclipped passthrough).
+    """
+    return _coerce_recent_fills_limit(value, default=default)
+
+
+def _clip_gh_watch_at(
+    stamp: object, limit: object = GH_WATCH_AT_CHARS
+) -> str:
+    """ISO stamp prefix for Ideas last-check (no ellipsis; empty when missing)."""
+    ceiling = _coerce_gh_watch_at_chars(limit)
+    text = str(stamp or "").strip()
+    if not text:
+        return ""
+    return text[:ceiling]
 
 
 def _fill_commission(value: object) -> Optional[float]:
@@ -38785,6 +38813,7 @@ def load_desk_snapshot(
     gh_why_n: object = None,
     gh_idea_n: object = None,
     gh_repo_n: object = None,
+    gh_at_n: object = None,
 ) -> dict[str, Any]:
     """Build the paper desk view model from on-disk trader state.
 
@@ -38871,6 +38900,12 @@ def load_desk_snapshot(
     gh_repo_cap = _coerce_gh_watch_repo_chars(
         GH_WATCH_REPO_MAX if gh_repo_n is None else gh_repo_n,
         GH_WATCH_REPO_MAX,
+    )
+    # True→1 must not invent a one-char Last check via at[:True]
+    # (tip/date/why/idea/repo peers — generated_at was an unclipped passthrough).
+    gh_at_cap = _coerce_gh_watch_at_chars(
+        GH_WATCH_AT_CHARS if gh_at_n is None else gh_at_n,
+        GH_WATCH_AT_CHARS,
     )
 
     if live_marks is None:
@@ -39308,7 +39343,8 @@ def load_desk_snapshot(
     ]
     # Refuse bool — int(True)→1 must not invent Ideas «1 with new activity».
     gh_updates = _sample_count(gh_watch.get("update_count"))
-    gh_at = gh_watch.get("generated_at") or ""
+    # True→1 must not invent a one-char Last check via at[:True].
+    gh_at = _clip_gh_watch_at(gh_watch.get("generated_at"), gh_at_cap)
     gh_repo_count = _sample_count(gh_watch.get("repo_count"))
     gh_checked = _sample_count(gh_watch.get("checked_count"))
     gh_repos: list[dict[str, Any]] = []
@@ -40093,6 +40129,7 @@ def load_desk_snapshot(
         "github_watch_why_limit": gh_why_cap,
         "github_watch_idea_limit": gh_idea_cap,
         "github_watch_repo_limit": gh_repo_cap,
+        "github_watch_at_limit": gh_at_cap,
         "adopted_ideas": adopted_ideas,
         "runtime": runtime,
     }
