@@ -7902,8 +7902,46 @@ def policy_honesty_fold_meta(
     return " · ".join(parts), True
 
 
+# Book-risk glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (pretrade notes / Ops precedence clip peers).
+BOOK_RISK_LINE_CHARS = 96
+
+
+def _coerce_book_risk_line_chars(
+    value: object, default: int = BOOK_RISK_LINE_CHARS
+) -> int:
+    """Positive book-risk line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char slots/posture strip via ``line[:True]``; ``False→0``
+    must not wipe (pretrade notes / Ops precedence clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_book_risk_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate book-risk glance line to a safe ceiling."""
+    ceiling = _coerce_book_risk_line_chars(
+        BOOK_RISK_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_book_risk_glance(
     book_risk: dict[str, Any] | None,
+    *,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact slots/posture line (staskh + portfolio AI; display only).
 
@@ -7926,8 +7964,9 @@ def build_book_risk_glance(
         return empty
     note = str(book_risk.get("note") or "").strip()
     line = note if note else f"{slots} slots · {posture}"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char strip via line[:True]
+    # (pretrade notes / Ops precedence peers — truncate was still bare [:95]+…).
+    line = _clip_book_risk_line(line, line_n)
     tone = {
         "open": "open",
         "at_cap": "at_cap",
