@@ -27556,7 +27556,43 @@ def build_promote_ab_glance(
     }
 
 
-def build_exit_policy_glance() -> dict[str, Any]:
+# Exit-policy glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (calm-streak / listed-fund / Conc clip peers).
+EXIT_POLICY_LINE_CHARS = 96
+
+
+def _coerce_exit_policy_line_chars(
+    value: object, default: int = EXIT_POLICY_LINE_CHARS
+) -> int:
+    """Positive exit-policy glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Exits strip via ``line[:True]``; ``False→0``
+    must not wipe (calm-streak / listed-fund clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_exit_policy_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate exit-policy glance line to a safe ceiling."""
+    ceiling = _coerce_exit_policy_line_chars(
+        EXIT_POLICY_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_exit_policy_glance(*, line_n: object = None) -> dict[str, Any]:
     """Compact stock exit asymmetry line (portfolio AI / exit_policy; display only).
 
     Live stock exits are TP +8% / SL −5% / rotate ≥+5%. Designed reward:risk is
@@ -27581,8 +27617,9 @@ def build_exit_policy_glance() -> dict[str, Any]:
         )
     else:
         line = f"stocks TP +{tp:g}% · SL −{sl:g}% · rotate ≥+{rot:g}%"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Exits strip via line[:True]
+    # (calm-streak / listed-fund peers — truncate was still bare [:95]+…).
+    line = _clip_exit_policy_line(line, line_n)
     return {
         "ready": True,
         "tone": "stock",
