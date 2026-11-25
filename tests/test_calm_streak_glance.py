@@ -6,8 +6,11 @@ from datetime import date
 
 from openbb_backend.desk import (
     CALM_STREAK_GLANCE_DETAIL_MAX,
+    CALM_STREAK_LINE_CHARS,
     _calm_detail_is_promote_off_pause,
     _clip_calm_streak_glance_detail,
+    _clip_calm_streak_line,
+    _coerce_calm_streak_line_chars,
     build_calm_streak_glance,
 )
 from stock_checker.promote_ab import (
@@ -75,6 +78,60 @@ def test_calm_streak_glance_refuses_bool_detail_ceiling() -> None:
     g_short = build_calm_streak_glance(runtime, detail_n=8)
     assert g_short["detail_short"] == long[:7] + "…"
     assert len(g_short["detail_short"]) == 8
+
+
+def test_coerce_calm_streak_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char calm strip; False must not wipe."""
+    assert _coerce_calm_streak_line_chars(True) == CALM_STREAK_LINE_CHARS
+    assert _coerce_calm_streak_line_chars(False) == CALM_STREAK_LINE_CHARS
+    assert _coerce_calm_streak_line_chars(0) == CALM_STREAK_LINE_CHARS
+    assert _coerce_calm_streak_line_chars(None) == CALM_STREAK_LINE_CHARS
+    assert _coerce_calm_streak_line_chars(40) == 40
+
+
+def test_clip_calm_streak_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > CALM_STREAK_LINE_CHARS
+    default = _clip_calm_streak_line(long)
+    assert len(default) == CALM_STREAK_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: CALM_STREAK_LINE_CHARS - 1] + "…"
+    assert _clip_calm_streak_line(long, True) == default
+    assert _clip_calm_streak_line(long, False) == default
+    assert _clip_calm_streak_line(long, 0) == default
+    thin = _clip_calm_streak_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+    assert _clip_calm_streak_line("short") == "short"
+    assert _clip_calm_streak_line("") == ""
+    assert _clip_calm_streak_line(None) == ""
+
+
+def test_calm_streak_glance_refuses_bool_line_ceiling() -> None:
+    """True→1 must not invent a one-char calm strip via line[:True]."""
+    long = "book overweight because " + ("x" * 80)
+    runtime = {
+        "calm_streak_days": 0,
+        "calm_required_days": 30,
+        "calm_ready": False,
+        "calm_detail": long,
+    }
+    default = build_calm_streak_glance(runtime)
+    assert default["ready"] is True
+    clipped = default["line"]
+    assert len(clipped) <= CALM_STREAK_LINE_CHARS
+    assert clipped.endswith("…")
+    g_true = build_calm_streak_glance(runtime, line_n=True)
+    assert g_true["line"] == clipped
+    g_false = build_calm_streak_glance(runtime, line_n=False)
+    assert g_false["line"] == clipped
+    g_short = build_calm_streak_glance(runtime, line_n=8)
+    assert g_short["line"].endswith("…")
+    assert len(g_short["line"]) == 8
+    # Absolute streak/required stay full, not the line ceiling.
+    assert g_short["streak"] == 0
+    assert g_short["required"] == 30
 
 
 def test_calm_detail_is_promote_off_pause() -> None:

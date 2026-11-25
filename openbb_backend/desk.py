@@ -8654,6 +8654,9 @@ def build_entry_gates_glance(
 
 # Calm-streak glance detail ceiling — bare ``detail[:47]`` lied when bool.
 CALM_STREAK_GLANCE_DETAIL_MAX = 48
+# Calm-streak glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (listed-fund / Conc / book-risk clip peers).
+CALM_STREAK_LINE_CHARS = 96
 
 
 def _coerce_calm_streak_glance_detail_chars(
@@ -8692,6 +8695,37 @@ def _clip_calm_streak_glance_detail(
     return text[: ceiling - 1] + "…"
 
 
+def _coerce_calm_streak_line_chars(
+    value: object, default: int = CALM_STREAK_LINE_CHARS
+) -> int:
+    """Positive calm-streak glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char calm strip via ``line[:True]``; ``False→0``
+    must not wipe (listed-fund / Conc / book-risk clip peers — line truncate
+    was still bare ``[:95]+…`` after detail clip refuse).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_calm_streak_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate calm-streak glance line to a safe ceiling."""
+    ceiling = _coerce_calm_streak_line_chars(
+        CALM_STREAK_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def _calm_detail_is_promote_off_pause(detail: str) -> bool:
     """True when calm streak is intentionally paused (Window A / promote off).
 
@@ -8714,6 +8748,7 @@ def build_calm_streak_glance(
     data_dir: Path | str | None = None,
     window_stats: dict[str, Any] | None = None,
     detail_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact paper-calm promote-unlock line (Phase A / portfolio AI; display only).
 
@@ -22175,8 +22210,9 @@ def build_calm_streak_glance(
     if detail and not calm_ready and not promote_off_paused:
         detail_short = _clip_calm_streak_glance_detail(detail, detail_n)
         line = f"{line} · {detail_short}"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char calm strip via line[:True]
+    # (listed-fund / Conc peers — truncate was still bare [:95]+…).
+    line = _clip_calm_streak_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
