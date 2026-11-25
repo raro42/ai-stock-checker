@@ -5,7 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_gate_params_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    GATE_PARAMS_LINE_CHARS,
+    _clip_gate_params_line,
+    _coerce_gate_params_line_chars,
+    build_gate_params_glance,
+    load_desk_snapshot,
+)
 from stock_checker.market_regime import (
     CRYPTO_BENCHMARK,
     CRYPTO_BENCHMARK_IDENTITY,
@@ -23,6 +29,44 @@ from stock_checker.scan_breadth_gate import (
     DEFAULT_MIN_ADVANCE_RATIO,
     DEFAULT_MIN_STOCK_LEADERS,
 )
+
+
+def test_coerce_gate_params_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Params strip; False must not wipe."""
+    assert _coerce_gate_params_line_chars(True) == GATE_PARAMS_LINE_CHARS
+    assert _coerce_gate_params_line_chars(False) == GATE_PARAMS_LINE_CHARS
+    assert _coerce_gate_params_line_chars(0) == GATE_PARAMS_LINE_CHARS
+    assert _coerce_gate_params_line_chars(None) == GATE_PARAMS_LINE_CHARS
+    assert _coerce_gate_params_line_chars(40) == 40
+
+
+def test_clip_gate_params_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > GATE_PARAMS_LINE_CHARS
+    default = _clip_gate_params_line(long)
+    assert len(default) == GATE_PARAMS_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: GATE_PARAMS_LINE_CHARS - 1] + "…"
+    assert _clip_gate_params_line(long, True) == default
+    assert _clip_gate_params_line(long, False) == default
+    assert _clip_gate_params_line(long, 0) == default
+    thin = _clip_gate_params_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_gate_params_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    g = build_gate_params_glance()
+    g_bool = build_gate_params_glance(line_n=True)
+    g_false = build_gate_params_glance(line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= GATE_PARAMS_LINE_CHARS
+    g_short = build_gate_params_glance(line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
 
 
 def test_gate_params_glance_line() -> None:
