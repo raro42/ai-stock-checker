@@ -31475,6 +31475,39 @@ def _decision_sample_gap(total: int, lead_name: str) -> str:
 LAYA_GLANCE_MODEL_MAX_OFF = 20
 LAYA_GLANCE_MODEL_MAX_ON = 16
 
+# LAYA glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (AI-mode / AI-roles clip peers).
+LAYA_LINE_CHARS = 96
+
+
+def _coerce_laya_line_chars(
+    value: object, default: int = LAYA_LINE_CHARS
+) -> int:
+    """Positive LAYA glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + QuantDinger/JEV + tradermonty #700/#655 + xang1234/portfolio AI:
+    ``True→1`` must not invent a one-char LAYA strip via ``line[:True]``;
+    ``False→0`` must not wipe (AI-mode / AI-roles clip peers — line truncate
+    was still bare ``[:95]+…`` after model clip refuse).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_laya_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate LAYA glance line to a safe ceiling."""
+    ceiling = _coerce_laya_line_chars(LAYA_LINE_CHARS if n is None else n)
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
 
 def _coerce_laya_glance_model_chars(
     value: object, default: int = LAYA_GLANCE_MODEL_MAX_ON
@@ -31519,6 +31552,7 @@ def build_laya_glance(
     scan_interval_sec: int = 900,
     scan_time: Any = None,
     model_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """LAYA / JEV System-1 advisory honesty (display only; not a gate).
 
@@ -32359,8 +32393,9 @@ def build_laya_glance(
         else:
             tone = "advisory"
 
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char LAYA strip via line[:True]
+    # (AI-mode / AI-roles peers — truncate was still bare [:95]+…).
+    line = _clip_laya_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,

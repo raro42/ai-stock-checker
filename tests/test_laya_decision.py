@@ -312,6 +312,78 @@ def test_laya_glance_refuses_bool_model_ceiling(monkeypatch, tmp_path: Path) -> 
     assert len(g_short["model_short"]) == 8
 
 
+def test_coerce_laya_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char LAYA strip; False must not wipe."""
+    from openbb_backend.desk import (
+        LAYA_LINE_CHARS,
+        _coerce_laya_line_chars,
+    )
+
+    assert _coerce_laya_line_chars(True) == LAYA_LINE_CHARS
+    assert _coerce_laya_line_chars(False) == LAYA_LINE_CHARS
+    assert _coerce_laya_line_chars(0) == LAYA_LINE_CHARS
+    assert _coerce_laya_line_chars(None) == LAYA_LINE_CHARS
+    assert _coerce_laya_line_chars(40) == 40
+
+
+def test_clip_laya_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    from openbb_backend.desk import (
+        LAYA_LINE_CHARS,
+        _clip_laya_line,
+    )
+
+    long = "x" * 120
+    assert len(long) > LAYA_LINE_CHARS
+    default = _clip_laya_line(long)
+    assert len(default) == LAYA_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: LAYA_LINE_CHARS - 1] + "…"
+    assert _clip_laya_line(long, True) == default
+    assert _clip_laya_line(long, False) == default
+    assert _clip_laya_line(long, 0) == default
+    thin = _clip_laya_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_laya_glance_refuses_bool_line_ceiling(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    from openbb_backend.desk import LAYA_LINE_CHARS
+
+    monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
+    monkeypatch.setenv("LAYA_ADVISORY", "1")
+
+    def _fake_status(_root):
+        return {
+            "configured": True,
+            "advisory": True,
+            "model": "systemone",
+            "stats": {
+                "pass": 0,
+                "hold": 0,
+                "reject": 0,
+                "fail_open": 0,
+                "newest": None,
+            },
+        }
+
+    monkeypatch.setattr(
+        "stock_checker.laya_decision.laya_status", _fake_status
+    )
+    g = build_laya_glance(tmp_path)
+    g_bool = build_laya_glance(tmp_path, line_n=True)
+    g_false = build_laya_glance(tmp_path, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= LAYA_LINE_CHARS
+    g_short = build_laya_glance(tmp_path, line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
+
+
 def test_laya_glance_advisory(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("LAYA_BASE_URL", "http://laya.test")
     monkeypatch.setenv("LAYA_ADVISORY", "1")
