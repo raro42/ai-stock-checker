@@ -3,7 +3,60 @@
 from __future__ import annotations
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_promote_contract_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    PROMOTE_CONTRACT_LINE_CHARS,
+    _clip_promote_contract_line,
+    _coerce_promote_contract_line_chars,
+    build_promote_contract_glance,
+    load_desk_snapshot,
+)
+
+
+def test_coerce_promote_contract_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char promote strip; False must not wipe."""
+    assert (
+        _coerce_promote_contract_line_chars(True) == PROMOTE_CONTRACT_LINE_CHARS
+    )
+    assert (
+        _coerce_promote_contract_line_chars(False) == PROMOTE_CONTRACT_LINE_CHARS
+    )
+    assert (
+        _coerce_promote_contract_line_chars(0) == PROMOTE_CONTRACT_LINE_CHARS
+    )
+    assert (
+        _coerce_promote_contract_line_chars(None) == PROMOTE_CONTRACT_LINE_CHARS
+    )
+    assert _coerce_promote_contract_line_chars(40) == 40
+
+
+def test_clip_promote_contract_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > PROMOTE_CONTRACT_LINE_CHARS
+    default = _clip_promote_contract_line(long)
+    assert len(default) == PROMOTE_CONTRACT_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: PROMOTE_CONTRACT_LINE_CHARS - 1] + "…"
+    assert _clip_promote_contract_line(long, True) == default
+    assert _clip_promote_contract_line(long, False) == default
+    assert _clip_promote_contract_line(long, 0) == default
+    thin = _clip_promote_contract_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_promote_contract_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    rt = {"promote_experiment_strategy": True}
+    g = build_promote_contract_glance(rt)
+    g_bool = build_promote_contract_glance(rt, line_n=True)
+    g_false = build_promote_contract_glance(rt, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= PROMOTE_CONTRACT_LINE_CHARS
+    g_short = build_promote_contract_glance(rt, line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
 
 
 def test_promote_contract_glance_off() -> None:
