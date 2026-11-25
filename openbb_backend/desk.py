@@ -30758,7 +30758,43 @@ _FEE_PRESET_SHORT: dict[str, str] = {
 
 
 
-def build_ai_roles_glance() -> dict[str, Any]:
+# AI-roles glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (gate-roles / gate-params clip peers).
+AI_ROLES_LINE_CHARS = 96
+
+
+def _coerce_ai_roles_line_chars(
+    value: object, default: int = AI_ROLES_LINE_CHARS
+) -> int:
+    """Positive AI-roles glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char AI-roles strip via ``line[:True]``; ``False→0``
+    must not wipe (gate-roles / gate-params clip peers — line truncate was
+    still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_ai_roles_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate AI-roles glance line to a safe ceiling."""
+    ceiling = _coerce_ai_roles_line_chars(
+        AI_ROLES_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_ai_roles_glance(*, line_n: object = None) -> dict[str, Any]:
     """FinRobot / TradingAgents role contract (display only).
 
     Validate multi-role uses bull / bear / risk officers. Disagreement or
@@ -30767,8 +30803,9 @@ def build_ai_roles_glance() -> dict[str, Any]:
     """
     roles = ("bull", "bear", "risk")
     line = "bull · bear · risk · disagree→HOLD · risk.ok=false→HOLD"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char AI-roles strip via line[:True]
+    # (gate-roles / gate-params peers — truncate was still bare [:95]+…).
+    line = _clip_ai_roles_line(line, line_n)
     return {
         "ready": True,
         "tone": "roles",
