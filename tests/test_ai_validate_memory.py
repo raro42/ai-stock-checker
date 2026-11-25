@@ -6,7 +6,13 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from openbb_backend.desk import build_ai_debate_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    AI_DEBATE_LINE_CHARS,
+    _clip_ai_debate_line,
+    _coerce_ai_debate_line_chars,
+    build_ai_debate_glance,
+    load_desk_snapshot,
+)
 from stock_checker.ai_multi_role import consensus_from_multi_role
 from stock_checker.ai_validate_memory import (
     _score,
@@ -220,6 +226,49 @@ def test_build_ai_debate_glance_empty(tmp_path: Path) -> None:
     assert g["tone"] == "empty"
     assert "empty" in g["line"].lower() or "No validate" in g["line"]
     assert g["freshness"] == ""
+
+
+def test_coerce_ai_debate_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Debate strip; False must not wipe."""
+    assert _coerce_ai_debate_line_chars(True) == AI_DEBATE_LINE_CHARS
+    assert _coerce_ai_debate_line_chars(False) == AI_DEBATE_LINE_CHARS
+    assert _coerce_ai_debate_line_chars(0) == AI_DEBATE_LINE_CHARS
+    assert _coerce_ai_debate_line_chars(None) == AI_DEBATE_LINE_CHARS
+    assert _coerce_ai_debate_line_chars(40) == 40
+
+
+def test_clip_ai_debate_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > AI_DEBATE_LINE_CHARS
+    default = _clip_ai_debate_line(long)
+    assert len(default) == AI_DEBATE_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: AI_DEBATE_LINE_CHARS - 1] + "…"
+    assert _clip_ai_debate_line(long, True) == default
+    assert _clip_ai_debate_line(long, False) == default
+    assert _clip_ai_debate_line(long, 0) == default
+    thin = _clip_ai_debate_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_ai_debate_glance_refuses_bool_line_ceiling(tmp_path: Path) -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    record_ai_validate(
+        tmp_path,
+        {"action": "BUY", "confidence": "HIGH", "score": 40, "reasons": ["tape"]},
+        symbol="NVDA",
+    )
+    g = build_ai_debate_glance(tmp_path)
+    g_bool = build_ai_debate_glance(tmp_path, line_n=True)
+    g_false = build_ai_debate_glance(tmp_path, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= AI_DEBATE_LINE_CHARS
+    g_short = build_ai_debate_glance(tmp_path, line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
 
 
 def test_build_ai_debate_glance_refuses_bool_counts(
