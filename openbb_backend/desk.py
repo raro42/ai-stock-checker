@@ -30105,8 +30105,46 @@ def build_universe_discovery_glance(
     }
 
 
+# ATR-display glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (junk-filter / book-posture clip peers).
+ATR_DISPLAY_LINE_CHARS = 96
+
+
+def _coerce_atr_display_line_chars(
+    value: object, default: int = ATR_DISPLAY_LINE_CHARS
+) -> int:
+    """Positive ATR-display glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char ATR strip via ``line[:True]``; ``False→0``
+    must not wipe (junk-filter / book-posture clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_atr_display_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate ATR-display glance line to a safe ceiling."""
+    ceiling = _coerce_atr_display_line_chars(
+        ATR_DISPLAY_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_atr_display_glance(
     rows: Sequence[Mapping[str, Any]] | None = None,
+    *,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Screener ATR / R:R honesty (RyanJHamby + staskh vol coverage; display only).
 
@@ -30145,8 +30183,9 @@ def build_atr_display_glance(
             f"live TP +{tp:g}% / SL −{sl:g}% (not ATR)"
         )
         tone = "display"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char ATR strip via line[:True]
+    # (junk-filter / book-posture peers — truncate was still bare [:95]+…).
+    line = _clip_atr_display_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
