@@ -28276,7 +28276,46 @@ def build_loss_rotation_glance(
     }
 
 
-def build_stale_rotation_glance() -> dict[str, Any]:
+# Stale-rotation glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (loss-rotation / breakout-guard clip peers).
+STALE_ROTATION_LINE_CHARS = 96
+
+
+def _coerce_stale_rotation_line_chars(
+    value: object, default: int = STALE_ROTATION_LINE_CHARS
+) -> int:
+    """Positive stale-rotation glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Stale strip via ``line[:True]``; ``False→0``
+    must not wipe (loss-rotation / breakout-guard clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_stale_rotation_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate stale-rotation glance line to a safe ceiling."""
+    ceiling = _coerce_stale_rotation_line_chars(
+        STALE_ROTATION_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_stale_rotation_glance(
+    *,
+    line_n: object = None,
+) -> dict[str, Any]:
     """Stale-name rotation honesty (tradermonty / portfolio AI; display only).
 
     SCHW lesson: a name is stale only when it drops off the *entire* scan
@@ -28290,8 +28329,9 @@ def build_stale_rotation_glance() -> dict[str, Any]:
     line = (
         f"stale · off full scan list · need top-N replacement · winners ≥+{rot:g}%"
     )
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Stale strip via line[:True]
+    # (loss-rotation / breakout-guard peers — truncate was still bare [:95]+…).
+    line = _clip_stale_rotation_line(line, line_n)
     return {
         "ready": True,
         "tone": "stale",
