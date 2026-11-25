@@ -8,7 +8,10 @@ import pytz
 
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
+    EQUITY_HOURS_LINE_CHARS,
     _HOURS_INACTIVE_QUIET_NAME_CAP,
+    _clip_equity_hours_line,
+    _coerce_equity_hours_line_chars,
     _coerce_hours_inactive_name_cap,
     _hours_inactive_venue_chip,
     build_equity_hours_glance,
@@ -115,6 +118,49 @@ def test_hours_inactive_venue_chip_refuses_bool_name_cap() -> None:
         _hours_inactive_venue_chip(venues, quiet=False, cap=2)
         == "US · Xetra · +3"
     )
+
+
+def test_coerce_equity_hours_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Hours strip; False must not wipe."""
+    assert _coerce_equity_hours_line_chars(True) == EQUITY_HOURS_LINE_CHARS
+    assert _coerce_equity_hours_line_chars(False) == EQUITY_HOURS_LINE_CHARS
+    assert _coerce_equity_hours_line_chars(0) == EQUITY_HOURS_LINE_CHARS
+    assert _coerce_equity_hours_line_chars(None) == EQUITY_HOURS_LINE_CHARS
+    assert _coerce_equity_hours_line_chars(40) == 40
+
+
+def test_clip_equity_hours_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > EQUITY_HOURS_LINE_CHARS
+    default = _clip_equity_hours_line(long)
+    assert len(default) == EQUITY_HOURS_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: EQUITY_HOURS_LINE_CHARS - 1] + "…"
+    assert _clip_equity_hours_line(long, True) == default
+    assert _clip_equity_hours_line(long, False) == default
+    assert _clip_equity_hours_line(long, 0) == default
+    thin = _clip_equity_hours_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_equity_hours_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    now = pytz.timezone("US/Eastern").localize(datetime(2026, 9, 9, 10, 0))
+    g = build_equity_hours_glance(now=now)
+    g_bool = build_equity_hours_glance(now=now, line_n=True)
+    g_false = build_equity_hours_glance(now=now, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert g_bool["venue_chips_line"] == g["venue_chips_line"]
+    assert g_false["inactive_line"] == g["inactive_line"]
+    assert len(g["line"]) <= EQUITY_HOURS_LINE_CHARS
+    g_short = build_equity_hours_glance(now=now, line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
+    assert len(g_short["venue_chips_line"]) == 12
+    assert g_short["venue_chips_line"].endswith("…")
 
 
 def test_equity_hours_glance_both_open_us_morning() -> None:

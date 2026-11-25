@@ -27855,9 +27855,46 @@ def equity_hours_inactive_meta(
     return "closed"
 
 
+# Equity-hours glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (session / earnings-blackout / exit-policy clip peers).
+EQUITY_HOURS_LINE_CHARS = 96
+
+
+def _coerce_equity_hours_line_chars(
+    value: object, default: int = EQUITY_HOURS_LINE_CHARS
+) -> int:
+    """Positive equity-hours glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Hours strip via ``line[:True]``; ``False→0``
+    must not wipe (session / earnings-blackout clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_equity_hours_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate equity-hours glance line to a safe ceiling."""
+    ceiling = _coerce_equity_hours_line_chars(
+        EQUITY_HOURS_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_equity_hours_glance(
     *,
     now: datetime | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """US RTH vs Xetra cash-hours honesty (xang1234 / portfolio AI; display only).
 
@@ -27959,8 +27996,9 @@ def build_equity_hours_glance(
     us_chip = venue_chips[0]["label"]
     xetra_chip = venue_chips[1]["label"]
     venue_chips_line = f"cash · {us_chip} · {xetra_chip} · crypto · on"
-    if len(venue_chips_line) > 96:
-        venue_chips_line = venue_chips_line[:95] + "…"
+    # True→1 must not invent a one-char chips strip via line[:True]
+    # (session / earnings-blackout peers — truncate was still bare [:95]+…).
+    venue_chips_line = _clip_equity_hours_line(venue_chips_line, line_n)
     if not us_closed and not xetra_closed:
         tone = "open"
     elif us_closed and xetra_closed:
@@ -28068,10 +28106,10 @@ def build_equity_hours_glance(
     # Session open/closed/split alone stayed clay flat when lean warn spoke.
     if attention_vs_open_warn:
         tone = "warn"
-    if len(line) > 96:
-        line = line[:95] + "…"
-    if len(inactive_line) > 96:
-        inactive_line = inactive_line[:95] + "…"
+    # True→1 must not invent a one-char Hours strip via line[:True]
+    # (session / earnings-blackout peers — truncate was still bare [:95]+…).
+    line = _clip_equity_hours_line(line, line_n)
+    inactive_line = _clip_equity_hours_line(inactive_line, line_n)
     inactive_warn = bool(inactive_line) and attention_vs_open_warn
     inactive_meta = (
         equity_hours_inactive_meta(
