@@ -8309,6 +8309,9 @@ def attach_concentration_funds_lean(
 _LISTED_FUND_OVERLAP_LEAN_NAME_CAP = 4
 # Theme-overlap glance name ceiling — bare ``syms[:3]`` lied when bool.
 LISTED_FUND_OVERLAP_NAME_CAP = 3
+# Theme-overlap glance line ceiling — bare ``bit_core[:95]+…`` lied when bool
+# (concentration / book-risk clip peers).
+LISTED_FUND_OVERLAP_LINE_CHARS = 96
 _LISTED_FUND_OVERLAP_LEAN_STAGE_RES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^vs \d+ other\b"), "vs other"),
     (re.compile(r"^overlap/other tied\b"), "tied"),
@@ -8330,6 +8333,37 @@ def _coerce_listed_fund_overlap_name_cap(
     ``[:3]``; absolute theme count stays full holdings).
     """
     return _coerce_honesty_name_cap(value, default=default)
+
+
+def _coerce_listed_fund_overlap_line_chars(
+    value: object, default: int = LISTED_FUND_OVERLAP_LINE_CHARS
+) -> int:
+    """Positive Funds overlap line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Funds strip via ``bit_core[:True]``; ``False→0``
+    must not wipe (concentration / book-risk clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_listed_fund_overlap_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate Funds theme-overlap glance line to a safe ceiling."""
+    ceiling = _coerce_listed_fund_overlap_line_chars(
+        LISTED_FUND_OVERLAP_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
 
 
 def listed_fund_overlap_lean_meta(lean: str, *, warn: bool = False) -> str:
@@ -8366,6 +8400,7 @@ def build_listed_fund_overlap_glance(
     *,
     concentration_warn: bool | None = None,
     symbols_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Same-theme ETF/ETC doubles on the open book (display only).
 
@@ -8514,14 +8549,18 @@ def build_listed_fund_overlap_glance(
             share_severity, concentration_warn
         )
     bit_core = " · ".join(core_bits)
-    if len(bit_core) > 96:
+    # True→1 must not invent a one-char Funds strip via bit_core[:True]
+    # (Conc / book-risk peers — truncate was still bare [:95]+…).
+    line_ceiling = _coerce_listed_fund_overlap_line_chars(
+        LISTED_FUND_OVERLAP_LINE_CHARS if line_n is None else line_n
+    )
+    if len(bit_core) > line_ceiling:
         # Keep lead theme + share on the strip; drop trailing themes.
         keep = [core_bits[0]]
         if share_bit:
             keep.append(share_bit)
         bit_core = " · ".join(keep)
-        if len(bit_core) > 96:
-            bit_core = bit_core[:95] + "…"
+        bit_core = _clip_listed_fund_overlap_line(bit_core, line_ceiling)
     lean_parts: list[str] = []
     if other_bit:
         lean_parts.append(other_bit)

@@ -8,7 +8,10 @@ from stock_checker.listed_funds import (
     listed_fund_theme_overlaps,
 )
 from openbb_backend.desk import (
+    LISTED_FUND_OVERLAP_LINE_CHARS,
     LISTED_FUND_OVERLAP_NAME_CAP,
+    _clip_listed_fund_overlap_line,
+    _coerce_listed_fund_overlap_line_chars,
     _coerce_listed_fund_overlap_name_cap,
     attach_concentration_funds_lean,
     build_listed_fund_overlap_glance,
@@ -248,6 +251,65 @@ def test_listed_fund_overlap_glance_refuses_bool_name_cap() -> None:
     assert "4GLD.DE" not in g_short["line"]
     assert "+1" in g_short["line"]
     # Absolute theme count stays full holdings, not the bit cap.
+    assert g_short["count"] == 2
+    assert g_short["n_overlap"] == 2
+
+
+def test_coerce_listed_fund_overlap_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Funds strip; False must not wipe."""
+    assert (
+        _coerce_listed_fund_overlap_line_chars(True)
+        == LISTED_FUND_OVERLAP_LINE_CHARS
+    )
+    assert (
+        _coerce_listed_fund_overlap_line_chars(False)
+        == LISTED_FUND_OVERLAP_LINE_CHARS
+    )
+    assert (
+        _coerce_listed_fund_overlap_line_chars(0)
+        == LISTED_FUND_OVERLAP_LINE_CHARS
+    )
+    assert (
+        _coerce_listed_fund_overlap_line_chars(None)
+        == LISTED_FUND_OVERLAP_LINE_CHARS
+    )
+    assert _coerce_listed_fund_overlap_line_chars(40) == 40
+
+
+def test_clip_listed_fund_overlap_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent bit_core[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > LISTED_FUND_OVERLAP_LINE_CHARS
+    default = _clip_listed_fund_overlap_line(long)
+    assert len(default) == LISTED_FUND_OVERLAP_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: LISTED_FUND_OVERLAP_LINE_CHARS - 1] + "…"
+    assert _clip_listed_fund_overlap_line(long, True) == default
+    assert _clip_listed_fund_overlap_line(long, False) == default
+    assert _clip_listed_fund_overlap_line(long, 0) == default
+    thin = _clip_listed_fund_overlap_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+    assert _clip_listed_fund_overlap_line("short") == "short"
+    assert _clip_listed_fund_overlap_line("") == ""
+    assert _clip_listed_fund_overlap_line(None) == ""
+
+
+def test_listed_fund_overlap_glance_refuses_bool_line_ceiling() -> None:
+    """True→1 must not invent a one-char Funds strip via bit_core[:True]."""
+    holdings = ["GLD", "4GLD.DE"]
+    default = build_listed_fund_overlap_glance(holdings)
+    assert default["ready"] is True
+    clipped = default["line"]
+    assert len(clipped) <= LISTED_FUND_OVERLAP_LINE_CHARS
+    g_true = build_listed_fund_overlap_glance(holdings, line_n=True)
+    assert g_true["line"] == clipped
+    g_false = build_listed_fund_overlap_glance(holdings, line_n=False)
+    assert g_false["line"] == clipped
+    g_short = build_listed_fund_overlap_glance(holdings, line_n=8)
+    assert g_short["line"].endswith("…")
+    assert len(g_short["line"]) == 8
+    # Absolute overlap count stays full holdings, not the line ceiling.
     assert g_short["count"] == 2
     assert g_short["n_overlap"] == 2
 
