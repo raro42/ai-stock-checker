@@ -6,11 +6,148 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_universe_discovery_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    UNIVERSE_DISCOVERY_FAIL_LINE_CHARS,
+    UNIVERSE_DISCOVERY_LINE_CHARS,
+    _clip_universe_discovery_fail_line,
+    _clip_universe_discovery_line,
+    _coerce_universe_discovery_fail_line_chars,
+    _coerce_universe_discovery_line_chars,
+    build_universe_discovery_glance,
+    load_desk_snapshot,
+)
 from stock_checker.yahoo_universe_discovery import (
     DEFAULT_MOVER_COUNT,
     DEFAULT_YAHOO_DISCOVERY_MAX_AGE_HOURS,
 )
+
+
+def test_coerce_universe_discovery_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Yahoo strip; False must not wipe."""
+    assert (
+        _coerce_universe_discovery_line_chars(True)
+        == UNIVERSE_DISCOVERY_LINE_CHARS
+    )
+    assert (
+        _coerce_universe_discovery_line_chars(False)
+        == UNIVERSE_DISCOVERY_LINE_CHARS
+    )
+    assert (
+        _coerce_universe_discovery_line_chars(0) == UNIVERSE_DISCOVERY_LINE_CHARS
+    )
+    assert (
+        _coerce_universe_discovery_line_chars(None)
+        == UNIVERSE_DISCOVERY_LINE_CHARS
+    )
+    assert _coerce_universe_discovery_line_chars(40) == 40
+
+
+def test_coerce_universe_discovery_fail_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Yahoo-fail strip; False must not wipe."""
+    assert (
+        _coerce_universe_discovery_fail_line_chars(True)
+        == UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    )
+    assert (
+        _coerce_universe_discovery_fail_line_chars(False)
+        == UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    )
+    assert (
+        _coerce_universe_discovery_fail_line_chars(0)
+        == UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    )
+    assert (
+        _coerce_universe_discovery_fail_line_chars(None)
+        == UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    )
+    assert _coerce_universe_discovery_fail_line_chars(40) == 40
+
+
+def test_clip_universe_discovery_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 200
+    assert len(long) > UNIVERSE_DISCOVERY_LINE_CHARS
+    default = _clip_universe_discovery_line(long)
+    assert len(default) == UNIVERSE_DISCOVERY_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: UNIVERSE_DISCOVERY_LINE_CHARS - 1] + "…"
+    assert _clip_universe_discovery_line(long, True) == default
+    assert _clip_universe_discovery_line(long, False) == default
+    assert _clip_universe_discovery_line(long, 0) == default
+    thin = _clip_universe_discovery_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_clip_universe_discovery_fail_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent fail line[:True]; False must not wipe."""
+    long = "x" * 200
+    assert len(long) > UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    default = _clip_universe_discovery_fail_line(long)
+    assert len(default) == UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: UNIVERSE_DISCOVERY_FAIL_LINE_CHARS - 1] + "…"
+    assert _clip_universe_discovery_fail_line(long, True) == default
+    assert _clip_universe_discovery_fail_line(long, False) == default
+    assert _clip_universe_discovery_fail_line(long, 0) == default
+    thin = _clip_universe_discovery_fail_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_universe_discovery_glance_refuses_bool_line_ceiling(tmp_path) -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps({"stocks": {}, "meta": {"last_yahoo_discovery": last}}),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    g_bool = build_universe_discovery_glance(tmp_path, now=now, line_n=True)
+    g_false = build_universe_discovery_glance(tmp_path, now=now, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= UNIVERSE_DISCOVERY_LINE_CHARS
+    g_short = build_universe_discovery_glance(tmp_path, now=now, line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
+
+
+def test_universe_discovery_glance_refuses_bool_fail_line_ceiling(
+    tmp_path,
+) -> None:
+    """fail_line_n=True must not invent a one-char fail strip; False must not wipe."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_discovery_status": "failed",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    g_bool = build_universe_discovery_glance(
+        tmp_path, now=now, fail_line_n=True
+    )
+    g_false = build_universe_discovery_glance(
+        tmp_path, now=now, fail_line_n=False
+    )
+    assert "Yahoo fail" in (g.get("line") or "")
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+    g_short = build_universe_discovery_glance(
+        tmp_path, now=now, fail_line_n=12
+    )
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
 
 
 def test_universe_discovery_glance_refuses_bool_meta_counts(tmp_path) -> None:

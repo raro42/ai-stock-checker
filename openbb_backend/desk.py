@@ -28576,11 +28576,81 @@ def build_junk_filter_glance(*, line_n: object = None) -> dict[str, Any]:
     }
 
 
+# Universe-discovery glance line ceilings — bare ``line[:128]/…`` /
+# ``[:160]+…`` lied when bool (promote-contract / entry-slots clip peers).
+UNIVERSE_DISCOVERY_LINE_CHARS = 128
+UNIVERSE_DISCOVERY_FAIL_LINE_CHARS = 160
+
+
+def _coerce_universe_discovery_line_chars(
+    value: object, default: int = UNIVERSE_DISCOVERY_LINE_CHARS
+) -> int:
+    """Positive success-path Universe glance line ceiling, or ``default``.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Yahoo strip via ``line[:True]``; ``False→0``
+    must not wipe (promote-contract / entry-slots clip peers — success
+    truncate was still bare ``[:128]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_universe_discovery_fail_line_chars(
+    value: object, default: int = UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+) -> int:
+    """Positive fail-path Universe glance line ceiling, or ``default``.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Yahoo-fail strip via ``line[:True]``; ``False→0``
+    must not wipe (success 128 clip peer — fail truncate was still bare
+    ``[:160]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_universe_discovery_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate success-path Universe glance line to a safe ceiling."""
+    ceiling = _coerce_universe_discovery_line_chars(
+        UNIVERSE_DISCOVERY_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def _clip_universe_discovery_fail_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate fail-path Universe glance line to a safe ceiling."""
+    ceiling = _coerce_universe_discovery_fail_line_chars(
+        UNIVERSE_DISCOVERY_FAIL_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_universe_discovery_glance(
     data_dir: Path | None = None,
     *,
     now: Optional[datetime] = None,
     max_age_hours: int | None = None,
+    line_n: object = None,
+    fail_line_n: object = None,
 ) -> dict[str, Any]:
     """Universe / movers discovery honesty (xang1234 + RyanJHamby cache; display only).
 
@@ -29748,7 +29818,13 @@ def build_universe_discovery_glance(
         # (tests); desk shows ``line_core`` (fail · N× · retry · ages) and
         # folds streak lean (MonsterDeveloper + Screener weight lean).
         # Fail path allows 160 chars (seed/fail ages + lag); success stays 128.
-        _fail_line_max = 160
+        # True→1 must not invent a one-char Yahoo-fail strip via [:True]
+        # (promote-contract / entry-slots peers — truncate was still bare [:160]+…).
+        _fail_line_max = _coerce_universe_discovery_fail_line_chars(
+            UNIVERSE_DISCOVERY_FAIL_LINE_CHARS
+            if fail_line_n is None
+            else fail_line_n
+        )
         streak_lean_bits: list[str] = []
         for bit in (
             streak_vs_seed_bit,
@@ -29807,12 +29883,14 @@ def build_universe_discovery_glance(
             line = (
                 full_core
                 if len(full_core) <= _fail_line_max
-                else (full_core[: _fail_line_max - 1] + "…")
+                else _clip_universe_discovery_fail_line(full_core, _fail_line_max)
             )
         if len(line_core + lag) <= _fail_line_max:
             line_core = line_core + lag
         elif len(line_core) > _fail_line_max:
-            line_core = line_core[: _fail_line_max - 1] + "…"
+            line_core = _clip_universe_discovery_fail_line(
+                line_core, _fail_line_max
+            )
     else:
         drop_bit = ""
         if prune_skipped:
@@ -29832,8 +29910,9 @@ def build_universe_discovery_glance(
             f"{drop_bit}{claim_drop_bit}{claim_live_bit}"
             f"{claim_drop_vs_live_bit} · discovery-only"
         )
-        if len(line) > 128:
-            line = line[:127] + "…"
+        # True→1 must not invent a one-char Yahoo strip via line[:True]
+        # (promote-contract / entry-slots peers — truncate was still bare [:128]+…).
+        line = _clip_universe_discovery_line(line, line_n)
         line_core = line
         streak_lean = ""
         streak_lean_warn = False
