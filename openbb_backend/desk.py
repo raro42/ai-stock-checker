@@ -28150,7 +28150,46 @@ def build_equity_hours_glance(
     }
 
 
-def build_breakout_guard_glance() -> dict[str, Any]:
+# Breakout-guard glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (equity-hours / session / earnings-blackout clip peers).
+BREAKOUT_GUARD_LINE_CHARS = 96
+
+
+def _coerce_breakout_guard_line_chars(
+    value: object, default: int = BREAKOUT_GUARD_LINE_CHARS
+) -> int:
+    """Positive breakout-guard glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Breakouts strip via ``line[:True]``; ``False→0``
+    must not wipe (equity-hours / session clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_breakout_guard_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate breakout-guard glance line to a safe ceiling."""
+    ceiling = _coerce_breakout_guard_line_chars(
+        BREAKOUT_GUARD_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_breakout_guard_glance(
+    *,
+    line_n: object = None,
+) -> dict[str, Any]:
     """Stock breakout entry honesty (portfolio AI / screener risk UX; display only).
 
     Breakouts need AI BUY, reject LOW confidence, and a mild pullback band
@@ -28161,8 +28200,9 @@ def build_breakout_guard_glance() -> dict[str, Any]:
     lo = float(BREAKOUT_PCT_MIN)
     hi = float(BREAKOUT_PCT_MAX)
     line = f"breakouts · AI BUY · LOW blocked · pullback {lo:g}%…{hi:g}%"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Breakouts strip via line[:True]
+    # (equity-hours / session peers — truncate was still bare [:95]+…).
+    line = _clip_breakout_guard_line(line, line_n)
     return {
         "ready": True,
         "tone": "breakout",
