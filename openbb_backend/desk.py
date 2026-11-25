@@ -27709,10 +27709,47 @@ def build_earnings_blackout_glance(*, line_n: object = None) -> dict[str, Any]:
     }
 
 
+# Session glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (earnings-blackout / exit-policy / calm-streak clip peers).
+SESSION_LINE_CHARS = 96
+
+
+def _coerce_session_line_chars(
+    value: object, default: int = SESSION_LINE_CHARS
+) -> int:
+    """Positive session glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Session strip via ``line[:True]``; ``False→0``
+    must not wipe (earnings-blackout / exit-policy clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_session_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate session glance line to a safe ceiling."""
+    ceiling = _coerce_session_line_chars(
+        SESSION_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_session_glance(
     *,
     weekend: bool | None = None,
     now: datetime | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """UTC session mode honesty (xang1234 screener session UX; display only).
 
@@ -27730,8 +27767,9 @@ def build_session_glance(
     else:
         line = "weekday · stocks + crypto"
         tone = "weekday"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Session strip via line[:True]
+    # (earnings-blackout / exit-policy peers — truncate was still bare [:95]+…).
+    line = _clip_session_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
