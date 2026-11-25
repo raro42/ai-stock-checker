@@ -28212,7 +28212,46 @@ def build_breakout_guard_glance(
     }
 
 
-def build_loss_rotation_glance() -> dict[str, Any]:
+# Loss-rotation glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (breakout-guard / equity-hours clip peers).
+LOSS_ROTATION_LINE_CHARS = 96
+
+
+def _coerce_loss_rotation_line_chars(
+    value: object, default: int = LOSS_ROTATION_LINE_CHARS
+) -> int:
+    """Positive loss-rotation glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Protect strip via ``line[:True]``; ``False→0``
+    must not wipe (breakout-guard / equity-hours clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_loss_rotation_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate loss-rotation glance line to a safe ceiling."""
+    ceiling = _coerce_loss_rotation_line_chars(
+        LOSS_ROTATION_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_loss_rotation_glance(
+    *,
+    line_n: object = None,
+) -> dict[str, Any]:
     """No-loss-rotation honesty (portfolio AI / tradermonty risk UX; display only).
 
     Scan rotation never sells losers to chase new names (ESP/BANK lesson).
@@ -28225,8 +28264,9 @@ def build_loss_rotation_glance() -> dict[str, Any]:
     line = (
         f"no loss-rotation · rotate winners ≥+{rot:g}% · overweight trims winners first"
     )
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Protect strip via line[:True]
+    # (breakout-guard / equity-hours peers — truncate was still bare [:95]+…).
+    line = _clip_loss_rotation_line(line, line_n)
     return {
         "ready": True,
         "tone": "protect",
