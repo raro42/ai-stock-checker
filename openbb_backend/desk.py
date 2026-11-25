@@ -30201,7 +30201,43 @@ def build_atr_display_glance(
     }
 
 
-def build_entry_slots_glance() -> dict[str, Any]:
+# Entry-slots glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (ATR-display / junk-filter clip peers).
+ENTRY_SLOTS_LINE_CHARS = 96
+
+
+def _coerce_entry_slots_line_chars(
+    value: object, default: int = ENTRY_SLOTS_LINE_CHARS
+) -> int:
+    """Positive entry-slots glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Slots strip via ``line[:True]``; ``False→0``
+    must not wipe (ATR-display / junk-filter clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_entry_slots_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate entry-slots glance line to a safe ceiling."""
+    ceiling = _coerce_entry_slots_line_chars(
+        ENTRY_SLOTS_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_entry_slots_glance(*, line_n: object = None) -> dict[str, Any]:
     """Entry score band + interleave honesty (xang1234 ranking / A11; display only).
 
     Stock breakouts use score = base + pct_from_high so near-highs can compete
@@ -30221,8 +30257,9 @@ def build_entry_slots_glance() -> dict[str, Any]:
         f"stock score {base:g}+pct_from_high · "
         f"interleave ≤{max_c} crypto / ≤{max_s} stock · not pure sort"
     )
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Slots strip via line[:True]
+    # (ATR-display / junk-filter peers — truncate was still bare [:95]+…).
+    line = _clip_entry_slots_line(line, line_n)
     return {
         "ready": True,
         "tone": "slots",
