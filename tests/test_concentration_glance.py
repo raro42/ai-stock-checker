@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from openbb_backend.desk import build_concentration_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    CONCENTRATION_LINE_CHARS,
+    _clip_concentration_line,
+    _coerce_concentration_line_chars,
+    build_concentration_glance,
+    load_desk_snapshot,
+)
 
 
 def test_concentration_glance_empty_input() -> None:
@@ -140,6 +146,70 @@ def test_concentration_glance_open_lots_mv_unreadable() -> None:
     assert g["largest_pct"] is None
     assert "mv unreadable" in g["line"]
     assert "no open names" not in g["line"]
+
+
+def test_coerce_concentration_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char Conc strip; False must not wipe."""
+    assert _coerce_concentration_line_chars(True) == CONCENTRATION_LINE_CHARS
+    assert _coerce_concentration_line_chars(False) == CONCENTRATION_LINE_CHARS
+    assert _coerce_concentration_line_chars(0) == CONCENTRATION_LINE_CHARS
+    assert _coerce_concentration_line_chars(None) == CONCENTRATION_LINE_CHARS
+    assert _coerce_concentration_line_chars(40) == 40
+
+
+def test_clip_concentration_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > CONCENTRATION_LINE_CHARS
+    default = _clip_concentration_line(long)
+    assert len(default) == CONCENTRATION_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: CONCENTRATION_LINE_CHARS - 1] + "…"
+    assert _clip_concentration_line(long, True) == default
+    assert _clip_concentration_line(long, False) == default
+    assert _clip_concentration_line(long, 0) == default
+    thin = _clip_concentration_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+    assert _clip_concentration_line("short") == "short"
+    assert _clip_concentration_line("") == ""
+    assert _clip_concentration_line(None) == ""
+
+
+def test_concentration_glance_truncates_line() -> None:
+    long_sym = "X" * 80
+    g = build_concentration_glance(
+        {
+            "largest_symbol": long_sym,
+            "largest_pct": 40.0,
+            "concentration_warn": True,
+        }
+    )
+    assert g["ready"] is True
+    assert g["tone"] == "warn"
+    assert g["line"].endswith("…")
+    assert len(g["line"]) <= CONCENTRATION_LINE_CHARS
+
+
+def test_concentration_glance_refuses_bool_line_ceiling() -> None:
+    """True→1 must not invent a one-char Conc strip via line[:True]."""
+    long_sym = "X" * 80
+    risk = {
+        "largest_symbol": long_sym,
+        "largest_pct": 40.0,
+        "concentration_warn": True,
+    }
+    default = build_concentration_glance(risk)
+    clipped = default["line"]
+    assert clipped.endswith("…")
+    assert len(clipped) == CONCENTRATION_LINE_CHARS
+    g_true = build_concentration_glance(risk, line_n=True)
+    assert g_true["line"] == clipped
+    g_false = build_concentration_glance(risk, line_n=False)
+    assert g_false["line"] == clipped
+    g_short = build_concentration_glance(risk, line_n=8)
+    assert g_short["line"].endswith("…")
+    assert len(g_short["line"]) == 8
 
 
 def test_concentration_glance_in_snapshot(tmp_path) -> None:

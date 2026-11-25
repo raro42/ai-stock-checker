@@ -7982,10 +7982,47 @@ def build_book_risk_glance(
     }
 
 
+# Concentration glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (book-risk / pretrade notes clip peers).
+CONCENTRATION_LINE_CHARS = 96
+
+
+def _coerce_concentration_line_chars(
+    value: object, default: int = CONCENTRATION_LINE_CHARS
+) -> int:
+    """Positive concentration line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Conc strip via ``line[:True]``; ``False→0``
+    must not wipe (book-risk / pretrade notes clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_concentration_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate concentration glance line to a safe ceiling."""
+    ceiling = _coerce_concentration_line_chars(
+        CONCENTRATION_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_concentration_glance(
     book_risk: dict[str, Any] | None,
     *,
     max_name_pct: float | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Largest name vs entry concentration cap (staskh / portfolio AI; display only).
 
@@ -8050,9 +8087,11 @@ def build_concentration_glance(
         open_n = 0
     # Open lots with unreadable MV ≠ empty book ("no open names").
     if not sym and open_n > 0 and pct is None:
-        line = f"n/a · cap {cap_txt}% · mv unreadable"
-        if len(line) > 96:
-            line = line[:95] + "…"
+        # True→1 must not invent a one-char Conc strip via line[:True]
+        # (book-risk / pretrade peers — truncate was still bare [:95]+…).
+        line = _clip_concentration_line(
+            f"n/a · cap {cap_txt}% · mv unreadable", line_n
+        )
         return {
             "ready": True,
             "tone": "warn",
@@ -8075,9 +8114,9 @@ def build_concentration_glance(
             "warn": False,
         }
     if pct is None:
-        line = f"{sym} n/a · cap {cap_txt}% · pct unreadable"
-        if len(line) > 96:
-            line = line[:95] + "…"
+        line = _clip_concentration_line(
+            f"{sym} n/a · cap {cap_txt}% · pct unreadable", line_n
+        )
         return {
             "ready": True,
             "tone": "warn",
@@ -8097,8 +8136,7 @@ def build_concentration_glance(
         hr = f"{headroom:.0f}"
         line = f"{sym} {pct:.0f}% · cap {cap_txt}% · {hr}pp headroom"
         tone = "clear"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    line = _clip_concentration_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
