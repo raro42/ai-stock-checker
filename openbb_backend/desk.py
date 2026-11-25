@@ -28344,12 +28344,49 @@ def build_stale_rotation_glance(
 
 
 
+# Book-posture glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (stale-rotation / loss-rotation clip peers).
+BOOK_POSTURE_LINE_CHARS = 96
+
+
+def _coerce_book_posture_line_chars(
+    value: object, default: int = BOOK_POSTURE_LINE_CHARS
+) -> int:
+    """Positive book-posture glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Posture strip via ``line[:True]``; ``False→0``
+    must not wipe (stale-rotation / loss-rotation clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_book_posture_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate book-posture glance line to a safe ceiling."""
+    ceiling = _coerce_book_posture_line_chars(
+        BOOK_POSTURE_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_book_posture_glance(
     holdings: list[dict[str, Any]] | None = None,
     *,
     max_positions: int = 5,
     min_hold_hours: float = 24.0,
     suggest_trim: bool = True,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Live book posture + next overweight trim (staskh + portfolio AI).
 
@@ -28460,8 +28497,9 @@ def build_book_posture_glance(
                 line = f"live overweight {slots} · trim paused (min-hold)"
         else:
             line = f"live overweight {slots} · TP/SL+trim only"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Posture strip via line[:True]
+    # (stale-rotation / loss-rotation peers — truncate was still bare [:95]+…).
+    line = _clip_book_posture_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
