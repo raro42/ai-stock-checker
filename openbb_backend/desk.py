@@ -27631,7 +27631,43 @@ def build_exit_policy_glance(*, line_n: object = None) -> dict[str, Any]:
     }
 
 
-def build_earnings_blackout_glance() -> dict[str, Any]:
+# Earnings-blackout glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (exit-policy / calm-streak / Conc clip peers).
+EARNINGS_BLACKOUT_LINE_CHARS = 96
+
+
+def _coerce_earnings_blackout_line_chars(
+    value: object, default: int = EARNINGS_BLACKOUT_LINE_CHARS
+) -> int:
+    """Positive earnings-blackout glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Earnings strip via ``line[:True]``; ``False→0``
+    must not wipe (exit-policy / calm-streak clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_earnings_blackout_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate earnings-blackout glance line to a safe ceiling."""
+    ceiling = _coerce_earnings_blackout_line_chars(
+        EARNINGS_BLACKOUT_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
+def build_earnings_blackout_glance(*, line_n: object = None) -> dict[str, Any]:
     """Stock earnings blackout + empty-window fail-open (tradermonty; display only).
 
     New stock entries stay blocked DEFAULT_DAYS_BEFORE before and DEFAULT_DAYS_AFTER
@@ -27656,8 +27692,9 @@ def build_earnings_blackout_glance() -> dict[str, Any]:
         f"stocks · NY date · {before:g}d/{after:g}d · "
         "empty/bad Yahoo → allow (suspect) · crypto exempt"
     )
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char Earnings strip via line[:True]
+    # (exit-policy / calm-streak peers — truncate was still bare [:95]+…).
+    line = _clip_earnings_blackout_line(line, line_n)
     return {
         "ready": True,
         "tone": "stock",
