@@ -30691,10 +30691,47 @@ def _clip_ai_mode_glance_model(
     return text[: ceiling - 1] + "…"
 
 
+# AI-mode glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (AI-roles / gate-roles clip peers).
+AI_MODE_LINE_CHARS = 96
+
+
+def _coerce_ai_mode_line_chars(
+    value: object, default: int = AI_MODE_LINE_CHARS
+) -> int:
+    """Positive AI-mode glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char AI-mode strip via ``line[:True]``; ``False→0``
+    must not wipe (AI-roles / gate-roles clip peers — line truncate was
+    still bare ``[:95]+…`` after model clip refuse).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_ai_mode_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate AI-mode glance line to a safe ceiling."""
+    ceiling = _coerce_ai_mode_line_chars(
+        AI_MODE_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_ai_mode_glance(
     runtime: dict[str, Any] | None,
     *,
     model_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """AI mode + multi-role honesty (FinRobot / TradingAgents; display only).
 
@@ -30735,8 +30772,9 @@ def build_ai_mode_glance(
         tone = "flat"
         line = f"{mode} · {model_short} · {multi_txt}"
 
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # True→1 must not invent a one-char AI-mode strip via line[:True]
+    # (AI-roles / gate-roles peers — truncate was still bare [:95]+…).
+    line = _clip_ai_mode_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,

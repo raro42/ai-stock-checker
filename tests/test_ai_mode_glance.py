@@ -5,7 +5,10 @@ from __future__ import annotations
 from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
     AI_MODE_GLANCE_MODEL_MAX,
+    AI_MODE_LINE_CHARS,
     _clip_ai_mode_glance_model,
+    _clip_ai_mode_line,
+    _coerce_ai_mode_line_chars,
     build_ai_mode_glance,
     load_desk_snapshot,
 )
@@ -77,6 +80,49 @@ def test_ai_mode_glance_refuses_bool_model_ceiling() -> None:
     g_short = build_ai_mode_glance(runtime, model_n=8)
     assert g_short["model_short"] == basename[:7] + "…"
     assert len(g_short["model_short"]) == 8
+
+
+def test_coerce_ai_mode_line_chars_refuses_bool() -> None:
+    """True→1 must not invent a one-char AI-mode strip; False must not wipe."""
+    assert _coerce_ai_mode_line_chars(True) == AI_MODE_LINE_CHARS
+    assert _coerce_ai_mode_line_chars(False) == AI_MODE_LINE_CHARS
+    assert _coerce_ai_mode_line_chars(0) == AI_MODE_LINE_CHARS
+    assert _coerce_ai_mode_line_chars(None) == AI_MODE_LINE_CHARS
+    assert _coerce_ai_mode_line_chars(40) == 40
+
+
+def test_clip_ai_mode_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > AI_MODE_LINE_CHARS
+    default = _clip_ai_mode_line(long)
+    assert len(default) == AI_MODE_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: AI_MODE_LINE_CHARS - 1] + "…"
+    assert _clip_ai_mode_line(long, True) == default
+    assert _clip_ai_mode_line(long, False) == default
+    assert _clip_ai_mode_line(long, 0) == default
+    thin = _clip_ai_mode_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_ai_mode_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    runtime = {
+        "ai_mode": "validate",
+        "ai_model": "gemma4:latest",
+        "ai_multi_role": True,
+    }
+    g = build_ai_mode_glance(runtime)
+    g_bool = build_ai_mode_glance(runtime, line_n=True)
+    g_false = build_ai_mode_glance(runtime, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= AI_MODE_LINE_CHARS
+    g_short = build_ai_mode_glance(runtime, line_n=12)
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
 
 
 def test_ai_mode_glance_in_snapshot(tmp_path) -> None:
