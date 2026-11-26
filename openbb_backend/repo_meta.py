@@ -13,6 +13,43 @@ _BACKEND_DIR = Path(__file__).resolve().parent
 DEFAULT_REPO_URL = "https://github.com/raro42/ai-stock-checker"
 BUILD_INFO_PATH = _BACKEND_DIR / "build_info.json"
 
+# Desk footer short SHA — bare ``sha[:7]`` / build_info ``[:12]`` lied when bool
+# (Ideas tip-sha / Yahoo claim-live unknown-screen clip peers).
+REPO_SHORT_SHA_CHARS = 7
+BUILD_INFO_SHORT_SHA_CHARS = 12
+
+
+def _coerce_repo_short_sha_chars(
+    value: object, default: int = REPO_SHORT_SHA_CHARS
+) -> int:
+    """Positive desk footer short-SHA ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char footer tag via ``sha[:True]``;
+    ``False→0`` must not wipe (Ideas tip-sha / Yahoo claim-live screen
+    clip peers — build_info / full-SHA fallback were still bare ``[:12]``
+    / ``[:7]`` after glance line clips closed).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_repo_short_sha(
+    sha: object,
+    n: object = None,
+    *,
+    default: int = REPO_SHORT_SHA_CHARS,
+) -> str:
+    """Hard-truncate short SHA for desk footer (no ellipsis)."""
+    ceiling = _coerce_repo_short_sha_chars(
+        default if n is None else n, default
+    )
+    return str(sha or "").strip()[:ceiling]
+
 
 def _parse_git_date(raw: str) -> tuple[str, str]:
     """Return (iso_utc, human display)."""
@@ -84,7 +121,9 @@ def _git_log(git_dir: Optional[str] = None) -> Optional[dict[str, str]]:
     return None
 
 
-def _from_build_info() -> Optional[dict[str, str]]:
+def _from_build_info(
+    short_sha_n: object = None,
+) -> Optional[dict[str, str]]:
     if not BUILD_INFO_PATH.exists():
         return None
     try:
@@ -99,7 +138,13 @@ def _from_build_info() -> Optional[dict[str, str]]:
         iso, display = _parse_git_date(iso)
     return {
         "sha": str(data.get("sha") or data.get("short_sha") or ""),
-        "short_sha": str(data.get("short_sha") or "")[:12],
+        # True→1 must not invent a one-char tag via short_sha[:True]
+        # (tip-sha / claim-live peers — truncate was still bare [:12]).
+        "short_sha": _clip_repo_short_sha(
+            data.get("short_sha") or "",
+            short_sha_n,
+            default=BUILD_INFO_SHORT_SHA_CHARS,
+        ),
         "message": str(data.get("message") or ""),
         "committed_at": iso,
         "committed_at_display": display,
@@ -110,6 +155,7 @@ def load_repo_meta(
     *,
     repo_url: Optional[str] = None,
     git_probe: Optional[Callable[[], Optional[dict[str, str]]]] = None,
+    short_sha_n: object = None,
 ) -> dict[str, Any]:
     """Return footer fields for the public GitHub repo link."""
     url = (repo_url or os.getenv("DESK_REPO_URL") or DEFAULT_REPO_URL).rstrip("/")
@@ -131,7 +177,13 @@ def load_repo_meta(
         }
 
     sha = commit.get("sha") or commit.get("short_sha") or ""
-    short = commit.get("short_sha") or sha[:7]
+    provided = str(commit.get("short_sha") or "").strip()
+    if provided:
+        short = provided
+    else:
+        # True→1 must not invent a one-char tag via sha[:True]
+        # (tip-sha / claim-live peers — fallback was still bare [:7]).
+        short = _clip_repo_short_sha(sha, short_sha_n)
     return {
         "url": url,
         "commit_url": f"{url}/commit/{sha}" if sha else url,
