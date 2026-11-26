@@ -165,6 +165,22 @@ def test_date_clip_refuses_bool_ceiling() -> None:
     assert gw._clip_date(None) == ""
 
 
+def test_http_body_clip_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-char API error snippet; False must not wipe."""
+    full = "E" * (gw.HTTP_BODY_CHARS + 40)
+    default = gw._clip_http_body(full)
+    assert len(default) == gw.HTTP_BODY_CHARS
+    assert default == full[: gw.HTTP_BODY_CHARS]
+    assert gw._clip_http_body(full, True) == default
+    assert gw._clip_http_body(full, False) == default
+    assert gw._clip_http_body(full, 0) == default
+    assert gw._coerce_http_body_chars(True) == gw.HTTP_BODY_CHARS
+    assert gw._coerce_http_body_chars(False) == gw.HTTP_BODY_CHARS
+    assert gw._clip_http_body(full, 20) == full[:20]
+    assert gw._clip_http_body("", True) == ""
+    assert gw._clip_http_body(None) == ""
+
+
 def test_digest_meters_and_gap_hours_refuse_bool() -> None:
     """tradermonty #700/#655: True must not invent digest 1-counts / 1s / 1.0h."""
     assert gw._coerce_nonneg_count(True) == 0

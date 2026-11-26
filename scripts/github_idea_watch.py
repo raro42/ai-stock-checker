@@ -322,7 +322,7 @@ class GitHubClient:
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode(errors="replace")[:300]
+            body = _clip_http_body(exc.read().decode(errors="replace"))
             raise RuntimeError(f"GitHub HTTP {exc.code} for {path}: {body}") from exc
 
 
@@ -458,6 +458,41 @@ def _coerce_date_chars(value: object, default: int = DATE_CHARS) -> int:
 def _clip_date(text: object, n: object = None) -> str:
     """Hard-truncate ISO stamps to YYYY-MM-DD for digest (no ellipsis)."""
     ceiling = _coerce_date_chars(DATE_CHARS if n is None else n)
+    return str(text or "")[:ceiling]
+
+
+# GitHub HTTP error body — bare ``[:300]`` lied when bool (date / description
+# clip peers).
+HTTP_BODY_CHARS = 300
+
+
+def _coerce_http_body_chars(
+    value: object, default: int = HTTP_BODY_CHARS
+) -> int:
+    """Positive HTTP error-body ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char API error snippet via
+    ``body[:True]``; ``False→0`` must not wipe (date / description clip
+    peers — urllib HTTPError path was still bare ``[:300]`` after date
+    refuse closed).
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_http_body(text: object, n: object = None) -> str:
+    """Hard-truncate GitHub API error bodies for RuntimeError (no ellipsis)."""
+    ceiling = _coerce_http_body_chars(HTTP_BODY_CHARS if n is None else n)
     return str(text or "")[:ceiling]
 
 
