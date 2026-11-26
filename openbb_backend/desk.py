@@ -33499,6 +33499,9 @@ REBUY_COOLDOWN_GLANCE_BIT_CAP = 3
 REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP = 5
 # Absolute cooling count for flip-flop pressure (not the display bit cap).
 REBUY_COOLDOWN_GLANCE_PRESSURE_MIN = 3
+# Rebuy-cooldown glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (AI-validate-scope / AI-debate clip peers).
+REBUY_COOLDOWN_LINE_CHARS = 96
 
 
 def _coerce_rebuy_cooldown_name_cap(
@@ -33514,6 +33517,37 @@ def _coerce_rebuy_cooldown_name_cap(
     return _coerce_honesty_name_cap(value, default=default)
 
 
+def _coerce_rebuy_cooldown_line_chars(
+    value: object, default: int = REBUY_COOLDOWN_LINE_CHARS
+) -> int:
+    """Positive rebuy-cooldown glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char flip-flop strip via ``line[:True]``; ``False→0``
+    must not wipe (AI-validate-scope / AI-debate clip peers — line truncate
+    was still bare ``[:95]+…`` after name-cap refuse).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_rebuy_cooldown_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate rebuy-cooldown glance line to a safe ceiling."""
+    ceiling = _coerce_rebuy_cooldown_line_chars(
+        REBUY_COOLDOWN_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_rebuy_cooldown_glance(
     exit_times: dict[str, Any] | None,
     *,
@@ -33522,6 +33556,7 @@ def build_rebuy_cooldown_glance(
     expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
     bit_n: object = None,
     symbols_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact anti flip-flop rebuy cooldown (tradermonty / SCHW; display only).
 
@@ -33616,8 +33651,10 @@ def build_rebuy_cooldown_glance(
         line = f"{line} · flip-flop pressure"
     if expiring:
         line = f"{line} · unlocks soon"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (AI-validate-scope / AI-debate peers — truncate was still bare [:95]+…).
+    line = _clip_rebuy_cooldown_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,

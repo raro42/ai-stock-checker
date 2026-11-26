@@ -8,6 +8,9 @@ from openbb_backend.charts import load_chart_payload
 from openbb_backend.desk import (
     REBUY_COOLDOWN_GLANCE_BIT_CAP,
     REBUY_COOLDOWN_GLANCE_SYMBOLS_CAP,
+    REBUY_COOLDOWN_LINE_CHARS,
+    _clip_rebuy_cooldown_line,
+    _coerce_rebuy_cooldown_line_chars,
     _coerce_rebuy_cooldown_name_cap,
     build_rebuy_cooldown_glance,
 )
@@ -136,6 +139,51 @@ def test_rebuy_cooldown_glance_refuses_bool_name_cap() -> None:
     assert g_short["line"].count("S") == 2
     # Absolute pressure floor still fires at 5 cooling even when bit_n=2.
     assert "flip-flop pressure" in g_short["line"]
+
+
+def test_clip_rebuy_cooldown_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > REBUY_COOLDOWN_LINE_CHARS
+    default = _clip_rebuy_cooldown_line(long)
+    assert len(default) == REBUY_COOLDOWN_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: REBUY_COOLDOWN_LINE_CHARS - 1] + "…"
+    assert _clip_rebuy_cooldown_line(long, True) == default
+    assert _clip_rebuy_cooldown_line(long, False) == default
+    assert _clip_rebuy_cooldown_line(long, 0) == default
+    assert _coerce_rebuy_cooldown_line_chars(True) == REBUY_COOLDOWN_LINE_CHARS
+    assert _coerce_rebuy_cooldown_line_chars(False) == REBUY_COOLDOWN_LINE_CHARS
+    thin = _clip_rebuy_cooldown_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_rebuy_cooldown_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    now = 1_000_000.0
+    exits = {
+        "AAPL": now - 1000.0,
+        "MSFT": now - 2000.0,
+        "SCHW": now - 3000.0,
+        "NVDA": now - 4000.0,
+        "META": now - 5000.0,
+    }
+    g = build_rebuy_cooldown_glance(exits, cooldown_seconds=86400.0, now=now)
+    g_bool = build_rebuy_cooldown_glance(
+        exits, cooldown_seconds=86400.0, now=now, line_n=True
+    )
+    g_false = build_rebuy_cooldown_glance(
+        exits, cooldown_seconds=86400.0, now=now, line_n=False
+    )
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= REBUY_COOLDOWN_LINE_CHARS
+    g_short = build_rebuy_cooldown_glance(
+        exits, cooldown_seconds=86400.0, now=now, line_n=12
+    )
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")
 
 
 def test_rebuy_cooldown_glance_ignores_expired() -> None:
