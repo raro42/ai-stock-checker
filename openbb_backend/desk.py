@@ -33770,6 +33770,10 @@ def build_book_limits_glance(
 # Crypto-policy glance name ceiling — bare ``held[:3]`` lied when bool.
 CRYPTO_POLICY_GLANCE_SYMBOLS_CAP = 3
 
+# Crypto-policy glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (book-limits / rebuy-cooldown clip peers).
+CRYPTO_POLICY_LINE_CHARS = 96
+
 
 def _coerce_crypto_policy_name_cap(
     value: object, default: int = CRYPTO_POLICY_GLANCE_SYMBOLS_CAP
@@ -33783,11 +33787,43 @@ def _coerce_crypto_policy_name_cap(
     return _coerce_honesty_name_cap(value, default=default)
 
 
+def _coerce_crypto_policy_line_chars(
+    value: object, default: int = CRYPTO_POLICY_LINE_CHARS
+) -> int:
+    """Positive crypto-policy glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char crypto strip via ``line[:True]``; ``False→0``
+    must not wipe (book-limits / rebuy-cooldown clip peers — line truncate
+    was still bare ``[:95]+…`` after name-cap refuse).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_crypto_policy_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate crypto-policy glance line to a safe ceiling."""
+    ceiling = _coerce_crypto_policy_line_chars(
+        CRYPTO_POLICY_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_crypto_policy_glance(
     holdings: list[Any] | None,
     *,
     max_crypto: int | None = None,
     symbols_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact live crypto policy line (portfolio AI / crypto_policy; display only).
 
@@ -33855,8 +33891,10 @@ def build_crypto_policy_glance(
     line = f"{status} · BTC/ETH only · {exits}{rr_bit}"
     if held:
         line = f"{line} · {', '.join(held)}"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (book-limits / rebuy-cooldown peers — truncate was still bare [:95]+…).
+    line = _clip_crypto_policy_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
