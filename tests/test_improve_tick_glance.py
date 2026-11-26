@@ -11,9 +11,12 @@ from openbb_backend.desk import (
     DEFAULT_IMPROVE_TICK_TAIL_LINES,
     IMPROVE_TICK_AGING_SEC,
     IMPROVE_TICK_FRESH_SEC,
+    IMPROVE_TICK_LINE_CHARS,
     _IMPROVE_TICK_LEAN_NAME_CAP,
+    _clip_improve_tick_line,
     _coerce_improve_tick_band_sec,
     _coerce_improve_tick_lean_name_cap,
+    _coerce_improve_tick_line_chars,
     _coerce_improve_tick_tail_lines,
     _resolve_improve_tick_bands,
     _tail_improve_log_lines,
@@ -143,6 +146,42 @@ def test_improve_tick_glance_fresh_ok(tmp_path: Path) -> None:
     assert "start only" not in g["line"]
     assert "log mtime" not in g["line"]
     assert g["age_sec"] == 14 * 60
+    assert len(g["line"]) <= IMPROVE_TICK_LINE_CHARS
+
+
+def test_clip_improve_tick_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > IMPROVE_TICK_LINE_CHARS
+    default = _clip_improve_tick_line(long)
+    assert len(default) == IMPROVE_TICK_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: IMPROVE_TICK_LINE_CHARS - 1] + "…"
+    assert _clip_improve_tick_line(long, True) == default
+    assert _clip_improve_tick_line(long, False) == default
+    assert _clip_improve_tick_line(long, 0) == default
+    assert _coerce_improve_tick_line_chars(True) == IMPROVE_TICK_LINE_CHARS
+    assert _coerce_improve_tick_line_chars(False) == IMPROVE_TICK_LINE_CHARS
+    thin = _clip_improve_tick_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_improve_tick_glance_refuses_bool_line_ceiling(tmp_path: Path) -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    (tmp_path / "run_cursor_improve.log").write_text(
+        "2026-11-09T20:40Z cursor improve start\n"
+        "2026-11-09T20:46Z cursor improve end rc=0\n",
+        encoding="utf-8",
+    )
+    now = _clock("2026-11-09T21:00Z")
+    g = build_improve_tick_glance(tmp_path, now=now)
+    g_bool = build_improve_tick_glance(tmp_path, now=now, line_n=True)
+    g_false = build_improve_tick_glance(tmp_path, now=now, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= IMPROVE_TICK_LINE_CHARS
+    assert "fresh" in g["line"]
 
 
 def test_improve_tick_source_speak() -> None:
