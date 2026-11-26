@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_fee_allowance_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    FEE_ALLOWANCE_LINE_CHARS,
+    _clip_fee_allowance_line,
+    _coerce_fee_allowance_line_chars,
+    build_fee_allowance_glance,
+    load_desk_snapshot,
+)
 
 
 def test_fee_allowance_glance_empty() -> None:
@@ -114,3 +120,39 @@ def test_fee_allowance_glance_in_chart_payload(tmp_path) -> None:
     assert g["ready"] is True
     assert g["crypto_modeled"] is False
     assert "free" in g["line"].lower() or "no free" in g["line"].lower()
+
+
+def test_clip_fee_allowance_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > FEE_ALLOWANCE_LINE_CHARS
+    default = _clip_fee_allowance_line(long)
+    assert len(default) == FEE_ALLOWANCE_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: FEE_ALLOWANCE_LINE_CHARS - 1] + "…"
+    assert _clip_fee_allowance_line(long, True) == default
+    assert _clip_fee_allowance_line(long, False) == default
+    assert _clip_fee_allowance_line(long, 0) == default
+    assert _coerce_fee_allowance_line_chars(True) == FEE_ALLOWANCE_LINE_CHARS
+    assert _coerce_fee_allowance_line_chars(False) == FEE_ALLOWANCE_LINE_CHARS
+    thin = _clip_fee_allowance_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_fee_allowance_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    runtime = {
+        "fee_preset": "revolut_standard",
+        "free_legs_per_month": 1,
+        "fee_allowance_remaining": 1,
+        "fee_allowance_used": 0,
+        "fee_allowance_month": "2026-09",
+    }
+    g = build_fee_allowance_glance(runtime)
+    g_bool = build_fee_allowance_glance(runtime, line_n=True)
+    g_false = build_fee_allowance_glance(runtime, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= FEE_ALLOWANCE_LINE_CHARS
+    assert "1/1 free left" in g["line"]
