@@ -33352,8 +33352,46 @@ def build_ai_debate_glance(
     }
 
 
+# AI-validate-scope glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (AI-debate / LAYA clip peers).
+AI_VALIDATE_SCOPE_LINE_CHARS = 96
+
+
+def _coerce_ai_validate_scope_line_chars(
+    value: object, default: int = AI_VALIDATE_SCOPE_LINE_CHARS
+) -> int:
+    """Positive AI-validate-scope glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char AI scope strip via ``line[:True]``; ``False→0``
+    must not wipe (AI-debate / LAYA clip peers — line truncate was still bare
+    ``[:95]+…`` after top-N refuse).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_ai_validate_scope_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate AI-validate-scope glance line to a safe ceiling."""
+    ceiling = _coerce_ai_validate_scope_line_chars(
+        AI_VALIDATE_SCOPE_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_ai_validate_scope_glance(
     runtime: dict[str, Any] | None,
+    *,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """FinRobot / TradingAgents AI top-N scope (display only).
 
@@ -33401,8 +33439,10 @@ def build_ai_validate_scope_glance(
         )
         line = f"{mode} · AI top {top_n} · rest may pass unscored"
 
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (AI-debate / LAYA peers — truncate was still bare [:95]+…).
+    line = _clip_ai_validate_scope_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
