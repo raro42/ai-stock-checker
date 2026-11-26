@@ -2151,6 +2151,29 @@ def test_count_live_yahoo_screen_claims_inside_ttl():
             yud._yahoo_screen_inflight.clear()
 
 
+def test_claim_live_screen_short_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-char unknown preset; False must not wipe."""
+    from stock_checker.yahoo_universe_discovery import (
+        CLAIM_LIVE_SCREEN_CHARS,
+        _claim_live_screen_short,
+        _coerce_claim_live_screen_chars,
+    )
+
+    long_unknown = "custom_screen_preset_alpha"
+    default = _claim_live_screen_short(long_unknown)
+    assert len(default) == CLAIM_LIVE_SCREEN_CHARS
+    assert default == long_unknown[:CLAIM_LIVE_SCREEN_CHARS]
+    assert _claim_live_screen_short(long_unknown, n=True) == default
+    assert _claim_live_screen_short(long_unknown, n=False) == default
+    assert _claim_live_screen_short(long_unknown, n=0) == default
+    assert _coerce_claim_live_screen_chars(True) == CLAIM_LIVE_SCREEN_CHARS
+    assert _coerce_claim_live_screen_chars(False) == CLAIM_LIVE_SCREEN_CHARS
+    assert _claim_live_screen_short(long_unknown, n=8) == long_unknown[:8]
+    # Known presets stay mapped (not clipped through the unknown path).
+    assert _claim_live_screen_short("day_gainers", n=True) == "gainers"
+    assert _claim_live_screen_short("most_actives", n=3) == "actives"
+
+
 def test_yahoo_discovery_claim_live_screen_sample_gap_bands():
     from stock_checker.yahoo_universe_discovery import (
         yahoo_discovery_claim_live_screen_sample_gap,

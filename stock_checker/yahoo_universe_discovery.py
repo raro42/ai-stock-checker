@@ -505,6 +505,9 @@ def yahoo_discovery_claim_live(meta: Any) -> int:
 
 
 # Compact Ops labels — full Yahoo preset names blow the Universe clip.
+# Unknown-preset token ceiling — bare ``token[:12]`` lied when bool
+# (breadth pulse / Ideas tip-sha clip peers).
+CLAIM_LIVE_SCREEN_CHARS = 12
 _CLAIM_LIVE_SCREEN_SHORT: dict[str, str] = {
     "day_gainers": "gainers",
     "day_losers": "losers",
@@ -512,18 +515,40 @@ _CLAIM_LIVE_SCREEN_SHORT: dict[str, str] = {
 }
 
 
-def _claim_live_screen_short(raw: Any) -> str:
+def _coerce_claim_live_screen_chars(
+    value: object, default: int = CLAIM_LIVE_SCREEN_CHARS
+) -> int:
+    """Positive unknown Yahoo screen-label ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char Universe hung-screen tag via
+    ``token[:True]``; ``False→0`` must not wipe (breadth pulse / Ideas
+    tip-sha clip peers — unknown presets were still bare ``[:12]`` after
+    glance line clips closed).
+    """
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _claim_live_screen_short(raw: Any, n: object = None) -> str:
     """Map a Yahoo screen key to a short Ops label; junk → \"\"."""
     key = str(raw or "").strip().lower().replace("-", "_").replace(" ", "_")
     if not key:
         return ""
     if key in _CLAIM_LIVE_SCREEN_SHORT:
         return _CLAIM_LIVE_SCREEN_SHORT[key]
-    # Unknown preset: keep a short token (≤12) so glance stays readable.
+    # Unknown preset: keep a short token so glance stays readable.
+    # True→1 must not invent a one-char tag via token[:True]
+    # (breadth / tip-sha peers — truncate was still bare [:12]).
     token = re.sub(r"[^a-z0-9_]+", "", key)
     if not token:
         return ""
-    return token[:12]
+    ceiling = _coerce_claim_live_screen_chars(
+        CLAIM_LIVE_SCREEN_CHARS if n is None else n
+    )
+    return token[:ceiling]
 
 
 def yahoo_discovery_claim_live_screens(
