@@ -5,6 +5,9 @@ from __future__ import annotations
 from stock_checker.trade_context import EXIT_REASON_MAX
 
 from openbb_backend.desk import (
+    POSTMORTEM_LINE_CHARS,
+    _clip_postmortem_line,
+    _coerce_postmortem_line_chars,
     build_postmortem_glance,
     postmortem_skip_reason_lead,
     postmortem_skip_reason_lead_size,
@@ -87,8 +90,49 @@ def test_postmortem_glance_line_cap() -> None:
         ]
     )
     assert g["ready"] is True
-    assert len(g["line"]) <= 96
-    assert g["line"].endswith("…") or len(g["line"]) < 96
+    assert len(g["line"]) <= POSTMORTEM_LINE_CHARS
+    assert g["line"].endswith("…") or len(g["line"]) < POSTMORTEM_LINE_CHARS
+
+
+def test_clip_postmortem_line_refuses_bool_ceiling() -> None:
+    """True→1 / False→0 must not invent a one-char strip or wipe."""
+    long = "x" * 120
+    assert len(long) > POSTMORTEM_LINE_CHARS
+    default = _clip_postmortem_line(long)
+    assert len(default) == POSTMORTEM_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: POSTMORTEM_LINE_CHARS - 1] + "…"
+    assert _clip_postmortem_line(long, True) == default
+    assert _clip_postmortem_line(long, False) == default
+    assert _clip_postmortem_line(long, 0) == default
+    assert _coerce_postmortem_line_chars(True) == POSTMORTEM_LINE_CHARS
+    assert _coerce_postmortem_line_chars(False) == POSTMORTEM_LINE_CHARS
+    thin = _clip_postmortem_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_postmortem_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    rows = [
+        {
+            "symbol": "VERYLONGSYMBOLNAME",
+            "exit_reason": "take_profit_very_long_reason",
+            "held": "12.5d",
+            "profit_loss_pct": 12.345,
+        }
+        for _ in range(9)
+    ]
+    g = build_postmortem_glance(rows)
+    g_bool = build_postmortem_glance(rows, line_n=True)
+    g_false = build_postmortem_glance(rows, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= POSTMORTEM_LINE_CHARS
+    assert g["line"].startswith("Last exit")
+    thin = build_postmortem_glance(rows, line_n=12)
+    assert len(thin["line"]) == 12
+    assert thin["line"].endswith("…")
 
 
 def test_postmortem_glance_refuses_bool_exit_reason_ceiling() -> None:
