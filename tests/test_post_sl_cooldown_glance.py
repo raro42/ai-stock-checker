@@ -5,7 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from openbb_backend.charts import load_chart_payload
-from openbb_backend.desk import build_post_sl_cooldown_glance, load_desk_snapshot
+from openbb_backend.desk import (
+    POST_SL_COOLDOWN_LINE_CHARS,
+    _clip_post_sl_cooldown_line,
+    _coerce_post_sl_cooldown_line_chars,
+    build_post_sl_cooldown_glance,
+    load_desk_snapshot,
+)
 from stock_checker.risk_halts import (
     latest_stop_loss_sell,
     post_sl_buy_block_until,
@@ -157,3 +163,43 @@ def test_post_sl_glance_in_chart_payload(tmp_path) -> None:
     g = payload["post_sl_cooldown_glance"]
     assert g["ready"] is True
     assert g["tone"] == "clear"
+
+
+def test_clip_post_sl_cooldown_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > POST_SL_COOLDOWN_LINE_CHARS
+    default = _clip_post_sl_cooldown_line(long)
+    assert len(default) == POST_SL_COOLDOWN_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: POST_SL_COOLDOWN_LINE_CHARS - 1] + "…"
+    assert _clip_post_sl_cooldown_line(long, True) == default
+    assert _clip_post_sl_cooldown_line(long, False) == default
+    assert _clip_post_sl_cooldown_line(long, 0) == default
+    assert _coerce_post_sl_cooldown_line_chars(True) == POST_SL_COOLDOWN_LINE_CHARS
+    assert _coerce_post_sl_cooldown_line_chars(False) == POST_SL_COOLDOWN_LINE_CHARS
+    thin = _clip_post_sl_cooldown_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_post_sl_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    now = 1_000_000.0
+    g = build_post_sl_cooldown_glance(
+        "EXPE", now - 1800.0, cooldown_seconds=14_400.0, now=now
+    )
+    g_bool = build_post_sl_cooldown_glance(
+        "EXPE", now - 1800.0, cooldown_seconds=14_400.0, now=now, line_n=True
+    )
+    g_false = build_post_sl_cooldown_glance(
+        "EXPE", now - 1800.0, cooldown_seconds=14_400.0, now=now, line_n=False
+    )
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= POST_SL_COOLDOWN_LINE_CHARS
+    g_short = build_post_sl_cooldown_glance(
+        "EXPE", now - 1800.0, cooldown_seconds=14_400.0, now=now, line_n=12
+    )
+    assert len(g_short["line"]) == 12
+    assert g_short["line"].endswith("…")

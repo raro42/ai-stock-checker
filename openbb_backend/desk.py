@@ -33907,6 +33907,42 @@ def build_crypto_policy_glance(
     }
 
 
+# Post-SL cooldown glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (crypto-policy / book-limits clip peers).
+POST_SL_COOLDOWN_LINE_CHARS = 96
+
+
+def _coerce_post_sl_cooldown_line_chars(
+    value: object, default: int = POST_SL_COOLDOWN_LINE_CHARS
+) -> int:
+    """Positive post-SL cooldown glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char post-SL strip via ``line[:True]``; ``False→0``
+    must not wipe (crypto-policy / book-limits clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_post_sl_cooldown_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate post-SL cooldown glance line to a safe ceiling."""
+    ceiling = _coerce_post_sl_cooldown_line_chars(
+        POST_SL_COOLDOWN_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_post_sl_cooldown_glance(
     last_sl_symbol: str | None,
     last_sl_epoch: float | None,
@@ -33914,6 +33950,7 @@ def build_post_sl_cooldown_glance(
     cooldown_seconds: float | None = None,
     now: float | None = None,
     expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact post-stop-loss buy cooldown (tradermonty anti-revenge; display only).
 
@@ -33938,7 +33975,7 @@ def build_post_sl_cooldown_glance(
         return {
             "ready": True,
             "tone": "off",
-            "line": "post-SL cooldown off",
+            "line": _clip_post_sl_cooldown_line("post-SL cooldown off", line_n),
             "symbol": "",
             "active": False,
             "seconds_left": 0.0,
@@ -33962,7 +33999,9 @@ def build_post_sl_cooldown_glance(
         return {
             "ready": True,
             "tone": "clear",
-            "line": f"no recent SL · ≥{hold_txt} buy block after stop",
+            "line": _clip_post_sl_cooldown_line(
+                f"no recent SL · ≥{hold_txt} buy block after stop", line_n
+            ),
             "symbol": "",
             "active": False,
             "seconds_left": 0.0,
@@ -33975,8 +34014,10 @@ def build_post_sl_cooldown_glance(
         age_txt = _fmt_cooldown_left(age).lstrip("~")
         bit = f"{sym} " if sym else ""
         line = f"clear · last SL {bit}{age_txt} ago · ≥{hold_txt} block"
-        if len(line) > 96:
-            line = line[:95] + "…"
+        # FinRobot + tradermonty #700/#655: refuse bool line clip —
+        # True→1 invents a one-char strip; False→0 must not wipe
+        # (crypto-policy / book-limits peers — truncate was still bare [:95]+…).
+        line = _clip_post_sl_cooldown_line(line, line_n)
         return {
             "ready": True,
             "tone": "clear",
@@ -33999,8 +34040,10 @@ def build_post_sl_cooldown_glance(
     else:
         tone = "active"
         line = f"ACTIVE · {bit}{left_txt} left · ≥{hold_txt} after SL — buys blocked"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (crypto-policy / book-limits peers — truncate was still bare [:95]+…).
+    line = _clip_post_sl_cooldown_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
