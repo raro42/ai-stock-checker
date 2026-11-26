@@ -99,6 +99,22 @@ def test_stars_and_page_limit_refuse_bool() -> None:
     assert gw._coerce_page_limit(500, default=8, ceiling=100) == 100
 
 
+def test_short_sha_clip_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-char digest SHA; False must not wipe."""
+    full = "deadbeefcafebabe01234567"
+    default = gw._short_sha(full)
+    assert len(default) == gw.SHORT_SHA_CHARS
+    assert default == full[: gw.SHORT_SHA_CHARS]
+    assert gw._short_sha(full, True) == default
+    assert gw._short_sha(full, False) == default
+    assert gw._short_sha(full, 0) == default
+    assert gw._coerce_short_sha_chars(True) == gw.SHORT_SHA_CHARS
+    assert gw._coerce_short_sha_chars(False) == gw.SHORT_SHA_CHARS
+    assert gw._short_sha(full, 4) == full[:4]
+    assert gw._short_sha("", True) == ""
+    assert gw._short_sha(None) == ""
+
+
 def test_digest_meters_and_gap_hours_refuse_bool() -> None:
     """tradermonty #700/#655: True must not invent digest 1-counts / 1s / 1.0h."""
     assert gw._coerce_nonneg_count(True) == 0

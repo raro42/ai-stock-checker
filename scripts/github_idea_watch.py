@@ -326,8 +326,39 @@ class GitHubClient:
             raise RuntimeError(f"GitHub HTTP {exc.code} for {path}: {body}") from exc
 
 
-def _short_sha(sha: str) -> str:
-    return (sha or "")[:7]
+# Digest / Ideas tip short SHA — bare ``sha[:7]`` lied when bool (desk footer
+# / Ideas tip-sha clip peers).
+SHORT_SHA_CHARS = 7
+
+
+def _coerce_short_sha_chars(
+    value: object, default: int = SHORT_SHA_CHARS
+) -> int:
+    """Positive digest short-SHA ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char digest/Ideas tip tag via
+    ``sha[:True]``; ``False→0`` must not wipe (desk footer short-SHA /
+    Ideas tip-sha clip peers — watch digest generator was still bare
+    ``[:7]`` after footer refuse closed).
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return n
+
+
+def _short_sha(sha: object, n: object = None) -> str:
+    """Hard-truncate commit SHA for digest / Ideas tip (no ellipsis)."""
+    ceiling = _coerce_short_sha_chars(SHORT_SHA_CHARS if n is None else n)
+    return str(sha or "")[:ceiling]
 
 
 def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
