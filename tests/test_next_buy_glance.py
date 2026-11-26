@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from openbb_backend.desk import build_next_buy_glance
+from openbb_backend.desk import (
+    NEXT_BUY_LINE_CHARS,
+    _clip_next_buy_line,
+    _coerce_next_buy_line_chars,
+    build_next_buy_glance,
+)
 
 
 def test_next_buy_glance_empty() -> None:
@@ -68,8 +73,46 @@ def test_next_buy_glance_line_cap() -> None:
         }
     )
     assert g["ready"] is True
-    assert len(g["line"]) <= 96
+    assert len(g["line"]) <= NEXT_BUY_LINE_CHARS
     assert g["line"].endswith("…")
+
+
+def test_clip_next_buy_line_refuses_bool_ceiling() -> None:
+    """True→1 / False→0 must not invent a one-char strip or wipe."""
+    long = "x" * 120
+    assert len(long) > NEXT_BUY_LINE_CHARS
+    default = _clip_next_buy_line(long)
+    assert len(default) == NEXT_BUY_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: NEXT_BUY_LINE_CHARS - 1] + "…"
+    assert _clip_next_buy_line(long, True) == default
+    assert _clip_next_buy_line(long, False) == default
+    assert _clip_next_buy_line(long, 0) == default
+    assert _coerce_next_buy_line_chars(True) == NEXT_BUY_LINE_CHARS
+    assert _coerce_next_buy_line_chars(False) == NEXT_BUY_LINE_CHARS
+    thin = _clip_next_buy_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_next_buy_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    payload = {
+        "eur": 1.0,
+        "slots_open": 1,
+        "capped_by": "cash_frac",
+        "note": "x" * 120,
+    }
+    g = build_next_buy_glance(payload)
+    g_bool = build_next_buy_glance(payload, line_n=True)
+    g_false = build_next_buy_glance(payload, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= NEXT_BUY_LINE_CHARS
+    assert g["line"].startswith("Next buy")
+    thin = build_next_buy_glance(payload, line_n=12)
+    assert len(thin["line"]) == 12
+    assert thin["line"].endswith("…")
 
 
 def test_next_buy_glance_refuses_bool_eur() -> None:
