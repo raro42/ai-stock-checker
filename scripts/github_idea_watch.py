@@ -361,6 +361,73 @@ def _short_sha(sha: object, n: object = None) -> str:
     return str(sha or "")[:ceiling]
 
 
+# Digest repo description / commit subject — bare ``[:240]`` / ``[:160]`` lied
+# when bool (short-SHA clip peers).
+DESCRIPTION_CHARS = 240
+COMMIT_MESSAGE_CHARS = 160
+
+
+def _coerce_description_chars(
+    value: object, default: int = DESCRIPTION_CHARS
+) -> int:
+    """Positive digest description ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char repo blurb via ``desc[:True]``;
+    ``False→0`` must not wipe (short-SHA clip peer — digest meta was still
+    bare ``[:240]`` after SHA refuse closed).
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_description(text: object, n: object = None) -> str:
+    """Hard-truncate repo description for digest (no ellipsis)."""
+    ceiling = _coerce_description_chars(DESCRIPTION_CHARS if n is None else n)
+    return str(text or "")[:ceiling]
+
+
+def _coerce_commit_message_chars(
+    value: object, default: int = COMMIT_MESSAGE_CHARS
+) -> int:
+    """Positive digest commit-subject ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char subject via ``msg[:True]``;
+    ``False→0`` must not wipe (description / short-SHA clip peers — digest
+    activity was still bare ``[:160]`` after SHA refuse closed).
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_commit_message(text: object, n: object = None) -> str:
+    """First-line hard-truncate for digest commit subjects (no ellipsis)."""
+    ceiling = _coerce_commit_message_chars(
+        COMMIT_MESSAGE_CHARS if n is None else n
+    )
+    first = str(text or "").split("\n", 1)[0]
+    return first[:ceiling]
+
+
 def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
     try:
         meta = client.get_json(f"/repos/{repo}") or {}
@@ -369,7 +436,7 @@ def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
     return {
         "repo": repo,
         "url": meta.get("html_url") or f"https://github.com/{repo}",
-        "description": (meta.get("description") or "")[:240],
+        "description": _clip_description(meta.get("description") or ""),
         "stars": _coerce_star_count(meta.get("stargazers_count")),
         "pushed_at": meta.get("pushed_at") or "",
         "default_branch": meta.get("default_branch") or "main",
@@ -398,7 +465,7 @@ def fetch_repo_activity(
                     {
                         "sha": c.get("sha") or "",
                         "short": _short_sha(c.get("sha") or ""),
-                        "message": (commit.get("message") or "").split("\n", 1)[0][:160],
+                        "message": _clip_commit_message(commit.get("message") or ""),
                         "date": author.get("date") or "",
                         "url": c.get("html_url")
                         or f"https://github.com/{repo}/commit/{c.get('sha')}",

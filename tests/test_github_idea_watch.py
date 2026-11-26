@@ -115,6 +115,40 @@ def test_short_sha_clip_refuses_bool_ceiling() -> None:
     assert gw._short_sha(None) == ""
 
 
+def test_description_clip_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-char repo blurb; False must not wipe."""
+    full = "A" * (gw.DESCRIPTION_CHARS + 40)
+    default = gw._clip_description(full)
+    assert len(default) == gw.DESCRIPTION_CHARS
+    assert default == full[: gw.DESCRIPTION_CHARS]
+    assert gw._clip_description(full, True) == default
+    assert gw._clip_description(full, False) == default
+    assert gw._clip_description(full, 0) == default
+    assert gw._coerce_description_chars(True) == gw.DESCRIPTION_CHARS
+    assert gw._coerce_description_chars(False) == gw.DESCRIPTION_CHARS
+    assert gw._clip_description(full, 12) == full[:12]
+    assert gw._clip_description("", True) == ""
+    assert gw._clip_description(None) == ""
+
+
+def test_commit_message_clip_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-char subject; False must not wipe."""
+    body = "B" * (gw.COMMIT_MESSAGE_CHARS + 40)
+    multi = f"{body}\n\nsecond line ignored"
+    default = gw._clip_commit_message(multi)
+    assert len(default) == gw.COMMIT_MESSAGE_CHARS
+    assert default == body[: gw.COMMIT_MESSAGE_CHARS]
+    assert "\n" not in default
+    assert gw._clip_commit_message(multi, True) == default
+    assert gw._clip_commit_message(multi, False) == default
+    assert gw._clip_commit_message(multi, 0) == default
+    assert gw._coerce_commit_message_chars(True) == gw.COMMIT_MESSAGE_CHARS
+    assert gw._coerce_commit_message_chars(False) == gw.COMMIT_MESSAGE_CHARS
+    assert gw._clip_commit_message(multi, 20) == body[:20]
+    assert gw._clip_commit_message("", True) == ""
+    assert gw._clip_commit_message(None) == ""
+
+
 def test_digest_meters_and_gap_hours_refuse_bool() -> None:
     """tradermonty #700/#655: True must not invent digest 1-counts / 1s / 1.0h."""
     assert gw._coerce_nonneg_count(True) == 0
