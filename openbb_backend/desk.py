@@ -35794,11 +35794,48 @@ def apply_min_hold_lock_fields(
     return row
 
 
+# Min-hold-lock glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (improve-tick / stuck-capital clip peers).
+MIN_HOLD_LOCK_LINE_CHARS = 96
+
+
+def _coerce_min_hold_lock_line_chars(
+    value: object, default: int = MIN_HOLD_LOCK_LINE_CHARS
+) -> int:
+    """Positive min-hold-lock glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char lock strip via ``line[:True]``; ``False→0``
+    must not wipe (improve-tick / stuck-capital clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_min_hold_lock_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate min-hold-lock glance line to a safe ceiling."""
+    ceiling = _coerce_min_hold_lock_line_chars(
+        MIN_HOLD_LOCK_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_min_hold_lock_glance(
     holdings: list[dict[str, Any]] | None,
     *,
     min_hold_hours: float = 24.0,
     expiry_warn_seconds: float = DEFAULT_COOLDOWN_EXPIRY_WARN_SEC,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Open lots still inside min-hold (portfolio AI / tradermonty; display only).
 
@@ -35857,8 +35894,10 @@ def build_min_hold_lock_glance(
 
     if not timed:
         line = f"{ghost_n} no entry · hold age unknown"
-        if len(line) > 96:
-            line = line[:95] + "…"
+        # FinRobot + tradermonty #700/#655: refuse bool line clip —
+        # True→1 invents a one-char strip; False→0 must not wipe
+        # (improve-tick / stuck-capital peers — truncate was still bare [:95]+…).
+        line = _clip_min_hold_lock_line(line, line_n)
         return {
             "ready": True,
             "tone": "warn",
@@ -35882,10 +35921,11 @@ def build_min_hold_lock_glance(
         else:
             line = f"all {timed_n} past min-hold ({hold_txt}) · rotate/trim OK"
             tone = "quiet"
+        line = _clip_min_hold_lock_line(line, line_n)
         return {
             "ready": True,
             "tone": tone,
-            "line": line[:96] if len(line) > 96 else line,
+            "line": line,
             "locked": 0,
             "timed": timed_n,
             "ghost": ghost_n,
@@ -35922,8 +35962,10 @@ def build_min_hold_lock_glance(
             tone = "warn"
         elif tone == "flat":
             tone = "warn"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (improve-tick / stuck-capital peers — truncate was still bare [:95]+…).
+    line = _clip_min_hold_lock_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,

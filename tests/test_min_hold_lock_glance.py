@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from openbb_backend.desk import (
+    MIN_HOLD_LOCK_LINE_CHARS,
+    _clip_min_hold_lock_line,
+    _coerce_min_hold_lock_line_chars,
     _cooldown_expiring_soon,
     _fmt_cooldown_left,
     _fmt_hold,
@@ -190,3 +193,40 @@ def test_min_hold_lock_glance_refuses_bool_expiry_warn() -> None:
         expiry_warn_seconds=False,  # type: ignore[arg-type]
     )
     assert g2["expiring_soon"] is True  # default 15m, not False→0 off
+
+
+def test_clip_min_hold_lock_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > MIN_HOLD_LOCK_LINE_CHARS
+    default = _clip_min_hold_lock_line(long)
+    assert len(default) == MIN_HOLD_LOCK_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: MIN_HOLD_LOCK_LINE_CHARS - 1] + "…"
+    assert _clip_min_hold_lock_line(long, True) == default
+    assert _clip_min_hold_lock_line(long, False) == default
+    assert _clip_min_hold_lock_line(long, 0) == default
+    assert _coerce_min_hold_lock_line_chars(True) == MIN_HOLD_LOCK_LINE_CHARS
+    assert _coerce_min_hold_lock_line_chars(False) == MIN_HOLD_LOCK_LINE_CHARS
+    thin = _clip_min_hold_lock_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_min_hold_lock_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    holdings = [
+        {"symbol": "VERYLONGSYMBOLNAME", "held_seconds": 600},
+        {"symbol": "ANOTHERLONGNAME", "held_seconds": 1_200},
+        {"symbol": "GHOSTLOT"},
+    ]
+    g = build_min_hold_lock_glance(holdings, min_hold_hours=24)
+    g_bool = build_min_hold_lock_glance(holdings, min_hold_hours=24, line_n=True)
+    g_false = build_min_hold_lock_glance(holdings, min_hold_hours=24, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= MIN_HOLD_LOCK_LINE_CHARS
+    assert "min-hold lock" in g["line"]
+    thin = build_min_hold_lock_glance(holdings, min_hold_hours=24, line_n=12)
+    assert len(thin["line"]) == 12
+    assert thin["line"].endswith("…")
