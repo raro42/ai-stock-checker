@@ -181,6 +181,27 @@ def test_http_body_clip_refuses_bool_ceiling() -> None:
     assert gw._clip_http_body(None) == ""
 
 
+def test_idea_bullet_list_cap_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-bullet digest strip; False must not wipe."""
+    items = [f"b{i}" for i in range(gw.IDEA_BULLET_CAP + 10)]
+    default = gw._clip_idea_bullets(items)
+    assert len(default) == gw.IDEA_BULLET_CAP
+    assert default == items[: gw.IDEA_BULLET_CAP]
+    assert gw._clip_idea_bullets(items, True) == default
+    assert gw._clip_idea_bullets(items, False) == default
+    assert gw._clip_idea_bullets(items, 0) == default
+    assert gw._coerce_idea_bullet_cap(True) == gw.IDEA_BULLET_CAP
+    assert gw._coerce_idea_bullet_cap(False) == gw.IDEA_BULLET_CAP
+    assert gw._clip_idea_bullets(items, 5) == items[:5]
+    assert gw._clip_idea_bullets(None) == []
+    assert gw._clip_idea_bullets("not-a-list") == []
+    printed = gw._clip_idea_bullets_print(items)
+    assert len(printed) == gw.IDEA_BULLET_PRINT_CAP
+    assert gw._clip_idea_bullets_print(items, True) == printed
+    assert gw._clip_idea_bullets_print(items, False) == printed
+    assert gw._coerce_idea_bullet_print_cap(True) == gw.IDEA_BULLET_PRINT_CAP
+
+
 def test_digest_meters_and_gap_hours_refuse_bool() -> None:
     """tradermonty #700/#655: True must not invent digest 1-counts / 1s / 1.0h."""
     assert gw._coerce_nonneg_count(True) == 0

@@ -496,6 +496,63 @@ def _clip_http_body(text: object, n: object = None) -> str:
     return str(text or "")[:ceiling]
 
 
+# Digest idea-bullet strip — bare ``ideas[:40]`` / console ``[:12]`` lied when
+# bool (HTTP-body / date clip peers).
+IDEA_BULLET_CAP = 40
+IDEA_BULLET_PRINT_CAP = 12
+
+
+def _coerce_idea_bullet_cap(
+    value: object, default: int = IDEA_BULLET_CAP
+) -> int:
+    """Positive idea-bullet list ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-bullet digest strip via ``ideas[:True]``;
+    ``False→0`` must not wipe (HTTP-body / date clip peers — digest persist
+    was still bare ``[:40]`` after HTTP-body refuse closed).
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return n
+
+
+def _coerce_idea_bullet_print_cap(
+    value: object, default: int = IDEA_BULLET_PRINT_CAP
+) -> int:
+    """Positive console idea-bullet ceiling, or ``default`` when bool/gap/≤0.
+
+    Same claim-honesty as persist cap — CLI print was still bare ``[:12]``.
+    """
+    return _coerce_idea_bullet_cap(value, default=default)
+
+
+def _clip_idea_bullets(items: object, n: object = None) -> list:
+    """Hard-cap idea-bullet lists for digest persist (no invented 1-row strip)."""
+    ceiling = _coerce_idea_bullet_cap(IDEA_BULLET_CAP if n is None else n)
+    if not isinstance(items, (list, tuple)):
+        return []
+    return list(items)[:ceiling]
+
+
+def _clip_idea_bullets_print(items: object, n: object = None) -> list:
+    """Hard-cap idea-bullet lists for CLI print."""
+    ceiling = _coerce_idea_bullet_print_cap(
+        IDEA_BULLET_PRINT_CAP if n is None else n
+    )
+    if not isinstance(items, (list, tuple)):
+        return []
+    return list(items)[:ceiling]
+
+
 def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
     try:
         meta = client.get_json(f"/repos/{repo}") or {}
@@ -673,7 +730,7 @@ def build_digest(
         "skipped_count": _coerce_nonneg_count(skipped_count),
         "update_count": _coerce_nonneg_count(updates),
         "next_sleep_sec": _coerce_loop_sleep_sec(next_sleep_sec),
-        "idea_bullets": ideas[:40],
+        "idea_bullets": _clip_idea_bullets(ideas),
         "repos": rows,
     }
 
@@ -1089,7 +1146,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         f"updates={digest.get('update_count', 0)} "
         f"next_sleep={digest.get('next_sleep_sec')}s → {args.state_dir / 'latest.md'}"
     )
-    for bullet in (digest.get("idea_bullets") or [])[:12]:
+    for bullet in _clip_idea_bullets_print(digest.get("idea_bullets") or []):
         print(f"  • {bullet}")
     return 0
 
