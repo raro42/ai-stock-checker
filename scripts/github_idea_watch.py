@@ -428,6 +428,39 @@ def _clip_commit_message(text: object, n: object = None) -> str:
     return first[:ceiling]
 
 
+# Digest ISO date display — bare ``[:10]`` lied when bool (description /
+# message clip peers).
+DATE_CHARS = 10
+
+
+def _coerce_date_chars(value: object, default: int = DATE_CHARS) -> int:
+    """Positive digest date ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + xang1234 screener + tradermonty #700/#655 + portfolio AI:
+    ``True→1`` must not invent a one-char date via ``date[:True]``;
+    ``False→0`` must not wipe (description / message clip peers — digest
+    commit/release stamps were still bare ``[:10]`` after message refuse
+    closed).
+    """
+    if value is None or isinstance(value, bool):
+        return int(default)
+    if not isinstance(value, (int, float)):
+        return int(default)
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return int(default)
+    if n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_date(text: object, n: object = None) -> str:
+    """Hard-truncate ISO stamps to YYYY-MM-DD for digest (no ellipsis)."""
+    ceiling = _coerce_date_chars(DATE_CHARS if n is None else n)
+    return str(text or "")[:ceiling]
+
+
 def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
     try:
         meta = client.get_json(f"/repos/{repo}") or {}
@@ -684,14 +717,14 @@ def render_markdown(digest: dict[str, Any]) -> str:
             lines.append("- Commits:")
             for c in new_c[:8]:
                 lines.append(
-                    f"  - [`{c['short']}`]({c['url']}) {c['date'][:10]} — {c['message']}"
+                    f"  - [`{c['short']}`]({c['url']}) {_clip_date(c.get('date'))} — {c['message']}"
                 )
         new_r = row.get("new_releases") or []
         if new_r:
             lines.append("- Releases:")
             for r in new_r[:5]:
                 lines.append(
-                    f"  - [{r['tag']}]({r['url']}) {str(r.get('published_at') or '')[:10]} — {r.get('name')}"
+                    f"  - [{r['tag']}]({r['url']}) {_clip_date(r.get('published_at'))} — {r.get('name')}"
                 )
         lines.append("")
 

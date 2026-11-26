@@ -149,6 +149,22 @@ def test_commit_message_clip_refuses_bool_ceiling() -> None:
     assert gw._clip_commit_message(None) == ""
 
 
+def test_date_clip_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-char ISO date; False must not wipe."""
+    full = "2026-11-26T20:56:26Z"
+    default = gw._clip_date(full)
+    assert len(default) == gw.DATE_CHARS
+    assert default == "2026-11-26"
+    assert gw._clip_date(full, True) == default
+    assert gw._clip_date(full, False) == default
+    assert gw._clip_date(full, 0) == default
+    assert gw._coerce_date_chars(True) == gw.DATE_CHARS
+    assert gw._coerce_date_chars(False) == gw.DATE_CHARS
+    assert gw._clip_date(full, 4) == "2026"
+    assert gw._clip_date("", True) == ""
+    assert gw._clip_date(None) == ""
+
+
 def test_digest_meters_and_gap_hours_refuse_bool() -> None:
     """tradermonty #700/#655: True must not invent digest 1-counts / 1s / 1.0h."""
     assert gw._coerce_nonneg_count(True) == 0
