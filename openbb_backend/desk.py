@@ -23611,6 +23611,54 @@ def cap_honesty_fold_names(
     return names
 
 
+# Promote A/B glance line ceiling — bare ``line[:1209]+…`` lied when bool
+# (postmortem / next-buy clip peers). Soft 1320 keeps mid-length lines intact.
+PROMOTE_AB_LINE_CHARS = 1210
+PROMOTE_AB_LINE_SOFT = 1320
+
+
+def _coerce_promote_ab_line_chars(
+    value: object, default: int = PROMOTE_AB_LINE_CHARS
+) -> int:
+    """Positive promote A/B glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char Window A/B strip via ``line[:True]``; ``False→0``
+    must not wipe (postmortem / next-buy clip peers — line truncate was
+    still bare ``[:1209]+…`` after desk ``[:95]`` peers closed).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_promote_ab_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate promote A/B glance line to a safe ceiling.
+
+    Default / bool / gap path keeps soft ``PROMOTE_AB_LINE_SOFT`` hysteresis
+    (only clip when longer than soft, down to ``PROMOTE_AB_LINE_CHARS``).
+    Explicit positive ``n`` clips at that ceiling with no soft band.
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    explicit = coerce_nonneg_int(n)
+    if explicit is None or explicit <= 0:
+        ceiling = PROMOTE_AB_LINE_CHARS
+        soft = PROMOTE_AB_LINE_SOFT
+    else:
+        ceiling = explicit
+        soft = explicit
+    s = str(text or "")
+    if len(s) <= soft:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_promote_ab_glance(
     runtime: dict[str, Any] | None,
     *,
@@ -23618,6 +23666,7 @@ def build_promote_ab_glance(
     data_dir: Path | str | None = None,
     window_stats: dict[str, Any] | None = None,
     open_positions: int | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact promote A/B window line (Phase A / portfolio AI; display only).
 
@@ -26433,8 +26482,8 @@ def build_promote_ab_glance(
     line = " · ".join(parts)
     summary_line = " · ".join([*parts[:-1], summary_status])
     # Allow room for N/M sells + fee / polarity / WR / vs-BE / Kelly / half-Kelly / slot / cap / quarter / practical / Kelly sample / sell sessions / density / K↔ meta leans / loss streak / loss max / loss mean / loss med / loss min / loss σ / win streak / win max / win mean / win med / win min / flats / payoff / expectancy / net / fee take / PF / net PF / freshness.
-    if len(line) > 1320:
-        line = line[:1209] + "…"
+    # Soft 1320 → hard 1210; bool/gap refuse (postmortem / next-buy peers).
+    line = _clip_promote_ab_line(line, line_n)
     honesty_fold_meta = promote_honesty_fold_meta(
         honesty_warns=honesty_warns,
         fees_line=fees_line,

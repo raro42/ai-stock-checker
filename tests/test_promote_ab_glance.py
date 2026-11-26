@@ -6,8 +6,12 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from openbb_backend.desk import (
+    PROMOTE_AB_LINE_CHARS,
+    PROMOTE_AB_LINE_SOFT,
     _HONESTY_WARN_NAME_CAP,
+    _clip_promote_ab_line,
     _coerce_honesty_name_cap,
+    _coerce_promote_ab_line_chars,
     build_promote_ab_glance,
     cap_honesty_fold_names,
     promote_honesty_fold_meta,
@@ -44,6 +48,50 @@ def test_promote_ab_snapshot_window_a_target_met() -> None:
 
 def test_promote_ab_glance_empty() -> None:
     assert build_promote_ab_glance(None)["ready"] is False
+
+
+def test_clip_promote_ab_line_refuses_bool_ceiling() -> None:
+    """True→1 / False→0 must not invent a one-char strip or wipe."""
+    # Soft hysteresis: mid-length lines stay intact.
+    mid = "x" * (PROMOTE_AB_LINE_CHARS + 20)
+    assert PROMOTE_AB_LINE_CHARS < len(mid) <= PROMOTE_AB_LINE_SOFT
+    assert _clip_promote_ab_line(mid) == mid
+    assert _clip_promote_ab_line(mid, True) == mid
+    assert _clip_promote_ab_line(mid, False) == mid
+    assert _clip_promote_ab_line(mid, 0) == mid
+    # Over soft → hard ceiling.
+    long = "x" * (PROMOTE_AB_LINE_SOFT + 40)
+    default = _clip_promote_ab_line(long)
+    assert len(default) == PROMOTE_AB_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: PROMOTE_AB_LINE_CHARS - 1] + "…"
+    assert _clip_promote_ab_line(long, True) == default
+    assert _clip_promote_ab_line(long, False) == default
+    assert _clip_promote_ab_line(long, 0) == default
+    assert _coerce_promote_ab_line_chars(True) == PROMOTE_AB_LINE_CHARS
+    assert _coerce_promote_ab_line_chars(False) == PROMOTE_AB_LINE_CHARS
+    thin = _clip_promote_ab_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_promote_ab_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    g = build_promote_ab_glance({"promote_experiment_strategy": False})
+    assert g["ready"] is True
+    g_bool = build_promote_ab_glance(
+        {"promote_experiment_strategy": False}, line_n=True
+    )
+    g_false = build_promote_ab_glance(
+        {"promote_experiment_strategy": False}, line_n=False
+    )
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    thin = build_promote_ab_glance(
+        {"promote_experiment_strategy": False}, line_n=12
+    )
+    assert len(thin["line"]) == 12
+    assert thin["line"].endswith("…")
 
 
 def test_cap_honesty_fold_names_clips_storm() -> None:
