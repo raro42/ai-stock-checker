@@ -34056,11 +34056,48 @@ def build_post_sl_cooldown_glance(
     }
 
 
+# Daily-loss glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (post-SL / crypto-policy clip peers).
+DAILY_LOSS_LINE_CHARS = 96
+
+
+def _coerce_daily_loss_line_chars(
+    value: object, default: int = DAILY_LOSS_LINE_CHARS
+) -> int:
+    """Positive daily-loss glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char daily-loss strip via ``line[:True]``; ``False→0``
+    must not wipe (post-SL / crypto-policy clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_daily_loss_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate daily-loss glance line to a safe ceiling."""
+    ceiling = _coerce_daily_loss_line_chars(
+        DAILY_LOSS_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_daily_loss_glance(
     realized_pnl: float | None,
     initial: float | None,
     *,
     threshold_pct: float | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact UTC-day loss halt progress (tradermonty / portfolio AI; display only).
 
@@ -34102,7 +34139,7 @@ def build_daily_loss_glance(
         return {
             "ready": True,
             "tone": "off",
-            "line": "daily loss halt off",
+            "line": _clip_daily_loss_line("daily loss halt off", line_n),
             "pnl": pnl_v,
             "initial": init_v,
             "threshold_pct": 0.0,
@@ -34126,8 +34163,10 @@ def build_daily_loss_glance(
     else:
         tone = "clear"
         line = f"UTC day €{pnl_v:,.2f} · halt at −{thr:g}% of start · clear"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (post-SL / crypto-policy peers — truncate was still bare [:95]+…).
+    line = _clip_daily_loss_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
