@@ -34183,9 +34183,46 @@ def build_daily_loss_glance(
 LOOP_CADENCE_SCAN_FLOOR_MIN = 15
 LOOP_CADENCE_TRADE_FLOOR_MIN = 5
 
+# Loop-cadence glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (daily-loss / post-SL clip peers).
+LOOP_CADENCE_LINE_CHARS = 96
+
+
+def _coerce_loop_cadence_line_chars(
+    value: object, default: int = LOOP_CADENCE_LINE_CHARS
+) -> int:
+    """Positive loop-cadence glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char cadence strip via ``line[:True]``; ``False→0``
+    must not wipe (daily-loss / post-SL clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_loop_cadence_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate loop-cadence glance line to a safe ceiling."""
+    ceiling = _coerce_loop_cadence_line_chars(
+        LOOP_CADENCE_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
 
 def build_loop_cadence_glance(
     runtime: dict[str, Any] | None,
+    *,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Scan / trade loop cadence honesty (portfolio AI + screener; display only).
 
@@ -34239,8 +34276,10 @@ def build_loop_cadence_glance(
     else:
         tone = "ok"
         line = f"scan {scan_m}m · trade {trade_m}m · {floor_bit}"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (daily-loss / post-SL peers — truncate was still bare [:95]+…).
+    line = _clip_loop_cadence_line(line, line_n)
     return {
         "ready": True,
         "tone": tone,
