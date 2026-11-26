@@ -39409,10 +39409,66 @@ def scan_breadth_pulse_for_day(
     return None
 
 
+# Breadth pulse glance line ceiling — bare ``max_len = 280`` / ``core[:budget]``
+# lied when bool (promote A/B / postmortem clip peers).
+BREADTH_GLANCE_LINE_CHARS = 280
+BREADTH_GLANCE_COVERAGE = "estimate · not full-universe"
+
+
+def _coerce_breadth_glance_line_chars(
+    value: object, default: int = BREADTH_GLANCE_LINE_CHARS
+) -> int:
+    """Positive breadth pulse glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char scan-list strip via ``core[:True]``; ``False→0``
+    must not wipe (promote A/B / postmortem clip peers — truncate was still
+    bare ``max_len = 280`` after desk ``[:95]`` / promote ``[:1209]`` closed).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_breadth_glance_line(
+    core: object,
+    coverage: object = BREADTH_GLANCE_COVERAGE,
+    n: object = None,
+) -> str:
+    """Truncate breadth pulse glance keeping the coverage suffix visible.
+
+    StockBee days-since / tape bits grow the line; keep
+    ``estimate · not full-universe`` when trimming so friends never lose the
+    scan-list honesty tag. Bool / gap / ≤0 ceilings fall back to
+    ``BREADTH_GLANCE_LINE_CHARS``.
+    """
+    ceiling = _coerce_breadth_glance_line_chars(
+        BREADTH_GLANCE_LINE_CHARS if n is None else n
+    )
+    cov = str(coverage or "")
+    c = str(core or "")
+    line = f"{c} · {cov}" if c else cov
+    if len(line) <= ceiling:
+        return line
+    keep = f"… · {cov}" if cov else "…"
+    budget = ceiling - len(keep)
+    if budget < 12:
+        if len(cov) <= ceiling:
+            return cov if cov else ("…"[:ceiling] if ceiling else "")
+        if ceiling <= 1:
+            return "…"[:ceiling]
+        return cov[: ceiling - 1] + "…"
+    return c[:budget].rstrip(" ·") + keep
+
+
 def build_breadth_glance(
     pulse: dict[str, Any] | None,
     *,
     history: list[dict[str, Any]] | None = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """One-line scan-list glance for HTML screens + Charts API (display only; not a gate).
 
@@ -39536,12 +39592,14 @@ def build_breadth_glance(
         # Recent days). No day → stay silent (legacy empty pulse).
         if not meta_bit:
             return empty
-        coverage = "estimate · not full-universe"
+        coverage = BREADTH_GLANCE_COVERAGE
+        # True→1 must not invent a one-char strip via core[:True]
+        # (promote A/B / postmortem peers — truncate was still bare max_len=280).
         return {
             **empty,
             "ready": True,
             "tone": "warn",
-            "line": f"{meta_bit} · {coverage}",
+            "line": _clip_breadth_glance_line(meta_bit, coverage, line_n),
             "meta_severity": meta_severity,
             "meta_bit": meta_bit,
             "run_covers_day": run_covers_day,
@@ -39839,18 +39897,11 @@ def build_breadth_glance(
         return empty
     # Coverage honesty: verified *scan-list* estimate, never full-universe.
     # Keep this suffix when truncating — days-since / streaks can push length.
-    coverage = "estimate · not full-universe"
+    # True→1 must not invent a one-char strip via core[:True]
+    # (promote A/B / postmortem peers — truncate was still bare max_len=280).
+    coverage = BREADTH_GLANCE_COVERAGE
     core = " · ".join(parts)
-    line = f"{core} · {coverage}"
-    # StockBee days-since / tape bits grow the line; keep coverage when trimming.
-    max_len = 280
-    if len(line) > max_len:
-        keep = f"… · {coverage}"
-        budget = max_len - len(keep)
-        if budget < 12:
-            line = coverage if len(coverage) <= max_len else coverage[: max_len - 1] + "…"
-        else:
-            line = core[:budget].rstrip(" ·") + keep
+    line = _clip_breadth_glance_line(core, coverage, line_n)
     if meta.get("tone") == "warn":
         tone = "warn"
     elif score > 0:

@@ -3,6 +3,8 @@
 from pathlib import Path
 
 from openbb_backend.desk import (
+    BREADTH_GLANCE_COVERAGE,
+    BREADTH_GLANCE_LINE_CHARS,
     alone_density_pct,
     breadth_chop_fold_meta,
     breadth_confirmed_thrust_streak,
@@ -39,6 +41,8 @@ from openbb_backend.desk import (
     build_breadth_stock_advance_spark,
     build_breadth_tape_summary,
     build_breadth_thrust_summary,
+    _clip_breadth_glance_line,
+    _coerce_breadth_glance_line_chars,
     confirmed_density_pct,
     crypto_advance_ratio_pct,
     crypto_mover_ratio_pct,
@@ -2238,6 +2242,58 @@ def test_breadth_glance_empty_when_no_scan():
     assert build_breadth_glance(None)["ready"] is False
     assert build_breadth_glance({})["ready"] is False
     assert build_breadth_glance({"crypto_n": 0, "stock_scan_n": 0})["ready"] is False
+
+
+def test_clip_breadth_glance_line_refuses_bool_ceiling() -> None:
+    """True→1 / False→0 must not invent a one-char strip or wipe coverage."""
+    core = "x" * 400
+    default = _clip_breadth_glance_line(core)
+    assert len(default) == BREADTH_GLANCE_LINE_CHARS
+    assert default.endswith(BREADTH_GLANCE_COVERAGE)
+    assert "…" in default
+    assert _clip_breadth_glance_line(core, n=True) == default
+    assert _clip_breadth_glance_line(core, n=False) == default
+    assert _clip_breadth_glance_line(core, n=0) == default
+    assert _coerce_breadth_glance_line_chars(True) == BREADTH_GLANCE_LINE_CHARS
+    assert _coerce_breadth_glance_line_chars(False) == BREADTH_GLANCE_LINE_CHARS
+    short = _clip_breadth_glance_line("crypto 3/1", n=True)
+    assert short == f"crypto 3/1 · {BREADTH_GLANCE_COVERAGE}"
+    # Thin but still room for ``… · coverage`` (budget ≥12).
+    thin = _clip_breadth_glance_line(core, n=80)
+    assert len(thin) == 80
+    assert thin.endswith(BREADTH_GLANCE_COVERAGE)
+    assert "…" in thin
+    # Too tight for core+coverage → coverage-only (not a one-char invent).
+    tight = _clip_breadth_glance_line(core, n=40)
+    assert tight == BREADTH_GLANCE_COVERAGE
+
+
+def test_breadth_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    pulse = {
+        "day": "2026-11-26",
+        "scan_time": "2026-11-26T12:00:00Z",
+        "crypto_n": 4,
+        "crypto_up": 3,
+        "crypto_down": 1,
+        "crypto_big_movers": 2,
+        "stock_scan_n": 10,
+        "stock_scan_up": 6,
+        "stock_scan_down": 4,
+        "stock_breakouts_n": 8,
+        "stock_within_5pct_high": 5,
+    }
+    g = build_breadth_glance(pulse)
+    assert g["ready"] is True
+    g_bool = build_breadth_glance(pulse, line_n=True)
+    g_false = build_breadth_glance(pulse, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert BREADTH_GLANCE_COVERAGE in g["line"]
+    # Explicit thin ceiling still keeps coverage (not a one-char invent).
+    thin = build_breadth_glance(pulse, line_n=80)
+    assert thin["line"].endswith(BREADTH_GLANCE_COVERAGE)
+    assert len(thin["line"]) <= 80
 
 
 def test_breadth_glance_speaks_day_meta_mismatch_and_empty():
