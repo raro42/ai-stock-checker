@@ -35600,6 +35600,10 @@ def build_fee_burn_glance(
 STUCK_CAPITAL_GLANCE_BIT_CAP = 3
 STUCK_CAPITAL_GLANCE_SYMBOLS_CAP = 5
 
+# Stuck-capital glance line ceiling — bare ``line[:95]+…`` lied when bool
+# (fee-allowance / fee-burn clip peers).
+STUCK_CAPITAL_LINE_CHARS = 96
+
 
 def _coerce_stuck_capital_name_cap(
     value: object, default: int = STUCK_CAPITAL_GLANCE_BIT_CAP
@@ -35614,11 +35618,43 @@ def _coerce_stuck_capital_name_cap(
     return _coerce_honesty_name_cap(value, default=default)
 
 
+def _coerce_stuck_capital_line_chars(
+    value: object, default: int = STUCK_CAPITAL_LINE_CHARS
+) -> int:
+    """Positive stuck-capital glance line ceiling, or ``default`` when bool/gap/≤0.
+
+    FinRobot + tradermonty #700/#655 + xang1234/portfolio AI: ``True→1`` must
+    not invent a one-char A15 strip via ``line[:True]``; ``False→0``
+    must not wipe (fee-allowance / fee-burn clip peers — line truncate
+    was still bare ``[:95]+…``).
+    """
+    from stock_checker.technical_indicators import coerce_nonneg_int
+
+    n = coerce_nonneg_int(value)
+    if n is None or n <= 0:
+        return int(default)
+    return n
+
+
+def _clip_stuck_capital_line(text: object, n: object = None) -> str:
+    """Ellipsis-truncate stuck-capital glance line to a safe ceiling."""
+    ceiling = _coerce_stuck_capital_line_chars(
+        STUCK_CAPITAL_LINE_CHARS if n is None else n
+    )
+    s = str(text or "")
+    if len(s) <= ceiling:
+        return s
+    if ceiling <= 1:
+        return "…"[:ceiling]
+    return s[: ceiling - 1] + "…"
+
+
 def build_stuck_capital_glance(
     stuck: list[dict[str, Any]] | None,
     *,
     bit_n: object = None,
     symbols_n: object = None,
+    line_n: object = None,
 ) -> dict[str, Any]:
     """Compact A15 min-hold capital-trap line (portfolio AI risk UX; display only).
 
@@ -35663,8 +35699,10 @@ def build_stuck_capital_glance(
         line = f"{line} · {' · '.join(bits)}"
     if count > bit_cap:
         line = f"{line} · +{count - bit_cap} more"
-    if len(line) > 96:
-        line = line[:95] + "…"
+    # FinRobot + tradermonty #700/#655: refuse bool line clip —
+    # True→1 invents a one-char strip; False→0 must not wipe
+    # (fee-allowance / fee-burn peers — truncate was still bare [:95]+…).
+    line = _clip_stuck_capital_line(line, line_n)
     return {
         "ready": True,
         "tone": "warn",

@@ -5,6 +5,9 @@ from __future__ import annotations
 from openbb_backend.desk import (
     STUCK_CAPITAL_GLANCE_BIT_CAP,
     STUCK_CAPITAL_GLANCE_SYMBOLS_CAP,
+    STUCK_CAPITAL_LINE_CHARS,
+    _clip_stuck_capital_line,
+    _coerce_stuck_capital_line_chars,
     _coerce_stuck_capital_name_cap,
     build_stuck_capital_glance,
 )
@@ -119,5 +122,41 @@ def test_stuck_capital_glance_line_cap() -> None:
     ]
     g = build_stuck_capital_glance(stuck)
     assert g["ready"] is True
-    assert len(g["line"]) <= 96
-    assert g["line"].endswith("…") or len(g["line"]) < 96
+    assert len(g["line"]) <= STUCK_CAPITAL_LINE_CHARS
+    assert g["line"].endswith("…") or len(g["line"]) < STUCK_CAPITAL_LINE_CHARS
+
+
+def test_clip_stuck_capital_line_refuses_bool_ceiling() -> None:
+    """True→1 must not invent line[:True]; False must not wipe via [:False]."""
+    long = "x" * 120
+    assert len(long) > STUCK_CAPITAL_LINE_CHARS
+    default = _clip_stuck_capital_line(long)
+    assert len(default) == STUCK_CAPITAL_LINE_CHARS
+    assert default.endswith("…")
+    assert default == long[: STUCK_CAPITAL_LINE_CHARS - 1] + "…"
+    assert _clip_stuck_capital_line(long, True) == default
+    assert _clip_stuck_capital_line(long, False) == default
+    assert _clip_stuck_capital_line(long, 0) == default
+    assert _coerce_stuck_capital_line_chars(True) == STUCK_CAPITAL_LINE_CHARS
+    assert _coerce_stuck_capital_line_chars(False) == STUCK_CAPITAL_LINE_CHARS
+    thin = _clip_stuck_capital_line(long, 12)
+    assert thin == long[:11] + "…"
+    assert len(thin) == 12
+
+
+def test_stuck_capital_glance_refuses_bool_line_ceiling() -> None:
+    """line_n=True must not invent a one-char strip; False must not wipe."""
+    stuck = [
+        {
+            "symbol": "VERYLONGSYMBOLNAME",
+            "unrealized_pct": -12.345,
+        }
+        for _ in range(4)
+    ]
+    g = build_stuck_capital_glance(stuck)
+    g_bool = build_stuck_capital_glance(stuck, line_n=True)
+    g_false = build_stuck_capital_glance(stuck, line_n=False)
+    assert g_bool["line"] == g["line"]
+    assert g_false["line"] == g["line"]
+    assert len(g["line"]) <= STUCK_CAPITAL_LINE_CHARS
+    assert "past min-hold underwater" in g["line"]
