@@ -247,14 +247,17 @@ class StockFetcher:
         raise ValueError(f"No data sources available for {symbol}")
 
     def get_historical_data(self, symbol: str, period: str = "1mo", interval: str = "1d") -> dict:
-        """Get historical data (yfinance only - Finnhub requires different approach)."""
+        """Get historical data (yfinance only - Finnhub requires different approach).
 
-        # Fallback to yfinance
+        tradermonty #904/#905: join-bounded history so hung Yahoo raises
+        (not a quiet forever stall that looks like a calm empty book).
+        """
+        from .yfinance_history import fetch_yfinance_history
+
         try:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period=period, interval=interval)
+            hist = fetch_yfinance_history(symbol, period=period, interval=interval)
 
-            if hist.empty:
+            if hist is None or getattr(hist, "empty", True):
                 raise ValueError(f"No historical data found for {symbol}")
 
             return {

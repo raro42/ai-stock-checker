@@ -140,15 +140,16 @@ def load_daily_closes_yfinance(symbol: str, *, period: str = "1y") -> List[float
     """Best-effort daily closes; empty on failure (offline-safe).
 
     Bool/gap/zero/NaN closes are dropped (``_valid_close``) so promote bars
-    cannot invent from corrupted Yahoo prints.
+    cannot invent from corrupted Yahoo prints. tradermonty #904/#905: history
+    join is bounded — hung Yahoo fails open as ``[]`` (not a forever stall).
     """
     try:
-        import yfinance as yf
+        from stock_checker.yfinance_history import fetch_yfinance_history
     except ImportError:
         return []
     try:
-        hist = yf.Ticker(symbol).history(period=period, interval="1d")
-        if hist is None or hist.empty:
+        hist = fetch_yfinance_history(symbol, period=period, interval="1d")
+        if hist is None or getattr(hist, "empty", True):
             return []
         return [float(x) for x in hist["Close"].tolist() if _valid_close(x)]
     except Exception:
