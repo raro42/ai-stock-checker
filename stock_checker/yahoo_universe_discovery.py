@@ -323,6 +323,21 @@ YAHOO_FAIL_ALSO_DELTA_WIDE_PP = 20
 YAHOO_FAIL_ALSO_DELTA_THIN_PP = 10
 
 
+def _yahoo_exc_http_code(exc: BaseException) -> int | None:
+    """urllib ``code`` or requests ``status_code``; refuse bool."""
+    code = getattr(exc, "code", None)
+    if code is None:
+        code = getattr(exc, "status_code", None)
+    if isinstance(code, bool):
+        return None
+    if isinstance(code, int):
+        return code
+    try:
+        return int(code) if code is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def classify_yahoo_discovery_error(
     exc: BaseException | None = None,
     *,
@@ -330,6 +345,9 @@ def classify_yahoo_discovery_error(
     screens_failed: int | None = None,
     timeout_fails: int = 0,
     inflight_fails: int = 0,
+    rate_fails: int = 0,
+    plan_fails: int = 0,
+    http_fails: int = 0,
 ) -> str:
     """Map a dead Yahoo movers fetch to a compact error class.
 
@@ -339,6 +357,9 @@ def classify_yahoo_discovery_error(
     some answered. Transport timeouts own the class when they are the
     majority of failed screens (hung ≠ quiet empty). A still-live worker
     that refused a second ``yf.screen`` is ``inflight`` (held ≠ a new hang).
+    Per-screen HTTP wraps (``YahooScreenEmptyError`` from yf) count as
+    ``plan`` / ``rate`` / ``http`` when those own the fail mix — otherwise
+    a 429 thrash looks like quiet empty (tradermonty #888 / FinRobot #119).
     Exception path: ``inflight`` / ``timeout`` / ``plan`` / ``rate`` /
     ``http`` / ``error``. FinRobot #119: HTTP 402 / payment-required is
     account plan access, not a retryable provider outage — keep it out of
@@ -349,25 +370,66 @@ def classify_yahoo_discovery_error(
     # tradermonty #700/#655: refuse bool — True→1 invents timeout/thin class.
     timed_out = _meta_count_or_zero(timeout_fails)
     held = _meta_count_or_zero(inflight_fails)
+    rate_n = _meta_count_or_zero(rate_fails)
+    plan_n = _meta_count_or_zero(plan_fails)
+    http_n = _meta_count_or_zero(http_fails)
     if screens_ok is not None and screens_failed is not None:
         ok_n = _meta_count_or_zero(screens_ok)
         fail_n = _meta_count_or_zero(screens_failed)
-        other_fails = max(0, fail_n - timed_out - held)
+        typed = timed_out + held + rate_n + plan_n + http_n
+        other_fails = max(0, fail_n - typed)
         dead = ok_n <= 0 or screens_bundle_failed(ok_n, fail_n)
-        # Prefer inflight when a refused second spend owns (or ties) timeouts.
-        if held > 0 and held >= max(1, timed_out) and held >= max(1, other_fails):
+        # Prefer inflight when a refused second spend owns (or ties) peers.
+        if (
+            held > 0
+            and held >= max(1, timed_out)
+            and held >= max(1, rate_n)
+            and held >= max(1, plan_n)
+            and held >= max(1, http_n)
+            and held >= max(1, other_fails)
+        ):
             if dead:
                 return "inflight"
         # Prefer timeout when a fresh hang owns (or ties) the remaining fails.
-        if timed_out > 0 and timed_out >= max(1, other_fails):
+        if (
+            timed_out > 0
+            and timed_out >= max(1, rate_n)
+            and timed_out >= max(1, plan_n)
+            and timed_out >= max(1, http_n)
+            and timed_out >= max(1, other_fails)
+        ):
             if dead:
                 return "timeout"
+        # Plan wall before rate/http (FinRobot #119 — entitlement ≠ throttle).
+        if plan_n > 0 and plan_n >= max(1, other_fails) and plan_n >= max(
+            1, rate_n
+        ) and plan_n >= max(1, http_n):
+            if dead:
+                return "plan"
+        # Rate before generic http / empty (tradermonty #888).
+        if rate_n > 0 and rate_n >= max(1, other_fails) and rate_n >= max(
+            1, http_n
+        ):
+            if dead:
+                return "rate"
+        if http_n > 0 and http_n >= max(1, other_fails):
+            if dead:
+                return "http"
         if ok_n <= 0:
             return "empty"
         if screens_bundle_failed(ok_n, fail_n):
             return "thin"
     if exc is None:
         return "error"
+    # fetch_yahoo_screen_symbols wraps yf HTTP failures as empty-from-cause.
+    # Walk one cause hop so 429/402/403 are not silent empty (#888 / #119).
+    if isinstance(exc, YahooScreenEmptyError):
+        cause = exc.__cause__ or exc.__context__
+        if cause is not None and cause is not exc:
+            chained = classify_yahoo_discovery_error(cause)
+            if chained in ("rate", "plan", "http", "timeout", "inflight"):
+                return chained
+        return "empty"
     name = type(exc).__name__.lower()
     msg = str(exc).lower()
     if "still in flight" in msg:
@@ -381,14 +443,7 @@ def classify_yahoo_discovery_error(
         return "timeout"
     # HTTP status code on urllib/requests-style errors (opaque messages still
     # classify). Refuse bool — True must not invent plan/rate via code=True.
-    code = getattr(exc, "code", None)
-    if isinstance(code, bool):
-        code = None
-    elif not isinstance(code, int):
-        try:
-            code = int(code) if code is not None else None
-        except (TypeError, ValueError):
-            code = None
+    code = _yahoo_exc_http_code(exc)
     # Payment/plan before generic http (FinRobot ProviderPlanError / 402).
     if (
         code == 402
@@ -414,9 +469,10 @@ def classify_yahoo_discovery_error(
         or "403" in msg
         or "404" in msg
         or "http error" in msg
+        or code in (403, 404)
     ):
         return "http"
-    if isinstance(exc, YahooScreenEmptyError) or "empty" in msg:
+    if "empty" in msg:
         return "empty"
     return "error"
 
@@ -2487,15 +2543,17 @@ def discover_yahoo_mover_report(
     screens: Sequence[str] = DEFAULT_SCREENS,
     per_screen: int = DEFAULT_MOVER_COUNT,
     timeout_sec: int | None = None,
-) -> tuple[List[str], int, int, int, int, int, int, int]:
-    """Symbols plus ok / failed / timeout / inflight / claim counts.
+) -> tuple[List[str], int, int, int, int, int, int, int, int, int, int, int]:
+    """Symbols plus ok / failed / timeout / inflight / claim / HTTP counts.
 
     Claim drops (xang1234 #726): finished or stale single-flight claims
     released before this bundle — Ops can see a zombie was cleared.
     Claim live (xang1234 stuck-asset honesty): alive workers still inside
     TTL after the bundle — a hung screen is not silent once peers succeed.
     Trailing ints are ``claim_drops``, ``claim_dead``, ``claim_stale``,
-    ``claim_live``.
+    ``claim_live``, then ``rate_fails`` / ``plan_fails`` / ``http_fails``
+    (tradermonty #888 / FinRobot #119 — yf HTTP wraps must not look like
+    quiet empty when throttle/plan/http owns the mix).
     """
     # Sweep finished/stale claims before the bundle so a prior hung screen
     # does not poison the first name in the list (xang1234 #726).
@@ -2506,6 +2564,9 @@ def discover_yahoo_mover_report(
     failed = 0
     timeouts = 0
     inflight = 0
+    rate_fails = 0
+    plan_fails = 0
+    http_fails = 0
     for name in screens:
         try:
             batch = fetch_yahoo_screen_symbols(
@@ -2519,8 +2580,16 @@ def discover_yahoo_mover_report(
             else:
                 timeouts += 1
             continue
-        except Exception:
+        except Exception as e:
             failed += 1
+            # YahooScreenEmptyError-from-HTTP still classifies via cause hop.
+            klass = classify_yahoo_discovery_error(e)
+            if klass == "rate":
+                rate_fails += 1
+            elif klass == "plan":
+                plan_fails += 1
+            elif klass == "http":
+                http_fails += 1
             continue
         for sym in batch:
             if sym in seen:
@@ -2540,6 +2609,9 @@ def discover_yahoo_mover_report(
         claim_dead,
         claim_stale,
         claim_live,
+        rate_fails,
+        plan_fails,
+        http_fails,
     )
 
 
@@ -2549,10 +2621,10 @@ def discover_yahoo_mover_symbols(
     per_screen: int = DEFAULT_MOVER_COUNT,
 ) -> List[str]:
     """Union of symbols across screens, stable order, de-duplicated."""
-    symbols, _ok, _failed, _timeouts, _inflight, _drops, _dead, _stale, _live = (
-        discover_yahoo_mover_report(screens=screens, per_screen=per_screen)
+    report = discover_yahoo_mover_report(
+        screens=screens, per_screen=per_screen
     )
-    return symbols
+    return report[0]
 
 
 def sector_hint_from_quote(quote: dict[str, Any] | None) -> str:

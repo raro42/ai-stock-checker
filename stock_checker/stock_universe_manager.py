@@ -483,6 +483,9 @@ class StockUniverseManager:
         screens_failed = 0
         timeout_fails = 0
         inflight_fails = 0
+        rate_fails = 0
+        plan_fails = 0
+        http_fails = 0
         claim_drops = 0
         claim_dead = 0
         claim_stale = 0
@@ -502,6 +505,12 @@ class StockUniverseManager:
                 claim_stale = report[7]
             if len(report) > 8:
                 claim_live = report[8]
+            if len(report) > 9:
+                rate_fails = report[9]
+            if len(report) > 10:
+                plan_fails = report[10]
+            if len(report) > 11:
+                http_fails = report[11]
         except Exception as e:
             print(f"   ⚠️ Yahoo movers discovery failed: {safe_exc_text(e)}")
             meta["last_yahoo_discovery_status"] = "failed"
@@ -549,6 +558,9 @@ class StockUniverseManager:
                     screens_failed=screens_failed,
                     timeout_fails=timeout_fails,
                     inflight_fails=inflight_fails,
+                    rate_fails=rate_fails,
+                    plan_fails=plan_fails,
+                    http_fails=http_fails,
                 ),
             )
             # Winning class alone hid the other spend side (timeout↔held).

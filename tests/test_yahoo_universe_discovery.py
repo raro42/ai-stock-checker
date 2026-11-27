@@ -156,6 +156,50 @@ def test_classify_yahoo_discovery_error_bundle_and_exc():
     assert classify_yahoo_discovery_error(_StatusExc(False)) == "error"
     assert classify_yahoo_discovery_error(YahooScreenEmptyError("empty")) == "empty"
     assert classify_yahoo_discovery_error(RuntimeError("boom")) == "error"
+    # requests-style status_code (no urllib .code).
+    class _StatusCodeExc(Exception):
+        def __init__(self, status_code: object) -> None:
+            super().__init__("provider failed")
+            self.status_code = status_code
+
+    assert classify_yahoo_discovery_error(_StatusCodeExc(429)) == "rate"
+    assert classify_yahoo_discovery_error(_StatusCodeExc(402)) == "plan"
+    # YahooScreenEmptyError-from-HTTP: cause hop (live fetch wraps yf errors).
+    wrapped_429 = YahooScreenEmptyError("day_gainers")
+    wrapped_429.__cause__ = _StatusExc(429)
+    assert classify_yahoo_discovery_error(wrapped_429) == "rate"
+    wrapped_402 = YahooScreenEmptyError("day_losers")
+    wrapped_402.__cause__ = _StatusExc(402)
+    assert classify_yahoo_discovery_error(wrapped_402) == "plan"
+    wrapped_403 = YahooScreenEmptyError("most_actives")
+    wrapped_403.__cause__ = RuntimeError("HTTP 403")
+    assert classify_yahoo_discovery_error(wrapped_403) == "http"
+    # Bundle path: rate/plan counts beat silent empty when they own fails.
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=0, screens_failed=3, rate_fails=3
+        )
+        == "rate"
+    )
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=0, screens_failed=3, plan_fails=2, rate_fails=1
+        )
+        == "plan"
+    )
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=0, screens_failed=3, http_fails=3
+        )
+        == "http"
+    )
+    # True empty (no typed HTTP sides) stays empty.
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=0, screens_failed=2, rate_fails=0
+        )
+        == "empty"
+    )
 
 
 def test_set_yahoo_discovery_error_allows_plan():
@@ -1170,19 +1214,11 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         boom,
     )
-    (
-        symbols,
-        ok,
-        failed,
-        timeouts,
-        inflight,
-        drops,
-        dead,
-        stale,
-        live,
-    ) = discover_yahoo_mover_report(
+    report = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
+    symbols, ok, failed, timeouts, inflight, drops, dead, stale, live = report[:9]
+    rate_fails, plan_fails, http_fails = report[9:12]
     assert symbols == []
     assert ok == 0
     assert failed == 2
@@ -1192,7 +1228,45 @@ def test_discover_yahoo_mover_report_all_empty_is_failed(monkeypatch):
     assert dead == 0
     assert stale == 0
     assert live == 0
+    assert rate_fails == 0
+    assert plan_fails == 0
+    assert http_fails == 0
     assert screens_bundle_failed(ok, failed) is True
+
+
+def test_discover_yahoo_mover_report_counts_rate_from_cause(monkeypatch):
+    """tradermonty #888: yf 429 wrapped as empty still counts rate_fails."""
+
+    class _StatusExc(Exception):
+        def __init__(self, code: int) -> None:
+            super().__init__("provider failed")
+            self.code = code
+
+    def boom(screen: str, *, count: int = 25, timeout_sec=None):
+        raise YahooScreenEmptyError(screen) from _StatusExc(429)
+
+    monkeypatch.setattr(
+        "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
+        boom,
+    )
+    report = discover_yahoo_mover_report(
+        screens=("day_gainers", "day_losers", "most_actives"), per_screen=5
+    )
+    ok, failed = report[1], report[2]
+    rate_fails, plan_fails, http_fails = report[9:12]
+    assert ok == 0
+    assert failed == 3
+    assert rate_fails == 3
+    assert plan_fails == 0
+    assert http_fails == 0
+    assert (
+        classify_yahoo_discovery_error(
+            screens_ok=ok,
+            screens_failed=failed,
+            rate_fails=rate_fails,
+        )
+        == "rate"
+    )
 
 
 def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
@@ -1205,19 +1279,10 @@ def test_discover_yahoo_mover_report_counts_timeouts(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         hang,
     )
-    (
-        symbols,
-        ok,
-        failed,
-        timeouts,
-        inflight,
-        drops,
-        dead,
-        stale,
-        live,
-    ) = discover_yahoo_mover_report(
+    report = discover_yahoo_mover_report(
         screens=("day_gainers", "day_losers"), per_screen=5
     )
+    symbols, ok, failed, timeouts, inflight, drops, dead, stale, live = report[:9]
     assert symbols == []
     assert ok == 0
     assert failed == 2
@@ -2080,17 +2145,8 @@ def test_discover_yahoo_mover_report_returns_claim_drops(monkeypatch):
         "stock_checker.yahoo_universe_discovery.fetch_yahoo_screen_symbols",
         boom,
     )
-    (
-        _syms,
-        _ok,
-        _failed,
-        _timeouts,
-        _inflight,
-        drops,
-        dead,
-        stale,
-        live,
-    ) = discover_yahoo_mover_report(screens=("day_gainers",), per_screen=5)
+    report = discover_yahoo_mover_report(screens=("day_gainers",), per_screen=5)
+    drops, dead, stale, live = report[5:9]
     assert drops == 1
     assert dead == 1
     assert stale == 0
@@ -2306,19 +2362,10 @@ def test_discover_yahoo_mover_report_returns_claim_live(monkeypatch):
     try:
         with yud._yahoo_screen_inflight_lock:
             yud._yahoo_screen_inflight.clear()
-        (
-            _syms,
-            _ok,
-            failed,
-            timeouts,
-            _inflight,
-            _drops,
-            _dead,
-            _stale,
-            live,
-        ) = discover_yahoo_mover_report(
+        report = discover_yahoo_mover_report(
             screens=("day_gainers",), per_screen=5
         )
+        failed, timeouts, live = report[2], report[3], report[8]
         assert failed == 1
         assert timeouts == 1
         assert live == 1
