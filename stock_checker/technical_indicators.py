@@ -430,7 +430,10 @@ class TechnicalIndicators:
         for tr in true_ranges[n:]:
             atr = ((atr * (n - 1)) + tr) / float(n)
 
-        if not math.isfinite(atr) or atr < 0:
+        # Flat OHLC window (all TR=0): do not invent ATR=0 as calm zero-vol.
+        # Same claim honesty as RSI/MACD/BB flat → None; tradermonty ATR must
+        # be positive for stops/sizing. Desk notes stay display-only.
+        if not math.isfinite(atr) or atr <= 0.0:
             return None
         return atr
 

@@ -196,6 +196,15 @@ def test_atr_clean_history_still_scores():
     assert atr > 0
 
 
+def test_atr_flat_ohlc_window_is_unavailable():
+    """tradermonty #896/#655: flat OHLC must not invent ATR=0 as calm zero-vol."""
+    n = 30
+    highs = [100.0] * n
+    lows = [100.0] * n
+    closes = [100.0] * n
+    assert TechnicalIndicators.calculate_atr(highs, lows, closes, period=14) is None
+
+
 def _ohlc_with_early_wide_bar(n: int = 30, period: int = 14):
     """Quiet bars then one early spike so Wilder ≠ trailing SMA of last N TRs."""
     highs = [10.5] * n
