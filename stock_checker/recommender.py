@@ -404,13 +404,17 @@ class RecommendationEngine:
                 lows=low_history
             )
 
-            # Adjust score based on technical signals
-            tech_score = tech_signals.get('overall_score', 0)
-            combined_score = (base_rec['score'] * 0.6) + (tech_score * 0.4)
+            # Attach signals always; blend only when overall_score is real.
+            # Empty/flat tape → overall_score None (not 0 HOLD invent).
+            base_rec['technical_signals'] = tech_signals
+            tech_score = tech_signals.get('overall_score')
+            if tech_score is None:
+                return base_rec
+
+            combined_score = (base_rec['score'] * 0.6) + (float(tech_score) * 0.4)
 
             # Update recommendation
             base_rec['score'] = combined_score
-            base_rec['technical_signals'] = tech_signals
 
             # Re-evaluate action based on combined score
             if combined_score >= 50:

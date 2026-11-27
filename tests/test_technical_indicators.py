@@ -363,3 +363,40 @@ def test_analyze_volume_one_bar_window_is_unavailable():
     out = TechnicalIndicators.analyze_volume(volumes2, prices2, period=2)
     assert out is not None
     assert out["volume_ratio"] == pytest.approx(1_000_000.0 / ((800_000.0 + 1_000_000.0) / 2.0))
+
+
+def test_generate_signals_flat_tape_score_unavailable():
+    """Empty indicator set ≠ invent overall_score=0 / HOLD (claim honesty)."""
+    prices = [100.0] * 40
+    highs = [100.0] * 40
+    lows = [100.0] * 40
+    volumes = [0.0] * 40
+    out = TechnicalIndicators.generate_signals(
+        prices, volumes=volumes, highs=highs, lows=lows
+    )
+    # Flat closes refuse RSI/MACD/BB; zero volume refuses volume; flat ATR None.
+    assert "rsi" not in out
+    assert "macd" not in out
+    assert "bollinger" not in out
+    assert "volume" not in out
+    assert "atr" not in out
+    assert "volatility" not in out
+    assert out["overall_score"] is None
+    assert out["overall_signal"] == "unavailable"
+
+
+def test_generate_signals_moving_tape_still_scores():
+    """Mixed closes still produce a real overall score (not unavailable)."""
+    prices = [100.0 + (i % 7) * 0.5 - 1.0 for i in range(40)]
+    highs = [p + 0.3 for p in prices]
+    lows = [p - 0.3 for p in prices]
+    volumes = [1_000.0 + (i % 5) * 100.0 for i in range(40)]
+    out = TechnicalIndicators.generate_signals(
+        prices, volumes=volumes, highs=highs, lows=lows
+    )
+    assert out["overall_score"] is not None
+    assert math.isfinite(out["overall_score"])
+    assert out["overall_signal"] in ("BUY", "SELL", "HOLD")
+    assert "atr" in out
+    assert "volatility" in out
+    assert out["volatility"] > 0.0

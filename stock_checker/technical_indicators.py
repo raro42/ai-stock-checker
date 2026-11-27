@@ -508,19 +508,32 @@ class TechnicalIndicators:
             atr = TechnicalIndicators.calculate_atr(highs, lows, prices)
             if atr is not None:
                 signals['atr'] = atr
-                signals['volatility'] = atr / prices[-1] if prices[-1] > 0 else 0
+                # Never invent calm volatility=0 when the last close is unusable
+                # (gap/zero/bool/NaN). Same claim honesty as ATR flat → None.
+                last = prices[-1] if prices else None
+                if _valid_close(last):
+                    signals['volatility'] = atr / float(last)
 
-        # Calculate overall signal score (-100 to +100)
+        # Overall score only when ≥1 indicator contributed — empty ≠ HOLD/0.
         score = TechnicalIndicators._calculate_signal_score(signals)
         signals['overall_score'] = score
-        signals['overall_signal'] = 'BUY' if score > 30 else 'SELL' if score < -30 else 'HOLD'
+        if score is None:
+            signals['overall_signal'] = 'unavailable'
+        else:
+            signals['overall_signal'] = (
+                'BUY' if score > 30 else 'SELL' if score < -30 else 'HOLD'
+            )
 
         return signals
 
     @staticmethod
-    def _calculate_signal_score(signals: Dict) -> float:
-        """Calculate overall signal score from individual indicators."""
-        score = 0
+    def _calculate_signal_score(signals: Dict) -> Optional[float]:
+        """Average indicator score, or None when nothing contributed.
+
+        tradermonty #896/#655 + xang1234/portfolio AI: a flat/gap tape that
+        refused RSI/MACD/BB/volume must not invent overall_score=0 → HOLD.
+        """
+        score = 0.0
         count = 0
 
         # RSI contribution
@@ -559,5 +572,6 @@ class TechnicalIndicators:
                 score -= 15  # High volume + negative correlation = bearish
             count += 1
 
-        # Average the score
-        return score / count if count > 0 else 0
+        if count == 0:
+            return None
+        return score / count
