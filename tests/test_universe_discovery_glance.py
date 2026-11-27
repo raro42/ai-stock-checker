@@ -356,6 +356,47 @@ def test_universe_discovery_glance_yahoo_fail_plan_retry_held(tmp_path) -> None:
     assert "retry held · plan" not in http["line_core"]
 
 
+def test_universe_discovery_glance_yahoo_fail_rate_auto_retries(tmp_path) -> None:
+    """tradermonty #888: rate speaks rate and retries after backoff (≠ plan held)."""
+    now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)
+    last = (now - timedelta(hours=6)).replace(tzinfo=None).isoformat()
+    fail = (now - timedelta(hours=2)).replace(tzinfo=None).isoformat()
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(
+            {
+                "stocks": {"AAPL": {}},
+                "meta": {
+                    "last_yahoo_discovery": last,
+                    "last_yahoo_discovery_status": "failed",
+                    "last_yahoo_discovery_fail": fail,
+                    "last_yahoo_discovery_error": "rate",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    g = build_universe_discovery_glance(tmp_path, now=now)
+    assert g["yahoo_fail_error"] == "rate"
+    assert g["yahoo_retry_due"] is True
+    assert g["yahoo_retry_held_plan"] is False
+    assert " · rate" in g["line_core"] or g["line_core"].endswith("rate")
+    assert "retry due" in g["line_core"]
+    assert "retry held · plan" not in g["line_core"]
+    # Cooling rate still speaks remaining backoff (not plan-held).
+    cool_fail = (now - timedelta(minutes=15)).replace(tzinfo=None).isoformat()
+    meta = json.loads((tmp_path / "stock_universe.json").read_text(encoding="utf-8"))
+    meta["meta"]["last_yahoo_discovery_fail"] = cool_fail
+    (tmp_path / "stock_universe.json").write_text(
+        json.dumps(meta), encoding="utf-8"
+    )
+    cool = build_universe_discovery_glance(tmp_path, now=now)
+    assert cool["yahoo_fail_error"] == "rate"
+    assert cool["yahoo_retry_held_plan"] is False
+    assert cool["yahoo_retry_due"] is False
+    assert "retry in" in cool["line_core"]
+    assert "retry held · plan" not in cool["line_core"]
+
+
 def test_universe_discovery_glance_yahoo_fail_error_class(tmp_path) -> None:
     """xang1234 #639: last-error class on core line (why ≠ N× alone)."""
     now = datetime(2026, 9, 11, 10, 0, tzinfo=timezone.utc)

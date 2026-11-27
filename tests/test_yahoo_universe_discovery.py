@@ -140,6 +140,20 @@ def test_classify_yahoo_discovery_error_bundle_and_exc():
         classify_yahoo_discovery_error(RuntimeError("Yahoo rate limit exceeded"))
         == "rate"
     )
+
+    class _StatusExc(Exception):
+        """Stub with `.code` — name must not contain ``http`` (that alone → http)."""
+
+        def __init__(self, code: object, msg: str = "provider failed") -> None:
+            super().__init__(msg)
+            self.code = code
+
+    # Opaque body still classifies via HTTP status (urllib/requests-style).
+    assert classify_yahoo_discovery_error(_StatusExc(429)) == "rate"
+    assert classify_yahoo_discovery_error(_StatusExc(402)) == "plan"
+    # Refuse bool — True must not invent plan/rate via code=True.
+    assert classify_yahoo_discovery_error(_StatusExc(True)) == "error"
+    assert classify_yahoo_discovery_error(_StatusExc(False)) == "error"
     assert classify_yahoo_discovery_error(YahooScreenEmptyError("empty")) == "empty"
     assert classify_yahoo_discovery_error(RuntimeError("boom")) == "error"
 

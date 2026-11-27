@@ -379,9 +379,20 @@ def classify_yahoo_discovery_error(
         or "timeout" in msg
     ):
         return "timeout"
+    # HTTP status code on urllib/requests-style errors (opaque messages still
+    # classify). Refuse bool — True must not invent plan/rate via code=True.
+    code = getattr(exc, "code", None)
+    if isinstance(code, bool):
+        code = None
+    elif not isinstance(code, int):
+        try:
+            code = int(code) if code is not None else None
+        except (TypeError, ValueError):
+            code = None
     # Payment/plan before generic http (FinRobot ProviderPlanError / 402).
     if (
-        "402" in msg
+        code == 402
+        or "402" in msg
         or "payment required" in msg
         or "payment/plan" in msg
         or "plan access" in msg
@@ -390,7 +401,8 @@ def classify_yahoo_discovery_error(
         return "plan"
     # Rate-limit before generic http (tradermonty #888 — 429 ≠ breaker/http).
     if (
-        "429" in msg
+        code == 429
+        or "429" in msg
         or "too many requests" in msg
         or "rate limit" in msg
         or "rate-limit" in msg
