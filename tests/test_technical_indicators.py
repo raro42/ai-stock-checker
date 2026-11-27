@@ -138,6 +138,12 @@ def test_macd_clean_history_still_scores():
     assert all(math.isfinite(macd[k]) for k in ("macd", "signal", "histogram"))
 
 
+def test_macd_flat_window_is_unavailable():
+    """tradermonty #896/#655: flat closes must not invent macd=signal=hist=0."""
+    prices = [100.0] * 50
+    assert TechnicalIndicators.calculate_macd(prices) is None
+
+
 @pytest.mark.parametrize(
     "bad",
     [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],

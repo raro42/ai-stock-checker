@@ -230,6 +230,11 @@ class TechnicalIndicators:
             return None
 
         prices_array = np.asarray(prices, dtype=float)
+        # Flat window: do not invent macd=signal=histogram=0 as a calm
+        # bearish/neutral print — generate_signals maps hist≤0 → bearish.
+        # Same claim honesty as RSI flat → None and BB std=0 → None.
+        if float(np.ptp(prices_array)) == 0.0:
+            return None
 
         # Calculate EMAs
         fast_ema = TechnicalIndicators._calculate_ema(prices_array, fast_n)
