@@ -349,3 +349,17 @@ def test_analyze_volume_zero_print_window_is_unavailable():
     volumes, prices = _enough_volume_bars()
     volumes = [0.0] * len(volumes)
     assert TechnicalIndicators.analyze_volume(volumes, prices, period=20) is None
+
+
+def test_analyze_volume_one_bar_window_is_unavailable():
+    """tradermonty #896/#892: 1-bar window has no volume_reference (self=mean)."""
+    volumes = [1_000_000.0]
+    prices = [100.0]
+    # period=1 would invent volume_ratio=1.0 and correlation=0.0 as calm.
+    assert TechnicalIndicators.analyze_volume(volumes, prices, period=1) is None
+    # Two bars with a real reference window still score.
+    volumes2 = [800_000.0, 1_000_000.0]
+    prices2 = [99.0, 100.0]
+    out = TechnicalIndicators.analyze_volume(volumes2, prices2, period=2)
+    assert out is not None
+    assert out["volume_ratio"] == pytest.approx(1_000_000.0 / ((800_000.0 + 1_000_000.0) / 2.0))

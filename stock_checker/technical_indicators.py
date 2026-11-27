@@ -341,6 +341,11 @@ class TechnicalIndicators:
         n = _coerce_indicator_period(period)
         if n is None:
             return None
+        # tradermonty #896/#892 + xang1234 claim honesty: a 1-bar window has no
+        # volume_reference — mean==current invents volume_ratio=1.0 and
+        # correlation=0.0 as a calm "normal" day (same family as mean≤0 → None).
+        if n < 2:
+            return None
         if len(volumes) < n or len(prices) < n:
             return None
         if len(volumes) != len(prices):
@@ -363,12 +368,9 @@ class TechnicalIndicators:
 
         volume_ratio = current_volume / avg_volume
 
-        # Price-volume correlation
+        # Price-volume correlation (n≥2 guaranteed above)
         recent_prices = np.asarray(prices[-n:], dtype=float)
-        if len(recent_prices) > 1:
-            correlation = float(np.corrcoef(recent_prices, recent_volumes)[0, 1])
-        else:
-            correlation = 0.0
+        correlation = float(np.corrcoef(recent_prices, recent_volumes)[0, 1])
 
         metrics = {
             'current_volume': current_volume,
