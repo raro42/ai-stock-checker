@@ -52,6 +52,7 @@ from stock_checker.yahoo_universe_discovery import (
     yahoo_fail_error_vs_budget,
     yahoo_fail_error_vs_fail,
     yahoo_fail_error_vs_seed,
+    yahoo_fail_plan_held,
     yahoo_fail_streak,
     yahoo_fail_streak_seed_fail_vs_budget,
     yahoo_fail_streak_seed_vs_fail,
@@ -127,6 +128,18 @@ def test_classify_yahoo_discovery_error_bundle_and_exc():
         )
         == "plan"
     )
+    # tradermonty #888: 429 / rate-limit is not generic http (and not plan).
+    assert classify_yahoo_discovery_error(RuntimeError("HTTP 429")) == "rate"
+    assert (
+        classify_yahoo_discovery_error(
+            RuntimeError("HTTP Error 429: Too Many Requests")
+        )
+        == "rate"
+    )
+    assert (
+        classify_yahoo_discovery_error(RuntimeError("Yahoo rate limit exceeded"))
+        == "rate"
+    )
     assert classify_yahoo_discovery_error(YahooScreenEmptyError("empty")) == "empty"
     assert classify_yahoo_discovery_error(RuntimeError("boom")) == "error"
 
@@ -137,6 +150,18 @@ def test_set_yahoo_discovery_error_allows_plan():
     assert set_yahoo_discovery_error(meta, "plan") == "plan"
     assert meta["last_yahoo_discovery_error"] == "plan"
     assert yahoo_discovery_error_class(meta) == "plan"
+
+
+def test_set_yahoo_discovery_error_allows_rate():
+    """rate is allowlisted so desk can speak 429 (not coerced to error)."""
+    meta: dict = {}
+    assert set_yahoo_discovery_error(meta, "rate") == "rate"
+    assert meta["last_yahoo_discovery_error"] == "rate"
+    assert yahoo_discovery_error_class(meta) == "rate"
+    # Rate stays in the auto-retry circuit (unlike plan).
+    assert not yahoo_fail_plan_held(
+        {"last_yahoo_discovery_status": "failed", "last_yahoo_discovery_error": "rate"}
+    )
 
 
 def test_yahoo_fail_error_also_bit_timeout_inflight_mix():

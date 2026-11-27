@@ -28727,10 +28727,11 @@ def build_universe_discovery_glance(
     (xang1234 #639 Failed-N× chip — a single fail stamp hid a chronic dead
     movers source; first fail stays silent on streak).
     When a fail already spoke, also speak compact last-error class
-    ``empty|thin|timeout|inflight|plan|http|error`` after ``Yahoo fail`` /
+    ``empty|thin|timeout|inflight|plan|rate|http|error`` after ``Yahoo fail`` /
     before the screen fraction (xang1234 #639 report source failures by
     kind — N× + fail age alone hid *why*; FinRobot #119 ``plan`` =
-    payment/plan entitlement, not http flake; Manage Sources / last-error
+    payment/plan entitlement, not http flake; tradermonty #888 ``rate`` =
+    HTTP 429 / rate-limit, not generic http; Manage Sources / last-error
     tooltip panel still deferred).
     When class is ``plan``, speak ``retry held · plan`` (cooling or after
     backoff) instead of ``retry due`` / ``retry in …`` — FinRobot #119 keep

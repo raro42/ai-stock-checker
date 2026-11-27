@@ -302,8 +302,10 @@ def clear_yahoo_fail_streak(meta: dict[str, Any]) -> None:
 # Manage Sources tooltip). Allowlist only so junk meta cannot inflate the line.
 # ``plan`` = payment/plan entitlement (FinRobot FMP 402), not a transient HTTP
 # outage — friends must not read a billing wall as Yahoo flake.
+# ``rate`` = HTTP 429 / rate-limit (tradermonty #888) — not a generic ``http``
+# outage and not a plan wall; still auto-retries after backoff (unlike plan).
 YAHOO_FAIL_ERROR_CLASSES: frozenset[str] = frozenset(
-    ("timeout", "inflight", "plan", "http", "empty", "thin", "error")
+    ("timeout", "inflight", "plan", "rate", "http", "empty", "thin", "error")
 )
 # Hidden spend side of a timeout↔inflight mix (count flag ≠ ownership).
 YAHOO_FAIL_ALSO_SHARE_HOT = 50
@@ -337,10 +339,12 @@ def classify_yahoo_discovery_error(
     some answered. Transport timeouts own the class when they are the
     majority of failed screens (hung ≠ quiet empty). A still-live worker
     that refused a second ``yf.screen`` is ``inflight`` (held ≠ a new hang).
-    Exception path: ``inflight`` / ``timeout`` / ``plan`` / ``http`` /
-    ``error``. FinRobot #119: HTTP 402 / payment-required is account plan
-    access, not a retryable provider outage — keep it out of the generic
-    ``http`` bucket so the Universe glance speaks ``plan``.
+    Exception path: ``inflight`` / ``timeout`` / ``plan`` / ``rate`` /
+    ``http`` / ``error``. FinRobot #119: HTTP 402 / payment-required is
+    account plan access, not a retryable provider outage — keep it out of
+    the generic ``http`` bucket so the Universe glance speaks ``plan``.
+    tradermonty #888: HTTP 429 / rate-limit is not a generic ``http`` flake
+    (and not a breaker/plan wall) — speak ``rate`` so backoff≠outage.
     """
     # tradermonty #700/#655: refuse bool — True→1 invents timeout/thin class.
     timed_out = _meta_count_or_zero(timeout_fails)
@@ -384,11 +388,19 @@ def classify_yahoo_discovery_error(
         or "providerplan" in name
     ):
         return "plan"
+    # Rate-limit before generic http (tradermonty #888 — 429 ≠ breaker/http).
+    if (
+        "429" in msg
+        or "too many requests" in msg
+        or "rate limit" in msg
+        or "rate-limit" in msg
+        or "ratelimit" in name
+    ):
+        return "rate"
     if (
         "http" in name
         or "403" in msg
         or "404" in msg
-        or "429" in msg
         or "http error" in msg
     ):
         return "http"
@@ -1942,9 +1954,9 @@ def yahoo_fail_cascade_lean_meta(
 def yahoo_fail_error_vs_seed(error: str, seed_freshness: str) -> str:
     """Typed last-error vs reused-seed extremes (xang1234 #639 + portfolio AI).
 
-    Allowlisted ``empty|thin|timeout|inflight|plan|http|error`` alone hid a
-    still-fresh reused list on the *first* fail (N× / streak/seed stay silent
-    until ≥2).
+    Allowlisted ``empty|thin|timeout|inflight|plan|rate|http|error`` alone
+    hid a still-fresh reused list on the *first* fail (N× / streak/seed stay
+    silent until ≥2).
     Same polarity as ``yahoo_fail_streak_vs_seed``: fresh seed clashes with a
     typed dead Yahoo; stale seed aligns. Mid ``aging`` / missing class /
     never|unknown stay silent. Returns ``clash · fresh`` / ``align · stale``
