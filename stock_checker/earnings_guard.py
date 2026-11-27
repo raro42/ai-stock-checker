@@ -172,17 +172,19 @@ def probe_earnings_calendar(
         return None, STATUS_FUND
 
     try:
-        import yfinance as yf
+        from stock_checker.yfinance_history import fetch_yfinance_earnings_attrs
     except ImportError:
         return None, STATUS_MISSING
 
     try:
-        ticker = yf.Ticker(symbol)
+        # Bound Yahoo earnings join (tradermonty #904/#905) — hung calendar
+        # must not stall the blackout probe forever and look like a calm allow.
+        attrs = fetch_yfinance_earnings_attrs(symbol)
         clock = earnings_session_now(now)
         empty_dates = False
         malformed = False
 
-        ed = getattr(ticker, "earnings_dates", None)
+        ed = attrs.get("earnings_dates")
         if ed is not None and hasattr(ed, "empty"):
             if ed.empty:
                 empty_dates = True
@@ -192,9 +194,7 @@ def probe_earnings_calendar(
                     return days, STATUS_DATED
                 malformed = True
 
-        days, cal_bad = _days_from_calendar(
-            getattr(ticker, "calendar", None), clock
-        )
+        days, cal_bad = _days_from_calendar(attrs.get("calendar"), clock)
         if days is not None:
             return days, STATUS_DATED
         if cal_bad:

@@ -108,14 +108,19 @@ def crypto_fallback_name(symbol: str) -> Optional[str]:
 
 def _fetch_yfinance_name(symbol: str) -> Optional[str]:
     try:
-        import yfinance as yf
+        from stock_checker.yfinance_history import fetch_yfinance_info
 
-        t = yf.Ticker(symbol)
-        info = getattr(t, "info", None) or {}
+        # Bound .info join (tradermonty #904/#905) — hung Yahoo name lookup
+        # must not stall the desk pool forever inside a pool worker.
+        info = fetch_yfinance_info(symbol, timeout_sec=6)
         if isinstance(info, dict):
             for key in ("longName", "shortName", "name"):
                 val = info.get(key)
-                if val and str(val).strip() and str(val).strip().upper() != symbol.upper():
+                if (
+                    val
+                    and str(val).strip()
+                    and str(val).strip().upper() != symbol.upper()
+                ):
                     return str(val).strip()
         # Crypto often lands here
         fb = crypto_fallback_name(symbol)

@@ -9,6 +9,7 @@ from stock_checker.earnings_guard import (
     EARNINGS_CLOCK,
     STATUS_DATED,
     STATUS_EMPTY_WINDOW,
+    STATUS_ERROR,
     STATUS_MALFORMED,
     STATUS_MISSING,
     earnings_day_delta,
@@ -276,3 +277,20 @@ def test_aware_utc_stamp_converts_before_ny_date():
     event = datetime(2026, 9, 18, 16, 0, tzinfo=timezone.utc)
     now = datetime(2026, 9, 19, 2, 0, tzinfo=timezone.utc)
     assert earnings_day_delta(event, now) == 0.0
+
+
+def test_probe_earnings_timeout_fail_open_as_error():
+    """Hung Yahoo earnings join → STATUS_ERROR (fail-open; not calm missing)."""
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance earnings AAPL timed out after 1s")
+
+    with patch(
+        "stock_checker.yfinance_history.fetch_yfinance_earnings_attrs", _boom
+    ):
+        days, status = probe_earnings_calendar("AAPL")
+        blocked, why = is_in_earnings_blackout("AAPL")
+    assert days is None
+    assert status == STATUS_ERROR
+    assert blocked is False
+    assert why == ""

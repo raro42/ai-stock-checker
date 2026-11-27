@@ -9,10 +9,16 @@ from unittest.mock import patch
 import pytest
 
 from stock_checker.yfinance_history import (
+    DEFAULT_YF_EARNINGS_TIMEOUT_SEC,
+    DEFAULT_YF_FAST_INFO_TIMEOUT_SEC,
     DEFAULT_YF_HISTORY_TIMEOUT_SEC,
     DEFAULT_YF_INFO_TIMEOUT_SEC,
+    coerce_yf_earnings_timeout_sec,
+    coerce_yf_fast_info_timeout_sec,
     coerce_yf_history_timeout_sec,
     coerce_yf_info_timeout_sec,
+    fetch_yfinance_earnings_attrs,
+    fetch_yfinance_fast_info,
     fetch_yfinance_history,
     fetch_yfinance_info,
 )
@@ -92,6 +98,70 @@ def test_fetch_yfinance_info_success_and_nondict():
 
     with patch("yfinance.Ticker", return_value=_JunkTicker()):
         assert fetch_yfinance_info("AAPL", timeout_sec=5) == {}
+
+
+def test_coerce_yf_earnings_and_fast_info_timeout_refuse_bool():
+    assert coerce_yf_earnings_timeout_sec(True) == DEFAULT_YF_EARNINGS_TIMEOUT_SEC
+    assert coerce_yf_earnings_timeout_sec(False) == DEFAULT_YF_EARNINGS_TIMEOUT_SEC
+    assert coerce_yf_earnings_timeout_sec(8) == 8
+    assert coerce_yf_fast_info_timeout_sec(True) == DEFAULT_YF_FAST_INFO_TIMEOUT_SEC
+    assert coerce_yf_fast_info_timeout_sec(False) == DEFAULT_YF_FAST_INFO_TIMEOUT_SEC
+    assert coerce_yf_fast_info_timeout_sec(9) == 9
+
+
+def test_fetch_yfinance_earnings_attrs_timeout_raises():
+    """Hung earnings_dates/calendar join → TimeoutError (not quiet missing)."""
+
+    class _HangTicker:
+        @property
+        def earnings_dates(self):
+            threading.Event().wait(30)
+            return None
+
+        @property
+        def calendar(self):
+            return {}
+
+    with patch("yfinance.Ticker", return_value=_HangTicker()):
+        with pytest.raises(TimeoutError, match="earnings .*timed out"):
+            fetch_yfinance_earnings_attrs("AAPL", timeout_sec=1)
+
+
+def test_fetch_yfinance_earnings_attrs_success():
+    empty = SimpleNamespace(empty=True)
+
+    class _OkTicker:
+        earnings_dates = empty
+        calendar = {}
+
+    with patch("yfinance.Ticker", return_value=_OkTicker()):
+        out = fetch_yfinance_earnings_attrs("AAPL", timeout_sec=5)
+    assert out["earnings_dates"] is empty
+    assert out["calendar"] == {}
+
+
+def test_fetch_yfinance_fast_info_timeout_raises():
+    """Hung fast_info join → TimeoutError (not quiet None mark)."""
+
+    class _HangTicker:
+        @property
+        def fast_info(self):
+            threading.Event().wait(30)
+            return {"lastPrice": 1.0}
+
+    with patch("yfinance.Ticker", return_value=_HangTicker()):
+        with pytest.raises(TimeoutError, match="fast_info .*timed out"):
+            fetch_yfinance_fast_info("AAPL", timeout_sec=1)
+
+
+def test_fetch_yfinance_fast_info_success():
+    fi = SimpleNamespace(last_price=123.0)
+
+    class _OkTicker:
+        fast_info = fi
+
+    with patch("yfinance.Ticker", return_value=_OkTicker()):
+        assert fetch_yfinance_fast_info("AAPL", timeout_sec=5) is fi
 
 
 def test_get_stock_info_timeout_raises_valueerror():
@@ -181,6 +251,31 @@ def test_desk_mark_fetch_history_timeout_fail_open():
 
     with patch(
         "stock_checker.yfinance_history.fetch_yfinance_history", _boom
+    ):
+        assert _fetch_yfinance_prices(["AAPL"], timeout_s=4.0) == {}
+
+
+def test_desk_mark_fetch_fast_info_timeout_fail_open():
+    """Empty history → hung fast_info must fail-open (not stall desk marks)."""
+    from openbb_backend.desk import _fetch_yfinance_prices
+
+    empty = SimpleNamespace(empty=True)
+
+    def _empty_hist(*_a, **_k):
+        return empty
+
+    def _boom_fi(*_a, **_k):
+        raise TimeoutError("yfinance fast_info AAPL timed out after 4s")
+
+    with (
+        patch(
+            "stock_checker.yfinance_history.fetch_yfinance_history",
+            _empty_hist,
+        ),
+        patch(
+            "stock_checker.yfinance_history.fetch_yfinance_fast_info",
+            _boom_fi,
+        ),
     ):
         assert _fetch_yfinance_prices(["AAPL"], timeout_s=4.0) == {}
 

@@ -47,3 +47,17 @@ def test_live_fetcher_cached(tmp_path: Path):
 def test_crypto_fallback():
     assert crypto_fallback_name("ETH-USD") == "Ethereum"
     assert crypto_fallback_name("AAPL") is None
+
+
+def test_fetch_yfinance_name_timeout_falls_back(monkeypatch):
+    """Hung Yahoo .info must not invent a name; crypto fallback or None."""
+    from openbb_backend import symbol_names as sn
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance info ZZZ timed out after 6s")
+
+    monkeypatch.setattr(
+        "stock_checker.yfinance_history.fetch_yfinance_info", _boom
+    )
+    assert sn._fetch_yfinance_name("ZZZ") is None
+    assert sn._fetch_yfinance_name("BTC-USD") == "Bitcoin"
