@@ -140,6 +140,53 @@ def _quote_volume_usdt(data: Mapping[str, object], price: float) -> Optional[flo
     return None
 
 
+def liquidity_deep_fields(
+    liquidity: Optional[Mapping[str, object]],
+) -> Dict[str, object]:
+    """Order-book deep fields, or gap markers when the book is unreadable.
+
+    tradermonty #896/#892 + xang1234/portfolio AI after breakout miss→None:
+    a failed/empty depth check must not invent ``liquidity_score=0`` /
+    ``spread_pct=999`` as a measured dead book. ``tradeable=False`` stays
+    fail-closed (unknown book ≠ safe to size).
+    """
+    if liquidity:
+        return {
+            "liquidity_score": liquidity.get("liquidity_score"),
+            "spread_pct": liquidity.get("spread_pct"),
+            "tradeable": bool(liquidity.get("tradeable")),
+        }
+    return {
+        "liquidity_score": None,
+        "spread_pct": None,
+        "tradeable": False,
+    }
+
+
+def pressure_deep_fields(
+    pressure: Optional[Mapping[str, object]],
+) -> Dict[str, object]:
+    """Buy/sell pressure deep fields, or gap markers when trades are unreadable.
+
+    tradermonty #896/#892 + xang1234/portfolio AI: miss must not invent a
+    balanced ``buy_ratio=0.5`` / flat ``pressure_score=0`` / zero volumes as
+    a measured neutral tape.
+    """
+    if pressure:
+        return {
+            "buy_ratio": pressure.get("buy_ratio"),
+            "pressure_score": pressure.get("pressure_score"),
+            "buy_volume": pressure.get("buy_volume"),
+            "sell_volume": pressure.get("sell_volume"),
+        }
+    return {
+        "buy_ratio": None,
+        "pressure_score": None,
+        "buy_volume": None,
+        "sell_volume": None,
+    }
+
+
 def finalize_crypto_momentum_score(crypto: Mapping[str, object]) -> float:
     """Ticker score + deep-analysis bonuses; refuse bool/NaN invent.
 
@@ -419,30 +466,15 @@ class MarketScanner:
                 crypto['is_higher_high'] = None
                 crypto['volume_surge_pct'] = None
 
-            # Liquidity check
-            liquidity = self.binance.check_liquidity(symbol)
-            if liquidity:
-                crypto['liquidity_score'] = liquidity['liquidity_score']
-                crypto['spread_pct'] = liquidity['spread_pct']
-                crypto['tradeable'] = liquidity['tradeable']
-            else:
-                crypto['liquidity_score'] = 0
-                crypto['spread_pct'] = 999
-                crypto['tradeable'] = False
+            # Liquidity check — miss/gap → None (never invent score 0 / spread 999)
+            crypto.update(liquidity_deep_fields(self.binance.check_liquidity(symbol)))
 
-            # Buy/sell pressure analysis (for top candidates)
-            if crypto in ranked[:top_n]:
-                pressure = self.binance.analyze_buy_sell_pressure(symbol, limit=100)
-                if pressure:
-                    crypto['buy_ratio'] = pressure['buy_ratio']
-                    crypto['pressure_score'] = pressure['pressure_score']
-                    crypto['buy_volume'] = pressure['buy_volume']
-                    crypto['sell_volume'] = pressure['sell_volume']
-                else:
-                    crypto['buy_ratio'] = 0.5
-                    crypto['pressure_score'] = 0
-                    crypto['buy_volume'] = 0
-                    crypto['sell_volume'] = 0
+            # Buy/sell pressure — miss/gap → None (never invent balanced 0.5 / flat 0)
+            crypto.update(
+                pressure_deep_fields(
+                    self.binance.analyze_buy_sell_pressure(symbol, limit=100)
+                )
+            )
 
             # Calculate technical indicators for top 3 candidates only
             if crypto in ranked[:3]:
@@ -472,14 +504,25 @@ class MarketScanner:
 
         for i, crypto in enumerate(ranked[:top_n], 1):
             emoji = '🚀' if crypto['change_24h'] > 10 else '🟢' if crypto['change_24h'] > 0 else '🔴'
-            breakout_emoji = '🔥' if crypto.get('breakout_score', 0) > 70 else '⚡' if crypto.get('breakout_score', 0) > 40 else '  '
+            brk = crypto.get('breakout_score')
+            brk_ok = _finite_signed(brk)
+            breakout_emoji = (
+                '🔥' if brk_ok and float(brk) > 70  # type: ignore[arg-type]
+                else '⚡' if brk_ok and float(brk) > 40  # type: ignore[arg-type]
+                else '  '
+            )
             tradeable_emoji = '✅' if crypto.get('tradeable', False) else '⚠️'
             rsi_display = f"{crypto.get('rsi', 0):>5.1f}" if crypto.get('rsi') is not None else "  N/A"
             macd_display = f"{crypto.get('macd', {}).get('histogram', 0):>7.2f}" if crypto.get('macd') is not None and 'histogram' in crypto.get('macd', {}) else "    N/A"
+            brk_display = f"{float(brk):>5.0f}" if brk_ok else "  N/A"  # type: ignore[arg-type]
+            liq = crypto.get('liquidity_score')
+            liq_display = (
+                f"{float(liq):>3.0f}" if _finite_signed(liq) else "N/A"  # type: ignore[arg-type]
+            )
 
             print(f"{i:<5} {emoji} {crypto['symbol']:<10} ${crypto['price']:>12,.2f} "
-                  f"{crypto['change_24h']:>8.2f}% {breakout_emoji} {crypto.get('breakout_score', 0):>5.0f} "
-                  f"{tradeable_emoji} {crypto.get('liquidity_score', 0):>3.0f} {rsi_display:>7} {macd_display:>9} {crypto.get('final_score', crypto['score']):>7.1f}")
+                  f"{crypto['change_24h']:>8.2f}% {breakout_emoji} {brk_display} "
+                  f"{tradeable_emoji} {liq_display:>3} {rsi_display:>7} {macd_display:>9} {crypto.get('final_score', crypto['score']):>7.1f}")
 
         print(f"{'='*80}\n")
         sys.stdout.flush()
