@@ -407,16 +407,17 @@ class MarketScanner:
         for crypto in ranked[:top_n]:
             symbol = crypto['binance_symbol']
 
-            # Breakout analysis
+            # Breakout analysis — miss/gap → None (never invent score 0 / flat 0% surge)
             breakout = self.binance.analyze_breakout(symbol)
             if breakout:
-                crypto['breakout_score'] = breakout['breakout_score']
-                crypto['is_higher_high'] = breakout['is_higher_high']
-                crypto['volume_surge_pct'] = breakout.get('volume_surge_pct', 0)
+                crypto['breakout_score'] = breakout.get('breakout_score')
+                crypto['is_higher_high'] = breakout.get('is_higher_high')
+                # tradermonty #896/#892: bare .get(..., 0) invented flat surge
+                crypto['volume_surge_pct'] = breakout.get('volume_surge_pct')
             else:
-                crypto['breakout_score'] = 0
-                crypto['is_higher_high'] = False
-                crypto['volume_surge_pct'] = 0
+                crypto['breakout_score'] = None
+                crypto['is_higher_high'] = None
+                crypto['volume_surge_pct'] = None
 
             # Liquidity check
             liquidity = self.binance.check_liquidity(symbol)

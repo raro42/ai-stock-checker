@@ -146,6 +146,33 @@ def _parse_orderbook_side(rows: object, *, take: int) -> List[List[float]]:
     return out
 
 
+def _breakout_volume_surge_pct(
+    current_volume: object, prev_volumes: object
+) -> Optional[float]:
+    """% above prior-window mean volume, or None when the reference is a gap.
+
+    tradermonty #896/#892 + xang1234/portfolio AI after ``analyze_volume``
+    zero-mean refuse: an all-zero (or unreadable) prior window is a missing
+    volume reference — never invent flat ``0%`` surge as a clean normal day.
+    """
+    cur = _coerce_binance_volume(current_volume)
+    if cur is None or not isinstance(prev_volumes, (list, tuple)) or not prev_volumes:
+        return None
+    vols: List[float] = []
+    for raw in prev_volumes:
+        v = _coerce_binance_volume(raw)
+        if v is None:
+            return None
+        vols.append(v)
+    avg = sum(vols) / len(vols)
+    if not (math.isfinite(avg) and avg > 0.0):
+        return None
+    surge = (cur / avg - 1.0) * 100.0
+    if not math.isfinite(surge):
+        return None
+    return surge
+
+
 def _parse_kline_candle(row: object) -> Optional[Dict]:
     """Basic OHLCV candle; None when any OHLC/volume is unreadable.
 
@@ -515,22 +542,35 @@ class BinanceFetcher:
             current = klines[-1]
             prev_candles = klines[:-1]
 
-            # Calculate metrics
-            avg_volume = sum(c["volume"] for c in prev_candles) / len(prev_candles)
-            volume_surge = (current["volume"] / avg_volume - 1) * 100 if avg_volume > 0 else 0
+            # Volume reference: zero-mean prior window → unavailable (not flat 0%).
+            volume_surge = _breakout_volume_surge_pct(
+                current["volume"], [c["volume"] for c in prev_candles]
+            )
 
             # Check for higher highs
             prev_high = max(c["high"] for c in prev_candles)
             is_higher_high = current["high"] > prev_high
+            if is_higher_high and math.isfinite(prev_high) and prev_high > 0.0:
+                breakout_pct: Optional[float] = (
+                    (current["high"] - prev_high) / prev_high * 100.0
+                )
+                if breakout_pct is not None and not math.isfinite(breakout_pct):
+                    breakout_pct = None
+            elif is_higher_high:
+                # Higher print but no usable prior high → gap, not 0% breakout.
+                breakout_pct = None
+            else:
+                breakout_pct = 0.0
 
-            # Calculate breakout score
+            # Calculate breakout score (skip volume bonuses when surge is a gap)
             score = 0
             if is_higher_high:
                 score += 40
-            if volume_surge > 50:  # 50% above average
-                score += 30
-            if volume_surge > 100:  # 2x average
-                score += 15
+            if volume_surge is not None:
+                if volume_surge > 50:  # 50% above average
+                    score += 30
+                if volume_surge > 100:  # 2x average
+                    score += 15
             if current["close"] > current["open"]:  # Bullish candle
                 score += 15
 
@@ -541,7 +581,7 @@ class BinanceFetcher:
                 "volume_surge_pct": volume_surge,
                 "current_price": current["close"],
                 "prev_high": prev_high,
-                "breakout_pct": ((current["high"] - prev_high) / prev_high * 100) if is_higher_high else 0
+                "breakout_pct": breakout_pct,
             }
 
         except Exception as e:
