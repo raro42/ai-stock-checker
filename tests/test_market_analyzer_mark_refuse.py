@@ -34,21 +34,66 @@ def test_get_top_movers_skips_bool_closes(monkeypatch) -> None:
             assert key == "Close"
             return _Series(self._closes)
 
+    def _fake_hist(symbol, period="1d", **_k):
+        if symbol == "BAD":
+            return _Hist([True, True])
+        return _Hist([100.0, 110.0])
+
     class _Ticker:
         def __init__(self, symbol: str):
             self.symbol = symbol
             self.info = {"longName": symbol, "volume": 100, "marketCap": 1e9}
 
-        def history(self, period: str = "1d"):
-            if self.symbol == "BAD":
-                return _Hist([True, True])
-            return _Hist([100.0, 110.0])
-
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_history", _fake_hist
+    )
     monkeypatch.setattr("stock_checker.market_analyzer.yf.Ticker", _Ticker)
     out = analyzer.get_top_movers(limit=10)
     assert [row["symbol"] for row in out] == ["OK"]
     assert out[0]["change_pct"] == 10.0
     assert out[0]["volume"] == 100.0
+
+
+def test_get_top_movers_skips_history_timeout(monkeypatch) -> None:
+    """Hung Yahoo join timeout must skip the name (not stall the movers strip)."""
+    analyzer = MarketAnalyzer()
+    monkeypatch.setattr(analyzer, "get_sp500_components", lambda: ["HANG", "OK"])
+
+    class _Series:
+        def __init__(self, vals):
+            self._vals = vals
+
+        @property
+        def iloc(self):
+            return self
+
+        def __getitem__(self, idx: int):
+            return self._vals[idx]
+
+    class _Hist:
+        empty = False
+
+        def __len__(self) -> int:
+            return 2
+
+        def __getitem__(self, key: str):
+            return _Series([100.0, 110.0])
+
+    def _fake_hist(symbol, period="1d", **_k):
+        if symbol == "HANG":
+            raise TimeoutError("yfinance history HANG timed out after 20s")
+        return _Hist()
+
+    class _Ticker:
+        def __init__(self, symbol: str):
+            self.info = {"longName": symbol, "volume": 50, "marketCap": 1e9}
+
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_history", _fake_hist
+    )
+    monkeypatch.setattr("stock_checker.market_analyzer.yf.Ticker", _Ticker)
+    out = analyzer.get_top_movers(limit=10)
+    assert [row["symbol"] for row in out] == ["OK"]
 
 
 def test_get_period_change_unavailable_not_flat_zero(monkeypatch) -> None:
@@ -61,11 +106,11 @@ def test_get_period_change_unavailable_not_flat_zero(monkeypatch) -> None:
         def __len__(self) -> int:
             return 0
 
-    class _Ticker:
-        def history(self, period: str = "1d"):
-            return _Empty()
-
-    assert analyzer._get_period_change(_Ticker(), "1d") is None
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_history",
+        lambda *_a, **_k: _Empty(),
+    )
+    assert analyzer._get_period_change("AAPL", "1d") is None
 
     class _Series:
         def __init__(self, vals):
@@ -87,11 +132,24 @@ def test_get_period_change_unavailable_not_flat_zero(monkeypatch) -> None:
         def __getitem__(self, key: str):
             return _Series([True, False])
 
-    class _BoolTicker:
-        def history(self, period: str = "1d"):
-            return _BoolHist()
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_history",
+        lambda *_a, **_k: _BoolHist(),
+    )
+    assert analyzer._get_period_change("AAPL", "1d") is None
 
-    assert analyzer._get_period_change(_BoolTicker(), "1d") is None
+
+def test_get_period_change_timeout_unavailable(monkeypatch) -> None:
+    """History timeout → None (never invent flat 0.0%)."""
+    analyzer = MarketAnalyzer()
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance history AAPL timed out after 20s")
+
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_history", _boom
+    )
+    assert analyzer._get_period_change("AAPL", "1d") is None
 
 
 def test_bitcoin_recommender_reads_change_1d_alias() -> None:

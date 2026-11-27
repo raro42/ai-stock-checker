@@ -14,6 +14,7 @@ from stock_checker.technical_indicators import (
     coerce_nonneg_int,
     daily_pct_change,
 )
+from stock_checker.yfinance_history import fetch_yfinance_history
 
 
 DEFAULT_TOP_MOVERS_LIMIT = 10
@@ -97,10 +98,9 @@ class MarketAnalyzer:
 
         for symbol in symbols:
             try:
-                ticker = yf.Ticker(symbol)
-                hist = ticker.history(period=period)
-
-                if hist.empty or len(hist) < 2:
+                # Join-bounded — hung Yahoo ≠ calm skip forever (tradermonty #904/#905).
+                hist = fetch_yfinance_history(symbol, period=period)
+                if hist is None or getattr(hist, "empty", True) or len(hist) < 2:
                     continue
 
                 start_raw = hist["Close"].iloc[0]
@@ -112,7 +112,7 @@ class MarketAnalyzer:
                 start_price = float(start_raw)
                 end_price = float(end_raw)
 
-                info = ticker.info
+                info = yf.Ticker(symbol).info
                 vol = _info_volume(info.get("volume"))
                 if vol is None:
                     vol = _info_volume(info.get("regularMarketVolume"))
@@ -127,7 +127,7 @@ class MarketAnalyzer:
                     "market_cap": _info_money(info.get("marketCap")),
                 })
             except Exception:
-                # Skip stocks that fail to fetch
+                # Skip stocks that fail to fetch (incl. history timeout)
                 continue
 
         # Sort by absolute percentage change
@@ -138,11 +138,9 @@ class MarketAnalyzer:
     def get_bitcoin_data(self) -> Dict:
         """Get Bitcoin price data using BTC-USD ticker."""
         try:
-            ticker = yf.Ticker("BTC-USD")
-            info = ticker.info
-            hist = ticker.history(period="1mo")
-
-            if hist.empty:
+            # Join-bounded — hung Yahoo ≠ calm BTC hang (tradermonty #904/#905).
+            hist = fetch_yfinance_history("BTC-USD", period="1mo")
+            if hist is None or getattr(hist, "empty", True):
                 raise ValueError("No Bitcoin data available")
 
             current_raw = hist["Close"].iloc[-1]
@@ -174,6 +172,7 @@ class MarketAnalyzer:
                     if _finite_signed(vol_raw):
                         volatility = float(vol_raw)
 
+            info = yf.Ticker("BTC-USD").info
             vol_24h = _info_volume(info.get("volume24Hr"))
             if vol_24h is None:
                 vol_24h = _info_volume(info.get("regularMarketVolume"))
@@ -184,8 +183,8 @@ class MarketAnalyzer:
                 "current_price": round(current_price, 2),
                 "24h_volume": vol_24h,
                 "market_cap": _info_money(info.get("marketCap")),
-                "change_1d": self._get_period_change(ticker, "1d"),
-                "change_7d": self._get_period_change(ticker, "7d"),
+                "change_1d": self._get_period_change("BTC-USD", "1d"),
+                "change_7d": self._get_period_change("BTC-USD", "7d"),
                 "change_30d": round(change_pct, 2),
                 "volatility_30d": (
                     round(volatility, 2) if volatility is not None else None
@@ -199,11 +198,11 @@ class MarketAnalyzer:
                 f"Failed to fetch Bitcoin data: {safe_exc_text(e)}"
             ) from e
 
-    def _get_period_change(self, ticker, period: str) -> Optional[float]:
+    def _get_period_change(self, symbol: str, period: str) -> Optional[float]:
         """Period % change, or None when unavailable (never invent flat ``0.0``)."""
         try:
-            hist = ticker.history(period=period)
-            if hist.empty or len(hist) < 2:
+            hist = fetch_yfinance_history(symbol, period=period)
+            if hist is None or getattr(hist, "empty", True) or len(hist) < 2:
                 return None
             change = daily_pct_change(hist["Close"].iloc[-1], hist["Close"].iloc[0])
             if change is None:

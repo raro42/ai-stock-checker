@@ -71,3 +71,32 @@ def test_get_historical_data_timeout_raises_valueerror():
     ):
         with pytest.raises(ValueError, match="timed out|Failed to fetch"):
             StockFetcher().get_historical_data("AAPL", period="5d")
+
+
+def test_cli_backtest_history_timeout_exits_one(capsys):
+    """CLI backtest must not hang forever on Yahoo history (tradermonty #904/#905)."""
+    from types import SimpleNamespace
+
+    from stock_checker.cli import cmd_backtest
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance history AAPL timed out after 20s")
+
+    args = SimpleNamespace(
+        symbols=["AAPL"],
+        period="1y",
+        interval="1d",
+        strategy="sma",
+        capital=10_000.0,
+        fee=0.001,
+        slippage=0.0,
+        position_size=0.1,
+        json=False,
+    )
+    with patch(
+        "stock_checker.yfinance_history.fetch_yfinance_history", _boom
+    ):
+        code = cmd_backtest(args)
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "timed out" in err.lower() or "history failed" in err.lower()

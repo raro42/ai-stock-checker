@@ -189,14 +189,9 @@ def cmd_movers(args):
 
 def cmd_backtest(args):
     """Run a simple SMA momentum backtest for one or more symbols."""
-    try:
-        import yfinance as yf
-    except ImportError:
-        print("Error: yfinance required for backtest", file=sys.stderr)
-        return 1
-
     from stock_checker.backtester import Backtester, momentum_cross_strategy
     from stock_checker.strategy_signals import multi_timeframe_momentum_strategy
+    from stock_checker.yfinance_history import fetch_yfinance_history
 
     strategy = (
         multi_timeframe_momentum_strategy
@@ -206,8 +201,18 @@ def cmd_backtest(args):
     symbols = [s.upper() for s in args.symbols]
     historical = {}
     for symbol in symbols:
-        hist = yf.Ticker(symbol).history(period=args.period, interval=args.interval)
-        if hist is None or hist.empty:
+        try:
+            # Join-bounded — hung Yahoo ≠ calm CLI hang (tradermonty #904/#905).
+            hist = fetch_yfinance_history(
+                symbol, period=args.period, interval=args.interval
+            )
+        except Exception as e:
+            print(
+                f"Error: history failed for {symbol}: {safe_exc_text(e)}",
+                file=sys.stderr,
+            )
+            return 1
+        if hist is None or getattr(hist, "empty", True):
             print(f"Error: no history for {symbol}", file=sys.stderr)
             return 1
         bars = []
