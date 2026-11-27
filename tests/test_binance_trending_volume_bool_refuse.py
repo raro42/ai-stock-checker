@@ -104,3 +104,44 @@ def test_get_all_tickers_bool_min_volume_falls_back(monkeypatch) -> None:
     out = fetcher.get_all_tickers(min_volume_usdt=True)
     assert "LOWUSDT" not in out
     assert "HIUSDT" in out
+    assert out["HIUSDT"]["trade_count_24h"] == 20
+
+
+def test_get_all_tickers_keeps_none_trade_count(monkeypatch) -> None:
+    """Missing/bool count must stay None — never invent a dead 0-trade tape."""
+    fetcher = BinanceFetcher()
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return [
+                {
+                    "symbol": "GAPUSDT",
+                    "quoteVolume": str(DEFAULT_MIN_VOLUME_USDT + 1),
+                    "lastPrice": "3.0",
+                    "priceChangePercent": "3.0",
+                    "highPrice": "3.1",
+                    "lowPrice": "2.9",
+                    "volume": "300",
+                    "count": True,  # bool → coerce_nonneg_int None
+                    "closeTime": 3,
+                },
+                {
+                    "symbol": "OKUSDT",
+                    "quoteVolume": str(DEFAULT_MIN_VOLUME_USDT + 1),
+                    "lastPrice": "4.0",
+                    "priceChangePercent": "4.0",
+                    "highPrice": "4.1",
+                    "lowPrice": "3.9",
+                    "volume": "400",
+                    "count": 0,  # real zero prints stay 0
+                    "closeTime": 4,
+                },
+            ]
+
+    monkeypatch.setattr(fetcher.session, "get", lambda *a, **k: _Resp())
+    out = fetcher.get_all_tickers(min_volume_usdt=DEFAULT_MIN_VOLUME_USDT)
+    assert out["GAPUSDT"]["trade_count_24h"] is None
+    assert out["OKUSDT"]["trade_count_24h"] == 0

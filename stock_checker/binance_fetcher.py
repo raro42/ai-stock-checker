@@ -462,8 +462,9 @@ class BinanceFetcher:
                     "low_24h": fields["low_24h"],
                     "volume_24h": fields["volume_24h"],
                     "volume_usdt": volume_usdt,
-                    # Number of trades (proxy for activity/visits)
-                    "trade_count_24h": fields["trade_count_24h"] or 0,
+                    # Keep None — ``or 0`` invents a dead tape when count is
+                    # missing/bool (trending already skips None counts).
+                    "trade_count_24h": fields["trade_count_24h"],
                     "timestamp": fields["timestamp"],
                     "source": "binance",
                 }
