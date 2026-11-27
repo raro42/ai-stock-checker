@@ -1,7 +1,43 @@
 #!/usr/bin/env python3
 
 from typing import Dict, Optional, List
-from .technical_indicators import TechnicalIndicators, _finite_signed, _valid_close
+from .technical_indicators import (
+    TechnicalIndicators,
+    _finite_signed,
+    _valid_close,
+    coerce_score,
+)
+
+
+def _action_from_score(score: float, *, crypto: bool = False) -> tuple[str, str, list[str]]:
+    """Map a real composite score to action/confidence (never invent from empty)."""
+    reasons: list[str] = []
+    if crypto:
+        if score >= 40:
+            return "BUY", "HIGH", reasons
+        if score >= 20:
+            return "BUY", "MEDIUM", reasons
+        if score >= 5:
+            return "BUY", "LOW", reasons
+        if score <= -25:
+            return "SELL", "HIGH", reasons
+        if score <= -10:
+            return "SELL", "MEDIUM", reasons
+        reasons.append("⏸️ Waiting for crypto micro-movement")
+        return "HOLD", "LOW", reasons
+
+    if score >= 50:
+        return "BUY", "HIGH", reasons
+    if score >= 25:
+        return "BUY", "MEDIUM", reasons
+    if score >= 5:
+        return "BUY", "LOW", reasons
+    if score <= -20:
+        return "SELL", "HIGH", reasons
+    if score <= -5:
+        return "SELL", "MEDIUM", reasons
+    reasons.append("Waiting for stronger signal")
+    return "HOLD", "LOW", reasons
 
 
 class RecommendationEngine:
@@ -15,79 +51,39 @@ class RecommendationEngine:
         Analyze stock and generate buy/sell/hold recommendation using advanced factors.
 
         Returns dict with action, confidence, reasoning, and score.
+        Empty/bool-only quote bags speak ``unavailable`` / ``score=None`` — never
+        invent calm HOLD / overall_score=0 (parity with generate_signals).
         """
-        try:
-            reasons = []
-            score = 0.0
+        symbol = stock_data.get("symbol", "Unknown")
+        current_price = stock_data.get("current_price")
+        reasons: list[str] = []
 
-            symbol = stock_data.get("symbol", "Unknown")
-            current_price = stock_data.get("current_price")
-
-            # PRIMARY FACTOR: Multi-Timeframe Momentum (45 points max)
+        parts: list[float] = []
+        for calc in (
+            self._calculate_multi_timeframe_score,
+            self._calculate_technical_score,
+            self._calculate_fundamental_score,
+            self._calculate_volume_sentiment_score,
+        ):
             try:
-                momentum_score = self._calculate_multi_timeframe_score(stock_data)
-                momentum_score = float(momentum_score) if momentum_score is not None else 0.0
+                part = calc(stock_data)
             except Exception:
-                momentum_score = 0.0
-            score += momentum_score
+                part = None
+            if part is not None:
+                parts.append(float(part))
 
-            # SECONDARY FACTOR: Technical Strength (25 points max)
-            try:
-                technical_score = self._calculate_technical_score(stock_data)
-                technical_score = float(technical_score) if technical_score is not None else 0.0
-            except Exception:
-                technical_score = 0.0
-            score += technical_score
+        if not parts:
+            return {
+                "symbol": symbol,
+                "action": "unavailable",
+                "confidence": "NONE",
+                "score": None,
+                "reasons": ["No readable momentum/technical/fundamental inputs"],
+                "current_price": current_price,
+            }
 
-            # TERTIARY FACTOR: Valuation & Fundamentals (20 points max)
-            try:
-                fundamental_score = self._calculate_fundamental_score(stock_data)
-                fundamental_score = float(fundamental_score) if fundamental_score is not None else 0.0
-            except Exception:
-                fundamental_score = 0.0
-            score += fundamental_score
-
-            # QUATERNARY FACTOR: Volume & Sentiment (10 points max)
-            try:
-                volume_sentiment_score = self._calculate_volume_sentiment_score(stock_data)
-                volume_sentiment_score = float(volume_sentiment_score) if volume_sentiment_score is not None else 0.0
-            except Exception:
-                volume_sentiment_score = 0.0
-            score += volume_sentiment_score
-
-            # Ensure score is always numeric
-            try:
-                score = float(score) if score is not None else 0.0
-            except (TypeError, ValueError):
-                score = 0.0
-        except Exception:
-            # Fallback on any error
-            reasons = []
-            score = 0.0
-            symbol = stock_data.get("symbol", "Unknown")
-            current_price = stock_data.get("current_price")
-
-        # Determine action and confidence with IMPROVED thresholds
-        if score >= 50:
-            action = "BUY"
-            confidence = "HIGH"
-        elif score >= 25:
-            action = "BUY"
-            confidence = "MEDIUM"
-        elif score >= 5:
-            action = "BUY"
-            confidence = "LOW"
-        elif score <= -20:
-            action = "SELL"
-            confidence = "HIGH"
-        elif score <= -5:
-            action = "SELL"
-            confidence = "MEDIUM"
-        else:
-            action = "HOLD"
-            confidence = "LOW"
-            reasons.append("Waiting for stronger signal")
-
+        score = float(sum(parts))
+        action, confidence, reasons = _action_from_score(score)
         return {
             "symbol": symbol,
             "action": action,
@@ -97,59 +93,72 @@ class RecommendationEngine:
             "current_price": current_price,
         }
 
-    def _calculate_multi_timeframe_score(self, stock_data: dict) -> float:
-        """Multi-timeframe momentum scoring with trend confirmation."""
+    def _calculate_multi_timeframe_score(self, stock_data: dict) -> Optional[float]:
+        """Multi-timeframe momentum, or None when no readable % prints."""
         score = 0.0
+        had = False
 
         # Bool/NaN % prints must not invent mild daily up (float(True)→1.0).
-        daily_change = 0.0
-        weekly_change = 0.0
-        monthly_change = 0.0
+        # Real flat 0% is readable and contributes 0 — empty/missing is None.
+        daily_change: Optional[float] = None
+        weekly_change: Optional[float] = None
+        monthly_change: Optional[float] = None
         dc = stock_data.get("daily_change")
         if _finite_signed(dc):
             daily_change = float(dc)
+            had = True
         wc = stock_data.get("weekly_change")
         if _finite_signed(wc):
             weekly_change = float(wc)
+            had = True
         mc = stock_data.get("monthly_change")
         if _finite_signed(mc):
             monthly_change = float(mc)
+            had = True
+
+        if not had:
+            return None
 
         # Daily momentum (35% weight)
-        if daily_change > 3:
-            score += 15.75  # Strong daily up
-        elif daily_change > 1.5:
-            score += 10.5   # Moderate daily up
-        elif daily_change > 0.5:
-            score += 5.25   # Mild daily up
-        elif daily_change < -3:
-            score += 10.5   # Daily dip (reversal potential)
-        elif daily_change < -1.5:
-            score += 5.25   # Moderate daily dip
+        if daily_change is not None:
+            if daily_change > 3:
+                score += 15.75  # Strong daily up
+            elif daily_change > 1.5:
+                score += 10.5   # Moderate daily up
+            elif daily_change > 0.5:
+                score += 5.25   # Mild daily up
+            elif daily_change < -3:
+                score += 10.5   # Daily dip (reversal potential)
+            elif daily_change < -1.5:
+                score += 5.25   # Moderate daily dip
 
         # Weekly trend confirmation (35% weight)
-        if weekly_change > 5:
-            score += 15.75
-        elif weekly_change > 2:
-            score += 10.5
-        elif weekly_change < -5:
-            score += 7     # Weekly dip potential
+        if weekly_change is not None:
+            if weekly_change > 5:
+                score += 15.75
+            elif weekly_change > 2:
+                score += 10.5
+            elif weekly_change < -5:
+                score += 7     # Weekly dip potential
 
         # Monthly context (30% weight)
-        if monthly_change > 10:
-            score += 13.5  # Bull market context
-        elif monthly_change < -10:
-            score += 6.75  # Bear market caution
+        if monthly_change is not None:
+            if monthly_change > 10:
+                score += 13.5  # Bull market context
+            elif monthly_change < -10:
+                score += 6.75  # Bear market caution
 
         return score
 
-    def _calculate_technical_score(self, stock_data: dict) -> float:
-        """Technical indicators scoring for trend strength."""
-        score = 0
+    def _calculate_technical_score(self, stock_data: dict) -> Optional[float]:
+        """Technical indicators scoring, or None when RSI/MACD/SMA all missing."""
+        score = 0.0
+        had = False
 
         # RSI (Relative Strength Index) — bool/NaN unavailable (True→1.0 ≠ oversold)
         rsi = stock_data.get("rsi")
         if _finite_signed(rsi):
+            had = True
             rsi_v = float(rsi)
             if rsi_v < 30:
                 score += 12  # Oversold
@@ -163,6 +172,7 @@ class RecommendationEngine:
         # MACD signal
         macd_signal = stock_data.get("macd_histogram")
         if _finite_signed(macd_signal):
+            had = True
             macd_v = float(macd_signal)
             if macd_v > 0.1:
                 score += 8   # Bullish divergence
@@ -178,21 +188,26 @@ class RecommendationEngine:
             and _valid_close(sma_20)
             and _valid_close(sma_50)
         ):
+            had = True
             px, s20, s50 = float(current_price), float(sma_20), float(sma_50)
             if px > s20 > s50:
                 score += 5
             elif px < s20 < s50:
                 score -= 3
 
+        if not had:
+            return None
         return score
 
-    def _calculate_fundamental_score(self, stock_data: dict) -> float:
-        """Fundamental analysis with market positioning."""
-        score = 0
+    def _calculate_fundamental_score(self, stock_data: dict) -> Optional[float]:
+        """Fundamental analysis, or None when no readable valuation inputs."""
+        score = 0.0
+        had = False
 
         # 52-week position (value consideration)
         range_position = stock_data.get("52_week_position")
         if _finite_signed(range_position):
+            had = True
             rp = float(range_position)
             if rp < 25:
                 score += 8  # Potential value
@@ -202,6 +217,7 @@ class RecommendationEngine:
         # P/E ratio (if available)
         pe_ratio = stock_data.get("pe_ratio")
         if _finite_signed(pe_ratio):
+            had = True
             pe = float(pe_ratio)
             if pe < 20:
                 score += 7
@@ -211,11 +227,11 @@ class RecommendationEngine:
         # Market cap consideration (smaller caps = higher risk/reward)
         market_cap = stock_data.get("market_cap")
         if _finite_signed(market_cap) and float(market_cap) > 0:
+            had = True
             if float(market_cap) < 5000000000:  # Under $5B
                 score += 5  # Small/mid cap premium
 
-        # Analyst recommendations
-        analyst_rating = stock_data.get("analyst_rating", "N/A")
+        # Analyst recommendations — only when explicitly present (no default N/A invent)
         rating_scores = {
             "Strong Buy": 5,
             "Buy": 3,
@@ -223,19 +239,27 @@ class RecommendationEngine:
             "Sell": -3,
             "Strong Sell": -5
         }
-        score += rating_scores.get(analyst_rating, 0)
+        if "analyst_rating" in stock_data:
+            analyst_rating = stock_data.get("analyst_rating")
+            if isinstance(analyst_rating, str) and analyst_rating in rating_scores:
+                had = True
+                score += rating_scores[analyst_rating]
 
+        if not had:
+            return None
         return score
 
-    def _calculate_volume_sentiment_score(self, stock_data: dict) -> float:
-        """Volume confirmation, news/OpenBB sentiment, earnings proximity soft penalty."""
+    def _calculate_volume_sentiment_score(self, stock_data: dict) -> Optional[float]:
+        """Volume/sentiment soft score, or None when no readable soft factors."""
         score = 0.0
+        had = False
 
         # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool —
         # False→0 invents thin volume (−3); True→1 invents mild sentiment /
         # near-earnings (−4) after momentum/technical marks already refused.
         volume_ratio = stock_data.get("volume_ratio")
         if _finite_signed(volume_ratio):
+            had = True
             vr = float(volume_ratio)  # type: ignore[arg-type]
             if vr > 1.5:
                 score += 5
@@ -244,39 +268,44 @@ class RecommendationEngine:
 
         news_sentiment = stock_data.get("news_sentiment")
         if _finite_signed(news_sentiment):
+            had = True
             ns = max(-1.0, min(1.0, float(news_sentiment)))  # type: ignore[arg-type]
             score += ns * 3.0
 
         openbb_sentiment = stock_data.get("openbb_sentiment")
         if _finite_signed(openbb_sentiment):
+            had = True
             os_ = max(-1.0, min(1.0, float(openbb_sentiment)))  # type: ignore[arg-type]
             score += os_ * 2.0
 
         days_to_earn = stock_data.get("days_to_earnings")
         if _finite_signed(days_to_earn):
+            had = True
             d = float(days_to_earn)  # type: ignore[arg-type]
             if 0 <= d <= 2:
                 score -= 4
             elif -1 <= d < 0:
                 score -= 2
 
+        if not had:
+            return None
         return float(max(-10.0, min(10.0, score)))
 
     def analyze_bitcoin_recommendation(self, btc_data: dict) -> Dict:
         """
         Analyze Bitcoin with enhanced crypto-specific factors.
-        """
-        reasons = []
-        score = 0
 
+        Empty/bool-only bags speak ``unavailable`` / ``score=None`` — never invent
+        calm HOLD / score=0 (parity with generate_signals empty refuse).
+        """
         current_price = btc_data.get("current_price")
         # Bool/NaN/% gaps unavailable — never invent flat 0 / True→1.0 momentum.
         # MarketAnalyzer speaks change_1d/7d/30d; older callers use daily/weekly/monthly.
-        change_1d = 0.0
-        change_7d = 0.0
-        change_30d = 0.0
-        volatility = 0.0
-        volume_ratio = 0.0
+        change_1d: Optional[float] = None
+        change_7d: Optional[float] = None
+        change_30d: Optional[float] = None
+        volatility: Optional[float] = None
+        volume_ratio: Optional[float] = None
         dc = btc_data.get("daily_change")
         if not _finite_signed(dc):
             dc = btc_data.get("change_1d")
@@ -299,32 +328,54 @@ class RecommendationEngine:
         if _finite_signed(vr):
             volume_ratio = float(vr)
         rsi = btc_data.get("rsi")
+        had = (
+            change_1d is not None
+            or change_7d is not None
+            or change_30d is not None
+            or volatility is not None
+            or volume_ratio is not None
+            or _finite_signed(rsi)
+        )
+        if not had:
+            return {
+                "symbol": "BTC-USD",
+                "action": "unavailable",
+                "confidence": "NONE",
+                "score": None,
+                "reasons": ["No readable momentum/technical inputs"],
+                "current_price": current_price,
+            }
+
+        score = 0.0
 
         # SHORT-TERM MOMENTUM (40% weight)
-        if change_1d > 5:
-            score += 16  # Explosive up
-        elif change_1d > 2:
-            score += 12  # Good momentum
-        elif change_1d > 0.5:
-            score += 8   # Positive momentum
-        elif change_1d < -5:
-            score += 14  # Flash crash = buy!
-        elif change_1d < -2:
-            score += 10  # Medium dip
+        if change_1d is not None:
+            if change_1d > 5:
+                score += 16  # Explosive up
+            elif change_1d > 2:
+                score += 12  # Good momentum
+            elif change_1d > 0.5:
+                score += 8   # Positive momentum
+            elif change_1d < -5:
+                score += 14  # Flash crash = buy!
+            elif change_1d < -2:
+                score += 10  # Medium dip
 
         # MEDIUM-TERM TREND (30% weight)
-        if change_7d > 15:
-            score += 12
-        elif change_7d > 5:
-            score += 6
-        elif change_7d < -15:
-            score += 9  # Oversold
+        if change_7d is not None:
+            if change_7d > 15:
+                score += 12
+            elif change_7d > 5:
+                score += 6
+            elif change_7d < -15:
+                score += 9  # Oversold
 
         # LONG-TERM CONTEXT (15% weight)
-        if change_30d > 20:
-            score += 6
-        elif change_30d < -20:
-            score += 4.5
+        if change_30d is not None:
+            if change_30d > 20:
+                score += 6
+            elif change_30d < -20:
+                score += 4.5
 
         # TECHNICAL FACTORS (15% weight) — bool RSI unavailable (True→1.0 ≠ oversold)
         if _finite_signed(rsi):
@@ -334,34 +385,14 @@ class RecommendationEngine:
             elif rsi_v > 70:
                 score -= 2.25  # Overbought
 
-        if volume_ratio > 1.5:
+        if volume_ratio is not None and volume_ratio > 1.5:
             score += 2.25  # Volume confirmation
 
         # VOLATILITY PREMIUM
-        if volatility > 8:
+        if volatility is not None and volatility > 8:
             score += 3  # High vol = more opportunity
 
-        # ENHANCED CRYPTO THRESHOLDS
-        if score >= 40:
-            action = "BUY"
-            confidence = "HIGH"
-        elif score >= 20:
-            action = "BUY"
-            confidence = "MEDIUM"
-        elif score >= 5:
-            action = "BUY"
-            confidence = "LOW"
-        elif score <= -25:
-            action = "SELL"
-            confidence = "HIGH"
-        elif score <= -10:
-            action = "SELL"
-            confidence = "MEDIUM"
-        else:
-            action = "HOLD"
-            confidence = "LOW"
-            reasons.append("⏸️ Waiting for crypto micro-movement")
-
+        action, confidence, reasons = _action_from_score(score, crypto=True)
         return {
             "symbol": "BTC-USD",
             "action": action,
@@ -407,33 +438,21 @@ class RecommendationEngine:
             # Attach signals always; blend only when overall_score is real.
             # Empty/flat tape → overall_score None (not 0 HOLD invent).
             base_rec['technical_signals'] = tech_signals
-            tech_score = tech_signals.get('overall_score')
+            tech_score = coerce_score(tech_signals.get('overall_score'))
             if tech_score is None:
                 return base_rec
 
-            combined_score = (base_rec['score'] * 0.6) + (float(tech_score) * 0.4)
-
-            # Update recommendation
-            base_rec['score'] = combined_score
-
-            # Re-evaluate action based on combined score
-            if combined_score >= 50:
-                base_rec['action'] = "BUY"
-                base_rec['confidence'] = "HIGH"
-            elif combined_score >= 25:
-                base_rec['action'] = "BUY"
-                base_rec['confidence'] = "MEDIUM"
-            elif combined_score >= 5:
-                base_rec['action'] = "BUY"
-                base_rec['confidence'] = "LOW"
-            elif combined_score <= -20:
-                base_rec['action'] = "SELL"
-                base_rec['confidence'] = "HIGH"
-            elif combined_score <= -5:
-                base_rec['action'] = "SELL"
-                base_rec['confidence'] = "MEDIUM"
+            base_score = coerce_score(base_rec.get('score'))
+            if base_score is None:
+                # Rule bag empty but history indicators spoke — use tech alone.
+                combined_score = float(tech_score)
             else:
-                base_rec['action'] = "HOLD"
-                base_rec['confidence'] = "LOW"
+                combined_score = (base_score * 0.6) + (float(tech_score) * 0.4)
+
+            base_rec['score'] = combined_score
+            action, confidence, reasons = _action_from_score(combined_score)
+            base_rec['action'] = action
+            base_rec['confidence'] = confidence
+            base_rec['reasons'] = reasons
 
         return base_rec

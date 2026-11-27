@@ -99,8 +99,11 @@ def test_bitcoin_recommender_reads_change_1d_alias() -> None:
     eng = RecommendationEngine()
     aliased = eng.analyze_bitcoin_recommendation({"change_1d": 6.0})
     legacy = eng.analyze_bitcoin_recommendation({"daily_change": 6.0})
+    quiet = eng.analyze_bitcoin_recommendation({})
     assert aliased["score"] == legacy["score"]
-    assert aliased["score"] > eng.analyze_bitcoin_recommendation({})["score"]
+    assert aliased["score"] is not None and aliased["score"] > 0
+    assert quiet["score"] is None
+    assert quiet["action"] == "unavailable"
 
 
 def test_bitcoin_recommender_refuses_bool_change_1d() -> None:
@@ -108,4 +111,6 @@ def test_bitcoin_recommender_refuses_bool_change_1d() -> None:
     eng = RecommendationEngine()
     bad = eng.analyze_bitcoin_recommendation({"change_1d": True})
     quiet = eng.analyze_bitcoin_recommendation({})
+    assert bad["score"] is None
+    assert bad["action"] == "unavailable"
     assert bad["score"] == quiet["score"]

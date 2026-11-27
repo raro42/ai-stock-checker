@@ -21,20 +21,22 @@ def test_finite_signed_refuses_bool_nan():
 
 def test_multi_timeframe_score_ignores_bool_change():
     eng = RecommendationEngine()
-    # float(True) == 1.0 would invent mild daily up (+5.25)
-    assert eng._calculate_multi_timeframe_score({"daily_change": True}) == 0.0
+    # float(True) == 1.0 would invent mild daily up (+5.25); bool-only → None
+    assert eng._calculate_multi_timeframe_score({"daily_change": True}) is None
     assert eng._calculate_multi_timeframe_score({"daily_change": 2.0}) == 10.5
+    # Real flat 0% is readable and contributes 0 — not unavailable.
+    assert eng._calculate_multi_timeframe_score({"daily_change": 0.0}) == 0.0
 
 
 def test_technical_score_ignores_bool_rsi_and_marks():
     eng = RecommendationEngine()
     # True→1.0 would look oversold (+12) and True→$1 MA stack invents ±points
-    assert eng._calculate_technical_score({"rsi": True}) == 0
+    assert eng._calculate_technical_score({"rsi": True}) is None
     assert (
         eng._calculate_technical_score(
             {"current_price": True, "sma_20": True, "sma_50": True}
         )
-        == 0
+        is None
     )
     assert (
         eng._calculate_technical_score(
@@ -47,22 +49,33 @@ def test_technical_score_ignores_bool_rsi_and_marks():
 
 def test_bitcoin_recommendation_ignores_bool_pct_and_rsi():
     eng = RecommendationEngine()
-    # float(True)==1.0 would invent mild +0.5d momentum (+8) and True RSI≠oversold
+    # float(True)==1.0 would invent mild +0.5d momentum (+8); bool-only → unavailable
     bad = eng.analyze_bitcoin_recommendation(
         {"daily_change": True, "weekly_change": False, "rsi": True, "volume_ratio": True}
     )
-    assert bad["score"] == 0
-    assert bad["action"] == "HOLD"
+    assert bad["score"] is None
+    assert bad["action"] == "unavailable"
     good = eng.analyze_bitcoin_recommendation({"daily_change": 3.0})
     assert good["score"] == 12
     assert good["action"] == "BUY"
+
+
+def test_empty_recommender_refuses_invented_hold():
+    """Empty quote bag must not invent calm HOLD / score=0 (generate_signals parity)."""
+    eng = RecommendationEngine()
+    stock = eng.analyze_stock_recommendation({})
+    assert stock["score"] is None
+    assert stock["action"] == "unavailable"
+    btc = eng.analyze_bitcoin_recommendation({})
+    assert btc["score"] is None
+    assert btc["action"] == "unavailable"
 
 
 def test_volume_sentiment_score_ignores_bool_soft_factors():
     """False→0 volume / True→1d earnings / True sentiment must not invent soft points."""
     eng = RecommendationEngine()
     # False→0.0 would hit volume_ratio < 0.7 (−3); True→1.0 would hit 0≤d≤2 (−4)
-    # and clamp sentiment to +1 (+3 news / +2 OpenBB).
+    # and clamp sentiment to +1 (+3 news / +2 OpenBB). Bool-only → None.
     assert (
         eng._calculate_volume_sentiment_score(
             {
@@ -72,7 +85,7 @@ def test_volume_sentiment_score_ignores_bool_soft_factors():
                 "days_to_earnings": True,
             }
         )
-        == 0.0
+        is None
     )
     assert eng._calculate_volume_sentiment_score({"volume_ratio": 2.0}) == 5.0
     assert eng._calculate_volume_sentiment_score({"volume_ratio": 0.5}) == -3.0
