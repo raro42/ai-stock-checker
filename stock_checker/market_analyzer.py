@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import yfinance as yf
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -14,7 +13,7 @@ from stock_checker.technical_indicators import (
     coerce_nonneg_int,
     daily_pct_change,
 )
-from stock_checker.yfinance_history import fetch_yfinance_history
+from stock_checker.yfinance_history import fetch_yfinance_history, fetch_yfinance_info
 
 
 DEFAULT_TOP_MOVERS_LIMIT = 10
@@ -112,7 +111,8 @@ class MarketAnalyzer:
                 start_price = float(start_raw)
                 end_price = float(end_raw)
 
-                info = yf.Ticker(symbol).info
+                # Join-bounded quote — hung Yahoo ≠ calm mover forever (#904/#905).
+                info = fetch_yfinance_info(symbol)
                 vol = _info_volume(info.get("volume"))
                 if vol is None:
                     vol = _info_volume(info.get("regularMarketVolume"))
@@ -172,7 +172,8 @@ class MarketAnalyzer:
                     if _finite_signed(vol_raw):
                         volatility = float(vol_raw)
 
-            info = yf.Ticker("BTC-USD").info
+            # Join-bounded quote — hung Yahoo ≠ calm BTC hang (#904/#905).
+            info = fetch_yfinance_info("BTC-USD")
             vol_24h = _info_volume(info.get("volume24Hr"))
             if vol_24h is None:
                 vol_24h = _info_volume(info.get("regularMarketVolume"))

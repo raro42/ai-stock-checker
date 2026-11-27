@@ -39,15 +39,15 @@ def test_get_top_movers_skips_bool_closes(monkeypatch) -> None:
             return _Hist([True, True])
         return _Hist([100.0, 110.0])
 
-    class _Ticker:
-        def __init__(self, symbol: str):
-            self.symbol = symbol
-            self.info = {"longName": symbol, "volume": 100, "marketCap": 1e9}
+    def _fake_info(symbol, **_k):
+        return {"longName": symbol, "volume": 100, "marketCap": 1e9}
 
     monkeypatch.setattr(
         "stock_checker.market_analyzer.fetch_yfinance_history", _fake_hist
     )
-    monkeypatch.setattr("stock_checker.market_analyzer.yf.Ticker", _Ticker)
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_info", _fake_info
+    )
     out = analyzer.get_top_movers(limit=10)
     assert [row["symbol"] for row in out] == ["OK"]
     assert out[0]["change_pct"] == 10.0
@@ -84,14 +84,15 @@ def test_get_top_movers_skips_history_timeout(monkeypatch) -> None:
             raise TimeoutError("yfinance history HANG timed out after 20s")
         return _Hist()
 
-    class _Ticker:
-        def __init__(self, symbol: str):
-            self.info = {"longName": symbol, "volume": 50, "marketCap": 1e9}
+    def _fake_info(symbol, **_k):
+        return {"longName": symbol, "volume": 50, "marketCap": 1e9}
 
     monkeypatch.setattr(
         "stock_checker.market_analyzer.fetch_yfinance_history", _fake_hist
     )
-    monkeypatch.setattr("stock_checker.market_analyzer.yf.Ticker", _Ticker)
+    monkeypatch.setattr(
+        "stock_checker.market_analyzer.fetch_yfinance_info", _fake_info
+    )
     out = analyzer.get_top_movers(limit=10)
     assert [row["symbol"] for row in out] == ["OK"]
 

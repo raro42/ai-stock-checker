@@ -10,9 +10,9 @@ from datetime import datetime
 from urllib3.exceptions import NewConnectionError
 from requests.exceptions import ConnectionError as RequestsConnectionError
 
-# Import yfinance as fallback
+# Import yfinance as fallback (availability only — calls go through join-bounded helpers)
 try:
-    import yfinance as yf
+    import yfinance  # noqa: F401
     YFINANCE_AVAILABLE = True
 except ImportError:
     YFINANCE_AVAILABLE = False
@@ -173,8 +173,11 @@ class StockFetcher:
         # Try yfinance (either as primary or fallback)
         if self.yfinance_fallback:
             try:
-                ticker = yf.Ticker(symbol)
-                info = ticker.info
+                from .yfinance_history import fetch_yfinance_info
+
+                # tradermonty #904/#905: join-bounded info so hung Yahoo
+                # raises (not a quiet forever stall that looks calm).
+                info = fetch_yfinance_info(symbol)
 
                 # tradermonty #700/#655 + xang1234/portfolio AI: never keep
                 # ``True`` via ``a or b`` (truthy bool short-circuits) or pass

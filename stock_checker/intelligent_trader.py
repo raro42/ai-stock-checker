@@ -741,9 +741,11 @@ class IntelligentTrader:
         import sys
 
         try:
-            import yfinance as yf
+            from stock_checker.yfinance_history import fetch_yfinance_info
+
             yfinance_available = True
         except ImportError:
+            fetch_yfinance_info = None  # type: ignore[assignment]
             yfinance_available = False
             print("   ⚠️  yfinance not available - P/E and volume data may be limited")
             sys.stdout.flush()
@@ -833,8 +835,9 @@ class IntelligentTrader:
                     or stock_data.get("previous_close") is None
                 ):
                     try:
+                        # Join-bounded quote — hung Yahoo ≠ calm AI enrich (#904/#905).
                         _ai_validate_apply_yahoo_info(
-                            stock_data, yf.Ticker(symbol).info
+                            stock_data, fetch_yfinance_info(symbol)
                         )
                     except Exception:
                         pass  # Silently fail - not critical

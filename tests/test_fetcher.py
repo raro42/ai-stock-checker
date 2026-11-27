@@ -18,17 +18,11 @@ def test_stock_fetcher_init():
 def test_yfinance_daily_change_refuses_missing_or_bool(monkeypatch):
     """tradermonty #798/#655: yfinance path must not invent flat 0.0 / True→1.0."""
 
-    class _FakeTicker:
-        def __init__(self, info):
-            self.info = info
-
     def _run(info: dict):
-        class _YF:
-            @staticmethod
-            def Ticker(_symbol: str):
-                return _FakeTicker(info)
-
-        monkeypatch.setattr(fetcher_mod, "yf", _YF)
+        monkeypatch.setattr(
+            "stock_checker.yfinance_history.fetch_yfinance_info",
+            lambda *_a, **_k: info,
+        )
         monkeypatch.setattr(fetcher_mod, "YFINANCE_AVAILABLE", True)
         # Force yfinance path (no Finnhub primary).
         f = StockFetcher.__new__(StockFetcher)

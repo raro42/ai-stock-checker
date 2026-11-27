@@ -57,18 +57,16 @@ def test_get_top_movers_bool_limit_falls_back_to_default(monkeypatch) -> None:
         h._i = calls["i"]  # type: ignore[attr-defined]
         return h
 
-    class _Ticker:
-        def __init__(self, symbol: str):
-            self.symbol = symbol
-            self.info = {"longName": symbol, "volume": 1, "marketCap": 1}
+    def _fake_info(symbol, **_k):
+        return {"longName": symbol, "volume": 1, "marketCap": 1}
 
     monkeypatch.setattr(
         "stock_checker.market_analyzer.fetch_yfinance_history",
         _fake_hist,
     )
     monkeypatch.setattr(
-        "stock_checker.market_analyzer.yf.Ticker",
-        _Ticker,
+        "stock_checker.market_analyzer.fetch_yfinance_info",
+        _fake_info,
     )
     out = analyzer.get_top_movers(limit=True)
     assert len(out) == DEFAULT_TOP_MOVERS_LIMIT

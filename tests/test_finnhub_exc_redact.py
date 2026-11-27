@@ -36,14 +36,13 @@ def test_historical_data_exception_is_redacted(monkeypatch):
     """StockFetcher history raises must not echo token= query strings."""
     secret = "histExcLeak99"  # pragma: allowlist secret
 
-    class BoomTicker:
-        def history(self, *_a, **_k):
-            raise ConnectionError(
-                f"Max retries with url: /v1/quote?symbol=AAPL&token={secret}"
-            )
+    def boom(*_a, **_k):
+        raise ConnectionError(
+            f"Max retries with url: /v1/quote?symbol=AAPL&token={secret}"
+        )
 
     monkeypatch.setattr(
-        "stock_checker.fetcher.yf.Ticker", lambda *_a, **_k: BoomTicker()
+        "stock_checker.yfinance_history.fetch_yfinance_history", boom
     )
 
     with pytest.raises(ValueError) as caught:
@@ -160,21 +159,13 @@ def test_market_analyzer_bitcoin_exc_is_redacted(monkeypatch):
     secret = "btcExcLeak99"  # pragma: allowlist secret
     from stock_checker.market_analyzer import MarketAnalyzer
 
-    class BoomTicker:
-        @property
-        def info(self):
-            raise ConnectionError(
-                f"Max retries with url: /v8/finance/chart/BTC-USD?token={secret}"
-            )
-
-        def history(self, *_a, **_k):
-            raise ConnectionError(
-                f"Max retries with url: /v8/finance/chart/BTC-USD?token={secret}"
-            )
+    def boom(*_a, **_k):
+        raise ConnectionError(
+            f"Max retries with url: /v8/finance/chart/BTC-USD?token={secret}"
+        )
 
     monkeypatch.setattr(
-        "stock_checker.market_analyzer.yf.Ticker",
-        lambda *_a, **_k: BoomTicker(),
+        "stock_checker.market_analyzer.fetch_yfinance_history", boom
     )
     with pytest.raises(ValueError) as caught:
         MarketAnalyzer().get_bitcoin_data()
