@@ -20,7 +20,12 @@ from .persistence import DataPersistence
 from .symbol_filters import is_tradeable_symbol
 from .earnings_guard import is_in_earnings_blackout
 from .gate_audit import log_soft_allow
-from .fetcher import is_transient_network_error
+from .fetcher import (
+    _coerce_signed_metric,
+    _first_valid_close,
+    _first_valid_volume,
+    is_transient_network_error,
+)
 from .secret_redact import redact_secrets, safe_exc_text
 from .market_regime import (
     CRYPTO_BENCHMARK,
@@ -101,6 +106,43 @@ def _coerce_ai_validate_top_n(
     if n is None or n < 1:
         return int(default)
     return n
+
+
+def _ai_validate_apply_yahoo_info(stock_data: Dict, info: object) -> None:
+    """Fill missing AI-validate quote fields from Yahoo ``info`` — no invent.
+
+    tradermonty #896/#892 + #700/#655 + xang1234/portfolio AI after live-majors
+    volume refuse: ``info.get("volume") or regularMarketVolume`` /
+    ``trailingPE or forwardPE`` / truthy ``fiftyTwoWeek*`` must not keep
+    ``True→1`` prints or invent a mid-range 52w / flat Daily% into the LLM
+    prompt (``AIRecommender`` already speaks ``n/a`` when fields stay missing).
+    """
+    if not isinstance(stock_data, dict) or not isinstance(info, dict):
+        return
+    if stock_data.get("volume") is None:
+        vol = _first_valid_volume(
+            info.get("volume"), info.get("regularMarketVolume")
+        )
+        if vol is not None:
+            stock_data["volume"] = vol
+    if stock_data.get("pe_ratio") is None:
+        pe = _coerce_signed_metric(info.get("trailingPE"))
+        if pe is None:
+            pe = _coerce_signed_metric(info.get("forwardPE"))
+        if pe is not None:
+            stock_data["pe_ratio"] = pe
+    if stock_data.get("52_week_high") is None:
+        hi = _first_valid_close(info.get("fiftyTwoWeekHigh"))
+        if hi is not None:
+            stock_data["52_week_high"] = hi
+    if stock_data.get("52_week_low") is None:
+        lo = _first_valid_close(info.get("fiftyTwoWeekLow"))
+        if lo is not None:
+            stock_data["52_week_low"] = lo
+    if stock_data.get("previous_close") is None:
+        prev = _first_valid_close(info.get("previousClose"))
+        if prev is not None:
+            stock_data["previous_close"] = prev
 
 
 _DEFAULT_MAX_POSITIONS = int(TRADER_DEFAULTS["max_positions"])
@@ -708,40 +750,24 @@ class IntelligentTrader:
                         validated_opportunities.append(opp)
                         continue
 
-                    # Build stock_data format for AIRecommender
+                    # Build stock_data for AIRecommender — no invented 52w /
+                    # prev_close (prompt already speaks n/a when missing).
+                    px = crypto_data.get("current_price")
+                    if not mark_price_ok(px):
+                        print(f"   ⚠️  Could not fetch data for {symbol}, skipping AI validation")
+                        sys.stdout.flush()
+                        validated_opportunities.append(opp)
+                        continue
                     stock_data = {
                         "symbol": symbol,
                         "name": symbol,
-                        "current_price": crypto_data.get("current_price"),
-                        "previous_close": crypto_data.get("current_price"),  # Crypto doesn't have prev close
-                        "52_week_high": crypto_data.get("current_price") * 1.5,  # Approximate
-                        "52_week_low": crypto_data.get("current_price") * 0.5,   # Approximate
+                        "current_price": float(px),
+                        "previous_close": None,
+                        "52_week_high": None,
+                        "52_week_low": None,
                         "pe_ratio": None,
                         "volume": None,
                     }
-
-                    # Try to enrich crypto with yfinance data
-                    if yfinance_available:
-                        try:
-                            ticker = yf.Ticker(symbol)
-                            info = ticker.info
-
-                            # Get 52-week range from yfinance if available
-                            if info.get("fiftyTwoWeekHigh"):
-                                stock_data["52_week_high"] = info.get("fiftyTwoWeekHigh")
-                            if info.get("fiftyTwoWeekLow"):
-                                stock_data["52_week_low"] = info.get("fiftyTwoWeekLow")
-
-                            # Get volume if available
-                            if info.get("volume") or info.get("regularMarketVolume"):
-                                stock_data["volume"] = info.get("volume") or info.get("regularMarketVolume")
-
-                            # Update previous close if available
-                            if info.get("previousClose"):
-                                stock_data["previous_close"] = info.get("previousClose")
-
-                        except Exception:
-                            pass  # Silently fail - crypto data is approximate anyway
                 else:
                     stock_info = fetcher.get_stock_info(symbol)
                     if not stock_info or not stock_info.get("current_price"):
@@ -761,24 +787,18 @@ class IntelligentTrader:
                         "volume": stock_info.get("volume"),
                     }
 
-                # Enrich with yfinance if data is missing
-                if yfinance_available and (not stock_data.get("pe_ratio") or not stock_data.get("volume")):
+                # Fill missing quote sleeves from Yahoo — refuse bool invent.
+                if yfinance_available and (
+                    stock_data.get("pe_ratio") is None
+                    or stock_data.get("volume") is None
+                    or stock_data.get("52_week_high") is None
+                    or stock_data.get("52_week_low") is None
+                    or stock_data.get("previous_close") is None
+                ):
                     try:
-                        ticker = yf.Ticker(symbol)
-                        info = ticker.info
-
-                        if not stock_data.get("pe_ratio"):
-                            stock_data["pe_ratio"] = info.get("trailingPE") or info.get("forwardPE")
-
-                        if not stock_data.get("volume"):
-                            stock_data["volume"] = info.get("volume") or info.get("regularMarketVolume")
-
-                        if not stock_data.get("52_week_high"):
-                            stock_data["52_week_high"] = info.get("fiftyTwoWeekHigh")
-
-                        if not stock_data.get("52_week_low"):
-                            stock_data["52_week_low"] = info.get("fiftyTwoWeekLow")
-
+                        _ai_validate_apply_yahoo_info(
+                            stock_data, yf.Ticker(symbol).info
+                        )
                     except Exception:
                         pass  # Silently fail - not critical
 
