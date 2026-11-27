@@ -32,7 +32,7 @@ def test_diff_baseline_and_updates():
     baseline = gw.diff_against_state(activity, {})
     assert baseline["first_seen"] is True
     assert baseline["has_updates"] is False
-    assert len(baseline["new_commits"]) == 2  # capped tip window on first see uses [:3]
+    assert len(baseline["new_commits"]) == 2  # tip window caps at TIP_COMMIT_CAP
 
     prev = {"last_commit_sha": "bbb2222full", "last_release_tag": "v1.0"}
     # tip is aaa, so new until we hit bbb
@@ -200,6 +200,59 @@ def test_idea_bullet_list_cap_refuses_bool_ceiling() -> None:
     assert gw._clip_idea_bullets_print(items, True) == printed
     assert gw._clip_idea_bullets_print(items, False) == printed
     assert gw._coerce_idea_bullet_print_cap(True) == gw.IDEA_BULLET_PRINT_CAP
+
+
+def test_tip_window_list_cap_refuses_bool_ceiling() -> None:
+    """True→1 must not invent a one-row tip/digest strip; False must not wipe."""
+    commits = [{"sha": f"c{i}"} for i in range(gw.DIGEST_COMMIT_PRINT_CAP + 4)]
+    releases = [{"tag": f"v{i}"} for i in range(gw.DIGEST_RELEASE_PRINT_CAP + 3)]
+
+    tip_c = gw._clip_tip_commits(commits)
+    assert len(tip_c) == gw.TIP_COMMIT_CAP
+    assert tip_c == commits[: gw.TIP_COMMIT_CAP]
+    assert gw._clip_tip_commits(commits, True) == tip_c
+    assert gw._clip_tip_commits(commits, False) == tip_c
+    assert gw._clip_tip_commits(commits, 0) == tip_c
+    assert gw._clip_tip_commits(commits, 2) == commits[:2]
+    assert gw._clip_tip_commits(None) == []
+
+    tip_r = gw._clip_tip_releases(releases)
+    assert len(tip_r) == gw.TIP_RELEASE_CAP
+    assert tip_r == releases[: gw.TIP_RELEASE_CAP]
+    assert gw._clip_tip_releases(releases, True) == tip_r
+    assert gw._clip_tip_releases(releases, False) == tip_r
+
+    dig_c = gw._clip_digest_commits(commits)
+    assert len(dig_c) == gw.DIGEST_COMMIT_PRINT_CAP
+    assert gw._clip_digest_commits(commits, True) == dig_c
+    assert gw._clip_digest_commits(commits, False) == dig_c
+
+    dig_r = gw._clip_digest_releases(releases)
+    assert len(dig_r) == gw.DIGEST_RELEASE_PRINT_CAP
+    assert gw._clip_digest_releases(releases, True) == dig_r
+    assert gw._clip_digest_releases(releases, False) == dig_r
+
+    # First-seen tip window in diff_against_state uses the tip clip.
+    many = {
+        "commits": [
+            {
+                "sha": f"sha{i}full",
+                "short": f"sha{i}",
+                "message": f"m{i}",
+                "date": "t",
+                "url": "u",
+            }
+            for i in range(6)
+        ],
+        "releases": [
+            {"tag": f"v{i}", "name": f"v{i}", "published_at": "t", "url": "u"}
+            for i in range(3)
+        ],
+    }
+    baseline = gw.diff_against_state(many, {})
+    assert baseline["first_seen"] is True
+    assert len(baseline["new_commits"]) == gw.TIP_COMMIT_CAP
+    assert len(baseline["new_releases"]) == gw.TIP_RELEASE_CAP
 
 
 def test_digest_meters_and_gap_hours_refuse_bool() -> None:

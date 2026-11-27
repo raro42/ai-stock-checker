@@ -553,6 +553,44 @@ def _clip_idea_bullets_print(items: object, n: object = None) -> list:
     return list(items)[:ceiling]
 
 
+# Tip-window / digest list caps — bare ``commits[:3]`` / ``releases[:1]`` /
+# markdown ``new_c[:8]`` / ``new_r[:5]`` lied when bool (idea-bullet peers).
+TIP_COMMIT_CAP = 3
+TIP_RELEASE_CAP = 1
+DIGEST_COMMIT_PRINT_CAP = 8
+DIGEST_RELEASE_PRINT_CAP = 5
+
+
+def _clip_list_cap(items: object, n: object, *, default: int) -> list:
+    """Hard-cap tip/digest lists (no invented 1-row strip via ``[:True]``)."""
+    ceiling = _coerce_idea_bullet_cap(
+        default if n is None else n, default=default
+    )
+    if not isinstance(items, (list, tuple)):
+        return []
+    return list(items)[:ceiling]
+
+
+def _clip_tip_commits(items: object, n: object = None) -> list:
+    """First-seen tip commit window — refuse bool ``True→1`` invent."""
+    return _clip_list_cap(items, n, default=TIP_COMMIT_CAP)
+
+
+def _clip_tip_releases(items: object, n: object = None) -> list:
+    """First-seen tip release window — refuse bool ``True→1`` invent."""
+    return _clip_list_cap(items, n, default=TIP_RELEASE_CAP)
+
+
+def _clip_digest_commits(items: object, n: object = None) -> list:
+    """Digest markdown commit strip — refuse bool ``True→1`` invent."""
+    return _clip_list_cap(items, n, default=DIGEST_COMMIT_PRINT_CAP)
+
+
+def _clip_digest_releases(items: object, n: object = None) -> list:
+    """Digest markdown release strip — refuse bool ``True→1`` invent."""
+    return _clip_list_cap(items, n, default=DIGEST_RELEASE_PRINT_CAP)
+
+
 def fetch_repo_meta(client: GitHubClient, repo: str) -> dict[str, Any]:
     try:
         meta = client.get_json(f"/repos/{repo}") or {}
@@ -642,7 +680,7 @@ def diff_against_state(
     # On first run, only highlight the tip (avoid dumping history as "new")
     first_seen = not last_sha
     if first_seen:
-        new_commits = commits[:3]
+        new_commits = _clip_tip_commits(commits)
 
     new_releases: list[dict] = []
     for r in releases:
@@ -650,7 +688,7 @@ def diff_against_state(
             break
         new_releases.append(r)
     if not last_tag and releases:
-        new_releases = releases[:1]
+        new_releases = _clip_tip_releases(releases)
 
     tip_sha = commits[0]["sha"] if commits else last_sha
     tip_tag = releases[0]["tag"] if releases else last_tag
@@ -804,17 +842,17 @@ def render_markdown(digest: dict[str, Any]) -> str:
         else:
             lines.append("- Status: quiet")
 
-        new_c = row.get("new_commits") or []
+        new_c = _clip_digest_commits(row.get("new_commits") or [])
         if new_c:
             lines.append("- Commits:")
-            for c in new_c[:8]:
+            for c in new_c:
                 lines.append(
                     f"  - [`{c['short']}`]({c['url']}) {_clip_date(c.get('date'))} — {c['message']}"
                 )
-        new_r = row.get("new_releases") or []
+        new_r = _clip_digest_releases(row.get("new_releases") or [])
         if new_r:
             lines.append("- Releases:")
-            for r in new_r[:5]:
+            for r in new_r:
                 lines.append(
                     f"  - [{r['tag']}]({r['url']}) {_clip_date(r.get('published_at'))} — {r.get('name')}"
                 )
