@@ -291,9 +291,13 @@ class TechnicalIndicators:
         upper = middle + (k * std)
         lower = middle - (k * std)
 
-        # Current price position
+        # Zero-width (flat window / std=0): do not invent mid position=0.5 as a
+        # calm reading — same claim honesty as analyze_volume mean≤0 → None.
+        if upper == lower or std == 0.0:
+            return None
+
         current_price = float(prices[-1])
-        position = (current_price - lower) / (upper - lower) if upper != lower else 0.5
+        position = (current_price - lower) / (upper - lower)
         bandwidth = (upper - lower) / middle if middle != 0 else 0.0
         if not all(math.isfinite(v) for v in (upper, middle, lower, position, bandwidth)):
             return None

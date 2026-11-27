@@ -150,6 +150,12 @@ def test_bollinger_clean_history_still_scores():
     assert all(math.isfinite(bb[k]) for k in ("upper", "middle", "lower", "position", "bandwidth"))
 
 
+def test_bollinger_zero_width_flat_window_is_unavailable():
+    """tradermonty #896/#655: flat closes must not invent mid position=0.5."""
+    prices = [100.0] * 25
+    assert TechnicalIndicators.calculate_bollinger_bands(prices, period=20) is None
+
+
 @pytest.mark.parametrize(
     "bad",
     [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],
