@@ -261,10 +261,13 @@ def rank_crypto_from_ticker(
     volume_usdt = _quote_volume_usdt(data, price)
     if volume_usdt is None:
         return None
+    # Keep None — ``else 0.0`` invents a dead base-volume tape when only
+    # quoteVolume is readable (parity with trade_count / liquidity miss→None).
+    vol_raw = data.get("volume_24h")
     volume_24h = (
-        float(data["volume_24h"])  # type: ignore[arg-type]
-        if _valid_volume(data.get("volume_24h"))
-        else 0.0
+        float(vol_raw)  # type: ignore[arg-type]
+        if _valid_volume(vol_raw)
+        else None
     )
     volatility_score = min(vol_range * 0.5, 20)  # Cap at +20 points
     volume_score = min(volume_usdt / 10_000_000, 10)  # $10M = 1 point
@@ -560,9 +563,18 @@ class MarketScanner:
             if vol_range is None:
                 print(f"   ⚠️  Invalid day range for {bsym} (unavailable)")
                 continue
+            # Prefer quoteVolume; never invent dead $0 / base 0 when volume
+            # prints are missing/bool (trade_count / liquidity miss→None).
+            volume_usdt = _quote_volume_usdt(data, price)
+            if volume_usdt is None:
+                print(f"   ⚠️  Invalid volume for {bsym} (unavailable)")
+                continue
             vol_raw = data.get("volume_24h")
-            volume_base = float(vol_raw) if _valid_volume(vol_raw) else 0.0
-            volume_usdt = volume_base * price
+            volume_base = (
+                float(vol_raw)  # type: ignore[arg-type]
+                if _valid_volume(vol_raw)
+                else None
+            )
             score = chg + min(vol_range * 0.5, 20) + min(volume_usdt / 10_000_000, 10)
             row = {
                 "symbol": normalize_live_crypto_symbol(yf_sym),

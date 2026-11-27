@@ -7,6 +7,7 @@ import math
 import pytest
 
 from stock_checker.market_scanner import (
+    MarketScanner,
     breakout_from_high,
     coerce_scan_price,
     coerce_signed_pct,
@@ -141,6 +142,23 @@ def test_rank_crypto_from_ticker_refuses_incomplete_marks():
     )
     assert base_only is not None
     assert base_only["volume_usdt"] == pytest.approx(20_000_000.0)
+    assert base_only["volume_24h"] == pytest.approx(200_000.0)
+    # Quote-only: keep volume_24h=None — never invent a dead 0 base tape.
+    quote_only = rank_crypto_from_ticker(
+        yf_symbol="AVAX-USD",
+        binance_symbol="AVAXUSDT",
+        data={
+            "current_price": 20.0,
+            "change_24h": 1.0,
+            "high_24h": 21.0,
+            "low_24h": 19.0,
+            "volume_24h": None,
+            "volume_usdt": 40_000_000.0,
+        },
+    )
+    assert quote_only is not None
+    assert quote_only["volume_usdt"] == pytest.approx(40_000_000.0)
+    assert quote_only["volume_24h"] is None
     assert (
         rank_crypto_from_ticker(
             yf_symbol="BAD-USD",
@@ -156,6 +174,47 @@ def test_rank_crypto_from_ticker_refuses_incomplete_marks():
         )
         is None
     )
+
+
+def test_scan_live_crypto_majors_refuses_invented_zero_volume(monkeypatch) -> None:
+    """Missing/bool volume must not invent a dead $0 tape or score bonus."""
+    scanner = MarketScanner.__new__(MarketScanner)
+    prices = {
+        "BTCUSDT": {
+            "current_price": 50_000.0,
+            "change_24h": 1.5,
+            "high_24h": 51_000.0,
+            "low_24h": 49_000.0,
+            "volume_24h": None,
+            "volume_usdt": 80_000_000.0,
+        },
+        "ETHUSDT": {
+            "current_price": 3_000.0,
+            "change_24h": -0.5,
+            "high_24h": 3_100.0,
+            "low_24h": 2_900.0,
+            "volume_24h": True,
+            "volume_usdt": True,
+        },
+    }
+
+    class _Binance:
+        def get_crypto_price(self, symbol: str):
+            return prices.get(symbol)
+
+    class _Persist:
+        def track_scanned_symbols_batch(self, symbols, kind):
+            self.last = (list(symbols), kind)
+
+    scanner.binance = _Binance()
+    scanner.persistence = _Persist()
+    out = scanner.scan_live_crypto_majors()
+    assert len(out) == 1
+    row = out[0]
+    assert row["symbol"] == "BTC-USD"
+    assert row["volume_usdt"] == pytest.approx(80_000_000.0)
+    assert row["volume_24h"] is None
+    assert row["score"] > 1.5
 
 
 def test_finalize_crypto_momentum_score_refuses_bool_bonuses():
