@@ -71,6 +71,7 @@ from .exit_policy import (
 )
 from .technical_indicators import (
     _finite_signed,
+    _valid_close,
     coerce_nonneg_int,
     coerce_score,
     coerce_unix_ts,
@@ -143,6 +144,42 @@ def _ai_validate_apply_yahoo_info(stock_data: Dict, info: object) -> None:
         prev = _first_valid_close(info.get("previousClose"))
         if prev is not None:
             stock_data["previous_close"] = prev
+
+
+def _crypto_recommender_quote_from_binance(
+    symbol: str, binance_data: object, *, price: float
+) -> Dict:
+    """Build recommender quote for a crypto rebalance buy — no day→year invent.
+
+    tradermonty #896/#655 + xang1234/portfolio AI after AI-validate Yahoo refuse:
+    labeling ``high_24h``/``low_24h`` as ``52_week_*`` invents a year range from
+    a day tape; ``price/(1+change/100)`` on bool/gap ``change_24h`` invents a
+    fake ``previous_close`` (``True→1%``). Keep 52w None; derive prev_close and
+    ``daily_change`` only when the 24h % is readable and the denom is usable.
+    """
+    out: Dict = {
+        "symbol": symbol,
+        "current_price": float(price),
+        "previous_close": None,
+        "daily_change": None,
+        "52_week_high": None,
+        "52_week_low": None,
+        "source": "binance",
+    }
+    if not isinstance(binance_data, dict):
+        return out
+    chg = binance_data.get("change_24h")
+    if not _finite_signed(chg):
+        return out
+    daily = float(chg)  # type: ignore[arg-type]
+    out["daily_change"] = daily
+    denom = 1.0 + daily / 100.0
+    if denom == 0.0:
+        return out
+    prev = float(price) / denom
+    if _valid_close(prev):
+        out["previous_close"] = prev
+    return out
 
 
 _DEFAULT_MAX_POSITIONS = int(TRADER_DEFAULTS["max_positions"])
@@ -1634,14 +1671,9 @@ class IntelligentTrader:
                             )
                             continue
                         price = float(price)
-                        data = {
-                            "symbol": symbol,
-                            "current_price": price,
-                            "previous_close": price / (1 + binance_data["change_24h"]/100),
-                            "52_week_high": binance_data["high_24h"],
-                            "52_week_low": binance_data["low_24h"],
-                            "source": "binance"
-                        }
+                        data = _crypto_recommender_quote_from_binance(
+                            str(symbol), binance_data, price=price
+                        )
                     else:
                         data = fetcher.get_stock_info(symbol) or {}
                         price = data.get("current_price")
