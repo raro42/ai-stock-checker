@@ -315,3 +315,10 @@ def test_analyze_volume_clean_history_still_scores():
     )
     assert out["current_volume"] >= 0.0
     assert out["avg_volume"] > 0.0
+
+
+def test_analyze_volume_zero_print_window_is_unavailable():
+    """tradermonty #896/#892: empty volume reference ≠ invent normal 1.0 ratio."""
+    volumes, prices = _enough_volume_bars()
+    volumes = [0.0] * len(volumes)
+    assert TechnicalIndicators.analyze_volume(volumes, prices, period=20) is None

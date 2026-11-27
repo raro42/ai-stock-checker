@@ -341,8 +341,13 @@ class TechnicalIndicators:
         avg_volume = float(np.mean(recent_volumes))
         current_volume = float(volumes[-1])
 
-        # Volume surge detection
-        volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1.0
+        # tradermonty #896/#892 + xang1234 claim honesty: a zero-print window is a
+        # missing volume reference (data_gap), not a clean "normal" 1.0 ratio.
+        # Zero prints on individual bars stay ok when the window mean is > 0.
+        if not (math.isfinite(avg_volume) and avg_volume > 0.0):
+            return None
+
+        volume_ratio = current_volume / avg_volume
 
         # Price-volume correlation
         recent_prices = np.asarray(prices[-n:], dtype=float)
