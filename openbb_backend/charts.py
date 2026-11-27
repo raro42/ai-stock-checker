@@ -1592,10 +1592,13 @@ def fetch_price_history(
         return cleaned
 
     try:
-        import yfinance as yf
+        from stock_checker.yfinance_history import fetch_yfinance_history
 
         period = _yf_period_for(days_n, interval)
-        hist = yf.Ticker(symbol).history(period=period, interval=interval)
+        # Bound history join (tradermonty #904/#905) — hung Yahoo ≠ calm empty.
+        hist = fetch_yfinance_history(
+            symbol, period=period, interval=interval
+        )
         points: list[dict[str, Any]] = []
         if hist is not None and not hist.empty:
             for idx, row in hist.iterrows():

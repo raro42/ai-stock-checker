@@ -194,10 +194,14 @@ def load_bars(symbols: List[str]) -> Dict[str, List[Dict]]:
 
     if missing:
         try:
-            import yfinance as yf
+            from stock_checker.yfinance_history import fetch_yfinance_history
 
             for symbol in missing:
-                hist = yf.Ticker(symbol).history(period="2y", interval="1d")
+                # Bound history join (tradermonty #904/#905) — hung Yahoo ≠
+                # calm empty cache; TimeoutError falls to synthetic below.
+                hist = fetch_yfinance_history(
+                    symbol, period="2y", interval="1d"
+                )
                 if hist is None or hist.empty:
                     out[symbol] = _synthetic_bars(symbol)
                     continue

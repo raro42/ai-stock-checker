@@ -40366,11 +40366,16 @@ def _fetch_yfinance_prices(
     def _one(sym: str) -> tuple[str, Optional[float]]:
         try:
             import yfinance as yf
+            from stock_checker.yfinance_history import fetch_yfinance_history
 
-            t = yf.Ticker(sym)
-            hist = t.history(period="1d")
+            # Bound history join (tradermonty #904/#905); pool deadline still
+            # caps wall time — do not invent a finished mark from a hung Yahoo.
+            hist = fetch_yfinance_history(
+                sym, period="1d", timeout_sec=max(1, int(timeout_s))
+            )
             if hist is not None and not hist.empty:
                 return sym, _coerce_desk_mark(hist["Close"].iloc[-1])
+            t = yf.Ticker(sym)
             info = getattr(t, "fast_info", None)
             if info is not None:
                 last = getattr(info, "last_price", None) or (

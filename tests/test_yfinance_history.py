@@ -100,3 +100,46 @@ def test_cli_backtest_history_timeout_exits_one(capsys):
     assert code == 1
     err = capsys.readouterr().err
     assert "timed out" in err.lower() or "history failed" in err.lower()
+
+
+def test_desk_mark_fetch_history_timeout_fail_open():
+    """Desk mark path must not hang forever on Yahoo history (#904/#905)."""
+    from openbb_backend.desk import _fetch_yfinance_prices
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance history AAPL timed out after 4s")
+
+    with patch(
+        "stock_checker.yfinance_history.fetch_yfinance_history", _boom
+    ):
+        assert _fetch_yfinance_prices(["AAPL"], timeout_s=4.0) == {}
+
+
+def test_charts_price_history_timeout_fail_open(tmp_path):
+    """Charts equity bars must not hang forever on Yahoo history (#904/#905)."""
+    from openbb_backend.charts import fetch_price_history
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance history AAPL timed out after 20s")
+
+    with patch(
+        "stock_checker.yfinance_history.fetch_yfinance_history", _boom
+    ):
+        assert fetch_price_history("AAPL", tmp_path, live=True) == []
+
+
+def test_run_experiment_history_timeout_uses_synthetic(tmp_path, monkeypatch):
+    """Overnight bar loader must not hang forever on Yahoo history (#904/#905)."""
+    import scripts.run_experiment as re
+
+    monkeypatch.setattr(re, "DATA_DIR", tmp_path)
+
+    def _boom(*_a, **_k):
+        raise TimeoutError("yfinance history SPY timed out after 20s")
+
+    with patch(
+        "stock_checker.yfinance_history.fetch_yfinance_history", _boom
+    ):
+        out = re.load_bars(["SPY"])
+    assert "SPY" in out
+    assert len(out["SPY"]) > 0
