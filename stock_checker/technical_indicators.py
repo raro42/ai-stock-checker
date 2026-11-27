@@ -184,7 +184,12 @@ class TechnicalIndicators:
             avg_gain = ((avg_gain * (n - 1)) + gains[i]) / n
             avg_loss = ((avg_loss * (n - 1)) + losses[i]) / n
 
-        if avg_loss == 0:
+        # Flat window (no up or down moves): do not invent RSI=100 as a
+        # calm/overbought reading — same claim honesty as BB std=0 → None
+        # and analyze_volume mean≤0 → None. Pure gains (loss=0, gain>0) stay 100.
+        if avg_gain == 0.0 and avg_loss == 0.0:
+            return None
+        if avg_loss == 0.0:
             return 100.0
 
         rs = avg_gain / avg_loss

@@ -46,6 +46,12 @@ def test_rsi_all_gains_near_100():
     assert rsi > 70
 
 
+def test_rsi_flat_window_is_unavailable():
+    """tradermonty #896/#655: flat closes must not invent RSI=100."""
+    prices = [100.0] * 30
+    assert TechnicalIndicators.calculate_rsi(prices, period=14) is None
+
+
 def test_rsi_all_losses_near_0():
     prices = [float(i) for i in range(40, 0, -1)]
     rsi = TechnicalIndicators.calculate_rsi(prices, period=14)
