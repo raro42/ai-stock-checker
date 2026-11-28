@@ -40552,12 +40552,12 @@ def load_desk_snapshot(
     opportunities = _load_json(opp_path, {})
 
     # tradermonty #700/#655: bool/gap cash·initial·fees must not invent €1 book.
+    # Keep initial None when missing — do not invent €0 seed (ret_pct would
+    # speak calm +0.00% vs start). Cash/fees still display as €0 when absent.
     cash = _coerce_desk_cash(portfolio.get("cash"))
     if cash is None:
         cash = 0.0
     initial = _coerce_desk_cash(portfolio.get("initial_cash"))
-    if initial is None:
-        initial = 0.0
     fees = _coerce_desk_cash(portfolio.get("total_fees_paid"))
     if fees is None:
         fees = 0.0
@@ -40676,7 +40676,12 @@ def load_desk_snapshot(
         equity = equity_cost
         mark_source = "cost"
 
-    ret_pct = ((equity / initial) - 1) * 100 if initial else 0.0
+    # Claim honesty: missing/bool/≤0 start capital → ret_pct None (n/a), never
+    # invent calm +0.00% vs start (CLI history summary peer).
+    if initial is not None and initial > 0.0:
+        ret_pct = ((equity / initial) - 1) * 100
+    else:
+        ret_pct = None
     unrealized_total = market_value - cost
     unrealized_pct = (unrealized_total / cost * 100) if cost else 0.0
     deployed_pct = ((equity - cash) / equity * 100) if equity else 0.0
@@ -41352,7 +41357,10 @@ def load_desk_snapshot(
         max_pos = max(1, int(raw_max_pos))  # type: ignore[arg-type]
     else:
         max_pos = 5
-    pretrade_level, pretrade_notes = pretrade_status(ledger, initial_cash=initial)
+    pretrade_level, pretrade_notes = pretrade_status(
+        ledger,
+        initial_cash=initial if initial is not None else 0.0,
+    )
     last_sl = latest_stop_loss_sell(ledger)
     post_sl_sym = last_sl[0] if last_sl else None
     post_sl_epoch = last_sl[1] if last_sl else None

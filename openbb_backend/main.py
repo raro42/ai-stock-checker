@@ -698,9 +698,9 @@ def portfolio_markdown(
     cash = _coerce_desk_cash(portfolio.get("cash"))
     if cash is None:
         cash = 0.0
+    # Claim honesty: missing/bool start capital stays None — never invent €0
+    # seed or calm +0.00% return (desk Overview ret_pct peer).
     initial = _coerce_desk_cash(portfolio.get("initial_cash"))
-    if initial is None:
-        initial = 0.0
     holdings = portfolio.get("holdings") or {}
     if not isinstance(holdings, dict):
         holdings = {}
@@ -718,14 +718,19 @@ def portfolio_markdown(
         cost += float(q) * float(buy_raw)
         n_pos += 1
     approx_equity = cash + cost
-    ret = ((approx_equity / initial) - 1) * 100 if initial else 0.0
+    if initial is not None and initial > 0.0:
+        ret_s = f"{((approx_equity / initial) - 1) * 100:+.2f}%"
+        initial_s = f"€{initial:,.2f}"
+    else:
+        ret_s = "n/a"
+        initial_s = "n/a"
 
     md = f"""# Paper Portfolio
 
-- **Initial capital:** €{initial:,.2f}
+- **Initial capital:** {initial_s}
 - **Cash:** €{cash:,.2f}
 - **Holdings (cost basis):** €{cost:,.2f}
-- **Approx equity:** €{approx_equity:,.2f} ({ret:+.2f}%)
+- **Approx equity:** €{approx_equity:,.2f} ({ret_s})
 - **Positions:** {n_pos}
 - **Fees paid:** €{fees:,.2f}
 - **Realized P&L (sells):** €{realized:,.2f}

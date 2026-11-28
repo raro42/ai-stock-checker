@@ -221,7 +221,8 @@ def test_portfolio_widgets_refuse_invalid_invents(tmp_path: Path, monkeypatch):
     assert rows[0]["cost_basis"] == 100.0
 
     md = backend.portfolio_markdown().body.decode()
-    assert "**Initial capital:** €0.00" in md
+    assert "**Initial capital:** n/a" in md  # missing seed — not invent €0.00
+    assert "(n/a)" in md  # ret% also n/a when start capital missing
     assert "**Cash:** €0.00" in md
     assert "**Fees paid:** €0.00" in md
     assert "**Holdings (cost basis):** €100.00" in md
@@ -585,7 +586,8 @@ def test_desk_snapshot_refuses_invalid_holdings_cash(tmp_path: Path, monkeypatch
     symbols = {h["symbol"] for h in snap["holdings"]}
     assert symbols == {"AAPL"}
     assert snap["cash"] == 0.0
-    assert snap["initial"] == 0.0
+    assert snap["initial"] is None  # bool seed → None, not invent €0.00
+    assert snap["ret_pct"] is None
     assert snap["fees"] == 0.0
     aapl = snap["holdings"][0]
     assert aapl["quantity"] == 10.0

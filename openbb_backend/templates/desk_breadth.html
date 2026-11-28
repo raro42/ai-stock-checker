@@ -845,7 +845,7 @@
     "Book ledger →",
     "Ledger parse check beside session marks. A bad line no longer hides fills. Not a gate."
   ) }}
-  <p class="sysline">Commission {{ "%.2f"|format(snap.commission_rate_pct) }}% / side · equity €{{ "{:,.2f}".format(snap.equity) }} ({{ "%+.2f"|format(snap.ret_pct) }}%)</p>
+  <p class="sysline">Commission {{ "%.2f"|format(snap.commission_rate_pct) }}% / side · equity €{{ "{:,.2f}".format(snap.equity) }} ({% if snap.ret_pct is none %}n/a{% else %}{{ "%+.2f"|format(snap.ret_pct) }}%{% endif %})</p>
 </section>
 
 <section class="block" aria-labelledby="cov-h">
