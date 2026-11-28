@@ -107,3 +107,44 @@ def test_execute_trade_refuses_bool_mark(tmp_path) -> None:
     # Usable mark still sizes (may or may not fill depending on cash/score path)
     t.execute_trade({**rec, "score": 12}, 150.0, {})
     # No crash; score coerce path exercised
+
+
+def test_detect_market_regime_refuses_unreadable_marks(tmp_path) -> None:
+    """Missing/bool SPX% or VIX must not invent calm flat 0% / VIX=20 sideways."""
+    t = PaperTrader(data_dir=str(tmp_path), ai_mode="off")
+
+    def _spx_gap(_sym: str) -> dict:
+        return {"daily_change": None} if _sym == "^GSPC" else {"current_price": 15.0}
+
+    t.fetcher.get_stock_info = _spx_gap  # type: ignore[method-assign]
+    assert t._detect_market_regime() == "neutral"
+
+    def _spx_bool(_sym: str) -> dict:
+        return {"daily_change": True} if _sym == "^GSPC" else {"current_price": 15.0}
+
+    t.fetcher.get_stock_info = _spx_bool  # type: ignore[method-assign]
+    assert t._detect_market_regime() == "neutral"
+
+    def _vix_gap(_sym: str) -> dict:
+        return {"daily_change": 2.0} if _sym == "^GSPC" else {"current_price": None}
+
+    t.fetcher.get_stock_info = _vix_gap  # type: ignore[method-assign]
+    assert t._detect_market_regime() == "neutral"
+
+    def _vix_bool(_sym: str) -> dict:
+        return {"daily_change": 2.0} if _sym == "^GSPC" else {"current_price": True}
+
+    t.fetcher.get_stock_info = _vix_bool  # type: ignore[method-assign]
+    assert t._detect_market_regime() == "neutral"
+
+    def _ok_bull(_sym: str) -> dict:
+        return {"daily_change": 2.0} if _sym == "^GSPC" else {"current_price": 15.0}
+
+    t.fetcher.get_stock_info = _ok_bull  # type: ignore[method-assign]
+    assert t._detect_market_regime() == "bull"
+
+    def _ok_sideways(_sym: str) -> dict:
+        return {"daily_change": 0.2} if _sym == "^GSPC" else {"current_price": 18.0}
+
+    t.fetcher.get_stock_info = _ok_sideways  # type: ignore[method-assign]
+    assert t._detect_market_regime() == "sideways"

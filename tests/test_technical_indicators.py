@@ -168,6 +168,22 @@ def test_bollinger_zero_width_flat_window_is_unavailable():
     assert TechnicalIndicators.calculate_bollinger_bands(prices, period=20) is None
 
 
+def test_bollinger_nonpositive_middle_is_unavailable(monkeypatch):
+    """tradermonty #900: bandwidth with middle≤0 must not invent calm 0."""
+    import numpy as np
+
+    prices = [float(i) for i in range(80, 100)]
+    real_mean = np.mean
+
+    def _neg_mean(arr, *args, **kwargs):
+        return -abs(float(real_mean(arr, *args, **kwargs)))
+
+    monkeypatch.setattr(
+        "stock_checker.technical_indicators.np.mean", _neg_mean
+    )
+    assert TechnicalIndicators.calculate_bollinger_bands(prices, period=20) is None
+
+
 @pytest.mark.parametrize(
     "bad",
     [None, True, "100", 0, 0.0, -1, float("nan"), float("inf"), -float("inf")],

@@ -256,17 +256,26 @@ class PaperTrader:
             self.regime_update_counter = 0
 
     def _detect_market_regime(self) -> str:
-        """Detect current market regime using major indices."""
-        try:
-            # Check S&P 500 trend (refuse bool — float(True)→+1% invents bull)
-            spx_data = self.fetcher.get_stock_info("^GSPC")
-            spx_raw = spx_data.get("daily_change")
-            spx_change = float(spx_raw) if _finite_signed(spx_raw) else 0.0  # type: ignore[arg-type]
+        """Detect current market regime using major indices.
 
-            # Check VIX for volatility (refuse bool — float(True)→$1 invents calm)
+        tradermonty #900 + xang1234/portfolio AI: missing/bool SPX% or VIX must
+        not invent calm flat ``0%`` / mid ``VIX=20`` (looks like sideways). Same
+        family as Unavailable hedge sizing when beta/prices are unreadable —
+        fail-open as ``neutral`` (parity with the except path).
+        """
+        try:
+            spx_data = self.fetcher.get_stock_info("^GSPC")
+            spx_raw = spx_data.get("daily_change") if isinstance(spx_data, dict) else None
+            if not _finite_signed(spx_raw):
+                return "neutral"
+            spx_change = float(spx_raw)  # type: ignore[arg-type]
+
             vix_data = self.fetcher.get_stock_info("^VIX")
-            vix_raw = vix_data.get("current_price")
-            vix_level = float(vix_raw) if _finite_signed(vix_raw) else 20.0  # type: ignore[arg-type]
+            vix_raw = vix_data.get("current_price") if isinstance(vix_data, dict) else None
+            # VIX is a price level — refuse bool/gap/non-positive (True→$1 calm).
+            if not _valid_close(vix_raw):
+                return "neutral"
+            vix_level = float(vix_raw)  # type: ignore[arg-type]
 
             if spx_change > 1.0 and vix_level < 20:
                 return "bull"
@@ -276,7 +285,7 @@ class PaperTrader:
                 return "volatile"
             else:
                 return "sideways"
-        except:
+        except Exception:
             return "neutral"
 
     def execute_trade(self, recommendation: Dict, price: float, stock_data: Dict):

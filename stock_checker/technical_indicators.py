@@ -307,8 +307,12 @@ class TechnicalIndicators:
             return None
 
         current_price = float(prices[-1])
+        # tradermonty #900: non-positive middle makes bandwidth undefined —
+        # never invent calm bandwidth=0 (parity with Unavailable hedge sizing).
+        if middle <= 0.0:
+            return None
         position = (current_price - lower) / (upper - lower)
-        bandwidth = (upper - lower) / middle if middle != 0 else 0.0
+        bandwidth = (upper - lower) / middle
         if not all(math.isfinite(v) for v in (upper, middle, lower, position, bandwidth)):
             return None
 
