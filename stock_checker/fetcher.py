@@ -263,6 +263,31 @@ class StockFetcher:
             if hist is None or getattr(hist, "empty", True):
                 raise ValueError(f"No historical data found for {symbol}")
 
+            # tradermonty #655/#798 + xang1234/portfolio AI: never float(bool)/
+            # empty-mean invent $1 marks · flat 0% · avg volume True→1.
+            first_close = hist["Close"].iloc[0]
+            last_close = hist["Close"].iloc[-1]
+            price_change = None
+            price_change_pct = None
+            if _valid_close(first_close) and _valid_close(last_close):
+                c0, c1 = float(first_close), float(last_close)
+                price_change = c1 - c0
+                pct = daily_pct_change(c1, c0)
+                if pct is not None:
+                    price_change_pct = float(pct)
+
+            avg_volume = None
+            if "Volume" in hist.columns and len(hist) > 0:
+                vols = [
+                    float(v)
+                    for v in hist["Volume"].tolist()
+                    if _valid_volume(v)
+                ]
+                if vols:
+                    mean_vol = sum(vols) / len(vols)
+                    if _finite_signed(mean_vol):
+                        avg_volume = float(mean_vol)
+
             return {
                 "symbol": symbol.upper(),
                 "period": period,
@@ -272,11 +297,9 @@ class StockFetcher:
                     "start_date": str(hist.index[0]),
                     "end_date": str(hist.index[-1]),
                     "num_records": len(hist),
-                    "avg_volume": float(hist["Volume"].mean()),
-                    "price_change": float(hist["Close"].iloc[-1] - hist["Close"].iloc[0]),
-                    "price_change_pct": float(
-                        ((hist["Close"].iloc[-1] - hist["Close"].iloc[0]) / hist["Close"].iloc[0]) * 100
-                    ),
+                    "avg_volume": avg_volume,
+                    "price_change": price_change,
+                    "price_change_pct": price_change_pct,
                 },
             }
         except Exception as e:
