@@ -94,7 +94,7 @@
       <a class="unreal-link" href="/desk/charts#ch-unreal"
          title="Open unrealized P&amp;L chart">
         €{{ "{:+,.2f}".format(snap.unrealized_total) }}
-        <small>{{ "%+.2f"|format(snap.unrealized_pct) }}%</small>
+        <small>{% if snap.unrealized_pct is none %}n/a{% else %}{{ "%+.2f"|format(snap.unrealized_pct) }}%{% endif %}</small>
       </a>
     </span>
     <div id="unreal-spark" class="unreal-spark" role="img"
@@ -460,7 +460,7 @@
         </span>
         <span class="amt {% if h.unrealized >= 0 %}up{% else %}down{% endif %}">
           €{{ "{:,.2f}".format(h.market_value) }}
-          <small>{{ "%+.1f"|format(h.unrealized_pct) }}%</small>
+          <small>{% if h.unrealized_pct is none %}n/a{% else %}{{ "%+.1f"|format(h.unrealized_pct) }}%{% endif %}</small>
         </span>
       </div>
       <div class="bar" aria-hidden="true"><i style="width: {{ '%.1f'|format(h.weight_bar_pct) }}%"></i></div>

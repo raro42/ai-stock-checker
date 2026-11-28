@@ -40639,7 +40639,12 @@ def load_desk_snapshot(
         mv = q * last
         market_value += mv
         unreal = mv - basis
-        unreal_pct = (unreal / basis * 100) if basis else 0.0
+        # xang1234 refuse-shadow: cost-fallback marks are not dual/authoritative
+        # MTM — never invent calm +0.00% unrealized on an unmarked lot.
+        if marked and basis:
+            unreal_pct: float | None = (unreal / basis) * 100
+        else:
+            unreal_pct = None
         entry_ts = _coerce_entry_ts(entry_times.get(symbol))
         held_s = (now - entry_ts) if entry_ts else None
         rows.append(
@@ -40683,7 +40688,14 @@ def load_desk_snapshot(
     else:
         ret_pct = None
     unrealized_total = market_value - cost
-    unrealized_pct = (unrealized_total / cost * 100) if cost else 0.0
+    # Empty book → honest 0%. Open lots with only cost-shadow marks → None
+    # (never invent calm +0.00% when dual/live marks never arrived).
+    if not rows:
+        unrealized_pct = 0.0
+    elif any(r["marked"] for r in rows) and cost:
+        unrealized_pct = (unrealized_total / cost) * 100
+    else:
+        unrealized_pct = None
     deployed_pct = ((equity - cash) / equity * 100) if equity else 0.0
 
     for r in rows:
