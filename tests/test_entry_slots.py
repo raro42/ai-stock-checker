@@ -2,7 +2,7 @@
 
 import math
 
-from stock_checker.entry_slots import interleave_asset_slots
+from stock_checker.entry_slots import interleave_asset_slots, score_sort_key
 from stock_checker.scan_breadth_gate import (
     pulse_from_opportunities,
     pulse_from_scan_lists,
@@ -52,6 +52,31 @@ def test_interleave_refuses_invalid_score_rank():
     assert "AAPL" in syms
     assert syms.index("ETH-USD") < syms.index("BTC-USD")
     assert syms.index("MSFT") < syms.index("AAPL")
+
+
+def test_score_sort_key_ai_validate_rerank_refuses_invent():
+    """AI-validate re-sort must not invent flat 0 / True→1 ahead of real scores.
+
+    Bare ``.get('score', 0)`` used to rank missing/None as mid-pack 0 and
+    bool True as 1 after empty recommender/signal refuse left score=None.
+    """
+    opps = [
+        {"symbol": "GAP", "score": None},
+        {"symbol": "BOOL", "score": True},
+        {"symbol": "ZERO", "score": 0},
+        {"symbol": "HI", "score": 55},
+        {"symbol": "MISS"},  # key absent — default 0 invent path
+    ]
+    ranked = sorted(opps, key=score_sort_key, reverse=True)
+    syms = [o["symbol"] for o in ranked]
+    assert syms[0] == "HI"
+    assert syms[1] == "ZERO"  # real flat 0 still ranks above unavailable
+    assert set(syms[2:]) == {"GAP", "BOOL", "MISS"}
+    # Bool must not beat a real zero (True→1 invent).
+    assert score_sort_key({"score": True}) == float("-inf")
+    assert score_sort_key({"score": None}) == float("-inf")
+    assert score_sort_key({}) == float("-inf")
+    assert score_sort_key({"score": 0}) == 0.0
 
 
 def test_interleave_refuses_bool_slot_caps():

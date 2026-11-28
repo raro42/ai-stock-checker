@@ -19,10 +19,19 @@ def _is_crypto(opp: Dict[str, Any]) -> bool:
     return ac == "crypto" or "-USD" in sym or sym.endswith("USDT")
 
 
-def _score_sort_key(opp: Dict[str, Any]) -> float:
-    """Readable scores first; bool/gap/NaN sort last (never invent True→1.0)."""
+def score_sort_key(opp: Dict[str, Any]) -> float:
+    """Readable scores first; bool/gap/NaN sort last (never invent True→1.0).
+
+    Shared by interleave slots and AI-validate re-sort — bare
+    ``.get("score", 0)`` used to invent flat 0 / ``True→1`` ranks after empty
+    recommender/signal refuse left ``score=None``.
+    """
     score = coerce_score(opp.get("score"))
     return score if score is not None else float("-inf")
+
+
+# Back-compat alias (private name used in older call sites / tests).
+_score_sort_key = score_sort_key
 
 
 def interleave_asset_slots(
@@ -41,8 +50,8 @@ def interleave_asset_slots(
     stock = [
         o for o in opportunities if isinstance(o, dict) and not _is_crypto(o)
     ]
-    crypto.sort(key=_score_sort_key, reverse=True)
-    stock.sort(key=_score_sort_key, reverse=True)
+    crypto.sort(key=score_sort_key, reverse=True)
+    stock.sort(key=score_sort_key, reverse=True)
     # tradermonty #700/#655: refuse bool — True→1 / False→0 invent slot caps.
     c = coerce_nonneg_int(max_crypto)
     s = coerce_nonneg_int(max_stock)

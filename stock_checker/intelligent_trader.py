@@ -1002,8 +1002,11 @@ class IntelligentTrader:
             sys.stdout.flush()
             validated_opportunities.extend(remaining)
 
-        # Re-sort by score after AI adjustments
-        validated_opportunities.sort(key=lambda x: x.get('score', 0), reverse=True)
+        # Re-sort by score after AI adjustments — reuse entry_slots key so
+        # bool/gap/None cannot invent flat 0 / True→1 ahead of real scores.
+        from .entry_slots import score_sort_key
+
+        validated_opportunities.sort(key=score_sort_key, reverse=True)
 
         print(f"\n   AI Validation complete: {len(validated_opportunities)} opportunities")
         sys.stdout.flush()
@@ -1425,12 +1428,16 @@ class IntelligentTrader:
                     confidence = opportunity.get("ai_confidence") or opportunity.get(
                         "confidence", "UNKNOWN"
                     )
-                    score = opportunity.get("score", 0)
+                    sc = coerce_score(opportunity.get("score"))
+                    score_bit = f"{sc:+.0f}" if sc is not None else "n/a"
                     ctx = buy_note_from_opportunity(opportunity, source="scan")
                     reason = ctx.get("note") or "No reason recorded"
 
                     print(f"   ✅ EXECUTED: {symbol}")
-                    print(f"      Action: {action} | Confidence: {confidence} | Score: {score:+.0f}")
+                    print(
+                        f"      Action: {action} | Confidence: {confidence} "
+                        f"| Score: {score_bit}"
+                    )
                     print(f"      Price: €{current_price:.2f} | Shares: {shares:.4f} | Cost: €{total_cost:,.2f}")
                     print(f"      Reason: {reason}")
 
