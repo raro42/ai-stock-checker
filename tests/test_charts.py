@@ -1649,6 +1649,64 @@ def test_unrealized_curve_offline(tmp_path: Path, monkeypatch):
     assert "unrealized" in payload
 
 
+def test_stuck_capital_refuses_cost_shadow_last_from_avg(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """xang1234 refuse-shadow: Charts stuck must not invent last=avg.
+
+    Unmarked past-hold lot → skip (not flat 0% via ``or buy``). Scan underwater
+    mark still speaks stuck.
+    """
+    import time
+
+    from openbb_backend.charts import _stuck_capital_glance_from_data
+
+    monkeypatch.setenv("DESK_LIVE_MARKS", "0")
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    now = 1_700_000_000.0
+    monkeypatch.setattr(time, "time", lambda: now)
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100_000,
+                "cash": 50_000,
+                "holdings": {"AAPL": 10, "MSFT": 10},
+                "avg_buy_price": {"AAPL": 100.0, "MSFT": 100.0},
+                "total_fees_paid": 0,
+            }
+        )
+    )
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"AAPL": now - 48 * 3600, "MSFT": now - 48 * 3600})
+    )
+    (tmp_path / "trader_config.json").write_text(json.dumps({"min_hold_hours": 24}))
+    (tmp_path / "archive").mkdir(parents=True, exist_ok=True)
+    # No marks → both cost-shadow; inventing last=avg would yield 0% (not stuck).
+    # Refuse-shadow: skip unmarked entirely (parity with Overview None %).
+    (tmp_path / "archive" / "opportunities_latest.json").write_text(
+        json.dumps({"stock_breakouts": []})
+    )
+    empty = _stuck_capital_glance_from_data(tmp_path)
+    assert empty["ready"] is False
+    assert "AAPL" not in (empty.get("line") or "")
+    assert "MSFT" not in (empty.get("line") or "")
+
+    (tmp_path / "archive" / "opportunities_latest.json").write_text(
+        json.dumps(
+            {
+                "stock_breakouts": [
+                    {"symbol": "AAPL", "price": 90.0, "score": 50},
+                ]
+            }
+        )
+    )
+    stuck = _stuck_capital_glance_from_data(tmp_path)
+    assert stuck["ready"] is True
+    assert stuck["count"] == 1
+    assert "AAPL" in stuck["line"]
+    assert "MSFT" not in stuck["line"]
+
+
 def test_unrealized_curve_cost_shadow_pct_none(tmp_path: Path, monkeypatch):
     """No history bars → cost fallback → n/a %, never invent calm +0.00%."""
     from openbb_backend.charts import build_unrealized_curve

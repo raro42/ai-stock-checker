@@ -2540,7 +2540,11 @@ def _stuck_capital_glance_from_data(data_dir: Path) -> dict[str, Any]:
             continue
         q = float(qty)
         buy = float(buy_raw)
-        last = _coerce_desk_mark(marks.get(str(sym))) or buy
+        # xang1234 refuse-shadow: cost ≠ authoritative mark. Never invent last
+        # from avg (`or buy`) — unmarked lots stay out of stuck (Overview peer).
+        last = _coerce_desk_mark(marks.get(str(sym)))
+        if last is None or buy <= 0:
+            continue
         unreal_pct = ((last - buy) / buy) * 100.0
         entry_ts = _coerce_entry_ts(entry_times.get(sym))
         if not entry_ts:
