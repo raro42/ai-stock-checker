@@ -188,18 +188,35 @@ def pressure_deep_fields(
     }
 
 
-def finalize_crypto_momentum_score(crypto: Mapping[str, object]) -> float:
+def _crypto_readable_score(crypto: Mapping[str, object]) -> Optional[float]:
+    """Readable final_score, else ticker score; never invent flat 0 from gaps."""
+    fs = coerce_score(crypto.get("final_score"))
+    if fs is not None:
+        return fs
+    return coerce_score(crypto.get("score"))
+
+
+def _crypto_rank_score(crypto: Mapping[str, object]) -> float:
+    """Sort key: readable score first; missing sorts last (never invent 0)."""
+    sc = _crypto_readable_score(crypto)
+    return sc if sc is not None else float("-inf")
+
+
+def finalize_crypto_momentum_score(crypto: Mapping[str, object]) -> Optional[float]:
     """Ticker score + deep-analysis bonuses; refuse bool/NaN invent.
 
     tradermonty #700/#655 + xang1234/portfolio AI after ``rank_crypto_from_ticker``:
     ``True * 0.3`` breakout · ``True * 0.2`` liquidity · ``True < 40`` RSI
     oversold · ``True > 0.1`` MACD bullish must not invent ``final_score``.
     Unreadable sleeves contribute 0 (fail-open; do not invent a bonus).
+
+    tradermonty #900 hedge-ratio sizing: missing/bool base with no fired deep
+    bonuses → ``None`` (never invent calm ``final_score=0`` like equal-dollar
+    legs when beta is unreadable). Real ticker ``score=0`` still returns 0.
     """
-    base = 0.0
     raw_score = crypto.get("score")
-    if _finite_signed(raw_score):
-        base = float(raw_score)  # type: ignore[arg-type]
+    has_base = _finite_signed(raw_score)
+    base = float(raw_score) if has_base else 0.0  # type: ignore[arg-type]
 
     brk = crypto.get("breakout_score")
     if _finite_signed(brk):
@@ -238,7 +255,10 @@ def finalize_crypto_momentum_score(crypto: Mapping[str, object]) -> float:
         elif p < -30:
             pressure_bonus = -3
 
-    return base + rsi_bonus + macd_bonus + pressure_bonus
+    total = base + rsi_bonus + macd_bonus + pressure_bonus
+    if not has_base and total == 0.0:
+        return None
+    return total
 
 
 def rank_crypto_from_ticker(
@@ -499,8 +519,8 @@ class MarketScanner:
             # Deep bonuses — refuse bool/NaN so True cannot invent final_score.
             crypto["final_score"] = finalize_crypto_momentum_score(crypto)
 
-        # Re-sort by final score
-        ranked.sort(key=lambda x: x.get('final_score', x['score']), reverse=True)
+        # Re-sort by final score (None / bool sort last — never invent flat 0).
+        ranked.sort(key=_crypto_rank_score, reverse=True)
 
         # Display results
         print(f"\n{'Rank':<5} {'Symbol':<12} {'Price':<15} {'24h%':<10} {'Breakout':<10} {'Liquid':<8} {'RSI':<8} {'MACD':<10} {'Score':<8}")
@@ -524,9 +544,13 @@ class MarketScanner:
                 f"{float(liq):>3.0f}" if _finite_signed(liq) else "N/A"  # type: ignore[arg-type]
             )
 
+            rank_sc = _crypto_readable_score(crypto)
+            score_display = (
+                f"{rank_sc:>7.1f}" if rank_sc is not None else f"{'n/a':>7}"
+            )
             print(f"{i:<5} {emoji} {crypto['symbol']:<10} ${crypto['price']:>12,.2f} "
                   f"{crypto['change_24h']:>8.2f}% {breakout_emoji} {brk_display} "
-                  f"{tradeable_emoji} {liq_display:>3} {rsi_display:>7} {macd_display:>9} {crypto.get('final_score', crypto['score']):>7.1f}")
+                  f"{tradeable_emoji} {liq_display:>3} {rsi_display:>7} {macd_display:>9} {score_display}")
 
         print(f"{'='*80}\n")
         sys.stdout.flush()
@@ -594,7 +618,7 @@ class MarketScanner:
         self.persistence.track_scanned_symbols_batch(
             [r["symbol"] for r in out], "crypto"
         )
-        out.sort(key=lambda x: x.get("final_score", x["score"]), reverse=True)
+        out.sort(key=_crypto_rank_score, reverse=True)
         print(f"{'='*70}\n")
         sys.stdout.flush()
         return out
@@ -860,9 +884,7 @@ class MarketScanner:
             lines.append(f"{'-'*80}")
             
             for crypto in results['crypto_leaders'][:10]:
-                sc = coerce_score(
-                    crypto.get("final_score", crypto.get("score"))
-                )
+                sc = _crypto_readable_score(crypto)
                 score_bit = f"{sc:>8.1f}" if sc is not None else f"{'n/a':>8}"
                 lines.append(
                     f"{crypto['symbol']:<12} ${crypto['price']:>12,.2f} "
@@ -1120,7 +1142,7 @@ class MarketScanner:
                 'symbol': crypto['symbol'],
                 'asset_class': 'crypto',
                 'strategy': 'momentum',
-                'score': crypto.get('final_score', crypto['score']),
+                'score': _crypto_readable_score(crypto),
                 'change_24h': crypto.get('change_24h'),
                 'reasoning': f"+{crypto['change_24h']:.2f}% 24h momentum, {crypto['volatility']:.1f}% volatility"
             })

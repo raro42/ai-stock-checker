@@ -365,6 +365,15 @@ def test_analyze_volume_one_bar_window_is_unavailable():
     assert out["volume_ratio"] == pytest.approx(1_000_000.0 / ((800_000.0 + 1_000_000.0) / 2.0))
 
 
+def test_analyze_volume_constant_series_is_unavailable():
+    """tradermonty #900 hedge-ratio: constant price/volume ≠ invent corr 0.0."""
+    volumes, prices = _enough_volume_bars()
+    flat_prices = [100.0] * len(prices)
+    assert TechnicalIndicators.analyze_volume(volumes, flat_prices, period=20) is None
+    flat_volumes = [1_000_000.0] * len(volumes)
+    assert TechnicalIndicators.analyze_volume(flat_volumes, prices, period=20) is None
+
+
 def test_generate_signals_flat_tape_score_unavailable():
     """Empty indicator set ≠ invent overall_score=0 / HOLD (claim honesty)."""
     prices = [100.0] * 40

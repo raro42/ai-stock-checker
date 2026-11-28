@@ -248,6 +248,9 @@ def test_finalize_crypto_momentum_score_refuses_bool_bonuses():
     )
     assert refuse == pytest.approx(10.0)
 
-    # Bool base score also refused (fail-open 0).
-    assert finalize_crypto_momentum_score({"score": True}) == pytest.approx(0.0)
-    assert finalize_crypto_momentum_score({}) == pytest.approx(0.0)
+    # Bool/missing base with no fired bonuses → None (never invent calm 0).
+    assert finalize_crypto_momentum_score({"score": True}) is None
+    assert finalize_crypto_momentum_score({}) is None
+    # Real ticker score 0 still returns 0; bonus-only path still speaks.
+    assert finalize_crypto_momentum_score({"score": 0.0}) == pytest.approx(0.0)
+    assert finalize_crypto_momentum_score({"rsi": 35.0}) == pytest.approx(5.0)

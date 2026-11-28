@@ -368,8 +368,16 @@ class TechnicalIndicators:
 
         volume_ratio = current_volume / avg_volume
 
-        # Price-volume correlation (n≥2 guaranteed above)
+        # Price-volume correlation (n≥2 guaranteed above).
+        # tradermonty #900 pair-trade hedge-ratio: refuse invented corr/beta when
+        # either series is constant (nunique < 2) — OLS/corrcoef is undefined and
+        # must not look like a calm 0.0 reading after flat RSI/MACD/BB refuse.
         recent_prices = np.asarray(prices[-n:], dtype=float)
+        if (
+            int(np.unique(recent_prices).size) < 2
+            or int(np.unique(recent_volumes).size) < 2
+        ):
+            return None
         correlation = float(np.corrcoef(recent_prices, recent_volumes)[0, 1])
 
         metrics = {
