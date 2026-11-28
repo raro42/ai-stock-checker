@@ -271,10 +271,19 @@
       return;
     }
     var data = series.map(function (d) {
+      // null/undefined must stay null — +null → 0 invents calm +0.00%.
+      var pctRaw = d.unrealized_pct;
+      var pct =
+        pctRaw == null || pctRaw === ""
+          ? null
+          : (function () {
+              var n = +pctRaw;
+              return isFinite(n) ? n : null;
+            })();
       return {
         t: new Date(d.t),
         unrealized: +d.unrealized,
-        unrealized_pct: +d.unrealized_pct,
+        unrealized_pct: pct,
       };
     });
     var width = mount.clientWidth || 640;
@@ -533,8 +542,10 @@
   }
 
   function pctLabel(value) {
+    // Refuse null/"" — +null → 0 invents calm +0.00% (cost-shadow).
+    if (value == null || value === "") return "n/a";
     var n = +value;
-    if (!isFinite(n)) return "—";
+    if (!isFinite(n)) return "n/a";
     return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
   }
 

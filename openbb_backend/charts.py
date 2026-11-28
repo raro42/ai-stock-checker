@@ -1989,6 +1989,8 @@ def build_unrealized_curve(
         cost = 0.0
         market_value = 0.0
         active = 0
+        # xang1234 refuse-shadow: cost fallback ≠ authoritative MTM.
+        marked_any = False
         for sym, v in lots.items():
             entry_ts = _coerce_entry_ts(entry_times.get(sym)) or 0.0
             if entry_ts > 0:
@@ -2000,15 +2002,23 @@ def build_unrealized_curve(
             px = _close_on_or_before(price_by_sym.get(sym) or [], when)
             if px is None:
                 px = (v["cost"] / v["qty"]) if v["qty"] else 0.0
+            else:
+                marked_any = True
             market_value += v["qty"] * px
         if active == 0 or cost <= 0:
             continue
         unreal = market_value - cost
+        # Open lots with only cost-shadow marks → None % (never invent calm +0.00%).
+        unreal_pct: float | None
+        if marked_any:
+            unreal_pct = round((unreal / cost) * 100, 4)
+        else:
+            unreal_pct = None
         points.append(
             {
                 "t": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "unrealized": round(unreal, 2),
-                "unrealized_pct": round((unreal / cost) * 100, 4),
+                "unrealized_pct": unreal_pct,
                 "cost": round(cost, 2),
                 "market_value": round(market_value, 2),
             }

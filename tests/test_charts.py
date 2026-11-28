@@ -1649,6 +1649,23 @@ def test_unrealized_curve_offline(tmp_path: Path, monkeypatch):
     assert "unrealized" in payload
 
 
+def test_unrealized_curve_cost_shadow_pct_none(tmp_path: Path, monkeypatch):
+    """No history bars → cost fallback → n/a %, never invent calm +0.00%."""
+    from openbb_backend.charts import build_unrealized_curve
+
+    _seed(tmp_path)
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"AAPL": 1721476800})  # 2024-07-20
+    )
+    # Empty chart cache → every day uses cost last=avg (shadow, not MTM).
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    pts = build_unrealized_curve(tmp_path, live=False)
+    assert pts, "expect at least the buy-day cost-shadow anchor"
+    for p in pts:
+        assert p["unrealized_pct"] is None
+        assert p["unrealized"] == 0.0
+
+
 def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
     from openbb_backend.charts import build_from_buy_panels
 
