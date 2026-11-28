@@ -715,7 +715,9 @@ def test_desk_snapshot_invalid_scan_mark_falls_to_cost(tmp_path: Path):
     )
     aapl = next(h for h in snap["holdings"] if h["symbol"] == "AAPL")
     assert aapl["marked"] is False
-    assert aapl["last"] == 100
+    # Cost fills MV — never invent live last from avg (xang1234 refuse-shadow).
+    assert aapl["last"] is None
+    assert abs(float(aapl["market_value"]) - float(aapl["cost_basis"])) < 1e-9
 
 
 def test_desk_snapshot_realized_refuses_bool_pnl(tmp_path: Path):

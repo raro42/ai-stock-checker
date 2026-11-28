@@ -40630,13 +40630,17 @@ def load_desk_snapshot(
         buy = float(avg[symbol])
         basis = q * buy
         cost += basis
-        last = marks.get(symbol)
-        if last is None or last <= 0:
-            last = buy
+        mark = marks.get(symbol)
+        if mark is None or mark <= 0:
+            # Cost still fills equity MV — but last must not invent a live print
+            # from avg (xang1234 refuse-shadow: cost ≠ dual/authoritative mark).
+            last: float | None = None
             marked = False
+            mv = basis
         else:
+            last = float(mark)
             marked = True
-        mv = q * last
+            mv = q * last
         market_value += mv
         # xang1234 refuse-shadow: cost-fallback marks are not dual/authoritative
         # MTM — never invent calm +€0.00 / +0.00% unrealized on an unmarked lot.

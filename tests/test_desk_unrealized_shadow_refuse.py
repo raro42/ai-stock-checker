@@ -51,6 +51,9 @@ def test_cost_shadow_lots_unrealized_pct_none(tmp_path: Path) -> None:
     assert snap["holdings"][0]["marked"] is False
     assert snap["holdings"][0]["unrealized_pct"] is None
     assert snap["holdings"][0]["unrealized"] is None
+    # Cost fills MV — but last must not invent a live print from avg.
+    assert snap["holdings"][0]["last"] is None
+    assert abs(float(snap["holdings"][0]["market_value"]) - 1000.0) < 1e-9
     # last=cost by construction — never invent calm +€0.00 on the strip.
     assert snap["unrealized_total"] is None
 
@@ -105,6 +108,8 @@ def test_mixed_shadow_unrealized_pct_excludes_unmarked(tmp_path: Path) -> None:
     assert by_sym["MSFT"]["marked"] is False
     assert by_sym["MSFT"]["unrealized_pct"] is None
     assert by_sym["MSFT"]["unrealized"] is None
+    assert by_sym["MSFT"]["last"] is None
+    assert by_sym["AAPL"]["last"] is not None
     assert snap["unrealized_pct"] is not None
     assert abs(float(snap["unrealized_pct"]) - 10.0) < 1e-9
     # € total is marked-only (shadow drops out of both € and %).

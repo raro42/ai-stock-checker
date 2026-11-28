@@ -456,7 +456,7 @@
       <div class="hold-main">
         {{ ticker(h.symbol, h.name) }}
         <span class="meta">
-          {{ "%.4f"|format(h.quantity) }} · last €{{ "%.2f"|format(h.last) }} · held {{ h.held }}{% if h.min_hold_note %} · {{ h.min_hold_note }}{% endif %}
+          {{ "%.4f"|format(h.quantity) }} · {% if h.marked %}last €{{ "%.2f"|format(h.last) }}{% else %}last n/a · cost €{{ "%.2f"|format(h.avg_buy) }}{% endif %} · held {{ h.held }}{% if h.min_hold_note %} · {{ h.min_hold_note }}{% endif %}
         </span>
         <span class="amt {% if h.unrealized is none %}{% elif h.unrealized >= 0 %}up{% else %}down{% endif %}">
           €{{ "{:,.2f}".format(h.market_value) }}
