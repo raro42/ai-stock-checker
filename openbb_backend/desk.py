@@ -40638,12 +40638,15 @@ def load_desk_snapshot(
             marked = True
         mv = q * last
         market_value += mv
-        unreal = mv - basis
         # xang1234 refuse-shadow: cost-fallback marks are not dual/authoritative
-        # MTM — never invent calm +0.00% unrealized on an unmarked lot.
-        if marked and basis:
-            unreal_pct: float | None = (unreal / basis) * 100
+        # MTM — never invent calm +€0.00 / +0.00% unrealized on an unmarked lot.
+        unreal: float | None
+        unreal_pct: float | None
+        if marked:
+            unreal = mv - basis
+            unreal_pct = (unreal / basis) * 100 if basis else None
         else:
+            unreal = None
             unreal_pct = None
         entry_ts = _coerce_entry_ts(entry_times.get(symbol))
         held_s = (now - entry_ts) if entry_ts else None
@@ -40687,18 +40690,24 @@ def load_desk_snapshot(
         ret_pct = ((equity / initial) - 1) * 100
     else:
         ret_pct = None
-    unrealized_total = market_value - cost
-    # Empty book → honest 0%. Open lots with only cost-shadow marks → None
-    # (never invent calm +0.00% when dual/live marks never arrived).
-    # xang1234 #772 off-high gap: unmarked lots drop out of the % denominator —
-    # never dilute marked MTM with cost-shadow flat 0% as if they were priced.
+    # Empty book → honest €0 / 0%. Open lots with only cost-shadow marks → None
+    # (never invent calm +€0.00 / +0.00% when dual/live marks never arrived).
+    # xang1234 #772 off-high gap: unmarked lots drop out of the €/% figures —
+    # never dilute marked MTM with cost-shadow flat 0 as if they were priced.
     marked_cost = sum(float(r["cost_basis"]) for r in rows if r["marked"])
-    marked_unreal = sum(float(r["unrealized"]) for r in rows if r["marked"])
+    marked_unreal = sum(
+        float(r["unrealized"])
+        for r in rows
+        if r["marked"] and r.get("unrealized") is not None
+    )
     if not rows:
+        unrealized_total: float | None = 0.0
         unrealized_pct = 0.0
     elif marked_cost > 0:
+        unrealized_total = marked_unreal
         unrealized_pct = (marked_unreal / marked_cost) * 100
     else:
+        unrealized_total = None
         unrealized_pct = None
     deployed_pct = ((equity - cash) / equity * 100) if equity else 0.0
 

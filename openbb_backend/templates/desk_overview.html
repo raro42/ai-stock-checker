@@ -90,10 +90,10 @@
 <section class="strip" aria-label="Book snapshot">
   <div class="strip-unreal">
     <span class="k">Unrealized</span>
-    <span class="v {% if snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">
+    <span class="v {% if snap.unrealized_total is none %}{% elif snap.unrealized_total >= 0 %}up{% else %}down{% endif %}">
       <a class="unreal-link" href="/desk/charts#ch-unreal"
          title="Open unrealized P&amp;L chart">
-        €{{ "{:+,.2f}".format(snap.unrealized_total) }}
+        {% if snap.unrealized_total is none %}n/a{% else %}€{{ "{:+,.2f}".format(snap.unrealized_total) }}{% endif %}
         <small>{% if snap.unrealized_pct is none %}n/a{% else %}{{ "%+.2f"|format(snap.unrealized_pct) }}%{% endif %}</small>
       </a>
     </span>
@@ -458,7 +458,7 @@
         <span class="meta">
           {{ "%.4f"|format(h.quantity) }} · last €{{ "%.2f"|format(h.last) }} · held {{ h.held }}{% if h.min_hold_note %} · {{ h.min_hold_note }}{% endif %}
         </span>
-        <span class="amt {% if h.unrealized >= 0 %}up{% else %}down{% endif %}">
+        <span class="amt {% if h.unrealized is none %}{% elif h.unrealized >= 0 %}up{% else %}down{% endif %}">
           €{{ "{:,.2f}".format(h.market_value) }}
           <small>{% if h.unrealized_pct is none %}n/a{% else %}{{ "%+.1f"|format(h.unrealized_pct) }}%{% endif %}</small>
         </span>

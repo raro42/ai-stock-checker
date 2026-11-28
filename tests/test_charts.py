@@ -1663,7 +1663,7 @@ def test_unrealized_curve_cost_shadow_pct_none(tmp_path: Path, monkeypatch):
     assert pts, "expect at least the buy-day cost-shadow anchor"
     for p in pts:
         assert p["unrealized_pct"] is None
-        assert p["unrealized"] == 0.0
+        assert p["unrealized"] is None
 
 
 def test_unrealized_curve_mixed_shadow_excludes_unmarked(
@@ -1734,7 +1734,7 @@ def test_unrealized_curve_mixed_shadow_excludes_unmarked(
     assert pts
     last = pts[-1]
     assert abs(float(last["unrealized_pct"]) - 10.0) < 1e-6
-    # € still includes MSFT shadow 0; marked AAPL alone is +100.
+    # € is marked-only (MSFT cost-shadow drops out); AAPL alone is +100.
     assert abs(float(last["unrealized"]) - 100.0) < 1e-6
 
 

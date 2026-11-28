@@ -264,6 +264,20 @@
     appendRangeCaption(mount, data[0].t, data[data.length - 1].t);
   }
 
+  function euroLabel(value) {
+    // Refuse null/"" — +null → 0 invents calm +€0.00 (cost-shadow).
+    if (value == null || value === "") return "n/a";
+    var n = +value;
+    if (!isFinite(n)) return "n/a";
+    return (n >= 0 ? "+" : "") + "€" + d3.format(",.2f")(n);
+  }
+
+  function coerceEuro(raw) {
+    if (raw == null || raw === "") return null;
+    var n = +raw;
+    return isFinite(n) ? n : null;
+  }
+
   function drawUnrealized(mount, series) {
     if (!series || series.length < 2) {
       mount.innerHTML =
@@ -271,7 +285,7 @@
       return;
     }
     var data = series.map(function (d) {
-      // null/undefined must stay null — +null → 0 invents calm +0.00%.
+      // null/undefined must stay null — +null → 0 invents calm +€0.00 / +0.00%.
       var pctRaw = d.unrealized_pct;
       var pct =
         pctRaw == null || pctRaw === ""
@@ -282,10 +296,18 @@
             })();
       return {
         t: new Date(d.t),
-        unrealized: +d.unrealized,
+        unrealized: coerceEuro(d.unrealized),
         unrealized_pct: pct,
       };
     });
+    var marked = data.filter(function (d) {
+      return d.unrealized != null;
+    });
+    if (marked.length < 2) {
+      mount.innerHTML =
+        "<p class='empty'>Need marked closes after fills to chart unrealized P&amp;L (cost-shadow alone is n/a).</p>";
+      return;
+    }
     var width = mount.clientWidth || 640;
     var height = 280;
     var margin = { top: 16, right: 16, bottom: 40, left: 64 };
@@ -307,8 +329,8 @@
       .scaleTime()
       .domain(d3.extent(data, function (d) { return d.t; }))
       .range([margin.left, width - margin.right]);
-    var yMin = d3.min(data, function (d) { return d.unrealized; });
-    var yMax = d3.max(data, function (d) { return d.unrealized; });
+    var yMin = d3.min(marked, function (d) { return d.unrealized; });
+    var yMax = d3.max(marked, function (d) { return d.unrealized; });
     var pad = Math.max(Math.abs(yMax - yMin) * 0.08, 1);
     var y = d3
       .scaleLinear()
@@ -354,19 +376,24 @@
       .attr("stroke", "rgba(232,239,230,0.35)")
       .attr("stroke-dasharray", "4 4");
 
+    function hasEuro(d) {
+      return d.unrealized != null && isFinite(d.unrealized);
+    }
     var area = d3
       .area()
+      .defined(hasEuro)
       .x(function (d) { return x(d.t); })
       .y0(y(0))
       .y1(function (d) { return y(d.unrealized); })
       .curve(d3.curveMonotoneX);
     var line = d3
       .line()
+      .defined(hasEuro)
       .x(function (d) { return x(d.t); })
       .y(function (d) { return y(d.unrealized); })
       .curve(d3.curveMonotoneX);
 
-    var last = data[data.length - 1];
+    var last = marked[marked.length - 1];
     var stroke = last.unrealized >= 0 ? "#7dcea0" : "#e07a5f";
     var fill = last.unrealized >= 0 ? "url(#unrealUp)" : "url(#unrealDn)";
 
@@ -409,13 +436,10 @@
         var d = t0 - a.t > b.t - t0 ? b : a;
         focus.style("display", null);
         focus.select(".focus-x").attr("x1", x(d.t)).attr("x2", x(d.t));
-        focusDot.attr("cx", x(d.t)).attr("cy", y(d.unrealized));
         tip.hidden = false;
         tip.innerHTML =
           "<strong>" +
-          (d.unrealized >= 0 ? "+" : "") +
-          "€" +
-          d3.format(",.2f")(d.unrealized) +
+          euroLabel(d.unrealized) +
           "</strong>" +
           "<span class='chart-tip-meta'>" +
           formatDay(d.t) +
@@ -428,7 +452,13 @@
         var scaleX = svgRect.width / width;
         var scaleY = svgRect.height / height;
         var left = svgRect.left - mountRect.left + x(d.t) * scaleX + 14;
-        var top = svgRect.top - mountRect.top + y(d.unrealized) * scaleY - 18;
+        var tipY = hasEuro(d) ? y(d.unrealized) : y(0);
+        if (hasEuro(d)) {
+          focusDot.style("display", null).attr("cx", x(d.t)).attr("cy", tipY);
+        } else {
+          focusDot.style("display", "none");
+        }
+        var top = svgRect.top - mountRect.top + tipY * scaleY - 18;
         if (left + tip.offsetWidth > mountRect.width - 8) {
           left = svgRect.left - mountRect.left + x(d.t) * scaleX - tip.offsetWidth - 14;
         }
@@ -3837,18 +3867,24 @@
       if (el) el.classList.add("is-empty");
       return;
     }
+    var data = series
+      .map(function (d) {
+        return { t: new Date(d.t), v: coerceEuro(d.unrealized) };
+      })
+      .filter(function (d) {
+        return d.v != null;
+      });
+    // Cost-shadow-only path → empty spark (never invent calm +€0.00 line).
+    if (data.length < 2) {
+      el.classList.add("is-empty");
+      el.innerHTML = "";
+      return;
+    }
     el.classList.remove("is-empty");
     el.innerHTML = "";
-    var data = series.map(function (d) {
-      return { t: new Date(d.t), v: +d.unrealized };
-    });
     var last = data[data.length - 1];
     el.title =
-      "Unrealized " +
-      (last.v >= 0 ? "+" : "") +
-      "€" +
-      d3.format(",.2f")(last.v) +
-      " · path since first fill";
+      "Unrealized " + euroLabel(last.v) + " · path since first fill";
     var width = Math.max(el.clientWidth || 160, 120);
     var height = 36;
     var x = d3

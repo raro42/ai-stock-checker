@@ -2011,17 +2011,20 @@ def build_unrealized_curve(
             market_value += v["qty"] * px
         if active == 0 or cost <= 0:
             continue
-        unreal = market_value - cost
-        # Open lots with only cost-shadow marks → None % (never invent calm +0.00%).
+        # Open lots with only cost-shadow marks → None €/% (never invent calm
+        # +€0.00 / +0.00% when history closes never arrived).
+        unreal: float | None
         unreal_pct: float | None
         if marked_cost > 0:
+            unreal = round(marked_unreal, 2)
             unreal_pct = round((marked_unreal / marked_cost) * 100, 4)
         else:
+            unreal = None
             unreal_pct = None
         points.append(
             {
                 "t": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "unrealized": round(unreal, 2),
+                "unrealized": unreal,
                 "unrealized_pct": unreal_pct,
                 "cost": round(cost, 2),
                 "market_value": round(market_value, 2),

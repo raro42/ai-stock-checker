@@ -34,7 +34,7 @@ def test_empty_book_unrealized_pct_zero(tmp_path: Path) -> None:
 
 
 def test_cost_shadow_lots_unrealized_pct_none(tmp_path: Path) -> None:
-    """Open lots with no scan/live marks → cost fallback → n/a %, not +0.00%."""
+    """Open lots with no scan/live marks → cost fallback → n/a €/%, not +0.00."""
     _write_book(
         tmp_path,
         {
@@ -50,8 +50,9 @@ def test_cost_shadow_lots_unrealized_pct_none(tmp_path: Path) -> None:
     assert snap["unrealized_pct"] is None
     assert snap["holdings"][0]["marked"] is False
     assert snap["holdings"][0]["unrealized_pct"] is None
-    # € unrealized is 0 by construction (last=cost) — % must still refuse.
-    assert snap["unrealized_total"] == 0.0
+    assert snap["holdings"][0]["unrealized"] is None
+    # last=cost by construction — never invent calm +€0.00 on the strip.
+    assert snap["unrealized_total"] is None
 
 
 def test_scan_mark_computes_unrealized_pct(tmp_path: Path) -> None:
@@ -103,7 +104,8 @@ def test_mixed_shadow_unrealized_pct_excludes_unmarked(tmp_path: Path) -> None:
     assert by_sym["AAPL"]["marked"] is True
     assert by_sym["MSFT"]["marked"] is False
     assert by_sym["MSFT"]["unrealized_pct"] is None
+    assert by_sym["MSFT"]["unrealized"] is None
     assert snap["unrealized_pct"] is not None
     assert abs(float(snap["unrealized_pct"]) - 10.0) < 1e-9
-    # € total still includes shadow 0 contribution (cost last=avg).
+    # € total is marked-only (shadow drops out of both € and %).
     assert abs(float(snap["unrealized_total"]) - 100.0) < 1e-9

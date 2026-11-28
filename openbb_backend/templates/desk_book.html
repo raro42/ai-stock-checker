@@ -667,7 +667,7 @@
           · last €{{ h.last|px }}
           · held {{ h.held }}{% if h.min_hold_note %} · {{ h.min_hold_note }}{% endif %} · {{ h.kind }}
         </span>
-        <span class="amt {% if h.unrealized >= 0 %}up{% else %}down{% endif %}">
+        <span class="amt {% if h.unrealized is none %}{% elif h.unrealized >= 0 %}up{% else %}down{% endif %}">
           €{{ "{:,.2f}".format(h.market_value) }}
           <small>{% if h.unrealized_pct is none %}n/a{% else %}{{ "%+.1f"|format(h.unrealized_pct) }}%{% endif %}</small>
         </span>
