@@ -9,6 +9,40 @@ from stock_checker.fetcher import ProviderSemaphore
 from stock_checker.market_scanner import MarketScanner
 
 
+def test_archive_report_score_speaks_na_when_missing() -> None:
+    """tradermonty #700/#655: missing score → n/a (never invent flat 0.0)."""
+    scanner = object.__new__(MarketScanner)
+    report = scanner._format_opportunities_report(
+        {
+            "scan_time": "2026-11-28T01:00:00",
+            "crypto_leaders": [
+                {
+                    "symbol": "BTC-USD",
+                    "price": 100.0,
+                    "change_24h": 1.0,
+                    "volatility": 2.0,
+                    "score": True,  # bool invent refuse
+                }
+            ],
+            "stock_breakouts": [],
+            "recommendations": [
+                {
+                    "rank": 1,
+                    "symbol": "AAPL",
+                    "asset_class": "stock",
+                    "strategy": "breakout",
+                    "score": None,
+                    "reasoning": "near high",
+                }
+            ],
+        }
+    )
+    assert "n/a" in report
+    assert "0.0" not in report.split("TOP RECOMMENDATIONS", 1)[-1].split(
+        "TOP CRYPTO", 1
+    )[0]
+
+
 def test_save_opportunities_archive_preserves_non_ascii(tmp_path: Path) -> None:
     """Archive JSON/txt keep non-ASCII notes (locale encoding must not mangle)."""
     scanner = object.__new__(MarketScanner)

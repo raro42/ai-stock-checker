@@ -952,9 +952,21 @@ class IntelligentTrader:
                         pass
 
                 elif self.ai_mode == "full":
-                    # In full mode: Use AI score heavily
-                    if ai_result['score'] < -20:
-                        print(f"   ❌ {symbol}: AI score {ai_result['score']} too negative - filtering out")
+                    # Full mode: use AI score heavily — refuse bool/gap/None invent
+                    # (missing parse used to become flat 0 → "low · keep" + wipe
+                    # scanner score). Unreadable → fail-open keep scanner score.
+                    ai_sc = coerce_score(ai_result.get("score"))
+                    if ai_sc is None:
+                        print(
+                            f"   ⚠️  {symbol}: AI score n/a — fail-open "
+                            f"(scanner score keeps)"
+                        )
+                        sys.stdout.flush()
+                    elif ai_sc < -20:
+                        print(
+                            f"   ❌ {symbol}: AI score {ai_sc:.0f} "
+                            f"too negative - filtering out"
+                        )
                         sys.stdout.flush()
                         record_ai_validate(
                             self.persistence.data_dir,
@@ -963,20 +975,26 @@ class IntelligentTrader:
                             kept=False,
                         )
                         continue
-                    elif ai_result['score'] < 20:
-                        print(f"   ⚠️  {symbol}: AI score {ai_result['score']} low - keeping with caution")
+                    elif ai_sc < 20:
+                        print(
+                            f"   ⚠️  {symbol}: AI score {ai_sc:.0f} "
+                            f"low - keeping with caution"
+                        )
                         sys.stdout.flush()
-                        opp['score'] = ai_result['score']
+                        opp["score"] = ai_sc
                     else:
-                        print(f"   ✅ {symbol}: AI score {ai_result['score']} - strong signal")
+                        print(
+                            f"   ✅ {symbol}: AI score {ai_sc:.0f} "
+                            f"- strong signal"
+                        )
                         sys.stdout.flush()
-                        opp['score'] = ai_result['score']
+                        opp["score"] = ai_sc
 
-                    opp['ai_validated'] = True
-                    opp['ai_action'] = ai_result['action']
-                    opp['ai_confidence'] = ai_result['confidence']
-                    opp['ai_score'] = ai_result['score']
-                    opp['ai_reasoning'] = ai_result['reasons'][0]
+                    opp["ai_validated"] = True
+                    opp["ai_action"] = ai_result["action"]
+                    opp["ai_confidence"] = ai_result["confidence"]
+                    opp["ai_score"] = ai_sc
+                    opp["ai_reasoning"] = ai_result["reasons"][0]
                     record_ai_validate(
                         self.persistence.data_dir,
                         ai_result,

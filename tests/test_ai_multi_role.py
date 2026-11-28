@@ -91,7 +91,7 @@ def test_bull_bear_disagreement_hold():
 
 
 def test_consensus_score_refuses_bool():
-    """tradermonty #700/#655: True must not invent consensus score 1."""
+    """tradermonty #700/#655: True/missing must not invent consensus 1 or flat 0."""
     out = consensus_from_multi_role(
         {
             "bull": {"bias": "BUY", "note": "up"},
@@ -105,8 +105,36 @@ def test_consensus_score_refuses_bool():
         "AAPL",
     )
     assert out["action"] == "BUY"
-    assert out["score"] == 0
+    assert out["score"] is None
     assert out["multi_role_gated"] is False
+
+    missing = consensus_from_multi_role(
+        {
+            "bull": {"bias": "HOLD", "note": "meh"},
+            "bear": {"bias": "HOLD", "note": "meh"},
+            "risk": {"ok": True, "note": "ok"},
+            "action": "HOLD",
+            "confidence": "LOW",
+            "reasoning": "no score field",
+        },
+        "WMT",
+    )
+    assert missing["score"] is None
+    # Gated veto still uses explicit 0 (not invent-from-missing).
+    veto = consensus_from_multi_role(
+        {
+            "bull": {"bias": "BUY", "note": "up"},
+            "bear": {"bias": "HOLD", "note": "ok"},
+            "risk": {"ok": False, "note": "earnings"},
+            "action": "BUY",
+            "confidence": "HIGH",
+            "score": 50,
+            "reasoning": "veto",
+        },
+        "AAPL",
+    )
+    assert veto["score"] == 0
+    assert veto["multi_role_gated"] is True
 
 
 def test_parse_multi_role_json():

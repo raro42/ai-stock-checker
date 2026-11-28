@@ -178,15 +178,40 @@ def test_parse_json_response():
 
 
 def test_parse_json_score_refuses_bool():
-    """tradermonty #700/#655: True must not invent score 1."""
+    """tradermonty #700/#655: True/missing must not invent score 1 or flat 0."""
     rec = _parser()
     out = rec._parse_ai_response(
         '{"action":"BUY","confidence":"HIGH","score":true,"reasoning":"bad"}',
         {"symbol": "AAPL"},
     )
     assert out["parse_mode"] == "json"
-    assert out["score"] == 0
+    assert out["score"] is None
     assert out["action"] == "BUY"
+
+    missing = rec._parse_ai_response(
+        '{"action":"HOLD","confidence":"LOW","reasoning":"wait"}',
+        {"symbol": "MSFT"},
+    )
+    assert missing["parse_mode"] == "json"
+    assert missing["score"] is None
+
+    zero = rec._parse_ai_response(
+        '{"action":"HOLD","confidence":"LOW","score":0,"reasoning":"flat"}',
+        {"symbol": "IBM"},
+    )
+    assert zero["score"] == 0
+
+
+def test_parse_text_missing_score_stays_none():
+    """Missing SCORE line must not invent flat 0 for full-mode rank."""
+    rec = _parser()
+    out = rec._parse_ai_response(
+        "ACTION: HOLD\nCONFIDENCE: MEDIUM\nREASONING: wait",
+        {"symbol": "WMT"},
+    )
+    assert out["parse_mode"] == "text"
+    assert out["score"] is None
+    assert out["action"] == "HOLD"
 
 
 def test_parse_current_price_refuses_bool():
@@ -221,3 +246,4 @@ def test_reject_unstructured_response():
     assert out["action"] == "HOLD"
     assert out["confidence"] == "LOW"
     assert out["parse_mode"] == "rejected"
+    assert out["score"] is None

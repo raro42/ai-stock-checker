@@ -20,6 +20,7 @@ from .technical_indicators import (
     _valid_close,
     _valid_volume,
     coerce_nonneg_int,
+    coerce_score,
 )
 
 DEFAULT_TOP_CRYPTO_COUNT = 3
@@ -841,9 +842,12 @@ class MarketScanner:
             lines.append(f"{'-'*80}")
             
             for rec in results['recommendations']:
+                # tradermonty #700/#655: never invent flat 0 for missing score.
+                sc = coerce_score(rec.get("score"))
+                score_bit = f"{sc:>8.1f}" if sc is not None else f"{'n/a':>8}"
                 lines.append(
                     f"{rec['rank']:<6} {rec['symbol']:<12} {rec['asset_class']:<10} "
-                    f"{rec['strategy']:<12} {rec.get('score', 0):>8.1f}  {rec['reasoning']}"
+                    f"{rec['strategy']:<12} {score_bit}  {rec['reasoning']}"
                 )
             lines.append("")
         
@@ -856,10 +860,14 @@ class MarketScanner:
             lines.append(f"{'-'*80}")
             
             for crypto in results['crypto_leaders'][:10]:
+                sc = coerce_score(
+                    crypto.get("final_score", crypto.get("score"))
+                )
+                score_bit = f"{sc:>8.1f}" if sc is not None else f"{'n/a':>8}"
                 lines.append(
                     f"{crypto['symbol']:<12} ${crypto['price']:>12,.2f} "
                     f"{crypto['change_24h']:>8.2f}% {crypto['volatility']:>10.1f}% "
-                    f"{crypto.get('final_score', crypto['score']):>8.1f}"
+                    f"{score_bit}"
                 )
             lines.append("")
         

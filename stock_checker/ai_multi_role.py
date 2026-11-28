@@ -152,10 +152,11 @@ def consensus_from_multi_role(payload: dict, symbol: str) -> dict[str, Any]:
     if confidence not in {"HIGH", "MEDIUM", "LOW"}:
         confidence = "LOW"
     # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap invent
-    # (True→1); missing/invalid → flat 0 (HOLD-safe).
+    # (True→1); missing/invalid → None (never invent flat 0 for full-mode rank).
     sc = coerce_score(payload.get("score"))
-    score = int(sc) if sc is not None else 0
-    score = max(-100, min(100, score))
+    score: int | None = (
+        max(-100, min(100, int(sc))) if sc is not None else None
+    )
     reasoning = str(payload.get("reasoning") or "multi-role consensus")
 
     gated = False

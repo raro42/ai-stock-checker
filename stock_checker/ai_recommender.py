@@ -252,10 +252,12 @@ class AIRecommender:
                 if confidence not in {"HIGH", "MEDIUM", "LOW"}:
                     confidence = "LOW"
                 # tradermonty #700/#655 + xang1234/portfolio AI: refuse bool/gap
-                # invent (True→1); missing/invalid → flat 0 (HOLD-safe).
+                # invent (True→1); missing/invalid → None (never invent flat 0
+                # that full-mode can rank as a real low AI score).
                 sc = coerce_score(payload.get("score"))
-                score = int(sc) if sc is not None else 0
-                score = max(-100, min(100, score))
+                score = (
+                    max(-100, min(100, int(sc))) if sc is not None else None
+                )
                 reasoning = str(payload.get("reasoning") or payload.get("reason") or "No reasoning")
                 mark = stock_data.get("current_price")
                 return {
@@ -280,10 +282,12 @@ class AIRecommender:
         conf_match = re.search(r"CONFIDENCE:\s*(HIGH|MEDIUM|LOW)", response, re.IGNORECASE)
         confidence = conf_match.group(1).upper() if conf_match else "LOW"
 
-        # Extract score
+        # Extract score — missing SCORE stays None (do not invent flat 0).
         score_match = re.search(r"SCORE:\s*([+-]?\d+)", response)
-        score = int(score_match.group(1)) if score_match else 0
-        score = max(-100, min(100, score))
+        if score_match:
+            score = max(-100, min(100, int(score_match.group(1))))
+        else:
+            score = None
 
         mark = stock_data.get("current_price")
         mark_out = float(mark) if _valid_close(mark) else None
@@ -294,7 +298,7 @@ class AIRecommender:
                 "symbol": symbol,
                 "action": "HOLD",
                 "confidence": "LOW",
-                "score": 0,
+                "score": None,
                 "reasons": ["AI response missing structured ACTION/CONFIDENCE; defaulting to HOLD"],
                 "ai_reasoning": response,
                 "current_price": mark_out,
