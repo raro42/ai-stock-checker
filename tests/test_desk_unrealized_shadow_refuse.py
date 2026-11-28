@@ -75,3 +75,35 @@ def test_scan_mark_computes_unrealized_pct(tmp_path: Path) -> None:
     assert snap["unrealized_pct"] is not None
     assert abs(float(snap["unrealized_pct"]) - 10.0) < 1e-9
     assert abs(float(snap["holdings"][0]["unrealized_pct"]) - 10.0) < 1e-9
+
+
+def test_mixed_shadow_unrealized_pct_excludes_unmarked(tmp_path: Path) -> None:
+    """Marked + cost-shadow → % over marked cost only (xang1234 #772 gap drop).
+
+    Before: unmarked last=avg invented flat 0% into the book denominator and
+    diluted AAPL +10% toward ~+5%. Shadow must drop out, not invent calm.
+    """
+    _write_book(
+        tmp_path,
+        {
+            "cash": 50_000,
+            "initial_cash": 100_000,
+            "holdings": {"AAPL": 10, "MSFT": 10},
+            "avg_buy_price": {"AAPL": 100.0, "MSFT": 100.0},
+            "total_fees_paid": 0,
+        },
+        opportunities={
+            "stock_breakouts": [
+                {"symbol": "AAPL", "price": 110.0, "score": 50},
+            ],
+        },
+    )
+    snap = load_desk_snapshot(tmp_path, live_marks=False)
+    by_sym = {r["symbol"]: r for r in snap["holdings"]}
+    assert by_sym["AAPL"]["marked"] is True
+    assert by_sym["MSFT"]["marked"] is False
+    assert by_sym["MSFT"]["unrealized_pct"] is None
+    assert snap["unrealized_pct"] is not None
+    assert abs(float(snap["unrealized_pct"]) - 10.0) < 1e-9
+    # € total still includes shadow 0 contribution (cost last=avg).
+    assert abs(float(snap["unrealized_total"]) - 100.0) < 1e-9

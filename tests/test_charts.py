@@ -1666,6 +1666,78 @@ def test_unrealized_curve_cost_shadow_pct_none(tmp_path: Path, monkeypatch):
         assert p["unrealized"] == 0.0
 
 
+def test_unrealized_curve_mixed_shadow_excludes_unmarked(
+    tmp_path: Path, monkeypatch
+):
+    """One marked + one cost-shadow → % over marked cost only (#772 gap drop)."""
+    from openbb_backend.charts import build_unrealized_curve
+
+    (tmp_path / "portfolio.json").write_text(
+        json.dumps(
+            {
+                "initial_cash": 100000,
+                "cash": 80000,
+                "holdings": {"AAPL": 10, "MSFT": 10},
+                "avg_buy_price": {"AAPL": 100, "MSFT": 100},
+                "total_fees_paid": 1,
+            }
+        )
+    )
+    (tmp_path / "trades.jsonl").write_text(
+        json.dumps(
+            {
+                "timestamp": "2024-07-20 10:00:00",
+                "type": "BUY",
+                "symbol": "AAPL",
+                "quantity": 10,
+                "price": 100,
+                "commission": 1,
+                "cash_remaining": 89999,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "timestamp": "2024-07-20 10:05:00",
+                "type": "BUY",
+                "symbol": "MSFT",
+                "quantity": 10,
+                "price": 100,
+                "commission": 1,
+                "cash_remaining": 88998,
+            }
+        )
+        + "\n"
+    )
+    (tmp_path / "entry_times.json").write_text(
+        json.dumps({"AAPL": 1721476800, "MSFT": 1721477100})
+    )
+    (tmp_path / "archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "archive" / "opportunities_latest.json").write_text("{}")
+    cache = tmp_path / "chart_bars"
+    cache.mkdir()
+    # AAPL has history; MSFT does not → cost shadow must drop from % denom.
+    (cache / "AAPL.json").write_text(
+        json.dumps(
+            {
+                "symbol": "AAPL",
+                "fetched_at": 9e12,
+                "points": [
+                    {"t": "2024-07-20T00:00:00Z", "close": 100},
+                    {"t": "2024-07-22T00:00:00Z", "close": 110},
+                ],
+            }
+        )
+    )
+    monkeypatch.setenv("DESK_CHART_LIVE", "0")
+    pts = build_unrealized_curve(tmp_path, live=False)
+    assert pts
+    last = pts[-1]
+    assert abs(float(last["unrealized_pct"]) - 10.0) < 1e-6
+    # € still includes MSFT shadow 0; marked AAPL alone is +100.
+    assert abs(float(last["unrealized"]) - 100.0) < 1e-6
+
+
 def test_from_buy_panel_offline(tmp_path: Path, monkeypatch):
     from openbb_backend.charts import build_from_buy_panels
 
